@@ -1,3 +1,4 @@
+import { assertLimsTemporalEdits } from '@waypoint/scientific-artifacts/shared/lims-temporal';
 import {
   userMessage,
   userMessageWithValues,
@@ -29,6 +30,7 @@ type PrimerSaveDraft = {
   name: string;
   schema: LimsSchemaDefinitionView;
   schemaFieldDrafts: Readonly<Record<string, string | boolean>>;
+  previousFields?: Record<string, unknown>;
 };
 
 type PrimerSaveDestination = {
@@ -119,11 +121,20 @@ function validatePrimerDraft(
         (field) =>
           [
             field.key,
-            parsePrimerSchemaFieldValue(field, draft.schemaFieldDrafts[field.key] ?? ''),
+            parsePrimerSchemaFieldValue(
+              field,
+              draft.schemaFieldDrafts[field.key] ?? '',
+              draft.previousFields?.[field.key]
+            ),
           ] as const
       )
       .filter(([, value]) => value !== undefined)
   );
+  try {
+    assertLimsTemporalEdits(entityFields, editableFields, draft.previousFields);
+  } catch (error) {
+    return { ok: false, error: toUserMessage(error, 'validation.invalid') };
+  }
   const schemaErrors = validateLimsEntityFields(
     draft.schema.entityKind,
     entityFields,

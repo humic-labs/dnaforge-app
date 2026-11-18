@@ -52,3 +52,7 @@ export type {
   ScientificFileCodec,
   DefinedScientificFile,
 } from './files';
+export type * from './work-task-types';
+export * from './work-time';
+export { parseWorkTime } from './work-time';
+export * from './work-task';

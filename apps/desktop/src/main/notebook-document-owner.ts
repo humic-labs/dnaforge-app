@@ -1,3 +1,9 @@
+import {
+  workTaskReferenceHref,
+  containsWorkTaskPlacement,
+  type WorkNotebookPlacement,
+  type WorkPlacementIntent,
+} from '../shared/work-task-reference';
 import type {
   NotebookConflictComparison,
   NotebookConflictResolution,
@@ -65,7 +71,9 @@ export interface NativeNotebookSource {
   sourceShape?: 'v2-package' | 'v1-package' | 'legacy-wpnote';
   preservedTitleProjection: import('../shared/notebook-package-ipc').PreservedNotebookTitleProjection;
 }
+type TaskPlacementReceipt = { href: string; index: number; expectedRevision: string };
 export interface NativeNotebookRecord {
+  taskPlacements?: Record<string, TaskPlacementReceipt>;
   version: 1;
   documentId: string;
   path: string;
@@ -152,6 +160,7 @@ interface NotebookCopy {
   source: NativeNotebookSource;
   model: NotebookDocumentModel;
   version: number;
+  taskPlacements: Record<string, TaskPlacementReceipt>;
   persistedRevision: string;
   tail: Promise<unknown>;
   recordTail: Promise<unknown>;
@@ -589,6 +598,42 @@ export class NativeNotebookWorkingCopyOwner {
     copy.scope.assertCurrent();
     candidate.canonicalize(aliases?.content ?? references.content);
   }
+  async captureTaskPlacement(root: string, placement: WorkNotebookPlacement): Promise<() => void> {
+    const copy = await this.copy(placement.documentId);
+    const scope = await this.resolveCurrentScope(copy, true);
+    scope.assertCurrent();
+    if (scope.workspaceRoot !== root || scope.readOnly)
+      throw refused('NOTEBOOK_READ_ONLY', 'This notebook cannot accept a project task.');
+    const verify = () => {
+      if (
+        copy.recovery ||
+        this.revision(copy) !== placement.expectedRevision ||
+        placement.index > (copy.model.content.content?.length ?? 0)
+      )
+        throw refused('STALE_NOTEBOOK', 'Choose a position in the current notebook.');
+    };
+    verify();
+    return verify;
+  }
+
+  async confirmTaskPlacement(root: string, intent: WorkPlacementIntent): Promise<void> {
+    const copy = await this.copy(intent.documentId);
+    const scope = await this.resolveCurrentScope(copy, false);
+    scope.assertCurrent();
+    const href = workTaskReferenceHref({
+      projectId: intent.projectId,
+      taskId: intent.taskId,
+      placementId: intent.placementId,
+    });
+    const record = await this.options.loadRecord(intent.documentId);
+    scope.assertCurrent();
+    if (scope.workspaceRoot !== root || record?.taskPlacements?.[intent.placementId]?.href !== href)
+      throw refused(
+        'NOTEBOOK_PLACEMENT_PENDING',
+        'The notebook has no retained insertion receipt.'
+      );
+  }
+
   async locate(id: string): Promise<{ path: string; workspaceRoot: string }> {
     const scope = await this.options.resolve(id, false);
     scope.assertCurrent();
@@ -615,6 +660,7 @@ export class NativeNotebookWorkingCopyOwner {
     }
     const fingerprint = createHash('sha256').update(canonicalNotebookJson(request)).digest('hex');
     const cacheRequest =
+      !(request.operation.kind === 'insert-reference' && request.operation.workTask) &&
       !['inspect', 'inspect-copy', 'schema'].includes(request.operation.kind) &&
       !(request.operation.kind === 'table' && request.operation.command.kind === 'inspect');
     if (request.requestId && cacheRequest) {
@@ -719,6 +765,46 @@ export class NativeNotebookWorkingCopyOwner {
           if (scope.readOnly && !retaining)
             throw refused('NOTEBOOK_READ_ONLY', 'This notebook project is read-only.');
           this.assertUnprotected(scope.path);
+          if (operation.kind === 'insert-reference' && operation.workTask) {
+            const reference = operation.workTask;
+            const href = workTaskReferenceHref(reference);
+            const old = copy.taskPlacements[reference.placementId];
+            if (
+              old &&
+              (old.href !== href ||
+                old.index !== operation.index ||
+                old.expectedRevision !== request.expectedRevision)
+            )
+              throw refused(
+                'NOTEBOOK_REQUEST_ID_REUSED',
+                'This placement identity belongs to another insertion.'
+              );
+            const content = copy.recovery?.content ?? copy.model.content;
+            const present = containsWorkTaskPlacement(content, href);
+            if (old || present) {
+              if (!this.options.prepareReferenceInsertion)
+                throw refused(
+                  'NOTEBOOK_REFERENCE_UNAVAILABLE',
+                  'Restoring a task reference is unavailable.'
+                );
+              const checked = await this.options.prepareReferenceInsertion(scope, operation);
+              await checked.verify();
+              scope.assertCurrent();
+              await this.persist(copy);
+              scope.assertCurrent();
+              const disposition = present
+                ? copy.recovery
+                  ? 'recovery'
+                  : containsWorkTaskPlacement(copy.source.content, href)
+                    ? 'published'
+                    : 'draft'
+                : 'removed';
+              return {
+                ...this.snapshot(copy),
+                result: { changed: false, placementId: reference.placementId, disposition },
+              };
+            }
+          }
           if (request.expectedRevision !== this.revision(copy))
             throw refused(
               'STALE_NOTEBOOK',
@@ -919,7 +1005,15 @@ export class NativeNotebookWorkingCopyOwner {
             scope.assertCurrent();
             copy.model = candidate;
             copy.version++;
-            result = { changed: true };
+            if (operation.kind === 'insert-reference' && operation.workTask) {
+              const reference = operation.workTask;
+              copy.taskPlacements[reference.placementId] = {
+                href: workTaskReferenceHref(reference),
+                index: operation.index,
+                expectedRevision: request.expectedRevision!,
+              };
+              result = { changed: true, placementId: reference.placementId, disposition: 'draft' };
+            } else result = { changed: true };
           } else if (['create', 'list', 'search'].includes(operation.kind))
             throw refused(
               'NOTEBOOK_OPERATION_TARGET',
@@ -1186,6 +1280,7 @@ export class NativeNotebookWorkingCopyOwner {
         source,
         model: new NotebookDocumentModel(source.content, source.title),
         version: 0,
+        taskPlacements: record?.taskPlacements ?? {},
         persistedRevision: '',
         tail: Promise.resolve(),
         recordTail: Promise.resolve(),
@@ -1334,6 +1429,8 @@ export class NativeNotebookWorkingCopyOwner {
         dirty: this.dirty(copy),
       }
     );
+    if (Object.keys(copy.taskPlacements).length)
+      Object.assign(record, { taskPlacements: structuredClone(copy.taskPlacements) });
     const pending = copy.recordTail.catch(() => {}).then(() => this.options.storeRecord(record));
     copy.recordTail = pending;
     return pending;

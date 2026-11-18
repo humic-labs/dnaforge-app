@@ -6,6 +6,7 @@ import { platform } from '../platform';
 import {
   entityNavigationLink,
   entityNavigationTargetSchema,
+  WORK_TASK_NAVIGATION_PREFIX,
   type EntityNavigationTarget,
 } from '../shared/entity-navigation';
 import { useWorkspaceStore } from '../stores/workspaceStore';
@@ -99,6 +100,20 @@ export async function resolveEntityNavigationTarget(
   referenceHint?: DBEntityReference
 ) {
   const target = entityNavigationTargetSchema.parse(input);
+  if (target.entityId.startsWith(WORK_TASK_NAVIGATION_PREFIX)) {
+    if (!target.projectId || target.referenceId)
+      throw new Error('A task link requires its owning project.');
+    const taskId = target.entityId.slice(WORK_TASK_NAVIGATION_PREFIX.length);
+    if (!taskId) throw new Error('This task link is invalid.');
+    const listed = await platform().workTasks.query({ state: 'all', limit: 1 });
+    const owners = listed.projects.filter((project) => project.id === target.projectId);
+    if (owners.length !== 1)
+      throw new Error('The owning task project is unavailable on this installation.');
+    const root = owners[0]!.root;
+    const task = await platform().workTasks.read({ workspaceRoot: root, taskId });
+    if (!task) throw new Error('The task is unavailable in its owning project.');
+    return { kind: 'work-task' as const, taskId, root };
+  }
   if (target.referenceId) {
     let reference = referenceHint ?? (await getEntityReference(target.referenceId));
     if (!reference || reference.id !== target.referenceId || reference.status !== 'created')

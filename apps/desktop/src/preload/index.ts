@@ -13,6 +13,7 @@ import { organizationRegistryContract } from '../shared/ipc/organization-registr
 
 import { molecularDataContract } from '../shared/ipc/molecular-data.contract';
 import { analyticsContract } from '../shared/ipc/analytics.contract';
+import { workTasksContract } from '../shared/ipc/work-tasks.contract';
 import { scientificObjectsContract } from '../shared/ipc/scientific-objects.contract';
 import { scientificRecoveryContract } from '../shared/ipc/scientific-recovery.contract';
 import { computeContract } from '../shared/ipc/compute.contract';
@@ -307,6 +308,7 @@ const api = {
     ...createClient(scientificDocumentsContract),
   },
   entityNavigation: createClient(entityNavigationContract),
+  workTasks: createClient(workTasksContract),
   scientificObjects: createClient(scientificObjectsContract),
   fileAssociations: createClient(fileAssociationsContract),
 

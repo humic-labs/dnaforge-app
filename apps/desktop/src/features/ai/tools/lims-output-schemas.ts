@@ -26,6 +26,7 @@ const schemaField = z.object({
   maxValue: z.number().optional(),
   minDate: z.string().optional(),
   maxDate: z.string().optional(),
+  agenda: z.object({ role: z.enum(['milestone', 'deadline', 'observation']), zone: z.string().optional() }).optional(),
   description: z.string().optional(),
   requireResolved: z.boolean().optional(),
   intrinsic: z.enum(['sequence.length', 'sequence.topology', 'sequence.geneticCode']).optional(),
@@ -168,6 +169,7 @@ export const limsOpenTargetOutputSchema = z.discriminatedUnion('kind', [
 const gapStatus = z.enum(['no_hypothesis', 'no_verified', 'unresolved', 'match', 'mismatch']);
 const limsRegistrySummary = z.object({
   id: z.string(),
+  workspaceId: z.number().int().nullable().optional(),
   kind: z.string(),
   schemaSnapshot: limsSchemaSnapshotOutputSchema,
   fieldValues,

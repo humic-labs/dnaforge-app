@@ -1,3 +1,9 @@
+import { assertLimsTemporalEdits } from '@waypoint/scientific-artifacts/shared/lims-temporal';
+import {
+  temporalFieldValue,
+  temporalFieldDraft,
+  temporalFieldDisplay,
+} from '../../registry-temporal-input';
 import { withUserMessage, userMessagePayload, userMessageValue } from '@waypoint/user-messages';
 import {
   geneticCodeLabel,
@@ -15,6 +21,7 @@ const EDITABLE_FIELD_TYPES = new Set([
   'text',
   'long_text',
   'date',
+  'datetime',
   'number',
   'boolean',
   'enum',
@@ -29,6 +36,7 @@ export function registryFieldIsEditable(field: EntitySchemaFieldSnapshot): boole
 
 export function registryFieldText(field: EntitySchemaFieldSnapshot, value: unknown): string {
   if (value === undefined || value === null || value === '') return EMPTY_REGISTRY_FIELD_TEXT;
+  if (field.type === 'datetime') return temporalFieldDisplay('datetime', value);
   if (field.intrinsic === 'sequence.topology')
     return value === 'circular' ? 'Circular' : value === 'linear' ? 'Linear' : String(value);
   if (field.type === 'genetic_code') {
@@ -103,6 +111,7 @@ export function registryFieldOptions(
 
 export function registryFieldDraftText(field: EntitySchemaFieldSnapshot, value: unknown): string {
   if (value === undefined || value === null) return '';
+  if (field.type === 'date' || field.type === 'datetime') return temporalFieldDraft(value);
   if (field.type === 'genetic_code') return typeof value === 'number' ? String(value) : '';
   if (field.type === 'string_array') {
     return Array.isArray(value)
@@ -116,6 +125,8 @@ export function registryFieldDraftText(field: EntitySchemaFieldSnapshot, value: 
 export function parseRegistryFieldDraft(field: EntitySchemaFieldSnapshot, draft: string): unknown {
   const value = parseMetadataFieldValue(field, draft);
   if (!isLimsFieldType(field.type)) throw new Error(`${field.label} cannot be edited here.`);
+  if (field.type === 'date' || field.type === 'datetime')
+    assertLimsTemporalEdits({ [field.key]: value }, [{ ...field, type: field.type }]);
   const issues = classifyLimsEntityFieldIssues('metadata', { [field.key]: value }, [
     { ...field, type: field.type },
   ]);
@@ -157,6 +168,8 @@ function parseMetadataFieldValue(field: EntitySchemaFieldSnapshot, draft: string
       if (draft === 'true') return true;
       if (draft === 'false') return false;
       throw new Error(`${field.label} must be Yes or No.`);
+    case 'datetime':
+      return temporalFieldValue('datetime', draft);
     case 'enum':
     case 'date':
       return draft === '' ? null : draft;

@@ -19,6 +19,7 @@
   },
   "license": "GPL-3.0-only",
   "dependencies": {
+    "@internationalized/date": "3.12.1",
     "@waypoint/workspace-revisions": "workspace:*",
     "@waypoint/sequence-utils": "workspace:*"
   },

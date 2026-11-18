@@ -1,0 +1,436 @@
+import { ConfirmedReminderRejection, reminderReceipt } from './work-reminder-receipts';
+import { workRemoteAck, workRemoteView } from './work-reminder-wire';
+import { getActivePublicSession } from './auth/session-store';
+import { DesktopSyncClientError } from './desktop-sync-client-errors';
+import { randomUUID } from 'node:crypto';
+import type Database from 'better-sqlite3';
+import { canonicalPayload } from '@waypoint/scientific-objects';
+import type {
+  WorkReminderCommand,
+  WorkReminderResponse,
+  WorkReminderView,
+} from '../shared/work-reminders-ipc';
+import { createDesktopSyncClient, type DesktopSyncClient } from './desktop-sync-client';
+import {
+  workProfile,
+  workRefused,
+  assertWorkProjectAtAcceptance,
+  type WorkProjectAccess,
+} from './work-task-projects';
+import { readWorkspaceSyncAccessBinding } from './workspace-sync-access-record';
+import { withWorkspaceSyncDatabaseFence } from './workspace-sync-database-fence';
+import { dispatchRow, localEffects, localRules } from './work-reminder-local';
+import { reminderGeneration } from './work-reminder-candidates';
+
+interface RemoteView extends Omit<WorkReminderView, 'authority' | 'epoch' | 'available' | 'scope'> {
+  canManage?: boolean;
+  canWrite?: boolean;
+  handoffOffers?: { id: string; epoch: number }[];
+  dispatch: {
+    state: 'unarmed' | 'hosted' | 'suspended';
+    source_account_id: string | null;
+    source_kind: 'local' | 'hosted' | null;
+    source_desktop_session_id: string | null;
+    epoch: number;
+    source_installation_id: string | null;
+    local_fence_id: string | null;
+  } | null;
+}
+function binding(db: Database.Database, p: WorkProjectAccess) {
+  const row = readWorkspaceSyncAccessBinding(db, p.registeredId);
+  if (
+    p.actor.kind !== 'member' ||
+    !row?.remote_workspace_id ||
+    row.detached_reason !== null ||
+    row.owner_account_id !== p.actor.id
+  )
+    return workRefused('The shared reminder service is unavailable for this project.');
+  return row.remote_workspace_id;
+}
+export function remoteWorkReminderClient(
+  db: Database.Database,
+  p: WorkProjectAccess,
+  client: DesktopSyncClient = createDesktopSyncClient()
+) {
+  const id = binding(db, p);
+  const path = '/api/desktop-sync/workspaces/' + encodeURIComponent(id) + '/work-dates';
+  const verify = () => {
+    assertWorkProjectAtAcceptance(db, p, false);
+    if (binding(db, p) !== id) workRefused('The shared project binding changed.');
+  };
+  const read = async (): Promise<RemoteView> => {
+    const value = await client.requestJson<unknown>(path, {
+      method: 'GET',
+      expectedAccountId: p.actor.id,
+    });
+    await withWorkspaceSyncDatabaseFence(db, async () => verify());
+    const parsed = workRemoteView.safeParse(value);
+    if (!parsed.success) throw new Error('Shared reminder response is incomplete.');
+    return parsed.data;
+  };
+  const post = async (requestId: string, command: object) => {
+    await withWorkspaceSyncDatabaseFence(db, async () => verify());
+    const value = await client.requestJson<unknown>(path, {
+      method: 'POST',
+      expectedAccountId: p.actor.id,
+      body: { requestId, command },
+      idempotencyKey: requestId,
+    });
+    try {
+      await withWorkspaceSyncDatabaseFence(db, async () => verify());
+    } catch {
+      throw new Error(
+        'The shared reminder acknowledgement cannot be returned to the current account.'
+      );
+    }
+    const parsed = workRemoteAck.safeParse(value);
+    if (!parsed.success)
+      throw new Error('The shared reminder acknowledgement could not be verified.');
+    return parsed.data;
+  };
+  return { id, read, post, verify };
+}
+export async function runRemoteReminderCommand(
+  db: Database.Database,
+  p: WorkProjectAccess,
+  remote: ReturnType<typeof remoteWorkReminderClient>,
+  requestId: string,
+  command: object
+) {
+  const serialized = canonicalPayload(command),
+    principal = 'member:' + p.actor.id;
+  const previous = await withWorkspaceSyncDatabaseFence(db, async () =>
+    db
+      .transaction(() => {
+        remote.verify();
+        const raw = reminderReceipt(db, p.workspaceId, principal, requestId, serialized);
+        if (raw !== undefined) {
+          const saved = JSON.parse(raw) as {
+            pending?: boolean;
+            retried?: boolean;
+            response?: WorkReminderResponse;
+            error?: string;
+          };
+          if (saved.pending && !saved.retried) {
+            db.prepare(
+              'UPDATE scientific_work_reminder_receipts SET result_json=? WHERE workspace_id=? AND principal=? AND request_id=?'
+            ).run('{"pending":true,"retried":true}', p.workspaceId, principal, requestId);
+          }
+          return saved;
+        }
+        db.prepare('INSERT INTO scientific_work_reminder_receipts VALUES(?,?,?,?,?)').run(
+          p.workspaceId,
+          principal,
+          requestId,
+          serialized,
+          '{"pending":true}'
+        );
+        return null;
+      })
+      .immediate()
+  );
+  if (previous?.response) return workRemoteAck.parse(previous.response);
+  if (previous?.error) throw new ConfirmedReminderRejection(requestId, previous.error);
+  const settle = async (value: object) =>
+    withWorkspaceSyncDatabaseFence(db, async () => {
+      db.prepare(
+        'UPDATE scientific_work_reminder_receipts SET result_json=? WHERE workspace_id=? AND principal=? AND request_id=?'
+      ).run(canonicalPayload(value), p.workspaceId, principal, requestId);
+    });
+  let response;
+  try {
+    response = await remote.post(requestId, command);
+  } catch (error) {
+    if (
+      error instanceof DesktopSyncClientError &&
+      [400, 401, 403, 404, 409, 422].includes(error.status ?? 0)
+    ) {
+      if (previous?.pending || error.retryable || error.code === 'IDEMPOTENCY_CONFLICT')
+        throw new Error('The shared service cannot confirm an earlier request.');
+      const saved = await withWorkspaceSyncDatabaseFence(db, async () => {
+        const result = db
+          .prepare(
+            'UPDATE scientific_work_reminder_receipts SET result_json=? WHERE workspace_id=? AND principal=? AND request_id=? AND result_json=?'
+          )
+          .run(
+            canonicalPayload({ error: error.message }),
+            p.workspaceId,
+            principal,
+            requestId,
+            '{"pending":true}'
+          );
+        remote.verify();
+        return result.changes === 1;
+      });
+      if (!saved)
+        throw new Error('The shared service cannot confirm a concurrent reminder request.');
+      throw new ConfirmedReminderRejection(requestId, error.message);
+    }
+    throw error;
+  }
+  const { url, ...safe } = response;
+  await settle({ response: { ...safe, ...(url ? { secretUnavailable: true } : {}) } });
+  return response;
+}
+
+type RemotePort = ReturnType<typeof remoteWorkReminderClient>;
+interface Fence {
+  requestId: string;
+  expectedEpoch: number;
+  installationId: string;
+  accountId: string;
+  remoteId: string;
+  fenceId: string;
+  offerRequestId: string;
+  offered?: boolean;
+  rules: { requestId: string; command: Extract<WorkReminderCommand, { action: 'rule' }> }[];
+  ledger: {
+    taskId: string;
+    ruleId: string;
+    ruleGeneration: number;
+    accountId: string;
+    slot: string;
+    generation: string;
+    disposition: 'accepted' | 'uncertain' | 'suppressed' | 'materialized';
+  }[];
+}
+
+export async function readRemoteWorkReminders(
+  db: Database.Database,
+  p: WorkProjectAccess,
+  remote = remoteWorkReminderClient(db, p)
+): Promise<WorkReminderView> {
+  const row = dispatchRow(db, p);
+  const frozen =
+    row?.fence_json && row.state === 'fenced' ? (JSON.parse(row.fence_json) as Fence) : null;
+  const pending =
+    frozen && !frozen.offered && frozen.accountId === p.actor.id
+      ? { pendingHandoff: { requestId: frozen.requestId, expectedEpoch: frozen.expectedEpoch } }
+      : {};
+  let value: RemoteView;
+  try {
+    value = await remote.read();
+  } catch {
+    return withWorkspaceSyncDatabaseFence(db, async () => {
+      remote.verify();
+      return {
+        scope: 'shared',
+        ...pending,
+        authority: row?.state === 'fenced' ? 'fenced' : 'unarmed',
+        available: false,
+        epoch: row?.epoch ?? 0,
+        consent: null,
+        rules: [],
+        inbox: [],
+        deliveries: [],
+        subscriptions: [],
+      };
+    });
+  }
+  const session = value.dispatch?.source_kind === 'local' ? await getActivePublicSession() : null;
+  await withWorkspaceSyncDatabaseFence(db, async () => remote.verify());
+  const originEligible =
+    !!value.dispatch &&
+    (value.dispatch.source_kind === 'hosted'
+      ? value.canManage === true
+      : value.dispatch.source_kind === 'local' &&
+        value.canWrite === true &&
+        session?.accountId === p.actor.id &&
+        session.accountId === value.dispatch.source_account_id &&
+        session.desktopSessionId === value.dispatch.source_desktop_session_id);
+  const state = value.dispatch?.state ?? 'unarmed';
+  if (
+    frozen &&
+    state === 'hosted' &&
+    value.dispatch?.local_fence_id === frozen.fenceId &&
+    value.dispatch.source_installation_id === frozen.installationId
+  ) {
+    await withWorkspaceSyncDatabaseFence(db, async () => {
+      remote.verify();
+      db.prepare(
+        "UPDATE scientific_work_dispatch SET state='hosted' WHERE workspace_id=? AND state='fenced' AND json_extract(fence_json,'$.fenceId')=?"
+      ).run(p.workspaceId, frozen.fenceId);
+    });
+  }
+  return {
+    scope: 'shared',
+    ...(state === 'hosted' ? {} : pending),
+    canOfferHandoff: state !== 'hosted' && originEligible,
+    canAcceptHandoff:
+      state !== 'hosted' &&
+      value.canManage === true &&
+      !!value.handoffOffers?.some((o) => o.epoch === value.dispatch?.epoch),
+    offers: (value.handoffOffers ?? []).map(({ id, epoch }) => ({ id, epoch })),
+    available: true,
+    authority: row?.state === 'fenced' && state !== 'hosted' ? 'fenced' : state,
+    epoch: value.dispatch?.epoch ?? 0,
+    consent: value.consent,
+    rules: value.rules,
+    inbox: value.inbox,
+    deliveries: value.deliveries,
+    subscriptions: value.subscriptions,
+  };
+}
+
+function prepareFence(
+  db: Database.Database,
+  p: WorkProjectAccess,
+  remote: RemotePort,
+  requestId: string,
+  expectedEpoch: number
+): Fence {
+  remote.verify();
+  const old = dispatchRow(db, p),
+    device = workProfile(db).id;
+  if (old?.fence_json) {
+    const previous = JSON.parse(old.fence_json) as Fence;
+    if (
+      previous.requestId !== requestId ||
+      previous.expectedEpoch !== expectedEpoch ||
+      previous.accountId !== p.actor.id ||
+      previous.remoteId !== remote.id ||
+      previous.installationId !== device
+    )
+      return workRefused('Retry the original handoff from its owning installation.');
+    return previous;
+  }
+  if (old && old.installation_id !== device)
+    return workRefused('Only the originating installation may fence its reminders.');
+  const rules = localRules(db, p, 'local:' + device);
+  const active = rules.filter((rule) => rule.state === 'armed');
+  const byId = new Map(active.map((rule) => [rule.id, rule]));
+  const fence: Fence = {
+    requestId,
+    expectedEpoch,
+    remoteId: remote.id,
+    installationId: device,
+    accountId: p.actor.id,
+    fenceId: randomUUID(),
+    offerRequestId: randomUUID(),
+    rules: active.map((rule) => ({
+      requestId: randomUUID(),
+      command: {
+        action: 'rule',
+        ruleId: rule.id,
+        taskId: rule.task_id,
+        role: rule.role,
+        offsetMs: rule.offset_ms,
+        dayTime: rule.day_time,
+        dayFold: rule.day_fold,
+        email: false,
+      },
+    })),
+    ledger: localEffects(db, p, 'local:' + device).flatMap((effect) => {
+      const rule = byId.get(effect.rule_id);
+      if (!rule || rule.generation !== effect.rule_generation) return [];
+      const disposition =
+        effect.channel === 'accepted'
+          ? 'accepted'
+          : effect.channel === 'submit-intent' || effect.channel === 'uncertain'
+            ? 'uncertain'
+            : effect.channel === 'suppressed'
+              ? 'suppressed'
+              : 'materialized';
+      return [
+        {
+          taskId: rule.task_id,
+          ruleId: rule.id,
+          ruleGeneration: rule.generation,
+          accountId: p.actor.id,
+          slot: effect.slot,
+          generation: reminderGeneration(effect.due_at, p.actor.id, rule),
+          disposition,
+        },
+      ];
+    }),
+  };
+  db.prepare(
+    "INSERT INTO scientific_work_dispatch VALUES(?,?,'fenced',?,?) ON CONFLICT(workspace_id) DO UPDATE SET state='fenced',epoch=excluded.epoch,fence_json=excluded.fence_json"
+  ).run(p.workspaceId, device, (old?.epoch ?? 0) + 1, canonicalPayload(fence));
+  return fence;
+}
+
+export async function startProjectReminderHandoff(
+  db: Database.Database,
+  p: WorkProjectAccess,
+  requestId: string,
+  expectedEpoch: number,
+  remote: RemotePort
+) {
+  if (!dispatchRow(db, p)?.fence_json) {
+    const { dispatch } = await remote.read();
+    if (!dispatch || !dispatch.source_kind)
+      return workRefused('Synchronize the project tasks before transferring reminders.');
+    if (dispatch.state === 'hosted' || dispatch.epoch !== expectedEpoch)
+      return workRefused('The shared reminder authority changed. Refresh the project.');
+    if (dispatch.source_kind === 'hosted') {
+      if (dispatchRow(db, p)?.state === 'local')
+        return workRefused('The local authority must be reconciled with the project origin.');
+      const device = workProfile(db);
+      return runRemoteReminderCommand(db, p, remote, requestId, {
+        action: 'handoff',
+        expectedEpoch,
+        sourceInstallationId: device.id,
+        localFenceId: requestId,
+        ledger: [],
+      });
+    }
+    const session = await getActivePublicSession();
+    if (
+      !session ||
+      session.accountId !== p.actor.id ||
+      session.accountId !== dispatch.source_account_id ||
+      session.desktopSessionId !== dispatch.source_desktop_session_id
+    )
+      return workRefused(
+        'Only the originating desktop session may offer its local reminders. A manager can accept its recorded offer.'
+      );
+  }
+  return handoffWorkReminders(db, p, requestId, expectedEpoch, remote);
+}
+
+export async function handoffWorkReminders(
+  db: Database.Database,
+  p: WorkProjectAccess,
+  requestId: string,
+  expectedEpoch: number,
+  remote = remoteWorkReminderClient(db, p)
+) {
+  const fence = await withWorkspaceSyncDatabaseFence(db, async () =>
+    db.transaction(() => prepareFence(db, p, remote, requestId, expectedEpoch)).immediate()
+  );
+  for (const rule of fence.rules) await remote.post(rule.requestId, rule.command);
+  const payload = {
+    expectedEpoch,
+    sourceInstallationId: fence.installationId,
+    localFenceId: fence.fenceId,
+    ledger: fence.ledger,
+  };
+  const offer = await remote.post(fence.offerRequestId, { action: 'offer-handoff', ...payload });
+  if (offer.id !== fence.offerRequestId)
+    throw new Error('The shared service has not acknowledged the local fence offer.');
+  const membership = readWorkspaceSyncAccessBinding(db, p.registeredId);
+  if (membership && membership.access_role !== 'owner' && membership.access_role !== 'manager') {
+    await withWorkspaceSyncDatabaseFence(db, async () => {
+      remote.verify();
+      db.prepare(
+        "UPDATE scientific_work_dispatch SET fence_json=json_set(fence_json,'$.offered',1) WHERE workspace_id=? AND json_extract(fence_json,'$.requestId')=?"
+      ).run(p.workspaceId, requestId);
+    });
+    return { id: offer.id, state: 'offered', epoch: expectedEpoch };
+  }
+  const result = await remote.post(requestId, {
+    action: 'handoff',
+    expectedEpoch,
+    sourceOfferId: offer.id,
+  });
+  if (result.state !== 'hosted')
+    throw new Error('The shared service has not acknowledged reminder ownership.');
+  await withWorkspaceSyncDatabaseFence(db, async () => {
+    remote.verify();
+    db.prepare(
+      "UPDATE scientific_work_dispatch SET state='hosted' WHERE workspace_id=? AND json_extract(fence_json,'$.requestId')=?"
+    ).run(p.workspaceId, requestId);
+  });
+  return result;
+}

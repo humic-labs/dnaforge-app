@@ -525,9 +525,13 @@ export default defineConfig(({ mode, command }) => {
           : []),
         externalizeDepsPlugin({
           exclude: [
+            '@internationalized/date',
+            '@noble/hashes',
             '@waypoint/scientific-artifacts',
+            '@waypoint/scientific-objects',
             '@waypoint/sequence-utils',
             '@waypoint/user-messages',
+            '@waypoint/workspace-revisions',
           ],
         }),
         moduleGraph('preload'),
