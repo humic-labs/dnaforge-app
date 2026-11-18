@@ -1181,11 +1181,14 @@ function repairSlots(candidate: FloatingAnnotationLabelCandidate): RepairSlotCac
   return cache;
 }
 
-function repairSlotAt(cache: RepairSlotCache, index: number): FloatingAnnotationLabelSlot {
+function repairSlotAt(
+  cache: RepairSlotCache,
+  index: number,
+  outwardClearance: number
+): FloatingAnnotationLabelSlot {
   const cached = cache.slots[index];
   if (cached) return cached;
   const slot = REPAIR_SLOT_ORDER[index];
-  const outwardClearance = cache.clearances.get(slot.tangentStep) ?? 0;
   const resolved = Object.is(outwardClearance, 0) ? slot : { ...slot, outwardClearance };
   cache.slots[index] = resolved;
   return resolved;
@@ -1363,18 +1366,25 @@ export function planFloatingAnnotationLabels(
       let repaired: SlotAttempt | null = null;
       const repairs = repairSlots(candidate);
       for (let slotIndex = 0; slotIndex < REPAIR_SLOT_ORDER.length; slotIndex++) {
-        const slot = repairSlotAt(repairs, slotIndex);
+        const { outwardRow, tangentStep } = REPAIR_SLOT_ORDER[slotIndex];
+        const outwardClearance = repairs.clearances.get(tangentStep) ?? 0;
         if (
           first &&
-          slot.outwardRow === first.slot.outwardRow &&
-          slot.tangentStep === first.slot.tangentStep &&
-          slot.outwardClearance === first.slot.outwardClearance
+          outwardRow === first.slot.outwardRow &&
+          tangentStep === first.slot.tangentStep &&
+          outwardClearance === first.slot.outwardClearance
         ) {
           continue;
         }
         if (repairAttemptsRemaining <= 0) break;
         repairAttemptsRemaining -= 1;
         testedSlotCount += 1;
+        const radialGap =
+          LABEL_BODY_GAP_PX +
+          outwardClearance * candidate.normalScale +
+          outwardRow * OUTWARD_ROW_STEP_PX;
+        if (radialGap > MAX_REPAIR_ANCHOR_DISTANCE_PX) continue;
+        const slot = repairSlotAt(repairs, slotIndex, outwardClearance);
         const result = attempt(candidate, outward, slot, false);
         if (!result) continue;
         repaired = result;
