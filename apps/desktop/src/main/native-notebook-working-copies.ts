@@ -1411,7 +1411,7 @@ export function createNativeNotebookWorkingCopies(options: {
     },
     async prepareReferenceInsertion(scope, operation) {
       if (operation.tableReference) {
-        if (operation.referenceId || operation.documentReference)
+        if (operation.referenceId || operation.documentReference || operation.workTask)
           throw new Error('Supply one table, molecular document or saved result reference.');
         const data = {
           reference: operation.tableReference,

@@ -1,4 +1,8 @@
-import { sequenceFileCodecs, type ScientificFileCodec } from '@waypoint/scientific-objects';
+import {
+  parseWorkTaskDocument,
+  sequenceFileCodecs,
+  type ScientificFileCodec,
+} from '@waypoint/scientific-objects';
 import type { CanonicalMap, CanonicalValue } from '@waypoint/workspace-revisions';
 import { parsePrimerArtifact } from './shared/primers/primer-artifact';
 import { parseEntityArtifact } from './shared/entity-artifact';
@@ -20,6 +24,12 @@ function embeddedIdentity(text: string): string {
 
 export const scientificNativeCodecs: readonly ScientificFileCodec[] = Object.freeze([
   ...sequenceFileCodecs,
+  Object.freeze({
+    format: 'work-task-v1',
+    mediaType: 'application/vnd.dnaforge.work-task+json',
+    resourceIdentity: embeddedIdentity,
+    decode: (text: string) => parseWorkTaskDocument(except(nativeJson(text), ['id'])),
+  } satisfies ScientificFileCodec),
   Object.freeze({
     format: 'primer-v2',
     mediaType: 'application/vnd.dnaforge.primer+json',

@@ -67,6 +67,44 @@ const entity: LimsEntity = {
 };
 
 describe('native registry field editor', () => {
+  it('saves the chosen occurrence of a zoned time while preserving an unresolved imported day', async () => {
+    const onSave = vi.fn(async (_value: LimsUpdateEntityInput) => {});
+    render(
+      <RegistryRecordEditor
+        entity={{ ...entity, fields: { ...entity.fields, received: 'early autumn' } }}
+        schema={{
+          ...schema,
+          fields: [
+            ...schema.fields,
+            { key: 'received', label: 'Received', type: 'date' },
+            { key: 'readout', label: 'Readout', type: 'datetime' },
+          ],
+        }}
+        onSave={onSave}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Edit fields' }));
+    expect(screen.getByText(/Stored value · early autumn/)).toBeVisible();
+    fireEvent.change(screen.getByLabelText('Readout', { exact: true }), {
+      target: { value: '2026-11-01T01:30' },
+    });
+    fireEvent.change(screen.getByLabelText('Readout time zone'), {
+      target: { value: 'America/New_York' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Readout clock change'), { target: { value: 'later' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].fields).toMatchObject({
+      received: 'early autumn',
+      readout: {
+        kind: 'timed',
+        zone: 'America/New_York',
+        instant: Date.parse('2026-11-01T06:30Z'),
+      },
+    });
+  });
   it('keeps missing optional metadata clean after its inputs are edited and cleared', () => {
     const onSave = vi.fn(async () => {});
     render(
