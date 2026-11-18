@@ -1,3 +1,4 @@
+import { scientificWorkTables } from './scientific-object-schema';
 import { cancelWorkspaceSyncJobsForReplacedReplica } from './workspace-sync-queue';
 import { userMessage, type UserMessage } from '@waypoint/user-messages';
 import {
@@ -368,6 +369,7 @@ const REPLACEMENT_ARCHIVED_PROJECTION_TABLES = new Set([
 ]);
 
 const REPLACEMENT_PRIVATE_AUTHORITY_TABLES = new Set([
+  ...scientificWorkTables,
   'scientific_workspace_identities',
   'native_catalog_publication_outbox',
 

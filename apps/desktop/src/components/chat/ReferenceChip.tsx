@@ -9,6 +9,9 @@ import { molViewSpecStorySteps } from '../../features/page/embeds/structure3d/ut
 import { resolveMolecularReference } from '../../shared/molecular-reference';
 import type { MolecularView } from '../../shared/molecular-view';
 import { molecularDocumentReferenceLocator } from '../../shared/molecular-document-reference';
+import { catalogIconContext } from '../../shared/catalog-icon-context';
+import type { EntityColorContext } from '../../shared/entity-color-family';
+import { resolveEntityReferenceIconContext } from '../../services/entity-reference-presentation';
 
 interface ReferenceChipProps {
   reference: DBEntityReference;
@@ -120,6 +123,25 @@ export function ReferenceChip({
   phase,
   onRemove,
 }: ReferenceChipProps) {
+  const [primerIconContext, setPrimerIconContext] = useState<{
+    reference: DBEntityReference;
+    context: EntityColorContext | undefined;
+  } | null>(null);
+  useEffect(() => {
+    if (reference.entity_type !== 'primer') return;
+    let current = true;
+    void resolveEntityReferenceIconContext(reference).then(
+      (context) => {
+        if (current) setPrimerIconContext({ reference, context });
+      },
+      () => {
+        if (current) setPrimerIconContext({ reference, context: undefined });
+      }
+    );
+    return () => {
+      current = false;
+    };
+  }, [reference]);
   const molecular = useMemo(() => {
     try {
       return { subject: resolveMolecularReference(reference), invalid: false };
@@ -195,7 +217,8 @@ export function ReferenceChip({
     reference.entity_type === 'structure'
       ? `Open ${reference.display_label} in 3D`
       : `Open ${reference.display_label}`;
-  const canReveal = inlineWorkspaceDeclarationFromReference(reference) !== null;
+  const workspaceDeclaration = inlineWorkspaceDeclarationFromReference(reference);
+  const canReveal = workspaceDeclaration !== null;
   const selectedViewLabel = savedView
     ? (molViewSpecStorySteps(savedView.scene)[selectedSnapshotIndex]?.title ?? savedView.title)
     : undefined;
@@ -253,7 +276,7 @@ export function ReferenceChip({
                 onClick?.(reference, { snapshotIndex: selectedSnapshotIndex });
               else onClick?.(reference);
             }}
-            className="group flex flex-col text-left hover:bg-bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:opacity-50"
+            className="group flex flex-col text-left wp-interactive disabled:opacity-50"
           >
             <span className="flex w-full items-center justify-between gap-3 px-3 pt-2">
               <span className="text-xs font-medium text-fg">View · {selectedViewLabel}</span>
@@ -288,6 +311,17 @@ export function ReferenceChip({
             entityType={reference.entity_type}
             kindLabel={molecularKind ?? undefined}
             iconOverride={molecularIcon}
+            iconContext={
+              reference.entity_type === 'primer'
+                ? ((primerIconContext?.reference === reference
+                    ? primerIconContext.context
+                    : undefined) ?? { kind: 'reference' })
+                : (reference.iconContext ??
+                  catalogIconContext({
+                    path: workspaceDeclaration?.segments.join('/'),
+                    metadata: reference.data,
+                  }))
+            }
             label={reference.display_label}
             detail={reference.locator}
             onOpen={onClick ? () => onClick(reference) : undefined}
@@ -326,7 +360,7 @@ export function ReferenceChip({
               aria-label={`Target ${reference.display_label}`}
               title={`Focus on ${reference.display_label}`}
               disabled={busy || isUnresolved}
-              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-muted hover:bg-bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
+              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-muted wp-interactive disabled:opacity-50"
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -339,7 +373,7 @@ export function ReferenceChip({
           {selectionDetails && (
             <button
               type="button"
-              className="inline-flex h-5 w-5 items-center justify-center rounded text-[10px] text-fg-muted hover:bg-bg-subtle hover:text-fg"
+              className="inline-flex h-5 w-5 items-center justify-center rounded text-[10px] text-fg-muted wp-interactive "
               aria-expanded={expanded}
               aria-controls={detailsId}
               aria-label={expanded ? 'Hide selected residues' : 'Show selected residues'}

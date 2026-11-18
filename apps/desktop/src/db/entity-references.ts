@@ -9,8 +9,11 @@ export { prepareEntityReferenceRow } from '../shared/entity-reference-ipc';
 export type { CreateEntityReferenceParams } from '../shared/entity-reference-ipc';
 import { getConnection } from './index';
 import type { ChatEntityReferenceIpcRow } from '../shared/chat-turn-ipc';
+import type { EntityColorContext } from '../shared/entity-color-family';
 
-export interface DBEntityReference extends ChatEntityReferenceIpcRow {}
+export interface DBEntityReference extends ChatEntityReferenceIpcRow {
+  iconContext?: EntityColorContext;
+}
 
 export async function createEntityReference(
   params: CreateEntityReferenceParams,

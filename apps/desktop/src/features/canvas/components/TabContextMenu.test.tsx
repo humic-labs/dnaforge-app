@@ -124,7 +124,7 @@ describe('TabContextMenu workspace reveal', () => {
     window.addEventListener('artifact-document-close-request', capture);
 
     renderContextMenu(vi.fn());
-    fireEvent.click(screen.getByRole('button', { name: 'Close other tabs in this pane' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Close other tabs in this pane' }));
 
     expect(requests).toEqual([{ panelId: 'main', tabIds: ['tab-2'] }]);
     expect(canvasMocks.state.closeOtherTabs).not.toHaveBeenCalled();
@@ -166,7 +166,7 @@ describe('TabContextMenu workspace reveal', () => {
     window.addEventListener('artifact-document-close-request', capture);
 
     renderContextMenu(vi.fn());
-    fireEvent.click(screen.getByRole('button', { name: 'Close Saved' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Close Saved' }));
 
     expect((capture.mock.calls[0][0] as CustomEvent).detail).toEqual({
       panelId: 'main',
@@ -238,7 +238,7 @@ describe('TabContextMenu workspace reveal', () => {
 
     renderContextMenu(onClose);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show in Project' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Show in Project' }));
 
     await waitFor(() => {
       expect(useWorkspaceStore.getState().selectedPath).toBe('/lab/sequences/plasmid-package');
@@ -275,7 +275,7 @@ describe('TabContextMenu workspace reveal', () => {
 
     renderContextMenu(onClose);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show in Project' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Show in Project' }));
 
     await waitFor(() => {
       expect(useWorkspaceStore.getState().selectedPath).toBe('/lab/reports/qc.html');
@@ -320,7 +320,7 @@ describe('TabContextMenu workspace reveal', () => {
 
     renderContextMenu(onClose);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show in Project' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Show in Project' }));
 
     await waitFor(() => {
       expect(useWorkspaceStore.getState().selectedPath).toBe(
@@ -381,7 +381,7 @@ describe('TabContextMenu workspace reveal', () => {
 
     renderContextMenu(onClose);
 
-    const item = screen.getByRole('button', { name: 'Show in Project' });
+    const item = screen.getByRole('menuitem', { name: 'Show in Project' });
     expect(catalogMocks.getCurrentCatalogFileForEntity).not.toHaveBeenCalled();
     fireEvent.click(item);
     await waitFor(() =>
@@ -471,7 +471,7 @@ describe('TabContextMenu rename', () => {
       { onStartRename }
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }));
 
     expect(onStartRename).toHaveBeenCalledWith('tab-1');
   });
@@ -484,7 +484,7 @@ describe('TabContextMenu rename', () => {
       label: 'Draft assembly',
     });
 
-    expect(screen.getByRole('button', { name: 'Rename' })).toBeDisabled();
+    expect(screen.getByRole('menuitem', { name: 'Rename' })).toBeDisabled();
   });
 
   it('keeps Rename disabled for a read-only plasmid', async () => {
@@ -501,7 +501,7 @@ describe('TabContextMenu rename', () => {
       },
     });
 
-    expect(screen.getByRole('button', { name: 'Rename' })).toBeDisabled();
+    expect(screen.getByRole('menuitem', { name: 'Rename' })).toBeDisabled();
   });
 
   it('keeps Rename disabled for a loose sequence file', async () => {
@@ -513,7 +513,7 @@ describe('TabContextMenu rename', () => {
       sequenceDocument: { kind: 'catalog-sequence', entityId: 'ent-1' },
     });
 
-    expect(screen.getByRole('button', { name: 'Rename' })).toBeDisabled();
+    expect(screen.getByRole('menuitem', { name: 'Rename' })).toBeDisabled();
   });
 
   it('renames a matured plasmid by opening its metadata name for editing', async () => {
@@ -535,7 +535,7 @@ describe('TabContextMenu rename', () => {
       { onStartRename, onSelectTab, onRenameManagedSequence }
     );
 
-    const rename = screen.getByRole('button', { name: 'Rename' });
+    const rename = screen.getByRole('menuitem', { name: 'Rename' });
     expect(rename).toBeEnabled();
     fireEvent.click(rename);
 

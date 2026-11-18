@@ -1,0 +1,1827 @@
+{
+  "schema": "dnaforge.annotation-crosswalk.v1",
+  "sourceSnapshotSha256": "20e2562d7bee2575abc1a073fe7eec9f58bec8e3d4ce56bef0cfc9e22a198cab",
+  "targetGffSha256": "8654e5413df05d47649deb8cd86eb09a91012dfd0d2c9979f39ea2a60f137326",
+  "method": "Prefer an exact source UniProt Dbxref token on a target feature and follow its explicit Parent to one gene/pseudogene root. Only if no exact accession exists, allow one exact source-gene qualifier match; do not merge aliases, strip isoform suffixes, or infer positions.",
+  "rows": [
+    {
+      "sourceId": "P76440",
+      "sourceName": "preT",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1778
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "preT.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P76440",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P76440",
+          "sourceFeatureId": "preT.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 4679,
+          "parentQualifier": "preT.gene.1",
+          "targetRootId": "preT.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "preT.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 2234033,
+          "end1": 2235271,
+          "strand": "+",
+          "gene": "preT",
+          "locusTag": "b2146",
+          "gffLine": 4678
+        }
+      ]
+    },
+    {
+      "sourceId": "P0AAY6",
+      "sourceName": "ybjN",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2030
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "ybjN.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0AAY6",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0AAY6",
+          "sourceFeatureId": "ybjN.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 1855,
+          "parentQualifier": "ybjN.gene.1",
+          "targetRootId": "ybjN.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "ybjN.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 892957,
+          "end1": 893433,
+          "strand": "+",
+          "gene": "ybjN",
+          "locusTag": "b0853",
+          "gffLine": 1854
+        }
+      ]
+    },
+    {
+      "sourceId": "P56580",
+      "sourceName": "srlE",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1742
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "srlE.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P56580",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P56580",
+          "sourceFeatureId": "srlE.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 5853,
+          "parentQualifier": "srlE.gene.1",
+          "targetRootId": "srlE.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "srlE.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 2826392,
+          "end1": 2827351,
+          "strand": "+",
+          "gene": "srlE",
+          "locusTag": "b2703",
+          "gffLine": 5852
+        }
+      ]
+    },
+    {
+      "sourceId": "P0A8U0",
+      "sourceName": "syd",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2029
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "syd.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0A8U0",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0A8U0",
+          "sourceFeatureId": "syd.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 6042,
+          "parentQualifier": "syd.gene.1",
+          "targetRootId": "syd.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "syd.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 2924735,
+          "end1": 2925280,
+          "strand": "-",
+          "gene": "syd",
+          "locusTag": "b2793",
+          "gffLine": 6041
+        }
+      ]
+    },
+    {
+      "sourceId": "P07363",
+      "sourceName": "cheA",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1754
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "cheA.gene.1",
+      "method": "exact-source-gene-qualifier-fallback",
+      "proteinEvidence": [],
+      "fallbackEvidence": {
+        "reason": "No exact source UniProt accession in target Dbxref tokens; no isoform-suffix stripping or accession conversion applied.",
+        "sourceGene": "cheA",
+        "targetQualifier": "gene",
+        "exactToken": "cheA"
+      },
+      "candidates": [
+        {
+          "id": "cheA.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 1973360,
+          "end1": 1975324,
+          "strand": "-",
+          "gene": "cheA",
+          "locusTag": "b1888",
+          "gffLine": 4108
+        }
+      ]
+    },
+    {
+      "sourceId": "P75822",
+      "sourceName": "ybjT",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2053
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "ybjT.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P75822",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P75822",
+          "sourceFeatureId": "ybjT.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 1887,
+          "parentQualifier": "ybjT.gene.1",
+          "targetRootId": "ybjT.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "ybjT.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 906852,
+          "end1": 908282,
+          "strand": "-",
+          "gene": "ybjT",
+          "locusTag": "b0869",
+          "gffLine": 1886
+        }
+      ]
+    },
+    {
+      "sourceId": "P77433",
+      "sourceName": "ykgG",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2061
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "ykgG.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P77433",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P77433",
+          "sourceFeatureId": "ykgG.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 693,
+          "parentQualifier": "ykgG.gene.1",
+          "targetRootId": "ykgG.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "ykgG.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 323758,
+          "end1": 324453,
+          "strand": "+",
+          "gene": "ykgG",
+          "locusTag": "b0308",
+          "gffLine": 692
+        }
+      ]
+    },
+    {
+      "sourceId": "P0AGI4",
+      "sourceName": "xylH",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1692
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "xylH.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0AGI4",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0AGI4",
+          "sourceFeatureId": "xylH.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 7701,
+          "parentQualifier": "xylH.gene.1",
+          "targetRootId": "xylH.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "xylH.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 3733720,
+          "end1": 3734901,
+          "strand": "+",
+          "gene": "xylH",
+          "locusTag": "b3568",
+          "gffLine": 7700
+        }
+      ]
+    },
+    {
+      "sourceId": "P0AAX3",
+      "sourceName": "ybiJ",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1861
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "ybiJ.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0AAX3",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0AAX3",
+          "sourceFeatureId": "ybiJ.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 1745,
+          "parentQualifier": "ybiJ.gene.1",
+          "targetRootId": "ybiJ.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "ybiJ.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 837665,
+          "end1": 837925,
+          "strand": "-",
+          "gene": "ybiJ",
+          "locusTag": "b0802",
+          "gffLine": 1744
+        }
+      ]
+    },
+    {
+      "sourceId": "P02916",
+      "sourceName": "malF",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1771
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "malF.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P02916",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P02916",
+          "sourceFeatureId": "malF.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 8725,
+          "parentQualifier": "malF.gene.1",
+          "targetRootId": "malF.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "malF.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 4243531,
+          "end1": 4245075,
+          "strand": "-",
+          "gene": "malF",
+          "locusTag": "b4033",
+          "gffLine": 8724
+        }
+      ]
+    },
+    {
+      "sourceId": "P0AET5",
+      "sourceName": "hdeD",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1448
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "hdeD.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0AET5",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0AET5",
+          "sourceFeatureId": "hdeD.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 7561,
+          "parentQualifier": "hdeD.gene.1",
+          "targetRootId": "hdeD.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "hdeD.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 3656995,
+          "end1": 3657567,
+          "strand": "+",
+          "gene": "hdeD",
+          "locusTag": "b3511",
+          "gffLine": 7560
+        }
+      ]
+    },
+    {
+      "sourceId": "P0AGC0",
+      "sourceName": "uhpT",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2009
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "uhpT.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0AGC0",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0AGC0",
+          "sourceFeatureId": "uhpT.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 7924,
+          "parentQualifier": "uhpT.gene.1",
+          "targetRootId": "uhpT.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "uhpT.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 3845776,
+          "end1": 3847167,
+          "strand": "-",
+          "gene": "uhpT",
+          "locusTag": "b3666",
+          "gffLine": 7923
+        }
+      ]
+    },
+    {
+      "sourceId": "P0A996",
+      "sourceName": "glpC",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1777
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "glpC.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0A996",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0A996",
+          "sourceFeatureId": "glpC.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 4883,
+          "parentQualifier": "glpC.gene.1",
+          "targetRootId": "glpC.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "glpC.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 2355521,
+          "end1": 2356711,
+          "strand": "+",
+          "gene": "glpC",
+          "locusTag": "b2243",
+          "gffLine": 4882
+        }
+      ]
+    },
+    {
+      "sourceId": "P02942",
+      "sourceName": "tsr",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1529
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "tsr.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P02942",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P02942",
+          "sourceFeatureId": "tsr.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 9422,
+          "parentQualifier": "tsr.gene.1",
+          "targetRootId": "tsr.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "tsr.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 4591657,
+          "end1": 4593312,
+          "strand": "+",
+          "gene": "tsr",
+          "locusTag": "b4355",
+          "gffLine": 9421
+        }
+      ]
+    },
+    {
+      "sourceId": "P0AEF8",
+      "sourceName": "dppB",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2023
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "dppB.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0AEF8",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0AEF8",
+          "sourceFeatureId": "dppB.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 7638,
+          "parentQualifier": "dppB.gene.1",
+          "targetRootId": "dppB.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "dppB.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 3704771,
+          "end1": 3705790,
+          "strand": "-",
+          "gene": "dppB",
+          "locusTag": "b3543",
+          "gffLine": 7637
+        }
+      ]
+    },
+    {
+      "sourceId": "P52074",
+      "sourceName": "glcF",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1763
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "glcF.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P52074",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P52074",
+          "sourceFeatureId": "glcF.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 6434,
+          "parentQualifier": "glcF.gene.1",
+          "targetRootId": "glcF.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "glcF.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 3124236,
+          "end1": 3125459,
+          "strand": "-",
+          "gene": "glcF",
+          "locusTag": "b4467",
+          "gffLine": 6433
+        }
+      ]
+    },
+    {
+      "sourceId": "P36560",
+      "sourceName": "asr",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1770
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "asr.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P36560",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P36560",
+          "sourceFeatureId": "asr.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 3488,
+          "parentQualifier": "asr.gene.1",
+          "targetRootId": "asr.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "asr.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 1671376,
+          "end1": 1671684,
+          "strand": "+",
+          "gene": "asr",
+          "locusTag": "b1597",
+          "gffLine": 3487
+        }
+      ]
+    },
+    {
+      "sourceId": "P77252",
+      "sourceName": "ykgE",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2045
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "ykgE.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P77252",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P77252",
+          "sourceFeatureId": "ykgE.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 689,
+          "parentQualifier": "ykgE.gene.1",
+          "targetRootId": "ykgE.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "ykgE.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 321608,
+          "end1": 322327,
+          "strand": "+",
+          "gene": "ykgE",
+          "locusTag": "b0306",
+          "gffLine": 688
+        }
+      ]
+    },
+    {
+      "sourceId": "Q6BF16",
+      "sourceName": "dgoA",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1772
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "dgoA.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "Q6BF16",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:Q6BF16",
+          "sourceFeatureId": "dgoA.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 7986,
+          "parentQualifier": "dgoA.gene.1",
+          "targetRootId": "dgoA.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "dgoA.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 3872995,
+          "end1": 3873612,
+          "strand": "-",
+          "gene": "dgoA",
+          "locusTag": "b4477",
+          "gffLine": 7985
+        }
+      ]
+    },
+    {
+      "sourceId": "P0ACS9",
+      "sourceName": "acrR",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1997
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "acrR.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0ACS9",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0ACS9",
+          "sourceFeatureId": "acrR.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 1011,
+          "parentQualifier": "acrR.gene.1",
+          "targetRootId": "acrR.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "acrR.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 485761,
+          "end1": 486408,
+          "strand": "+",
+          "gene": "acrR",
+          "locusTag": "b0464",
+          "gffLine": 1010
+        }
+      ]
+    },
+    {
+      "sourceId": "P76164",
+      "sourceName": "ydfW",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1900
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "ydfW.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P76164",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P76164",
+          "sourceFeatureId": "ydfW.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 3427,
+          "parentQualifier": "ydfW.gene.1",
+          "targetRootId": "ydfW.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "ydfW.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 1647174,
+          "end1": 1647323,
+          "strand": "-",
+          "gene": "ydfW",
+          "locusTag": "b1567",
+          "gffLine": 3426
+        }
+      ]
+    },
+    {
+      "sourceId": "P76078",
+      "sourceName": "paaB",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1981
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "paaB.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P76078",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P76078",
+          "sourceFeatureId": "paaB.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 3036,
+          "parentQualifier": "paaB.gene.1",
+          "targetRootId": "paaB.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "paaB.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 1454868,
+          "end1": 1455155,
+          "strand": "+",
+          "gene": "paaB",
+          "locusTag": "b1389",
+          "gffLine": 3035
+        }
+      ]
+    },
+    {
+      "sourceId": "P0A6X1",
+      "sourceName": "hemA",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2055
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "hemA.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0A6X1",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0A6X1",
+          "sourceFeatureId": "hemA.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 2605,
+          "parentQualifier": "hemA.gene.1",
+          "targetRootId": "hemA.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "hemA.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 1263714,
+          "end1": 1264970,
+          "strand": "+",
+          "gene": "hemA",
+          "locusTag": "b1210",
+          "gffLine": 2604
+        }
+      ]
+    },
+    {
+      "sourceId": "P37613",
+      "sourceName": "yhhK",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2037
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "panZ.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P37613",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P37613",
+          "sourceFeatureId": "panZ.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 7441,
+          "parentQualifier": "panZ.gene.1",
+          "targetRootId": "panZ.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "panZ.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 3597984,
+          "end1": 3598367,
+          "strand": "+",
+          "gene": "panZ",
+          "locusTag": "b3459",
+          "gffLine": 7440
+        }
+      ]
+    },
+    {
+      "sourceId": "P0AGF4",
+      "sourceName": "xylE",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1949
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "xylE.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0AGF4",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0AGF4",
+          "sourceFeatureId": "xylE.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 8718,
+          "parentQualifier": "xylE.gene.1",
+          "targetRootId": "xylE.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "xylE.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 4240779,
+          "end1": 4242254,
+          "strand": "-",
+          "gene": "xylE",
+          "locusTag": "b4031",
+          "gffLine": 8717
+        }
+      ]
+    },
+    {
+      "sourceId": "P0A6L7",
+      "sourceName": "uxaB",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2015
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "uxaB.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0A6L7",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0A6L7",
+          "sourceFeatureId": "uxaB.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 3313,
+          "parentQualifier": "uxaB.gene.1",
+          "targetRootId": "uxaB.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "uxaB.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 1609229,
+          "end1": 1610680,
+          "strand": "-",
+          "gene": "uxaB",
+          "locusTag": "b1521",
+          "gffLine": 3312
+        }
+      ]
+    },
+    {
+      "sourceId": "P21345",
+      "sourceName": "gltP",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1774
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "gltP.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P21345",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P21345",
+          "sourceFeatureId": "gltP.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 8822,
+          "parentQualifier": "gltP.gene.1",
+          "targetRootId": "gltP.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "gltP.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 4294481,
+          "end1": 4295794,
+          "strand": "+",
+          "gene": "gltP",
+          "locusTag": "b4077",
+          "gffLine": 8821
+        }
+      ]
+    },
+    {
+      "sourceId": "P0ACS2",
+      "sourceName": "soxR",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2057
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "soxR.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0ACS2",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0ACS2",
+          "sourceFeatureId": "soxR.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 8789,
+          "parentQualifier": "soxR.gene.1",
+          "targetRootId": "soxR.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "soxR.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 4277469,
+          "end1": 4277933,
+          "strand": "+",
+          "gene": "soxR",
+          "locusTag": "b4063",
+          "gffLine": 8788
+        }
+      ]
+    },
+    {
+      "sourceId": "P16095",
+      "sourceName": "sdaA",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1759
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "sdaA.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P16095",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P16095",
+          "sourceFeatureId": "sdaA.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 3943,
+          "parentQualifier": "sdaA.gene.1",
+          "targetRootId": "sdaA.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "sdaA.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 1896932,
+          "end1": 1898296,
+          "strand": "+",
+          "gene": "sdaA",
+          "locusTag": "b1814",
+          "gffLine": 3942
+        }
+      ]
+    },
+    {
+      "sourceId": "P27242",
+      "sourceName": "waaU",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1924
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "waaU.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P27242",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P27242",
+          "sourceFeatureId": "waaU.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 7826,
+          "parentQualifier": "waaU.gene.1",
+          "targetRootId": "waaU.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "waaU.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 3798239,
+          "end1": 3799312,
+          "strand": "-",
+          "gene": "waaU",
+          "locusTag": "b3623",
+          "gffLine": 7825
+        }
+      ]
+    },
+    {
+      "sourceId": "P76121",
+      "sourceName": "yddH",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1755
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "yddH.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P76121",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P76121",
+          "sourceFeatureId": "yddH.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 3196,
+          "parentQualifier": "yddH.gene.1",
+          "targetRootId": "yddH.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "yddH.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 1533282,
+          "end1": 1533851,
+          "strand": "-",
+          "gene": "yddH",
+          "locusTag": "b1462",
+          "gffLine": 3195
+        }
+      ]
+    },
+    {
+      "sourceId": "P0AAZ4",
+      "sourceName": "rarA",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1779
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "rarA.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0AAZ4",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0AAZ4",
+          "sourceFeatureId": "rarA.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 1936,
+          "parentQualifier": "rarA.gene.1",
+          "targetRootId": "rarA.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "rarA.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 937994,
+          "end1": 939337,
+          "strand": "+",
+          "gene": "rarA",
+          "locusTag": "b0892",
+          "gffLine": 1935
+        }
+      ]
+    },
+    {
+      "sourceId": "P76387",
+      "sourceName": "wzc",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2034
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "wzc.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P76387",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P76387",
+          "sourceFeatureId": "wzc.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 4495,
+          "parentQualifier": "wzc.gene.1",
+          "targetRootId": "wzc.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "wzc.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 2133490,
+          "end1": 2135652,
+          "strand": "-",
+          "gene": "wzc",
+          "locusTag": "b2060",
+          "gffLine": 4494
+        }
+      ]
+    },
+    {
+      "sourceId": "P52073",
+      "sourceName": "glcE",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2041
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "glcE.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P52073",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P52073",
+          "sourceFeatureId": "glcE.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 6436,
+          "parentQualifier": "glcE.gene.1",
+          "targetRootId": "glcE.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "glcE.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 3125470,
+          "end1": 3126522,
+          "strand": "-",
+          "gene": "glcE",
+          "locusTag": "b4468",
+          "gffLine": 6435
+        }
+      ]
+    },
+    {
+      "sourceId": "P41039",
+      "sourceName": "ybiI",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1929
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "ybiI.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P41039",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P41039",
+          "sourceFeatureId": "ybiI.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 1747,
+          "parentQualifier": "ybiI.gene.1",
+          "targetRootId": "ybiI.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "ybiI.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 838190,
+          "end1": 838456,
+          "strand": "-",
+          "gene": "ybiI",
+          "locusTag": "b0803",
+          "gffLine": 1746
+        }
+      ]
+    },
+    {
+      "sourceId": "P77257",
+      "sourceName": "lsrA",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1721
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "lsrA.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P77257",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P77257",
+          "sourceFeatureId": "lsrA.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 3297,
+          "parentQualifier": "lsrA.gene.1",
+          "targetRootId": "lsrA.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "lsrA.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 1601490,
+          "end1": 1603025,
+          "strand": "+",
+          "gene": "lsrA",
+          "locusTag": "b1513",
+          "gffLine": 3296
+        }
+      ]
+    },
+    {
+      "sourceId": "P0A7B3",
+      "sourceName": "nadK",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2031
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "nadK.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0A7B3",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0A7B3",
+          "sourceFeatureId": "nadK.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 5686,
+          "parentQualifier": "nadK.gene.1",
+          "targetRootId": "nadK.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "nadK.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 2750831,
+          "end1": 2751709,
+          "strand": "+",
+          "gene": "nadK",
+          "locusTag": "b2615",
+          "gffLine": 5685
+        }
+      ]
+    },
+    {
+      "sourceId": "P76344",
+      "sourceName": "zinT",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2046
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "zinT.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P76344",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P76344",
+          "sourceFeatureId": "zinT.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 4297,
+          "parentQualifier": "zinT.gene.1",
+          "targetRootId": "zinT.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "zinT.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 2041375,
+          "end1": 2042025,
+          "strand": "+",
+          "gene": "zinT",
+          "locusTag": "b1973",
+          "gffLine": 4296
+        }
+      ]
+    },
+    {
+      "sourceId": "P0A6S5",
+      "sourceName": "ftsB",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1906
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "ftsB.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0A6S5",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0A6S5",
+          "sourceFeatureId": "ftsB.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 5943,
+          "parentQualifier": "ftsB.gene.1",
+          "targetRootId": "ftsB.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "ftsB.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 2872509,
+          "end1": 2872820,
+          "strand": "-",
+          "gene": "ftsB",
+          "locusTag": "b2748",
+          "gffLine": 5942
+        }
+      ]
+    },
+    {
+      "sourceId": "P0AB83",
+      "sourceName": "nth",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2059
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "nth.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0AB83",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0AB83",
+          "sourceFeatureId": "nth.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 3566,
+          "parentQualifier": "nth.gene.1",
+          "targetRootId": "nth.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "nth.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 1711523,
+          "end1": 1712158,
+          "strand": "+",
+          "gene": "nth",
+          "locusTag": "b1633",
+          "gffLine": 3565
+        }
+      ]
+    },
+    {
+      "sourceId": "P77398",
+      "sourceName": "arnA",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1998
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "arnA.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P77398",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P77398",
+          "sourceFeatureId": "arnA.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 4908,
+          "parentQualifier": "arnA.gene.1",
+          "targetRootId": "arnA.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "arnA.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 2368039,
+          "end1": 2370021,
+          "strand": "+",
+          "gene": "arnA",
+          "locusTag": "b2255",
+          "gffLine": 4907
+        }
+      ]
+    },
+    {
+      "sourceId": "Q46802",
+      "sourceName": "ygeV",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1971
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "ygeV.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "Q46802",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:Q46802",
+          "sourceFeatureId": "ygeV.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 6203,
+          "parentQualifier": "ygeV.gene.1",
+          "targetRootId": "ygeV.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "ygeV.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 3004008,
+          "end1": 3005786,
+          "strand": "-",
+          "gene": "ygeV",
+          "locusTag": "b2869",
+          "gffLine": 6202
+        }
+      ]
+    },
+    {
+      "sourceId": "P0AE14",
+      "sourceName": "ampE",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2002
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "ampE.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P0AE14",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P0AE14",
+          "sourceFeatureId": "ampE.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 244,
+          "parentQualifier": "ampE.gene.1",
+          "targetRootId": "ampE.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "ampE.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 119281,
+          "end1": 120135,
+          "strand": "+",
+          "gene": "ampE",
+          "locusTag": "b0111",
+          "gffLine": 243
+        }
+      ]
+    },
+    {
+      "sourceId": "Q46839",
+      "sourceName": "glcA",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1690
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "glcA.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "Q46839",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:Q46839",
+          "sourceFeatureId": "glcA.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 6428,
+          "parentQualifier": "glcA.gene.1",
+          "targetRootId": "glcA.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "glcA.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 3119597,
+          "end1": 3121279,
+          "strand": "-",
+          "gene": "glcA",
+          "locusTag": "b2975",
+          "gffLine": 6427
+        }
+      ]
+    },
+    {
+      "sourceId": "P76081",
+      "sourceName": "paaE",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2042
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "paaE.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P76081",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P76081",
+          "sourceFeatureId": "paaE.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 3042,
+          "parentQualifier": "paaE.gene.1",
+          "targetRootId": "paaE.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "paaE.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 1456430,
+          "end1": 1457500,
+          "strand": "+",
+          "gene": "paaE",
+          "locusTag": "b1392",
+          "gffLine": 3041
+        }
+      ]
+    },
+    {
+      "sourceId": "P23862",
+      "sourceName": "priC",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2060
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "priC.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P23862",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P23862",
+          "sourceFeatureId": "priC.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 1017,
+          "parentQualifier": "priC.gene.1",
+          "targetRootId": "priC.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "priC.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 490285,
+          "end1": 490812,
+          "strand": "-",
+          "gene": "priC",
+          "locusTag": "b0467",
+          "gffLine": 1016
+        }
+      ]
+    },
+    {
+      "sourceId": "P52097",
+      "sourceName": "tilS",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 2050
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "tilS.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P52097",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P52097",
+          "sourceFeatureId": "tilS.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 407,
+          "parentQualifier": "tilS.gene.1",
+          "targetRootId": "tilS.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "tilS.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 212331,
+          "end1": 213629,
+          "strand": "+",
+          "gene": "tilS",
+          "locusTag": "b0188",
+          "gffLine": 406
+        }
+      ]
+    },
+    {
+      "sourceId": "P39364",
+      "sourceName": "sgcQ",
+      "sourceRow": {
+        "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+        "worksheet": "Table S5",
+        "excelRow": 1508
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "sgcQ.gene.1",
+      "method": "exact-uniprot-dbxref-and-parent-root",
+      "proteinEvidence": [
+        {
+          "accession": "P39364",
+          "exactDbxrefToken": "UniProtKB/Swiss-Prot:P39364",
+          "sourceFeatureId": "sgcQ.cds.1",
+          "sourceFeatureType": "CDS",
+          "sourceFeatureGffLine": 9300,
+          "parentQualifier": "sgcQ.gene.1",
+          "targetRootId": "sgcQ.gene.1"
+        }
+      ],
+      "fallbackEvidence": null,
+      "candidates": [
+        {
+          "id": "sgcQ.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 4528111,
+          "end1": 4528917,
+          "strand": "-",
+          "gene": "sgcQ",
+          "locusTag": "b4303",
+          "gffLine": 9299
+        }
+      ]
+    }
+  ]
+}

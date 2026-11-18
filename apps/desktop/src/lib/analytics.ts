@@ -1,8 +1,10 @@
+import { APP_BUILD } from './app-build';
 import type { ToolErrorReasonCode } from '../shared/tool-error-reasons';
 import posthog, { type CapturedNetworkRequest } from 'posthog-js/lib/src/entrypoints/module.es';
 import { failLoudlyOnTelemetryContractViolation } from '../shared/telemetry-contract-violation';
 import {
   classifyInternalOperator,
+  classifyTelemetryOrigin,
   CLICK_FIREHOSE_FLAG,
   SAFE_AUTOCAPTURE_CONFIG,
   SAFE_OPERATION_ERROR_CLASSES,
@@ -132,6 +134,7 @@ const COMMON_RENDERER_EVENT_PROPERTY_KEYS = new Set([
   'is_synthetic',
   'telemetry_canary_id',
   'telemetry_actor',
+  'runtime_origin_class',
   'ci_run_id',
   'internal_operator',
   'identity_kind',
@@ -335,6 +338,7 @@ const SDK_EVENT_RUNTIME_KEYS = [
   'environment',
   'release_channel',
   'telemetry_actor',
+  'runtime_origin_class',
   'app_version',
   'platform_family',
   'is_synthetic',
@@ -377,6 +381,7 @@ export async function initAnalyticsRenderer(): Promise<boolean> {
     is_synthetic: config.isSynthetic,
     ...(config.telemetryCanaryId ? { telemetry_canary_id: config.telemetryCanaryId } : {}),
     telemetry_actor: config.telemetryActor,
+    runtime_origin_class: classifyTelemetryOrigin(config, APP_BUILD.kind),
     ...(config.ciRunId ? { ci_run_id: config.ciRunId } : {}),
   };
 

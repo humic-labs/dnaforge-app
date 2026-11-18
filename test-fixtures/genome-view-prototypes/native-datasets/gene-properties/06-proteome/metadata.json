@@ -1,0 +1,313 @@
+{
+  "schema": "dnaforge.sequence-data-layer-fixture.v1",
+  "dataset": {
+    "number": 6,
+    "id": "06-proteome",
+    "title": "Condition-dependent protein abundance",
+    "study": "Schmidt et al., 2016",
+    "sourceReference": "K-12 BW25113"
+  },
+  "files": {
+    "csv": "data.csv",
+    "snapshot": "snapshot.json",
+    "sourceRecords": "source-records.json",
+    "crosswalk": "crosswalk.json"
+  },
+  "snapshot": {
+    "file": "snapshot.json",
+    "sha256": "6ca1403d91a3255ee7afb30c57f81ce6097bfa7f997632ce39ca5cd721deec9e",
+    "originalSnapshotSha256": "20e2562d7bee2575abc1a073fe7eec9f58bec8e3d4ce56bef0cfc9e22a198cab",
+    "omittedPresentationFields": [
+      "suggestedViews"
+    ]
+  },
+  "sourceFiles": [
+    {
+      "url": "https://pmc-oa-opendata.s3.amazonaws.com/PMC4888949.1/NIHMS65833-supplement-Supplementary_tables.xlsx",
+      "file": "raw/genes/NIHMS65833-supplement-Supplementary_tables.xlsx",
+      "sha256": "3280a13ff67a73f25440cff6ee73fb99b5ce3ef57854213dbbf6272be241912f",
+      "citation": "https://doi.org/10.1038/nbt.3418"
+    }
+  ],
+  "targetReference": {
+    "accession": "NC_000913.3",
+    "organism": "Escherichia coli K-12 MG1655",
+    "length": 4641652,
+    "normalizedSequenceSha256": "e999dceccb76562d40e49a10d9e6d4cf1c05d184f4f80b92bb32d4a2420c11d0",
+    "fasta": {
+      "file": "MG1655-NC_000913.3.fasta",
+      "sha256": "03c41475639fe8de50f23f2b9456402668411ccaf488d39d8f99cafea6552ced"
+    },
+    "annotation": {
+      "file": "MG1655-NC_000913.3.gff3",
+      "sha256": "8654e5413df05d47649deb8cd86eb09a91012dfd0d2c9979f39ea2a60f137326",
+      "targetFeatureTypes": [
+        "gene",
+        "pseudogene"
+      ],
+      "targetIdentifier": "original GFF ID",
+      "coordinateSystem": "GFF 1-based inclusive; runtime derives target intervals"
+    }
+  },
+  "transferStatement": "Source-strain gene properties transferred to exact matching MG1655 annotations. This does not assert original-strain coordinates or measurements of MG1655 physiology.",
+  "coordinateSystem": "annotation-based",
+  "mapping": {
+    "kind": "annotation",
+    "identifierColumn": "target_annotation_id",
+    "identifierField": "ID"
+  },
+  "valueColumns": [
+    "Glucose",
+    "LB",
+    "Glycerol + AA",
+    "Acetate",
+    "Fumarate",
+    "Glucosamine",
+    "Glycerol",
+    "Pyruvate",
+    "Chemostat µ=0.5",
+    "Chemostat µ=0.35",
+    "Chemostat µ=0.20",
+    "Chemostat µ=0.12",
+    "Stationary phase 1 day",
+    "Stationary phase 3 days",
+    "Osmotic-stress glucose",
+    "42°C glucose",
+    "pH6 glucose",
+    "Xylose",
+    "Mannose",
+    "Galactose",
+    "Succinate",
+    "Fructose"
+  ],
+  "unit": "estimated protein copies per cell",
+  "aggregation": "none",
+  "unresolvedPolicy": "exclude",
+  "measurements": [
+    {
+      "column": "Glucose",
+      "originalSourceCondition": "Glucose",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "LB",
+      "originalSourceCondition": "LB",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Glycerol + AA",
+      "originalSourceCondition": "Glycerol + AA",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Acetate",
+      "originalSourceCondition": "Acetate",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Fumarate",
+      "originalSourceCondition": "Fumarate",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Glucosamine",
+      "originalSourceCondition": "Glucosamine",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Glycerol",
+      "originalSourceCondition": "Glycerol",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Pyruvate",
+      "originalSourceCondition": "Pyruvate",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Chemostat µ=0.5",
+      "originalSourceCondition": "Chemostat µ=0.5",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Chemostat µ=0.35",
+      "originalSourceCondition": "Chemostat µ=0.35",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Chemostat µ=0.20",
+      "originalSourceCondition": "Chemostat µ=0.20",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Chemostat µ=0.12",
+      "originalSourceCondition": "Chemostat µ=0.12",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Stationary phase 1 day",
+      "originalSourceCondition": "Stationary phase 1 day",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Stationary phase 3 days",
+      "originalSourceCondition": "Stationary phase 3 days",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Osmotic-stress glucose",
+      "originalSourceCondition": "Osmotic-stress glucose",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "42°C glucose",
+      "originalSourceCondition": "42°C glucose",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "pH6 glucose",
+      "originalSourceCondition": "pH6 glucose",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Xylose",
+      "originalSourceCondition": "Xylose",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Mannose",
+      "originalSourceCondition": "Mannose",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Galactose",
+      "originalSourceCondition": "Galactose ",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Succinate",
+      "originalSourceCondition": "Succinate",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    },
+    {
+      "column": "Fructose",
+      "originalSourceCondition": "Fructose",
+      "unit": "copies/cell",
+      "quantity": "estimated protein abundance"
+    }
+  ],
+  "additionalMeasurementGroups": [
+    {
+      "columns": [
+        "protein_mass_fg_per_cell__Glucose",
+        "protein_mass_fg_per_cell__LB",
+        "protein_mass_fg_per_cell__Glycerol + AA",
+        "protein_mass_fg_per_cell__Acetate",
+        "protein_mass_fg_per_cell__Fumarate",
+        "protein_mass_fg_per_cell__Glucosamine",
+        "protein_mass_fg_per_cell__Glycerol",
+        "protein_mass_fg_per_cell__Pyruvate",
+        "protein_mass_fg_per_cell__Chemostat µ=0.5",
+        "protein_mass_fg_per_cell__Chemostat µ=0.35",
+        "protein_mass_fg_per_cell__Chemostat µ=0.20",
+        "protein_mass_fg_per_cell__Chemostat µ=0.12",
+        "protein_mass_fg_per_cell__Stationary phase 1 day",
+        "protein_mass_fg_per_cell__Stationary phase 3 days",
+        "protein_mass_fg_per_cell__Osmotic-stress glucose",
+        "protein_mass_fg_per_cell__42°C glucose",
+        "protein_mass_fg_per_cell__pH6 glucose",
+        "protein_mass_fg_per_cell__Xylose",
+        "protein_mass_fg_per_cell__Mannose",
+        "protein_mass_fg_per_cell__Galactose",
+        "protein_mass_fg_per_cell__Succinate",
+        "protein_mass_fg_per_cell__Fructose"
+      ],
+      "unit": "fg/cell",
+      "quantity": "protein mass"
+    },
+    {
+      "columns": [
+        "biological_cv_percent__Glucose",
+        "biological_cv_percent__LB",
+        "biological_cv_percent__Glycerol + AA",
+        "biological_cv_percent__Acetate",
+        "biological_cv_percent__Fumarate",
+        "biological_cv_percent__Glucosamine",
+        "biological_cv_percent__Glycerol",
+        "biological_cv_percent__Pyruvate",
+        "biological_cv_percent__Chemostat µ=0.5",
+        "biological_cv_percent__Chemostat µ=0.35",
+        "biological_cv_percent__Chemostat µ=0.20",
+        "biological_cv_percent__Chemostat µ=0.12",
+        "biological_cv_percent__Stationary phase 1 day",
+        "biological_cv_percent__Stationary phase 3 days",
+        "biological_cv_percent__Osmotic-stress glucose",
+        "biological_cv_percent__42°C glucose",
+        "biological_cv_percent__pH6 glucose",
+        "biological_cv_percent__Xylose",
+        "biological_cv_percent__Mannose",
+        "biological_cv_percent__Galactose",
+        "biological_cv_percent__Succinate",
+        "biological_cv_percent__Fructose"
+      ],
+      "unit": "%",
+      "quantity": "coefficient of variation between biological triplicates"
+    }
+  ],
+  "sourceTable": {
+    "worksheet": "Table S5",
+    "dataRows": 2058,
+    "distinctUniProtAccessions": 2057,
+    "duplicateAccessionOutsideSelectedSnapshot": "P63284 (clpB), source rows 925 and 2051"
+  },
+  "counts": {
+    "rows": 48,
+    "primarySamples": 22,
+    "primaryMeasuredValues": 1056,
+    "primaryMissingValues": 0,
+    "mappedRows": 48,
+    "unmappedRows": 0,
+    "sourceAmbiguousRows": 0,
+    "targetAmbiguousRows": 0,
+    "expectedNative": {
+      "total": 48,
+      "mapped": 48,
+      "unmapped": 0,
+      "ambiguous": 0,
+      "rejected": 0
+    },
+    "methods": {
+      "exact-uniprot-dbxref-and-parent-root": 47,
+      "exact-source-gene-qualifier-fallback": 1
+    }
+  },
+  "limits": [
+    "These are model-calibrated abundance estimates from mass spectrometry, not literal cell counts.",
+    "Selection favors strongly condition-responsive proteins and is not a whole-proteome allocation total.",
+    "A treemap shows only the selected proteins; show its denominator explicitly.",
+    "No gene-coordinate mapping is applied across the different E. coli strains.",
+    "The exact source accession P07363 has one exact gene-name fallback to cheA.gene.1; the target contains P07363-1, which was not treated as an exact accession match.",
+    "Values are source BW25113 properties; the current MG1655 annotation is the display target."
+  ]
+}

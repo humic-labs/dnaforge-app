@@ -280,7 +280,7 @@ export function RegistryLinkedRecordRow({
         onClick={onPreview}
         className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
       >
-        <span className="text-fg-subtle">{iconForLimsKind(entry.entity.kind)}</span>
+        <span>{iconForLimsKind(entry.entity.kind)}</span>
         <div className="min-w-0">
           <div className="truncate text-fg">{entry.entity.name}</div>
           <div className="mt-0.5 flex items-center gap-1.5 text-[10px] uppercase text-fg-subtle">

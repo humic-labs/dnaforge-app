@@ -91,7 +91,7 @@ function FrameRow({
       disabled={!canCopy || isCopyPending}
       aria-label={`Copy ${frame.strand} frame ${frame.frame} translation`}
       data-testid={`translation-frame-${testId}`}
-      className="group w-full flex items-start gap-3 px-4 py-2 text-left border-t border-border first:border-t-0 hover:bg-bg-muted disabled:cursor-default disabled:hover:bg-transparent"
+      className="group w-full flex items-start gap-3 px-4 py-2 text-left border-t border-border first:border-t-0 wp-interactive disabled:cursor-default "
     >
       <span className="w-16 shrink-0 pt-0.5 text-xs font-medium text-fg-muted">
         Frame {frame.frame}
@@ -245,7 +245,7 @@ export function CopyTranslationDialog({
             <button
               type="button"
               onClick={closeDialog}
-              className="px-2 py-1 text-xs text-fg-muted hover:text-fg hover:bg-bg-muted rounded transition-colors"
+              className="px-2 py-1 text-xs text-fg-muted wp-interactive rounded transition-colors"
               data-testid="copy-translation-dialog-close"
               aria-label="Close"
             >

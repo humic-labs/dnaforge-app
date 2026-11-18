@@ -150,8 +150,9 @@ export function NavigationRow({
     <div
       {...withoutAppearance(props)}
       data-ui-navigation-row
+      data-interaction-group="true"
       data-selected={selected || undefined}
-      className={`${UI_NAVIGATION_ROW_CLASS}${selected ? ' bg-bg-muted' : ''}${dimmed ? ' opacity-50' : ''}`}
+      className={`${UI_NAVIGATION_ROW_CLASS}${dimmed ? ' opacity-50' : ''}`}
       onClick={(event) => {
         if (event.target === event.currentTarget) primaryRef.current?.click();
       }}

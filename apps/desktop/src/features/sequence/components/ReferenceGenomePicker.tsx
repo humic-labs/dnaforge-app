@@ -11,6 +11,7 @@ import {
 } from '../reference-view-compatibility';
 import { SavedTrackViews } from './SavedTrackViews';
 import { Button, TextField, UI_MODAL_LAYER_CLASS } from '../../../components/ui';
+import { INTERACTION_CLASS, MenuSearchInput } from '@waypoint/ui-components';
 import { ReferenceSavedViewMenu } from './ReferenceSavedViewMenu';
 import { projectSavedTrackView } from '../track-view-library';
 import { assertTrackViewReference, openSavedTrackView } from '../open-track-view';
@@ -88,9 +89,6 @@ interface ReferenceGenomePickerProps {
 
 const RETIRED_REFERENCE_IDS = new Set(['puc19-l09137-2']);
 
-const REFERENCE_OPEN_BUTTON_CLASS =
-  'pointer-events-auto relative z-20 inline-flex items-center rounded-md bg-black/[0.04] px-2.5 py-1 font-medium text-fg transition-colors duration-150 ease-out enabled:hover:bg-black/[0.14] focus-visible:bg-black/[0.14] focus-visible:outline-none disabled:cursor-wait disabled:opacity-60 dark:bg-white/[0.055] dark:enabled:hover:bg-white/[0.18] dark:focus-visible:bg-white/[0.18]';
-
 function ReferenceOpenButton({
   name,
   onClick,
@@ -101,15 +99,11 @@ function ReferenceOpenButton({
   disabled: boolean;
 }) {
   return (
-    <button
-      type="button"
-      aria-label={`Open ${name}`}
-      onClick={onClick}
-      disabled={disabled}
-      className={REFERENCE_OPEN_BUTTON_CLASS}
-    >
-      Open
-    </button>
+    <span className="pointer-events-auto relative z-20 inline-flex">
+      <Button type="button" aria-label={`Open ${name}`} onClick={onClick} disabled={disabled}>
+        Open
+      </Button>
+    </span>
   );
 }
 
@@ -267,7 +261,7 @@ function SortableReferenceHeader({
       <button
         type="button"
         aria-label={`Sort by ${label}`}
-        className={`inline-flex w-full items-center gap-1 text-left transition-colors hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+        className={`${INTERACTION_CLASS} inline-flex w-full items-center gap-1 text-left ${
           active ? 'font-bold text-accent' : ''
         }`}
         onClick={() => onSort(column)}
@@ -1196,6 +1190,9 @@ export function ReferenceGenomePicker({
               bamTracks: [...restoredTracks.bamTracks],
               ...(managedTracks
                 ? {
+                    sequenceDataLayers: managedTracks.sequenceDataLayers,
+                    contactProjection: managedTracks.contactProjection,
+                    comparisonProjection: managedTracks.comparisonProjection,
                     signalReadPileupViews: managedTracks.signalReadPileupViews,
                     primerBindings: managedTracks.primerBindings,
                     userAnnotations: managedTracks.userAnnotations,
@@ -1675,7 +1672,7 @@ export function ReferenceGenomePicker({
         <span>Opening saved view…</span>
         <button
           type="button"
-          className="rounded px-2 py-1 text-fg-muted hover:bg-bg-subtle hover:text-fg disabled:opacity-50"
+          className={`${INTERACTION_CLASS} rounded px-2 py-1 text-fg-muted`}
           onClick={closePicker}
           disabled={portableViewCommitInProgress}
         >
@@ -1855,14 +1852,15 @@ export function ReferenceGenomePicker({
             >
               References
             </h2>
-            <input
-              type="text"
-              data-testid="reference-library-search"
-              value={filter}
-              onChange={(event) => setFilter(event.target.value)}
-              placeholder="Search references and saved views"
-              className="h-8 min-w-0 flex-1 rounded border border-border bg-bg px-3 text-sm text-fg placeholder:text-fg-subtle focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
+            <div className="min-w-0 flex-1">
+              <MenuSearchInput
+                type="text"
+                data-testid="reference-library-search"
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
+                placeholder="Search references and saved views"
+              />
+            </div>
             <span className="shrink-0 text-xs text-fg-subtle">
               {totalGenomeRows} {totalGenomeRows === 1 ? 'genome' : 'genomes'}
             </span>
@@ -1873,7 +1871,7 @@ export function ReferenceGenomePicker({
               data-testid="reference-picker-open-saved-view"
               disabled={pickerOperationInFlight}
               onClick={() => void handleOpenPortableView()}
-              className="h-8 rounded border border-border bg-bg px-3 text-xs font-medium text-fg hover:bg-bg-subtle disabled:cursor-wait disabled:opacity-60"
+              className={`${INTERACTION_CLASS} h-8 rounded px-3 text-xs font-medium text-fg disabled:cursor-wait`}
             >
               {portableViewState === 'opening' ? 'Opening view file…' : 'Open view file…'}
             </button>
@@ -1900,7 +1898,7 @@ export function ReferenceGenomePicker({
                 disabled={portableViewCommitInProgress}
                 onClick={closePicker}
                 aria-label="Close"
-                className="ml-1 rounded p-2 text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg"
+                className={`${INTERACTION_CLASS} ml-1 rounded p-2 text-fg-muted`}
               >
                 <CloseIcon size={16} />
               </button>
@@ -2494,7 +2492,7 @@ export function ReferenceGenomePicker({
                   aria-label="Cancel adding reference"
                   disabled={importInFlight}
                   onClick={closeImportModal}
-                  className="rounded p-2 text-fg-muted hover:bg-bg-muted hover:text-fg disabled:cursor-wait disabled:opacity-50"
+                  className={`${INTERACTION_CLASS} rounded p-2 text-fg-muted disabled:cursor-wait`}
                 >
                   <CloseIcon size={16} />
                 </button>

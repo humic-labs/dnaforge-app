@@ -65,7 +65,7 @@ export function LimsImportDropZone({
         className={`flex w-full max-w-lg flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed px-6 py-12 text-center transition-colors ${
           dragging
             ? 'border-accent bg-accent/10'
-            : 'border-border bg-bg-subtle/40 hover:border-accent hover:bg-bg-subtle'
+            : 'border-border bg-bg-subtle/40 hover:border-accent wp-interactive'
         }`}
       >
         <FilePlusIcon className={`h-10 w-10 ${dragging ? 'text-accent' : 'text-fg-subtle'}`} />

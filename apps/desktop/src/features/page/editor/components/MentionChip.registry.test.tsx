@@ -29,6 +29,23 @@ function chip(attrs: Record<string, unknown>) {
 }
 
 describe('a Registry link chip', () => {
+  it('preserves an RNA primer kind alongside its existing primer identity', () => {
+    const { container } = chip({
+      entityType: 'primer',
+      entityId: 'primer-library-id',
+      label: 'RNA primer',
+      registryKind: 'rna_oligo',
+      path: 'primers/rna.primer.json',
+    });
+    expect(container.querySelector('svg')).toHaveAttribute('data-entity-color-family', 'rna');
+    fireEvent.click(screen.getByTestId('mention-chip'));
+    expect((listener.mock.calls[0][0] as CustomEvent).detail).toMatchObject({
+      entityType: 'primer',
+      entityId: 'primer-library-id',
+      action: 'open',
+    });
+  });
+
   it('keeps the record kind and opens the record by its Registry id', () => {
     chip({
       entityType: 'registry',

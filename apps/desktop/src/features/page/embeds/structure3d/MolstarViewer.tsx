@@ -1823,7 +1823,7 @@ const MolstarViewerComponent: React.FC<MolstarViewerProps> = ({
         <button
           type="button"
           aria-label="Retry 3D structure"
-          className="rounded border border-error/40 bg-bg px-3 py-1.5 text-xs font-medium text-fg hover:bg-bg-subtle"
+          className="rounded border border-error/40 bg-bg px-3 py-1.5 text-xs font-medium text-fg wp-interactive"
           onClick={() => {
             const cachedViewer = viewerCache.get(viewerCacheKey);
             if (rendererHostId && cachedViewer?.plugin) {

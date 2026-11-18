@@ -846,7 +846,7 @@ const StreamingSection = memo(function StreamingSection({
       })}
       <button
         onClick={stopGeneration}
-        className="mt-2 flex items-center gap-1.5 px-2 py-1 rounded border border-border bg-bg hover:bg-bg-muted text-fg-muted hover:text-fg text-xs transition-colors"
+        className="mt-2 flex items-center gap-1.5 px-2 py-1 rounded border border-border bg-bg wp-interactive text-fg-muted text-xs transition-colors"
         title="Pause agent (Escape)"
         data-testid="ai-stop-button"
       >
@@ -3132,7 +3132,7 @@ function InitializedChatView({
                       <ThinkingLabel />
                       <button
                         onClick={handleStopGeneration}
-                        className="ml-2 p-1 rounded hover:bg-bg-muted text-fg-muted hover:text-fg transition-colors"
+                        className="ml-2 p-1 rounded wp-interactive text-fg-muted transition-colors"
                         title="Pause agent (Escape)"
                         data-testid="ai-stop-button"
                       >
@@ -3243,7 +3243,7 @@ function InitializedChatView({
                         <div className="flex items-center gap-1">
                           <button
                             onClick={handleAttachFile}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-bg-muted hover:text-accent disabled:opacity-30 [&_svg]:stroke-[2.25]"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition-colors wp-interactive hover:text-accent disabled:opacity-30 [&_svg]:stroke-[2.25]"
                             title="Attach file"
                             aria-label="Attach file"
                             data-testid="chat-attach-button"

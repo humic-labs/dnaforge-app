@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { toUserMessage } from '@waypoint/user-messages';
 import { observeProjectLifecyclePhase } from '../features/workspace-loader/workspace-telemetry';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
@@ -598,7 +599,8 @@ export function RootFolder({
     <div ref={rootElement} data-workspace-root-path={folder.path}>
       {isDragOver && <div className="h-0.5 bg-accent" />}
       <div
-        className={`group relative flex items-center hover:bg-bg-muted ${project ? 'bg-bg-subtle/40' : ''}`}
+        data-interaction-group="true"
+        className={`${INTERACTION_CLASS} group relative flex items-center ${project ? 'bg-bg-subtle/40' : ''}`}
       >
         <button
           role="treeitem"
@@ -653,7 +655,8 @@ export function RootFolder({
           )}
           <span
             data-testid="project-root-name"
-            className="min-w-0 truncate text-sm font-semibold text-fg group-hover:overflow-visible group-hover:text-clip group-hover:whitespace-nowrap group-hover:bg-bg-muted group-focus-within:overflow-visible group-focus-within:text-clip group-focus-within:whitespace-nowrap group-focus-within:bg-bg-muted"
+            data-interaction-cover="true"
+            className="min-w-0 truncate text-sm font-semibold text-fg group-hover:overflow-visible group-hover:text-clip group-hover:whitespace-nowrap group-focus-within:overflow-visible group-focus-within:text-clip group-focus-within:whitespace-nowrap"
           >
             {displayName}
           </span>
@@ -661,7 +664,8 @@ export function RootFolder({
         {project && (
           <div
             data-testid="project-root-actions"
-            className="relative z-20 mr-1 flex flex-shrink-0 items-center gap-0.5 group-hover:bg-bg-muted group-focus-within:bg-bg-muted"
+            data-interaction-cover="true"
+            className="relative z-20 mr-1 flex flex-shrink-0 items-center gap-0.5"
           >
             {!readOnly &&
               (project.access ?? (folder.pinned ? 'reference' : 'writable')) !== 'reference' && (
@@ -672,7 +676,7 @@ export function RootFolder({
                     data-testid="project-root-create-button"
                     data-project-path={project.repoPath}
                     onClick={handleProjectCreateMenu}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted opacity-80 transition-colors hover:bg-bg-subtle hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 group-hover:opacity-100"
+                    className={`${INTERACTION_CLASS} inline-flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted opacity-80 group-hover:opacity-100`}
                   >
                     <PlusIcon className="h-3.5 w-3.5" />
                   </button>
@@ -685,7 +689,7 @@ export function RootFolder({
                 data-testid="project-root-menu-button"
                 data-project-path={project.repoPath}
                 onClick={handleProjectMenu}
-                className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted opacity-80 transition-colors hover:bg-bg-subtle hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 group-hover:opacity-100"
+                className={`${INTERACTION_CLASS} inline-flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted opacity-80 group-hover:opacity-100`}
               >
                 <EllipsisIcon />
               </button>

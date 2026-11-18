@@ -100,6 +100,52 @@ function sequenceTab(indexedGenome: IndexedGenomeTabState): Tab {
 }
 
 describe('mergeIndexedGenomePersistState', () => {
+  it('retains a saved contact camera when reference preparation publishes fresh source fields', () => {
+    const contactProjection: NonNullable<IndexedGenomeTabState['contactProjection']> = {
+      kind: 'contact-matrix',
+      project: '/workspace',
+      source: {
+        schema: 'dnaforge.contact-source.v1',
+        path: 'contacts.json',
+        sha256: 'a'.repeat(64),
+        xReference: { id: 'chr11', chrom: 'chr11', length: 1000 },
+        yReference: { id: 'chr11', chrom: 'chr11', length: 1000 },
+      },
+      camera: { projectionId: 'contacts', xStart: 10, xEnd: 100, yStart: 200, yEnd: 300 },
+    };
+    const persisted = tabState({ contactProjection });
+    expect(mergeIndexedGenomePersistState(tabState(), persisted, null).contactProjection).toEqual(
+      contactProjection
+    );
+    expect(
+      mergeIndexedGenomePersistState(tabState({ contactProjection: undefined }), persisted, null)
+        .contactProjection
+    ).toBeUndefined();
+  });
+
+  it('retains a gapped comparison column camera across reference preparation', () => {
+    const comparisonProjection: NonNullable<IndexedGenomeTabState['comparisonProjection']> = {
+      kind: 'aligned-genomes',
+      project: '/workspace',
+      source: {
+        schema: 'dnaforge.comparison-source.v1',
+        path: 'comparison.paf',
+        sha256: 'a'.repeat(64),
+        targetReference: { id: 'chr11', chrom: 'chr11', length: 1000 },
+        queryReference: { id: 'query', chrom: 'query', length: 1000 },
+      },
+      camera: { projectionId: `comparison:${'a'.repeat(64)}`, startColumn: 10, endColumn: 90 },
+    };
+    const persisted = tabState({ comparisonProjection });
+    expect(
+      mergeIndexedGenomePersistState(tabState(), persisted, null).comparisonProjection
+    ).toEqual(comparisonProjection);
+    expect(
+      mergeIndexedGenomePersistState(tabState({ comparisonProjection: undefined }), persisted, null)
+        .comparisonProjection
+    ).toBeUndefined();
+  });
+
   it('keeps next values when they are present', () => {
     const next = tabState({
       workspaceRoot: '/next',

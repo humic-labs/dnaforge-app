@@ -43,10 +43,10 @@ describe('ProteinSequenceContextMenu', () => {
 
   it('keeps copy available while readonly legacy data has no scientific or reference actions', () => {
     const props = renderMenu({ readOnly: true });
-    fireEvent.click(screen.getByTestId('protein-menu-copy-sequence'));
-    expect(props.onCopySequence).toHaveBeenCalledTimes(1);
     for (const action of ['backtranslate', 'view-structure', 'predict-structure', 'ask-ai'])
       expect(screen.queryByTestId(`protein-menu-${action}`)).toBeNull();
+    fireEvent.click(screen.getByTestId('protein-menu-copy-sequence'));
+    expect(props.onCopySequence).toHaveBeenCalledTimes(1);
   });
 
   it('labels actions as scoped to "Selection" when hasSelection is true', () => {

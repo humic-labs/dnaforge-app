@@ -17,6 +17,8 @@ import type { ManagedSequenceDocumentRef } from '../shared/managed-sequence-docu
 import { sequenceDisplayName } from '../shared/sequence-presentation';
 import { detectDocumentPackage, type DocumentPackageKind } from '../shared/document-package';
 import { getCatalogEntityForFilePath } from '../db/workspace-catalog';
+import type { EntityColorContext } from '../shared/entity-color-family';
+import { catalogIconContext } from '../shared/catalog-icon-context';
 import {
   benchlingImportDisplayName,
   isManagedBenchlingProvenanceSidecar,
@@ -49,6 +51,8 @@ export interface FileEntry {
   packageKind?: DocumentPackageKind;
 
   sequenceDocument?: ManagedSequenceDocumentRef;
+
+  iconContext?: EntityColorContext;
 
   isNotebookPackage?: boolean;
 
@@ -200,6 +204,7 @@ async function readDirectoryEntries(
         : undefined;
       const packageKind = detectedPackage?.kind;
       let sequenceDocument: ManagedSequenceDocumentRef | undefined;
+      let iconContext: EntityColorContext | undefined = entry.iconContext;
       let packageName: string | undefined;
       if (packageKind === 'sequence') {
         try {
@@ -209,6 +214,7 @@ async function readDirectoryEntries(
             await platform().fs.readTextFile(metadataPath)
           );
           packageName = sequenceDisplayName(document.name);
+          iconContext = { kind: document.entity.schema.name, ...iconContext };
           sequenceDocument = {
             kind: 'managed-sequence',
             packageId: document.id,
@@ -216,6 +222,14 @@ async function readDirectoryEntries(
           };
         } catch {
           packageName = 'Sequence';
+        }
+      }
+      if (!iconContext && !isDir && entry.name.toLowerCase().endsWith('.primer.json')) {
+        try {
+          const entity = await getCatalogEntityForFilePath(fullPath);
+          iconContext = catalogIconContext({ path: fullPath, metadata: entity?.metadata });
+        } catch {
+          iconContext = undefined;
         }
       }
       const importedDisplayName = benchlingImportDisplayName({
@@ -243,6 +257,7 @@ async function readDirectoryEntries(
         isDirectory: isDir && !packageKind,
         packageKind,
         sequenceDocument,
+        iconContext,
         isNotebookPackage: packageKind === 'notebook',
         isBiologyFile,
         extension: !isDir && !packageKind ? getExtension(entry.name) : null,
@@ -461,13 +476,15 @@ export function useFileBrowser(
             lifecycle,
             phase: nextPartialError ? 'tree_partial' : 'tree_ready',
           });
-          nextEntries = preserveExpandedChildren(
-            nextEntries,
-            entriesRef.current,
-            expandedPathsRef.current
-          );
-          entriesRef.current = nextEntries;
-          setEntries(nextEntries);
+          setEntries((currentEntries) => {
+            const next = preserveExpandedChildren(
+              nextEntries,
+              currentEntries,
+              expandedPathsRef.current
+            );
+            entriesRef.current = next;
+            return next;
+          });
           setCatalogEntriesByParent((previous) => {
             const next = new Map(nextCatalogEntries);
             for (const path of expandedPathsRef.current) {
@@ -571,6 +588,7 @@ export function useFileBrowser(
           setEntries((prev) => {
             const next = updateEntriesWithChildren(prev, path, children.files, false);
             entriesRef.current = next;
+            expandedPathsRef.current = new Set([...expandedPathsRef.current, path]);
             return next;
           });
           setCatalogEntriesByParent((previous) => new Map(previous).set(path, children.catalog));

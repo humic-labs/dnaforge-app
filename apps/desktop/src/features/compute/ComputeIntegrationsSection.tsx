@@ -139,7 +139,7 @@ function ProviderCard({ provider }: { provider: ComputeProviderSummary }) {
         )}
       </div>
       <details className="mt-2 text-xs text-fg-muted">
-        <summary className="w-fit cursor-pointer text-fg-subtle hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+        <summary className="w-fit cursor-pointer text-fg-subtle wp-interactive ">
           {provider.connected ? 'Manage connection' : 'Details'}
         </summary>
         <div className="mt-3 space-y-3" data-testid="compute-provider-details">

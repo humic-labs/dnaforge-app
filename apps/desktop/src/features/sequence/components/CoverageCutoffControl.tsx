@@ -175,7 +175,7 @@ export function CoverageCutoffControl({
         className={`shrink-0 rounded px-1 py-0.5 font-medium ${
           manualDepth === 0
             ? 'bg-emerald-600 text-white'
-            : 'border border-border text-fg-muted hover:bg-bg-muted'
+            : 'border border-border text-fg-muted wp-interactive'
         }`}
       >
         Auto

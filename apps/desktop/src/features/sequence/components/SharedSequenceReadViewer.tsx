@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { toUserMessage } from '@waypoint/user-messages';
 import type { SharedSequenceColumnNavigation } from './alignment-mutation-navigation';
 import { buildAlignmentCodingProjection } from './alignment-coding-genome';
@@ -971,35 +972,37 @@ export function SharedSequenceReadViewer({
               </span>
             ))}
           </div>
-          <select
-            aria-label="Jump to feature"
-            data-ui-control="select"
-            defaultValue=""
-            className="min-w-0 max-w-72 rounded border border-transparent bg-bg-muted px-2 py-1 text-fg outline-none focus:border-border"
-            onChange={(event) => {
-              const feature = cdsPresentation.navigationFeatures.find(
-                (feature) => String(feature.id) === event.currentTarget.value
-              );
-              if (feature) {
-                dismissColumnSelection();
-                clearNativeSelection();
-                mapRef.current?.setSelection(null, null);
-                const length = scene!.axis.length;
-                const span = (feature.end - feature.start + length) % length || length;
-                mapRef.current?.setViewCenter((feature.start + span / 2) % length);
-              }
-              event.currentTarget.value = '';
-            }}
-          >
-            <option value="" disabled>
-              Jump to feature…
-            </option>
-            {cdsPresentation.navigationFeatures.map((feature) => (
-              <option key={feature.id} value={feature.id}>
-                {feature.displayName}
+          <span className="inline-block min-w-0 max-w-72">
+            <MenuNativeSelect
+              density="compact"
+              aria-label="Jump to feature"
+              data-ui-control="select"
+              defaultValue=""
+              onChange={(event) => {
+                const feature = cdsPresentation.navigationFeatures.find(
+                  (feature) => String(feature.id) === event.currentTarget.value
+                );
+                if (feature) {
+                  dismissColumnSelection();
+                  clearNativeSelection();
+                  mapRef.current?.setSelection(null, null);
+                  const length = scene!.axis.length;
+                  const span = (feature.end - feature.start + length) % length || length;
+                  mapRef.current?.setViewCenter((feature.start + span / 2) % length);
+                }
+                event.currentTarget.value = '';
+              }}
+            >
+              <option value="" disabled>
+                Jump to feature…
               </option>
-            ))}
-          </select>
+              {cdsPresentation.navigationFeatures.map((feature) => (
+                <option key={feature.id} value={feature.id}>
+                  {feature.displayName}
+                </option>
+              ))}
+            </MenuNativeSelect>
+          </span>
         </div>
       )}
       <div

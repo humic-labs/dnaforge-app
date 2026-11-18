@@ -8,7 +8,9 @@ import {
   findEntityNavigationUrlInArgv,
   isEntityNavigationUrl,
   parseEntityNavigationUrl,
+  type EntityNavigationTarget,
 } from '../../shared/entity-navigation';
+import { focusWindowUnlessBackground } from '../background-window-mode';
 import { EntityNavigationQueue } from '../entity-navigation';
 import { createEntityNavigationProtocol } from '../entity-navigation-protocol';
 import { isExplicitE2eTestRuntime } from '../config';
@@ -25,19 +27,33 @@ const protocol = createEntityNavigationProtocol({
     process.env.NODE_ENV === 'test',
   defaultScheme: getRedirectScheme,
 });
-let boundWindowId: number | null = null;
+let boundWindow: BrowserWindow | null = null;
 
 function bindWindow(window: BrowserWindow): void {
-  if (boundWindowId === window.id) return;
-  boundWindowId = window.id;
+  if (boundWindow === window) return;
+  boundWindow = window;
   window.webContents.on('did-start-navigation', (_event, _url, inPlace, mainFrame) => {
     if (mainFrame && !inPlace) queue.markRendererLoading();
   });
   window.once('closed', () => {
-    if (boundWindowId !== window.id) return;
-    boundWindowId = null;
+    if (boundWindow !== window) return;
+    boundWindow = null;
     queue.markRendererLoading();
   });
+}
+
+function queueTarget(target: EntityNavigationTarget, window: BrowserWindow | null) {
+  if (window && !window.isDestroyed()) bindWindow(window);
+  else queue.markRendererLoading();
+  const targets = queue.enqueue(target);
+  if (targets.length && window && !window.isDestroyed())
+    sendRendererIpc(window.webContents, 'entity-navigation:open', targets);
+}
+
+export function requestEntityNavigation(target: EntityNavigationTarget) {
+  queueTarget(target, boundWindow);
+  if (boundWindow && !boundWindow.isDestroyed()) focusWindowUnlessBackground(boundWindow);
+  else app.emit('activate');
 }
 
 export const entityNavigationFeature: MainFeature = {
@@ -67,12 +83,7 @@ export const entityNavigationFeature: MainFeature = {
       );
       return true;
     }
-    const window = context.window;
-    if (window && !window.isDestroyed()) bindWindow(window);
-    else queue.markRendererLoading();
-    const targets = queue.enqueue(target);
-    if (targets.length && window && !window.isDestroyed())
-      sendRendererIpc(window.webContents, 'entity-navigation:open', targets);
+    queueTarget(target, context.window);
     context.activate();
     return true;
   },

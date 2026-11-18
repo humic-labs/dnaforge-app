@@ -2,6 +2,7 @@ import {
   AnnotationRolePaletteBuilderV1,
   sourceShapeRoleKeyV1,
 } from '../../../annotation-role-palette';
+import { sourceAnnotationAliasesV1 } from '../../../annotation-data-appearance';
 import { annotationCanonicalIdentityV2 } from '../../../geometry/annotation-canonical-identity-v2';
 import { featureTypeColor, isTranscriptSourceType } from '../../../feature-colors';
 import type { Feature } from '../../../types';
@@ -199,6 +200,14 @@ export function compileTranscriptPageBundle(
     partitioned.sortedPrimitives
   );
   const gpuReadyScene: GpuReadyPartitionedTranscriptScene = {
+    sourceAnnotationAliases: Object.freeze(
+      input.features.map((feature, featureIndex) =>
+        Object.freeze({
+          featureIndex,
+          aliases: feature.sourceAnnotationAliases ?? sourceAnnotationAliasesV1(feature.qualifiers),
+        })
+      )
+    ),
     partitionSpanBp: partitioned.partitionSpanBp,
     maxPrimitiveSpanBp: partitioned.maxPrimitiveSpanBp,
     packedInstanceData: partitioned.packedInstanceData,

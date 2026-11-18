@@ -1,0 +1,228 @@
+{
+  "schema": "dnaforge.sequence-data-layer-fixture.v1",
+  "dataset": {
+    "number": 7,
+    "id": "07-rna-decay",
+    "title": "RNA lifetime of single-gene transcripts",
+    "study": "Chen et al., 2015",
+    "sourceReference": "K-12 MG1655, NC_000913.2",
+    "scope": "631 strictly matched single-gene transcripts from the original paired-phase829-transcript selection. The198 other selected transcripts remain in the preserved original snapshot and exclusion crosswalk."
+  },
+  "snapshot": {
+    "file": "snapshot.json",
+    "originalSha256": "2c4df22e29fa8f6320d525a25df5cc72be14a1528393522aa15e87a75057afe0",
+    "sha256": "bdded0ddafdcae8158c49ffb25190743e23e93d1fe3c797c61fff6974ad40631",
+    "scientificRecordsPreserved": true,
+    "presentationFieldsRemoved": true
+  },
+  "sourceFiles": [
+    {
+      "file": "raw/genes/msb0011-0781-sd6.csv",
+      "url": "https://pmc-oa-opendata.s3.amazonaws.com/PMC4332155.1/msb0011-0781-sd6.csv",
+      "sha256": "257cd0ac2d681ad352e9b9dd4b86a9c5bfa51ca2a6b9159359ba2dce540764bb",
+      "bytes": 206607,
+      "citation": "https://doi.org/10.15252/msb.20145794",
+      "tableRole": "exp_bins",
+      "headers": [
+        "Operon",
+        "Length (nt)",
+        "ID",
+        "Bin #",
+        "Posi",
+        "Posi_err",
+        "Lifetime",
+        "Lifetime_err",
+        "Chisq"
+      ],
+      "fullSourceRows": 3220
+    },
+    {
+      "file": "raw/genes/msb0011-0781-sd7.csv",
+      "url": "https://pmc-oa-opendata.s3.amazonaws.com/PMC4332155.1/msb0011-0781-sd7.csv",
+      "sha256": "2d97b1a73fcec0a9e9045418cf562922eb04c8907263e2c12e688eef5affa83d",
+      "bytes": 312134,
+      "citation": "https://doi.org/10.15252/msb.20145794",
+      "tableRole": "stationary_bins",
+      "headers": [
+        "Operon",
+        "Length (nt)",
+        "ID",
+        "Bin #",
+        "Posi",
+        "Posi_err",
+        "Lifetime",
+        "Lifetime_err",
+        "Chisq"
+      ],
+      "fullSourceRows": 5015
+    },
+    {
+      "file": "raw/genes/msb0011-0781-sd9.csv",
+      "url": "https://pmc-oa-opendata.s3.amazonaws.com/PMC4332155.1/msb0011-0781-sd9.csv",
+      "sha256": "1686dd7ac205d5cdc06a8d5f4e44dbc7d407853e266b23e37a97350a44e5bede",
+      "bytes": 30427,
+      "citation": "https://doi.org/10.15252/msb.20145794",
+      "tableRole": "exp",
+      "headers": [
+        "RNA",
+        "ID",
+        "Length",
+        "total fragments",
+        "Avg lifetime",
+        "StdDev"
+      ],
+      "fullSourceRows": 847
+    },
+    {
+      "file": "raw/genes/msb0011-0781-sd12.csv",
+      "url": "https://pmc-oa-opendata.s3.amazonaws.com/PMC4332155.1/msb0011-0781-sd12.csv",
+      "sha256": "bd3f943a4118acf91f4f98286fe295a28bf3d290370c0f9d1644e808ef36bb44",
+      "bytes": 45444,
+      "citation": "https://doi.org/10.15252/msb.20145794",
+      "tableRole": "stationary",
+      "headers": [
+        "RNA",
+        "ID",
+        "Length",
+        "total fragments",
+        "Avg lifetime",
+        "StdDev"
+      ],
+      "fullSourceRows": 1259
+    },
+    {
+      "file": "raw/genes/msb0011-0781-sd11.csv",
+      "url": "https://pmc-oa-opendata.s3.amazonaws.com/PMC4332155.1/msb0011-0781-sd11.csv",
+      "sha256": "596d24e7c1d96311e9d30085089647d89b0166c720587cce7fa8e060e8708dc6",
+      "bytes": 11178,
+      "citation": "https://doi.org/10.15252/msb.20145794",
+      "tableRole": "elongation",
+      "headers": [
+        "Operon",
+        "Length (nt)",
+        "ID",
+        "Elongation Rate (nt/s)",
+        "Elongation Rate err",
+        "Chisq"
+      ],
+      "fullSourceRows": 263
+    }
+  ],
+  "targetReference": {
+    "accession": "NC_000913.2",
+    "organism": "Escherichia coli K-12 MG1655",
+    "length": 4639675,
+    "normalizedSequenceSha256": "b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+    "normalizedSequenceFingerprint": "sha256:b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+    "directory": "reference-NC_000913.2",
+    "fastaFile": "NC_000913.2.fa.gz",
+    "fastaSha256": "57e309beca15cf4edef112fec10ecc2daf77539eb9b34df39206331dc4d1454e",
+    "gffFile": "NC_000913.2.gff3.gz",
+    "gffSha256": "59fc29e2046e3bf324d987808f5cc2193593a9b8004411376d843a648fc41db6",
+    "referenceSubstitutionApplied": false
+  },
+  "mapping": {
+    "kind": "annotation",
+    "identifierColumn": "gene_feature_id",
+    "identifierField": "ID"
+  },
+  "valueColumns": [
+    "exponential_lifetime_min",
+    "stationary_lifetime_min"
+  ],
+  "unit": "minutes (RNA exponential lifetime tau)",
+  "aggregation": "none; use the final author-published S4/S7 summary scalars",
+  "unresolvedPolicy": "reject; the198 explicitly excluded selected transcripts are not submitted as gene properties",
+  "files": {
+    "csv": "data.csv",
+    "snapshot": "snapshot.json",
+    "sourceRecords": "source-records.json",
+    "crosswalk": "crosswalk.json"
+  },
+  "counts": {
+    "originalSelectedTranscripts": 829,
+    "matchedSingleGeneTranscriptProperties": 631,
+    "uniqueAnnotationGenes": 631,
+    "excludedSelectedTranscripts": 198,
+    "exclusionReasons": {
+      "no-exact-primary-gene-name": 179,
+      "source-length-does-not-equal-gene-span": 19
+    },
+    "primaryPhaseColumns": 2,
+    "primaryMeasuredCells": 1262,
+    "primaryMissingCells": 0,
+    "numericZeroCounts": {
+      "exponential_lifetime_min": 0,
+      "stationary_lifetime_min": 3,
+      "exponential_fragment_stddev_min": 183,
+      "stationary_fragment_stddev_min": 183,
+      "exponential_elongation_nt_per_s": 0,
+      "exponential_elongation_fit_error_nt_per_s": 0
+    },
+    "numericNegativeCounts": {
+      "exponential_lifetime_min": 0,
+      "stationary_lifetime_min": 0,
+      "exponential_fragment_stddev_min": 0,
+      "stationary_fragment_stddev_min": 0,
+      "exponential_elongation_nt_per_s": 0,
+      "exponential_elongation_fit_error_nt_per_s": 0
+    },
+    "missingCellCounts": {
+      "gene_id": 0,
+      "gene_feature_id": 0,
+      "ncbi_gene_id": 0,
+      "source_transcript_id": 0,
+      "source_transcript_name": 0,
+      "exponential_lifetime_min": 0,
+      "stationary_lifetime_min": 0,
+      "exponential_fragment_stddev_min": 0,
+      "stationary_fragment_stddev_min": 0,
+      "exponential_reported_fragments": 0,
+      "stationary_reported_fragments": 0,
+      "source_transcript_length_nt": 0,
+      "exponential_elongation_nt_per_s": 485,
+      "exponential_elongation_fit_error_nt_per_s": 485
+    },
+    "unmeasuredElongationRows": 485,
+    "measuredElongationRows": 146
+  },
+  "measurementMeaning": {
+    "primary": "S4/S7 author-published average lifetime for the named single-gene transcript. These are transcript-associated gene properties, not independently fitted per-gene values for multi-gene TUs.",
+    "lifetime": "Exponential lifetime tau in minutes, not half-life.",
+    "fragmentStdDev": "Across-fragment standard deviation from the author summary, not biological-replicate error or a confidence interval.",
+    "fragmentCount": "Author summary count. It is preserved rather than replaced by the number of all rows present in S1/S2.",
+    "binFits": "S1/S2 contain300-nt transcript-bin delay/lifetime fits. Posi is delay in minutes. Bin indices and signed fit parameters never become genomic coordinates.",
+    "elongation": "Optional author S6 exponential-phase elongation rate and fit error, in nt/s. Missing rates remain empty.",
+    "replicates": "The supplied tables contain fitted summaries and errors, with no individual biological-replicate values supplied for these631 transcript averages."
+  },
+  "missingness": "Both lifetime means and fragment standard deviations are present in all631 selected rows. Literal numeric zeros remain zero. Optional unmeasured elongation values remain empty CSV fields and null source evidence. No missing transcript, phase or gene value is zero-filled.",
+  "selection": "No alias matching, compact operon expansion, name normalization, TU-boundary reconstruction or propagation of a multi-gene TU value is used. Both source phases must have the same exact transcript ID/name and length.",
+  "confidence": {
+    "referenceAccession": "high; directly named in primary article",
+    "exactGeneIdentityAndLengthBinding": "high; exact unique primary name plus source length equality checked against original GenBank and native GFF",
+    "geneAssociatedTranscriptSummaryMeaning": "high with restricted single-gene scope; not an independently fitted gene-level estimate across multi-gene TUs"
+  },
+  "limits": [
+    "This native subset contains631 of the829 original paired-phase selected transcripts. The198 excluded transcript records are retained without genomic or gene-property placement.",
+    "The source measurements remain transcript means. No claim is made that a gene feature boundary is an experimentally measured TU boundary.",
+    "Only exact primary-name and length matches are admitted, so aliases and annotation-length differences are conservatively excluded.",
+    "Naively averaging every listed S1/S2 bin does not reproduce every final S4/S7 summary. The published final summaries are preserved; no averaging or fit selection is rerun.",
+    "The source provides no biological-replicate lifetime matrix. Across-fragment standard deviation is not replicate uncertainty.",
+    "No half-life conversion, source-value clipping, fit-error interpretation as coordinates, or multi-gene transcript expansion is applied."
+  ],
+  "fileSha256": {
+    "crosswalk.json": "589d97c38bd01468ec5332d18a9176c19d75c390913bc9267f2b38c613595fb7",
+    "data.csv": "b3388d933fdc358c1171b74b240c36147590dbfbabeb511a700823c1bdc9fbbe",
+    "snapshot.json": "bdded0ddafdcae8158c49ffb25190743e23e93d1fe3c797c61fff6974ad40631",
+    "source-records.json": "b0f9343eb23314bf3c6d3cd555628d465b1b46e25cd771c0ea632547a58eacaf"
+  },
+  "genePropertyBinding": {
+    "kind": "gene-properties",
+    "geneColumn": "gene_id",
+    "identifierAttribute": "locus_tag",
+    "nativeFeatureIdColumn": "gene_feature_id",
+    "nativeFeatureIdAttribute": "ID",
+    "featureType": "gene",
+    "scope": "Reference gene features provide placement. No TU intervals are inferred."
+  }
+}

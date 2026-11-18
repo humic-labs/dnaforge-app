@@ -137,7 +137,7 @@ export function RegistryRelationshipInput({
                   <li key={target.id}>
                     <button
                       type="button"
-                      className="flex w-full items-center justify-between gap-2 rounded px-2 py-2 text-left hover:bg-bg-subtle focus-visible:outline focus-visible:outline-accent"
+                      className="flex w-full items-center justify-between gap-2 rounded px-2 py-2 text-left wp-interactive "
                       onClick={() => {
                         onChange(target);
                         close();

@@ -799,6 +799,83 @@ describe('workspace catalog', () => {
   });
 
   describe('getRecentlyEditedCatalogEntities', () => {
+    it.each([
+      { type: 'file' as const, kind: 'protein', path: '/ws-a/Protein.entity.json' },
+      { type: 'primer' as const, kind: 'rna_oligo', path: '/ws-a/RNA.primer.json' },
+    ])(
+      'projects raw $kind from LIMS when catalog metadata is absent',
+      async ({ type, kind, path }) => {
+        const id = `home-${kind}`;
+        await registerCatalogEntity({
+          id,
+          type,
+          name: kind,
+          locator: `file://${path}`,
+          storageType: 'file',
+          workspaceRoot: '/ws-a',
+        });
+        await bindCatalogEntityToFile({
+          entityId: id,
+          path,
+          fileKind: type === 'file' ? 'waypoint-entity' : 'primer-artifact',
+          workspaceRoot: '/ws-a',
+          status: 'current',
+        });
+        await platform().db.execute('INSERT INTO lims_entity (id, kind) VALUES (?, ?)', [id, kind]);
+
+        expect(await getRecentlyEditedCatalogEntities()).toEqual([
+          expect.objectContaining({
+            id,
+            type,
+            current_file_path: path,
+            iconContext: { kind, path },
+          }),
+        ]);
+      }
+    );
+
+    it('projects canonical RNA metadata for an explicitly included file beyond the recency cutoff', async () => {
+      const path = '/ws-a/RNA.primer.json';
+      await registerCatalogEntity({
+        id: 'home-rna-old',
+        type: 'primer',
+        name: 'RNA oligo',
+        locator: 'entity://primer/home-rna-old',
+        storageType: 'file',
+        workspaceRoot: '/ws-a',
+        metadata: { entitySchema: { name: 'rna_oligo' } },
+      });
+      await bindCatalogEntityToFile({
+        entityId: 'home-rna-old',
+        path,
+        fileKind: 'primer-artifact',
+        workspaceRoot: '/ws-a',
+        status: 'current',
+      });
+      await registerCatalogEntity({
+        id: 'home-newer',
+        type: 'design',
+        name: 'Newer design',
+        locator: 'entity://design/home-newer',
+        storageType: 'database',
+        workspaceRoot: '/ws-a',
+      });
+      await platform().db.execute('UPDATE catalog_entities SET updated_at = ? WHERE id = ?', [
+        1,
+        'home-rna-old',
+      ]);
+      await platform().db.execute('UPDATE catalog_entities SET updated_at = ? WHERE id = ?', [
+        2,
+        'home-newer',
+      ]);
+      const rows = await getRecentlyEditedCatalogEntities(1, [path]);
+      expect(rows.find((row) => row.id === 'home-rna-old')).toMatchObject({
+        current_file_path: path,
+        iconContext: { kind: 'rna_oligo', path },
+      });
+      expect(rows.find((row) => row.id === 'home-newer')).toBeDefined();
+    });
+
     it('pairs a readable primer name with only its current workspace-owned file binding', async () => {
       const path = '/ws-a/primers/sheet-cf5f97c9-a32a-4330-9b28-164d09c7092f-row.primer.json';
       await registerCatalogEntity({

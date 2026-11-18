@@ -1,3 +1,4 @@
+import * as taskPresentation from '../../work/public/work';
 import { userMessage } from '@waypoint/user-messages';
 import { StrictMode } from 'react';
 import { subscribeSettingsEntry } from '../../auth/public/registry-settings';
@@ -3025,6 +3026,94 @@ describe('LIMS panel workflows', () => {
         targetId
       )
     );
+  });
+
+  it('passes a schema date filter and sort through the paginated Registry query', async () => {
+    const schemas = await mocks.bridge!.listSchemas();
+    const plasmid = schemas.find((candidate) => candidate.entityKind === 'plasmid')!;
+    vi.spyOn(mocks.bridge!, 'listSchemas').mockResolvedValue(
+      schemas.map((schema) =>
+        schema === plasmid
+          ? {
+              ...schema,
+              fields: [...schema.fields, { key: 'reviewBy', label: 'Review by', type: 'date' }],
+            }
+          : schema
+      )
+    );
+    const queries = vi.fn(async (input: LimsQueryRegistrySummariesInput = {}) =>
+      mocks.bridge!.queryRegistrySummaries(input)
+    );
+    mocks.queryRegistryOverride = queries;
+    render(<LimsPanel />);
+    loadDemo();
+    await screen.findByText('Demo argF deletion strain');
+    await expandRegistry();
+    fireEvent.click(await screen.findByTestId('lims-registry-filter-toggle-kind'));
+    fireEvent.click(await screen.findByTestId('lims-registry-filter-option-kind-plasmid'));
+    fireEvent.click(await screen.findByTestId('lims-registry-filter-toggle-field:reviewBy'));
+    fireEvent.change(screen.getByLabelText('Filter condition for Review by'), {
+      target: { value: 'before' },
+    });
+    fireEvent.change(screen.getByLabelText('Filter value for Review by'), {
+      target: { value: '2027-04-30' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply', exact: true }));
+    fireEvent.click(await screen.findByTestId('lims-registry-sort-field:reviewBy'));
+    await waitFor(() =>
+      expect(queries).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dateFilters: [
+            {
+              schemaId: plasmid.schemaId,
+              fieldKey: 'reviewBy',
+              mode: 'before',
+              value: '2027-04-30',
+            },
+          ],
+          dateSort: { schemaId: plasmid.schemaId, fieldKey: 'reviewBy', direction: 'asc' },
+          offset: 0,
+        })
+      )
+    );
+  });
+
+  it('links one task to the stable selected record identities after Registry sorting', async () => {
+    const open = vi.spyOn(taskPresentation, 'createWorkTask').mockReturnValue(true);
+    try {
+      mocks.queryRegistryOverride = async (input = {}) => {
+        const result = await mocks.bridge!.queryRegistrySummaries(input);
+        return {
+          ...result,
+          summaries: result.summaries.map((row) => ({ ...row, workspaceId: 4 })),
+        };
+      };
+      render(<LimsPanel />);
+      loadDemo();
+      await screen.findByText('Demo argF deletion strain');
+      await expandRegistry();
+      fireEvent.click(await screen.findByRole('button', { name: 'Select records' }));
+      const select = screen.getAllByRole('checkbox', { name: /^Select / }).slice(0, 2);
+      const ids = select.map((box) =>
+        box
+          .closest('[data-testid^="lims-registry-row-"]')!
+          .getAttribute('data-testid')!
+          .slice('lims-registry-row-'.length)
+      );
+      expect(ids).toHaveLength(2);
+      for (const box of select) {
+        fireEvent.click(box);
+        await waitFor(() => expect(box).toBeChecked());
+      }
+      fireEvent.click(screen.getByTestId('lims-registry-sort-name'));
+      fireEvent.click(screen.getByRole('button', { name: 'Create linked task' }));
+      expect(open).toHaveBeenCalledTimes(1);
+      expect(open).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId: 4, subjectIds: ids })
+      );
+    } finally {
+      open.mockRestore();
+    }
   });
 
   it('uses the selected schema definition for table fields instead of a global Organism column', async () => {

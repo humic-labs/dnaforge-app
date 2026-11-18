@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import {
   useState,
   useEffect,
@@ -413,7 +414,8 @@ export function ImageViewerTab({ filePath, sourceFileName, canvasTabId }: ImageV
             <button
               key={level}
               onClick={() => handleZoomChange(level)}
-              className={`px-2 py-1 text-xs rounded transition-colors ${zoom === level ? 'bg-accent/10 text-accent' : 'text-fg-muted hover:text-fg hover:bg-bg-muted'}`}
+              data-selected={zoom === level}
+              className={`${INTERACTION_CLASS} px-2 py-1 text-xs rounded transition-colors ${zoom === level ? 'bg-accent/10 text-accent' : 'text-fg-muted '}`}
             >
               {level === 'fit' ? 'Fit' : `${level}%`}
             </button>
@@ -426,7 +428,7 @@ export function ImageViewerTab({ filePath, sourceFileName, canvasTabId }: ImageV
                 effectiveScale === null ||
                 effectiveScale <= IMAGE_MIN_ZOOM
               }
-              className="px-2 py-1 text-sm text-fg-muted hover:text-fg hover:bg-bg-muted rounded transition-colors disabled:opacity-40"
+              className={`${INTERACTION_CLASS} px-2 py-1 text-sm text-fg-muted rounded transition-colors disabled:opacity-40`}
               title="Zoom out"
             >
               −
@@ -438,7 +440,7 @@ export function ImageViewerTab({ filePath, sourceFileName, canvasTabId }: ImageV
                 effectiveScale === null ||
                 effectiveScale >= IMAGE_MAX_ZOOM
               }
-              className="px-2 py-1 text-sm text-fg-muted hover:text-fg hover:bg-bg-muted rounded transition-colors disabled:opacity-40"
+              className={`${INTERACTION_CLASS} px-2 py-1 text-sm text-fg-muted rounded transition-colors disabled:opacity-40`}
               title="Zoom in"
             >
               +
@@ -446,7 +448,7 @@ export function ImageViewerTab({ filePath, sourceFileName, canvasTabId }: ImageV
           </div>
           <button
             onClick={handleCopyPath}
-            className="ml-2 px-2 py-1 text-xs text-fg-muted hover:text-fg hover:bg-bg-muted rounded transition-colors"
+            className={`${INTERACTION_CLASS} ml-2 px-2 py-1 text-xs text-fg-muted rounded transition-colors`}
             title="Copy image path"
           >
             Copy Path

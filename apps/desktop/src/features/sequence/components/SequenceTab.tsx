@@ -2421,6 +2421,7 @@ export function SequenceTab({
                   editingPending={editingPending}
                   savePending={isSaving}
                   displaySequence={displaySequence}
+                  dataLayerSourceSequence={storedSequence ?? undefined}
                   parsedPlasmid={parsedPlasmid}
                   allPrimerDisplays={allPrimerDisplays}
                   onCopy={handleCopy}

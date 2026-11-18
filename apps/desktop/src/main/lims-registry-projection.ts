@@ -62,7 +62,23 @@ export function queryLimsRegistrySummariesInDb(
   input: LimsQueryRegistrySummariesInput = {}
 ): LimsRegistrySummaryPage {
   seedLimsBuiltinsInDb(db);
-  const select = createRegistryQuery(input);
+  const definitions = new Map<string, ReturnType<typeof parseLimsSchemaFields>['fields']>();
+  const select = createRegistryQuery(input, (entity, key) => {
+    if (!entity.schemaId) return null;
+    let fields = definitions.get(entity.schemaRevisionId);
+    if (!fields) {
+      const row = db
+        .prepare('SELECT fields FROM lims_schema_revision WHERE id=?')
+        .get(entity.schemaRevisionId) as { fields: string } | undefined;
+      if (!row) return null;
+      fields = parseLimsSchemaFields(row.fields).fields;
+      definitions.set(entity.schemaRevisionId, fields);
+    }
+    const definition = fields.find((field) => field.key === key);
+    return definition?.type === 'date' || definition?.type === 'datetime'
+      ? { schemaId: entity.schemaId, type: definition.type }
+      : null;
+  });
   const candidates = getRegistryCandidateEntities(db, input.includeArchived);
   const { entities: windowEntities, totalCount, limit, offset } = select(candidates);
   const strainSummaries = getLimsStrainGenomeSummariesInsideTx(db, {
@@ -251,6 +267,7 @@ export function buildLimsRegistrySummary(
       : undefined;
   return {
     id: entity.id,
+    workspaceId: entity.workspaceId,
     kind: entity.kind,
     schemaSnapshot,
     fieldValues: resolveEntityRecordFieldValues(schemaSnapshot, entity.fields, {

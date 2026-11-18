@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useState, type ComponentProps } from 'react';
 import { SequenceContextMenu } from './SequenceContextMenu';
 import type { Annotation } from '@waypoint/sequence-utils';
 
@@ -16,7 +17,53 @@ const CLICKED_CDS: Annotation = {
 
 afterEach(cleanup);
 
+function ReopenableMenu(
+  props: Omit<ComponentProps<typeof SequenceContextMenu>, 'isOpen' | 'onClose'>
+) {
+  const [open, setOpen] = useState(true);
+  return (
+    <>
+      <button onClick={() => setOpen(true)}>Open sequence actions</button>
+      <SequenceContextMenu {...props} isOpen={open} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
 describe('SequenceContextMenu — "Ask AI about this selection" is selection-gated ', () => {
+  it('moves real keyboard focus past disabled scientific actions before invoking a command', () => {
+    const onAskAI = vi.fn();
+    const onCreate = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <SequenceContextMenu
+        x={10}
+        y={10}
+        isOpen
+        onClose={onClose}
+        hasSelection
+        onCopySequence={vi.fn()}
+        clickedCDS={CLICKED_CDS}
+        onCreateAminoAcidSequence={onCreate}
+        createAminoAcidSequenceDisabled
+        onAskAI={onAskAI}
+      />
+    );
+    const copy = screen.getByRole('menuitem', { name: 'Copy Sequence' });
+    const ask = screen.getByRole('menuitem', { name: 'Ask Agent' });
+    expect(document.activeElement).toBe(copy);
+    fireEvent.keyDown(copy, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(ask);
+    fireEvent.keyDown(ask, { key: 'Home' });
+    expect(document.activeElement).toBe(copy);
+    fireEvent.keyDown(copy, { key: 'End' });
+    expect(document.activeElement).toBe(ask);
+    fireEvent.keyDown(ask, { key: 'Enter' });
+    expect(onAskAI).toHaveBeenCalledTimes(1);
+    expect(onCreate).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
   it('shows caller-bound shortcut hints without changing action names or callbacks', () => {
     const invert = vi.fn();
     render(
@@ -45,15 +92,17 @@ describe('SequenceContextMenu — "Ask AI about this selection" is selection-gat
       ['Copy Translation', 'Ctrl+Shift+C'],
       ['Select inverse', 'Ctrl+Shift+I'],
     ]) {
-      const item = screen.getByRole('button', { name: label });
+      const item = screen.getByRole('menuitem', { name: label });
       expect(
         item.querySelector('[data-testid="sequence-context-menu-shortcut"]')?.textContent
       ).toBe(hint);
     }
     expect(
-      screen.getByRole('button', { name: 'Attach Primers' }).querySelector('[data-shortcut-column]')
+      screen
+        .getByRole('menuitem', { name: 'Attach Primers' })
+        .querySelector('[data-shortcut-column]')
     ).not.toBeNull();
-    fireEvent.mouseDown(screen.getByRole('button', { name: 'Select inverse' }));
+    fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'Select inverse' }));
     expect(invert).toHaveBeenCalledOnce();
   });
 
@@ -195,11 +244,9 @@ describe('SequenceContextMenu — transcript sequence actions', () => {
     const onCopyRna = vi.fn();
     const onChooseIsoform = vi.fn();
     render(
-      <SequenceContextMenu
+      <ReopenableMenu
         x={10}
         y={10}
-        isOpen
-        onClose={() => {}}
         clickedTranscript={{ name: 'Transcript 1' }}
         onCopyTranscriptDna={onCopyDna}
         onCopyTranscriptRna={onCopyRna}
@@ -207,9 +254,11 @@ describe('SequenceContextMenu — transcript sequence actions', () => {
       />
     );
 
-    fireEvent.mouseDown(screen.getByRole('button', { name: /Copy transcript DNA/ }));
-    fireEvent.mouseDown(screen.getByRole('button', { name: /Copy transcript RNA/ }));
-    fireEvent.mouseDown(screen.getByRole('button', { name: /Choose isoform/ }));
+    fireEvent.mouseDown(screen.getByRole('menuitem', { name: /Copy transcript DNA/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open sequence actions' }));
+    fireEvent.mouseDown(screen.getByRole('menuitem', { name: /Copy transcript RNA/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open sequence actions' }));
+    fireEvent.mouseDown(screen.getByRole('menuitem', { name: /Choose isoform/ }));
     expect(onCopyDna).toHaveBeenCalledTimes(1);
     expect(onCopyRna).toHaveBeenCalledTimes(1);
     expect(onChooseIsoform).toHaveBeenCalledTimes(1);
@@ -263,11 +312,11 @@ describe('SequenceContextMenu — primer copy and edit actions', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Copy bases' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Copy Sequence' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Copy for IDT' })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^View Structure/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^Copy$/ })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Copy bases' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Copy Sequence' })).toBeTruthy();
+    expect(screen.queryByRole('menuitem', { name: 'Copy for IDT' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /^View Structure/ })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /^Copy$/ })).toBeNull();
     expect(screen.queryByText('Copy Special')).toBeNull();
     expect(screen.queryByText('Natural DNA')).toBeNull();
     onClose.mockClear();
@@ -281,7 +330,7 @@ describe('SequenceContextMenu — primer copy and edit actions', () => {
         onCopyPrimerBases={onCopyBases}
       />
     );
-    fireEvent.mouseDown(screen.getByRole('button', { name: 'Copy bases' }));
+    fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'Copy bases' }));
     expect(onCopyBases).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -290,11 +339,9 @@ describe('SequenceContextMenu — primer copy and edit actions', () => {
     const onEditPrimer = vi.fn();
     const onEditPrimerBinding = vi.fn();
     render(
-      <SequenceContextMenu
+      <ReopenableMenu
         x={10}
         y={10}
-        isOpen
-        onClose={() => {}}
         clickedPrimer={clickedPrimer}
         onEditPrimer={onEditPrimer}
         onEditPrimerBinding={onEditPrimerBinding}
@@ -302,10 +349,11 @@ describe('SequenceContextMenu — primer copy and edit actions', () => {
       />
     );
 
-    fireEvent.mouseDown(screen.getByRole('button', { name: /Edit binding site/ }));
+    fireEvent.mouseDown(screen.getByRole('menuitem', { name: /Edit binding site/ }));
     expect(onEditPrimerBinding).toHaveBeenCalledTimes(1);
     expect(onEditPrimer).not.toHaveBeenCalled();
-    fireEvent.mouseDown(screen.getByRole('button', { name: /Open primer/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open sequence actions' }));
+    fireEvent.mouseDown(screen.getByRole('menuitem', { name: /Open primer/ }));
     expect(onEditPrimer).toHaveBeenCalledTimes(1);
   });
 });

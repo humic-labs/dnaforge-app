@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useMemo, useState } from 'react';
 import { TOAST_REVIEW_ENTRIES, TOAST_TIMING_POLICIES } from '../stores/toast-definitions';
@@ -60,23 +61,25 @@ export function ToastReviewPanel() {
       <div data-testid="toast-review-progress" className="text-fg-muted">
         {seen.size} of {TOAST_REVIEW_ENTRIES.length} previews triggered · {entries.length} match
       </div>
-      <select
-        aria-label="Toast notification"
-        data-testid="toast-review-select"
-        value={entry?.id ?? ''}
-        onChange={(event) => setSelected(event.target.value)}
-        className="rounded border border-border bg-bg p-2"
-      >
-        {entries.map((item) => (
-          <option key={item.id} value={item.id}>
-            {seen.has(item.id) ? '✓ ' : ''}
-            {item.category} · {toUserMessage(item.message, 'operation.failed').slice(0, 90)}
-            {item.message.length > 90 ? '…' : ''}
-            {item.variant === 'default' ? '' : ` (${item.variant})`} ·{' '}
-            {item.duration ? `${item.duration / 1000}s` : 'persistent'}
-          </option>
-        ))}
-      </select>
+      <span className="inline-block min-w-0">
+        <MenuNativeSelect
+          density="compact"
+          aria-label="Toast notification"
+          data-testid="toast-review-select"
+          value={entry?.id ?? ''}
+          onChange={(event) => setSelected(event.target.value)}
+        >
+          {entries.map((item) => (
+            <option key={item.id} value={item.id}>
+              {seen.has(item.id) ? '✓ ' : ''}
+              {item.category} · {toUserMessage(item.message, 'operation.failed').slice(0, 90)}
+              {item.message.length > 90 ? '…' : ''}
+              {item.variant === 'default' ? '' : ` (${item.variant})`} ·{' '}
+              {item.duration ? `${item.duration / 1000}s` : 'persistent'}
+            </option>
+          ))}
+        </MenuNativeSelect>
+      </span>
       {entry ? (
         <>
           <p

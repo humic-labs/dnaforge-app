@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import {
   userMessage,
   userMessageWithValues,
@@ -249,7 +250,7 @@ function CapabilityRow({
           disabled={!hasDetails}
           aria-expanded={expanded}
           aria-label={`${expanded ? 'Hide' : 'Show'} ${cap.label} details`}
-          className="flex h-6 w-6 items-center justify-center rounded text-fg-subtle transition-colors hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-30"
+          className={`${INTERACTION_CLASS} flex h-6 w-6 items-center justify-center rounded text-fg-subtle transition-colors disabled:pointer-events-none disabled:opacity-30`}
         >
           <ChevronRightIcon
             size={12}
@@ -276,7 +277,7 @@ function CapabilityRow({
             <button
               type="button"
               onClick={() => onHealthCheck(cap.id)}
-              className="inline-flex h-5 items-center gap-1 rounded px-1 text-fg-subtle transition-colors hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+              className={`${INTERACTION_CLASS} inline-flex h-5 items-center gap-1 rounded px-1 text-fg-subtle transition-colors`}
             >
               <CheckIcon size={11} />
               Test Connection
@@ -373,7 +374,7 @@ export function Toolbox() {
             <button
               type="button"
               onClick={refetch}
-              className="mt-1 inline-flex items-center gap-1 rounded px-1 py-0.5 text-fg-subtle transition-colors hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+              className={`${INTERACTION_CLASS} mt-1 inline-flex items-center gap-1 rounded px-1 py-0.5 text-fg-subtle transition-colors`}
             >
               <RefreshIcon size={11} />
               Retry

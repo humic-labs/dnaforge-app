@@ -8,6 +8,9 @@ import { bbiAdmissionContentIdentity } from './bbi-admission-content-identity';
 export type TrackViewConfiguration = Pick<
   TrackViewDocument,
   | 'reference'
+  | 'sequenceDataLayers'
+  | 'contactProjection'
+  | 'comparisonProjection'
   | 'viewport'
   | 'scope'
   | 'annotation'
@@ -52,6 +55,9 @@ export function trackViewConfigurationKey(view: TrackViewConfiguration): string 
         sequenceIdentity: reference.sequenceIdentity,
       },
       viewport,
+      sequenceDataLayers: view.sequenceDataLayers,
+      contactProjection: view.contactProjection,
+      comparisonProjection: view.comparisonProjection,
       scope,
       annotation,
       dataTracks: dataTracks.map((track) => ({

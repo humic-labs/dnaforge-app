@@ -21,7 +21,7 @@ describe('SequenceContextMenu assembly paste target', () => {
       />
     );
 
-    const paste = screen.getByRole('button', {
+    const paste = screen.getByRole('menuitem', {
       name: 'Paste (PCR · pUC19 PCR fragment · 380 bp)',
     });
     expect(paste).toHaveTextContent('Paste');
@@ -34,7 +34,7 @@ describe('SequenceContextMenu assembly paste target', () => {
   it('keeps a short generic action when rich clipboard metadata is unavailable', () => {
     render(<SequenceContextMenu x={0} y={0} isOpen onClose={() => {}} onPaste={vi.fn()} />);
 
-    expect(screen.getByRole('button', { name: 'Paste' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Paste' })).toBeInTheDocument();
     expect(screen.queryByText('Paste Region')).not.toBeInTheDocument();
   });
 });

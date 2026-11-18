@@ -39,6 +39,7 @@ const pixiHost = vi.hoisted(() => ({
 vi.mock('@waypoint/genome-renderer', async () => ({
   ...(await import('../../../../../core/genome-renderer/src/primer-render-conventions')),
   ...(await import('../../../../../core/genome-renderer/src/feature-colors')),
+  ...(await import('../../../../../core/genome-renderer/src/annotation-data-colors')),
   genomeFeatures: (genome: { features?: readonly unknown[] }) => genome.features ?? [],
   perfLog: vi.fn(),
   perfMark: vi.fn(),
@@ -64,6 +65,7 @@ vi.mock('./use-pixi-map', () => ({
     return {
       containerRef: pixiHost.containerRef,
       handle: {
+        getLinearRenderer: vi.fn(() => null),
         subscribeToPresentedFrames: pixiHost.subscribeToPresentedFrames,
         requestRender: pixiHost.requestRender,
       },
@@ -82,6 +84,50 @@ afterEach(() => {
 });
 
 describe('WebGLMap DOM ownership', () => {
+  it.each([false, true])(
+    'recolors existing annotation presentation without replacing the host (circular=%s)',
+    (circular) => {
+      const plasmid: ParsedPlasmid = {
+        name: 'source-bound markup fixture',
+        length: 300,
+        circular,
+        sequence: 'ATG'.repeat(100),
+        features: [
+          {
+            type: 'gene',
+            start: 10,
+            end: 150,
+            direction: 'forward',
+            qualifiers: { locus_tag: ['b1012'] },
+            displayName: 'rutA',
+            color: '#123456',
+          },
+        ],
+        primers: [],
+      };
+      const { rerender } = render(
+        <WebGLMap
+          plasmid={plasmid}
+          circular={circular}
+          annotationColorsByIdentity={new Map([['b1012', '#aabbcc']])}
+        />
+      );
+      const host = screen.getByTestId('webgl-render-host');
+      expect(pixiHost.options?.genome.features?.[0].color).toBe(0xaabbcc);
+      expect(plasmid.features[0].color).toBe('#123456');
+      rerender(
+        <WebGLMap
+          plasmid={plasmid}
+          circular={circular}
+          annotationColorsByIdentity={new Map([['b1012', '#112233']])}
+        />
+      );
+      expect(screen.getByTestId('webgl-render-host')).toBe(host);
+      expect(pixiHost.options?.genome.features?.[0].color).toBe(0x112233);
+      expect(plasmid.features[0].color).toBe('#123456');
+    }
+  );
+
   it('qualifies only a drawn frame carrying the exact current installed genome', () => {
     const presented = vi.fn();
     const plasmid: ParsedPlasmid = {

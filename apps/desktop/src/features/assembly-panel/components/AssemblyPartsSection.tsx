@@ -1,9 +1,10 @@
+'use client';
+
 import {
   usePresentationOverlay,
   PresentationScopeContext,
   usePresentationListener,
 } from '../../../presentation/PresentationSurface';
-('use client');
 
 import { toUserMessage, userMessageWithValues, userMessageValue } from '@waypoint/user-messages';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
@@ -172,7 +173,7 @@ function RDConfirmDialog({ pending, onConfirm, onCancel }: RDConfirmDialogProps)
           <div className="px-4 py-3 border-t border-border bg-bg-muted/20 flex justify-end gap-2">
             <button
               onClick={onCancel}
-              className="px-3 py-1.5 text-sm rounded-md hover:bg-bg-muted transition-colors"
+              className="px-3 py-1.5 text-sm rounded-md wp-interactive transition-colors"
             >
               Cancel
             </button>
@@ -354,7 +355,7 @@ function PartCard({
                   event.stopPropagation();
                   onOpenSchemaPicker?.();
                 }}
-                className="flex min-w-0 max-w-[55%] items-center gap-1 truncate rounded px-1 py-0.5 text-sm font-medium text-fg hover:bg-bg-muted hover:text-accent"
+                className="flex min-w-0 max-w-[55%] items-center gap-1 truncate rounded px-1 py-0.5 text-sm font-medium text-fg wp-interactive hover:text-accent"
               >
                 <span className="truncate">{sourceLabel}</span>
                 <span aria-hidden="true" className="shrink-0 text-[10px] text-fg-subtle">
@@ -395,7 +396,7 @@ function PartCard({
                 e.stopPropagation();
                 onLocateInProduct();
               }}
-              className="grid h-4 w-4 shrink-0 place-items-center rounded-[3px] text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-accent"
+              className="grid h-4 w-4 shrink-0 place-items-center rounded-[3px] text-fg-muted transition-colors wp-interactive "
             >
               <TargetIcon size={10} />
             </button>
@@ -412,7 +413,7 @@ function PartCard({
                 e.stopPropagation();
                 onOpenSource();
               }}
-              className="grid h-4 w-4 shrink-0 place-items-center rounded-[3px] text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-accent"
+              className="grid h-4 w-4 shrink-0 place-items-center rounded-[3px] text-fg-muted transition-colors wp-interactive "
             >
               <OpenExternalIcon size={10} />
             </button>
@@ -629,7 +630,7 @@ function ProductBoundaryControl({
             type="button"
             onClick={() => onAddPart(boundary.id)}
             aria-label="Create new part"
-            className="h-6 min-w-0 cursor-pointer truncate px-2 text-[10px] font-semibold text-fg-subtle hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+            className="h-6 min-w-0 cursor-pointer truncate px-2 text-[10px] font-semibold text-fg-subtle wp-interactive "
           >
             + Part
           </button>
@@ -642,7 +643,7 @@ function ProductBoundaryControl({
                 }
               }}
               aria-label="Add spacer sequence"
-              className="h-6 min-w-0 cursor-pointer truncate border-l border-border px-2 text-[10px] font-semibold text-fg-subtle hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+              className="h-6 min-w-0 cursor-pointer truncate border-l border-border px-2 text-[10px] font-semibold text-fg-subtle wp-interactive "
             >
               + Spacer
             </button>
@@ -763,7 +764,7 @@ function SpacerSegment({
               setDraftSequence('');
               onClear(segment.junctionIndex);
             }}
-            className="absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-fg-muted opacity-0 hover:bg-bg-muted hover:text-fg focus:opacity-100 group-hover:opacity-100"
+            className="absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-fg-muted opacity-0 wp-interactive focus:opacity-100 group-hover:opacity-100"
           >
             x
           </button>
@@ -1760,7 +1761,13 @@ export function AssemblyPartsSection({
                   horizontalAlign="start"
                   preferredSide="bottom"
                   data-testid={`moclo-drawer-part-picker-menu-${index}`}
-                  className="flex w-[480px] flex-col !overflow-hidden !bg-bg"
+                  layout={{
+                    width: 480,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                  }}
+                  content="panel"
                 >
                   <MocloSlotPartPicker
                     design={design}

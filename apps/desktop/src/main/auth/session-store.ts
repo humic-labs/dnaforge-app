@@ -1,5 +1,6 @@
 import { app, safeStorage } from 'electron';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { reportOperationalFailure } from '../sentry';
 import type { DesktopPublicSession } from '../../shared/auth-types';
@@ -171,50 +172,52 @@ export type SelectedAccountContext =
   | { kind: 'unavailable'; reason: 'unreadable' | 'malformed' };
 
 export async function getSelectedAccountContext(): Promise<SelectedAccountContext> {
-  return withSessions(async () => {
-    if (isQualificationEphemeralAuthEnabled()) {
-      const id = ephemeralSessions.activeAccountId;
-      return id === null
-        ? { kind: 'signed-out' }
-        : ephemeralSessions.sessions.has(id)
-          ? { kind: 'account', accountId: id }
-          : { kind: 'unavailable', reason: 'malformed' };
-    }
-    let serialized: string;
-    try {
-      serialized = await readFile(sessionsPath(), 'utf8');
-    } catch (error) {
-      return error instanceof Error && 'code' in error && error.code === 'ENOENT'
-        ? { kind: 'signed-out' }
-        : { kind: 'unavailable', reason: 'unreadable' };
-    }
-    try {
-      const value: unknown = JSON.parse(serialized);
-      if (
-        !value ||
-        typeof value !== 'object' ||
-        Array.isArray(value) ||
-        !('schemaVersion' in value) ||
-        value.schemaVersion !== SESSIONS_SCHEMA_VERSION ||
-        !('sessions' in value) ||
-        !value.sessions ||
-        typeof value.sessions !== 'object' ||
-        Array.isArray(value.sessions) ||
-        !('activeAccountId' in value)
-      )
-        return { kind: 'unavailable', reason: 'malformed' };
-      const entries: Array<[string, unknown]> = Object.entries(value.sessions);
-      if (entries.some(([, entry]) => typeof entry !== 'string' || !entry.length))
-        return { kind: 'unavailable', reason: 'malformed' };
-      if (value.activeAccountId === null) return { kind: 'signed-out' };
-      const id = value.activeAccountId;
-      return typeof id === 'string' && id.length > 0 && entries.some(([key]) => key === id)
+  return withSessions(async () => readSelectedAccountContextNow());
+}
+
+export function readSelectedAccountContextNow(): SelectedAccountContext {
+  if (isQualificationEphemeralAuthEnabled()) {
+    const id = ephemeralSessions.activeAccountId;
+    return id === null
+      ? { kind: 'signed-out' }
+      : ephemeralSessions.sessions.has(id)
         ? { kind: 'account', accountId: id }
         : { kind: 'unavailable', reason: 'malformed' };
-    } catch {
+  }
+  let serialized: string;
+  try {
+    serialized = readFileSync(sessionsPath(), 'utf8');
+  } catch (error) {
+    return error instanceof Error && 'code' in error && error.code === 'ENOENT'
+      ? { kind: 'signed-out' }
+      : { kind: 'unavailable', reason: 'unreadable' };
+  }
+  try {
+    const value: unknown = JSON.parse(serialized);
+    if (
+      !value ||
+      typeof value !== 'object' ||
+      Array.isArray(value) ||
+      !('schemaVersion' in value) ||
+      value.schemaVersion !== SESSIONS_SCHEMA_VERSION ||
+      !('sessions' in value) ||
+      !value.sessions ||
+      typeof value.sessions !== 'object' ||
+      Array.isArray(value.sessions) ||
+      !('activeAccountId' in value)
+    )
       return { kind: 'unavailable', reason: 'malformed' };
-    }
-  });
+    const entries: Array<[string, unknown]> = Object.entries(value.sessions);
+    if (entries.some(([, entry]) => typeof entry !== 'string' || !entry.length))
+      return { kind: 'unavailable', reason: 'malformed' };
+    if (value.activeAccountId === null) return { kind: 'signed-out' };
+    const id = value.activeAccountId;
+    return typeof id === 'string' && id.length > 0 && entries.some(([key]) => key === id)
+      ? { kind: 'account', accountId: id }
+      : { kind: 'unavailable', reason: 'malformed' };
+  } catch {
+    return { kind: 'unavailable', reason: 'malformed' };
+  }
 }
 
 export async function updateSessionTokens(

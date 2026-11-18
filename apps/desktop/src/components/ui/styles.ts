@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 export const UI_PROSE_WRAP_CLASS = 'min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]';
 export const UI_ENTITY_REFERENCE_CHIP_CLASS =
   'px-[calc(0.3em+1px)] py-[calc(0.1em+1px)] text-[0.875rem] font-medium leading-[1.25rem] [transition:background-color_0.15s_ease]';
@@ -15,8 +16,8 @@ export const UI_TEXTAREA_CLASS =
   'w-full rounded-md border border-transparent bg-black/[0.04] px-3 py-2 text-sm leading-5 text-fg transition-colors placeholder:text-fg-subtle focus:border-accent focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/[0.055]';
 export const UI_SURFACE_CLASS = 'bg-black/[0.025] dark:bg-white/[0.035]';
 export const UI_MODAL_LAYER_CLASS = 'z-[10000]';
-export const UI_POPOVER_LAYER_CLASS = 'z-[10050]';
-export const UI_SUBMENU_LAYER_CLASS = 'z-[10060]';
+export const UI_POPOVER_LAYER = 10050;
+export const UI_SUBMENU_LAYER = 10060;
 export const UI_CARD_CLASS = `rounded-md p-4 ${UI_SURFACE_CLASS}`;
 export const UI_LIST_CLASS = `divide-y divide-border/50 overflow-hidden rounded-md ${UI_SURFACE_CLASS}`;
 export const UI_SPLIT_PANEL_CLASS = `grid grid-cols-[13rem_minmax(0,1fr)] overflow-hidden ${UI_SURFACE_CLASS}`;
@@ -25,8 +26,7 @@ export const UI_SPLIT_PANEL_EDITOR_CLASS = 'min-w-0 overflow-y-auto bg-bg';
 export const UI_NAVIGATION_LIST_CLASS = UI_SPLIT_PANEL_LIST_CLASS;
 export const UI_NAVIGATION_PANEL_CLASS = 'flex min-h-0 min-w-0 flex-1 flex-col text-fg';
 export const UI_NAVIGATION_GROUP_CLASS = 'flex min-w-0 flex-col';
-export const UI_NAVIGATION_ROW_CLASS =
-  'flex min-h-9 w-full min-w-0 flex-none items-center gap-2 border-b border-border px-4 py-1.5 text-left text-xs transition-colors hover:bg-bg-muted focus-within:bg-bg-muted';
+export const UI_NAVIGATION_ROW_CLASS = `${INTERACTION_CLASS} flex min-h-9 w-full min-w-0 flex-none items-center gap-2 border-b border-border px-4 py-1.5 text-left text-xs`;
 export const UI_NAVIGATION_PRIMARY_CLASS =
   'flex min-w-0 flex-1 items-center gap-2 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50';
 export const UI_NAVIGATION_TEXT_CLASS = 'flex min-w-0 flex-1 flex-col justify-center gap-0.5';
@@ -35,8 +35,7 @@ export const UI_NAVIGATION_TITLE_CLASS = 'min-w-0 flex-1 truncate font-medium te
 export const UI_NAVIGATION_DETAIL_CLASS = 'block min-w-0 truncate text-xs text-fg-subtle';
 export const UI_NAVIGATION_METADATA_CLASS = 'shrink-0 text-xs text-fg-subtle';
 export const UI_NAVIGATION_ACTIONS_CLASS = 'flex shrink-0 items-center gap-0.5';
-export const UI_NAVIGATION_ACTION_CLASS =
-  'inline-flex shrink-0 items-center justify-center rounded-md border border-transparent bg-black/[0.04] p-1 text-xs font-medium text-fg-muted hover:bg-black/[0.07] hover:text-fg focus-visible:bg-black/[0.07] focus-visible:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/[0.055] dark:hover:bg-white/[0.09] dark:focus-visible:bg-white/[0.09]';
+export const UI_NAVIGATION_ACTION_CLASS = `${INTERACTION_CLASS} inline-flex shrink-0 items-center justify-center rounded-md border border-transparent bg-black/[0.04] p-1 text-xs font-medium text-fg-muted dark:bg-white/[0.055]`;
 export const UI_NAVIGATION_HEADER_CLASS =
   'flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-1.5 text-xs font-semibold text-fg';
 export const UI_NAVIGATION_EMPTY_CLASS = 'px-3 py-4 text-xs text-fg-muted';
@@ -61,21 +60,16 @@ export function navigationStatusClass(tone: 'neutral' | 'success' | 'warning' | 
     }[tone]
   }`;
 }
-const UI_SPLIT_PANEL_TAB_CLASS =
-  'flex min-h-14 w-full flex-none items-center border-l-2 px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40';
+const UI_SPLIT_PANEL_TAB_CLASS = `${INTERACTION_CLASS} flex min-h-14 w-full flex-none items-center border-l-2 px-3 py-2 text-left`;
 
 export function splitPanelTabClass(selected: boolean): string {
   return `${UI_SPLIT_PANEL_TAB_CLASS} ${
-    selected
-      ? 'border-accent bg-bg text-fg'
-      : 'border-transparent text-fg-muted hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.055]'
+    selected ? 'border-accent bg-bg text-fg' : 'border-transparent text-fg-muted'
   }`;
 }
-export const UI_APPBAR_ACTION_CLASS = 'appbar-action';
-export const UI_SECONDARY_BUTTON_CLASS =
-  'rounded-md border border-transparent bg-black/[0.04] px-3 py-2 text-xs font-medium text-fg transition-colors hover:bg-black/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/[0.055] dark:hover:bg-white/[0.09]';
-export const UI_ICON_BUTTON_CLASS =
-  'inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-transparent bg-black/[0.04] p-0 text-xs font-medium text-fg transition-colors hover:bg-black/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/[0.055] dark:hover:bg-white/[0.09]';
+export const UI_APPBAR_ACTION_CLASS = `${INTERACTION_CLASS} appbar-action`;
+export const UI_SECONDARY_BUTTON_CLASS = `${INTERACTION_CLASS} rounded-md border border-transparent bg-black/[0.04] px-3 py-2 text-xs font-medium text-fg dark:bg-white/[0.055]`;
+export const UI_ICON_BUTTON_CLASS = `${INTERACTION_CLASS} inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-transparent bg-black/[0.04] p-0 text-xs font-medium text-fg dark:bg-white/[0.055]`;
 export const UI_PRIMARY_BUTTON_CLASS =
   'rounded-md bg-accent px-3 py-2 text-xs font-medium text-accent-fg transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50';
 export const UI_DANGER_BUTTON_CLASS =
@@ -84,20 +78,15 @@ export const UI_LINK_BUTTON_CLASS =
   'rounded text-left underline decoration-dotted underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50';
 export const UI_READONLY_FIELD_CLASS =
   'h-10 w-full min-w-0 rounded-md border border-transparent bg-black/[0.025] px-3 text-sm text-fg-muted focus:border-accent focus:outline-none dark:bg-white/[0.035]';
-export const UI_SELECT_TRIGGER_CLASS = `${UI_FIELD_CLASS} flex items-center justify-between gap-3 text-left font-normal disabled:cursor-not-allowed disabled:opacity-50`;
-export const UI_SELECT_CARET_CLASS = 'shrink-0 text-fg-subtle';
-export const UI_MENU_OPTION_CLASS =
-  'flex w-full min-w-0 items-center gap-3 rounded px-3 py-2 text-left text-sm transition-colors focus:outline-none';
 
 export const UI_SEGMENTED_SURFACE_CLASS = 'flex rounded-md bg-bg-muted p-0.5';
 export function segmentedOptionClass(selected: boolean): string {
-  return `flex-1 rounded py-1.5 text-xs font-medium transition-all duration-150 ${
-    selected ? 'bg-bg text-fg' : 'text-fg-muted hover:text-fg'
-  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40`;
+  return `${INTERACTION_CLASS} flex-1 rounded py-1.5 text-xs font-medium ${
+    selected ? 'bg-bg text-fg' : 'text-fg-muted'
+  }`;
 }
 
-export const UI_DISCLOSURE_SUMMARY_CLASS =
-  'min-h-6 cursor-pointer rounded px-2 py-0.5 font-medium leading-5 focus:outline-none';
+export const UI_DISCLOSURE_SUMMARY_CLASS = `${INTERACTION_CLASS} min-h-6 cursor-pointer rounded px-2 py-0.5 font-medium leading-5`;
 
 export function selectableCardClass(
   tone: 'blue' | 'emerald',

@@ -391,7 +391,7 @@ export function ProteinSequenceTab({
           {state.canOpenAsSequence ? (
             <button
               type="button"
-              className="rounded border border-border px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-hover"
+              className="rounded border border-border px-3 py-1.5 text-sm font-medium text-fg wp-interactive"
               onClick={() => {
                 window.dispatchEvent(
                   new CustomEvent('waypoint:open-entity', {
@@ -470,7 +470,7 @@ export function ProteinSequenceTab({
                 data-testid="protein-edit-sequence"
                 onClick={() => setEditDraft(bases)}
                 disabled={editDraft !== null}
-                className="rounded border border-border px-2 py-1 text-xs font-medium text-fg-muted hover:bg-bg-muted hover:text-fg disabled:opacity-50"
+                className="rounded border border-border px-2 py-1 text-xs font-medium text-fg-muted wp-interactive disabled:opacity-50"
               >
                 Edit sequence
               </button>
@@ -481,7 +481,7 @@ export function ProteinSequenceTab({
                   type="button"
                   data-testid="protein-view-structure"
                   onClick={handleViewStructure}
-                  className="rounded border border-border px-2 py-1 text-xs font-medium text-fg-muted hover:bg-bg-muted hover:text-fg"
+                  className="rounded border border-border px-2 py-1 text-xs font-medium text-fg-muted wp-interactive "
                 >
                   View Structure
                 </button>
@@ -489,7 +489,7 @@ export function ProteinSequenceTab({
                   type="button"
                   data-testid="protein-predict-structure"
                   onClick={() => handlePredictStructure(null)}
-                  className="rounded border border-border px-2 py-1 text-xs font-medium text-fg-muted hover:bg-bg-muted hover:text-fg"
+                  className="rounded border border-border px-2 py-1 text-xs font-medium text-fg-muted wp-interactive "
                 >
                   Predict Structure
                 </button>
@@ -525,7 +525,7 @@ export function ProteinSequenceTab({
                 type="button"
                 onClick={() => setEditDraft(null)}
                 disabled={saving}
-                className="rounded border border-border px-3 py-1.5 text-xs font-medium text-fg-muted hover:bg-bg-muted disabled:opacity-50"
+                className="rounded border border-border px-3 py-1.5 text-xs font-medium text-fg-muted wp-interactive disabled:opacity-50"
               >
                 Cancel
               </button>

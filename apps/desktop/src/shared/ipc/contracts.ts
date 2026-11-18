@@ -1,5 +1,8 @@
 import { notebookContract } from './notebook.contract';
 import { trackViewCommandsContract } from './track-view-commands.contract';
+import { sequenceDataLayersContract } from './sequence-data-layers.contract';
+import { contactSourcesContract } from './contact-sources.contract';
+import { comparisonSourcesContract } from './comparison-sources.contract';
 import { importReviewContract } from './import-review.contract';
 import { administrationContract } from './administration.contract';
 import { primerArtifactContract } from './primer-artifact.contract';
@@ -8,6 +11,7 @@ import { originalProjectContract } from './original-project.contract';
 import { organizationRegistryContract } from './organization-registry.contract';
 
 import { scientificRecoveryContract } from './scientific-recovery.contract';
+import { workTasksContract } from './work-tasks.contract';
 import { scientificObjectsContract } from './scientific-objects.contract';
 import type { AssertTrue, DisjointGroups } from './contract';
 import { analyticsContract } from './analytics.contract';
@@ -71,6 +75,9 @@ import { workspaceNativeDocumentsContract } from './workspace-native-documents.c
 import { agentSdkMcpHttpListenerContract } from './agent-sdk-mcp-http-listener.contract';
 
 export const ipcContracts = [
+  comparisonSourcesContract,
+  contactSourcesContract,
+  sequenceDataLayersContract,
   trackViewCommandsContract,
   notebookContract,
   administrationContract,
@@ -86,6 +93,7 @@ export const ipcContracts = [
   looseSequenceFilesContract,
   agentFeedbackContract,
   analyticsContract,
+  workTasksContract,
   scientificObjectsContract,
   computeContract,
   feedbackContract,
@@ -143,6 +151,8 @@ export const ipcContracts = [
   appDirtyStateContract,
 ] as const;
 export {
+  comparisonSourcesContract,
+  contactSourcesContract,
   notebookContract,
   administrationContract,
   importReviewContract,

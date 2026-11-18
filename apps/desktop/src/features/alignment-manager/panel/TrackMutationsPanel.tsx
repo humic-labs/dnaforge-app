@@ -480,7 +480,7 @@ export function TrackMutationsPanel({
         <div className="border-b border-border px-3 py-2 text-xs">
           <button
             type="button"
-            className="rounded border border-border px-2 py-1 text-fg hover:bg-bg-subtle disabled:opacity-50"
+            className="rounded border border-border px-2 py-1 text-fg wp-interactive disabled:opacity-50"
             disabled={!!proteinContextBlockedReason}
             title={proteinContextBlockedReason}
             onClick={() => inspectRow(unifiedRows[selectedUnifiedIndex])}
@@ -547,7 +547,7 @@ export function TrackMutationsPanel({
                 className={`grid items-center px-3 cursor-pointer text-xs outline-none border-l-2 select-none ${
                   isSelected
                     ? 'bg-accent/10 border-l-accent'
-                    : 'border-l-transparent hover:bg-bg-subtle'
+                    : 'border-l-transparent wp-interactive'
                 }`}
                 style={{
                   height: ROW_HEIGHT,
@@ -587,7 +587,7 @@ export function TrackMutationsPanel({
                           e.stopPropagation();
                           navigateToRow(row);
                         }}
-                        className="px-0.5 rounded bg-bg-subtle hover:bg-accent/20 hover:text-fg"
+                        className="px-0.5 rounded bg-bg-subtle wp-interactive"
                         title={`Go to insertion site (after ref pos ${row.anchorRefPosition})`}
                       >
                         {row.anchorRefPosition ?? 0}
@@ -598,7 +598,7 @@ export function TrackMutationsPanel({
                           e.stopPropagation();
                           navigateToRow(row, row.endColumn);
                         }}
-                        className="px-0.5 rounded bg-bg-subtle hover:bg-accent/20 hover:text-fg"
+                        className="px-0.5 rounded bg-bg-subtle wp-interactive"
                         title={`Go to end of ${row.insertionLength}bp insertion`}
                       >
                         +{row.insertionLength}bp
@@ -611,7 +611,7 @@ export function TrackMutationsPanel({
                           e.stopPropagation();
                           navigateToRow(row);
                         }}
-                        className="px-0.5 rounded bg-bg-subtle hover:bg-accent/20 hover:text-fg"
+                        className="px-0.5 rounded bg-bg-subtle wp-interactive"
                         title={`Go to position ${row.refPosition}`}
                       >
                         {row.refPosition}
@@ -622,7 +622,7 @@ export function TrackMutationsPanel({
                           e.stopPropagation();
                           navigateToRow(row, row.endColumn);
                         }}
-                        className="px-0.5 rounded bg-bg-subtle hover:bg-accent/20 hover:text-fg"
+                        className="px-0.5 rounded bg-bg-subtle wp-interactive"
                         title={`Go to position ${row.refEndPosition}`}
                       >
                         {row.refEndPosition}
@@ -634,7 +634,7 @@ export function TrackMutationsPanel({
                         e.stopPropagation();
                         navigateToRow(row);
                       }}
-                      className="px-0.5 rounded bg-bg-subtle hover:bg-accent/20 hover:text-fg"
+                      className="px-0.5 rounded bg-bg-subtle wp-interactive"
                       title={`Go to position ${row.refPosition}`}
                     >
                       {row.refPosition}

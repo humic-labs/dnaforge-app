@@ -1,0 +1,142 @@
+{
+  "datasetId": "01-tradis",
+  "title": "Transposon insertion / essentiality",
+  "study": "Goodall et al., 2018",
+  "sourceReference": "K-12 BW25113; no genome-coordinate alignment applied",
+  "transferLabel": "Source-strain gene property transferred to matching MG1655 annotation; no source-strain coordinate or MG1655 physiology claim",
+  "coordinateSystem": "annotation-based",
+  "mapping": {
+    "kind": "annotation",
+    "identifierColumn": "target_annotation_id",
+    "identifierField": "ID"
+  },
+  "valueColumns": [
+    "initial_insertion_index",
+    "lb_insertion_index"
+  ],
+  "aggregation": "none",
+  "unresolvedPolicy": "exclude",
+  "counts": {
+    "csvRows": 4313,
+    "mapped": 4040,
+    "unmapped": 220,
+    "sourceAmbiguous": 53,
+    "excluded": 273,
+    "expectedNativeMapped": 4040,
+    "expectedNativeUnmapped": 273,
+    "initialLibraryMeasurements": 4313,
+    "snapshotLbOutgrowthMeasurements": 4260,
+    "primaryLbOutgrowthMeasurements": 4313
+  },
+  "quantities": [
+    {
+      "column": "initial_insertion_index",
+      "unit": "distinct insertion sites per gene base pair",
+      "meaning": "Initial-library gene insertion index",
+      "snapshotAliases": [
+        "value",
+        "x"
+      ],
+      "sourceColumnLabel": "Insertion Index Score"
+    },
+    {
+      "column": "lb_insertion_index",
+      "unit": "distinct insertion sites per gene base pair",
+      "meaning": "Gene insertion index after LB outgrowth",
+      "snapshotAliases": [
+        "y"
+      ],
+      "sourceColumnLabel": "Insertion Index Score"
+    },
+    {
+      "column": "logLikelihood",
+      "unit": "dimensionless",
+      "quantity": "log likelihood ratio",
+      "meaning": "Published initial-library classification statistic"
+    },
+    {
+      "column": "lbLogLikelihood",
+      "unit": "dimensionless",
+      "quantity": "log likelihood ratio",
+      "meaning": "Published LB-outgrowth classification statistic"
+    },
+    {
+      "columns": [
+        "category",
+        "lbCategory"
+      ],
+      "kind": "categorical",
+      "meaning": "Published essentiality classifications"
+    },
+    {
+      "columns": [
+        "initial_essential_flag",
+        "initial_nonessential_flag",
+        "initial_unclear_flag",
+        "lb_essential_flag",
+        "lb_nonessential_flag",
+        "lb_unclear_flag"
+      ],
+      "kind": "binary classification flags",
+      "meaning": "Original workbook classification indicators"
+    }
+  ],
+  "snapshot": {
+    "file": "snapshot.json",
+    "sha256": "30a91ac3b406e7e1d3fa9b1fc707de208a4ea27d1c21246b3f192a5fe40821aa",
+    "originalSnapshotSha256": "90f1a4a0c18e40efbda3fbfc07f02e6b8c9c20ef38243a68a3c7a13411eb6487",
+    "omittedPresentationFields": [
+      "suggestedViews"
+    ]
+  },
+  "sourceFiles": [
+    {
+      "path": "raw/genes/mbo001183726st1.xlsx",
+      "url": "https://pmc-oa-opendata.s3.amazonaws.com/PMC5821084.1/mbo001183726st1.xlsx",
+      "citation": "https://doi.org/10.1128/mBio.02096-17",
+      "sha256": "db85743f0e28264751fb9adfe40d6ef1e333307c3a65cd315813066e57d3de15"
+    },
+    {
+      "path": "raw/genes/mbo001183726st4.xlsx",
+      "url": "https://pmc-oa-opendata.s3.amazonaws.com/PMC5821084.1/mbo001183726st4.xlsx",
+      "citation": "https://doi.org/10.1128/mBio.02096-17",
+      "sha256": "8a4c6eb83eafd4da8bfd1f2443acd4de4c1e5e5cb915b334a18725308f7eeb5f"
+    }
+  ],
+  "targetReference": {
+    "accession": "NC_000913.3",
+    "annotation": {
+      "path": "MG1655-NC_000913.3.gff3",
+      "sha256": "8654e5413df05d47649deb8cd86eb09a91012dfd0d2c9979f39ea2a60f137326",
+      "rootFeatureTypes": [
+        "gene",
+        "pseudogene"
+      ],
+      "rootFeatures": 4651
+    },
+    "sequence": {
+      "path": "MG1655-NC_000913.3.fasta",
+      "sha256": "03c41475639fe8de50f23f2b9456402668411ccaf488d39d8f99cafea6552ced"
+    }
+  },
+  "sourceRecordEncoding": "Workbook numeric values are retained as their exact XML value strings; absent cells are null.",
+  "limits": [
+    "Gene-level summary, not individual insertion sites or read counts.",
+    "No genomic coordinates are supplied by these summary tables.",
+    "Published putative essentiality includes genes with a severe fitness cost; it is condition dependent."
+  ],
+  "sourceAmbiguity": {
+    "repeatedLabels": [
+      "insA",
+      "insB1",
+      "insC1",
+      "insD1",
+      "insE1",
+      "insF1",
+      "insH1",
+      "insI1",
+      "insL1"
+    ],
+    "policy": "Exclude every row whose source gene label is repeated; preserve all original observations."
+  }
+}

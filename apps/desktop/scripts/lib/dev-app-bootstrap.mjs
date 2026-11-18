@@ -1,5 +1,9 @@
 import { dirname, isAbsolute } from 'node:path';
-import { automationUserDataPath } from '../../src/main/automation-profile.cjs';
+import { createRequire } from 'node:module';
+
+const { automationUserDataPath } = createRequire(import.meta.url)(
+  '../../src/main/automation-profile.cjs'
+);
 
 export function configureDevelopmentEntry({
   app,

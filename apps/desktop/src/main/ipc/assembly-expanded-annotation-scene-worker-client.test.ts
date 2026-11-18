@@ -7,6 +7,7 @@ import {
   runAssemblyAnnotationSearchWorker,
   runExpandedAnnotationSceneInventoryWorker,
   runExpandedAnnotationSceneWorker,
+  runRetainedSourceAnnotationAliasesWorkerV1,
 } from './assembly-expanded-annotation-scene-worker-client';
 import type { AssemblyAnnotationSearchWorkerJob } from './assembly-annotation-search-compiler';
 import type {
@@ -38,6 +39,20 @@ class FakeWorker extends EventEmitter {
 }
 
 describe('finite expanded annotation-scene worker client', () => {
+  it('runs retained-source aliases without a publication job and terminates the worker', async () => {
+    const worker = new FakeWorker();
+    const expectedPayloadSha256 = 'a'.repeat(64);
+    const aliases = [{ featureIndex: 0, aliases: ['glcF.gene.1', 'b1007'] }];
+    const pending = runRetainedSourceAnnotationAliasesWorkerV1(JOB, expectedPayloadSha256, {
+      createWorker: () => worker as unknown as Worker,
+    });
+    expect(worker.messages).toEqual([{ type: 'source-aliases', job: JOB, expectedPayloadSha256 }]);
+    worker.emit('message', { type: 'source-aliases-result', result: aliases });
+    await expect(pending).resolves.toEqual(aliases);
+    expect(worker.terminateCount).toBe(1);
+    expect(worker.listenerCount('message')).toBe(0);
+  });
+
   it('forwards search progress without treating it as a terminal worker response', async () => {
     const worker = new FakeWorker();
     const progress: unknown[] = [];

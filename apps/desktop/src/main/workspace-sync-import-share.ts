@@ -9,6 +9,7 @@ import {
   type DeepShareBundleV1,
 } from '@waypoint/share-bundle';
 
+import { assertIndependentWorkImport, isWorkImportCandidate } from './work-task-import';
 import { createDesktopSyncClient, type DesktopSyncClient } from './desktop-sync-client';
 import {
   LEGACY_LIMS_NOT_IMPORTED_WARNING,
@@ -64,6 +65,17 @@ export interface PreparedDeepShareImport {
   managedRootDir: string;
 }
 
+function assertIndependentShareFiles(bundle: DeepShareBundleV1) {
+  for (const file of bundle.files) {
+    if (!isWorkImportCandidate(file.relativePath)) continue;
+    const text =
+      file.content.encoding === 'utf8'
+        ? file.content.text
+        : Buffer.from(file.content.data, 'base64').toString('utf8');
+    assertIndependentWorkImport(file.relativePath, text);
+  }
+}
+
 export async function prepareDeepShareImport(
   input: Omit<ImportShareIntoManagedWorkspaceInput, 'prepared'>
 ): Promise<PreparedDeepShareImport> {
@@ -76,6 +88,7 @@ export async function prepareDeepShareImport(
   if (!response.shareId || response.shortId !== input.shortId)
     throw new Error('Deep Share source identity did not match the requested link.');
   const bundle = structuredClone(parsed.bundle);
+  assertIndependentShareFiles(bundle);
   const workspaceUuid = input.createWorkspaceUuid?.() ?? randomUUID();
   const displayName = privateForkName(input.db, bundle.source.artifact.name);
   const repoPath = join(input.managedRootDir, workspaceUuid, 'repo');
@@ -147,6 +160,7 @@ async function importShareIntoManagedWorkspaceUnobserved(
     throw new Error(`Deep Share bundle is invalid: ${parsed.errors.join('; ')}`);
   }
   const bundle = parsed.bundle;
+  assertIndependentShareFiles(bundle);
   if (!response.shareId || !response.shortId) {
     throw new Error('Deep Share import response is incomplete.');
   }

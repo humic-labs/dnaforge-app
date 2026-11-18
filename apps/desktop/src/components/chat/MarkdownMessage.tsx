@@ -261,7 +261,7 @@ export const MARKDOWN_COMPONENTS: Components = {
     />
   ),
   tr: ({ node: _node, className, ...props }) => (
-    <tr {...props} className={classNames('border-0 hover:bg-bg-subtle/70', className)} />
+    <tr {...props} className={classNames('border-0 wp-interactive', className)} />
   ),
   ul: ({ node: _node, className, ...props }) => (
     <ul {...props} className={classNames('my-2 list-disc space-y-0.5 pl-6 text-fg', className)} />

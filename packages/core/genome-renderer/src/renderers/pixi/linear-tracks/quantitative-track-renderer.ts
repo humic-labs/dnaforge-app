@@ -1,9 +1,11 @@
-import { TRACK_DEFAULT_COLORS } from '@waypoint/sequence-utils';
+import { SCIENTIFIC_COLOR_PALETTES, TRACK_DEFAULT_COLORS } from '@waypoint/sequence-utils';
 import {
   Buffer as PixiBuffer,
   BufferUsage,
   Container,
   Geometry,
+  Graphics,
+  Text,
   GlProgram,
   Mesh,
   Shader,
@@ -14,6 +16,8 @@ import {
   normalizeQuantitativeTrackPresentation,
   resolveQuantitativeDisplayRange,
   type PeakRecord,
+  type QuantitativeColorPalette,
+  type QuantitativeGraph,
   type QuantitativeBin,
   type ResolvedQuantitativeDisplayRange,
 } from '@waypoint/genome-data';
@@ -30,7 +34,13 @@ import {
   buildQuantitativeTrackVertices,
   type QuantitativeRenderMode,
 } from './quantitative-track-vertices';
-import type { PixiLinearTrackRenderer, TrackMountArgs, TrackPaintArgs } from './types';
+import type {
+  PixiLinearTrackRenderer,
+  TrackMountArgs,
+  TrackPaintArgs,
+  TrackHoverArgs,
+  TrackHitResult,
+} from './types';
 import { normalizeTrackColor } from './track-presentation';
 
 const CLIPPED_MARKER_STYLE = 'same-hue-cap' as const;
@@ -56,11 +66,16 @@ uniform float uTrackHeight;
 uniform float uMinValue;
 uniform float uMaxValue;
 uniform float uTransformMode;
+uniform float uGraphMode;
+uniform vec3 uPaletteLow;
+uniform vec3 uPaletteMid;
+uniform vec3 uPaletteHigh;
 uniform vec2 uViewportSize;
 uniform float uSubpixelMinWidthPx;
 uniform vec4 uTrackColor;
 uniform float uUseTrackColor;
 varying vec4 vColor;
+varying vec2 vPointUV;
 varying float vSubpixelActualWidth;
 varying float vClipped;
 varying float vScreenY;
@@ -85,10 +100,22 @@ void main() {
   float zeroY = uTrackTop + (uMaxValue - clamp(0.0, uMinValue, uMaxValue)) / range * uTrackHeight;
   float valueY = uTrackTop + (uMaxValue - clamp(transformedValue, uMinValue, uMaxValue)) / range * uTrackHeight;
   vec2 screen = vec2(mix(x1, x2, aXSide), mix(zeroY, valueY, aYSide));
+  if (uGraphMode > 1.5) {
+    float pointY = clamp(valueY, uTrackTop + 3.0, uTrackTop + uTrackHeight - 3.0);
+    screen = vec2((x1 + x2) * 0.5 + (aXSide - 0.5) * 6.0, pointY + (aYSide - 0.5) * 6.0);
+  } else if (uGraphMode > 0.5) {
+    screen.y = uTrackTop + aYSide * uTrackHeight;
+  }
+  vPointUV = vec2(aXSide, aYSide) * 2.0 - 1.0;
   vec2 viewport = max(uViewportSize, vec2(1.0, 1.0));
   vec2 clip = vec2((screen.x / viewport.x) * 2.0 - 1.0, 1.0 - (screen.y / viewport.y) * 2.0);
   gl_Position = vec4(clip, 0.0, 1.0);
   vColor = mix(aColor, uTrackColor, uUseTrackColor);
+  if (uGraphMode > 0.5 && uGraphMode < 1.5) {
+    float t = clamp((transformedValue - uMinValue) / range, 0.0, 1.0);
+    vec3 mappedColor = t < 0.5 ? mix(uPaletteLow, uPaletteMid, t * 2.0) : mix(uPaletteMid, uPaletteHigh, (t - 0.5) * 2.0);
+    vColor = vec4(mappedColor, 1.0);
+  }
   vSubpixelActualWidth = actualWidth;
   vClipped = transformedValue < uMinValue || transformedValue > uMaxValue ? 1.0 : 0.0;
   vScreenY = screen.y;
@@ -98,7 +125,9 @@ void main() {
 
 const QUANTITATIVE_FRAGMENT_SHADER = `
 precision highp float;
+uniform float uGraphMode;
 varying vec4 vColor;
+varying vec2 vPointUV;
 varying float vSubpixelActualWidth;
 varying float vClipped;
 varying float vScreenY;
@@ -112,8 +141,13 @@ void main() {
   float ratio = clamp(actualWidth / max(0.001, uSubpixelMinWidthPx), 0.0, 1.0);
   float alphaScale = uSubpixelMinAlphaScale +
     (1.0 - uSubpixelMinAlphaScale) * pow(ratio, max(0.01, uSubpixelAlphaGamma));
+  if (uGraphMode > 1.5) {
+    float radius = length(vPointUV);
+    if (radius > 1.0) discard;
+    alphaScale = 1.0 - smoothstep(0.72, 1.0, radius);
+  }
   float endpointDistancePx = abs(vScreenY - vEndpointY);
-  float clippedCap = vClipped > 0.5
+  float clippedCap = vClipped > 0.5 && uGraphMode < 0.5
     ? 1.0 - smoothstep(1.0, ${CLIPPED_MARKER_THICKNESS_PX.toFixed(1)}, endpointDistancePx)
     : 0.0;
   vec4 displayColor = vec4(
@@ -145,6 +179,10 @@ interface QuantitativeUniforms {
   uMinValue: number;
   uMaxValue: number;
   uTransformMode: number;
+  uGraphMode: number;
+  uPaletteLow: Float32Array;
+  uPaletteMid: Float32Array;
+  uPaletteHigh: Float32Array;
   uViewportSize: Float32Array;
   uSubpixelMinWidthPx: number;
   uSubpixelAlphaGamma: number;
@@ -159,6 +197,12 @@ interface QuantitativeContainerState {
   readonly shader: Shader;
   readonly buffers: ReadonlyArray<PixiBuffer>;
   readonly viewport: Float32Array;
+  readonly hover: Graphics;
+  readonly tooltip: Text;
+  hoverPointer: { x: number; y: number } | null;
+  graph: QuantitativeGraph;
+  palette: QuantitativeColorPalette;
+  hovered: { start: number; end: number; rawValue: number; presentedValue: number } | null;
   readonly trackColor: Float32Array;
   recordsRef: QuantitativeTrackData['records'] | null;
   geometryThemeMode: 'light' | 'dark' | null;
@@ -170,6 +214,7 @@ interface QuantitativeContainerState {
     readonly start: number;
     readonly end: number;
     readonly value: number;
+    readonly rawValue: number;
   }>;
   minValue: number;
   maxValue: number;
@@ -254,6 +299,10 @@ export class PixiQuantitativeTrackRenderer implements PixiLinearTrackRenderer<Qu
           uMinValue: { value: 0, type: 'f32' },
           uMaxValue: { value: 1, type: 'f32' },
           uTransformMode: { value: 0, type: 'f32' },
+          uGraphMode: { value: 0, type: 'f32' },
+          uPaletteLow: { value: new Float32Array(3), type: 'vec3<f32>' },
+          uPaletteMid: { value: new Float32Array(3), type: 'vec3<f32>' },
+          uPaletteHigh: { value: new Float32Array(3), type: 'vec3<f32>' },
           uViewportSize: { value: viewport, type: 'vec2<f32>' },
           uSubpixelMinWidthPx: { value: subpixel.minWidthPx, type: 'f32' },
           uSubpixelAlphaGamma: { value: subpixel.alphaGamma, type: 'f32' },
@@ -266,7 +315,10 @@ export class PixiQuantitativeTrackRenderer implements PixiLinearTrackRenderer<Qu
     const mesh = new Mesh({ geometry, shader, state: State.for2d() });
     mesh.eventMode = 'none';
     mesh.visible = false;
-    container.addChild(mesh);
+    const hover = new Graphics();
+    const tooltip = new Text({ text: '', style: { fontFamily: 'system-ui', fontSize: 11 } });
+    tooltip.visible = false;
+    container.addChild(mesh, hover, tooltip);
     this.states.set(container, {
       mesh,
       geometry,
@@ -274,6 +326,12 @@ export class PixiQuantitativeTrackRenderer implements PixiLinearTrackRenderer<Qu
       buffers,
       viewport,
       trackColor,
+      hover,
+      tooltip,
+      hoverPointer: null,
+      graph: 'bar',
+      palette: 'viridis',
+      hovered: null,
       recordsRef: null,
       geometryThemeMode: null,
       displayColorThemeMode: null,
@@ -296,10 +354,14 @@ export class PixiQuantitativeTrackRenderer implements PixiLinearTrackRenderer<Qu
   paint(args: TrackPaintArgs<QuantitativeTrackData>): void {
     const state = this.states.get(args.container);
     if (!state) return;
+    state.tooltip.style.fill = args.theme.text;
     const records = args.data?.records ?? [];
     if (records.length === 0) {
+      this.clearHover(args.container);
       state.mesh.visible = false;
       state.recordsRef = records;
+      state.presentedIntervals = [];
+      state.resolvedRange = null;
       state.barCount = 0;
       state.minValue = 0;
       state.maxValue = 0;
@@ -311,6 +373,8 @@ export class PixiQuantitativeTrackRenderer implements PixiLinearTrackRenderer<Qu
     let smoothingSigmaBins: number;
     try {
       const presentation = normalizeQuantitativeTrackPresentation(args.presentation.quantitative);
+      state.graph = presentation.graph;
+      state.palette = presentation.palette ?? 'viridis';
       smoothingSigmaBins = this.mode === 'signal' ? (presentation.smoothingSigmaBins ?? 0) : 0;
     } catch (error) {
       state.resolvedRange = null;
@@ -405,6 +469,18 @@ export class PixiQuantitativeTrackRenderer implements PixiLinearTrackRenderer<Qu
       state.displayColor = displayColor;
       state.displayColorThemeMode = args.theme.mode;
     }
+    uniforms.uGraphMode = state.graph === 'bar' ? 0 : state.graph === 'band' ? 1 : 2;
+    const colors = SCIENTIFIC_COLOR_PALETTES[state.palette].colors;
+    for (const [index, target] of [
+      uniforms.uPaletteLow,
+      uniforms.uPaletteMid,
+      uniforms.uPaletteHigh,
+    ].entries()) {
+      const rgb = Number.parseInt(colors[index].slice(1), 16);
+      target[0] = ((rgb >> 16) & 255) / 255;
+      target[1] = ((rgb >> 8) & 255) / 255;
+      target[2] = (rgb & 255) / 255;
+    }
     uniforms.uUseTrackColor = displayColor === null ? 0 : 1;
     const originBp = args.viewportBpRange.start;
     uniforms.uXScale = args.pathMapper.pixelsPerBp;
@@ -417,13 +493,112 @@ export class PixiQuantitativeTrackRenderer implements PixiLinearTrackRenderer<Qu
     uniforms.uMinValue = resolvedRange.displayMin;
     uniforms.uMaxValue = resolvedRange.displayMax;
     uniforms.uTransformMode = resolvedRange.transform === 'log1p' ? 1 : 0;
-    const subpixel = retainedSubpixelOpacityPolicy(this.surfaceKind);
+    const subpixel = retainedSubpixelOpacityPolicy(
+      state.graph === 'points' ? 'discrete-mark' : this.surfaceKind
+    );
     uniforms.uSubpixelMinWidthPx = subpixel.minWidthPx;
     uniforms.uSubpixelAlphaGamma = subpixel.alphaGamma;
     uniforms.uSubpixelMinAlphaScale = subpixel.minAlphaScale;
     state.viewport[0] = args.viewportWidthPx;
     state.viewport[1] = args.viewportHeightPx;
     state.mesh.visible = state.barCount > 0;
+    const pointer = state.hoverPointer;
+    if (pointer) this.updateHover({ ...args, localX: pointer.x, localY: pointer.y });
+  }
+
+  private hit(args: TrackHoverArgs) {
+    const state = this.states.get(args.container);
+    if (!state?.mesh.visible || !state.resolvedRange) return null;
+    const range = state.resolvedRange;
+    const height = Math.max(1, args.layoutEntry.height - 4);
+    const y = (value: number) => {
+      const transformed = range.transform === 'log1p' ? Math.log1p(Math.max(0, value)) : value;
+      return (
+        2 +
+        ((range.displayMax - Math.max(range.displayMin, Math.min(range.displayMax, transformed))) /
+          (range.displayMax - range.displayMin)) *
+          height
+      );
+    };
+    for (let index = state.presentedIntervals.length - 1; index >= 0; index -= 1) {
+      const record = state.presentedIntervals[index];
+      if (record.end <= args.viewportBpRange.start || record.start >= args.viewportBpRange.end)
+        continue;
+      const left = args.pathMapper.bpLeftX(record.start);
+      const right = args.pathMapper.bpLeftX(record.end);
+      const valueY = y(record.value);
+      if (state.graph === 'points') {
+        const cx = (left + right) / 2,
+          cy = Math.max(5, Math.min(height - 1, valueY));
+        if (Math.hypot(args.localX - cx, args.localY - cy) <= 5)
+          return { record, left: cx - 3, top: cy - 3, width: 6, height: 6 };
+      } else {
+        const top = state.graph === 'band' ? 2 : Math.min(y(0), valueY);
+        const bottom = state.graph === 'band' ? 2 + height : Math.max(y(0), valueY);
+        if (
+          args.localX >= left - 1 &&
+          args.localX < right + 1 &&
+          args.localY >= top - 2 &&
+          args.localY <= bottom + 2
+        )
+          return {
+            record,
+            left,
+            top,
+            width: Math.max(1, right - left),
+            height: Math.max(1, bottom - top),
+          };
+      }
+    }
+    return null;
+  }
+
+  hitTest(args: TrackHoverArgs): TrackHitResult | null {
+    const hit = this.hit(args);
+    return hit
+      ? {
+          kind: 'select-bp-range',
+          startBp: hit.record.start,
+          endBp: hit.record.end,
+          chromosomeId: args.chromosome.id,
+          name: String(hit.record.rawValue),
+        }
+      : null;
+  }
+
+  updateHover(args: TrackHoverArgs): void {
+    const state = this.states.get(args.container);
+    if (!state) return;
+    this.clearHover(args.container);
+    state.hoverPointer = { x: args.localX, y: args.localY };
+    const hit = this.hit(args);
+    if (!hit) return;
+    const { record } = hit;
+    state.hovered = {
+      start: record.start,
+      end: record.end,
+      rawValue: record.rawValue,
+      presentedValue: record.value,
+    };
+    state.hover
+      .rect(hit.left, hit.top, hit.width, hit.height)
+      .stroke({ color: 0x64748b, width: 1 });
+    const format = (value: number) => Number(value.toPrecision(5)).toLocaleString();
+    state.tooltip.text = `${format(record.rawValue)} · ${args.chromosome.displayName}:${(record.start + 1).toLocaleString()}–${record.end.toLocaleString()}${Math.abs(record.value - record.rawValue) > 1e-9 ? ` · smoothed ${format(record.value)}` : ''}`;
+    state.tooltip.position.set(
+      Math.max(8, Math.min(args.localX + 8, args.viewportWidthPx - state.tooltip.width - 8)),
+      Math.max(2, Math.min(args.localY + 8, args.layoutEntry.height - 16))
+    );
+    state.tooltip.visible = true;
+  }
+
+  clearHover(container: Container): void {
+    const state = this.states.get(container);
+    if (!state) return;
+    state.hover.clear();
+    state.tooltip.visible = false;
+    state.hovered = null;
+    state.hoverPointer = null;
   }
 
   getDiagnostics(container: Container): object | null {
@@ -431,7 +606,10 @@ export class PixiQuantitativeTrackRenderer implements PixiLinearTrackRenderer<Qu
     return state
       ? {
           mode: this.mode,
-          surfaceKind: this.surfaceKind,
+          graph: state.graph,
+          palette: state.palette,
+          hovered: state.hovered,
+          surfaceKind: state.graph === 'points' ? 'discrete-mark' : this.surfaceKind,
           recordCount: state.recordsRef?.length ?? 0,
           barCount: state.barCount,
           minValue: state.minValue,

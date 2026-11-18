@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { type UserMessage, withUserMessage } from '@waypoint/user-messages';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -281,16 +282,18 @@ export function useIndexedPrimerFind({
     () => (
       <div className="flex flex-col gap-1" data-testid="indexed-primer-find-scope">
         <div className="flex items-center gap-2">
-          <select
-            data-testid="indexed-primer-find-mode"
-            className="text-xs px-2 py-1 rounded border border-border bg-bg text-fg"
-            value={mode}
-            onChange={(event) => setMode(event.target.value as IndexedPrimerFindScopeMode)}
-          >
-            <option value="visible">Visible region</option>
-            <option value="selection">Selection</option>
-            <option value="interval">Interval</option>
-          </select>
+          <span className="inline-block min-w-0">
+            <MenuNativeSelect
+              density="compact"
+              data-testid="indexed-primer-find-mode"
+              value={mode}
+              onChange={(event) => setMode(event.target.value as IndexedPrimerFindScopeMode)}
+            >
+              <option value="visible">Visible region</option>
+              <option value="selection">Selection</option>
+              <option value="interval">Interval</option>
+            </MenuNativeSelect>
+          </span>
           {mode === 'interval' && (
             <input
               data-testid="indexed-primer-find-interval"

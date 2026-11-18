@@ -299,6 +299,37 @@ describe('analytics URL sanitization', () => {
 });
 
 describe('SDK event egress sanitizer', () => {
+  it.each(['synthetic', 'private', 'unknown', 'eligible_release'])(
+    'retains closed runtime provenance %s on custom SDK events',
+    (classification) => {
+      const event = sanitizeSdkEvent(
+        { event: 'reference_observed', properties: { runtime_origin_class: classification } },
+        'desktop',
+        'unknown',
+        { reference_observed: [] }
+      );
+      expect(event?.properties.runtime_origin_class).toBe(classification);
+    }
+  );
+
+  it.each(
+    [null, false, 3, {}, [], '', 'PRIVATE', '/private/reference.gb', 'a'.repeat(64)].map(
+      (classification) => ({ classification })
+    )
+  )(
+    'excludes malformed runtime provenance $classification from SDK events',
+    ({ classification }) => {
+      const event = sanitizeSdkEvent(
+        { event: 'reference_observed', properties: { runtime_origin_class: classification } },
+        'desktop',
+        'unknown',
+        { reference_observed: [] }
+      );
+      expect(event).not.toBeNull();
+      expect(event?.properties).not.toHaveProperty('runtime_origin_class');
+    }
+  );
+
   it('keeps bounded blog attribution only for published post pageviews', () => {
     const properties = {
       distinct_id: 'anon-safe-id',
