@@ -105,7 +105,7 @@ export function localReminderView(db: Database.Database, p: WorkProjectAccess): 
   const effects = localEffects(db, p, reminderPrincipal(p));
   return {
     scope: 'local',
-    available: true,
+    available: p.writable,
     authority: dispatch?.state ?? 'unarmed',
     epoch: dispatch?.epoch ?? 0,
     consent: {
@@ -221,8 +221,8 @@ export function changeLocalReminder(
         result = { revision: rev };
       } else if (cmd.action === 'rule') {
         const consent = localConsent(db, p);
+        if (!p.writable) workRefused('Local task reminders require a writable project.');
         if (
-          !p.writable ||
           (dispatch && dispatch.state !== 'local') ||
           !task ||
           !['todo', 'in-progress'].includes(task.document.status)

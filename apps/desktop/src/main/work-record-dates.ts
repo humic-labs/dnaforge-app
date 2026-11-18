@@ -7,7 +7,7 @@ import type {
   WorkRecordDateResult,
   WorkRecordDateRole,
 } from '../shared/work-tasks-ipc';
-import { visibleWorkProjects, workRefused } from './work-task-projects';
+import { publicWorkProject, visibleWorkProjects, workRefused } from './work-task-projects';
 
 interface Row {
   workspace_id: number;
@@ -84,7 +84,7 @@ export function queryWorkRecordDates(
         .digest('hex');
       return {
         id,
-        project: p,
+        project: publicWorkProject(p),
         entityId: row.entity_id,
         entityName: row.name,
         fieldKey: row.field_key,

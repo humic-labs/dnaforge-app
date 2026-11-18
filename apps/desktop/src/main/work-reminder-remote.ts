@@ -1,3 +1,4 @@
+import { workRemoteAck, workRemoteView } from './work-reminder-wire';
 import { getActivePublicSession } from './auth/session-store';
 import { DesktopSyncClientError } from './desktop-sync-client-errors';
 import { randomUUID } from 'node:crypto';
@@ -57,24 +58,18 @@ export function remoteWorkReminderClient(
     if (binding(db, p) !== id) workRefused('The shared project binding changed.');
   };
   const read = async (): Promise<RemoteView> => {
-    const value = await client.requestJson<RemoteView>(path, {
+    const value = await client.requestJson<unknown>(path, {
       method: 'GET',
       expectedAccountId: p.actor.id,
     });
     await withWorkspaceSyncDatabaseFence(db, async () => verify());
-    if (
-      !value ||
-      !Array.isArray(value.rules) ||
-      !Array.isArray(value.inbox) ||
-      !Array.isArray(value.deliveries) ||
-      !Array.isArray(value.subscriptions)
-    )
-      throw new Error('Shared reminder response is incomplete.');
-    return value;
+    const parsed = workRemoteView.safeParse(value);
+    if (!parsed.success) throw new Error('Shared reminder response is incomplete.');
+    return parsed.data;
   };
   const post = async (requestId: string, command: object) => {
     await withWorkspaceSyncDatabaseFence(db, async () => verify());
-    const value = await client.requestJson<WorkReminderResponse>(path, {
+    const value = await client.requestJson<unknown>(path, {
       method: 'POST',
       expectedAccountId: p.actor.id,
       body: { requestId, command },
@@ -87,7 +82,10 @@ export function remoteWorkReminderClient(
         'The shared reminder acknowledgement cannot be returned to the current account.'
       );
     }
-    return value;
+    const parsed = workRemoteAck.safeParse(value);
+    if (!parsed.success)
+      throw new Error('The shared reminder acknowledgement could not be verified.');
+    return parsed.data;
   };
   return { id, read, post, verify };
 }
@@ -131,7 +129,7 @@ export async function runRemoteReminderCommand(
       })
       .immediate()
   );
-  if (previous?.response) return previous.response;
+  if (previous?.response) return workRemoteAck.parse(previous.response);
   if (previous?.error) return workRefused(previous.error);
   const settle = async (value: object) =>
     withWorkspaceSyncDatabaseFence(db, async () => {

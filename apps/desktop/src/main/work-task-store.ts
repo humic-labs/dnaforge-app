@@ -46,6 +46,7 @@ import type {
 } from '../shared/work-tasks-ipc';
 import {
   assertWorkProjectAtAcceptance,
+  publicWorkProject,
   visibleWorkProjects,
   workProfile,
   workRefused,
@@ -85,7 +86,7 @@ export function workTaskResultRow(
     document.cancellation?.schedule ??
     resolveWorkSchedule(document, workSourceReader(db, project, reader));
   return {
-    project,
+    project: publicWorkProject(project),
     id: snapshot.resourceId,
     revisionId: snapshot.revisionId,
     head,
@@ -203,7 +204,7 @@ export function queryWorkTasks(db: Database.Database, input: WorkTaskQuery): Wor
       rows.push(...accepted);
     } catch (error) {
       unavailable.push({
-        project,
+        project: publicWorkProject(project),
         reason: error instanceof Error ? error.message : 'Project work unavailable.',
       });
     }
@@ -214,7 +215,7 @@ export function queryWorkTasks(db: Database.Database, input: WorkTaskQuery): Wor
   );
   return {
     tasks: sorted.slice(offset, offset + limit).map(({ status: _status, ...task }) => task),
-    projects,
+    projects: projects.map(publicWorkProject),
     actor,
     now,
     total: sorted.length,

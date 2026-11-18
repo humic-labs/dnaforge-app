@@ -23,6 +23,11 @@ export interface WorkProjectAccess extends WorkProject {
   writable: boolean;
 }
 
+export function publicWorkProject(project: WorkProjectAccess): WorkProject {
+  const { id, workspaceId, root, name, actor, writable } = project;
+  return { id, workspaceId, root, name, actor, writable };
+}
+
 function activeAccount(): string | null {
   const account = readSelectedAccountContextNow();
   return account.kind === 'account' ? account.accountId : null;
