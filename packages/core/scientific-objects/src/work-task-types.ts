@@ -13,7 +13,7 @@ export interface WorkLink {
   revisionId?: string;
 }
 
-export type WorkSource = WorkLink & { role: string };
+export type WorkSource = WorkLink & { role: string; zone?: string };
 export type WorkOffset = { unit: 'days' | 'milliseconds'; amount: number };
 export type WorkDateSpec =
   | { kind: 'fixed'; value: WorkTime }

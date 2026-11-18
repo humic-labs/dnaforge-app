@@ -21,6 +21,7 @@ import type {
   WorkRecurrence,
   WorkResolvedDate,
   WorkSchedule,
+  WorkSource,
   WorkSourceReader,
   WorkStatus,
   WorkTaskCommand,
@@ -105,17 +106,28 @@ function link(value: unknown): WorkLink {
   };
 }
 
+function dateSource(value: unknown): WorkSource {
+  const { zone, ...reference } = record(value, 'projectId resourceId role', 'revisionId zone');
+  const parsed = link(reference);
+  if (zone !== undefined) {
+    if (typeof zone !== 'string' || !zone.trim() || /^[+-]/u.test(zone))
+      reject('Choose a named source time zone.');
+    new Intl.DateTimeFormat('en', { timeZone: zone });
+  }
+  return { ...parsed, role: string(parsed.role), ...(zone === undefined ? {} : { zone }) };
+}
+
 function spec(value: unknown): WorkDateSpec {
   if ((value as { kind?: string } | null)?.kind === 'fixed') {
     return { kind: 'fixed', value: time(record(value, 'kind value').value) };
   }
   const v = record(value, 'kind source offset');
   oneOf(v.kind, ['relative']);
-  const source = link(v.source);
+  const source = dateSource(v.source);
   const offset = record(v.offset, 'unit amount');
   return {
     kind: 'relative',
-    source: { ...source, role: string(source.role) },
+    source,
     offset: { unit: oneOf(offset.unit, ['days', 'milliseconds']), amount: integer(offset.amount) },
   };
 }
@@ -217,7 +229,7 @@ function resolved(value: unknown): WorkResolvedDate {
     kind: 'resolved',
     value: time(v.value),
     sources: list(v.sources).map((raw) => {
-      const source = link(raw);
+      const source = dateSource(raw);
       return { ...source, role: string(source.role), revisionId: string(source.revisionId) };
     }),
   };
