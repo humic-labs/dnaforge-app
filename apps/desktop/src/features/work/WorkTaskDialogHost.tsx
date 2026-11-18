@@ -16,7 +16,11 @@ import {
   type NewTaskContext,
 } from './task-presentation';
 import { observeWorkChanges, useWorkAccount } from './use-work-query';
-import { DateField, fieldClass } from './DateField';
+import { fieldClass } from './DateField';
+import { RelativeDateField } from './RelativeDateField';
+import { RecurrenceEditor } from './RecurrenceEditor';
+import { OccurrencePanel } from './OccurrencePanel';
+import { AssigneeField } from './AssigneeField';
 import { changedTaskFields, taskDraft, describeDate, type TaskDraft } from './task-form';
 
 import { readWorkRecovery, writeWorkRecovery, type WorkEditRecovery } from './task-recovery';
@@ -98,7 +102,20 @@ function TaskDialog({ request, account }: { request: Request; account: string })
         if (!current) return;
         if (recovery?.revision && !recoveredTask)
           throw new Error('The task holding this draft is unavailable.');
-        setLoaded({ record: recoveredTask, projects, actor: list.actor, recoveryKey, recovery });
+        const acceptedDraft = taskDraft(recoveredTask);
+        const recoveredEdit = recovery && {
+          ...recovery,
+          base: { ...acceptedDraft, ...recovery.base },
+          draft: { ...acceptedDraft, ...recovery.draft },
+          captured: recovery.captured && { ...acceptedDraft, ...recovery.captured },
+        };
+        setLoaded({
+          record: recoveredTask,
+          projects,
+          actor: list.actor,
+          recoveryKey,
+          recovery: recoveredEdit,
+        });
         setError('');
       } catch (cause) {
         if (current) {
@@ -132,6 +149,7 @@ function TaskDialog({ request, account }: { request: Request; account: string })
       {loaded ? (
         <TaskEditor
           loaded={loaded}
+          occurrenceSlot={request.kind === 'open' ? request.occurrenceSlot : undefined}
           context={request.kind === 'create' ? request.context : undefined}
         />
       ) : (
@@ -156,7 +174,15 @@ function TaskDialog({ request, account }: { request: Request; account: string })
   );
 }
 
-function TaskEditor({ loaded, context }: { loaded: Loaded; context?: NewTaskContext }) {
+function TaskEditor({
+  loaded,
+  context,
+  occurrenceSlot,
+}: {
+  loaded: Loaded;
+  context?: NewTaskContext;
+  occurrenceSlot?: string;
+}) {
   const [record, setRecord] = useState(loaded.record);
   const [base, setBase] = useState(() => loaded.recovery?.base ?? taskDraft(loaded.record));
   const [draft, setDraft] = useState<TaskDraft>(
@@ -175,6 +201,9 @@ function TaskEditor({ loaded, context }: { loaded: Loaded; context?: NewTaskCont
   const [taskId] = useState(
     () => loaded.recovery?.taskId ?? loaded.record?.id ?? crypto.randomUUID()
   );
+  const [acceptedMove, setAcceptedMove] = useState<{ slot: string; operationId: string } | null>(
+    null
+  );
   const [notice, setNotice] = useState(loaded.recovery ? 'Recovered your unfinished edit.' : '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -192,13 +221,20 @@ function TaskEditor({ loaded, context }: { loaded: Loaded; context?: NewTaskCont
   const mounted = useRef(true);
   const draftRef = useRef(draft);
   const pendingDraft = useRef(loaded.recovery?.captured ?? draft);
-  const [showEnd, setShowEnd] = useState(!!draft.end.date);
+  const [showEnd, setShowEnd] = useState(!!(draft.end.date || draft.end.relative));
   const terminal = record?.document.status === 'done' || record?.document.status === 'canceled';
   const dirty = JSON.stringify(base) !== JSON.stringify(draft);
-  const immutablePlan =
-    record?.document.plan?.start.kind === 'relative' ||
-    record?.document.plan?.end?.kind === 'relative';
-  const immutableDue = record?.document.deadline?.kind === 'relative';
+  const sources = {
+    project,
+    taskId,
+    subjectIds:
+      context?.subjectIds ??
+      record?.document.links
+        .filter((link) => link.projectId === project.id)
+        .map((link) => link.resourceId) ??
+      [],
+  };
+  const hasRelativeDate = Boolean(draft.start.relative || draft.end.relative || draft.due.relative);
   const assigneeIsMe = draft.assignee?.kind === me.kind && draft.assignee?.id === me.id;
   useEffect(() => {
     mounted.current = true;
@@ -240,9 +276,17 @@ function TaskEditor({ loaded, context }: { loaded: Loaded; context?: NewTaskCont
         }
         if (
           latest.revisionId === record.revisionId &&
-          latest.project.writable === record.project.writable
+          latest.project.writable === record.project.writable &&
+          JSON.stringify(latest.schedule) === JSON.stringify(record.schedule)
         )
           return;
+        if (
+          latest.revisionId === record.revisionId &&
+          latest.project.writable === record.project.writable
+        ) {
+          setRecord(latest);
+          return;
+        }
         if (JSON.stringify(draftRef.current) !== JSON.stringify(base)) {
           setConflict(latest);
           setError('Another edit was saved. Compare it with your draft.');
@@ -344,6 +388,9 @@ function TaskEditor({ loaded, context }: { loaded: Loaded; context?: NewTaskCont
         writeWorkRecovery(loaded.recoveryKey, null);
       else remember(retained, null, next);
       setRecord(accepted);
+      if (request.command.kind === 'occurrence' && request.command.action.kind === 'move') {
+        setAcceptedMove({ slot: request.command.slot, operationId: request.operationId });
+      }
       setBase(next);
       setDraft(retained);
       draftRef.current = retained;
@@ -472,7 +519,7 @@ function TaskEditor({ loaded, context }: { loaded: Loaded; context?: NewTaskCont
             Project
             <select
               className={fieldClass}
-              disabled={!!pending || busy}
+              disabled={!!pending || busy || hasRelativeDate}
               value={projectRoot}
               onChange={(e) => {
                 const next = loaded.projects.find((p) => p.root === e.target.value)!;
@@ -516,49 +563,78 @@ function TaskEditor({ loaded, context }: { loaded: Loaded; context?: NewTaskCont
           />
         </label>
         <div className="grid grid-cols-2 gap-3">
-          {immutablePlan ? (
-            <p className="text-xs">Plan follows a linked date</p>
-          ) : (
-            <DateField label="Plan for" value={draft.start} change={(start) => change({ start })} />
-          )}
-          {immutableDue ? (
-            <p className="text-xs">Deadline follows a linked date</p>
-          ) : (
-            <DateField label="Due" value={draft.due} change={(due) => change({ due })} />
-          )}
+          <RelativeDateField
+            {...sources}
+            label="Plan for"
+            resolution={
+              JSON.stringify(base.start.relative) === JSON.stringify(draft.start.relative)
+                ? record?.schedule.start
+                : undefined
+            }
+            value={draft.start}
+            change={(start) => change({ start })}
+          />
+          <RelativeDateField
+            {...sources}
+            label="Due"
+            resolution={
+              JSON.stringify(base.due.relative) === JSON.stringify(draft.due.relative)
+                ? record?.schedule.deadline
+                : undefined
+            }
+            value={draft.due}
+            change={(due) => change({ due })}
+          />
         </div>
-        {!immutablePlan &&
-          (showEnd ? (
-            <DateField label="Planned end" value={draft.end} change={(end) => change({ end })} />
-          ) : draft.start.date ? (
+        {showEnd || draft.end.date || draft.end.relative ? (
+          <RelativeDateField
+            {...sources}
+            label="Planned end"
+            resolution={
+              JSON.stringify(base.end.relative) === JSON.stringify(draft.end.relative)
+                ? record?.schedule.end
+                : undefined
+            }
+            value={draft.end}
+            change={(end) => change({ end })}
+          />
+        ) : (
+          (draft.start.date || draft.start.relative) && (
             <Button type="button" size="xs" variant="ghost" onClick={() => setShowEnd(true)}>
               Add planned end
             </Button>
-          ) : null)}
-        <label className="block text-xs font-medium">
-          Assignee
-          <select
-            className={fieldClass}
-            value={assigneeIsMe ? 'me' : draft.assignee ? 'current' : 'unassigned'}
-            onChange={(e) =>
-              change({
-                assignee:
-                  e.target.value === 'me'
-                    ? me
-                    : e.target.value === 'unassigned'
-                      ? null
-                      : base.assignee,
-              })
-            }
-          >
-            <option value="unassigned">Unassigned</option>
-            <option value="me">Me</option>
-            {base.assignee && base.assignee.id !== me.id && (
-              <option value="current">{base.assignee.id}</option>
-            )}
-          </select>
-        </label>
+          )
+        )}
+        <RecurrenceEditor
+          value={draft.recurrence}
+          change={(recurrence) => change({ recurrence })}
+          start={draft.start}
+          saved={record?.document.recurrence ?? null}
+        />
+        <AssigneeField
+          root={projectRoot}
+          me={me}
+          value={draft.assignee}
+          change={(assignee) => change({ assignee })}
+        />
       </fieldset>
+      {record && (record.document.recurrence || record.document.occurrences.length > 0) && (
+        <OccurrencePanel
+          record={record}
+          initialSlot={occurrenceSlot}
+          acceptedMove={acceptedMove}
+          editable={
+            !terminal &&
+            project.writable !== false &&
+            record.project.writable !== false &&
+            !dirty &&
+            !pending &&
+            !busy &&
+            !conflict
+          }
+          submit={submit}
+        />
+      )}
       {record?.document.links.length ? (
         <details className="text-xs">
           <summary className="cursor-pointer text-fg-muted">

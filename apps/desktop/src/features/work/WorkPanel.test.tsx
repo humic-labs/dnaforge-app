@@ -2,7 +2,9 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   applyWorkTaskCommand,
+  expandWorkOccurrences,
   resolveWorkSchedule,
+  type WorkSourceReader,
   type WorkTaskDocument,
 } from '@waypoint/domain-services';
 import { WorkPanel } from './WorkPanel';
@@ -23,8 +25,21 @@ const client = vi.hoisted(() => ({
   mutate: vi.fn(),
   read: vi.fn(),
   history: vi.fn(),
+  occurrences: vi.fn(),
+  records: vi.fn(),
 }));
-vi.mock('../../platform', () => ({ platform: () => ({ workTasks: client }) }));
+vi.mock('../../platform', () => ({
+  platform: () => ({ workTasks: client, lims: { queryRegistrySummaries: client.records } }),
+}));
+
+const readSource: WorkSourceReader = (source) =>
+  source.resourceId === 'lot-a' && source.role === 'expiry'
+    ? {
+        kind: 'resolved',
+        spec: { kind: 'fixed', value: { kind: 'day', date: '2026-01-23', zone: 'UTC' } },
+        revisionId: 'date-1',
+      }
+    : { kind: 'missing' };
 
 function makeRecord(id: string, document: WorkTaskDocument): WorkTaskRecord {
   return {
@@ -33,7 +48,7 @@ function makeRecord(id: string, document: WorkTaskDocument): WorkTaskRecord {
     head: 'h1',
     project,
     document,
-    schedule: resolveWorkSchedule(document),
+    schedule: resolveWorkSchedule(document, readSource),
     due: 'unscheduled',
   };
 }
@@ -60,6 +75,7 @@ describe('linked work', () => {
     client.mutate.mockImplementation(async (input: WorkTaskMutation) => {
       const document = applyWorkTaskCommand(stored?.document ?? null, input.command, {
         actor: actor.id,
+        readSource,
         canAssign: (a) => a.kind === actor.kind && a.id === actor.id,
         now,
       });
@@ -143,6 +159,150 @@ describe('linked work', () => {
     expect(stored!.document.name).toBe('Original');
     expect(recoveredName).toHaveValue('Later draft');
     expect(screen.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+  });
+  it('follows a declared date field and saves a weekly series through the shared editor', async () => {
+    client.records.mockResolvedValue({
+      summaries: [
+        {
+          id: 'lot-a',
+          name: 'Lot A',
+          fieldValues: { expiry: '2026-01-23', date_notes: 'a note' },
+          archived: false,
+          schemaSnapshot: {
+            fields: [
+              { type: 'date', key: 'expiry', label: 'Expiry' },
+              { type: 'text', key: 'date_notes', label: 'Date notes' },
+            ],
+          },
+        },
+      ],
+    });
+    render(
+      <>
+        <WorkPanel mode="record" workspaceId={4} subjectId="lot-a" subjectName="Lot A" />
+        <WorkTaskDialogHost />
+      </>
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Add task' }));
+    fireEvent.change(await screen.findByLabelText('Name', { exact: true }), {
+      target: { value: 'Review expiry' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Due date source' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Lot A · Expiry' }));
+    expect(client.records).toHaveBeenCalledWith(
+      expect.objectContaining({ ids: ['lot-a'], workspaceIds: [4] })
+    );
+    expect(screen.queryByRole('button', { name: 'Lot A · Date notes' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Due offset direction'), { target: { value: '-1' } });
+    fireEvent.change(screen.getByLabelText('Due offset', { exact: true }), {
+      target: { value: 2 },
+    });
+    fireEvent.change(screen.getByLabelText('Repeat frequency'), { target: { value: 'weekly' } });
+    fireEvent.change(screen.getByLabelText('First occurrence', { exact: true }), {
+      target: { value: '2026-01-14' },
+    });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Wed' }));
+    fireEvent.change(screen.getByLabelText('Occurrence limit'), { target: { value: '4' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
+    await screen.findByText('Saved');
+    expect(stored?.document.deadline).toEqual({
+      kind: 'relative',
+      source: { projectId: 'project-a', resourceId: 'lot-a', role: 'expiry' },
+      offset: { unit: 'days', amount: -2 },
+    });
+    expect(stored?.document.recurrence).toMatchObject({
+      frequency: 'weekly',
+      interval: 1,
+      weekdays: [3],
+      count: 4,
+    });
+  });
+
+  it('moves one occurrence using the original slot after reopening the series', async () => {
+    const doc = applyWorkTaskCommand(
+      null,
+      {
+        kind: 'create',
+        name: 'Weekly review',
+        recurrence: {
+          frequency: 'weekly',
+          interval: 1,
+          anchor: { kind: 'day', date: '2026-01-14', zone: 'UTC' },
+          fold: 'earlier',
+          state: 'active',
+          count: 4,
+        },
+      },
+      { actor: actor.id, now }
+    );
+    stored = makeRecord('series', doc);
+    client.occurrences.mockImplementation(async (input) =>
+      expandWorkOccurrences(stored!.document, input.from, input.through)
+    );
+    render(
+      <>
+        <WorkPanel mode="project" workspaceRoot={project.root} />
+        <WorkTaskDialogHost />
+      </>
+    );
+    fireEvent.click(await screen.findByRole('button', { name: /Weekly review/ }));
+    fireEvent.click(await screen.findByText('Occurrences', { exact: true }));
+    fireEvent.change(await screen.findByLabelText('Occurrence month'), {
+      target: { value: '2026-01' },
+    });
+    const slot = await screen.findByText('2026-01-21 · To do');
+    fireEvent.click(within(slot.closest('li')!).getByRole('button', { name: 'Move' }));
+    fireEvent.change(screen.getByLabelText('Occurrence plan', { exact: true }), {
+      target: { value: '2026-01-23' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save occurrence' }));
+    await screen.findByText('Saved');
+    expect(stored?.document.occurrences).toHaveLength(1);
+    expect(stored?.document.occurrences[0]).toMatchObject({
+      slot: '2026-01-21',
+      schedule: { start: { kind: 'resolved', value: { date: '2026-01-23' } } },
+    });
+  });
+
+  it('requires an explicit choice for a repeated clock hour and refuses a missing one', async () => {
+    render(
+      <>
+        <WorkPanel mode="project" workspaceRoot={project.root} />
+        <WorkTaskDialogHost />
+      </>
+    );
+    const add = await screen.findByRole('button', { name: 'Add task' });
+    await waitFor(() => expect(add).toBeEnabled());
+    fireEvent.click(add);
+    fireEvent.change(await screen.findByLabelText('Name', { exact: true }), {
+      target: { value: 'Check clocks' },
+    });
+    fireEvent.change(screen.getByLabelText('Due', { exact: true }), {
+      target: { value: '2026-11-01' },
+    });
+    fireEvent.change(screen.getByLabelText('Due time zone'), {
+      target: { value: 'America/New_York' },
+    });
+    fireEvent.change(screen.getByLabelText('Due time', { exact: true }), {
+      target: { value: '01:30' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
+    expect(client.mutate).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Due clock change'), { target: { value: 'later' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
+    await screen.findByText('Saved');
+    expect(stored?.document.deadline).toMatchObject({
+      value: { instant: Date.parse('2026-11-01T06:30Z') },
+    });
+    fireEvent.change(screen.getByLabelText('Due', { exact: true }), {
+      target: { value: '2026-03-08' },
+    });
+    fireEvent.change(screen.getByLabelText('Due time', { exact: true }), {
+      target: { value: '02:30' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
+    expect(client.mutate).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('alert')).toBeVisible();
   });
   it('reconciles changed fields against a newer task revision and reports blocked delivery', async () => {
     const original = applyWorkTaskCommand(

@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
-import { workDatePart } from '@waypoint/domain-services';
+import { useEffect, useMemo, useState } from 'react';
+import { workDatePart, type WorkSchedule } from '@waypoint/domain-services';
+import { platform } from '../../platform';
 import { Button } from '../../shared/components/Button';
 import type { WorkTaskRecord } from '../../shared/work-tasks-ipc';
 import { openWorkTask } from './task-presentation';
@@ -28,6 +29,54 @@ export function WorkCalendar({ tasks }: { tasks: WorkTaskRecord[] }) {
         : null;
     });
   }, [month]);
+  const start = dayKey(month);
+  const end = dayKey(new Date(month.getFullYear(), month.getMonth() + 1, 0, 12));
+  const [occurrences, setOccurrences] = useState<{
+    month: string;
+    tasks: WorkTaskRecord[];
+    items: { task: WorkTaskRecord; slot: string; schedule: WorkSchedule }[];
+    unavailable: boolean;
+  } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let active = true;
+    const series = tasks.filter(
+      (task) => task.document.recurrence || task.document.occurrences.length
+    );
+    async function load() {
+      const groups = await Promise.allSettled(
+        series.map(async (task) => {
+          const result = await platform().workTasks.occurrences({
+            workspaceRoot: task.project.root,
+            taskId: task.id,
+            from: start,
+            through: end,
+          });
+          return result
+            .filter((item) => item.status !== 'skipped')
+            .map((item) => ({ task, slot: item.slot, schedule: item.schedule }));
+        })
+      );
+      if (active)
+        setOccurrences({
+          month: start,
+          tasks,
+          items: groups.flatMap((result) => (result.status === 'fulfilled' ? result.value : [])),
+          unavailable: groups.some((result) => result.status === 'rejected'),
+        });
+    }
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [tasks, start, end, attempt]);
+  const current = occurrences?.month === start && occurrences.tasks === tasks ? occurrences : null;
+  const dates = [
+    ...tasks
+      .filter((task) => !task.document.recurrence && !task.document.occurrences.length)
+      .map((task) => ({ task, slot: undefined, schedule: task.schedule })),
+    ...(current?.items ?? []),
+  ];
   const today = dayKey(new Date());
   return (
     <div className="space-y-2">
@@ -55,6 +104,20 @@ export function WorkCalendar({ tasks }: { tasks: WorkTaskRecord[] }) {
           ›
         </Button>
       </div>
+      {current?.unavailable && (
+        <p role="alert" className="text-xs text-fg-muted">
+          Some repeating tasks could not be loaded.{' '}
+          <Button size="xs" variant="ghost" onClick={() => setAttempt((n) => n + 1)}>
+            Retry
+          </Button>
+        </p>
+      )}
+      {!current &&
+        tasks.some((task) => task.document.recurrence || task.document.occurrences.length) && (
+          <p role="status" className="text-xs text-fg-muted">
+            Loading repeating tasks…
+          </p>
+        )}
       <div className="grid grid-cols-7 gap-px overflow-hidden rounded border border-border bg-border">
         {Array.from({ length: 7 }, (_, i) => (
           <div key={i} className="bg-bg-subtle px-1 py-1 text-center text-[11px] text-fg-muted">
@@ -75,8 +138,8 @@ export function WorkCalendar({ tasks }: { tasks: WorkTaskRecord[] }) {
               >
                 {date.getDate()}
               </span>
-              {tasks.flatMap((task) => {
-                const { start, end, deadline } = task.schedule;
+              {dates.flatMap(({ task, slot, schedule }) => {
+                const { start, end, deadline } = schedule;
                 const from = start.kind === 'resolved' ? localDateKey(start.value) : null;
                 const until = end.kind === 'resolved' ? localDateKey(end.value) : from;
                 const planned = from !== null && until !== null && key >= from && key <= until;
@@ -89,11 +152,11 @@ export function WorkCalendar({ tasks }: { tasks: WorkTaskRecord[] }) {
                 return [
                   <button
                     type="button"
-                    key={task.id}
+                    key={JSON.stringify([task.project.id, task.id, slot])}
                     title={label}
                     aria-label={label}
                     onClick={() =>
-                      openWorkTask({ workspaceRoot: task.project.root, taskId: task.id })
+                      openWorkTask({ workspaceRoot: task.project.root, taskId: task.id }, slot)
                     }
                     className="block w-full truncate rounded px-1 text-left text-[11px] text-fg hover:bg-bg-muted"
                   >

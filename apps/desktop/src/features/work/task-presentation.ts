@@ -9,7 +9,7 @@ export interface NewTaskContext {
   initialName?: string;
 }
 type Request =
-  | { kind: 'open'; target: WorkTaskInspection }
+  | { kind: 'open'; target: WorkTaskInspection; occurrenceSlot?: string }
   | { kind: 'create'; context: NewTaskContext };
 
 export const useWorkTaskDialog = create<{ request: Request | null }>(() => ({ request: null }));
@@ -20,8 +20,8 @@ function present(request: Request) {
   return true;
 }
 
-export function openWorkTask(target: WorkTaskInspection) {
-  return present({ kind: 'open', target });
+export function openWorkTask(target: WorkTaskInspection, occurrenceSlot?: string) {
+  return present({ kind: 'open', target, occurrenceSlot });
 }
 export function createWorkTask(context: NewTaskContext) {
   return present({ kind: 'create', context });
