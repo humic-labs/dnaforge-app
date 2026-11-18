@@ -257,6 +257,23 @@ export const browserMockBridge: PlatformBridge = {
     takePending: async () => [],
     onOpen: () => () => undefined,
   },
+  workTasks: {
+    occurrences: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+    query: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+    read: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+    history: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+    mutate: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+  },
   scientificObjects: {
     catalog: async () => {
       throw new Error('Scientific objects are unavailable in this workspace.');

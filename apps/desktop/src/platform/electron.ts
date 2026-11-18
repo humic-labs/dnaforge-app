@@ -9,6 +9,7 @@ import { organizationRegistryContract } from '../shared/ipc/organization-registr
 
 import { molecularDataContract } from '../shared/ipc/molecular-data.contract';
 import { scientificRecoveryContract } from '../shared/ipc/scientific-recovery.contract';
+import { workTasksContract } from '../shared/ipc/work-tasks.contract';
 import { scientificObjectsContract } from '../shared/ipc/scientific-objects.contract';
 import { agentFeedbackContract } from '../shared/ipc/agent-feedback.contract';
 import type { HostedAiBridge } from '../shared/hosted-ai-bridge';
@@ -824,6 +825,7 @@ export const electronBridge: PlatformBridge = {
     ...forwardGroup(scientificDocumentsContract, () => api().scientificDocuments),
   },
   entityNavigation: forwardGroup(entityNavigationContract, () => api().entityNavigation),
+  workTasks: forwardGroup(workTasksContract, () => api().workTasks),
   scientificObjects: forwardGroup(scientificObjectsContract, () => api().scientificObjects),
   fileAssociations: forwardGroup(fileAssociationsContract, () => api().fileAssociations),
   db: {

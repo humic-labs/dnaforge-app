@@ -64,6 +64,7 @@ export async function submitScientificObjectInMain(
     mutationLease?: () => void;
     databaseFence?: () => void;
     beforeAccept?: () => void;
+    workTaskCommand?: boolean;
   } = {}
 ): Promise<ScientificWorkspaceSubmitResult> {
   if (db.inTransaction)
@@ -88,6 +89,7 @@ export async function submitScientificObjectInMain(
     db,
     workspaceId,
     request: input.request,
+    ...(options.workTaskCommand ? { workTaskCommand: true } : {}),
     ...(options.renderer ? { renderer: options.renderer } : {}),
     ...(options.mutationLease ? { mutationLease: options.mutationLease } : {}),
     ...(options.databaseFence ? { databaseFence: options.databaseFence } : {}),

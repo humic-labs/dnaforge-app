@@ -602,6 +602,9 @@ export interface PlatformBridge {
   entityNavigation: ClientOf<typeof entityNavigationContract> & {
     onOpen(callback: (targets: EntityNavigationTarget[]) => void): () => void;
   };
+  workTasks: import('../shared/ipc/contract').ClientOf<
+    typeof import('../shared/ipc/work-tasks.contract').workTasksContract
+  >;
   scientificObjects: import('../shared/ipc/contract').ClientOf<
     typeof import('../shared/ipc/scientific-objects.contract').scientificObjectsContract
   >;

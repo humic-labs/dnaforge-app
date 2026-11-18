@@ -41,6 +41,7 @@ import {
   canonicalPayload,
   type ScientificFileEntry,
 } from '@waypoint/scientific-objects';
+import { assertScientificTaskCommandAuthority } from './scientific-work-task-slots';
 import { ScientificObjectStore } from './scientific-object-store';
 import { ensureScientificEnrollmentCheckpoint } from './scientific-migration-recovery';
 import { scientificNativeCodecs } from './scientific-native-codecs';
@@ -95,6 +96,7 @@ export async function submitScientificWorkspace(input: {
   readonly mutationLease?: () => void;
   readonly databaseFence?: () => void;
   readonly beforeAccept?: () => void;
+  readonly workTaskCommand?: boolean;
 
   readonly publication?: {
     readonly mutations: readonly WorkspaceMutation[];
@@ -383,6 +385,8 @@ export async function submitScientificWorkspace(input: {
           ...(publication?.blobs ?? []),
         ],
       };
+      if (!input.workTaskCommand)
+        assertScientificTaskCommandAuthority(graph, expectedHead, source, submittedEntries);
       for (const mutation of plan.mutations) {
         const paths =
           mutation.kind === 'create-resource'
@@ -598,11 +602,10 @@ function snapshotSource(
       !representation ||
       (representation.format !== 'primer-v2' &&
         representation.format !== 'strain-entity-v1' &&
-        representation.format !== 'genbank-v1')
+        representation.format !== 'genbank-v1' &&
+        representation.format !== 'work-task-v1')
     )
-      throw new TypeError(
-        'Native artifact commands require a sequence, primer or strain representation.'
-      );
+      throw new TypeError('Unsupported native scientific artifact representation.');
     validateNewScientificSequencePackage(source.entry);
     if (representation.format === 'genbank-v1' && source.expectedRevisionId !== null)
       throw new Error(
