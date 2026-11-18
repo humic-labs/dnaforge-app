@@ -955,6 +955,10 @@ export function TerminalPane({
     };
     const observer = new ResizeObserver(resize);
     observer.observe(element);
+    const visibilityObserver = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) resize();
+    });
+    visibilityObserver.observe(element);
     const themeObserver = new MutationObserver(syncTheme);
     themeObserver.observe(document.documentElement, {
       attributes: true,
@@ -1016,6 +1020,7 @@ export function TerminalPane({
       resolveReady();
       cancelFileLookup();
       observer.disconnect();
+      visibilityObserver.disconnect();
       themeObserver.disconnect();
       lifetime.abort();
       surfaceElement.removeEventListener('waypoint-file-drop', dropped);
