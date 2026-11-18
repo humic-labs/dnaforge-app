@@ -1,3 +1,7 @@
+export * from './inventory-plate-plan-observation-types';
+export * from './inventory-plate-plan-observation-identity';
+export * from './inventory-plate-plan-observations';
+export { parseInventoryPlatePlanObservation } from './inventory-validation';
 export * from './inventory-plate-plan-types';
 export * from './inventory-plate-plan-definition';
 export * from './inventory-plate-plan-identity';

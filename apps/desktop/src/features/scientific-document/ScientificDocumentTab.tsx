@@ -68,6 +68,7 @@ import {
   RunRecordedPhysicalWork,
   type InventoryRunResource,
 } from '../inventory/public/recorded-physical-work';
+import { RunRecordedPlatePlanUses } from '../inventory/public/recorded-plate-plan-uses';
 import { commitReadableContent, failReadableContent } from '../../lib/readable-content-telemetry';
 
 type ScientificDocumentTabProps = { filePath: string; canvasTabId?: string };
@@ -1171,6 +1172,7 @@ function ProtocolRunBody({
       </div>
       <FrozenProtocolDefinition raw={document.raw} />
       <RunRecordedPhysicalWork resource={runResource} />
+      <RunRecordedPlatePlanUses resource={runResource} />
       <div className="grid gap-4 md:grid-cols-3">
         <RunValues title="Inputs" values={document.inputs} />
         <RunValues title="Outputs" values={document.outputs} />

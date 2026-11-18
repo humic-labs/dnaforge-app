@@ -54,7 +54,7 @@ function fixture(): { state: InventoryState; version: InventoryPlatePlanVersion 
 }
 it('upcasts v25 with an empty plan map without rewriting input and refuses future maps on old schemas', () => {
   const { state } = fixture();
-  const { platePlanVersions, ...old } = state;
+  const { platePlanObservations, platePlanVersions, ...old } = state;
   const prior = { ...old, schema: 'dnaforge.inventory.v25' },
     bytes = JSON.stringify(prior);
   const parsed = parseInventoryState(prior);

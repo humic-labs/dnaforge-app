@@ -53,6 +53,7 @@ function* recordedPrincipals(state: InventoryState): Generator<InventoryRecorded
   }
   for (const arrival of Object.values(state.arrivals)) yield arrival.by;
   for (const work of Object.values(state.scientificWorks)) yield work.by;
+  for (const observation of Object.values(state.platePlanObservations)) yield observation.by;
   for (const version of Object.values(state.platePlanVersions)) yield version.by;
   for (const citation of Object.values(state.scientificCitations)) yield citation.by;
   for (const withdrawal of Object.values(state.scientificCitationWithdrawals)) yield withdrawal.by;

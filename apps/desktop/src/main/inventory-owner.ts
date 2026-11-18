@@ -2,6 +2,9 @@ import { createHash } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import {
   applyInventoryCommandBatch,
+  inventoryPlatePlanObservationExisting,
+  inventoryPlatePlanObservationPreview,
+  inventoryPlatePlanObservations,
   inventoryPlatePlanVersionExisting,
   inventoryPlatePlanVersionPreview,
   inventoryPlatePlanVersions,
@@ -139,6 +142,21 @@ import {
   type InventoryPlatePlanVersionRead,
   type InventoryPlatePlanBindingPreviewSnapshot,
 } from '../shared/inventory-plate-plans';
+import {
+  inventoryPreviewPlatePlanObservationRequestSchema,
+  inventoryApplyPlatePlanObservationRequestSchema,
+  inventoryPlatePlanObservationsRequestSchema,
+  inventoryPlatePlanObservationRequestSchema,
+  inventoryPlatePlanObservationSourceRequestSchema,
+  type InventoryPlatePlanObservationPreviewSnapshot,
+  type InventoryPlatePlanObservationsRead,
+  type InventoryPlatePlanObservationRead,
+  type InventoryPlatePlanObservationSourceRead,
+} from '../shared/inventory-plate-plan-observations';
+import {
+  applyNativeInventoryPlatePlanObservation,
+  findNativeInventoryPlatePlanObservationSource,
+} from './inventory-plate-plan-observations';
 import { applyNativeInventoryPlatePlanVersion } from './inventory-plate-plans';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 import {
@@ -557,13 +575,14 @@ export function createNativeInventoryOwner(options: {
         const previous = row ? stateFromRow(row) : createInventoryState();
         const recordedAt = observationTime(previous);
         const context = inventoryReceiptContextSchema.parse({
-          version: 9,
+          version: 10,
           principal: principal(invocation),
           authority,
           ...('kind' in request &&
           (request.kind === 'record-scientific-transfer' ||
             request.kind === 'record-scientific-transfer-v2' ||
-            request.kind === 'record-scientific-citation') &&
+            request.kind === 'record-scientific-citation' ||
+            request.kind === 'record-plate-plan-observation') &&
           scientificCapture
             ? { scientificSource: scientificCapture.source }
             : {}),
@@ -578,7 +597,36 @@ export function createNativeInventoryOwner(options: {
         });
         let result: InventoryTransition;
         let assertStockroomMaterials = () => {};
-        if ('kind' in request && request.kind === 'save-plate-plan-version') {
+        if ('kind' in request && request.kind === 'record-plate-plan-observation') {
+          const existingObservation = inventoryPlatePlanObservationExisting(
+            previous,
+            request.choices
+          );
+          if (existingObservation.kind === 'no-change')
+            return reject(
+              'INVENTORY_PLATE_PLAN_OBSERVATION_NO_CHANGES',
+              'This exact completed manual occurrence is already recorded.'
+            );
+          if (existingObservation.kind === 'blocked')
+            return reject(existingObservation.issue.code, existingObservation.issue.message);
+          if (request.expectedRevision !== previous.revision)
+            return reject(
+              'REVISION_CONFLICT',
+              'Inventory changed after the manual occurrence was previewed.'
+            );
+          if (!scientificCapture)
+            return reject(
+              'SCIENTIFIC_CONTEXT_MISMATCH',
+              'A checked native saved source is required for a new manual occurrence.'
+            );
+          scientificCapture.assertCurrent();
+          result = applyNativeInventoryPlatePlanObservation(
+            previous,
+            request,
+            { at: recordedAt, principal: context.principal, authority },
+            scientificCapture.source
+          );
+        } else if ('kind' in request && request.kind === 'save-plate-plan-version') {
           const existingVersion = inventoryPlatePlanVersionExisting(previous, request.choices);
           if (existingVersion.kind === 'no-change')
             return reject(
@@ -1147,7 +1195,8 @@ export function createNativeInventoryOwner(options: {
           (request.kind === 'record-scientific-transfer' ||
             request.kind === 'record-scientific-transfer-v2' ||
             request.kind === 'record-scientific-citation' ||
-            request.kind === 'withdraw-scientific-citation') &&
+            request.kind === 'withdraw-scientific-citation' ||
+            request.kind === 'record-plate-plan-observation') &&
           Buffer.byteLength(canonicalNativeMutationRequest({ request, receipt }), 'utf8') >
             NATIVE_DOCUMENT_MAX_BODY_BYTES
         )
@@ -1255,6 +1304,342 @@ export function createNativeInventoryOwner(options: {
     return structuredClone(result);
   };
   return {
+    async previewPlatePlanObservation(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<InventoryPlatePlanObservationPreviewSnapshot> {
+      const request = inventoryPreviewPlatePlanObservationRequestSchema.parse(input);
+      const observe = async (
+        capture: NotebookSavedSourceCapture | ProtocolSavedSourceCapture | null
+      ): Promise<InventoryPlatePlanObservationPreviewSnapshot> => {
+        await invocation.beforeScientificRead?.();
+        capture?.assertCurrent();
+        const result = inventorySnapshotRead(request, false, (_db, project, saved) => {
+          const state = saved ?? createInventoryState(),
+            asOf = observationTime(state),
+            caller = principal(invocation);
+          try {
+            return {
+              ...inventoryPlatePlanObservationPreview(state, {
+                ...request.choices,
+                target: {
+                  projectId: project.projectId,
+                  inventoryId: request.inventoryId,
+                  present: saved !== null,
+                  revision: request.expectedRevision,
+                },
+                source: capture?.source ?? null,
+                asOf,
+                principal: caller,
+                authority,
+              }),
+              projectId: project.projectId,
+              inventoryId: request.inventoryId,
+              revision: state.revision,
+            };
+          } finally {
+            capture?.assertCurrent();
+          }
+        });
+        if (result.nextBoundaryAt !== null && nativeNow() >= result.nextBoundaryAt)
+          return {
+            kind: 'unavailable',
+            code: 'INVENTORY_PLATE_PLAN_PREVIEW_STALE',
+            message:
+              'A relevant time boundary passed before this preview could be returned. Preview the occurrence again.',
+            retryable: true,
+          };
+        return Buffer.byteLength(canonicalNativeMutationRequest(result), 'utf8') <=
+          NATIVE_DOCUMENT_MAX_BODY_BYTES - 2048
+          ? result
+          : {
+              kind: 'unavailable',
+              code: 'INVENTORY_QUERY_TOO_LARGE',
+              message: 'The manual occurrence preview exceeds the inline read limit.',
+              retryable: false,
+            };
+      };
+      const current = read({ project: request.project, inventoryId: request.inventoryId }),
+        state = current.row ? stateFromRow(current.row) : createInventoryState();
+      if (inventoryPlatePlanObservationExisting(state, request.choices).kind !== 'new')
+        return observe(null);
+      try {
+        if (request.choices.context.kind === 'notebook-page' && options.notebookSources)
+          return await options.notebookSources.withSavedSource(
+            current.project.projectId,
+            request.choices.context.entityId,
+            observe
+          );
+        if (request.choices.context.kind === 'protocol-run' && options.protocolSources)
+          return await options.protocolSources.withSavedRunSource(
+            current.project.projectId,
+            request.choices.context.entityId,
+            observe
+          );
+      } catch (error) {
+        if (error instanceof NativeDocumentCommandError) throw error;
+      }
+      return observe(null);
+    },
+    async applyPlatePlanObservation(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<NativeInventoryExecution> {
+      const request = inventoryApplyPlatePlanObservationRequestSchema.parse(input),
+        project = resolveProject(request.project, true),
+        row = inventory(options.db(), request.inventoryId, project.projectId),
+        state = row ? stateFromRow(row) : createInventoryState();
+      const known = options
+        .db()
+        .prepare('SELECT 1 FROM inventory_journal WHERE inventory_id=? AND operation_id=?')
+        .get(request.inventoryId, request.operationId);
+      if (known || inventoryPlatePlanObservationExisting(state, request.choices).kind !== 'new')
+        return commit(request, assertCurrent, invocation);
+      const accept = async (capture: NotebookSavedSourceCapture | ProtocolSavedSourceCapture) => {
+        await invocation.beforeScientificCommit?.();
+        return commit(request, assertCurrent, invocation, capture);
+      };
+      try {
+        if (request.choices.context.kind === 'notebook-page' && options.notebookSources)
+          return await options.notebookSources.withSavedSource(
+            project.projectId,
+            request.choices.context.entityId,
+            accept
+          );
+        if (request.choices.context.kind === 'protocol-run' && options.protocolSources)
+          return await options.protocolSources.withSavedRunSource(
+            project.projectId,
+            request.choices.context.entityId,
+            accept
+          );
+        throw Error('The saved manual-occurrence source owner is unavailable.');
+      } catch (error) {
+        if (error instanceof NativeDocumentCommandError) throw error;
+        throw new NativeDocumentCommandError(
+          'INVENTORY_SCIENTIFIC_SOURCE_CHANGED',
+          error instanceof Error ? error.message : String(error),
+          false
+        );
+      }
+    },
+    platePlanObservations(input: unknown): InventoryPlatePlanObservationsRead {
+      const request = inventoryPlatePlanObservationsRequestSchema.parse(input);
+      const result = inventorySnapshotRead(
+        request,
+        false,
+        (_db, project, state): InventoryPlatePlanObservationsRead => {
+          const filters = { version: request.version ?? null, context: request.context ?? null };
+          if (request.context && !request.context.entityId.startsWith(`${project.projectId}::`))
+            return {
+              kind: 'unavailable',
+              code: 'SCIENTIFIC_CONTEXT_MISMATCH',
+              message: 'Choose the exact scientific context in this inventory project.',
+              retryable: false,
+            };
+          if (!state)
+            return {
+              kind: 'inventory-absent',
+              projectId: project.projectId,
+              inventoryId: request.inventoryId,
+              filters,
+            };
+          if (request.version) {
+            const version = Object.hasOwn(state.platePlanVersions, request.version.versionId)
+              ? state.platePlanVersions[request.version.versionId]
+              : undefined;
+            if (!version)
+              return {
+                kind: 'unavailable',
+                code: 'INVENTORY_PLATE_PLAN_VERSION_NOT_FOUND',
+                message: 'The selected saved plan version is unavailable.',
+                retryable: false,
+              };
+            if (version.definitionSha256 !== request.version.definitionSha256)
+              return {
+                kind: 'unavailable',
+                code: 'INVENTORY_PLATE_PLAN_PIN_MISMATCH',
+                message: 'The selected plan definition pin changed.',
+                retryable: false,
+              };
+          }
+          const observations = inventoryPlatePlanObservations(state, {
+              ...(request.version ? { version: request.version } : {}),
+              ...(request.context
+                ? {
+                    context: {
+                      ...request.context,
+                      projectId: project.projectId,
+                      workspaceScope: project.projectId,
+                    },
+                  }
+                : {}),
+            }),
+            querySha256 = nativeInventorySha256(
+              canonicalNativeMutationRequest([
+                'dnaforge.inventory-plate-plan-observations-query.v1',
+                project.projectId,
+                request.inventoryId,
+                filters,
+              ])
+            );
+          let start = 0;
+          if (request.cursor) {
+            if (request.cursor.querySha256 !== querySha256)
+              return {
+                kind: 'unavailable',
+                code: 'INVENTORY_QUERY_CURSOR_INVALID',
+                message: 'This cursor belongs to another manual-occurrence query.',
+                retryable: false,
+              };
+            if (request.cursor.revision !== state.revision)
+              return {
+                kind: 'unavailable',
+                code: 'INVENTORY_QUERY_REVISION_CHANGED',
+                message: 'Inventory changed. Read the first manual-occurrence page again.',
+                retryable: true,
+              };
+            const index = observations.findIndex(
+              (row) =>
+                row.id === request.cursor!.after.observationId &&
+                row.at === request.cursor!.after.at
+            );
+            if (index < 0)
+              return {
+                kind: 'unavailable',
+                code: 'INVENTORY_QUERY_CURSOR_INVALID',
+                message: 'The cursor does not identify an occurrence in this query.',
+                retryable: false,
+              };
+            start = index + 1;
+          }
+          const page = observations.slice(start, start + (request.limit ?? 20)),
+            last = page.at(-1);
+          return {
+            kind: 'ready',
+            projectId: project.projectId,
+            inventoryId: request.inventoryId,
+            revision: state.revision,
+            filters,
+            observations: page,
+            nextCursor:
+              last && start + page.length < observations.length
+                ? {
+                    querySha256,
+                    revision: state.revision,
+                    after: { at: last.at, observationId: last.id },
+                  }
+                : null,
+          };
+        }
+      );
+      return Buffer.byteLength(canonicalNativeMutationRequest(result), 'utf8') <=
+        NATIVE_DOCUMENT_MAX_BODY_BYTES - 2048
+        ? result
+        : {
+            kind: 'unavailable',
+            code: 'INVENTORY_QUERY_TOO_LARGE',
+            message:
+              'The manual-occurrence page exceeds the inline read limit. Choose a smaller page.',
+            retryable: false,
+          };
+    },
+    platePlanObservation(input: unknown): InventoryPlatePlanObservationRead {
+      const request = inventoryPlatePlanObservationRequestSchema.parse(input);
+      const result = inventorySnapshotRead(
+        request,
+        false,
+        (_db, project, state): InventoryPlatePlanObservationRead => {
+          const observation =
+            state && Object.hasOwn(state.platePlanObservations, request.observationId)
+              ? state.platePlanObservations[request.observationId]
+              : undefined;
+          if (!state || !observation)
+            return {
+              kind: 'unavailable',
+              code: 'INVENTORY_PLATE_PLAN_OBSERVATION_NOT_FOUND',
+              message: 'The exact manual occurrence is unavailable.',
+              retryable: false,
+            };
+          if (observation.intentSha256 !== request.intentSha256)
+            return {
+              kind: 'unavailable',
+              code: 'INVENTORY_PLATE_PLAN_OBSERVATION_PIN_MISMATCH',
+              message: 'The manual occurrence does not match its original intent pin.',
+              retryable: false,
+            };
+          return {
+            kind: 'available',
+            projectId: project.projectId,
+            inventoryId: request.inventoryId,
+            revision: state.revision,
+            observation,
+          };
+        }
+      );
+      return Buffer.byteLength(canonicalNativeMutationRequest(result), 'utf8') <=
+        NATIVE_DOCUMENT_MAX_BODY_BYTES - 2048
+        ? result
+        : {
+            kind: 'unavailable',
+            code: 'INVENTORY_QUERY_TOO_LARGE',
+            message: 'The manual-occurrence detail exceeds the inline read limit.',
+            retryable: false,
+          };
+    },
+    platePlanObservationSource(input: unknown): InventoryPlatePlanObservationSourceRead {
+      const request = inventoryPlatePlanObservationSourceRequestSchema.parse(input);
+      const result = inventorySnapshotRead(
+        request,
+        false,
+        (db, project, state): InventoryPlatePlanObservationSourceRead => {
+          const observation =
+            state && Object.hasOwn(state.platePlanObservations, request.observationId)
+              ? state.platePlanObservations[request.observationId]
+              : undefined;
+          if (!state || !observation)
+            return {
+              kind: 'unavailable',
+              code: 'INVENTORY_PLATE_PLAN_OBSERVATION_NOT_FOUND',
+              message: 'The exact manual occurrence is unavailable.',
+              retryable: false,
+            };
+          if (observation.intentSha256 !== request.intentSha256)
+            return {
+              kind: 'unavailable',
+              code: 'INVENTORY_PLATE_PLAN_OBSERVATION_PIN_MISMATCH',
+              message: 'The manual occurrence does not match its original intent pin.',
+              retryable: false,
+            };
+          const version = state.platePlanVersions[observation.binding.versionId];
+          if (!version) return dataError();
+          const entries = (
+            db
+              .prepare('SELECT * FROM inventory_journal WHERE inventory_id=? ORDER BY revision ASC')
+              .all(request.inventoryId) as JournalRow[]
+          ).map((row) => entryFromRow(row, project.projectId));
+          if (
+            canonicalNativeMutationRequest(replayNativeInventoryJournal(entries)) !==
+            canonicalNativeMutationRequest(state)
+          )
+            return dataError();
+          return findNativeInventoryPlatePlanObservationSource(
+            observation,
+            version.definition,
+            entries
+          );
+        }
+      );
+      return Buffer.byteLength(canonicalNativeMutationRequest(result), 'utf8') <=
+        NATIVE_DOCUMENT_MAX_BODY_BYTES - 2048
+        ? result
+        : {
+            kind: 'unavailable',
+            code: 'INVENTORY_QUERY_TOO_LARGE',
+            message: 'The retained manual-occurrence source exceeds the inline read limit.',
+            retryable: false,
+          };
+    },
     previewPlatePlanVersion(
       input: unknown,
       invocation: NativeInventoryInvocation = {}
@@ -2976,6 +3361,7 @@ export function createNativeInventoryOwner(options: {
 export type NativeInventoryOwner = ReturnType<typeof createNativeInventoryOwner>;
 
 export interface NativeInventoryInvocation {
+  beforeScientificRead?(): Promise<void>;
   beforeScientificCommit?(): Promise<void>;
   readonly actor?: string;
   readonly principal?: InventoryPrincipal;

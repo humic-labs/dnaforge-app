@@ -9,6 +9,7 @@ import {
   parseProtocolPackage,
   type InventoryExecutionContext,
   type InventoryScientificCitation,
+  type InventoryScientificContextSelection,
   type InventoryState,
 } from '@waypoint/domain-services';
 import {
@@ -28,8 +29,11 @@ import type { NativeInventoryHistoryEntry } from '../shared/inventory-command';
 import { nativeInventoryArchiveRuntime } from './inventory-archive';
 import { parseNativeInventoryJournalEntry } from './inventory-journal';
 
-export function verifyNativeInventoryScientificCitationSource(
-  request: InventoryApplyScientificCitationRequest,
+export function verifyNativeInventoryScientificContextSource(
+  request: {
+    readonly project: string;
+    readonly choices: { readonly context: InventoryScientificContextSelection };
+  },
   source: unknown
 ): NotebookSavedSource | ProtocolRunSavedSource {
   const context = request.choices.context;
@@ -60,6 +64,9 @@ export function verifyNativeInventoryScientificCitationSource(
     throw Error('INVENTORY_DATA_INVALID: Citation source witness mismatch.');
   return packet;
 }
+export const verifyNativeInventoryScientificCitationSource =
+  verifyNativeInventoryScientificContextSource;
+
 export function applyNativeInventoryScientificCitation(
   state: InventoryState,
   request: InventoryApplyScientificCitationRequest,

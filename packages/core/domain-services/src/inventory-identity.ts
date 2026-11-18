@@ -19,6 +19,7 @@ const recordMaps = [
   'arrivalAllocations',
   'reorderRules',
   'scientificWorks',
+  'platePlanObservations',
   'platePlanVersions',
   'scientificCitations',
   'scientificCitationWithdrawals',

@@ -1,4 +1,9 @@
 import {
+  runInventoryPlatePlanObservation,
+  runInventoryPlatePlanObservationResume,
+  runInventoryPlatePlanObservationReopen,
+} from './journeys/inventory-plate-plan-observations.mjs';
+import {
   runInventoryPlatePlans,
   runInventoryPlatePlansResume,
   runInventoryPlatePlansReopen,
@@ -141,6 +146,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const args = process.argv.slice(2);
 const option = (name) => args[args.indexOf(name) + 1];
 const stage = args.includes('--stage') ? option('--stage') : 'doctor';
+const platePlanObservationStages = {
+  'plate-plan-observation': runInventoryPlatePlanObservation,
+  'plate-plan-observation-resume': runInventoryPlatePlanObservationResume,
+  'plate-plan-observation-reopen': runInventoryPlatePlanObservationReopen,
+};
 const platePlanStages = {
   'plate-plans': runInventoryPlatePlans,
   'plate-plans-resume': runInventoryPlatePlansResume,
@@ -160,6 +170,7 @@ const recordedWorkStages = {
 assert.ok(
   [
     ...Object.keys(recordedWorkStages),
+    ...Object.keys(platePlanObservationStages),
     ...Object.keys(platePlanStages),
     ...Object.keys(citationStages),
     'doctor',
@@ -925,6 +936,32 @@ try {
           ? runInventoryStockroomCorrectionsResume
           : runInventoryStockroomCorrectionsReopen
     )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
+  if (Object.hasOwn(platePlanObservationStages, stage)) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass the exact post-plan inventory fixture or manual observation checkpoint.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    if (await page.getByRole('option').count()) await page.keyboard.press('Escape');
+    const report = page.getByTestId('plate-plan-observation-form');
+    if (await report.isVisible())
+      await report.getByRole('button', { name: 'Close manual report', exact: true }).click();
+    const plans = page.getByTestId('inventory-plate-plans');
+    if (await plans.isVisible())
+      await plans.getByRole('button', { name: 'Close plate plans', exact: true }).click();
+    await openInventory(fixture.project.name);
+    receipt.expected = await platePlanObservationStages[stage]({
+      page,
+      expect,
+      choose,
+      inventoryRead,
+      capture,
+      fixture,
+      evidenceDirectory: out,
+    });
   }
   if (Object.hasOwn(platePlanStages, stage)) {
     assert.ok(

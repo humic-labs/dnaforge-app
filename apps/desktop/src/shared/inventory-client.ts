@@ -329,7 +329,45 @@ export type {
   InventoryPlatePlanBindingPreviewSnapshot,
 } from './inventory-plate-plans';
 
+import type {
+  InventoryPreviewPlatePlanObservationRequest,
+  InventoryApplyPlatePlanObservationRequest,
+  InventoryPlatePlanObservationsRequest,
+  InventoryPlatePlanObservationRequest,
+  InventoryPlatePlanObservationSourceRequest,
+  InventoryPlatePlanObservationPreviewSnapshot,
+  InventoryPlatePlanObservationsRead,
+  InventoryPlatePlanObservationRead,
+  InventoryPlatePlanObservationSourceRead,
+} from './inventory-plate-plan-observations';
+export type {
+  InventoryPreviewPlatePlanObservationRequest,
+  InventoryApplyPlatePlanObservationRequest,
+  InventoryPlatePlanObservationsRequest,
+  InventoryPlatePlanObservationRequest,
+  InventoryPlatePlanObservationSourceRequest,
+  InventoryPlatePlanObservationPreviewSnapshot,
+  InventoryPlatePlanObservationsRead,
+  InventoryPlatePlanObservationRead,
+  InventoryPlatePlanObservationSourceRead,
+} from './inventory-plate-plan-observations';
 export interface InventoryClient {
+  previewPlatePlanObservation(
+    input: InventoryPreviewPlatePlanObservationRequest
+  ): Promise<InventoryPlatePlanObservationPreviewSnapshot>;
+  applyPlatePlanObservation(
+    input: InventoryApplyPlatePlanObservationRequest
+  ): Promise<NativeInventoryExecution>;
+  platePlanObservations(
+    input: InventoryPlatePlanObservationsRequest
+  ): Promise<InventoryPlatePlanObservationsRead>;
+  platePlanObservation(
+    input: InventoryPlatePlanObservationRequest
+  ): Promise<InventoryPlatePlanObservationRead>;
+  platePlanObservationSource(
+    input: InventoryPlatePlanObservationSourceRequest
+  ): Promise<InventoryPlatePlanObservationSourceRead>;
+
   previewPlatePlanVersion(
     input: InventoryPreviewPlatePlanVersionRequest
   ): Promise<InventoryPlatePlanVersionPreviewSnapshot>;
@@ -451,6 +489,11 @@ export function unavailableInventoryClient(): InventoryClient {
     message: 'Inventory requires the connected desktop owner.',
   });
   return {
+    previewPlatePlanObservation: unavailable,
+    applyPlatePlanObservation: unavailableMutation,
+    platePlanObservations: unavailable,
+    platePlanObservation: unavailable,
+    platePlanObservationSource: unavailable,
     previewPlatePlanVersion: unavailable,
     applyPlatePlanVersion: unavailableMutation,
     platePlanVersions: unavailable,

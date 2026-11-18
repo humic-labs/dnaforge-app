@@ -1,5 +1,16 @@
 import { defineGroup, event, invoke } from './contract';
 import type {
+  InventoryPreviewPlatePlanObservationRequest,
+  InventoryApplyPlatePlanObservationRequest,
+  InventoryPlatePlanObservationsRequest,
+  InventoryPlatePlanObservationRequest,
+  InventoryPlatePlanObservationSourceRequest,
+  InventoryPlatePlanObservationPreviewSnapshot,
+  InventoryPlatePlanObservationsRead,
+  InventoryPlatePlanObservationRead,
+  InventoryPlatePlanObservationSourceRead,
+} from '../inventory-plate-plan-observations';
+import type {
   InventoryPreviewPlatePlanVersionRequest,
   InventoryApplyPlatePlanVersionRequest,
   InventoryPlatePlanVersionsRequest,
@@ -99,6 +110,27 @@ import type {
 } from '../inventory-client';
 
 export const inventoryContract = defineGroup('inventory', {
+  previewPlatePlanObservation: invoke<
+    [request: InventoryPreviewPlatePlanObservationRequest],
+    InventoryPlatePlanObservationPreviewSnapshot
+  >(),
+  applyPlatePlanObservation: invoke<
+    [request: InventoryApplyPlatePlanObservationRequest],
+    NativeInventoryExecution
+  >(),
+  platePlanObservations: invoke<
+    [request: InventoryPlatePlanObservationsRequest],
+    InventoryPlatePlanObservationsRead
+  >(),
+  platePlanObservation: invoke<
+    [request: InventoryPlatePlanObservationRequest],
+    InventoryPlatePlanObservationRead
+  >(),
+  platePlanObservationSource: invoke<
+    [request: InventoryPlatePlanObservationSourceRequest],
+    InventoryPlatePlanObservationSourceRead
+  >(),
+
   previewPlatePlanVersion: invoke<
     [request: InventoryPreviewPlatePlanVersionRequest],
     InventoryPlatePlanVersionPreviewSnapshot

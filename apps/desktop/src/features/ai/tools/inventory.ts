@@ -5,6 +5,13 @@ import {
   inventoryPlatePlanVersionRequestSchema,
   inventoryPreviewPlatePlanBindingRequestSchema,
 } from '../../../shared/inventory-plate-plans';
+import {
+  inventoryPreviewPlatePlanObservationRequestSchema,
+  inventoryApplyPlatePlanObservationRequestSchema,
+  inventoryPlatePlanObservationsRequestSchema,
+  inventoryPlatePlanObservationRequestSchema,
+  inventoryPlatePlanObservationSourceRequestSchema,
+} from '../../../shared/inventory-plate-plan-observations';
 import { asSchema, zodSchema } from 'ai';
 import { z } from 'zod';
 import {
@@ -62,6 +69,22 @@ const identity = z.string().min(1).max(256);
 const revision = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const scope = { project, inventoryId: identity };
 const plainInput = z.discriminatedUnion('kind', [
+  inventoryPreviewPlatePlanObservationRequestSchema
+    .extend({ kind: z.literal('preview-plate-plan-observation') })
+    .strict(),
+  inventoryApplyPlatePlanObservationRequestSchema
+    .extend({ kind: z.literal('apply-plate-plan-observation') })
+    .strict(),
+  inventoryPlatePlanObservationsRequestSchema
+    .extend({ kind: z.literal('plate-plan-observations') })
+    .strict(),
+  inventoryPlatePlanObservationRequestSchema
+    .extend({ kind: z.literal('plate-plan-observation') })
+    .strict(),
+  inventoryPlatePlanObservationSourceRequestSchema
+    .extend({ kind: z.literal('plate-plan-observation-source') })
+    .strict(),
+
   inventoryPreviewPlatePlanVersionRequestSchema
     .extend({ kind: z.literal('preview-plate-plan-version') })
     .strict(),
@@ -236,6 +259,17 @@ const material = z
   .strict();
 export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
   z
+    .object({ ...ok, kind: z.literal('plate-plan-observation-preview'), preview: jsonObjectSchema })
+    .strict(),
+  z
+    .object({ ...ok, kind: z.literal('plate-plan-observations'), result: jsonObjectSchema })
+    .strict(),
+  z.object({ ...ok, kind: z.literal('plate-plan-observation'), result: jsonObjectSchema }).strict(),
+  z
+    .object({ ...ok, kind: z.literal('plate-plan-observation-source'), result: jsonObjectSchema })
+    .strict(),
+
+  z
     .object({ ...ok, kind: z.literal('plate-plan-version-preview'), preview: jsonObjectSchema })
     .strict(),
   z.object({ ...ok, kind: z.literal('plate-plan-versions'), result: jsonObjectSchema }).strict(),
@@ -335,6 +369,7 @@ export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
 export const INVENTORY_DESCRIPTION =
   'Read scientific-works-for-context with explicit project, inventoryId and context {kind,entityId} for immutable completed manual transfers recorded with that exact Notebook or Run. Pages are bounded, ordered by recorded time and work ID, and pinned to one inventory revision; pass the native nextCursor unchanged and restart first page on revision change. Ready zero rows, inventory-absent and unavailable are distinct. These are historical stock effects and saved source pins, not declared Run inputs, produced material or current stock availability. Current source edits or removal do not erase recorded work. Use scientific-source lazily by returned workId for its retained source; listing and source viewing never write inventory or a Run. ' +
   'Read stockroom for expected delivery progress, original received-component allocation remainders and reorder reports at one native projectId/inventoryId/revision/principal/asOf. Use generic execute for record-expected-delivery, allocate-arrival, withdraw-arrival-allocation, close-expected-delivery-remainder, reopen-expected-delivery, record-reorder-rule and retire-reorder-rule. Expectations record explicit scientific material, positive amount, supplier or null, optional externalReference and reason; they never place an order or create on-hand stock. Allocate only original identified known received component amounts by arrivalId+componentKey, never current remaining quantity or package labels. Active allocations are capped across all lines by the original receipt and each line expectation; same scientific material and dimension are required. Use, movement, disposal and eligibility changes never unfulfill an allocation. Close only positive unmatched remainder; reopen explicitly before further matching or withdrawing an allocation on that line. Withdrawn allocations are immutable history and corrections get new IDs. Reorder rules declare positive exact threshold, actionBasis reserve or withdraw, and validityBasis current-recorded-rules or confirmed-current-validity without defaults. Known eligible unreserved stock is a lower bound; reaching threshold proves adequate even with unknown amounts, otherwise relevant eligible unknowns require measurement. Other dimensions and excluded physical stock remain explicit; expected quantities never enter the subtotal. Current-recorded-rules can include disclosed untracked validity and does not prove unexpired material; confirmed-current-validity requires coverage and the selected reserve/withdraw admission. Read nextBoundaryAt and request a new native snapshot at boundaries; never store low/expired flags or use renderer time as business authority. Recording expected deliveries, matching and reports send no vendor messages, purchases or spending. ' +
+  'Report one exactly completed full manual plate-plan occurrence with preview-plate-plan-observation and apply-plate-plan-observation. Select a stable namespace/observationId, exact saved version and physical binding, saved Notebook or Protocol Run context pin, and reason. Only apply atomically records the whole ordered batch and immutable grouped source before/final balances plus each output aliquot. It never actuates equipment or records partial or uncertain physical outcomes. Preserve the exact occurrence and accepted request after unknown RPC outcome; same occurrence and intent never debits again, including after source edits or later stock use. Read bounded plate-plan-observations summaries with optional conjunctive version pin and local context identity filters, then lazy plate-plan-observation detail and plate-plan-observation-source by exact record ID and intent pin. Historical plate geometry, positions and retained scientific source remain separate from current navigation. Plan previews and source reads have no effects; no Run completion, produced scientific material or biological-success claim follows. ' +
   'Save immutable reusable volume aliquot plans with preview-plate-plan-version and apply-plate-plan-version. Definitions contain logical source roles, canonical fixed-well coordinates and ordered positive canonical uL transfers, no actual stock or plate IDs. Save is metadata only and uses a stable exact accepted operation; same family and definition reuses the original version and reason, including A to B to A. Read bounded plate-plan-versions summaries and explicitly select plate-plan-version by exact versionId and definitionSha256; no implicit latest exists. Exact read includes a rendered or explicitly refused definition-only SVG; rendering/export does not perform or reserve work. Check preview-plate-plan-binding with exact saved pin, existing plate and source-role mappings. Logical roles may alias one stock, so native simulates the whole ordered batch cumulatively on a discarded copy. Ready is a native-time feasibility snapshot only. Respect nextBoundaryAt and recheck after time, scope, principal or revision changes; overdue holds remain held. Blocked source facts contain no projected partial success. No execution, scientific work, Run or physical mutation follows from a plan save or preview. ' +
   'Cite an existing saved Notebook or Protocol Run on immutable recorded physical work using preview-scientific-citation and apply-scientific-citation. Select native saved context kind/entity/source pin and exact work intent; send no source body, actor or time. Additional citations never change the original work, stock, primary context or source files. Read scientific-citations by exact workId and workIntentSha256 with bounded revision-bound replacement pages; withdrawn assertions remain history. Read their retained sources separately through scientific-citation-source, including after withdrawal. Correct with preview-scientific-citation-withdrawal and apply-scientific-citation-withdrawal using exact citation/work pins and a new withdrawal reason; correction requires no current source file. Historical duplicates, including withdrawn assertions, never create aliases or restore a link. Explicit reattachment requires a fresh citation identity plus reinstates pins for the exact predecessor and withdrawal, and current saved source must still match that pin. A changed source pin is a separate base citation. No-change creates no receipt. Recover unknown outcomes with the identical retained request and operation ID. Primary-only scientific-works-for-context and scientific-source retain their original meaning. ' +
   'Link a completed manual transfer into an existing permanent well to an explicit notebook-page or protocol-run context. Use scientific-contexts-v2 with contextKind, then preview-scientific-transfer-v2 and apply-scientific-transfer-v2 with choices.context {kind,entityId,sourceSha256}. Notebook selections retain the original intent meaning, so expressing prior work through this API cannot debit again. Legacy Notebook routes remain supported. Create and start genuine saved Protocol Runs through protocol_document first; inventory does not create them. The selected saved source is native observed evidence, not an accepted scientific revision. Preview creates no physical effect. Apply atomically records one transfer and stable namespace/workId observation with its retained source. Preserve that work identity on retries and duplicates; a fresh operationId cannot repeat the same work. Read the verified original source through scientific-source by canonical workId, separately from current navigation. A Run source retains its complete saved JSON and frozen protocol. This is operator-reported manual work, not hardware verification or biological success. ' +

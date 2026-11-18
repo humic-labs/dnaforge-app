@@ -28,7 +28,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v26. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v27. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -674,6 +674,73 @@ Expiry can change feasibility without a revision. An overdue active hold stays
 held until an explicit existing command changes it. Cached feasibility becomes
 Needs recheck on its boundary, selection changes or resume; it is never restored
 as current authority after reopen.
+
+## Reported completed plate-plan uses
+
+An operator can separately report one whole completed manual use of an exact
+saved plan. Reporting records inventory facts; it does not operate an instrument
+or certify a scientific result. The report has its own occurrence identity,
+independent of the reusable plan, selected Run and transport operation. A
+feasible binding never becomes a completed report automatically.
+
+Canonical v27 adds immutable `platePlanObservations`. Older states gain an empty
+map only in memory. Receipt context version 10 admits
+`record-plate-plan-observation` and retains the exact native saved Notebook or
+Protocol Run source. Earlier receipt versions cannot record these occurrences or
+adopt raw v27 archives. Existing work, citations and plan-version witnesses keep
+their original meanings and byte representations.
+
+```mermaid
+stateDiagram-v2
+    [*] --> ReportDraft
+    ReportDraft --> Blocked: current source or physical guard refuses
+    ReportDraft --> PreviewReady: exact whole completed report is admissible
+    PreviewReady --> ReportDraft: choices or current authority become stale
+    PreviewReady --> PendingAttempt: retain exact request before sending
+    PendingAttempt --> RecordedOccurrence: one physical batch and one observation commit
+    PendingAttempt --> Rejected: no inventory effects
+    PendingAttempt --> OutcomeUnknown: acknowledgement unavailable
+    OutcomeUnknown --> RecordedOccurrence: exact operation lookup or retry
+    OutcomeUnknown --> Rejected: authoritative rejection
+    RecordedOccurrence --> ExistingOccurrence: equivalent fresh preview, no second debit
+```
+
+The operator explicitly acknowledges that every listed transfer was completed.
+Partial work, uncertain physical outcomes and changed amounts cannot be silently
+reported as the complete plan. This is separate from uncertainty about whether a
+native request committed. There is no persisted running state, automatic
+completion, inverse transfer or withdrawal that restores stock.
+
+The native owner admits the exact saved source, plan version and complete
+binding. One ordered batch applies all transfers to distinct empty recorded
+permanent wells, preserving the existing physical, amount, hold, custody, lot,
+validity and capacity guards. Demand from several roles sharing one stock is
+combined. Every output has a deterministic occurrence/action stock identity. The
+batch and immutable observation commit in one inventory revision or neither
+commits. It cannot mix, top up or chain newly created outputs into later inputs.
+
+The observation retains ordered instructions, grouped source before/final-after
+stock facts, resulting aliquots and affected vessel snapshots. Its parent plate
+snapshot retains logical geometry and recorded immediate placement. It does not
+reconstruct historical freezer paths, configuration evidence or every unplanned
+well. Later use, moves, disposal and scientific source edits preserve these
+original facts. Aliquots retain source scientific identity and lot provenance;
+their creation does not establish a newly synthesized material.
+
+The five methods are `previewPlatePlanObservation`, `applyPlatePlanObservation`,
+`platePlanObservations`, `platePlanObservation` and
+`platePlanObservationSource`. Summary pages are bounded and bind their version,
+context and inventory revision filters in the cursor. Detail and original-source
+reads require exact occurrence and intent pins. The Run view shows recorded
+plate-plan uses separately from individual recorded transfers. Historical source
+reads return the retained packet, rather than today's edited document.
+
+An equivalent occurrence preserves the first report, reason, actor and time.
+Changing its binding, context or reason conflicts. A fresh equivalent request
+adds no alias, revision or receipt; retrying the accepted operation returns its
+original receipt. Different occurrence identities can record separate uses,
+subject to the same current physical guards. Disputing a historical report
+requires a separate explicit correction; the original facts remain intact.
 
 ## Saved citations and correction history
 

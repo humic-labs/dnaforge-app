@@ -55,3 +55,55 @@ driven; that mode clicks the actual export control and waits for its confirmed
 path. Scroll the exact saved grid into view before its static capture; retain a
 separate image of the grid itself along with the viewport and interaction video.
 Neither mode qualifies a physical printer or plan execution.
+
+## Report a whole completed manual use
+
+Open an exact saved version and choose Report completed manual use. The separate
+report form may prefill physical choices but requires its own saved Notebook or
+Protocol Run context, reason and explicit Yes, all transfers declaration. Some
+transfers or unsure prevents admitted preview/record. A fresh full report
+preview explains the complete cumulative stock effects before Record completed
+transfers. This operation records the operator's report; it does not start an
+instrument or claim a biological result.
+
+One accepted operation records the ordered transfer batch and one immutable
+occurrence. Its unique source stocks retain original/final facts, its outputs
+retain inherited aliquot provenance, and its parent plate retains recorded
+geometry/placement. Old individual scientific-work records remain independent.
+No mutable execution/progress status or partial batch is created. Unknown RPC
+outcome uses Check report status and Retry same manual report for the original
+accepted request. Closing a view preserves that recovery rather than making a
+new occurrence.
+
+Run Recorded plate-plan uses is a separate bounded summary/detail/source read.
+View recorded use displays exact historical effects. View saved plan-use context
+reads the retained source; Open current plan-use context navigates its current
+canonical identity. These reads never debit stock. Selecting an exact plan
+version uses the same query with a version filter.
+
+Use an existing compatible plan and genuinely empty destinations, without
+repeating any prior transfer:
+
+```sh
+node apps/desktop/scripts/inventory-journey.mjs --stage plate-plan-observation --fixture /absolute/evidence/plate-plans-reopen-fixture.json --out /absolute/evidence/plate-plan-observation
+```
+
+This mapped workflow uses the existing two4µL instructions intoA3/B1 and a
+freshly admitted60µL source. Before recording, it proves a current
+held-shortfall example and a mismatched layout cannot admit the whole batch. It
+captures the visible native refusal and preserves the exact availability facts.
+The valid preview must leave inventory/history unchanged. Its full prepared
+request is checkpointed before Record; the accepted native state is checkpointed
+immediately afterward, before further assertions. Exactly one revision must
+record source60→52µL and two4µL aliquots whileA1/A2 and prior scientific work
+remain unchanged.
+
+Preserve failures. Resume with plate-plan-observation-resume and the latest
+checkpoint; confirm the original operation, never create another occurrence to
+forget an unknown result. After full native restart,
+plate-plan-observation-reopen requires exact state/history/output identities,
+original context, both independent Run sections and a no-change preview of the
+same occurrence. Capture report refusals, Ready effects and recorded lineage
+with their target scrolled into view, plus interaction video. The workflow does
+not require a Run edit; when only the original frozen Protocol and its later
+separate template revision are demonstrated, report that narrower evidence.

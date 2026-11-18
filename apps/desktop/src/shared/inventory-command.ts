@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import {
+  inventoryApplyPlatePlanObservationRequestSchema,
+  type InventoryApplyPlatePlanObservationRequest,
+} from './inventory-plate-plan-observations';
+export type { InventoryApplyPlatePlanObservationRequest } from './inventory-plate-plan-observations';
+import {
   inventoryApplyPlatePlanVersionRequestSchema,
   type InventoryApplyPlatePlanVersionRequest,
 } from './inventory-plate-plans';
@@ -66,6 +71,7 @@ export const inventoryReceiptContextSchema = z
       z.literal(7),
       z.literal(8),
       z.literal(9),
+      z.literal(10),
     ]),
     principal: inventoryPrincipalSchema,
     authority: z.object({ kind: z.literal('local-profile'), profileKey }).strict(),
@@ -931,6 +937,7 @@ export const inventoryExecuteRequestSchema = inventoryReadRequestSchema
 
 export const inventoryAcceptedRequestSchema = z.union([
   inventoryApplyPlatePlanVersionRequestSchema,
+  inventoryApplyPlatePlanObservationRequestSchema,
   inventoryApplyScientificCitationRequestSchema,
   inventoryApplyScientificCitationWithdrawalRequestSchema,
   inventoryApplyScientificTransferRequestSchema,
@@ -1090,6 +1097,7 @@ export type InventoryAcknowledgeSourceRequest = InventoryReadRequest & {
 };
 export type InventoryAcceptedRequest =
   | InventoryApplyPlatePlanVersionRequest
+  | InventoryApplyPlatePlanObservationRequest
   | InventoryApplyScientificCitationRequest
   | InventoryApplyScientificCitationWithdrawalRequest
   | InventoryApplyScientificTransferRequest

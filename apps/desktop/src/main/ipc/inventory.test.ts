@@ -868,3 +868,68 @@ it('routes exact plate-plan reads and source-free saves through the current desk
   ).rejects.toThrow();
   expect(applyPlatePlanVersion).toHaveBeenCalledTimes(1);
 });
+
+it('routes full plate-plan observation reads and preserves the current caller on asynchronous reports', async () => {
+  const platePlanObservations = vi.fn(() => ({ kind: 'ready', observations: [] }));
+  const platePlanObservation = vi.fn(() => ({ kind: 'unavailable' }));
+  const platePlanObservationSource = vi.fn(() => ({ kind: 'unavailable' }));
+  const previewPlatePlanObservation = vi.fn(async () => ({ kind: 'blocked' }));
+  const applyPlatePlanObservation = vi.fn(
+    async (_request: unknown, _guard: () => void, _invocation: unknown) => ({ status: 'committed' })
+  );
+  owner = {
+    ...owner,
+    platePlanObservations,
+    platePlanObservation,
+    platePlanObservationSource,
+    previewPlatePlanObservation,
+    applyPlatePlanObservation,
+  } as unknown as NativeInventoryOwner;
+  const input = { project: 'project', inventoryId: 'inventory' };
+  for (const [method, spy] of [
+    ['platePlanObservations', platePlanObservations],
+    ['platePlanObservation', platePlanObservation],
+    ['platePlanObservationSource', platePlanObservationSource],
+    ['previewPlatePlanObservation', previewPlatePlanObservation],
+  ] as const) {
+    await (captured.handlers[method] as (event: IpcMainInvokeEvent, input: unknown) => unknown)(
+      event,
+      input
+    );
+    expect(spy).toHaveBeenCalledExactlyOnceWith(input);
+  }
+  const digest = `sha256:${'a'.repeat(64)}`,
+    request = {
+      ...input,
+      kind: 'record-plate-plan-observation',
+      operationId: 'same-report',
+      expectedRevision: 98,
+      expectedPlanDigest: digest,
+      choices: {
+        identity: { namespace: 'manual', observationId: 'same-occurrence' },
+        context: { kind: 'protocol-run', entityId: 'project::run', sourceSha256: digest },
+        binding: {
+          versionId: 'version',
+          definitionSha256: digest,
+          destinationPlateId: 'plate',
+          sources: [{ sourceSlotKey: 'sample', stockId: 'stock' }],
+        },
+        reason: 'Reported completed full manual plan',
+      },
+    };
+  const apply = captured.handlers.applyPlatePlanObservation as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => Promise<unknown>;
+  await apply(event, request);
+  expect(applyPlatePlanObservation).toHaveBeenCalledExactlyOnceWith(request, expect.any(Function), {
+    actor: 'human:desktop:7',
+  });
+  const guard = applyPlatePlanObservation.mock.calls[0][1];
+  owner = null;
+  expect(guard).toThrow('owner changed');
+  await expect(
+    apply(event, { ...request, scientificSource: { content: 'caller witness' } })
+  ).rejects.toThrow();
+  expect(applyPlatePlanObservation).toHaveBeenCalledTimes(1);
+});

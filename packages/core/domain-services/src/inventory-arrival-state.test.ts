@@ -142,6 +142,7 @@ describe('immutable arrival state', () => {
       {
         scientificWorks: _scientificWorks,
         scientificCitations: _scientificCitations,
+        platePlanObservations: _platePlanObservations,
         platePlanVersions: _platePlanVersions,
         scientificCitationWithdrawals: _scientificCitationWithdrawals,
         expectedDeliveries: _expected,
@@ -156,6 +157,7 @@ describe('immutable arrival state', () => {
       {
         scientificWorks,
         scientificCitations,
+        platePlanObservations,
         platePlanVersions,
         scientificCitationWithdrawals,
         expectedDeliveries,

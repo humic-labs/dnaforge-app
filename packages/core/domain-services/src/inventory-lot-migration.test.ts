@@ -54,6 +54,7 @@ function legacy(state: InventoryState): unknown {
   const {
     scientificWorks: _scientificWorks,
     scientificCitations: _scientificCitations,
+    platePlanObservations: _platePlanObservations,
     platePlanVersions: _platePlanVersions,
     scientificCitationWithdrawals: _scientificCitationWithdrawals,
     expectedDeliveries: _expected,

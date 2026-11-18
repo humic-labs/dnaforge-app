@@ -104,6 +104,7 @@ type InventorySourceKind = Exclude<
   | 'record-scientific-citation'
   | 'withdraw-scientific-citation'
   | 'save-plate-plan-version'
+  | 'record-plate-plan-observation'
 >;
 const sourceHistoryCopy: Readonly<
   Record<
@@ -551,10 +552,12 @@ export function InventoryPanel() {
                       ? 'Withdrew scientific citation'
                       : entry.request.kind === 'save-plate-plan-version'
                         ? 'Saved reusable plate-plan version'
-                        : entry.request.kind === 'record-scientific-transfer' ||
-                            entry.request.kind === 'record-scientific-transfer-v2'
-                          ? 'Recorded observed scientific transfer'
-                          : sourceHistoryCopy[entry.request.kind].title
+                        : entry.request.kind === 'record-plate-plan-observation'
+                          ? 'Recorded completed manual plate-plan use'
+                          : entry.request.kind === 'record-scientific-transfer' ||
+                              entry.request.kind === 'record-scientific-transfer-v2'
+                            ? 'Recorded observed scientific transfer'
+                            : sourceHistoryCopy[entry.request.kind].title
                   : entry.request.commands
                       .map((command) => (state ? historyLabel(command, state) : ''))
                       .join(' · ')}
@@ -597,6 +600,19 @@ export function InventoryPanel() {
                   <p>
                     Original citation details and saved context remain in the recorded work's
                     citation history.
+                  </p>
+                </div>
+              ) : 'kind' in entry.request &&
+                entry.request.kind === 'record-plate-plan-observation' ? (
+                <div className="space-y-1 text-xs">
+                  <p>{entry.request.choices.reason}</p>
+                  <p className="break-all">
+                    Occurrence: {entry.request.choices.identity.observationId}
+                  </p>
+                  <p className="break-all">Saved plan: {entry.request.choices.binding.versionId}</p>
+                  <p>
+                    One operator-reported whole manual use with its recorded stock effects and saved
+                    scientific context.
                   </p>
                 </div>
               ) : 'kind' in entry.request && entry.request.kind === 'save-plate-plan-version' ? (

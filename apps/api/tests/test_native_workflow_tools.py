@@ -1329,3 +1329,66 @@ async def test_inventory_plate_plan_routes_keep_canonical_choices_and_only_save_
         await execute_native_workflow("inventory", {"operation": operations[2]}, context)
     assert revoked.value.code == "GRANT_REVOKED"
     assert len(state["calls"]) == 5
+
+
+@pytest.mark.asyncio
+async def test_inventory_full_manual_observation_routes_keep_occurrence_and_current_grants(native):
+    state, context = native
+    state["scope"] = ["read-workspace"]
+    scope = {"project": "project", "inventoryId": "inventory"}
+    digest = "sha256:" + "a" * 64
+    choices = {
+        "identity": {"namespace": "manual", "observationId": "stable-occurrence"},
+        "context": {"kind": "protocol-run", "entityId": "project::run", "sourceSha256": digest},
+        "binding": {
+            "versionId": "version",
+            "definitionSha256": digest,
+            "destinationPlateId": "plate",
+            "sources": [{"sourceSlotKey": "sample", "stockId": "stock"}],
+        },
+        "reason": "Reported completed full manual plan",
+    }
+    pin = {"observationId": "plate-plan-observation:" + "b" * 64, "intentSha256": digest}
+    operations = [
+        {
+            "kind": "preview-plate-plan-observation",
+            **scope,
+            "expectedRevision": 98,
+            "choices": choices,
+        },
+        {
+            "kind": "plate-plan-observations",
+            **scope,
+            "version": {"versionId": "version", "definitionSha256": digest},
+            "context": {"kind": "protocol-run", "entityId": "project::run"},
+            "limit": 20,
+        },
+        {"kind": "plate-plan-observation", **scope, **pin},
+        {"kind": "plate-plan-observation-source", **scope, **pin},
+    ]
+    for operation in operations:
+        await execute_native_workflow("inventory", {"operation": operation}, context)
+        assert state["calls"][-1]["command"] == "inventory." + operation["kind"]
+        assert state["calls"][-1]["request"] == {
+            key: value for key, value in operation.items() if key != "kind"
+        }
+        assert state["calls"][-1]["agent"]["capabilities"] == ["read-workspace"]
+    apply = {
+        **operations[0],
+        "kind": "apply-plate-plan-observation",
+        "operationId": "stable-attempt",
+        "expectedPlanDigest": digest,
+    }
+    with pytest.raises(ToolExecutionFailure) as denied:
+        await execute_native_workflow("inventory", {"operation": apply}, context)
+    assert denied.value.code == "INSUFFICIENT_SCOPE"
+    assert len(state["calls"]) == 4
+    state["scope"] = ["read-workspace", "write-workspace"]
+    await execute_native_workflow("inventory", {"operation": apply}, context)
+    assert state["calls"][-1]["request"] == {**apply, "kind": "record-plate-plan-observation"}
+    assert state["calls"][-1]["request"]["choices"] == choices
+    state["revoked"] = True
+    with pytest.raises(ToolExecutionFailure) as revoked:
+        await execute_native_workflow("inventory", {"operation": operations[3]}, context)
+    assert revoked.value.code == "GRANT_REVOKED"
+    assert len(state["calls"]) == 5

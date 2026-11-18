@@ -23,6 +23,7 @@ import {
   inventoryApplyScientificCitationWithdrawalRequestSchema,
 } from '../../shared/inventory-scientific-citations';
 import { inventoryApplyPlatePlanVersionRequestSchema } from '../../shared/inventory-plate-plans';
+import { inventoryApplyPlatePlanObservationRequestSchema } from '../../shared/inventory-plate-plan-observations';
 import { NativeDocumentCommandError } from '../../shared/native-document-error';
 import type { NativeInventoryOwner } from '../inventory-owner';
 
@@ -161,6 +162,7 @@ export function registerInventoryHandlers(options: {
     event: IpcMainInvokeEvent,
     input: unknown,
     method:
+      | 'applyPlatePlanObservation'
       | 'applyPlatePlanVersion'
       | 'applyScientificTransfer'
       | 'applyScientificTransferV2'
@@ -169,6 +171,7 @@ export function registerInventoryHandlers(options: {
   ) => {
     assertCaller(event);
     const schema = {
+      applyPlatePlanObservation: inventoryApplyPlatePlanObservationRequestSchema,
       applyPlatePlanVersion: inventoryApplyPlatePlanVersionRequestSchema,
       applyScientificTransfer: inventoryApplyScientificTransferRequestSchema,
       applyScientificTransferV2: inventoryApplyScientificTransferV2RequestSchema,
@@ -219,6 +222,22 @@ export function registerInventoryHandlers(options: {
     return result;
   };
   return handleGroup(inventoryContract, {
+    previewPlatePlanObservation: (event, request) =>
+      previewCitation(event, (owner) => owner.previewPlatePlanObservation(request)),
+    applyPlatePlanObservation: (event, request) =>
+      mutateScientific(event, request, 'applyPlatePlanObservation'),
+    platePlanObservations: (event, request) => {
+      assertCaller(event);
+      return currentOwner().platePlanObservations(request);
+    },
+    platePlanObservation: (event, request) => {
+      assertCaller(event);
+      return currentOwner().platePlanObservation(request);
+    },
+    platePlanObservationSource: (event, request) => {
+      assertCaller(event);
+      return currentOwner().platePlanObservationSource(request);
+    },
     previewPlatePlanVersion: (event, request) => {
       assertCaller(event);
       return currentOwner().previewPlatePlanVersion(request);

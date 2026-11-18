@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import {
   inventoryStoragePositions,
   inventoryAmountUnitDefinition,
@@ -19,6 +19,13 @@ import {
 import { sharedInventoryPendingCoordinator } from './inventory-pending-coordinator';
 import { inventoryAmountLabel, inventoryPrincipalLabel } from './inventory-view';
 import { inventoryTextOutputLocked } from './inventory-text-output';
+import {
+  InventoryPlatePlanObservationForm,
+  type PlatePlanReportSelection,
+} from './InventoryPlatePlanObservationForm';
+import { InventoryPlatePlanObservations } from './InventoryPlatePlanObservations';
+import { inventoryPlatePlanVersionReadSchema } from '../../shared/inventory-plate-plans';
+import type { InventoryAttempt } from './inventory-pending-coordinator';
 
 export function InventoryPlatePlans({
   project,
@@ -98,6 +105,47 @@ export function InventoryPlatePlans({
       entry.request.project === scope.project && entry.request.inventoryId === scope.inventoryId
   );
   const preview = save.kind === 'previewed' ? save.preview : null;
+  const [report, setReport] = useState<PlatePlanReportSelection | null>(null);
+  const [reportError, setReportError] = useState<string | null>(null);
+  async function openReport(resume?: InventoryAttempt) {
+    setReportError(null);
+    try {
+      if (resume) {
+        if (
+          !('kind' in resume.request) ||
+          resume.request.kind !== 'record-plate-plan-observation' ||
+          resume.request.project !== scope.project ||
+          resume.request.inventoryId !== scope.inventoryId
+        )
+          throw Error('The saved manual report belongs to another inventory.');
+        const binding = resume.request.choices.binding;
+        const original = inventoryPlatePlanVersionReadSchema.parse(
+          await client.platePlanVersion({
+            ...scope,
+            versionId: binding.versionId,
+            definitionSha256: binding.definitionSha256,
+          })
+        );
+        if (
+          original.kind !== 'available' ||
+          original.projectId !== scope.project ||
+          original.inventoryId !== scope.inventoryId ||
+          original.version.id !== binding.versionId ||
+          original.version.definitionSha256 !== binding.definitionSha256
+        )
+          throw Error('The original saved plan for this pending report is unavailable.');
+        setReport({ version: original.version, resume });
+      } else if (selected)
+        setReport({
+          version: selected.version,
+          initial: { destinationPlateId: read.destinationPlateId, sources: read.sources },
+        });
+    } catch (cause) {
+      setReportError(
+        cause instanceof Error ? cause.message : 'The manual report could not be opened.'
+      );
+    }
+  }
   const update = (change: Partial<PlatePlanDraft>) => editor.edit({ ...draft, ...change });
   function changeRole(index: number, label: string) {
     const sourceSlots = draft.sourceSlots.map((slot, at) =>
@@ -163,11 +211,17 @@ export function InventoryPlatePlans({
                 A saved inventory change needs confirmation.{' '}
                 {'kind' in attempt.request && attempt.request.kind === 'save-plate-plan-version' ? (
                   <Button onClick={() => editor.resume(attempt)}>Resume saved change</Button>
+                ) : 'kind' in attempt.request &&
+                  attempt.request.kind === 'record-plate-plan-observation' ? (
+                  <Button onClick={() => void openReport(attempt)}>
+                    Resume saved manual report
+                  </Button>
                 ) : (
                   <span>Open its inventory workflow to confirm the original change.</span>
                 )}
               </Notice>
             ) : null}
+            {reportError ? <Notice tone="error">{reportError}</Notice> : null}
             <section className="space-y-3" data-testid="plate-plan-versions">
               <div className="flex gap-2">
                 <h3 className="mr-auto font-semibold">Saved versions</h3>
@@ -494,6 +548,9 @@ export function InventoryPlatePlans({
                 data-plan-version-id={selected.version.id}
                 data-definition-sha256={selected.version.definitionSha256}
               >
+                <Button disabled={project.pinned} onClick={() => void openReport()}>
+                  Report completed manual use
+                </Button>
                 <div className="flex gap-3">
                   <div className="mr-auto">
                     <h3 className="font-semibold">
@@ -698,8 +755,28 @@ export function InventoryPlatePlans({
             ) : (
               <p>Choose an exact saved version to view its grid, export or bind it.</p>
             )}
+            {selected ? (
+              <InventoryPlatePlanObservations
+                scope={scope}
+                filters={{
+                  version: {
+                    versionId: selected.version.id,
+                    definitionSha256: selected.version.definitionSha256,
+                  },
+                }}
+              />
+            ) : null}
           </main>
         </section>
+        {report ? (
+          <InventoryPlatePlanObservationForm
+            key={report.version.id + ':' + (report.resume?.request.operationId ?? 'draft')}
+            scope={scope}
+            selection={report}
+            data={data}
+            onClose={() => setReport(null)}
+          />
+        ) : null}
       </PresentationScopeContext.Provider>
     </div>
   );

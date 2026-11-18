@@ -1,3 +1,5 @@
+import type { InventoryPlatePlanObservation } from './inventory-plate-plan-observation-types';
+import { validateInventoryPlatePlanObservations } from './inventory-plate-plan-observation-validation';
 import type { InventoryPlatePlanVersion } from './inventory-plate-plan-types';
 import { parseInventoryPlatePlanDefinition } from './inventory-plate-plan-definition';
 import {
@@ -94,6 +96,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_PLATE_PLAN_SCHEMA,
   INVENTORY_CITATION_SCHEMA,
   INVENTORY_RUN_CONTEXT_SCHEMA,
   INVENTORY_NOTEBOOK_CONTEXT_SCHEMA,
@@ -2264,6 +2267,17 @@ const scientificVesselSnapshot = fields('Scientific transfer vessel observation'
   name,
   placement: vesselPlacement,
 });
+const scientificTransferRecord = fields('Scientific transfer observation', {
+  kind: literal('transfer'),
+  sourceStockId: id,
+  quantity: storedAmount,
+  destination: fields('New scientific aliquot', {
+    kind: literal('new-stock'),
+    stockId: id,
+    vesselId,
+  }),
+  reason,
+});
 const scientificWorkRecord: Codec<InventoryScientificWork> = fields('Scientific work observation', {
   id,
   identity: fields('Stable scientific work identity', {
@@ -2300,17 +2314,7 @@ const scientificWorkRecord: Codec<InventoryScientificWork> = fields('Scientific 
   observation: fields('Completed manual observation', {
     kind: literal('completed-manual-transfer'),
   }),
-  transfer: fields('Scientific transfer observation', {
-    kind: literal('transfer'),
-    sourceStockId: id,
-    quantity: storedAmount,
-    destination: fields('New scientific aliquot', {
-      kind: literal('new-stock'),
-      stockId: id,
-      vesselId,
-    }),
-    reason,
-  }),
+  transfer: scientificTransferRecord,
   effects: fields('Scientific transfer effects', {
     source: fields('Source stock observation', {
       before: stockRecord,
@@ -2418,6 +2422,88 @@ const scientificCitationWithdrawalRecord: Codec<InventoryScientificCitationWithd
     reason,
   }
 );
+
+const platePlanObservationRecord: Codec<InventoryPlatePlanObservation> = fields(
+  'Completed manual plate-plan observation',
+  {
+    id,
+    identity: fields('Plate-plan occurrence identity', {
+      namespace: arrivalKey,
+      observationId: arrivalKey,
+    }),
+    intentSha256: sha256,
+    context: scientificCitationContext,
+    observation: fields('Whole completed manual plate-plan report', {
+      kind: literal('reported-completed-manual-plate-plan'),
+    }),
+    binding: fields('Exact plate-plan occurrence binding', {
+      versionId: id,
+      definitionSha256: sha256,
+      destinationPlateId: id,
+      sources: array(
+        fields('Plate-plan source role binding', {
+          sourceSlotKey: text('Logical source role key', 512),
+          stockId: id,
+        }),
+        MAX_INVENTORY_BATCH_COMMANDS,
+        1
+      ),
+    }),
+    plate: fields('Recorded plate logical geometry and placement', {
+      id,
+      name,
+      layout: fields('Recorded fixed-well logical geometry', {
+        kind: literal('fixed-well'),
+        rows: integer('Recorded plate rows', 1, MAX_INVENTORY_STORAGE_SLOTS),
+        columns: integer('Recorded plate columns', 1, MAX_INVENTORY_STORAGE_SLOTS),
+      }),
+      placement: storagePlacement,
+    }),
+    actions: array(
+      fields('Completed plan action', {
+        actionId: text('Logical action key', 512),
+        ordinal: integer('Action ordinal', 1, MAX_INVENTORY_BATCH_COMMANDS),
+        sourceSlotKey: text('Logical source role key', 512),
+        transfer: scientificTransferRecord,
+      }),
+      MAX_INVENTORY_BATCH_COMMANDS,
+      1
+    ),
+    effects: fields('Whole plate-plan batch effects', {
+      sources: array(
+        fields('Grouped original and final source facts', {
+          sourceSlotKeys: array(
+            text('Logical source role key', 512),
+            MAX_INVENTORY_BATCH_COMMANDS,
+            1,
+            true
+          ),
+          before: stockRecord,
+          after: stockRecord,
+          vessel: scientificVesselSnapshot,
+        }),
+        MAX_INVENTORY_BATCH_COMMANDS,
+        1
+      ),
+      destinations: array(
+        fields('Resulting plan aliquot facts', {
+          actionId: text('Logical action key', 512),
+          before: nullValue,
+          after: stockRecord,
+          vessel: scientificVesselSnapshot,
+        }),
+        MAX_INVENTORY_BATCH_COMMANDS,
+        1
+      ),
+    }),
+    at: timestamp,
+    by: recordedPrincipal,
+    reason,
+  }
+);
+export function parseInventoryPlatePlanObservation(value: unknown): InventoryPlatePlanObservation {
+  return platePlanObservationRecord.parse(value);
+}
 
 export function parseInventoryScientificCitation(value: unknown): InventoryScientificCitation {
   return scientificCitationRecord.parse(value);
@@ -3105,7 +3191,8 @@ export function parseInventoryScientificWork(value: unknown): InventoryScientifi
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const citationRecords = current || row.schema === INVENTORY_CITATION_SCHEMA;
+  const platePlanRecords = current || row.schema === INVENTORY_PLATE_PLAN_SCHEMA;
+  const citationRecords = platePlanRecords || row.schema === INVENTORY_CITATION_SCHEMA;
   const runContextRecords = citationRecords || row.schema === INVENTORY_RUN_CONTEXT_SCHEMA;
   const scientificRecords = runContextRecords || row.schema === INVENTORY_NOTEBOOK_CONTEXT_SCHEMA;
   const stockroomRecords = scientificRecords || row.schema === INVENTORY_STOCKROOM_SCHEMA;
@@ -3131,6 +3218,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_PLATE_PLAN_SCHEMA),
       literal(INVENTORY_CITATION_SCHEMA),
       literal(INVENTORY_RUN_CONTEXT_SCHEMA),
       literal(INVENTORY_NOTEBOOK_CONTEXT_SCHEMA),
@@ -3159,6 +3247,9 @@ export function parseInventoryState(value: unknown): InventoryState {
     ]),
     revision,
     ...(current
+      ? { platePlanObservations: { schema: { type: 'object' }, parse: (input: unknown) => input } }
+      : {}),
+    ...(platePlanRecords
       ? { platePlanVersions: { schema: { type: 'object' }, parse: (input: unknown) => input } }
       : {}),
     ...(citationRecords
@@ -3294,7 +3385,10 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   let state: InventoryState = {
     schema: INVENTORY_SCHEMA,
-    platePlanVersions: current
+    platePlanObservations: current
+      ? records(shape.platePlanObservations, parseInventoryPlatePlanObservation)
+      : Object.create(null),
+    platePlanVersions: platePlanRecords
       ? records(shape.platePlanVersions, parseInventoryPlatePlanVersion)
       : Object.create(null),
     scientificCitations: citationRecords
@@ -3586,6 +3680,7 @@ export function parseInventoryState(value: unknown): InventoryState {
     validateInventoryScientificState(state);
     validateInventoryScientificCitations(state);
     validateInventoryPlatePlans(state);
+    validateInventoryPlatePlanObservations(state);
     validateInventoryStockroomState(state);
     validateInventoryArrivalState(state);
     validateInventoryValidityState(state);

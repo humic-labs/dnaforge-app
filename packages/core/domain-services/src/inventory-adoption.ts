@@ -107,6 +107,32 @@ function mapOrigin(
 function mapScientificReferences(state: InventoryState, resolve: ResolveMaterial): InventoryState {
   return {
     ...state,
+    platePlanObservations: mapRecords(state.platePlanObservations, (observation, id) => ({
+      ...observation,
+      effects: {
+        sources: observation.effects.sources.map((source, index) => ({
+          ...source,
+          before: mapIdentity(
+            source.before,
+            `/platePlanObservations/${pointerKey(id)}/effects/sources/${index}/before`,
+            resolve
+          ),
+          after: mapIdentity(
+            source.after,
+            `/platePlanObservations/${pointerKey(id)}/effects/sources/${index}/after`,
+            resolve
+          ),
+        })),
+        destinations: observation.effects.destinations.map((destination, index) => ({
+          ...destination,
+          after: mapIdentity(
+            destination.after,
+            `/platePlanObservations/${pointerKey(id)}/effects/destinations/${index}/after`,
+            resolve
+          ),
+        })),
+      },
+    })),
     scientificWorks: mapRecords(state.scientificWorks, (work, id) => ({
       ...work,
       effects: {
@@ -233,6 +259,10 @@ function mapAttribution(state: InventoryState, source: InventoryAdoptionSource):
     value.kind === 'available' ? value : { ...value, by: principal(value.by) };
   return {
     ...state,
+    platePlanObservations: mapRecords(state.platePlanObservations, (observation) => ({
+      ...observation,
+      by: principal(observation.by),
+    })),
     platePlanVersions: mapRecords(state.platePlanVersions, (version) => ({
       ...version,
       by: principal(version.by),

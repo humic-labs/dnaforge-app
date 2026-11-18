@@ -220,5 +220,7 @@ export function executeInventoryAcceptedRequest(
       return client.applyScientificCitationWithdrawal(request);
     case 'save-plate-plan-version':
       return client.applyPlatePlanVersion(request);
+    case 'record-plate-plan-observation':
+      return client.applyPlatePlanObservation(request);
   }
 }

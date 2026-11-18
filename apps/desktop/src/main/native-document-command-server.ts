@@ -5,6 +5,13 @@ import {
   inventoryPlatePlanVersionRequestSchema,
   inventoryPreviewPlatePlanBindingRequestSchema,
 } from '../shared/inventory-plate-plans';
+import {
+  inventoryPreviewPlatePlanObservationRequestSchema,
+  inventoryApplyPlatePlanObservationRequestSchema,
+  inventoryPlatePlanObservationsRequestSchema,
+  inventoryPlatePlanObservationRequestSchema,
+  inventoryPlatePlanObservationSourceRequestSchema,
+} from '../shared/inventory-plate-plan-observations';
 import { timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { z } from 'zod';
@@ -118,6 +125,52 @@ const selection = target
   })
   .strict();
 const commandSchema = z.discriminatedUnion('command', [
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-plate-plan-observation'),
+      request: inventoryPreviewPlatePlanObservationRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.apply-plate-plan-observation'),
+      request: inventoryApplyPlatePlanObservationRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.plate-plan-observations'),
+      request: inventoryPlatePlanObservationsRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.plate-plan-observation'),
+      request: inventoryPlatePlanObservationRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.plate-plan-observation-source'),
+      request: inventoryPlatePlanObservationSourceRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+
   z
     .object({
       ownerInstanceId: identity,
@@ -699,6 +752,11 @@ export async function startNativeDocumentCommandServer(options: {
   inventory?: Pick<
     ReturnType<typeof createNativeInventoryOwner>,
     | 'execute'
+    | 'previewPlatePlanObservation'
+    | 'applyPlatePlanObservation'
+    | 'platePlanObservations'
+    | 'platePlanObservation'
+    | 'platePlanObservationSource'
     | 'previewPlatePlanVersion'
     | 'applyPlatePlanVersion'
     | 'platePlanVersions'
@@ -908,6 +966,11 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'project-history.execute' ||
           body.command === 'import-review.execute' ||
           body.command === 'administration.execute' ||
+          body.command === 'inventory.preview-plate-plan-observation' ||
+          body.command === 'inventory.apply-plate-plan-observation' ||
+          body.command === 'inventory.plate-plan-observations' ||
+          body.command === 'inventory.plate-plan-observation' ||
+          body.command === 'inventory.plate-plan-observation-source' ||
           body.command === 'inventory.preview-plate-plan-version' ||
           body.command === 'inventory.apply-plate-plan-version' ||
           body.command === 'inventory.plate-plan-versions' ||
@@ -968,6 +1031,7 @@ export async function startNativeDocumentCommandServer(options: {
               body.agent
             ) {
               const required =
+                body.command === 'inventory.apply-plate-plan-observation' ||
                 body.command === 'inventory.apply-plate-plan-version' ||
                 body.command === 'inventory.apply-scientific-citation' ||
                 body.command === 'inventory.apply-scientific-citation-withdrawal' ||
@@ -1021,6 +1085,38 @@ export async function startNativeDocumentCommandServer(options: {
                       principal: { kind: 'agent' as const, identityId: body.agent.identityId },
                     }
                   : undefined;
+              if (body.command === 'inventory.preview-plate-plan-observation')
+                return async () => {
+                  const preview = await receiver.previewPlatePlanObservation(body.request, {
+                    ...planInvocation,
+                    beforeScientificRead: authorizeInventoryRequest,
+                  });
+                  assertCurrent();
+                  return { kind: 'plate-plan-observation-preview', preview };
+                };
+              if (body.command === 'inventory.apply-plate-plan-observation')
+                return async () => ({
+                  kind: 'execution',
+                  execution: await receiver.applyPlatePlanObservation(body.request, assertCurrent, {
+                    ...planInvocation,
+                    beforeScientificCommit: authorizeInventoryRequest,
+                  }),
+                });
+              if (body.command === 'inventory.plate-plan-observations')
+                return () => ({
+                  kind: 'plate-plan-observations',
+                  result: receiver.platePlanObservations(body.request),
+                });
+              if (body.command === 'inventory.plate-plan-observation')
+                return () => ({
+                  kind: 'plate-plan-observation',
+                  result: receiver.platePlanObservation(body.request),
+                });
+              if (body.command === 'inventory.plate-plan-observation-source')
+                return () => ({
+                  kind: 'plate-plan-observation-source',
+                  result: receiver.platePlanObservationSource(body.request),
+                });
               if (body.command === 'inventory.preview-plate-plan-version')
                 return () => ({
                   kind: 'plate-plan-version-preview',
@@ -1523,6 +1619,10 @@ export async function startNativeDocumentCommandServer(options: {
             body.command !== 'inventory.operation' &&
             body.command !== 'inventory.history';
           if (
+            body.command === 'inventory.preview-plate-plan-observation' ||
+            body.command === 'inventory.plate-plan-observations' ||
+            body.command === 'inventory.plate-plan-observation' ||
+            body.command === 'inventory.plate-plan-observation-source' ||
             body.command === 'inventory.preview-plate-plan-version' ||
             body.command === 'inventory.plate-plan-versions' ||
             body.command === 'inventory.plate-plan-version' ||
