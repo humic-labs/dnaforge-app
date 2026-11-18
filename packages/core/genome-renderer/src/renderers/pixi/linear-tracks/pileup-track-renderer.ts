@@ -251,6 +251,7 @@ const READ_ROWS_ASSIGN_WORK_BUDGET_MS = 0.75;
 const READ_ROWS_URGENT_ASSIGN_WORK_BUDGET_MS = 2;
 const READ_ROWS_RETAIN_RECORDS_PER_FRAME = 512;
 const READ_ROWS_BUILD_RECORDS_PER_FRAME = 512;
+const FIRST_STATIC_MESH_MAX_RECORDS = 4;
 const READ_ROWS_URGENT_RECORDS_PER_FRAME = 4_096;
 const READ_ROWS_URGENT_BUILD_RECORDS_PER_FRAME = 8_192;
 const READ_ROWS_HANDOFF_RUNWAY_VIEWPORTS = 1;
@@ -4551,7 +4552,17 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         if (state.rows) this.applyCamera(state.rows, args, rowsY);
         return;
       }
-      if (active.job === null && remainingReadRowsWorkMs(allowance) > 0) {
+      const finishFirstStaticMesh =
+        state.rows === null &&
+        state.rowsBack.bufferCapacity === 0 &&
+        !active.input.tileEngineAuthority &&
+        active.records === state.incomingReadInput?.records &&
+        active.records.length <= Math.min(FIRST_STATIC_MESH_MAX_RECORDS, maxRecords) &&
+        active.records.every((record) => !record.mismatches?.length);
+      if (
+        active.job === null &&
+        (finishFirstStaticMesh || remainingReadRowsWorkMs(allowance) > 0)
+      ) {
         const pool = state.rowsBack.pool;
         if (ensureVerticesPoolCapacity(pool, active.visibleRecordCount * 6)) {
           this.rowsMeshBufferAllocCount += 1;
@@ -4572,18 +4583,18 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       const bodyBudgetMs = remainingReadRowsWorkMs(allowance);
       if (
         active.job !== null &&
-        bodyBudgetMs > 0 &&
+        (finishFirstStaticMesh || bodyBudgetMs > 0) &&
         !isAnnotationRecordVerticesJobComplete(active.job)
       ) {
         this.lastRowsMeshBuildRecordsThisFrame = advanceAnnotationRecordVerticesJob(
           active.job,
           maxRecords,
-          { workBudgetMs: bodyBudgetMs }
+          finishFirstStaticMesh ? undefined : { workBudgetMs: bodyBudgetMs }
         );
       }
       const differenceBudgetMs = remainingReadRowsWorkMs(allowance);
       if (
-        differenceBudgetMs > 0 &&
+        (finishFirstStaticMesh || differenceBudgetMs > 0) &&
         !state.readDifferenceLayer.isPreparationComplete(active.difference)
       ) {
         state.readDifferenceLayer.advancePreparation(
@@ -4591,7 +4602,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
           urgentReadRowsBuild
             ? READ_ROWS_URGENT_BUILD_RECORDS_PER_FRAME
             : READ_ROWS_BUILD_RECORDS_PER_FRAME,
-          { workBudgetMs: differenceBudgetMs }
+          finishFirstStaticMesh ? undefined : { workBudgetMs: differenceBudgetMs }
         );
       }
       if (

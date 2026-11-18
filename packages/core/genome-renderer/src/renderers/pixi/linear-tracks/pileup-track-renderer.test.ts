@@ -3020,6 +3020,44 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         240
       );
 
+    it.each([
+      { authority: 'static', count: 4, withMarks: false, firstVertices: 24 },
+      { authority: 'static', count: 5, withMarks: false, firstVertices: 0 },
+      { authority: 'tile-engine', count: 4, withMarks: false, firstVertices: 0 },
+      { authority: 'static', count: 4, withMarks: true, firstVertices: 0 },
+    ] as const)(
+      'publishes a prepared first mesh for $count $authority reads with marks=$withMarks',
+      ({ authority, count, withMarks, firstVertices }) => {
+        const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
+        const container = renderer.mount(mountArgs);
+        const records = makeWindowReads(count, 1_000);
+        if (withMarks) {
+          records[0] = { ...records[0], mismatches: [{ pos: 102, kind: 'sub', readBase: 'T' }] };
+        }
+        const args = readPaint(container, records, 1_000);
+        const paint = { ...args, data: { ...args.data, dataAuthority: authority } };
+        let time = 0;
+        const clock = vi.spyOn(performance, 'now').mockImplementation(() => time);
+        const begin = PileupReadDifferenceLayer.prototype.beginPreparation;
+        const setup = vi.spyOn(PileupReadDifferenceLayer.prototype, 'beginPreparation');
+        try {
+          setup.mockImplementationOnce(function (this: PileupReadDifferenceLayer, input) {
+            time += 3;
+            return begin.call(this, input);
+          });
+          renderer.paint(paint);
+          const first = renderer.getDiagnostics(container)!;
+          expect(first.rowsUsed).toBeGreaterThan(0);
+          expect(first.rowsVertexCount).toBe(firstVertices);
+          renderer.paint(paint);
+          expect(renderer.getDiagnostics(container)!.rowsVertexCount).toBe(count * 6);
+        } finally {
+          setup.mockRestore();
+          clock.mockRestore();
+        }
+      }
+    );
+
     it('shares the elapsed allowance with height finalization before publishing new reads', () => {
       const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
       const container = renderer.mount(mountArgs);
