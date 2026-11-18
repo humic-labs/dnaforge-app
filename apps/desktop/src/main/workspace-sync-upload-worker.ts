@@ -1,4 +1,8 @@
 import {
+  assertWorkspaceSyncSelectionActive,
+  ensureWorkspaceSyncAcceptedPaths,
+} from './workspace-sync-membership';
+import {
   workspaceSyncUploadBlockedSql,
   throwIfWorkspaceSyncUploadBlocked,
 } from './workspace-sync-renderer-refresh-pending';
@@ -56,6 +60,7 @@ import {
   buildWorkspaceSyncSnapshot,
   buildWorkspaceSyncUploadCapture,
   buildWorkspaceSyncRecoveryCapture,
+  previewWorkspaceSyncUploadWithHeldMutationLease,
   WorkspaceSyncSnapshotError,
   type WorkspaceSyncSnapshot,
   type WorkspaceSyncUploadCapture,
@@ -80,8 +85,6 @@ import {
 import { recoverNativeCatalogRecordPublications } from './native-catalog-record-mutations';
 import { assertWorkspaceMigrationActionsSettled } from './workspace-migration-admission';
 import { acquireWorkspaceSyncMutationLease } from './workspace-sync-mutation-lease';
-import { ScientificObjectStore } from './scientific-object-store';
-import { scientificHistoryCurrentFiles } from '@waypoint/scientific-artifacts';
 import { isAccessRemovedError, markWorkspaceSyncAccessRemoved } from './workspace-sync-access';
 import { hasWorkspaceSyncWorkingChanges } from './workspace-sync-git-state';
 import { isWorkspaceSyncRemoteUuid } from './workspace-sync-remote-id';
@@ -148,6 +151,7 @@ export interface WorkspaceSyncUploadRequest extends WorkspaceSyncScientificHisto
   ownerAccountId: string;
   idempotencyKey: string;
   baseVersionId: string | null;
+  fileSelectionVersion?: 0 | 1;
   bundle?: WorkspaceSyncBundle;
 
   manifest?: WorkspaceSyncManifestV1;
@@ -680,6 +684,7 @@ export class WorkspaceSyncUploadWorker {
         if (recoveryIntent) publishWorkspaceSyncRecoveryTelemetry(this.db, job.id);
 
         const request: WorkspaceSyncUploadRequest = {
+          fileSelectionVersion: snapshot.selection?.version ?? 0,
           remoteWorkspaceId: binding.remote_workspace_id,
           ownerAccountId: binding.owner_account_id,
           idempotencyKey: prepared.idempotencyKey,
@@ -900,6 +905,7 @@ export class WorkspaceSyncUploadWorker {
       transitionWon &&
       failed.status === 'failed' &&
       failed.errorCode !== 'VALIDATION' &&
+      failed.errorCode !== 'UPGRADE_REQUIRED' &&
       failed.errorCode !== 'QUOTA_EXCEEDED' &&
       failed.errorCode !== 'RECOVERY_CAPTURE_ONLY' &&
       failed.errorCode !== 'RECOVERY_CANDIDATE_EXPIRED' &&
@@ -970,13 +976,68 @@ export class WorkspaceSyncUploadWorker {
         releaseDatabaseFence();
       }
 
+      let storagePolicy: WorkspaceSyncStoragePolicy | undefined;
+      const captureOptions = {
+        projectionPrepared: true,
+        mutationLease: releaseMutation ?? undefined,
+        onSourcesFrozen: () => {
+          releaseMutation?.();
+          releaseMutation = null;
+        },
+      };
+      const recoverCapture = async (error: unknown, releaseSources = true) => {
+        if (
+          !(error instanceof WorkspaceSyncSnapshotError) ||
+          !['UNSUPPORTED_AUTHORITATIVE_STATE', 'INVALID_BUNDLE', 'INVALID_TEXT_ENCODING'].includes(
+            error.code
+          ) ||
+          this.client().supportsManifest !== true ||
+          !this.deps.uploadSnapshotRoot ||
+          this.deps.snapshotWorkspace ||
+          this.deps.snapshotUploadWorkspace
+        )
+          throw error;
+        if (!releaseMutation)
+          releaseMutation = await acquireWorkspaceSyncMutationLease(binding.workspace_path);
+        storagePolicy ??= await this.readCapturePolicy(binding);
+        return buildWorkspaceSyncRecoveryCapture(this.db, {
+          workspaceUuid,
+          appVersion: this.deps.appVersion,
+          storagePolicy,
+          prepareProjection: false,
+          scientificHistoryFormat: this.scientificHistoryFormat(binding.workspace_id),
+          mutationLease: releaseMutation,
+          captureSourceRoot: this.deps.uploadSnapshotRoot,
+          onSourcesFrozen: releaseSources ? captureOptions.onSourcesFrozen : undefined,
+        });
+      };
+
       if (this.deps.commitWorkingTreeIfDirty) {
-        if (this.scientificHistoryFormat(binding.workspace_id)) {
-          const { graph, head } = new ScientificObjectStore(this.db, binding.workspace_id).read();
-          await this.deps.commitWorkingTreeIfDirty(binding.workspace_path, {
-            forceInclude: scientificHistoryCurrentFiles(graph, head).map((file) => file.path),
+        const client = this.client();
+        if (client.readVersionPaths)
+          await ensureWorkspaceSyncAcceptedPaths(
+            this.db,
+            workspaceUuid,
+            client.readVersionPaths.bind(client)
+          );
+        storagePolicy = await this.readCapturePolicy(binding);
+        let selectedPaths: string[];
+        try {
+          const preview = await previewWorkspaceSyncUploadWithHeldMutationLease(this.db, {
+            workspaceUuid,
+            storagePolicy,
+            scientificHistoryFormat: this.scientificHistoryFormat(binding.workspace_id),
           });
-        } else await this.deps.commitWorkingTreeIfDirty(binding.workspace_path);
+          assertWorkspaceSyncSelectionActive(preview.selection);
+          selectedPaths = preview.includedFiles.map((file) => file.relativePath);
+        } catch (error) {
+          const recovery = await recoverCapture(error, false);
+          capturedSnapshot = recovery;
+          selectedPaths = recovery.manifest.files.map((file) => file.path);
+        }
+        await this.deps.commitWorkingTreeIfDirty(binding.workspace_path, {
+          forceInclude: selectedPaths,
+        });
       }
 
       const context = workspaceContext(binding);
@@ -990,51 +1051,19 @@ export class WorkspaceSyncUploadWorker {
         return null;
       }
       if (!localHeadSha) throw localCaptureObsoleteError();
-      const captureOptions = {
-        projectionPrepared: true,
-        mutationLease: releaseMutation ?? undefined,
-        onSourcesFrozen: () => {
-          releaseMutation?.();
-          releaseMutation = null;
-        },
-      };
       let snapshot: WorkspaceSyncUploadSnapshot;
       try {
-        snapshot = await this.snapshotForUpload(workspaceUuid, captureOptions);
+        if (capturedSnapshot) {
+          snapshot = capturedSnapshot;
+          captureOptions.onSourcesFrozen();
+        } else {
+          snapshot = await this.snapshotForUpload(workspaceUuid, {
+            ...captureOptions,
+            storagePolicy,
+          });
+        }
       } catch (error) {
-        if (
-          !(error instanceof WorkspaceSyncSnapshotError) ||
-          !['UNSUPPORTED_AUTHORITATIVE_STATE', 'INVALID_BUNDLE', 'INVALID_TEXT_ENCODING'].includes(
-            error.code
-          ) ||
-          this.client().supportsManifest !== true ||
-          !this.deps.uploadSnapshotRoot ||
-          this.deps.snapshotWorkspace ||
-          this.deps.snapshotUploadWorkspace
-        )
-          throw error;
-
-        if (!releaseMutation)
-          releaseMutation = await acquireWorkspaceSyncMutationLease(binding.workspace_path);
-        const client = this.client();
-        if (!client.readStoragePolicy) throw error;
-        const policy = await readWorkspaceSyncCapturePolicy(this.db, {
-          remoteWorkspaceId: binding.remote_workspace_id,
-          expectedAccountId: binding.owner_account_id,
-          readPolicy: () =>
-            client.readStoragePolicy!(binding.remote_workspace_id!, binding.owner_account_id),
-          runDatabase: (operation) => this.withDatabaseFence(operation),
-        });
-        snapshot = await buildWorkspaceSyncRecoveryCapture(this.db, {
-          workspaceUuid,
-          appVersion: this.deps.appVersion,
-          storagePolicy: policy,
-          prepareProjection: false,
-          scientificHistoryFormat: this.scientificHistoryFormat(binding.workspace_id),
-          mutationLease: releaseMutation ?? undefined,
-          captureSourceRoot: this.deps.uploadSnapshotRoot,
-          onSourcesFrozen: captureOptions.onSourcesFrozen,
-        });
+        snapshot = await recoverCapture(error);
       }
       capturedSnapshot = snapshot;
       if (
@@ -1070,11 +1099,15 @@ export class WorkspaceSyncUploadWorker {
       assertWorkspaceSyncUploadSnapshotFitsWire(snapshot, binding.remote_latest_version_id, {
         allowManifest: this.client().supportsManifest === true,
       });
-      const idempotencyKey = uploadIdempotencyKey({
+      const captureIdentity = {
         workspaceUuid,
         baseRemoteVersionId: binding.remote_latest_version_id,
         localHeadSha,
         contentSha256: snapshot.contentSha256,
+      };
+      const idempotencyKey = uploadIdempotencyKey({
+        ...captureIdentity,
+        fileSelectionVersion: snapshot.selection?.version,
       });
       const acceptedJob = await this.withDatabaseFence(async () => {
         const activeAccountId = await this.deps.getActiveAccountId();
@@ -1085,6 +1118,23 @@ export class WorkspaceSyncUploadWorker {
         if (active) return active;
         const nowMs = this.nowMs();
         return this.db.transaction(() => {
+          let compatibleIdempotencyKey = idempotencyKey;
+          if (snapshot.selection?.version === 1) {
+            const legacyKey = uploadIdempotencyKey(captureIdentity);
+            const legacyJob = this.db
+              .prepare(
+                `SELECT id FROM workspace_sync_queue
+                 WHERE workspace_id = ? AND idempotency_key = ? AND operation = 'upload'
+                   AND (status = 'failed' OR (status = 'canceled' AND error_code = 'SYNC_DISABLED'))`
+              )
+              .get(binding.workspace_id, legacyKey) as { id: string } | undefined;
+            if (
+              legacyJob &&
+              this.readDurableUploadSnapshot(binding, legacyJob.id)?.selection?.version === 1
+            ) {
+              compatibleIdempotencyKey = legacyKey;
+            }
+          }
           const candidateJobId = this.deps.createJobId?.() ?? randomUUID();
           const existingCandidate = this.db
             .prepare('SELECT 1 FROM workspace_sync_queue WHERE id = ?')
@@ -1093,7 +1143,7 @@ export class WorkspaceSyncUploadWorker {
             id: candidateJobId,
             workspaceId: binding.workspace_id,
             operation: 'upload',
-            idempotencyKey,
+            idempotencyKey: compatibleIdempotencyKey,
             baseRemoteVersionId: binding.remote_latest_version_id,
             localHeadSha,
             bundleContentSha256: snapshot.contentSha256,
@@ -1179,13 +1229,17 @@ export class WorkspaceSyncUploadWorker {
     if (durable) {
       if (!job.localHeadSha) throw localCaptureObsoleteError();
       const idempotencyKey = requireIdempotencyKey(job);
-      const expected = uploadIdempotencyKey({
+      const captureIdentity = {
         workspaceUuid: binding.workspace_uuid,
         baseRemoteVersionId: job.baseRemoteVersionId,
         localHeadSha: job.localHeadSha,
         contentSha256: durable.contentSha256,
+      };
+      const expected = uploadIdempotencyKey({
+        ...captureIdentity,
+        fileSelectionVersion: durable.selection?.version,
       });
-      if (idempotencyKey !== expected) {
+      if (idempotencyKey !== expected && idempotencyKey !== uploadIdempotencyKey(captureIdentity)) {
         throw durableUploadInvalidError(
           `Workspace sync job ${job.id} idempotency key does not name its bytes.`
         );
@@ -1222,6 +1276,7 @@ export class WorkspaceSyncUploadWorker {
       baseRemoteVersionId: job.baseRemoteVersionId,
       localHeadSha: job.localHeadSha,
       contentSha256: snapshot.contentSha256,
+      fileSelectionVersion: snapshot.selection?.version,
     });
     let persistedSnapshot: WorkspaceSyncUploadSnapshot | null = null;
     await this.withDatabaseFence(() =>
@@ -1245,24 +1300,13 @@ export class WorkspaceSyncUploadWorker {
       projectionPrepared?: boolean;
       onSourcesFrozen?: () => void;
       mutationLease?: () => void;
+      storagePolicy?: WorkspaceSyncStoragePolicy;
     } = {}
   ): Promise<WorkspaceSyncUploadSnapshot> {
     if (this.deps.snapshotWorkspace) return this.deps.snapshotWorkspace(workspaceUuid);
     const binding = requireBindingByWorkspaceUuid(this.db, workspaceUuid);
     const client = this.client();
-    const readPolicy = client.readStoragePolicy;
-    if (!binding.remote_workspace_id || !readPolicy) {
-      throw Object.assign(new Error('Storage policy is unavailable.'), {
-        code: 'SERVER',
-        retryable: true,
-      });
-    }
-    const storagePolicy = await readWorkspaceSyncCapturePolicy(this.db, {
-      remoteWorkspaceId: binding.remote_workspace_id,
-      expectedAccountId: binding.owner_account_id,
-      readPolicy: () => readPolicy(binding.remote_workspace_id!, binding.owner_account_id),
-      runDatabase: (operation) => this.withDatabaseFence(operation),
-    });
+    const storagePolicy = options.storagePolicy ?? (await this.readCapturePolicy(binding));
     const capture = () =>
       (client.supportsManifest === true
         ? buildWorkspaceSyncUploadCapture
@@ -1292,6 +1336,7 @@ export class WorkspaceSyncUploadWorker {
       if (
         !(error instanceof WorkspaceSyncSnapshotError) ||
         error.code !== 'SHARED_FILE_OWNERSHIP_REQUIRED' ||
+        !binding.remote_workspace_id ||
         !binding.remote_latest_version_id ||
         !client.readVersionPaths
       )
@@ -1335,12 +1380,31 @@ export class WorkspaceSyncUploadWorker {
       projectionPrepared?: boolean;
       onSourcesFrozen?: () => void;
       mutationLease?: () => void;
+      storagePolicy?: WorkspaceSyncStoragePolicy;
     } = {}
   ): Promise<WorkspaceSyncUploadSnapshot> {
     if (this.client().supportsManifest === true && this.deps.snapshotUploadWorkspace) {
       return this.deps.snapshotUploadWorkspace(workspaceUuid);
     }
     return this.snapshotWorkspace(workspaceUuid, options);
+  }
+
+  private readCapturePolicy(binding: WorkspaceBindingRow): Promise<WorkspaceSyncStoragePolicy> {
+    const client = this.client();
+    const remoteWorkspaceId = binding.remote_workspace_id;
+    const readPolicy = client.readStoragePolicy;
+    if (!remoteWorkspaceId || !readPolicy) {
+      throw Object.assign(new Error('Storage policy is unavailable.'), {
+        code: 'SERVER',
+        retryable: true,
+      });
+    }
+    return readWorkspaceSyncCapturePolicy(this.db, {
+      remoteWorkspaceId,
+      expectedAccountId: binding.owner_account_id,
+      readPolicy: () => readPolicy(remoteWorkspaceId, binding.owner_account_id),
+      runDatabase: (operation) => this.withDatabaseFence(operation),
+    });
   }
 
   private readDurableUploadSnapshot(
@@ -1784,9 +1848,14 @@ export function createWorkspaceSyncUploadClient(
             request.bundle.schemaVersion === 3
               ? {
                   baseVersionId: request.baseVersionId,
+                  fileSelectionVersion: request.fileSelectionVersion ?? 0,
                   manifest: workspaceSyncManifestFromBundle(request.bundle),
                 }
-              : { baseVersionId: request.baseVersionId, bundle: request.bundle },
+              : {
+                  baseVersionId: request.baseVersionId,
+                  fileSelectionVersion: request.fileSelectionVersion ?? 0,
+                  bundle: request.bundle,
+                },
           signal,
         }
       );
@@ -2244,8 +2313,10 @@ function uploadIdempotencyKey(input: {
   baseRemoteVersionId: string | null;
   localHeadSha: string;
   contentSha256: string;
+  fileSelectionVersion?: 0 | 1;
 }): string {
-  return `upload:${input.workspaceUuid}:${input.baseRemoteVersionId ?? 'no-base'}:${input.localHeadSha}:${input.contentSha256}`;
+  const key = `upload:${input.workspaceUuid}:${input.baseRemoteVersionId ?? 'no-base'}:${input.localHeadSha}:${input.contentSha256}`;
+  return input.fileSelectionVersion === 1 ? `${key}:selection:1` : key;
 }
 
 function durableUploadInvalidError(message: string): Error & { code: string; retryable: boolean } {

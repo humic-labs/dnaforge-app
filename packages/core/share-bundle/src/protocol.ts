@@ -4,4 +4,5 @@ export const BUNDLE_SCHEMA_CAPABILITY_HEADER = 'X-DNAForge-Bundle-Schema-Max';
 
 export * from './desktop-sync-claim';
 export * from './workspace-sync-limits';
+export * from './workspace-sync-publication-policy';
 export { workspaceSyncManifestHashInput } from './workspace-sync-manifest-canonical';
