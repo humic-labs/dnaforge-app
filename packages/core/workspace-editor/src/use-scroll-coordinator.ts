@@ -74,7 +74,7 @@ export function useScrollCoordinator(opts: UseScrollCoordinatorOpts): ScrollCoor
               targetBp,
               layout,
               true,
-              placement === 'center' ? 'center' : 'start'
+              placement === 'center' && layout.isCircular ? 'center' : 'start'
             );
       if (rowY === null) return false;
       const targetPx =
