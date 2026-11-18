@@ -4,11 +4,15 @@ import { administrationContract } from '../shared/ipc/administration.contract';
 import { primerArtifactContract } from '../shared/ipc/primer-artifact.contract';
 import { sequenceAlignmentHistoryContract } from '../shared/ipc/sequence-alignment-history.contract';
 import { trackViewCommandsContract } from '../shared/ipc/track-view-commands.contract';
+import { sequenceDataLayersContract } from '../shared/ipc/sequence-data-layers.contract';
+import { contactSourcesContract } from '../shared/ipc/contact-sources.contract';
+import { comparisonSourcesContract } from '../shared/ipc/comparison-sources.contract';
 import { originalProjectContract } from '../shared/ipc/original-project.contract';
 import { organizationRegistryContract } from '../shared/ipc/organization-registry.contract';
 
 import { molecularDataContract } from '../shared/ipc/molecular-data.contract';
 import { scientificRecoveryContract } from '../shared/ipc/scientific-recovery.contract';
+import { workTasksContract } from '../shared/ipc/work-tasks.contract';
 import { scientificObjectsContract } from '../shared/ipc/scientific-objects.contract';
 import { agentFeedbackContract } from '../shared/ipc/agent-feedback.contract';
 import type { HostedAiBridge } from '../shared/hosted-ai-bridge';
@@ -841,6 +845,7 @@ export const electronBridge: PlatformBridge = {
     ...forwardGroup(scientificDocumentsContract, () => api().scientificDocuments),
   },
   entityNavigation: forwardGroup(entityNavigationContract, () => api().entityNavigation),
+  workTasks: forwardGroup(workTasksContract, () => api().workTasks),
   scientificObjects: forwardGroup(scientificObjectsContract, () => api().scientificObjects),
   fileAssociations: forwardGroup(fileAssociationsContract, () => api().fileAssociations),
   db: {
@@ -946,6 +951,9 @@ export const electronBridge: PlatformBridge = {
   },
   path: forwardGroup(pathContract, () => api().path),
   trackViewCommands: forwardGroup(trackViewCommandsContract, () => api().trackViewCommands),
+  sequenceDataLayers: forwardGroup(sequenceDataLayersContract, () => api().sequenceDataLayers),
+  contactSources: forwardGroup(contactSourcesContract, () => api().contactSources),
+  comparisonSources: forwardGroup(comparisonSourcesContract, () => api().comparisonSources),
   trackViews: {
     command: (request) => api().trackViewCommands.run(request),
     locations: () => api().trackViews.locations(),
@@ -984,6 +992,8 @@ export const electronBridge: PlatformBridge = {
     readAssemblyOverviewTexture: (request) => api().genome.readAssemblyOverviewTexture(request),
     readAssemblyAnnotationRasterV2: (request) =>
       api().genome.readAssemblyAnnotationRasterV2(request),
+    prepareAssemblyAnnotationAppearanceV1: (request) =>
+      api().genome.prepareAssemblyAnnotationAppearanceV1(request),
     readAssemblyCompiledBroadRasterManifestV1: (request) =>
       api().genome.readAssemblyCompiledBroadRasterManifestV1(request),
     readAssemblyCompiledBroadRasterCellsV1: (request) =>

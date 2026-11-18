@@ -1,3 +1,4 @@
+import { presentationSurfaceFor } from '../../../../presentation/browser-input';
 import { Extension } from '@tiptap/core';
 import Suggestion, { type SuggestionProps } from '@tiptap/suggestion';
 import { ReactRenderer } from '@tiptap/react';
@@ -9,7 +10,6 @@ import {
   type SlashCommandMenuRef,
 } from '../components/SlashCommandMenu';
 import { builtInCommands, filterCommands, type SlashCommand } from '../lib/commands';
-import { embedRegistry } from '../../embeds/registry';
 
 export type { SlashCommand };
 
@@ -67,31 +67,16 @@ export const SlashCommandsExtension = Extension.create<SlashCommandsOptions>({
         render: () => {
           let component: ReactRenderer<SlashCommandMenuRef> | null = null;
           let popup: TippyInstance[] | null = null;
-          let executedFlowName: string | null = null;
 
           return {
             onStart: (props: SuggestionProps) => {
-              executedFlowName = null;
-
               component = new ReactRenderer(
                 SlashCommandMenu as ComponentType<SlashCommandMenuProps>,
                 {
                   props: {
                     items: props.items,
-                    command: (commandProps: Record<string, unknown>) => {
-                      const cmd = commandProps as unknown as SlashCommand;
-                      console.log(
-                        '[SlashCommands] command callback - cmd:',
-                        cmd.name,
-                        'flowName:',
-                        cmd.flowName
-                      );
-                      if (cmd.flowName) {
-                        executedFlowName = cmd.flowName;
-                        console.log('[SlashCommands] Set executedFlowName to:', executedFlowName);
-                      }
-                      props.command(commandProps);
-                    },
+                    presentationParentId: presentationSurfaceFor(props.editor.view.dom),
+                    command: (command: SlashCommand) => props.command(command),
                   },
                   editor: props.editor,
                 }
@@ -99,7 +84,12 @@ export const SlashCommandsExtension = Extension.create<SlashCommandsOptions>({
 
               if (!props.clientRect) return;
 
-              const editor = this.editor;
+              const currentComponent = component;
+              let currentPopup: TippyInstance | null = null;
+              const onWindowBlur = () => {
+                currentComponent.ref?.close?.('window-blur');
+                currentPopup?.hide();
+              };
               popup = tippy('body', {
                 getReferenceClientRect: props.clientRect as () => DOMRect,
                 appendTo: () => document.body,
@@ -108,20 +98,12 @@ export const SlashCommandsExtension = Extension.create<SlashCommandsOptions>({
                 interactive: true,
                 trigger: 'manual',
                 placement: 'bottom-start',
-                onHidden: () => {
-                  const shouldSkipRefocus =
-                    executedFlowName &&
-                    (embedRegistry.capturesEditorFocus(executedFlowName) ||
-                      (embedRegistry.getPicker(executedFlowName)?.stages.length ?? 0) > 0);
-                  console.log(
-                    `[SlashCommands] onHidden: flowName=${executedFlowName}, capturesEditorFocus=${shouldSkipRefocus}`
-                  );
-                  if (shouldSkipRefocus) {
-                    console.log(`[SlashCommands] Skipping refocus - embed captures focus`);
-                    return;
-                  }
-                  editor.chain().focus().run();
+                onCreate: (instance) => {
+                  currentPopup = instance;
+                  window.addEventListener('blur', onWindowBlur);
                 },
+                onDestroy: () => window.removeEventListener('blur', onWindowBlur),
+                onHidden: () => currentComponent.ref?.close?.('outside-pointer'),
                 popperOptions: {
                   modifiers: [
                     {
@@ -138,23 +120,8 @@ export const SlashCommandsExtension = Extension.create<SlashCommandsOptions>({
             onUpdate: (props: SuggestionProps) => {
               component?.updateProps({
                 items: props.items,
-                command: (commandProps: Record<string, unknown>) => {
-                  const cmd = commandProps as unknown as SlashCommand;
-                  console.log(
-                    '[SlashCommands] onUpdate command callback - cmd:',
-                    cmd.name,
-                    'flowName:',
-                    cmd.flowName
-                  );
-                  if (cmd.flowName) {
-                    executedFlowName = cmd.flowName;
-                    console.log(
-                      '[SlashCommands] onUpdate Set executedFlowName to:',
-                      executedFlowName
-                    );
-                  }
-                  props.command(commandProps);
-                },
+                presentationParentId: presentationSurfaceFor(props.editor.view.dom),
+                command: (command: SlashCommand) => props.command(command),
               });
 
               if (!props.clientRect || !popup?.[0]) return;
@@ -166,6 +133,7 @@ export const SlashCommandsExtension = Extension.create<SlashCommandsOptions>({
 
             onKeyDown: (props: { event: KeyboardEvent }) => {
               if (props.event.key === 'Escape') {
+                component?.ref?.close?.('escape');
                 popup?.[0]?.hide();
                 return true;
               }
@@ -173,10 +141,15 @@ export const SlashCommandsExtension = Extension.create<SlashCommandsOptions>({
             },
 
             onExit: () => {
-              popup?.[0]?.hide();
+              const exitingPopup = popup;
+              const exitingComponent = component;
+              popup = null;
+              component = null;
+              exitingComponent?.ref?.close?.('unmount');
+              exitingPopup?.[0]?.hide();
               setTimeout(() => {
-                popup?.[0]?.destroy();
-                component?.destroy();
+                exitingPopup?.[0]?.destroy();
+                exitingComponent?.destroy();
               }, 150);
             },
           };

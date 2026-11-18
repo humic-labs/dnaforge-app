@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SequencePackageHistoryView } from '../hooks/useSequencePackageHistory';
@@ -302,23 +303,25 @@ export function HistoricalAssemblyCompositionPanel({
       {versionIds.length > 0 && (
         <label className="mt-3 block text-xs text-fg">
           Working-copy base
-          <select
-            aria-label="Assembly working-copy base"
-            className="mt-1 w-full rounded border border-border bg-bg px-2 py-1"
-            value={baseId}
-            disabled={stageBusy}
-            onChange={(event) => {
-              setBaseId(event.target.value);
-              setStageError(null);
-            }}
-          >
-            {versionIds.map((id) => (
-              <option key={id} value={id}>
-                {id}
-                {id === acceptedIds.current ? ' · current saved assembly' : ''}
-              </option>
-            ))}
-          </select>
+          <span className="block min-w-0 mt-1 w-full">
+            <MenuNativeSelect
+              density="compact"
+              aria-label="Assembly working-copy base"
+              value={baseId}
+              disabled={stageBusy}
+              onChange={(event) => {
+                setBaseId(event.target.value);
+                setStageError(null);
+              }}
+            >
+              {versionIds.map((id) => (
+                <option key={id} value={id}>
+                  {id}
+                  {id === acceptedIds.current ? ' · current saved assembly' : ''}
+                </option>
+              ))}
+            </MenuNativeSelect>
+          </span>
         </label>
       )}
       {targetBusy && <p className="mt-2 text-xs text-fg-muted">Inspecting assembly copy…</p>}
@@ -353,24 +356,26 @@ export function HistoricalAssemblyCompositionPanel({
                   <div className="flex items-center justify-between gap-2">
                     <label>
                       Piece
-                      <select
-                        aria-label={`Piece kind ${row.id}`}
-                        className="ml-2 rounded border border-border bg-bg px-1 py-1"
-                        value={row.kind}
-                        onChange={(event) =>
-                          editRow(row.id, {
-                            kind: event.target.value as ChoiceKind,
-                            targetKey: '',
-                            sourceKey: '',
-                          })
-                        }
-                      >
-                        {(Object.keys(KIND_LABELS) as ChoiceKind[]).map((kind) => (
-                          <option key={kind} value={kind}>
-                            {KIND_LABELS[kind]}
-                          </option>
-                        ))}
-                      </select>
+                      <span className="inline-block min-w-0 ml-2">
+                        <MenuNativeSelect
+                          density="compact"
+                          aria-label={`Piece kind ${row.id}`}
+                          value={row.kind}
+                          onChange={(event) =>
+                            editRow(row.id, {
+                              kind: event.target.value as ChoiceKind,
+                              targetKey: '',
+                              sourceKey: '',
+                            })
+                          }
+                        >
+                          {(Object.keys(KIND_LABELS) as ChoiceKind[]).map((kind) => (
+                            <option key={kind} value={kind}>
+                              {KIND_LABELS[kind]}
+                            </option>
+                          ))}
+                        </MenuNativeSelect>
+                      </span>
                     </label>
                     <button
                       type="button"
@@ -386,35 +391,39 @@ export function HistoricalAssemblyCompositionPanel({
                   </div>
                   <label className="mt-2 block">
                     Target slot
-                    <select
-                      aria-label={`Target slot ${row.id}`}
-                      className="mt-1 w-full rounded border border-border bg-bg px-2 py-1"
-                      value={row.targetKey}
-                      onChange={(event) => editRow(row.id, { targetKey: event.target.value })}
-                    >
-                      <option value="">Choose a target</option>
-                      {availableTargets.map((item) => (
-                        <option key={key(item)} value={key(item)}>
-                          {targetLabel(item)}
-                        </option>
-                      ))}
-                    </select>
+                    <span className="block min-w-0 mt-1 w-full">
+                      <MenuNativeSelect
+                        density="compact"
+                        aria-label={`Target slot ${row.id}`}
+                        value={row.targetKey}
+                        onChange={(event) => editRow(row.id, { targetKey: event.target.value })}
+                      >
+                        <option value="">Choose a target</option>
+                        {availableTargets.map((item) => (
+                          <option key={key(item)} value={key(item)}>
+                            {targetLabel(item)}
+                          </option>
+                        ))}
+                      </MenuNativeSelect>
+                    </span>
                   </label>
                   <label className="mt-2 block">
                     Saved source
-                    <select
-                      aria-label={`Saved source ${row.id}`}
-                      className="mt-1 w-full rounded border border-border bg-bg px-2 py-1"
-                      value={row.sourceKey}
-                      onChange={(event) => editRow(row.id, { sourceKey: event.target.value })}
-                    >
-                      <option value="">Choose a saved piece</option>
-                      {availableSources.map((item) => (
-                        <option key={sourceKey(item)} value={sourceKey(item)}>
-                          {sourceLabel(item)}
-                        </option>
-                      ))}
-                    </select>
+                    <span className="block min-w-0 mt-1 w-full">
+                      <MenuNativeSelect
+                        density="compact"
+                        aria-label={`Saved source ${row.id}`}
+                        value={row.sourceKey}
+                        onChange={(event) => editRow(row.id, { sourceKey: event.target.value })}
+                      >
+                        <option value="">Choose a saved piece</option>
+                        {availableSources.map((item) => (
+                          <option key={sourceKey(item)} value={sourceKey(item)}>
+                            {sourceLabel(item)}
+                          </option>
+                        ))}
+                      </MenuNativeSelect>
+                    </span>
                   </label>
                 </div>
               );

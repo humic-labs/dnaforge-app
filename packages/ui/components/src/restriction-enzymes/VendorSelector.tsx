@@ -39,7 +39,7 @@ export function VendorSelector({
         onChange={onChange}
         ariaLabel="Restriction enzyme vendor filter"
         className="flex-1"
-        density={compact ? 'compact' : 'default'}
+        density={compact ? 'compact' : 'form'}
       />
     </div>
   );

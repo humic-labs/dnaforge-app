@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { usePresentationListener } from '../presentation/PresentationSurface';
 import { userMessageWithValues, userMessageValue, toUserMessage } from '@waypoint/user-messages';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -161,7 +162,7 @@ export function WindowsMenuBar() {
           onClick={(event) => {
             if (event.detail === 0) showMenu(index);
           }}
-          className={`h-6 rounded px-2 text-xs text-fg hover:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${open === id ? 'bg-bg-muted' : ''}`}
+          className={`h-6 rounded px-2 text-xs text-fg ${INTERACTION_CLASS} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${open === id ? 'bg-bg-muted' : ''}`}
           title={`${id} (Alt+${id[0]})`}
         >
           {id}

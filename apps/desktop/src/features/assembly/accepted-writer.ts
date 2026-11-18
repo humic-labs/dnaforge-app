@@ -614,7 +614,9 @@ export async function writeAcceptedAssemblyFiles(
   }
 
   const packageParent = files.packageRoot.slice(0, files.packageRoot.lastIndexOf('/'));
-  if (packageParent) await fs.mkdir(packageParent, { recursive: true });
+  if (packageParent && !(await fs.exists(packageParent))) {
+    await fs.mkdir(packageParent, { recursive: true });
+  }
 
   const scratch = await reservePackageScratch(files.packageRoot, fs);
   const staging = scratch.staging.path;

@@ -117,20 +117,23 @@ export function TerminalCommandActions({
           </div>
         )}
         <div className="dnaforge-terminal-toolbar">
-          <button disabled={!running} onClick={() => choose('run')}>
+          <button className="wp-interactive" disabled={!running} onClick={() => choose('run')}>
             Run command
           </button>
-          <button disabled={!running} onClick={() => choose('insert')}>
+          <button className="wp-interactive" disabled={!running} onClick={() => choose('insert')}>
             Insert command
           </button>
-          <button onClick={() => choose('copy')}>Copy command</button>
+          <button className="wp-interactive" onClick={() => choose('copy')}>
+            Copy command
+          </button>
           <button
+            className="wp-interactive"
             disabled={!command.id || command.range?.endLine === undefined}
             onClick={() => choose('output')}
           >
             View command output
           </button>
-          <button aria-label="Close command actions" onClick={close}>
+          <button className="wp-interactive" aria-label="Close command actions" onClick={close}>
             Close
           </button>
         </div>

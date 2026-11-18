@@ -1,4 +1,5 @@
-import { UI_FIELD_CLASS } from '../../components/ui';
+import { MenuNativeSelect } from '@waypoint/ui-components';
+
 import type {
   WorkspaceSyncOrganizationSummary,
   WorkspaceSyncOwnerChoice,
@@ -36,27 +37,29 @@ export function SharedProjectOwnerPicker({
   return (
     <label className="flex flex-col gap-1 text-sm text-fg">
       <span className="text-fg-muted">This project belongs to</span>
-      <select
-        aria-label="Project owner"
-        data-testid="shared-project-owner-picker"
-        value={selected}
-        disabled={disabled}
-        onChange={(event) =>
-          onChange(
-            event.target.value === 'personal'
-              ? { kind: 'personal' }
-              : { kind: 'org', orgId: event.target.value }
-          )
-        }
-        className={UI_FIELD_CLASS}
-      >
-        <option value="personal">Just me</option>
-        {eligible.map((org) => (
-          <option key={org.orgId} value={org.orgId}>
-            {org.displayName}
-          </option>
-        ))}
-      </select>
+      <span className="block min-w-0 w-full">
+        <MenuNativeSelect
+          density="form"
+          aria-label="Project owner"
+          data-testid="shared-project-owner-picker"
+          value={selected}
+          disabled={disabled}
+          onChange={(event) =>
+            onChange(
+              event.target.value === 'personal'
+                ? { kind: 'personal' }
+                : { kind: 'org', orgId: event.target.value }
+            )
+          }
+        >
+          <option value="personal">Just me</option>
+          {eligible.map((org) => (
+            <option key={org.orgId} value={org.orgId}>
+              {org.displayName}
+            </option>
+          ))}
+        </MenuNativeSelect>
+      </span>
     </label>
   );
 }

@@ -1,9 +1,11 @@
-import { join } from 'path';
+import { isAbsolute, join } from 'path';
+import { readFile } from 'node:fs/promises';
 import { app, BrowserWindow } from 'electron';
 import { sendRendererIpc } from '../../shared/ipc-contract';
 import {
   REFERENCE_ASSET_HOSTED_INSTALL_PROGRESS_CHANNEL,
   type ReferenceAssetHostedInstallProgressV1,
+  type PreparedReferenceAssemblyEntryV1,
 } from '../../shared/reference-assets-ipc';
 import { isExplicitE2eTestRuntime } from '../config';
 import { activeGenomeReferencePaths } from '../ipc/genome-data';
@@ -37,9 +39,22 @@ import { resolveReferenceAssetRootLayout } from '../reference-assets/reference-a
 import { acquireReferenceAssetWriterLock } from '../reference-assets/reference-asset-writer-lock';
 import { ReferenceGenerationRetention } from '../reference-assets/reference-generation-retention';
 import type { MainFeature } from './main-feature';
+import {
+  buildGenomeAssembly,
+  joinProjectPath,
+  referenceAssemblyCacheRoot,
+} from '../../features/sequence/reference-catalog';
+import { resolveCurrentReferenceAssetPublicationV1 } from '../../features/sequence/reference-asset-publication';
+import {
+  parsePreparedReferenceDefinition,
+  preparedReferenceAssemblyEntry,
+  PREPARED_REFERENCE_DEFINITION_FILE,
+} from '../reference-assets/reference-preparation-manifest';
 
 interface PreparedReferenceAssets {
   readonly cacheRoot: string;
+  readonly publicationRoot: string;
+  readonly fallbackPublicationRoot: string | null;
   readonly runtimeHostedCatalog: Awaited<ReturnType<typeof hostedReferenceCatalogForRuntime>>;
   readonly retention: ReferenceGenerationRetention;
   readonly hostedReferenceAssets: ReturnType<typeof createHostedReferenceAssetAuthority>;
@@ -71,6 +86,90 @@ export async function listTrackViewReferences() {
         })),
       })),
   ];
+}
+
+export async function withLocalTrackViewReference<T>(
+  id: string,
+  use: (entry: PreparedReferenceAssemblyEntryV1) => Promise<T>
+): Promise<T> {
+  const owner = prepared;
+  if (!owner) throw new Error('Reference assets are unavailable.');
+  const local = (await owner.ipc.listLocal()).filter((entry) => entry.id === id);
+  if (prepared !== owner) throw new Error('Reference assets are unavailable.');
+  if (local.length !== 1) throw new Error('REFERENCE_NOT_PREPARED');
+  const entry = local[0];
+  const memberPaths = entry.members.flatMap((member) =>
+    member.manifest
+      ? Object.values(member.manifest).filter((path): path is string => typeof path === 'string')
+      : []
+  );
+  const hasRelativePaths = memberPaths.some((path) => !isAbsolute(path));
+  let root = entry.portableView?.generationRoot ?? entry.members[0]?.manifest?.fastaPath;
+  if (hasRelativePaths) {
+    const current = await resolveCurrentReferenceAssetPublicationV1({
+      assemblyCacheRoot: referenceAssemblyCacheRoot(owner.cacheRoot, entry),
+      publicationAssemblyRoot: referenceAssemblyCacheRoot(owner.publicationRoot, entry),
+      fallbackPublicationAssemblyRoot: owner.fallbackPublicationRoot
+        ? referenceAssemblyCacheRoot(owner.fallbackPublicationRoot, entry)
+        : null,
+      assetCacheKey: entry.assetCacheKey,
+      readTextFile: (path) => readFile(path, 'utf8'),
+    });
+    const portable =
+      entry.portableView && /^[a-f0-9]{64}$/u.test(entry.portableView.bundleFingerprint)
+        ? entry.portableView
+        : null;
+    root =
+      portable && Object.keys(portable.assetGenerationsByTheme ?? {}).length > 0
+        ? portable.generationRoot
+        : (current?.sourceGenerationRoot ?? portable?.generationRoot);
+  }
+  if (!root || !isAbsolute(root)) throw new Error('REFERENCE_NOT_PREPARED');
+  const release = await owner.retention.retainPreparation(root);
+  try {
+    if (prepared !== owner) throw new Error('Reference assets are unavailable.');
+    if (!hasRelativePaths) {
+      const result = await use(entry);
+      if (prepared !== owner) throw new Error('Reference assets are unavailable.');
+      return result;
+    }
+    const definition = parsePreparedReferenceDefinition(
+      JSON.parse(await readFile(join(root, PREPARED_REFERENCE_DEFINITION_FILE), 'utf8')) as unknown,
+      entry.assetCacheKey
+    );
+    const sourceEntry = preparedReferenceAssemblyEntry(definition);
+    if (
+      sourceEntry.id !== entry.id ||
+      sourceEntry.referenceIdentity?.sequenceIdentity !==
+        entry.referenceIdentity?.sequenceIdentity ||
+      sourceEntry.referenceIdentity?.annotationIdentity !==
+        entry.referenceIdentity?.annotationIdentity
+    )
+      throw new Error('The prepared reference generation changed while resolving its source.');
+    const assembly = buildGenomeAssembly(sourceEntry, (path) =>
+      isAbsolute(path) ? path : joinProjectPath(root!, path)
+    );
+    const byChrom = new Map(assembly.chromosomes.map((member) => [member.chrom, member.manifest]));
+    const result = await use({
+      ...entry,
+      members: sourceEntry.members.map((member) => {
+        const manifest = byChrom.get(member.chrom)!;
+        return {
+          ...member,
+          manifest: {
+            fastaPath: manifest.fastaPath,
+            faiPath: manifest.faiPath,
+            ...(manifest.gffPath ? { gffPath: manifest.gffPath } : {}),
+            ...(manifest.tbiPath ? { tbiPath: manifest.tbiPath } : {}),
+          },
+        };
+      }),
+    });
+    if (prepared !== owner) throw new Error('Reference assets are unavailable.');
+    return result;
+  } finally {
+    release();
+  }
 }
 
 export async function resolveTrackViewReference(id: string) {
@@ -163,6 +262,8 @@ async function prepareReferenceAssets(): Promise<void> {
   });
   prepared = {
     cacheRoot: referenceAssetRoots.cacheRoot,
+    publicationRoot: referenceAssetRoots.publicationRoot,
+    fallbackPublicationRoot: referenceAssetRoots.fallbackPublicationRoot,
     runtimeHostedCatalog,
     retention,
     hostedReferenceAssets,

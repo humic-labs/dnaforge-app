@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useEffect, useMemo, useState } from 'react';
 import type { ProteinExperimentWorkersApi } from '../../../../shared/protein-experiment-workers';
@@ -199,53 +200,57 @@ export function MolecularPromptBatchControls({ notebookPageId }: { notebookPageI
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-1">
           <span>Question</span>
-          <select
-            data-testid="protein-batch-case"
-            value={caseId}
-            disabled={running}
-            onChange={(event) => {
-              const next = event.target.value as MolecularBenchmarkCaseId;
-              setCaseId(next);
-              setSelection(readMolecularFixtureSelection(next));
-              writeMolecularBenchmarkCase(next);
-            }}
-            className="max-w-44 rounded border border-border bg-bg px-2 py-1"
-          >
-            {MOLECULAR_ACTIVE_BENCHMARK_CASES.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.title}
-              </option>
-            ))}
-          </select>
+          <span className="inline-block min-w-0 max-w-44">
+            <MenuNativeSelect
+              density="compact"
+              data-testid="protein-batch-case"
+              value={caseId}
+              disabled={running}
+              onChange={(event) => {
+                const next = event.target.value as MolecularBenchmarkCaseId;
+                setCaseId(next);
+                setSelection(readMolecularFixtureSelection(next));
+                writeMolecularBenchmarkCase(next);
+              }}
+            >
+              {MOLECULAR_ACTIVE_BENCHMARK_CASES.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.title}
+                </option>
+              ))}
+            </MenuNativeSelect>
+          </span>
         </label>
         {benchmark.fixtureIds.map((pdbId, index) => (
           <label key={pdbId} className="flex min-w-0 items-center gap-1">
             <span>Pin {pdbId}</span>
-            <select
-              aria-label={`Pinned ${pdbId} coordinates`}
-              value={selection[pdbId] ?? ''}
-              disabled={running}
-              onChange={(event) => {
-                const next = { ...selection, [pdbId]: event.target.value };
-                setSelection(next);
-                writeMolecularFixtureSelection(caseId, pdbId, event.target.value);
-              }}
-              className="max-w-56 rounded border border-border bg-bg px-2 py-1"
-            >
-              <option value="">Choose saved view</option>
-              {candidates
-                .filter(
-                  (candidate) =>
-                    candidate.pdbId === pdbId &&
-                    sceneStructureSignature(candidate.scene) ===
-                      JSON.stringify([benchmark.structureModes[index]])
-                )
-                .map((candidate) => (
-                  <option key={candidate.referenceId} value={candidate.referenceId}>
-                    {candidate.label} · {candidate.coordinateSha256.slice(0, 8)}
-                  </option>
-                ))}
-            </select>
+            <span className="inline-block min-w-0 max-w-56">
+              <MenuNativeSelect
+                density="compact"
+                aria-label={`Pinned ${pdbId} coordinates`}
+                value={selection[pdbId] ?? ''}
+                disabled={running}
+                onChange={(event) => {
+                  const next = { ...selection, [pdbId]: event.target.value };
+                  setSelection(next);
+                  writeMolecularFixtureSelection(caseId, pdbId, event.target.value);
+                }}
+              >
+                <option value="">Choose saved view</option>
+                {candidates
+                  .filter(
+                    (candidate) =>
+                      candidate.pdbId === pdbId &&
+                      sceneStructureSignature(candidate.scene) ===
+                        JSON.stringify([benchmark.structureModes[index]])
+                  )
+                  .map((candidate) => (
+                    <option key={candidate.referenceId} value={candidate.referenceId}>
+                      {candidate.label} · {candidate.coordinateSha256.slice(0, 8)}
+                    </option>
+                  ))}
+              </MenuNativeSelect>
+            </span>
           </label>
         ))}
       </div>
@@ -318,19 +323,21 @@ export function MolecularPromptBatchControls({ notebookPageId }: { notebookPageI
           <div className="mt-2 grid max-w-2xl gap-2 rounded border border-border bg-bg p-2">
             <label className="grid gap-1">
               <span>Start from</span>
-              <select
-                aria-label="Prompt to copy or edit"
-                value={editorId}
-                disabled={running}
-                onChange={(event) => chooseEditor(event.target.value)}
-                className="rounded border border-border bg-bg px-2 py-1"
-              >
-                {variants.map((variant) => (
-                  <option key={variant.id} value={variant.id}>
-                    {variant.label}
-                  </option>
-                ))}
-              </select>
+              <span className="inline-block min-w-0">
+                <MenuNativeSelect
+                  density="compact"
+                  aria-label="Prompt to copy or edit"
+                  value={editorId}
+                  disabled={running}
+                  onChange={(event) => chooseEditor(event.target.value)}
+                >
+                  {variants.map((variant) => (
+                    <option key={variant.id} value={variant.id}>
+                      {variant.label}
+                    </option>
+                  ))}
+                </MenuNativeSelect>
+              </span>
             </label>
             <label className="grid gap-1">
               <span>Variant name</span>
@@ -356,7 +363,7 @@ export function MolecularPromptBatchControls({ notebookPageId }: { notebookPageI
                 type="button"
                 disabled={running}
                 onClick={saveVariant}
-                className="rounded border border-border px-2 py-1 hover:bg-bg-muted"
+                className="rounded border border-border px-2 py-1 wp-interactive"
               >
                 Save as new
               </button>
@@ -371,7 +378,7 @@ export function MolecularPromptBatchControls({ notebookPageId }: { notebookPageI
                       setSelectedIds(readSelectedMolecularPromptVariantIds());
                       chooseEditor('appearance-v1');
                     }}
-                    className="rounded border border-border px-2 py-1 hover:bg-bg-muted"
+                    className="rounded border border-border px-2 py-1 wp-interactive"
                   >
                     Remove from choices
                   </button>

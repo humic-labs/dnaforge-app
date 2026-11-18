@@ -35,6 +35,19 @@ function resolveEntryImports(entry) {
     .filter((statement) => ts.isImportDeclaration(statement))
     .map((statement) => statement.moduleSpecifier.text)
     .filter((specifier) => specifier.startsWith('.'));
+  const requires = [];
+  const visit = (node) => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isCallExpression(node.expression) &&
+      node.expression.expression.getText(source) === 'createRequire' &&
+      ts.isStringLiteral(node.arguments[0])
+    )
+      requires.push(node.arguments[0].text);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  imports.push(...requires);
   assert.equal(imports.length, 2);
   return imports.map((specifier) => createRequire(entry).resolve(specifier));
 }

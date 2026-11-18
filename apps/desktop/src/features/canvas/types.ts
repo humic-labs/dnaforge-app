@@ -25,6 +25,7 @@ export interface ArtifactDocumentContext {
 }
 
 import type { SavedTrackView } from '../../shared/track-view';
+import type { SequenceDataLayerViewSelection } from '../../shared/sequence-data-layer';
 
 import type { TabType } from '../../shared/tab-kind';
 export type MetadataEditorTabType = Extract<TabType, 'sequence' | 'primer'>;
@@ -35,6 +36,8 @@ export {
   quitWorkPhrase,
   type TabType,
 } from '../../shared/tab-kind';
+
+export type { SequenceDataLayerViewSelection } from '../../shared/sequence-data-layer';
 
 export interface TabViewState {
   metadataEditRequestId?: string;
@@ -91,6 +94,8 @@ export interface TabViewState {
 
   sequenceAnnotationColorMode?: string;
 
+  sequenceDataLayerSelection?: SequenceDataLayerViewSelection | null;
+
   scrollPosition?: number | null;
 
   highlightRange?: { start: number; end: number; wraps?: boolean } | null;
@@ -132,6 +137,7 @@ export interface Tab {
   id: string;
   type: TabType;
   entityId: string;
+  entityKind?: string;
   label: string;
 
   sourceFileName?: string;

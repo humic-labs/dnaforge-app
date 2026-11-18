@@ -1,0 +1,111 @@
+{
+  "schema": "dnaforge.exact-reference-source-bundle.v1",
+  "referenceId": "NC_007779.1_w3110_Mu",
+  "sequenceId": "NC_007779.1_w3110_Mu",
+  "accession": null,
+  "identifierKind": "author-defined modified-reference FASTA contig label, not a separately versioned INSDC accession",
+  "fastaHeader": "NC_007779.1_w3110_Mu Escherichia coli str. K12 substr. W3110 cat_Mu DNA, complete genome",
+  "authorReferenceVersion": null,
+  "versionIdentity": "The exact author file and normalized sequence hashes identify this supplied revision. The NC_007779.1 prefix names the base W3110 accession only.",
+  "organism": "Escherichia coli",
+  "referenceDescription": "Author-supplied W3110 cat_Mu modified reference from GSE117186",
+  "length": 4647454,
+  "normalizedSequenceSha256": "ba713e15666235347ead27ae524086b2cef1e159c5fb32336ce3608e2b9baf9a",
+  "caseSensitiveSequenceSha256": "cc999fa50b6056fe899704c2a51d76da6a589dc6193941a1d1610eb4adf655cf",
+  "softMaskedBases": 890,
+  "referenceAliasOrSubstitutionUsed": false,
+  "authoritativeSources": [
+    {
+      "file": "GSE117186_E_coli_w3110_G_Mu.fasta.gz",
+      "sha256": "d5e313ec342c9570c634050abb1ba7939e61c24e3793a0b220e76e304895f7e9",
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE117nnn/GSE117186/suppl/GSE117186_E_coli_w3110_G_Mu.fasta.gz",
+      "decompressedFile": "author-w3110-Mu.authoritative.fasta",
+      "decompressedSha256": "6c089992a8e401cf0d4b4b04bd62f35b21e69cba365b0cf553aec401eb521a3e"
+    },
+    {
+      "file": "GSE117186_Escherichia_coli_K_12_w3110_Mu_genes_annotation.gff.gz",
+      "sha256": "291b2cce5d877aa93a319643b89807f8e72c36cf51a252f0454b053d8a3ed76f",
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE117nnn/GSE117186/suppl/GSE117186_Escherichia_coli_K_12_w3110_Mu_genes_annotation.gff.gz",
+      "decompressedFile": "author-w3110-Mu.authoritative.gff3",
+      "decompressedSha256": "41cca09ff566c460843dace6dd19d2e1d066e3445d3ee3e44daab8d3856cf216"
+    }
+  ],
+  "sourceGffHeaders": [
+    "##gff-version   3",
+    "##sequence-region   NC_007779.1_w3110_Mu 190 4647454",
+    "#!genome-build European Nucleotide Archive ASM1024v1",
+    "#!genome-version GCA_000010245.1",
+    "#!genome-date 2016-09",
+    "#!genome-build-accession GCA_000010245.1",
+    "#!genebuild-last-updated 2016-09",
+    "###"
+  ],
+  "sourceGffHeaderInterpretation": "The author GFF retains base assembly headers GCA_000010245.1 and uses the modified contig label on every feature. These inherited headers do not make the modified sequence identical to the ordinary assembly.",
+  "conversion": {
+    "program": "dna-indexer",
+    "version": "0.1.0",
+    "schema": 2,
+    "binarySha256": "373ab9fc654d2afc9e622463b3b98f8848df2fcce1139eade10533e0dcf44667",
+    "arguments": [
+      "ingest-gff3",
+      "--in",
+      "author-w3110-Mu.authoritative.gff3",
+      "--in-fasta",
+      "author-w3110-Mu.authoritative.fasta",
+      "--source-seqid",
+      "NC_007779.1_w3110_Mu",
+      "--out-dir",
+      ".",
+      "--name",
+      "NC_007779.1_w3110_Mu"
+    ],
+    "sourceGffRows": 18281,
+    "outputGffRows": 18281,
+    "sourceScientificFieldsVerified": "Every source seqid, feature type, start, end, score, strand, phase and non-ID/Parent attribute is preserved exactly. The source column becomes DNAForge, native coordinate-derived IDs and lanes are generated, and Parent references are rewritten by the existing converter.",
+    "nativeIdGeneration": "Existing converter behavior; the original author GFF is retained unchanged. No native IDs are used to map the cleavage point rows.",
+    "nativeSequenceCaseNormalization": "The existing converter emits every sequence base in lowercase. The 890 source lowercase bases remain identifiable in the authoritative originals; native FASTA capitalization does not preserve source soft masking.",
+    "nativeLowercaseBases": 4647454,
+    "normalizedSequenceMatchesSource": true,
+    "topologyEmittedByConverter": "linear",
+    "topologySourceLimitation": "The supplied FASTA/GFF does not declare topology. The converter emits linear; this is not independent evidence of the chromosome topology.",
+    "sourceRowsWithoutId": 4721,
+    "sourceRepeatedIdValues": 1,
+    "sourceExtraIdOccurrences": 1,
+    "nativeUniqueIds": 18281,
+    "nativeRepeatedIdValues": 0
+  },
+  "nativeIndexedManifestRelativePaths": {
+    "fastaPath": "NC_007779.1_w3110_Mu.fa.gz",
+    "faiPath": "NC_007779.1_w3110_Mu.fa.gz.fai",
+    "gffPath": "NC_007779.1_w3110_Mu.gff3.gz",
+    "tbiPath": "NC_007779.1_w3110_Mu.gff3.gz.tbi",
+    "chrom": "NC_007779.1_w3110_Mu",
+    "length": 4647454
+  },
+  "gziFile": "NC_007779.1_w3110_Mu.fa.gz.gzi",
+  "gffFeatureTypeCounts": {
+    "gene": 4312,
+    "transcript": 4505,
+    "exon": 4667,
+    "CDS": 4228,
+    "biological_region": 52,
+    "rRNA_gene": 51,
+    "rRNA": 51,
+    "tRNA_gene": 174,
+    "ncRNA_gene": 20,
+    "pseudogene": 220,
+    "protein_binding_site": 1
+  },
+  "gffUncompressedSha256": "942aa02f9a22912930122494bd7e0d4b31a04e9e2d923383d9e4b776b55efe53",
+  "fileSha256": {
+    "GSE117186_E_coli_w3110_G_Mu.fasta.gz": "d5e313ec342c9570c634050abb1ba7939e61c24e3793a0b220e76e304895f7e9",
+    "GSE117186_Escherichia_coli_K_12_w3110_Mu_genes_annotation.gff.gz": "291b2cce5d877aa93a319643b89807f8e72c36cf51a252f0454b053d8a3ed76f",
+    "NC_007779.1_w3110_Mu.fa.gz": "8de28043182eab276edd27c10fbd62d75cb7842bbe4e14d72d0c558a99f21189",
+    "NC_007779.1_w3110_Mu.fa.gz.fai": "a5e1f2551b72065e1f9afe7a2dd1c5b383efbc54804c7d166730bbec1b6d1715",
+    "NC_007779.1_w3110_Mu.fa.gz.gzi": "c8008115d6c928c572df2efb3f56c2569816fb7095e79e33eb6a148327c5e6be",
+    "NC_007779.1_w3110_Mu.gff3.gz": "ef75f5d3da75c50c2018062fb81f622ec3611281de24147dce5cffe9f479586b",
+    "NC_007779.1_w3110_Mu.gff3.gz.tbi": "6dab3e8d8ff0194e523fa1ca7c4411f53102a0789678dad6e0c1072d976f3a68",
+    "author-w3110-Mu.authoritative.fasta": "6c089992a8e401cf0d4b4b04bd62f35b21e69cba365b0cf553aec401eb521a3e",
+    "author-w3110-Mu.authoritative.gff3": "41cca09ff566c460843dace6dd19d2e1d066e3445d3ee3e44daab8d3856cf216"
+  }
+}

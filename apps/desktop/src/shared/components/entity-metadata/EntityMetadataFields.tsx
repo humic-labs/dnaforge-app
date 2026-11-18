@@ -1,7 +1,9 @@
+import { temporalFieldDisplay } from '../../registry-temporal-input';
 import { geneticCodeLabel, type GeneticCodeSpec } from '@waypoint/sequence-utils';
 
 export function RegistryRecordValue({ type, value }: { type: string; value: unknown }) {
   if (value === undefined || value === null || value === '') return <span>-</span>;
+  if (type === 'datetime') return <>{temporalFieldDisplay('datetime', value)}</>;
   if (type === 'genetic_code' && (typeof value === 'number' || typeof value === 'object')) {
     return <>{geneticCodeLabel(value as GeneticCodeSpec)}</>;
   }

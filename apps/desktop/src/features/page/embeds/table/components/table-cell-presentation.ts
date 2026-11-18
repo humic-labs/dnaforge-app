@@ -118,9 +118,7 @@ export function tableCellWrapperClasses(args: {
     'relative w-full h-full min-h-[22px] cursor-cell outline-none transition-none',
     args.isFocused || args.hasSelectionEdge ? 'z-10' : '',
     args.isCut && !args.isSelected ? 'bg-fg/[0.04]' : '',
-    !args.hasBgColor && !args.isFocused && !args.isSelected && !args.isCut
-      ? 'hover:bg-bg-muted'
-      : '',
+    !args.hasBgColor && !args.isFocused && !args.isSelected && !args.isCut ? 'wp-interactive' : '',
     args.isGhost && !args.isFocused && !args.isSelected ? 'bg-transparent' : '',
   ]
     .filter(Boolean)

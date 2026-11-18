@@ -1,4 +1,5 @@
 import { forwardRef } from 'react';
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { cn } from '../lib/cn';
 import { Tooltip } from './Tooltip';
 
@@ -21,20 +22,21 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
     };
 
     const variants = {
-      default: 'border border-border hover:bg-bg-muted hover:border-border-hover',
-      ghost: 'hover:bg-bg-muted',
+      default: 'border border-border',
+      ghost: '',
     };
 
     const button = (
       <button
         ref={ref}
         aria-label={label}
+        data-interaction-border={variant === 'default' || undefined}
         className={cn(
+          INTERACTION_CLASS,
           'inline-flex items-center justify-center rounded-full',
-          'text-fg-muted hover:text-fg',
+          'text-fg-muted',
           'transition-colors duration-fast ease-out',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2',
-          'disabled:opacity-50 disabled:pointer-events-none',
+          'disabled:pointer-events-none',
           sizes[size],
           variants[variant],
           className

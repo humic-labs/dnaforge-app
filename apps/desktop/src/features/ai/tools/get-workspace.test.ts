@@ -7,6 +7,9 @@ import { useWorkspaceStore } from '../../../stores/workspaceStore';
 import { bindCatalogEntityToFile, registerCatalogEntity, registerWorkspaceFile } from '../../../db/workspace-catalog';
 import { clearMockData } from '../../../test/platform-mocks';
 import { initializeTestSchema } from '../../../test/initializeTestSchema';
+import { createElement } from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { ToolResultDisplay } from '../../../components/chat/ToolResultDisplay';
 
 mockUUID();
 
@@ -23,6 +26,51 @@ beforeEach(() => {
 });
 
 describe('get_workspace tool', () => {
+  it('preserves RNA and protein identities from open tabs through expanded tool results', async () => {
+    useCanvasStore.setState({
+      panels: {
+        main: {
+          id: 'main',
+          activeTabId: 'rna-tab',
+          tabs: [
+            {
+              id: 'rna-tab',
+              type: 'primer',
+              entityId: 'rna-oligo',
+              label: 'RNA primer',
+              artifactDocument: {
+                kind: 'primer',
+                persistence: 'persisted',
+                workspaceRoot: '/lab',
+                destinationPath: '/lab/primer.primer.json',
+                orderType: 'rna',
+              },
+            },
+            {
+              id: 'protein-tab',
+              type: 'record',
+              entityKind: 'protein',
+              entityId: 'native-protein',
+              label: 'Native protein',
+            },
+          ],
+        },
+      },
+    });
+    const output = await execTool<{ panels: Array<{ tabs: unknown[] }> }>(getWorkspaceTool, {});
+    render(createElement(ToolResultDisplay, {
+      toolName: 'get_workspace',
+      content: JSON.stringify({ input: {}, output }),
+    }));
+    fireEvent.click(screen.getByRole('button'));
+    expect(screen.getByText('RNA primer').parentElement?.querySelector('svg')).toHaveAttribute(
+      'data-entity-color-family', 'rna'
+    );
+    expect(screen.getByText('Native protein').parentElement?.querySelector('svg')).toHaveAttribute(
+      'data-entity-color-family', 'protein'
+    );
+  });
+
   it('returns workspace state with no tabs', async () => {
     const result = await execTool<{ focusedPanelId: string | null; panels: any[] }>(
       getWorkspaceTool,

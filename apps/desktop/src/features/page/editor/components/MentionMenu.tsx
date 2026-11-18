@@ -5,11 +5,24 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type MouseEvent,
 } from 'react';
+import {
+  MenuRow,
+  MenuStatus,
+  MenuSurface,
+  INTERACTION_CLASS,
+  useMenu,
+  type MenuCloseReason,
+} from '@waypoint/ui-components';
+import {
+  usePresentationSurface,
+  usePresentationScope,
+} from '../../../../presentation/PresentationSurface';
 import { cn } from '@/shared/lib/cn';
 import { SearchIcon } from '../../../../components/icons/glyphs';
 import type { Entity, EntityGroup, EntityType } from '../lib/search';
@@ -27,10 +40,12 @@ export interface MentionAttrs {
 }
 
 export interface MentionMenuRef {
+  close: (reason: MenuCloseReason) => void;
   onKeyDown: (props: { event: KeyboardEvent }) => boolean;
 }
 
 export interface MentionMenuProps {
+  presentationParentId?: string;
   items: EntityGroup[];
   query: string;
   command: (attrs: MentionAttrs) => void;
@@ -57,15 +72,12 @@ function keepEditorFocus(event: MouseEvent) {
 }
 
 export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function MentionMenu(
-  { items, query, command },
+  { items, query, command, presentationParentId },
   ref
 ) {
   const [filter, setFilter] = useState(ALL);
-  const [selection, setSelection] = useState<{ rows: Entity[] | null; index: number }>({
-    rows: null,
-    index: 0,
-  });
-  const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
+  const origin = usePresentationScope();
+  const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
   const groups = useMemo(() => items.filter((group) => group.items.length > 0), [items]);
   const activeFilter = groups.some((group) => group.key === filter) ? filter : ALL;
@@ -87,39 +99,60 @@ export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function
         : groups
             .filter((group) => group.key === activeFilter)
             .map((group) => ({ group, shown: group.items, hidden: 0 }));
-    let offset = 0;
-    return selected.map((entry) => {
-      const start = offset;
-      offset += entry.shown.length;
-      return { ...entry, offset: start };
-    });
+    return selected;
   }, [groups, activeFilter]);
 
-  const rows = useMemo(() => visibleGroups.flatMap((entry) => entry.shown), [visibleGroups]);
-  const selectedIndex = selection.rows === rows ? selection.index : 0;
-  const setSelectedIndex = useCallback(
-    (update: (current: number) => number) =>
-      setSelection((previous) => ({
-        rows,
-        index: update(previous.rows === rows ? previous.index : 0),
-      })),
-    [rows]
+  const rows = useMemo(
+    () =>
+      visibleGroups.flatMap(({ group, shown }) =>
+        shown.map((item) => ({
+          id: JSON.stringify([group.key, item.type, item.id]),
+          item,
+        }))
+      ),
+    [visibleGroups]
   );
-
+  const menuItems = useMemo(
+    () =>
+      rows.length > 0
+        ? rows.map(({ id, item }) => ({ id, textValue: item.name, closeOnActivate: false }))
+        : query
+          ? [{ id: 'create-page', textValue: query, closeOnActivate: false }]
+          : [],
+    [rows, query]
+  );
+  const menu = useMenu({
+    items: menuItems,
+    defaultOpen: true,
+    onActivate: (id) => {
+      const row = rows.find((candidate) => candidate.id === id);
+      if (!row && (id !== 'create-page' || !query)) return;
+      menu.close('handoff');
+      command(row ? attrsFor(row.item) : { entityType: 'page', entityId: 'new', label: query });
+    },
+  });
+  const presentation = usePresentationSurface({
+    parentId: presentationParentId,
+    active: menu.isOpen,
+  });
+  const activeId = menuItems.some((item) => item.id === menu.activeId)
+    ? menu.activeId
+    : (menuItems[0]?.id ?? null);
+  const bindSurface = useCallback(
+    (node: HTMLDivElement | null) => {
+      presentation.bindRef(node);
+      menu.bindSurface(node);
+    },
+    [presentation.bindRef, menu.bindSurface]
+  );
+  useLayoutEffect(() => menu.positioned(), [menu.positioned]);
   useEffect(() => {
-    itemRefs.current.get(selectedIndex)?.scrollIntoView({ block: 'nearest' });
-  }, [selectedIndex]);
-
-  const setItemRef = useCallback((index: number, el: HTMLButtonElement | null) => {
-    if (el) itemRefs.current.set(index, el);
-    else itemRefs.current.delete(index);
+    if (activeId !== null) itemRefs.current.get(activeId)?.scrollIntoView({ block: 'nearest' });
+  }, [activeId]);
+  const setItemRef = useCallback((id: string, node: HTMLButtonElement | null) => {
+    if (node) itemRefs.current.set(id, node);
+    else itemRefs.current.delete(id);
   }, []);
-
-  const createPage = useCallback(
-    () => command({ entityType: 'page', entityId: 'new', label: query }),
-    [command, query]
-  );
-
   const cycleFilter = useCallback(
     (step: number) => {
       const index = filterKeys.indexOf(activeFilter);
@@ -129,30 +162,23 @@ export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function
   );
 
   useImperativeHandle(ref, () => ({
+    close: menu.close,
     onKeyDown: ({ event }) => {
-      const max = rows.length > 0 ? rows.length : 1;
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        setSelectedIndex((i) => (i + 1) % max);
-        return true;
-      }
-      if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        setSelectedIndex((i) => (i - 1 + max) % max);
-        return true;
-      }
+      if (
+        !menu.isOpen ||
+        event.defaultPrevented ||
+        event.isComposing ||
+        event.keyCode === 229 ||
+        !presentation.owner.allowsEvent(presentationParentId ?? origin.id, 'keyboard', event)
+      )
+        return false;
       if (event.key === 'Tab') {
         event.preventDefault();
         cycleFilter(event.shiftKey ? -1 : 1);
         return true;
       }
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        const item = rows[selectedIndex];
-        if (item) command(attrsFor(item));
-        else if (query) createPage();
-        return true;
-      }
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter')
+        return menu.handleKeyDown(event, { wrap: true });
       return false;
     },
   }));
@@ -162,9 +188,26 @@ export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function
   const groupCount = (key: string) =>
     key === ALL ? totalCount : (groups.find((group) => group.key === key)?.items.length ?? 0);
 
+  if (!menu.isOpen) return null;
+
   return (
-    <div
-      className="bg-bg text-fg border border-border rounded-lg shadow-lg w-96 max-w-[calc(100vw-16px)] max-h-[min(28rem,calc(100vh-16px))] flex flex-col overflow-hidden"
+    <MenuSurface
+      surface="workspace"
+      ref={bindSurface}
+      density="form"
+      content="panel"
+      selection={false}
+      icons
+      data-menu-id="root"
+      data-presentation-surface={presentation.id}
+      layout={{
+        width: '24rem',
+        maxWidth: 'calc(100vw - 16px)',
+        maxHeight: 'min(28rem, calc(100vh - 16px))',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        display: presentation.visible ? 'flex' : 'none',
+      }}
       data-testid="mention-menu"
     >
       <div className="p-2 border-b border-border flex flex-col gap-2">
@@ -193,10 +236,10 @@ export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function
                 onMouseDown={keepEditorFocus}
                 onClick={() => setFilter(key)}
                 className={cn(
-                  'rounded-full px-2 py-0.5 text-xs transition-colors',
+                  `${INTERACTION_CLASS} rounded-full px-2 py-0.5 text-xs transition-colors`,
                   key === activeFilter
                     ? 'bg-accent/15 text-accent'
-                    : 'bg-bg-muted text-fg-muted hover:text-fg'
+                    : `bg-bg-muted text-fg-muted ${INTERACTION_CLASS}`
                 )}
               >
                 {groupLabel(key)} <span className="tabular-nums">{groupCount(key)}</span>
@@ -208,59 +251,58 @@ export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function
 
       <div className="overflow-auto p-1 min-h-0" role="listbox">
         {rows.length === 0 && query ? (
-          <button
-            type="button"
+          <MenuRow
+            role="option"
+            active={activeId === 'create-page'}
+            aria-selected={activeId === 'create-page'}
+            icon="+"
             onMouseDown={keepEditorFocus}
-            onClick={createPage}
-            className="w-full px-2 py-1.5 text-left text-sm rounded flex items-center gap-2 bg-accent/10 text-accent"
+            onClick={() => menu.activate('create-page')}
           >
-            <span className="text-fg-muted">+</span>
-            <span>Create &quot;{query}&quot;</span>
-          </button>
+            Create &quot;{query}&quot;
+          </MenuRow>
         ) : rows.length === 0 ? (
-          <div className="text-sm text-fg-muted px-2 py-1">No items to reference</div>
+          <MenuStatus>No items to reference</MenuStatus>
         ) : (
-          visibleGroups.map(({ group, shown, hidden, offset }) => (
+          visibleGroups.map(({ group, shown, hidden }) => (
             <div key={group.key} data-testid={`mention-group-${group.key}`}>
               <div className="flex items-center justify-between gap-2 px-2 pt-2 pb-1 text-xs text-fg-subtle">
                 <span className="font-medium uppercase tracking-wide truncate">{group.label}</span>
                 <span>{group.source === 'registry' ? 'Registry' : 'Project'}</span>
               </div>
-              {shown.map((item, position) => {
-                const index = offset + position;
+              {shown.map((item) => {
+                const id = JSON.stringify([group.key, item.type, item.id]);
                 return (
-                  <button
-                    key={`${group.key}:${item.id}`}
-                    type="button"
+                  <MenuRow
+                    key={id}
+                    active={id === activeId}
+                    icon={getEntityIcon(item)}
                     role="option"
-                    aria-selected={index === selectedIndex}
-                    ref={(el) => setItemRef(index, el)}
+                    aria-selected={id === activeId}
+                    ref={(el) => setItemRef(id, el)}
                     data-testid="mention-menu-item"
                     data-entity-type={item.type}
                     onMouseDown={keepEditorFocus}
-                    onMouseEnter={() => setSelectedIndex(() => index)}
-                    onClick={() => command(attrsFor(item))}
-                    className={cn(
-                      'w-full px-2 py-1.5 text-left text-sm rounded flex items-center gap-2 transition-colors',
-                      index === selectedIndex ? 'bg-accent/10 text-accent' : 'hover:bg-bg-muted'
-                    )}
+                    onMouseEnter={() => menu.point(id)}
+                    onClick={() => menu.activate(id)}
                   >
-                    <span className="shrink-0">{getEntityIcon(item)}</span>
-                    <span className="truncate flex-1">{item.name}</span>
-                    {item.projectName && (
-                      <span
-                        className="shrink-0 max-w-[40%] truncate text-xs text-fg-subtle"
-                        data-testid="mention-menu-item-project"
-                      >
-                        {item.projectName}
-                      </span>
-                    )}
-                    {item.registryId && (
-                      <span className="shrink-0 text-xs text-fg-subtle tabular-nums">
-                        {item.registryId}
-                      </span>
-                    )}
-                  </button>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate flex-1">{item.name}</span>
+                      {item.projectName && (
+                        <span
+                          className="shrink-0 max-w-[40%] truncate text-xs text-fg-subtle"
+                          data-testid="mention-menu-item-project"
+                        >
+                          {item.projectName}
+                        </span>
+                      )}
+                      {item.registryId && (
+                        <span className="shrink-0 text-xs text-fg-subtle tabular-nums">
+                          {item.registryId}
+                        </span>
+                      )}
+                    </span>
+                  </MenuRow>
                 );
               })}
               {hidden > 0 && (
@@ -268,7 +310,7 @@ export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function
                   type="button"
                   onMouseDown={keepEditorFocus}
                   onClick={() => setFilter(group.key)}
-                  className="w-full px-2 py-1 text-left text-xs text-fg-muted hover:text-fg rounded"
+                  className={`${INTERACTION_CLASS} w-full px-2 py-1 text-left text-xs text-fg-muted rounded`}
                   data-testid={`mention-more-${group.key}`}
                 >
                   {hidden} more
@@ -283,6 +325,6 @@ export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function
         <span>↑↓ choose · ↵ insert · Tab filter</span>
         {partial && <span>More matches: keep typing</span>}
       </div>
-    </div>
+    </MenuSurface>
   );
 });

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { DownwardSelect } from './DownwardSelect';
 
 const MENU_WIDTH = 400;
@@ -10,16 +10,26 @@ function stubViewport(width: number, height: number) {
 }
 
 function stubMenuWidth(width: number) {
-  const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
-  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
-    configurable: true,
-    get(this: HTMLElement) {
-      return this.getAttribute('role') === 'listbox' ? width : 0;
-    },
-  });
-  return () => {
-    if (original) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', original);
-  };
+  const original = HTMLElement.prototype.getBoundingClientRect;
+  const rect = vi
+    .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+    .mockImplementation(function (this: HTMLElement) {
+      if (this.getAttribute('role') !== 'listbox') return original.call(this);
+      const left = Number.parseFloat(this.style.left) || 0;
+      const top = Number.parseFloat(this.style.top) || 0;
+      return {
+        x: left,
+        y: top,
+        top,
+        bottom: top + 100,
+        left,
+        right: left + width,
+        width,
+        height: 100,
+        toJSON: () => ({}),
+      };
+    });
+  return () => rect.mockRestore();
 }
 
 function openAt(triggerLeft: number) {
@@ -103,7 +113,13 @@ describe('DownwardSelect rows', () => {
       />
     );
     fireEvent.click(screen.getByTestId('pick'));
-    expect(screen.getByTestId('row-a').className).toContain('bg-accent/10');
+    expect(within(screen.getByTestId('row-a')).getByText('A')).toHaveClass(
+      'font-medium',
+      'text-accent'
+    );
+    expect(within(screen.getByTestId('row-b')).getByText('B')).not.toHaveClass('text-accent');
+    expect(screen.getByTestId('row-a')).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByTestId('row-a').className).not.toContain('bg-accent/10');
     expect(screen.getByTestId('row-b').className).not.toContain('bg-accent/10');
     expect(screen.getByTestId('row-b')).toHaveAttribute('aria-selected', 'true');
   });

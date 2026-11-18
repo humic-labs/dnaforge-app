@@ -1,4 +1,7 @@
 import { trackViewCommandsContract } from '../shared/ipc/track-view-commands.contract';
+import { sequenceDataLayersContract } from '../shared/ipc/sequence-data-layers.contract';
+import { contactSourcesContract } from '../shared/ipc/contact-sources.contract';
+import { comparisonSourcesContract } from '../shared/ipc/comparison-sources.contract';
 import type { SaveAllResult } from '../shared/save-all-result';
 import { notebookContract } from '../shared/ipc/notebook.contract';
 import { importReviewContract } from '../shared/ipc/import-review.contract';
@@ -10,6 +13,7 @@ import { organizationRegistryContract } from '../shared/ipc/organization-registr
 
 import { molecularDataContract } from '../shared/ipc/molecular-data.contract';
 import { analyticsContract } from '../shared/ipc/analytics.contract';
+import { workTasksContract } from '../shared/ipc/work-tasks.contract';
 import { scientificObjectsContract } from '../shared/ipc/scientific-objects.contract';
 import { scientificRecoveryContract } from '../shared/ipc/scientific-recovery.contract';
 import { computeContract } from '../shared/ipc/compute.contract';
@@ -304,6 +308,7 @@ const api = {
     ...createClient(scientificDocumentsContract),
   },
   entityNavigation: createClient(entityNavigationContract),
+  workTasks: createClient(workTasksContract),
   scientificObjects: createClient(scientificObjectsContract),
   fileAssociations: createClient(fileAssociationsContract),
 
@@ -444,6 +449,9 @@ const api = {
   path: createClient(pathContract),
 
   trackViewCommands: createClient(trackViewCommandsContract),
+  sequenceDataLayers: createClient(sequenceDataLayersContract),
+  contactSources: createClient(contactSourcesContract),
+  comparisonSources: createClient(comparisonSourcesContract),
   trackViews: trackViewsPreloadBridge,
   molecularDocuments: createClient(molecularDocumentsContract),
   trackStore: trackStorePreloadBridge,

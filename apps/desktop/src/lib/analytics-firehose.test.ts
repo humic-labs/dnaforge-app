@@ -269,10 +269,10 @@ describe('private manual interaction boundary', () => {
     vi.restoreAllMocks();
   });
 
-  function listen() {
+  function listen(isEnabled?: () => boolean) {
     const capture = vi.fn();
     const now = vi.fn(() => 1000);
-    cleanups.push(installAnalyticsFirehose({ capture, now }));
+    cleanups.push(installAnalyticsFirehose({ capture, now, isEnabled }));
     return { capture, now };
   }
   function event(type: string): Event {
@@ -304,6 +304,21 @@ describe('private manual interaction boundary', () => {
       expect(now).not.toHaveBeenCalled();
     }
   );
+
+  it('rejects private routes before eligibility can emit telemetry', () => {
+    const eligibilityEvents: string[] = [];
+    const { capture, now } = listen(() => {
+      eligibilityEvents.push('feature_flag_called');
+      return true;
+    });
+    const root = document.body.appendChild(document.createElement('section'));
+    root.setAttribute('data-analytics-block', '');
+    const textarea = root.appendChild(document.createElement('textarea'));
+    for (const type of events) textarea.dispatchEvent(event(type));
+    expect(eligibilityEvents).toEqual([]);
+    expect(capture).not.toHaveBeenCalled();
+    expect(now).not.toHaveBeenCalled();
+  });
 
   it('rejects nested SVG and text-node targets', () => {
     const { capture } = listen();

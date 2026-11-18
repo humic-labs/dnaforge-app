@@ -1,3 +1,4 @@
+import { scientificWorkTables } from './scientific-object-schema';
 import type Database from 'better-sqlite3';
 import { verifyLimsAuditHashChainInDb } from './lims-projection-rebuild';
 import { randomUUID } from 'node:crypto';
@@ -29,6 +30,7 @@ import {
 } from './scientific-recovery-checkpoint';
 
 const SCIENTIFIC_TABLES = [
+  ...scientificWorkTables,
   'scientific_workspace_identities',
   'scientific_materialization_jobs',
   'scientific_revision_refs',
@@ -463,6 +465,8 @@ export function prepareScientificLegacyDatabase(input: {
           }
         }
       }
+      db.exec(`DROP TRIGGER IF EXISTS scientific_work_dispatch_bound;
+        DROP TRIGGER IF EXISTS scientific_work_project_suspended;`);
       for (const table of clear) db.exec(`DELETE FROM ${quoteIdentifier(table)}`);
       for (const table of SCIENTIFIC_TABLES)
         db.exec(`DROP TABLE IF EXISTS ${quoteIdentifier(table)}`);

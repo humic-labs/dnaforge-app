@@ -21,7 +21,7 @@ function DedupChoice({
       className={
         pressed
           ? 'rounded border border-accent bg-accent/15 px-1.5 py-0.5 text-[11px] text-fg'
-          : 'rounded border border-border px-1.5 py-0.5 text-[11px] text-fg-muted hover:bg-bg-muted'
+          : 'rounded border border-border px-1.5 py-0.5 text-[11px] text-fg-muted wp-interactive'
       }
     >
       {label}

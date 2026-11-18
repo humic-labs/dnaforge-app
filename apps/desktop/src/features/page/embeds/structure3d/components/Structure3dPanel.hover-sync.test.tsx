@@ -454,6 +454,7 @@ describe('Structure3dPanel keyboard focus', () => {
     trigger.focus();
     fireEvent.contextMenu(trigger, { clientX: 20, clientY: 30 });
     expect(screen.getByRole('menu', { name: 'Structure actions' })).toBeInTheDocument();
+    trigger.focus();
     expect(trigger).toHaveFocus();
 
     fireEvent.keyDown(trigger, { key: 'Escape' });

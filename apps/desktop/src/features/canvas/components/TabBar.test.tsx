@@ -154,7 +154,7 @@ describe('TabBar plasmid rename', () => {
     );
 
     fireEvent.contextMenu(screen.getByTestId('tab-tab-1'));
-    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }));
 
     expect(onSelectTab).toHaveBeenCalledWith('tab-1');
     expect(requests).toEqual([expect.objectContaining({ packageId: 'pkg-plasmid' })]);

@@ -4522,90 +4522,95 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
     });
 
     it('keeps overflow on the same committed read generation through a side-scroll swap', async () => {
-      const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
-      const r = new PixiPileupTrackRenderer({
-        type: 'pileup-test',
-        rowHeightPx: 4,
-        maxRows: 2,
-        overflowBandHeightPx: 20,
-        readRowsAssignRecordsPerFrame: 1_000,
-        readRowsBuildRecordsPerFrame: 2,
-      });
-      const c = r.mount(mountArgs);
-      const windowData = (
-        records: PileupRecord[],
-        windowStartBp: number,
-        windowEndBp: number
-      ): PileupTrackData => ({
-        dataAuthority: 'tile-engine',
-        records,
-        readSource: { truncated: false, windowStartBp, windowEndBp },
-      });
-      const paintWindow = (records: PileupRecord[], windowStartBp: number, windowEndBp: number) =>
-        paintArgsZoom(
-          c,
-          windowData(records, windowStartBp, windowEndBp),
-          4.0 / 150,
-          { start: windowStartBp, end: windowEndBp },
-          800,
-          240
-        );
-      const aRecords = Array.from({ length: 6 }, (_, i) =>
-        read(10_000 + i, 50_000 + i, `a${i}`, {
-          mismatches: [{ pos: 20_000 + i, kind: 'sub', refBase: 'A', readBase: 'G' }],
-        })
-      );
-      const bRecords = [
-        ...aRecords,
-        ...Array.from({ length: 4 }, (_, i) =>
-          read(30_000 + i, 90_000 + i, `b${i}`, {
-            mismatches: [{ pos: 40_000 + i, kind: 'sub', refBase: 'C', readBase: 'T' }],
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1_000);
+      try {
+        const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
+        const r = new PixiPileupTrackRenderer({
+          type: 'pileup-test',
+          rowHeightPx: 4,
+          maxRows: 2,
+          overflowBandHeightPx: 20,
+          readRowsAssignRecordsPerFrame: 1_000,
+          readRowsBuildRecordsPerFrame: 2,
+        });
+        const c = r.mount(mountArgs);
+        const windowData = (
+          records: PileupRecord[],
+          windowStartBp: number,
+          windowEndBp: number
+        ): PileupTrackData => ({
+          dataAuthority: 'tile-engine',
+          records,
+          readSource: { truncated: false, windowStartBp, windowEndBp },
+        });
+        const paintWindow = (records: PileupRecord[], windowStartBp: number, windowEndBp: number) =>
+          paintArgsZoom(
+            c,
+            windowData(records, windowStartBp, windowEndBp),
+            4.0 / 150,
+            { start: windowStartBp, end: windowEndBp },
+            800,
+            240
+          );
+        const aRecords = Array.from({ length: 6 }, (_, i) =>
+          read(10_000 + i, 50_000 + i, `a${i}`, {
+            mismatches: [{ pos: 20_000 + i, kind: 'sub', refBase: 'A', readBase: 'G' }],
           })
-        ),
-      ];
+        );
+        const bRecords = [
+          ...aRecords,
+          ...Array.from({ length: 4 }, (_, i) =>
+            read(30_000 + i, 90_000 + i, `b${i}`, {
+              mismatches: [{ pos: 40_000 + i, kind: 'sub', refBase: 'C', readBase: 'T' }],
+            })
+          ),
+        ];
 
-      let a = r.getDiagnostics(c)!;
-      for (let guard = 0; guard < 30; guard += 1) {
-        r.paint(paintWindow(aRecords, 0, 60_000));
-        a = r.getDiagnostics(c)!;
-        if (!a.rowsAssignmentBuildInProgress && !a.rowsMeshBuildInProgress) break;
-      }
-      expect(a.rowsMeshRecordCount).toBe(aRecords.length);
-      expect(a.overflowRowsVertexCount).toBeGreaterThan(0);
-      expect(a.rowsMeshGenerationKey).not.toBe('');
-      expect(a.overflowGenerationKey).toBe(a.rowsMeshGenerationKey);
-      const aOverflowBuilds = a.overflowGeometryBuildCount;
-      const aDifferenceBuilds = a.readDifferenceBuildCount;
-      expect(aDifferenceBuilds).toBeGreaterThan(0);
-
-      r.paint(paintWindow(bRecords, 20_000, 100_000));
-      let inFlight = r.getDiagnostics(c)!;
-      expect(inFlight.rowsMeshBuildInProgress).toBe(true);
-      expect(inFlight.rowsMeshRecordCount).toBe(aRecords.length);
-      expect(inFlight.rowsMeshGenerationKey).toBe(a.rowsMeshGenerationKey);
-      expect(inFlight.overflowGenerationKey).toBe(inFlight.rowsMeshGenerationKey);
-      expect(inFlight.overflowGeometryBuildCount).toBe(aOverflowBuilds);
-      expect(inFlight.readDifferenceBuildCount).toBe(aDifferenceBuilds);
-
-      let guard = 0;
-      while (inFlight.rowsMeshBuildInProgress && guard < 30) {
-        r.paint(paintWindow(bRecords, 20_000, 100_000));
-        inFlight = r.getDiagnostics(c)!;
-        if (inFlight.rowsMeshBuildInProgress) {
-          expect(inFlight.rowsMeshGenerationKey).toBe(a.rowsMeshGenerationKey);
-          expect(inFlight.overflowGenerationKey).toBe(inFlight.rowsMeshGenerationKey);
-          expect(inFlight.overflowGeometryBuildCount).toBe(aOverflowBuilds);
-          expect(inFlight.readDifferenceBuildCount).toBe(aDifferenceBuilds);
+        let a = r.getDiagnostics(c)!;
+        for (let guard = 0; guard < 30; guard += 1) {
+          r.paint(paintWindow(aRecords, 0, 60_000));
+          a = r.getDiagnostics(c)!;
+          if (!a.rowsAssignmentBuildInProgress && !a.rowsMeshBuildInProgress) break;
         }
-        guard += 1;
-      }
+        expect(a.rowsMeshRecordCount).toBe(aRecords.length);
+        expect(a.overflowRowsVertexCount).toBeGreaterThan(0);
+        expect(a.rowsMeshGenerationKey).not.toBe('');
+        expect(a.overflowGenerationKey).toBe(a.rowsMeshGenerationKey);
+        const aOverflowBuilds = a.overflowGeometryBuildCount;
+        const aDifferenceBuilds = a.readDifferenceBuildCount;
+        expect(aDifferenceBuilds).toBeGreaterThan(0);
 
-      expect(inFlight.rowsMeshBuildInProgress).toBe(false);
-      expect(inFlight.rowsMeshRecordCount).toBe(bRecords.length);
-      expect(inFlight.rowsMeshGenerationKey).not.toBe(a.rowsMeshGenerationKey);
-      expect(inFlight.overflowGenerationKey).toBe(inFlight.rowsMeshGenerationKey);
-      expect(inFlight.overflowGeometryBuildCount).toBe(aOverflowBuilds + 1);
-      expect(inFlight.readDifferenceBuildCount).toBe(aDifferenceBuilds + 1);
+        r.paint(paintWindow(bRecords, 20_000, 100_000));
+        let inFlight = r.getDiagnostics(c)!;
+        expect(inFlight.rowsMeshBuildInProgress).toBe(true);
+        expect(inFlight.rowsMeshRecordCount).toBe(aRecords.length);
+        expect(inFlight.rowsMeshGenerationKey).toBe(a.rowsMeshGenerationKey);
+        expect(inFlight.overflowGenerationKey).toBe(inFlight.rowsMeshGenerationKey);
+        expect(inFlight.overflowGeometryBuildCount).toBe(aOverflowBuilds);
+        expect(inFlight.readDifferenceBuildCount).toBe(aDifferenceBuilds);
+
+        let guard = 0;
+        while (inFlight.rowsMeshBuildInProgress && guard < 30) {
+          r.paint(paintWindow(bRecords, 20_000, 100_000));
+          inFlight = r.getDiagnostics(c)!;
+          if (inFlight.rowsMeshBuildInProgress) {
+            expect(inFlight.rowsMeshGenerationKey).toBe(a.rowsMeshGenerationKey);
+            expect(inFlight.overflowGenerationKey).toBe(inFlight.rowsMeshGenerationKey);
+            expect(inFlight.overflowGeometryBuildCount).toBe(aOverflowBuilds);
+            expect(inFlight.readDifferenceBuildCount).toBe(aDifferenceBuilds);
+          }
+          guard += 1;
+        }
+
+        expect(inFlight.rowsMeshBuildInProgress).toBe(false);
+        expect(inFlight.rowsMeshRecordCount).toBe(bRecords.length);
+        expect(inFlight.rowsMeshGenerationKey).not.toBe(a.rowsMeshGenerationKey);
+        expect(inFlight.overflowGenerationKey).toBe(inFlight.rowsMeshGenerationKey);
+        expect(inFlight.overflowGeometryBuildCount).toBe(aOverflowBuilds + 1);
+        expect(inFlight.readDifferenceBuildCount).toBe(aDifferenceBuilds + 1);
+      } finally {
+        now.mockRestore();
+      }
     });
 
     it('finishes the next usable read mesh when a newer BAM window arrives mid-build', async () => {
@@ -6000,39 +6005,44 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
   });
 
   it('uses one blue aggregate layer during the simple read fade', async () => {
-    const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
-    const r = new PixiPileupTrackRenderer({
-      type: 'pileup-test',
-      rowHeightPx: 10,
-      maxRows: 4,
-    });
-    const c = r.mount(mountArgs);
-    const data: PileupTrackData = {
-      dataAuthority: 'static',
-      coverage: { bins: Array.from({ length: 20 }, () => 60), binSize: 100, maxDepth: 60 },
-      records: [read(0, 400, 'exact-a'), read(20, 420, 'exact-b')],
-      readSource: { truncated: false, windowStartBp: 0, windowEndBp: 2000 },
-    };
-    const view = { start: 100, end: 350 };
+    const now = vi.spyOn(performance, 'now').mockReturnValue(1_000);
+    try {
+      const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
+      const r = new PixiPileupTrackRenderer({
+        type: 'pileup-test',
+        rowHeightPx: 10,
+        maxRows: 4,
+      });
+      const c = r.mount(mountArgs);
+      const data: PileupTrackData = {
+        dataAuthority: 'static',
+        coverage: { bins: Array.from({ length: 20 }, () => 60), binSize: 100, maxDepth: 60 },
+        records: [read(0, 400, 'exact-a'), read(20, 420, 'exact-b')],
+        readSource: { truncated: false, windowStartBp: 0, windowEndBp: 2000 },
+      };
+      const view = { start: 100, end: 350 };
 
-    r.paint(paintArgsZoom(c, data, 1.6 / 150, view, 200, 90));
-    const stacked = r.getDiagnostics(c)!;
-    expect(stacked.readAggregateSource).toBe('collapsed-pileup');
-    expect(stacked.readDisplayMode).toBe('blend');
-    expect(stacked.rowsMeshVisible).toBe(true);
-    expect(stacked.morphRowsMeshVisible).toBe(false);
-    expect(stacked.densityRowsVertexCount).toBeGreaterThan(0);
-    expect(stacked.densityRowsMeshVisible).toBe(true);
-    expect(stacked.readDensityAlpha).toBeGreaterThan(0.6);
-    expect(stacked.renderedReadDensityAlpha).toBe(stacked.readDensityAlpha);
+      r.paint(paintArgsZoom(c, data, 1.6 / 150, view, 200, 90));
+      const stacked = r.getDiagnostics(c)!;
+      expect(stacked.readAggregateSource).toBe('collapsed-pileup');
+      expect(stacked.readDisplayMode).toBe('blend');
+      expect(stacked.rowsMeshVisible).toBe(true);
+      expect(stacked.morphRowsMeshVisible).toBe(false);
+      expect(stacked.densityRowsVertexCount).toBeGreaterThan(0);
+      expect(stacked.densityRowsMeshVisible).toBe(true);
+      expect(stacked.readDensityAlpha).toBeGreaterThan(0.6);
+      expect(stacked.renderedReadDensityAlpha).toBe(stacked.readDensityAlpha);
 
-    r.paint(paintArgsZoom(c, data, 2.1 / 150, view, 200, 90));
-    const mid = r.getDiagnostics(c)!;
-    expect(mid.readAggregateSource).toBe('collapsed-pileup');
-    expect(mid.morphRowsVertexCount).toBe(0);
-    expect(mid.densityRowsVertexCount).toBeGreaterThan(0);
-    expect(mid.readDensityColumnCoverage).toBeGreaterThan(0.95);
-    expect(mid.renderedReadRowsAlpha + mid.renderedReadDensityAlpha).toBeCloseTo(1, 2);
+      r.paint(paintArgsZoom(c, data, 2.1 / 150, view, 200, 90));
+      const mid = r.getDiagnostics(c)!;
+      expect(mid.readAggregateSource).toBe('collapsed-pileup');
+      expect(mid.morphRowsVertexCount).toBe(0);
+      expect(mid.densityRowsVertexCount).toBeGreaterThan(0);
+      expect(mid.readDensityColumnCoverage).toBeGreaterThan(0.95);
+      expect(mid.renderedReadRowsAlpha + mid.renderedReadDensityAlpha).toBeCloseTo(1, 2);
+    } finally {
+      now.mockRestore();
+    }
   });
 
   it('uses the collapsed exact pileup field, not coverage, for aggregate endpoint probes', async () => {

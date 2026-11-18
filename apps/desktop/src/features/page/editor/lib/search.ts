@@ -14,6 +14,8 @@ import { queryLimsRegistrySummaries } from '../../../lims/public/operations';
 import { stripWorkspaceScope } from '../../../../shared/workspace-scoped-identity';
 import { useWorkspaceStore } from '../../../../stores/workspaceStore';
 import { registryKindIconKind, registryKindLabel } from './registry-kind';
+import { getFileIconCategory } from '../../../../utils/fileTypes';
+import { entityColorFamily, type EntityColorContext } from '../../../../shared/entity-color-family';
 
 export type EntityType = 'page' | 'sequence' | 'primer' | 'registry' | ProjectReferenceEntityType;
 
@@ -31,6 +33,7 @@ export interface Entity {
   projectId?: string | null;
   projectRoot?: string | null;
   projectName?: string | null;
+  iconContext?: EntityColorContext;
   meta?: {
     length?: number;
     circular?: boolean;
@@ -177,9 +180,23 @@ export function groupSearchResults(results: SearchResults, query: string): Entit
   return ranked.sort((a, b) => a.best - b.best || a.order - b.order).map((entry) => entry.group);
 }
 
-export function getEntityIcon(item: Pick<Entity, 'type' | 'registryKind'>): ReactNode {
-  if (item.type === 'registry') return referenceIconFor(registryKindIconKind(item.registryKind));
-  return referenceIconFor(canonicalEntityIconKind(item.type) ? item.type : 'file');
+export function getEntityIcon(
+  item: Pick<Entity, 'type' | 'registryKind'> & Partial<Pick<Entity, 'path' | 'iconContext'>>
+): ReactNode {
+  const context = { path: item.path ?? undefined, ...item.iconContext };
+  const kind =
+    item.type === 'registry'
+      ? registryKindIconKind(item.registryKind)
+      : context.kind &&
+          !['file', 'text', 'generic'].includes(context.kind) &&
+          canonicalEntityIconKind(context.kind)
+        ? context.kind
+        : item.type === 'file' && item.path
+          ? getFileIconCategory(item.path)
+          : canonicalEntityIconKind(item.type)
+            ? item.type
+            : 'file';
+  return referenceIconFor(kind, 'w-4 h-4', context);
 }
 
 async function projectRoots(): Promise<string[]> {
@@ -234,6 +251,11 @@ async function searchPrimers(query: string, workspaceRoot: string | null): Promi
       path: row.workspaceRelativePath,
       contentHash: null,
       localOnly: row.localOnly,
+      iconContext: row.iconContext,
+      registryKind:
+        row.iconContext && entityColorFamily({ kind: 'primer', ...row.iconContext }) === 'rna'
+          ? 'rna_oligo'
+          : row.iconContext?.kind,
     }));
   } catch (error) {
     console.error('Failed to search primers:', error);
@@ -272,6 +294,13 @@ async function searchProjectCatalog(
       projectId: row.projectId,
       projectRoot: row.projectRoot,
       projectName: row.projectName,
+      iconContext: row.iconContext,
+      registryKind:
+        row.entityType === 'sequence' &&
+        row.iconContext &&
+        entityColorFamily({ kind: 'sequence', ...row.iconContext }) === 'rna'
+          ? 'rna_sequence'
+          : row.iconContext?.kind,
     })),
     truncated: result.truncated,
   };

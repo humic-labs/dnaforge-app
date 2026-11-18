@@ -128,7 +128,7 @@ function MapPaneIconButton({
   return (
     <button
       type="button"
-      className="map-pane-zoom-step-button"
+      className="map-pane-zoom-step-button wp-interactive"
       title={title}
       aria-label={title}
       onClick={onClick}

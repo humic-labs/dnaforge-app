@@ -1,3 +1,4 @@
+import { presentationSurfaceFor } from '../../../../presentation/browser-input';
 import { NotebookMentionNode } from './notebook-mention-model';
 import { ReactRenderer, ReactNodeViewRenderer } from '@tiptap/react';
 
@@ -226,6 +227,7 @@ export const MentionExtension = NotebookMentionNode.extend<MentionOptions>({
                 props: {
                   items: props.items,
                   query: props.query,
+                  presentationParentId: presentationSurfaceFor((props.editor as Editor).view.dom),
                   command: props.command,
                 },
                 editor: props.editor as Editor,
@@ -233,6 +235,12 @@ export const MentionExtension = NotebookMentionNode.extend<MentionOptions>({
 
               if (!props.clientRect) return;
 
+              const currentComponent = component;
+              let currentPopup: TippyInstance | null = null;
+              const onWindowBlur = () => {
+                currentComponent.ref?.close?.('window-blur');
+                currentPopup?.hide();
+              };
               popup = tippy('body', {
                 getReferenceClientRect: props.clientRect as () => DOMRect,
                 appendTo: () => document.body,
@@ -241,6 +249,12 @@ export const MentionExtension = NotebookMentionNode.extend<MentionOptions>({
                 interactive: true,
                 trigger: 'manual',
                 placement: 'bottom-start',
+                onCreate: (instance) => {
+                  currentPopup = instance;
+                  window.addEventListener('blur', onWindowBlur);
+                },
+                onDestroy: () => window.removeEventListener('blur', onWindowBlur),
+                onHidden: () => currentComponent.ref?.close?.('outside-pointer'),
                 popperOptions: {
                   modifiers: [
                     {
@@ -275,6 +289,7 @@ export const MentionExtension = NotebookMentionNode.extend<MentionOptions>({
 
             onKeyDown: (props: { event: KeyboardEvent }) => {
               if (props.event.key === 'Escape') {
+                component?.ref?.close?.('escape');
                 popup?.[0]?.hide();
                 return true;
               }
@@ -282,8 +297,11 @@ export const MentionExtension = NotebookMentionNode.extend<MentionOptions>({
             },
 
             onExit: () => {
+              component?.ref?.close?.('unmount');
               popup?.[0]?.destroy();
               component?.destroy();
+              popup = null;
+              component = null;
             },
           };
         },

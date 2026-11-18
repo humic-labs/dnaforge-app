@@ -41,7 +41,7 @@ describe('Registry inline edit lifecycle', () => {
       />
     );
     fireEvent.click(screen.getByRole('button', { name: 'Choose Parent entity' }));
-    fireEvent.click(await screen.findByRole('button', { name: /Old pending target/ }));
+    fireEvent.click(await screen.findByRole('option', { name: /Old pending target/ }));
     view.rerender(
       <RegistryInlineFieldEditor
         field={field}
@@ -97,9 +97,9 @@ describe('Registry inline edit lifecycle', () => {
       />
     );
     fireEvent.click(screen.getByRole('button', { name: 'Choose Parent entity' }));
-    expect(await screen.findByRole('button', { name: /Parent strain/ })).toBeVisible();
+    expect(await screen.findByRole('option', { name: /Parent strain/ })).toBeVisible();
     expect(screen.queryByRole('button', { name: /This record/ })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Parent strain/ }));
+    fireEvent.click(screen.getByRole('option', { name: /Parent strain/ }));
     await waitFor(() =>
       expect(onCommit).toHaveBeenCalledWith({
         origin: 'native',
@@ -143,7 +143,7 @@ describe('Registry inline edit lifecycle', () => {
       userMessage('failure.entity-search-could-not-load')
     );
     fireEvent.click(screen.getByRole('button', { name: 'Retry search' }));
-    fireEvent.click(await screen.findByRole('button', { name: /Retained target/ }));
+    fireEvent.click(await screen.findByRole('option', { name: /Retained target/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
       userMessage('failure.the-entity-link-could-not-be-saved')
     );

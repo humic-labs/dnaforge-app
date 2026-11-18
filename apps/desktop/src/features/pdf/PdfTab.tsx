@@ -499,7 +499,7 @@ function ToolbarButton({
   return (
     <button
       aria-label={label}
-      className="grid h-8 w-8 place-items-center text-base text-fg-muted hover:bg-bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-30"
+      className="grid h-8 w-8 place-items-center text-base text-fg-muted wp-interactive disabled:cursor-not-allowed disabled:opacity-30"
       disabled={disabled}
       onClick={onClick}
       type="button"

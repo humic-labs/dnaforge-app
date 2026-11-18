@@ -48,8 +48,6 @@ function renderPicker(
       buttonTestId="route-button"
       menuTestId="route-menu"
       optionTestIdPrefix="route-option"
-      buttonClassName=""
-      menuClassName=""
     />
   );
   fireEvent.click(screen.getByTestId('route-button'));

@@ -8,6 +8,7 @@ import { useWorkspaceStore, workspaceScopeFromState } from '../../../stores/work
 import type { WorkspaceFolder } from '../../../stores/workspaceStore';
 import type { AgentProjectScope } from '../../../shared/agent-project-scope';
 import { normalizePathForBoundary } from '../../../shared/path-boundary';
+import { projectTabStripTab } from '../../canvas/tab-menu-presentation';
 
 export const GET_WORKSPACE_DESCRIPTION =
   'Read authorized registered authoring projects, reference folders, displayed folders, tabs and current caller capabilities. Choose notebook and design destinations from projects; pinned referenceFolders are sources, not authoring destinations. Displayed folders and the current selection do not define project access. ' +
@@ -30,7 +31,13 @@ export const getWorkspaceOutputSchema = z.object({
     z.object({
       id: z.string(),
       tabs: z.array(
-        z.object({ id: z.string(), type: z.string(), entityId: z.string(), label: z.string() })
+        z.object({
+          id: z.string(), type: z.string(), entityId: z.string(), label: z.string(),
+          iconContext: z.object({
+            kind: z.string().optional(), molecule: z.string().optional(), path: z.string().optional(),
+            packageKind: z.string().optional(), isDirectory: z.boolean().optional(),
+          }).optional(),
+        })
       ),
       activeTabId: z.string().nullable(),
     })
@@ -58,14 +65,20 @@ export function createGetWorkspaceTool(grantedCapabilities?: readonly string[], 
       const workspaceFile = restricted ? null : workspaceState.activeWorkspaceFile;
       const canvas = await projectAuthorizedCanvas(canvasState, projects, projectScope);
       const panels = Object.values(canvas.panels).map((panel) => ({
-          id: panel.id,
-          tabs: panel.tabs.map((tab) => ({
+        id: panel.id,
+        tabs: panel.tabs.map((tab) => {
+          const iconContext = restricted ? undefined : projectTabStripTab(tab).iconContext;
+          return {
             id: tab.id,
             type: tab.type,
             entityId: tab.entityId,
             label: tab.label,
-          })),
-          activeTabId: panel.activeTabId,
+            ...(iconContext && (iconContext.kind !== tab.type || iconContext.molecule || iconContext.path)
+              ? { iconContext }
+              : {}),
+          };
+        }),
+        activeTabId: panel.activeTabId,
       }));
       return toolSuccess({
         ...(grantedCapabilities ? { capabilities: [...grantedCapabilities] } : {}),

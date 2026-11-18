@@ -413,12 +413,16 @@ export class NativeNotebookDocumentClient {
     editor.setEditable(false, false);
     await retire?.();
   }
-  async command(operation: NativeNotebookRequest['operation']): Promise<NotebookDocumentSnapshot> {
+  async command(
+    operation: NativeNotebookRequest['operation'],
+    intent?: { requestId: string; expectedRevision: string }
+  ): Promise<NotebookDocumentSnapshot> {
     this.assertActive();
-    return this.enqueueCommand(operation);
+    return this.enqueueCommand(operation, intent);
   }
   private async enqueueCommand(
-    operation: NativeNotebookRequest['operation']
+    operation: NativeNotebookRequest['operation'],
+    intent?: { requestId: string; expectedRevision: string }
   ): Promise<NotebookDocumentSnapshot> {
     if (
       !['inspect', 'inspect-copy', 'schema', 'capture-save', 'await-save', 'keep-local'].includes(
@@ -437,8 +441,8 @@ export class NativeNotebookDocumentClient {
         acknowledgement = this.acknowledgedCapture;
       const snapshot = await platform().notebook.execute({
         documentId: this.nativeDocumentId,
-        expectedRevision: current.revision,
-        requestId: crypto.randomUUID(),
+        expectedRevision: intent?.expectedRevision ?? current.revision,
+        requestId: intent?.requestId ?? crypto.randomUUID(),
         operation,
       });
       if (

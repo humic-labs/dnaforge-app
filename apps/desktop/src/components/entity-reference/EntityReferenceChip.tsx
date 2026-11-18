@@ -15,12 +15,12 @@ import { createPortal } from 'react-dom';
 import { stripDisplayExtension } from '../../utils/fileTypes';
 import { DEFAULT_TOOLTIP_DELAY_MS } from '../../shared/components/Tooltip';
 import { usePresentationEligibility } from '../../presentation/PresentationSurface';
-import { safeFocus } from '../../shared/utils/safeFocus';
 import { TRACK_VIEW_FILE_SUFFIX } from '../../shared/registry-file-types';
 import { iconForEntityKind } from '../icons/entity-icon-registry';
-import { PortalMenu } from '../PortalMenu';
 import { UI_ENTITY_REFERENCE_KIND_CLASS } from '../ui/styles';
 import { ReferenceChipSurface } from '../ui/controls';
+import type { EntityColorContext } from '../../shared/entity-color-family';
+import { ActionMenu } from '../ActionMenu';
 
 function pointerIsOnChipRemove(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest('.entity-reference-chip__remove'));
@@ -32,6 +32,7 @@ export interface EntityReferenceChipProps {
   entityType: string;
   kindLabel?: string;
   iconOverride?: ReactNode;
+  iconContext?: EntityColorContext;
   label: string;
   preserveExtension?: boolean;
   detail?: unknown;
@@ -87,6 +88,7 @@ function EntityReferenceChipInner({
   entityType,
   kindLabel: kindLabelOverride,
   iconOverride,
+  iconContext,
   label,
   preserveExtension = false,
   detail,
@@ -125,8 +127,6 @@ function EntityReferenceChipInner({
   const [focused, setFocused] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const chipRef = useRef<HTMLSpanElement>(null);
-  const initialFocusRef = useRef<HTMLButtonElement | null>(null);
-  const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const generatedId = useId().replace(/:/g, '');
   const detailId = `entity-reference-detail-${generatedId}`;
   const canPresent = usePresentationEligibility('presentation');
@@ -138,8 +138,8 @@ function EntityReferenceChipInner({
     offset: number;
   } | null>(null);
   const defaultIcon = useMemo(
-    () => iconForEntityKind(presentationType, 'h-3.5 w-3.5'),
-    [presentationType]
+    () => iconForEntityKind(presentationType, 'h-3.5 w-3.5', iconContext),
+    [presentationType, iconContext]
   );
   const icon = iconOverride ?? defaultIcon;
   const actions = useMemo<MenuAction[]>(() => {
@@ -227,11 +227,6 @@ function EntityReferenceChipInner({
     void primaryActionHandler();
   }, [busy, primaryActionHandler, unavailable]);
 
-  const runMenuAction = useCallback((action: MenuAction) => {
-    setMenuOpen(false);
-    void action.run();
-  }, []);
-
   const onChipKeyDown = useCallback(
     (event: KeyboardEvent<HTMLSpanElement>) => {
       if ((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu') {
@@ -245,24 +240,6 @@ function EntityReferenceChipInner({
       }
     },
     [openMenu, runPrimaryAction]
-  );
-
-  const onMenuKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLDivElement>) => {
-      if (actions.length === 0) return;
-      const currentIndex = itemRefs.current.findIndex((item) => item === document.activeElement);
-      let nextIndex: number | null = null;
-      if (event.key === 'ArrowDown') nextIndex = (Math.max(currentIndex, -1) + 1) % actions.length;
-      if (event.key === 'ArrowUp')
-        nextIndex = (currentIndex <= 0 ? actions.length : currentIndex) - 1;
-      if (event.key === 'Home') nextIndex = 0;
-      if (event.key === 'End') nextIndex = actions.length - 1;
-      if (nextIndex !== null) {
-        event.preventDefault();
-        safeFocus(itemRefs.current[nextIndex]);
-      }
-    },
-    [actions.length]
   );
 
   return (
@@ -341,35 +318,21 @@ function EntityReferenceChipInner({
             document.body
           )
         : null}
-      <PortalMenu
+      <ActionMenu
         open={menuOpen}
         anchorRef={chipRef}
-        initialFocusRef={initialFocusRef}
-        onRequestClose={() => closeMenu()}
-        role="menu"
-        data-testid={`${testId}-menu`}
-        className="entity-reference-chip__menu py-1"
-      >
-        <div onKeyDown={onMenuKeyDown}>
-          {actions.map((action, index) => (
-            <button
-              key={action.id}
-              ref={(element) => {
-                itemRefs.current[index] = element;
-                if (index === 0) initialFocusRef.current = element;
-              }}
-              type="button"
-              role="menuitem"
-              tabIndex={-1}
-              data-testid={`${testId}-menu-${action.id}`}
-              className="entity-reference-chip__menu-item"
-              onClick={() => runMenuAction(action)}
-            >
-              {action.label}
-            </button>
-          ))}
-        </div>
-      </PortalMenu>
+        onClose={closeMenu}
+        label={`Actions for ${displayLabel}`}
+        testId={`${testId}-menu`}
+        entries={actions.map((action) => ({
+          id: action.id,
+          label: action.label,
+          testId: `${testId}-menu-${action.id}`,
+          onSelect: () => {
+            void action.run();
+          },
+        }))}
+      />
     </>
   );
 }

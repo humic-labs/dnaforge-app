@@ -144,6 +144,7 @@ const validRendererArgs: Record<string, unknown> = {
   project_history: { project: 'Project', operation: { kind: 'inspect' } },
   search_workspace: { query: 'Sequence' },
   registry_records: { operation: { kind: 'schemas' } },
+  work_tasks: { project: 'Project', operation: { kind: 'query' } },
   alignment_session: { documentId: 'sequence-test', operation: { kind: 'inspect' } },
   notebook_document: { operation: { kind: 'list' } },
   app_views: { operation: { kind: 'inspect' } },
@@ -603,6 +604,7 @@ const validRendererArgs: Record<string, unknown> = {
   set_sequence_genetic_code: { documentId: 'sequence-document-1', geneticCode: 3 },
   inspect_indexed_current_view: {},
   track_views: { operation: 'references' },
+  sequence_data_layers: { operation: 'list', project: 'Project' },
   configure_indexed_track: {
     trackId: 'signal-1',
     settings: { color: '#e11d48', heightPx: 120 },
@@ -994,6 +996,7 @@ describe('native workflow operation authorization', () => {
     ['workspace_projects', 'list', 'rename', 'write-workspace'],
     ['workspace_files', 'list-trash', 'trash', 'write-workspace'],
     ['registry_records', 'inspect', 'update', 'write-workspace'],
+    ['work_tasks', 'inspect', 'edit', 'write-workspace'],
     ['alignment_session', 'inspect', 'rename-session', 'write-workspace'],
     ['notebook_document', 'inspect', 'save', 'write-workspace'],
     ['sequence_document', 'inspect', 'save', 'write-workspace'],

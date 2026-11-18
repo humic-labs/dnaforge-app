@@ -1,0 +1,297 @@
+{
+  "schema": "dnaforge.sequence-data-layer-fixture.v1",
+  "dataset": {
+    "number": 13,
+    "id": "13-gyrase",
+    "title": "Gyrase cleavage sites",
+    "study": "Sutormin et al. 2019",
+    "sourceReference": "E. coli W3110 with Mu insertion; author-provided E_coli_w3110_G_Mu reference"
+  },
+  "snapshot": {
+    "file": "snapshot.json",
+    "originalSha256": "ee6f3b888289bc5e13baa87efe936220b11a487bb2522f439c15a69a2bed7bb7",
+    "sha256": "5c182a0707ce7a3478bc43b6ea61f7e4d7ccb9e7b46debc2aaeaba9828c9fdfc",
+    "scientificRecordsPreserved": true,
+    "presentationFieldsRemoved": true
+  },
+  "sourceFiles": [
+    {
+      "url": "https://raw.githubusercontent.com/sutormin94/Gyrase_Topo-seq/master/Additional_genome_features/Cfx_10mkM_trusted_GCSs_h_s.txt",
+      "file": "raw/regulation/gyrase_Cfx.txt",
+      "sha256": "56903a109a1d299a6dc65fb9306fc26a37b8ceacad00d4ffb780bfaecb3d9c49",
+      "bytes": 161476,
+      "citation": "https://doi.org/10.1093/nar/gky1222",
+      "immutableUrl": "https://raw.githubusercontent.com/sutormin94/Gyrase_Topo-seq/65f395330f560ccc6feaa8e23872c36500a21c4d/Additional_genome_features/Cfx_10mkM_trusted_GCSs_h_s.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/sutormin94/Gyrase_Topo-seq/master/Additional_genome_features/Oxo_trusted_GCSs_h_s.txt",
+      "file": "raw/regulation/gyrase_Oxo.txt",
+      "sha256": "1414f368645f3c3159b9cc272f428074c0c8be822fa4c7f4903a62661a571ca0",
+      "bytes": 189472,
+      "citation": "https://doi.org/10.1093/nar/gky1222",
+      "immutableUrl": "https://raw.githubusercontent.com/sutormin94/Gyrase_Topo-seq/65f395330f560ccc6feaa8e23872c36500a21c4d/Additional_genome_features/Oxo_trusted_GCSs_h_s.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/sutormin94/Gyrase_Topo-seq/master/Additional_genome_features/Micro_trusted_GCSs_h_s.txt",
+      "file": "raw/regulation/gyrase_Micro.txt",
+      "sha256": "d6ff6977a6343978a5d4ac0e3c54cf37a32f2be5ae409f0b02a409a5776fbb76",
+      "bytes": 25275,
+      "citation": "https://doi.org/10.1093/nar/gky1222",
+      "immutableUrl": "https://raw.githubusercontent.com/sutormin94/Gyrase_Topo-seq/65f395330f560ccc6feaa8e23872c36500a21c4d/Additional_genome_features/Micro_trusted_GCSs_h_s.txt"
+    }
+  ],
+  "targetReference": {
+    "referenceId": "NC_007779.1_w3110_Mu",
+    "accession": null,
+    "sequenceId": "NC_007779.1_w3110_Mu",
+    "identifierKind": "author-defined modified-reference FASTA contig label, not a separately versioned INSDC accession",
+    "fastaHeader": "NC_007779.1_w3110_Mu Escherichia coli str. K12 substr. W3110 cat_Mu DNA, complete genome",
+    "length": 4647454,
+    "normalizedSequenceSha256": "ba713e15666235347ead27ae524086b2cef1e159c5fb32336ce3608e2b9baf9a",
+    "normalizedSequenceFingerprint": "sha256:ba713e15666235347ead27ae524086b2cef1e159c5fb32336ce3608e2b9baf9a",
+    "directory": "reference-author-w3110-Mu",
+    "fastaFile": "NC_007779.1_w3110_Mu.fa.gz",
+    "fastaSha256": "8de28043182eab276edd27c10fbd62d75cb7842bbe4e14d72d0c558a99f21189",
+    "gffFile": "NC_007779.1_w3110_Mu.gff3.gz",
+    "gffSha256": "ef75f5d3da75c50c2018062fb81f622ec3611281de24147dce5cffe9f479586b",
+    "referenceSubstitutionApplied": false
+  },
+  "mapping": {
+    "kind": "positions",
+    "startColumn": "start0",
+    "endColumn": "end0",
+    "coordinateSystem": "zero-based-half-open"
+  },
+  "coordinateSystem": "zero-based-half-open",
+  "unit": "author-normalized cleavage signal (N3E)",
+  "aggregation": "none",
+  "unresolvedPolicy": "reject",
+  "valueColumns": [
+    "n3e"
+  ],
+  "files": {
+    "csv": "data.csv",
+    "snapshot": "snapshot.json",
+    "sourceRecords": "source-records.json",
+    "conditionCsvs": [
+      "cfx.csv",
+      "oxo.csv",
+      "micro.csv"
+    ]
+  },
+  "layers": [
+    {
+      "id": "cfx",
+      "file": "cfx.csv",
+      "label": "Ciprofloxacin 10 µM",
+      "unit": "author-normalized cleavage signal (N3E)",
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start0",
+        "endColumn": "end0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "valueColumns": [
+        "n3e"
+      ],
+      "aggregation": "none",
+      "unresolvedPolicy": "reject",
+      "sourceCondition": "Ciprofloxacin 10 µM",
+      "sourceRows": 609,
+      "strand": "unstranded; not provided by source table"
+    },
+    {
+      "id": "oxo",
+      "file": "oxo.csv",
+      "label": "Oxolinic acid",
+      "unit": "author-normalized cleavage signal (N3E)",
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start0",
+        "endColumn": "end0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "valueColumns": [
+        "n3e"
+      ],
+      "aggregation": "none",
+      "unresolvedPolicy": "reject",
+      "sourceCondition": "Oxolinic acid",
+      "sourceRows": 527,
+      "strand": "unstranded; not provided by source table"
+    },
+    {
+      "id": "micro",
+      "file": "micro.csv",
+      "label": "Microcin B17",
+      "unit": "author-normalized cleavage signal (N3E)",
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start0",
+        "endColumn": "end0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "valueColumns": [
+        "n3e"
+      ],
+      "aggregation": "none",
+      "unresolvedPolicy": "reject",
+      "sourceCondition": "Microcin B17",
+      "sourceRows": 80,
+      "strand": "unstranded; not provided by source table"
+    }
+  ],
+  "counts": {
+    "sourceSnapshotRows": 1216,
+    "combinedAuditCsvRows": 1216,
+    "nativeConditionLayers": 3,
+    "totalNativeLayerRows": 1216,
+    "uniqueReportedPositions": 962,
+    "measuredN3ECells": 1216,
+    "missingN3ECells": 0,
+    "explicitZeroN3ECells": 0,
+    "measuredMotifScoreCells": 1216,
+    "missingMotifScoreCells": 0,
+    "minimumStart0": 1100,
+    "maximumEnd0": 498529,
+    "conditionCounts": {
+      "Cfx": {
+        "fullSourceRows": 4635,
+        "selectedRows": 609,
+        "reportedN3ECells": 609,
+        "missingN3ECells": 0,
+        "explicitZeroN3ECells": 0,
+        "reportedScoreCells": 609,
+        "missingScoreCells": 0,
+        "negativeScores": 91
+      },
+      "Oxo": {
+        "fullSourceRows": 5478,
+        "selectedRows": 527,
+        "reportedN3ECells": 527,
+        "missingN3ECells": 0,
+        "explicitZeroN3ECells": 0,
+        "reportedScoreCells": 527,
+        "missingScoreCells": 0,
+        "negativeScores": 66
+      },
+      "Micro": {
+        "fullSourceRows": 732,
+        "selectedRows": 80,
+        "reportedN3ECells": 80,
+        "missingN3ECells": 0,
+        "explicitZeroN3ECells": 0,
+        "reportedScoreCells": 80,
+        "missingScoreCells": 0,
+        "negativeScores": 3
+      }
+    }
+  },
+  "coordinateEvidence": {
+    "origin": "The author caller stores zero-based genome-array index i and writes i+1 as the reported GCS coordinate. The trusted-site filter and score exporter retain the coordinate unchanged.",
+    "pointConversion": "start0 = reported GCSs_coordinate - 1; end0 = reported GCSs_coordinate. No additional shift is applied.",
+    "sourcePointMeaning": "The caller names i the left wall of the gap and compares normalized signal at array indices i and i+5. The displayed marker retains this source representative position. It is not shifted to a centre or expanded into a cut pair.",
+    "strandConvention": "The selected trusted-site tables provide coordinate, N3E and Score only. No per-site strand is supplied. The caller uses a combined end-signal track; the point layers remain unstranded.",
+    "sequenceAnchorEvidence": "The selected tables supply no site sequence or reference allele. Numeric placement is supported by the author code and declared modified reference, not independently validated per-site sequence anchors.",
+    "referenceBinding": "GEO names the mapped reference as W3110 MuSGS and supplies E_coli_w3110_G_Mu.fasta. The caller uses the same FASTA basename; the supplied FASTA header and exact sequence hash define this target.",
+    "confidence": "high for source-declared array-origin conversion and preservation; independent per-site sequence anchoring is unavailable",
+    "sourceCodeRevision": "65f395330f560ccc6feaa8e23872c36500a21c4d",
+    "sourceCode": [
+      {
+        "file": "GCSs_calling.py",
+        "sha256": "7a78827bb7ac75436a3a6dc04e68dee359c42a5b47dcf66e7fb73013ff3930f8",
+        "url": "https://raw.githubusercontent.com/sutormin94/Gyrase_Topo-seq/65f395330f560ccc6feaa8e23872c36500a21c4d/GCSs_calling.py",
+        "coordinateOutputLines": [
+          421,
+          424,
+          425,
+          451,
+          455
+        ]
+      },
+      {
+        "file": "GCSs_filtering_and_overlapping.py",
+        "sha256": "579bb0067ecc5ef7e3c0cffb580f487923d9531a3890306a9de3c5b80fda0ae2",
+        "url": "https://raw.githubusercontent.com/sutormin94/Gyrase_Topo-seq/65f395330f560ccc6feaa8e23872c36500a21c4d/GCSs_filtering_and_overlapping.py",
+        "relevantLineRanges": [
+          [
+            88,
+            90
+          ],
+          [
+            151,
+            168
+          ],
+          [
+            322,
+            328
+          ]
+        ]
+      },
+      {
+        "file": "Return_GCSs_score_height_correlation.py",
+        "sha256": "1eec35c258649a28e5480b229133b021e932c4e9955edea831ce14a58aebecb8",
+        "url": "https://raw.githubusercontent.com/sutormin94/Gyrase_Topo-seq/65f395330f560ccc6feaa8e23872c36500a21c4d/Return_GCSs_score_height_correlation.py",
+        "relevantLineRanges": [
+          [
+            67,
+            84
+          ]
+        ]
+      },
+      {
+        "file": "SAM_to_coverage_and_N5E_N3E.py",
+        "sha256": "7aa540f53f9e403371b5544b3c5ba03904e9b8f95ecba7b1de5f5a514aa4b658",
+        "url": "https://raw.githubusercontent.com/sutormin94/Gyrase_Topo-seq/65f395330f560ccc6feaa8e23872c36500a21c4d/SAM_to_coverage_and_N5E_N3E.py",
+        "relevantLineRanges": [
+          [
+            229,
+            246
+          ]
+        ]
+      }
+    ]
+  },
+  "measurementMeaning": {
+    "n3e": "Published trusted-site normalized signal. The caller uses the minimum normalized signal at the paired i and i+5 positions; the trusted-site stage retains sites supported in at least two biological replicates and averages their positive supporting signals. It is not a raw read count. The combined trusted-site tables do not supply individual replicate measurements.",
+    "normalization": "Author code adds a pseudocount, scales tracks by library size and divides treated IP signal by a smoothed untreated IP track. Values are preserved directly from the final trusted-site tables; no normalization is rerun.",
+    "motifScore": "Published motif score. The score exporter preserves coordinate and N3E and adds the mean of score-array values at p-1+1 and p-1+4 for reported position p. This score is not treated as a probability or binding affinity."
+  },
+  "sampleProvenance": {
+    "geoSeries": "GSE117186",
+    "assayedStrainFromGEO": "Escherichia coli DY330",
+    "alignmentReferenceFromGEO": "E. coli W3110 MuSGS",
+    "growthStageFromGEO": "exponential phase, OD600 0.6",
+    "conditions": [
+      "Ciprofloxacin 10 µM",
+      "Oxolinic acid",
+      "Microcin B17"
+    ],
+    "conditionSpecificity": "Each layer contains the published trusted-site summary for that treatment, not untreated gyrase activity.",
+    "geoMetadataUrl": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE117186",
+    "geoMetadataSha256": "ea782216f852cec6ceefcd60c969eed17c6c483222fbe0876eb9f6eeb8a59756"
+  },
+  "missingness": {
+    "conditionTables": "Only published trusted-site calls are represented in each condition layer. Absence from another condition table is an unreported call, not an observed zero. No union matrix, absent-condition zero filling or added genomic rows is performed.",
+    "numericCells": "All selected N3E and Score cells are present finite values. Any absent numeric cell would remain empty rather than becoming zero.",
+    "sourceReplication": "Individual replicate values and unsupported replicate calls cannot be recovered from the supplied condition summaries and are not fabricated."
+  },
+  "limits": [
+    "A 500 kb subset of the author reference, not the entire chromosome.",
+    "Cleavage trapping depends on the drug treatment; this is not an untreated activity map.",
+    "The motif score is not a binding affinity or a probability.",
+    "The point coordinate denotes the source caller representative position; no strand, cleavage centre or second-cut position is asserted.",
+    "Per-site sequence anchors are not supplied by these tables.",
+    "The native converter emits linear topology although source FASTA/GFF does not declare topology.",
+    "The exact author modified reference is used; ordinary NC_007779.1 and MG1655 are not substituted.",
+    "The native converter lowercases every base. Author soft-mask capitalization is preserved in the authoritative originals only."
+  ],
+  "fileSha256": {
+    "cfx.csv": "1949cd2f57e66cb0c4cd22bd6185af42c4a394ac00ca27f26bd760150ad15d3f",
+    "data.csv": "1fe7b90f9f4169460340e66bf29fedda75274266560f6c03aab2fae063648b93",
+    "micro.csv": "30d21fe792fbbbb4a87cdb4929e195cd3c9ff8eb06f33dfa4679aae3b5e82ae7",
+    "oxo.csv": "90bde497b8cec89e725e9f8786505001ba58c9744b0dbd2063d66f65b7e714e3",
+    "snapshot.json": "5c182a0707ce7a3478bc43b6ea61f7e4d7ccb9e7b46debc2aaeaba9828c9fdfc",
+    "source-records.json": "aab518938f2e74f70bcd04f3e39d5b36d3b5c25d9c7723dde28fdf79364de9b4"
+  }
+}

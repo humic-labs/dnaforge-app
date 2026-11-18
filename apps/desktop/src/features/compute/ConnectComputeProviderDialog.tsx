@@ -101,7 +101,7 @@ export function ConnectComputeProviderDialog() {
                   type="button"
                   onClick={() => setPickedId(null)}
                   disabled={saving}
-                  className="text-fg-subtle hover:text-fg disabled:opacity-50"
+                  className="text-fg-subtle wp-interactive disabled:opacity-50"
                   aria-label="Back"
                 >
                   ←
@@ -115,7 +115,7 @@ export function ConnectComputeProviderDialog() {
               type="button"
               onClick={close}
               disabled={saving}
-              className="text-fg-subtle hover:text-fg disabled:opacity-50"
+              className="text-fg-subtle wp-interactive disabled:opacity-50"
               aria-label="Close"
             >
               ×

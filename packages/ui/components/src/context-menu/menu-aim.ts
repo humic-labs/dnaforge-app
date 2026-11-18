@@ -1,3 +1,4 @@
+import { captureInputOwnership } from '@waypoint/platform/input-ownership';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 export interface MenuAimPoint {
@@ -21,6 +22,7 @@ export interface MenuAimRequest {
   pointer: PointerCoordinates;
   submenuElement: HTMLElement | null;
   activate: () => void;
+  isCurrent?: () => boolean;
 }
 
 export interface MenuAimController {
@@ -30,6 +32,7 @@ export interface MenuAimController {
 }
 
 interface PendingActivation {
+  isCurrent: () => boolean;
   activate: () => void;
   submenuElement: HTMLElement;
   triangle: readonly [MenuAimPoint, MenuAimPoint, MenuAimPoint];
@@ -98,7 +101,16 @@ export function shouldDeferMenuActivation({
 
 export function useMenuAim({
   activationDelayMs = DEFAULT_ACTIVATION_DELAY_MS,
-}: { activationDelayMs?: number } = {}): MenuAimController {
+  session = 0,
+  enabled = true,
+}: {
+  activationDelayMs?: number;
+  session?: string | number;
+  enabled?: boolean;
+} = {}): MenuAimController {
+  const lifecycle = useRef({ session, enabled, mounted: true });
+  lifecycle.current.session = session;
+  lifecycle.current.enabled = enabled;
   const latestPointerRef = useRef<MenuAimPoint | null>(null);
   const previousPointerRef = useRef<MenuAimPoint | null>(null);
   const pendingRef = useRef<PendingActivation | null>(null);
@@ -115,10 +127,18 @@ export function useMenuAim({
     if (!pending) return;
     clearTimeout(pending.timer);
     pendingRef.current = null;
-    pending.activate();
+    if (pending.isCurrent()) pending.activate();
   }, []);
 
   useEffect(() => {
+    cancelPendingActivation();
+    previousPointerRef.current = null;
+    latestPointerRef.current = null;
+  }, [session, enabled, cancelPendingActivation]);
+
+  useEffect(() => {
+    lifecycle.current.mounted = enabled;
+    if (!enabled) return;
     const handlePointerMove = (event: PointerEvent) => {
       const next = { x: event.clientX, y: event.clientY };
       const pending = pendingRef.current;
@@ -136,13 +156,24 @@ export function useMenuAim({
 
     document.addEventListener('pointermove', handlePointerMove, true);
     return () => {
+      lifecycle.current.mounted = false;
       document.removeEventListener('pointermove', handlePointerMove, true);
       cancelPendingActivation();
     };
-  }, [cancelPendingActivation, finishPendingActivation]);
+  }, [enabled, cancelPendingActivation, finishPendingActivation]);
 
   const requestActivation = useCallback(
-    ({ pointer, submenuElement, activate }: MenuAimRequest) => {
+    ({ pointer, submenuElement, activate, isCurrent }: MenuAimRequest) => {
+      const ownsInput = submenuElement?.isConnected
+        ? captureInputOwnership(submenuElement, 'pointer')
+        : () => true;
+      const valid = () =>
+        lifecycle.current.mounted &&
+        lifecycle.current.enabled &&
+        lifecycle.current.session === session &&
+        ownsInput() &&
+        (isCurrent?.() ?? true);
+      if (!valid()) return;
       const current = { x: pointer.clientX, y: pointer.clientY };
       const latest = latestPointerRef.current;
       const previous =
@@ -156,7 +187,7 @@ export function useMenuAim({
 
       if (!submenuElement || !previous) {
         cancelPendingActivation();
-        activate();
+        if (valid()) activate();
         return;
       }
 
@@ -167,17 +198,19 @@ export function useMenuAim({
         isPointInTriangle(current, existing.triangle)
       ) {
         existing.activate = activate;
+        existing.isCurrent = valid;
         return;
       }
 
       if (!shouldDeferMenuActivation({ previous, current, submenuRect })) {
         cancelPendingActivation();
-        activate();
+        if (valid()) activate();
         return;
       }
 
       cancelPendingActivation();
       const pending: PendingActivation = {
+        isCurrent: valid,
         activate,
         submenuElement,
         triangle: buildSafeTriangle(previous, submenuRect),
@@ -187,15 +220,20 @@ export function useMenuAim({
       };
       pendingRef.current = pending;
     },
-    [activationDelayMs, cancelPendingActivation, finishPendingActivation]
+    [session, activationDelayMs, cancelPendingActivation, finishPendingActivation]
   );
 
   const activateImmediately = useCallback(
     (activate: () => void) => {
       cancelPendingActivation();
-      activate();
+      if (
+        lifecycle.current.mounted &&
+        lifecycle.current.enabled &&
+        lifecycle.current.session === session
+      )
+        activate();
     },
-    [cancelPendingActivation]
+    [session, cancelPendingActivation]
   );
 
   return useMemo(

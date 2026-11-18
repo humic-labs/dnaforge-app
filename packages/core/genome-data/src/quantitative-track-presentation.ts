@@ -1,3 +1,5 @@
+import { SCIENTIFIC_COLOR_PALETTES } from '@waypoint/sequence-utils';
+
 export const QUANTITATIVE_SOURCE_SUMMARY_V1 = 'dnaforge.quantitative-source-summary.v1' as const;
 
 export const QUANTITATIVE_SOURCE_SUMMARY_ALGORITHM_V1 =
@@ -6,6 +8,15 @@ export const QUANTITATIVE_SOURCE_SUMMARY_ALGORITHM_V1 =
 export type QuantitativeScaleMode = 'robust-global' | 'full-global' | 'visible-window' | 'fixed';
 
 export type QuantitativeScaleTransform = 'linear' | 'log1p';
+
+export type QuantitativeGraph = 'bar' | 'band' | 'points';
+
+export type QuantitativeColorPalette = keyof typeof SCIENTIFIC_COLOR_PALETTES;
+
+export const QUANTITATIVE_COLOR_PALETTE_IDS = Object.keys(SCIENTIFIC_COLOR_PALETTES) as [
+  QuantitativeColorPalette,
+  ...QuantitativeColorPalette[],
+];
 
 export type QuantitativeSmoothing = 'none' | 'gaussian-subtle';
 
@@ -33,7 +44,8 @@ export interface QuantitativeSourceSummaryV1 {
 
 export interface QuantitativeTrackPresentationV1 {
   readonly version: 1;
-  readonly graph: 'bar';
+  readonly graph: QuantitativeGraph;
+  readonly palette?: QuantitativeColorPalette;
   readonly showRange: boolean;
   readonly smoothingSigmaBins?: number;
   readonly smoothing?: QuantitativeSmoothing;
@@ -145,8 +157,15 @@ export function normalizeQuantitativeTrackPresentation(
   value: QuantitativeTrackPresentationV1 | undefined
 ): QuantitativeTrackPresentationV1 {
   if (value === undefined) return DEFAULT_QUANTITATIVE_TRACK_PRESENTATION;
-  if (value.version !== 1 || value.graph !== 'bar' || typeof value.showRange !== 'boolean') {
+  if (
+    value.version !== 1 ||
+    !['bar', 'band', 'points'].includes(value.graph) ||
+    typeof value.showRange !== 'boolean'
+  ) {
     throw new Error('Invalid quantitative track presentation contract.');
+  }
+  if (value.palette !== undefined && !Object.hasOwn(SCIENTIFIC_COLOR_PALETTES, value.palette)) {
+    throw new Error(`Unsupported quantitative color palette: ${String(value.palette)}.`);
   }
   const { mode, transform } = value.scale;
   const legacySmoothing = value.smoothing;
@@ -195,7 +214,8 @@ export function normalizeQuantitativeTrackPresentation(
   }
   return {
     version: 1,
-    graph: 'bar',
+    graph: value.graph,
+    ...(value.palette !== undefined ? { palette: value.palette } : {}),
     showRange: value.showRange,
     smoothingSigmaBins,
     scale: {

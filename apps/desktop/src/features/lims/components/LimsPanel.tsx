@@ -1,3 +1,6 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
+import { RegistryTemporalFilter } from './registry/RegistryTemporalFilter';
+import type { LimsRegistryDateFilter, LimsQueryRegistrySummariesInput } from '../../../shared/lims';
 import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import { importReceiptMessage, sequenceRegistrationFailureMessage } from '../import-user-messages';
 import {
@@ -328,6 +331,8 @@ export function LimsPanel({
     mode: 'before' | 'on' | 'after';
     date: string;
   } | null>(null);
+  const [dateFilters, setDateFilters] = useState<LimsRegistryDateFilter[]>([]);
+  const [dateSort, setDateSort] = useState<LimsQueryRegistrySummariesInput['dateSort']>();
   const [registrySort, setRegistrySort] = useState<LimsRegistrySort>('updated_desc');
   const [registryShowArchived, setRegistryShowArchived] = useState(false);
   const [registryReveal, setRegistryReveal] = useState<{
@@ -373,6 +378,16 @@ export function LimsPanel({
     selectedSchemaKinds.length === 1
       ? limsSchemas.find((schema) => schema.entityKind === selectedSchemaKinds[0])
       : undefined;
+  const schemaId = selectedTableSchema?.schemaId;
+  const activeDateSort = dateSort?.schemaId === schemaId ? dateSort : undefined;
+  const activeDateFilters = useMemo(
+    () => dateFilters.filter((filter) => filter.schemaId === schemaId),
+    [dateFilters, schemaId]
+  );
+  function changeRegistrySort(sort: LimsRegistrySort) {
+    setDateSort(undefined);
+    setRegistrySort(sort);
+  }
   const registryColumns = useMemo(
     () =>
       registryColumnsForSchema(
@@ -549,6 +564,8 @@ export function LimsPanel({
       updatedAfter: registryUpdatedFilter?.mode === 'after' ? updatedMs : undefined,
       updatedBefore: registryUpdatedFilter?.mode === 'before' ? updatedMs : undefined,
       sort: registrySort,
+      ...(activeDateSort ? { dateSort: activeDateSort } : {}),
+      ...(activeDateFilters.length ? { dateFilters: activeDateFilters } : {}),
       includeArchived: registryShowArchived || undefined,
       ...(registryReveal
         ? { ids: [registryReveal.entityId] }
@@ -557,6 +574,8 @@ export function LimsPanel({
           : {}),
     };
   }, [
+    activeDateSort,
+    activeDateFilters,
     registryProjectIds,
     registryTextFilters,
     registryCategoricalFilters,
@@ -583,6 +602,7 @@ export function LimsPanel({
       Object.values(registryTextFilters).some((value) => value.trim()) ||
       Object.values(registryCategoricalFilters).some((values) => values.length) ||
       registryUpdatedFilter?.date ||
+      activeDateFilters.length ||
       unconnectedOnly ||
       registryScope !== 'local' ||
       registryShowArchived !== registryReveal.archived
@@ -590,6 +610,7 @@ export function LimsPanel({
       setRegistryReveal(null);
   }, [
     registryReveal,
+    activeDateFilters,
     registrySearch,
     registryTextFilters,
     registryCategoricalFilters,
@@ -605,6 +626,7 @@ export function LimsPanel({
     setRegistryTextFilters({});
     setRegistryCategoricalFilters({});
     setRegistryUpdatedFilter(null);
+    setDateFilters([]);
     setRegistryShowArchived(false);
     setRegistryRemoteFilterProjectIds([]);
     setOrganizationRegistrySearch('');
@@ -621,6 +643,7 @@ export function LimsPanel({
     setRegistryCategoricalFilters((prev) => ({ ...prev, [key]: values }));
 
   const columnHasFilter = (key: string): boolean => {
+    if (key.startsWith('field:')) return activeDateFilters.some((f) => f.fieldKey === key.slice(6));
     if (key === 'updated') return Boolean(registryUpdatedFilter?.date);
     if (key === 'kind' || key === 'status') {
       return getColumnCategoricalFilter(key).length > 0;
@@ -630,6 +653,12 @@ export function LimsPanel({
 
   const describeColumnFilter = (rawColumn: RegistryColumnDef): string => {
     const column = rawColumn;
+    if (column.filter === 'schema-date') {
+      const filter = activeDateFilters.find((item) => item.fieldKey === column.field?.key);
+      return filter
+        ? column.label + ' · ' + filter.mode + (filter.value ? ' ' + filter.value : '')
+        : '';
+    }
     if (column.filter === 'categorical') {
       const selected = getColumnCategoricalFilter(column.key);
       if (selected.length === 0) return '';
@@ -647,15 +676,33 @@ export function LimsPanel({
     return '';
   };
 
-  const renderColumnFilterControl = (column: RegistryColumnDef) => (
-    <RegistryFilterPopover
-      column={column}
-      getColumnCategoricalFilter={getColumnCategoricalFilter}
-      setColumnCategoricalFilter={setColumnCategoricalFilter}
-      registryUpdatedFilter={registryUpdatedFilter}
-      setRegistryUpdatedFilter={setRegistryUpdatedFilter}
-    />
-  );
+  const renderColumnFilterControl = (column: RegistryColumnDef) =>
+    schemaId &&
+    column.field &&
+    (column.field.type === 'date' || column.field.type === 'datetime') ? (
+      <RegistryTemporalFilter
+        key={column.key}
+        label={column.label}
+        type={column.field.type}
+        filter={activeDateFilters.find((filter) => filter.fieldKey === column.field?.key)}
+        apply={(mode, value) => {
+          const fieldKey = column.field!.key;
+          setDateFilters((current) => [
+            ...current.filter((f) => f.fieldKey !== fieldKey || f.schemaId !== schemaId),
+            ...(mode ? [{ schemaId, fieldKey, mode, ...(value ? { value } : {}) }] : []),
+          ]);
+          setOpenFilterKey(null);
+        }}
+      />
+    ) : (
+      <RegistryFilterPopover
+        column={column}
+        getColumnCategoricalFilter={getColumnCategoricalFilter}
+        setColumnCategoricalFilter={setColumnCategoricalFilter}
+        registryUpdatedFilter={registryUpdatedFilter}
+        setRegistryUpdatedFilter={setRegistryUpdatedFilter}
+      />
+    );
 
   const reloadRegistry = useCallback(
     async (beforePublish?: () => void): Promise<LimsRegistrySummaryPage | null> => {
@@ -2772,14 +2819,14 @@ export function LimsPanel({
   const scenarioFloat = showDevScenarios ? (
     <div
       data-testid="lims-dev-scenario-float"
-      className="pointer-events-none fixed bottom-4 left-14 z-[60]"
+      className="pointer-events-auto fixed bottom-4 left-14 z-[60] max-w-[220px]"
     >
-      <select
+      <MenuNativeSelect
+        density="form"
         data-testid="lims-dev-scenario-picker"
         value=""
         disabled={seedingDemo}
         title="Load a development scenario into the registry (dev only)"
-        className="pointer-events-auto h-9 max-w-[220px] rounded border border-border bg-bg-subtle/95 px-2 text-xs font-medium text-fg shadow-lg outline-none hover:bg-bg-muted focus:border-accent disabled:opacity-60"
         onChange={(event) => {
           const scenario = DEV_SCENARIOS.find((s) => s.id === event.target.value);
           if (scenario) void scenario.run();
@@ -2797,7 +2844,7 @@ export function LimsPanel({
             ))}
           </optgroup>
         ))}
-      </select>
+      </MenuNativeSelect>
     </div>
   ) : null;
 
@@ -2814,7 +2861,7 @@ export function LimsPanel({
         <button
           type="button"
           data-testid="lims-undo-last-import"
-          className="inline-flex h-7 flex-shrink-0 items-center rounded border border-border bg-bg px-2 text-[11px] font-medium text-fg-muted hover:bg-bg-subtle hover:text-fg"
+          className="inline-flex h-7 flex-shrink-0 items-center rounded border border-border bg-bg px-2 text-[11px] font-medium text-fg-muted wp-interactive "
           onClick={() => void undoLastImport()}
           title="Reverses the registry registration. A managed project copy of an imported sequence file intentionally stays on disk."
         >
@@ -2952,6 +2999,7 @@ export function LimsPanel({
     Object.values(registryTextFilters).some((value) => value.trim() !== '') ||
     Object.values(registryCategoricalFilters).some((values) => values.length > 0) ||
     Boolean(registryUpdatedFilter?.date) ||
+    activeDateFilters.length > 0 ||
     unconnectedOnly;
   const registryScopeControls = (
     <RegistryFilters
@@ -3154,7 +3202,7 @@ export function LimsPanel({
               title="Collapse to the compact registry"
               aria-label="Collapse registry"
               onClick={closeRegistryOverlay}
-              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded border border-border text-fg-muted hover:bg-bg-muted hover:text-fg"
+              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded border border-border text-fg-muted wp-interactive "
             >
               <ChevronRightIcon className="h-4 w-4 rotate-180" />
             </button>
@@ -3177,11 +3225,17 @@ export function LimsPanel({
                   aria-expanded={sortMenuOpen}
                   aria-label="Sort registry"
                   onClick={() => (sortMenuOpen ? setSortMenuOpen(false) : openSortMenu())}
-                  className="inline-flex h-9 items-center gap-1.5 rounded border border-border bg-bg px-2.5 text-xs font-medium text-fg outline-none hover:bg-bg-muted focus:border-accent"
+                  className="inline-flex h-9 items-center gap-1.5 rounded border border-border bg-bg px-2.5 text-xs font-medium text-fg outline-none wp-interactive focus:border-accent"
                 >
                   <span>
-                    {REGISTRY_SORT_OPTIONS.find((option) => option.value === registrySort)?.label ??
-                      'Sort'}
+                    {(activeDateSort
+                      ? (registryColumns.find(
+                          (column) => column.field?.key === activeDateSort.fieldKey
+                        )?.label ?? activeDateSort.fieldKey) +
+                        ' ' +
+                        (activeDateSort.direction === 'asc' ? '↑' : '↓')
+                      : REGISTRY_SORT_OPTIONS.find((option) => option.value === registrySort)
+                          ?.label) ?? 'Sort'}
                   </span>
                   <svg
                     viewBox="0 0 10 6"
@@ -3213,10 +3267,10 @@ export function LimsPanel({
                         aria-selected={option.value === registrySort}
                         data-testid={`lims-registry-sort-option-${option.value}`}
                         onClick={() => {
-                          setRegistrySort(option.value);
+                          changeRegistrySort(option.value);
                           setSortMenuOpen(false);
                         }}
-                        className={`flex w-full items-center px-3 py-1.5 text-left text-xs hover:bg-bg-subtle ${
+                        className={`flex w-full items-center px-3 py-1.5 text-left text-xs wp-interactive ${
                           option.value === registrySort ? 'font-medium text-accent' : 'text-fg'
                         }`}
                       >
@@ -3236,7 +3290,7 @@ export function LimsPanel({
                   onHide?.();
                   openSettingsEntry('registry');
                 }}
-                className="h-9 shrink-0 rounded border border-border px-3 text-xs font-medium text-fg hover:bg-bg-muted"
+                className="h-9 shrink-0 rounded border border-border px-3 text-xs font-medium text-fg wp-interactive"
               >
                 Schemas
               </button>
@@ -3257,7 +3311,19 @@ export function LimsPanel({
                 selectedEntityId={registryPreview?.entity.id ?? null}
                 registryGridRowProps={registryGridRowProps}
                 registrySort={registrySort}
-                setRegistrySort={setRegistrySort}
+                setRegistrySort={changeRegistrySort}
+                dateSort={activeDateSort}
+                sortDateField={(fieldKey) => {
+                  if (schemaId)
+                    setDateSort({
+                      schemaId,
+                      fieldKey,
+                      direction:
+                        activeDateSort?.fieldKey === fieldKey && activeDateSort.direction === 'asc'
+                          ? 'desc'
+                          : 'asc',
+                    });
+                }}
                 openFilterKey={openFilterKey}
                 setOpenFilterKey={setOpenFilterKey}
                 filterAnchor={filterAnchor}

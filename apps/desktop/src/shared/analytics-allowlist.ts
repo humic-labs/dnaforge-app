@@ -134,6 +134,7 @@ import {
   classifyInternalOperator,
   normalizeTelemetryActor,
   sanitizeCiRunId,
+  sanitizeTelemetryOriginClassification,
   SAFE_WORKSPACE_KINDS,
   SAFE_WORKSPACE_SOURCES,
 } from '@waypoint/analytics-policy';
@@ -825,6 +826,7 @@ const PROPERTY_SANITIZERS: Record<string, PropertySanitizer> = {
   failure_stage: enumOf(ALLOWED_FAILURE_STAGES),
   telemetry_mode: enumOf(ALLOWED_TELEMETRY_MODES),
   telemetry_actor: normalizeTelemetryActor,
+  runtime_origin_class: sanitizeTelemetryOriginClassification,
   ci_run_id: sanitizeCiRunId,
   internal_operator: classifyInternalOperator,
   record_count_bucket: bucketString,

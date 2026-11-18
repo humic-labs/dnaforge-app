@@ -1,13 +1,6 @@
-import {
-  usePresentationOverlay,
-  PresentationScopeContext,
-  usePresentationListener,
-} from '../../../../../presentation/PresentationSurface';
-('use client');
+'use client';
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { safeFocus } from '@/shared/utils/safeFocus';
+import { ActionMenu } from '@/components/ActionMenu';
 import type { ResidueLocation } from '../types';
 
 export interface ContextMenuAction {
@@ -35,68 +28,6 @@ export function ContextMenu({
   onCenterSelection,
   onAskAI,
 }: ContextMenuProps) {
-  const presentationOverlay = usePresentationOverlay('keyboard');
-  const presentationEvents = usePresentationListener(presentationOverlay.scope);
-
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [placement, setPlacement] = useState({ x: 8, y: 8 });
-  const isOpen = Boolean(position);
-  const returnFocus = useMemo(
-    () => (isOpen && document.activeElement instanceof HTMLElement ? document.activeElement : null),
-    [isOpen]
-  );
-  useLayoutEffect(() => {
-    const menu = menuRef.current;
-    if (!position || !menu) return;
-    const place = () =>
-      setPlacement({
-        x: Math.max(8, Math.min(position.x, window.innerWidth - menu.offsetWidth - 8)),
-        y: Math.max(8, Math.min(position.y, window.innerHeight - menu.offsetHeight - 8)),
-      });
-    place();
-    window.addEventListener('resize', place);
-    return () => window.removeEventListener('resize', place);
-  }, [position]);
-  useEffect(() => {
-    if (!isOpen) return;
-    const frame = requestAnimationFrame(() => {
-      const menu = menuRef.current;
-      safeFocus(menu?.querySelector<HTMLElement>('button:not(:disabled)') ?? menu);
-    });
-    return () => {
-      cancelAnimationFrame(frame);
-      queueMicrotask(() => safeFocus(returnFocus, { preventScroll: true }));
-    };
-  }, [isOpen, returnFocus]);
-
-  useEffect(() => {
-    if (!position) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      }
-    };
-
-    const timer = setTimeout(() => {
-      document.addEventListener('mousedown', handleClickOutside);
-      presentationEvents.add(document, 'keydown', handleEscape);
-    }, 0);
-
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('mousedown', handleClickOutside);
-      presentationEvents.remove(document, 'keydown', handleEscape);
-    };
-  }, [position, onClose, presentationEvents]);
-
   if (!position) return null;
 
   const hasSelection = selectedResidues.length > 0;
@@ -118,7 +49,6 @@ export function ContextMenu({
       ),
       onClick: () => {
         onCenterSelection();
-        onClose();
       },
       disabled: !hasSelection && !targetResidue,
     },
@@ -137,78 +67,26 @@ export function ContextMenu({
       ),
       onClick: () => {
         onAskAI?.();
-        onClose();
       },
       disabled: !hasSelection || !onAskAI,
     },
   ];
 
-  return createPortal(
-    <PresentationScopeContext.Provider value={presentationOverlay.scope}>
-      <div
-        ref={presentationOverlay.bindRef(menuRef, '0')}
-        role="menu"
-        aria-label="Structure actions"
-        tabIndex={-1}
-        className="fixed z-[10050] min-w-[160px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-auto py-1 bg-bg text-fg border border-border rounded-lg shadow-lg"
-        style={{
-          left: placement.x,
-          top: placement.y,
-        }}
-        data-testid="structure-context-menu"
-        onKeyDown={(event) => {
-          const controls = Array.from(
-            menuRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled)') ?? []
-          );
-          const index = controls.indexOf(document.activeElement as HTMLElement);
-          let next: number;
-          switch (event.key) {
-            case 'ArrowDown':
-              next = (index + 1) % controls.length;
-              break;
-            case 'ArrowUp':
-              next = (index - 1 + controls.length) % controls.length;
-              break;
-            case 'Home':
-              next = 0;
-              break;
-            case 'End':
-              next = controls.length - 1;
-              break;
-            case 'Escape':
-              event.preventDefault();
-              event.stopPropagation();
-              onClose();
-              return;
-            case 'Tab':
-              onClose();
-              return;
-            default:
-              return;
-          }
-          event.preventDefault();
-          event.stopPropagation();
-          safeFocus(controls[next]);
-        }}
-      >
-        {actions.map((action) => (
-          <button
-            key={action.id}
-            type="button"
-            role="menuitem"
-            onClick={action.onClick}
-            disabled={action.disabled}
-            className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition-colors focus-visible:outline-none focus-visible:bg-bg-muted focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent ${
-              action.disabled ? 'text-fg-subtle cursor-not-allowed' : 'text-fg hover:bg-bg-subtle'
-            }`}
-          >
-            {action.icon && <span className="text-fg-muted">{action.icon}</span>}
-            {action.label}
-          </button>
-        ))}
-      </div>
-    </PresentationScopeContext.Provider>,
-    document.body
+  return (
+    <ActionMenu
+      open
+      label="Structure actions"
+      anchorPoint={position}
+      onClose={onClose}
+      testId="structure-context-menu"
+      entries={actions.map(({ id, label, icon, disabled, onClick }) => ({
+        id,
+        label,
+        icon,
+        disabled,
+        onSelect: onClick,
+      }))}
+    />
   );
 }
 

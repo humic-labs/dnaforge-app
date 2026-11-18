@@ -1,3 +1,4 @@
+import { MenuNativeSelect, INTERACTION_CLASS } from '@waypoint/ui-components';
 import {
   usePresentationOverlay,
   PresentationScopeContext,
@@ -144,30 +145,32 @@ function ReleaseNotesDialog({ onClose, onDisplayed, initialVersion }: ReleaseNot
               >
                 Release Notes
               </h2>
-              <select
-                data-testid="release-notes-modal-version-picker"
-                value={selected}
-                onChange={(e) => {
-                  if (VERSION_HISTORY.includes(e.target.value))
-                    setSelection({ request, version: e.target.value });
-                }}
-                className="bg-bg-subtle border border-border rounded px-2 py-1 text-fg text-xs focus:outline-none focus:ring-1 focus:ring-accent"
-              >
-                {!note && <option value={selected}>Notes unavailable</option>}
-                {VERSION_HISTORY.map((v) => (
-                  <option key={v} value={v}>
-                    v{v}
-                    {v === installedVersion ? ' (installed)' : ''}
-                  </option>
-                ))}
-              </select>
+              <span className="inline-block min-w-0">
+                <MenuNativeSelect
+                  density="compact"
+                  data-testid="release-notes-modal-version-picker"
+                  value={selected}
+                  onChange={(e) => {
+                    if (VERSION_HISTORY.includes(e.target.value))
+                      setSelection({ request, version: e.target.value });
+                  }}
+                >
+                  {!note && <option value={selected}>Notes unavailable</option>}
+                  {VERSION_HISTORY.map((v) => (
+                    <option key={v} value={v}>
+                      v{v}
+                      {v === installedVersion ? ' (installed)' : ''}
+                    </option>
+                  ))}
+                </MenuNativeSelect>
+              </span>
             </div>
             <button
               type="button"
               data-testid="release-notes-modal-close"
               onClick={() => dismiss('close')}
               aria-label="Close"
-              className="p-1 rounded hover:bg-bg-muted text-fg-muted hover:text-fg transition-colors"
+              className={`${INTERACTION_CLASS} p-1 rounded text-fg-muted transition-colors`}
             >
               <CloseIcon size={16} />
             </button>
@@ -204,7 +207,7 @@ function ModalReleaseNoteBody({ note }: { note: ReleaseNote }) {
 
       {note.added && note.added.length > 0 && (
         <details className="text-xs" open>
-          <summary className="text-fg-muted font-medium cursor-pointer hover:text-fg mb-2">
+          <summary className={`${INTERACTION_CLASS} text-fg-muted font-medium cursor-pointer mb-2`}>
             Added ({note.added.length})
           </summary>
           <ul className="space-y-1.5 pl-3">
@@ -220,7 +223,7 @@ function ModalReleaseNoteBody({ note }: { note: ReleaseNote }) {
 
       {note.fixed && note.fixed.length > 0 && (
         <details className="text-xs" open>
-          <summary className="text-fg-muted font-medium cursor-pointer hover:text-fg mb-2">
+          <summary className={`${INTERACTION_CLASS} text-fg-muted font-medium cursor-pointer mb-2`}>
             Fixed ({note.fixed.length})
           </summary>
           <ul className="space-y-1.5 pl-3">
@@ -236,7 +239,7 @@ function ModalReleaseNoteBody({ note }: { note: ReleaseNote }) {
 
       {note.underTheHood && note.underTheHood.length > 0 && (
         <details className="text-xs">
-          <summary className="text-fg-muted font-medium cursor-pointer hover:text-fg mb-2">
+          <summary className={`${INTERACTION_CLASS} text-fg-muted font-medium cursor-pointer mb-2`}>
             Under the hood ({note.underTheHood.length})
           </summary>
           <ul className="space-y-1.5 pl-3">

@@ -1,5 +1,6 @@
+'use client';
+
 import { usePresentationListener } from '../../../../../presentation/PresentationSurface';
-('use client');
 
 import { toUserMessage } from '@waypoint/user-messages';
 import { useEffect, useState, useRef, type RefObject } from 'react';
@@ -175,7 +176,7 @@ export function SelectionsDrawer({
                   key={group.id}
                   onClick={(e) => handleRowClick(group.id, e)}
                   className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs border transition-all cursor-pointer ${
-                    isEditing ? '' : 'hover:bg-bg-subtle'
+                    isEditing ? '' : 'wp-interactive'
                   }`}
                   style={{
                     borderColor: groupColor,
@@ -223,7 +224,7 @@ export function SelectionsDrawer({
                               e.stopPropagation();
                               handleCancelEdit();
                             }}
-                            className="p-0.5 text-fg-muted hover:text-fg transition-colors shrink-0"
+                            className="p-0.5 text-fg-muted wp-interactive transition-colors shrink-0"
                             title="Cancel"
                             disabled={isRenaming}
                           >
@@ -281,7 +282,7 @@ export function SelectionsDrawer({
                           e.stopPropagation();
                           handleStartEdit(group);
                         }}
-                        className="p-1 text-fg-muted hover:text-fg transition-colors"
+                        className="p-1 text-fg-muted wp-interactive transition-colors"
                         title="Rename"
                       >
                         <svg

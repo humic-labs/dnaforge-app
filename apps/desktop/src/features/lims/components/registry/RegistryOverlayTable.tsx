@@ -1,3 +1,5 @@
+import { Button } from '../../../../shared/components/Button';
+import { useRegistryTaskSelection } from './useRegistryTaskSelection';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useRef } from 'react';
 import type {
@@ -34,6 +36,8 @@ export function RegistryOverlayTable({
   registryGridRowProps,
   registrySort,
   setRegistrySort,
+  dateSort,
+  sortDateField,
   openFilterKey,
   setOpenFilterKey,
   filterAnchor,
@@ -68,6 +72,8 @@ export function RegistryOverlayTable({
   selectedEntityId: string | null;
   registryGridRowProps: (extra?: string) => { className: string; style: CSSProperties };
   registrySort: LimsRegistrySort;
+  dateSort?: { fieldKey: string; direction: 'asc' | 'desc' };
+  sortDateField(fieldKey: string): void;
   setRegistrySort: (sort: LimsRegistrySort) => void;
   openFilterKey: string | null;
   setOpenFilterKey: (key: string | null) => void;
@@ -102,6 +108,7 @@ export function RegistryOverlayTable({
   unconnectedEntityIds: ReadonlySet<string>;
   workspaceFolders?: readonly RegistryEditWorkspaceFolder[];
 }) {
+  const selection = useRegistryTaskSelection();
   const escapePressedRef = useRef(false);
   return (
     <div className={`flex min-h-0 min-w-0 flex-col ${hasPreview ? 'border-r border-border' : ''}`}>
@@ -119,9 +126,14 @@ export function RegistryOverlayTable({
             )}
           >
             {columns.map((column, columnIndex) => {
-              const direction = column.sort
-                ? registrySortDirection(column.sort, registrySort)
-                : null;
+              const direction =
+                column.filter === 'schema-date'
+                  ? dateSort?.fieldKey === column.field?.key
+                    ? dateSort?.direction
+                    : null
+                  : !dateSort && column.sort
+                    ? registrySortDirection(column.sort, registrySort)
+                    : null;
 
               const columnFiltered = column.filter ? columnHasFilter(column.key) : false;
               const textBoxVisible =
@@ -165,7 +177,7 @@ export function RegistryOverlayTable({
                       }}
                       className="h-6 min-w-0 flex-1 rounded border border-border bg-bg px-1.5 text-xs font-normal normal-case tracking-normal text-fg outline-none focus:border-accent placeholder:text-[11px] placeholder:font-bold placeholder:uppercase placeholder:tracking-wider placeholder:text-fg-subtle/50"
                     />
-                  ) : column.sort ? (
+                  ) : column.sort || column.filter === 'schema-date' ? (
                     <button
                       type="button"
                       data-testid={`lims-registry-sort-${column.key}`}
@@ -178,10 +190,12 @@ export function RegistryOverlayTable({
                       }
                       title={filterValueLabel || undefined}
                       className={`flex min-w-0 items-center gap-1 truncate uppercase tracking-wider transition-colors ${
-                        direction ? 'font-bold text-accent' : 'text-fg-subtle hover:text-fg'
+                        direction ? 'font-bold text-accent' : 'text-fg-subtle wp-interactive'
                       }`}
                       onClick={() =>
-                        setRegistrySort(registrySortForColumn(column.sort!, registrySort))
+                        column.filter === 'schema-date' && column.field
+                          ? sortDateField(column.field.key)
+                          : setRegistrySort(registrySortForColumn(column.sort!, registrySort))
                       }
                     >
                       {}
@@ -222,7 +236,7 @@ export function RegistryOverlayTable({
                         aria-label={`Filter ${column.label}`}
                         title={`Filter ${column.label}`}
                         className={`flex h-4 w-4 items-center justify-center rounded transition-colors ${
-                          columnFiltered ? 'text-accent' : 'text-fg-subtle hover:text-fg'
+                          columnFiltered ? 'text-accent' : 'text-fg-subtle wp-interactive'
                         }`}
                         onClick={(event) => {
                           event.stopPropagation();
@@ -297,7 +311,7 @@ export function RegistryOverlayTable({
                 `h-9 w-full border-b border-border text-left text-xs outline-none ${
                   summary.id === selectedEntityId
                     ? 'bg-accent/15 hover:bg-accent/20 focus:bg-accent/20'
-                    : 'hover:bg-bg-muted focus:bg-bg-muted'
+                    : 'wp-interactive '
                 } ${summary.archived ? 'opacity-50' : ''}`
               )}
               onClick={() => void selectRegistrySummary(summary)}
@@ -310,6 +324,19 @@ export function RegistryOverlayTable({
                   summary={summary}
                   hasUnconnected={unconnectedEntityIds.has(summary.id)}
                   onOpen={openRegistrySummary}
+                  selection={
+                    selection.mode ? (
+                      <input
+                        aria-label={'Select ' + summary.name}
+                        type="checkbox"
+                        disabled={summary.archived || selection.busy}
+                        checked={selection.checked(summary)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => void selection.toggle(summary)}
+                      />
+                    ) : undefined
+                  }
                   workspaceFolders={workspaceFolders}
                 />
               ))}
@@ -333,11 +360,43 @@ export function RegistryOverlayTable({
       </div>
       <div
         data-testid="lims-registry-footer"
-        className="border-t border-border px-4 py-2 text-[11px] text-fg-subtle"
+        className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-2 text-[11px] text-fg-subtle"
       >
         {registryLoading
           ? 'Refreshing registry'
           : `Showing ${summaries.length} of ${totalCount} registry rows`}
+        {selection.mode ? (
+          <>
+            <span>{selection.items.length} selected</span>
+            <Button
+              type="button"
+              size="xs"
+              variant="secondary"
+              disabled={!selection.items.length || selection.busy}
+              onClick={selection.create}
+            >
+              Create linked task
+            </Button>
+            <Button type="button" size="xs" variant="ghost" onClick={selection.clear}>
+              Cancel selection
+            </Button>
+          </>
+        ) : (
+          <Button
+            type="button"
+            className="ml-auto"
+            size="xs"
+            variant="ghost"
+            onClick={selection.begin}
+          >
+            Select records
+          </Button>
+        )}
+        {selection.error && (
+          <span role="alert" className="text-error">
+            {selection.error}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -348,19 +407,22 @@ function RegistryTableCell({
   summary,
   hasUnconnected,
   onOpen,
+  selection,
   workspaceFolders,
 }: {
   column: RegistryColumnDef;
   summary: LimsRegistrySummary;
   hasUnconnected: boolean;
   onOpen: (summary: LimsRegistrySummary) => void;
+  selection?: ReactNode;
   workspaceFolders: readonly RegistryEditWorkspaceFolder[];
 }) {
   const editAccess = registryRecordEditAccess(summary, workspaceFolders);
   if (column.key === 'name') {
     return (
       <span className="flex min-w-0 items-center gap-2.5 font-medium text-fg">
-        <span className="flex-shrink-0 text-fg-subtle">{iconForLimsKind(summary.kind)}</span>
+        {selection}
+        <span className="flex-shrink-0">{iconForLimsKind(summary.kind)}</span>
         <span
           className="min-w-0 flex-1 truncate"
           title={

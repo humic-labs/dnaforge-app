@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import {
   usePresentationOverlay,
   PresentationScopeContext,
@@ -65,8 +66,6 @@ const KIND_OPTIONS: Array<{ value: LimsEntityKind; label: string }> = [
   { value: 'protein', label: 'Proteins' },
   { value: 'plasmid', label: 'Plasmids' },
 ];
-const SELECT_CLASS =
-  'h-8 w-full rounded-md border border-border bg-bg px-2 text-xs text-fg outline-none focus:border-accent disabled:opacity-50';
 function fileName(path: string) {
   return path.split(/[\\/]/).pop() ?? path;
 }
@@ -358,7 +357,7 @@ export function SheetSyncManagerButton() {
           setError(null);
           setOpen(true);
         }}
-        className="h-7 rounded-md border border-border bg-bg px-2 text-xs text-fg-muted hover:bg-bg-muted hover:text-fg"
+        className="h-7 rounded-md border border-border bg-bg px-2 text-xs text-fg-muted wp-interactive "
       >
         Spreadsheet sync…
       </button>
@@ -427,26 +426,28 @@ export function SheetSyncManagerButton() {
                 ) : null}
                 <label className="block text-xs font-medium">
                   Project
-                  <select
-                    aria-label="Spreadsheet project"
-                    value={root}
-                    onChange={(event) => {
-                      setRoot(event.target.value);
-                      setReauthorize(null);
-                      setError(null);
-                    }}
-                    className={`${SELECT_CLASS} mt-1.5`}
-                    disabled={busy}
-                  >
-                    <option value="" disabled>
-                      Open a writable project
-                    </option>
-                    {roots.map((project) => (
-                      <option key={project.path} value={project.path}>
-                        {project.name}
+                  <span className="block min-w-0 w-full mt-1.5">
+                    <MenuNativeSelect
+                      density="form"
+                      aria-label="Spreadsheet project"
+                      value={root}
+                      onChange={(event) => {
+                        setRoot(event.target.value);
+                        setReauthorize(null);
+                        setError(null);
+                      }}
+                      disabled={busy}
+                    >
+                      <option value="" disabled>
+                        Open a writable project
                       </option>
-                    ))}
-                  </select>
+                      {roots.map((project) => (
+                        <option key={project.path} value={project.path}>
+                          {project.name}
+                        </option>
+                      ))}
+                    </MenuNativeSelect>
+                  </span>
                 </label>
                 {reauthorize ? (
                   <GoogleSheetChooser
@@ -569,75 +570,82 @@ export function SheetSyncManagerButton() {
                       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <label className="text-xs font-medium">
                           Worksheet
-                          <select
-                            aria-label="Spreadsheet worksheet"
-                            className={`${SELECT_CLASS} mt-1.5`}
-                            value={sheet}
-                            onChange={(event) => {
-                              setSheet(event.target.value);
-                              setMappings([]);
-                              setKeyColumn('');
-                            }}
-                            disabled={busy}
-                          >
-                            {workbook.sheets.map((name) => (
-                              <option key={name} value={name}>
-                                {name}
-                              </option>
-                            ))}
-                          </select>
+                          <span className="block min-w-0 w-full mt-1.5">
+                            <MenuNativeSelect
+                              density="form"
+                              aria-label="Spreadsheet worksheet"
+                              value={sheet}
+                              onChange={(event) => {
+                                setSheet(event.target.value);
+                                setMappings([]);
+                                setKeyColumn('');
+                              }}
+                              disabled={busy}
+                            >
+                              {workbook.sheets.map((name) => (
+                                <option key={name} value={name}>
+                                  {name}
+                                </option>
+                              ))}
+                            </MenuNativeSelect>
+                          </span>
                         </label>
                         <label className="text-xs font-medium">
                           Record type
-                          <select
-                            aria-label="Spreadsheet record type"
-                            className={`${SELECT_CLASS} mt-1.5`}
-                            value={kind}
-                            onChange={(event) => {
-                              const option = KIND_OPTIONS.find(
-                                (candidate) => candidate.value === event.target.value
-                              );
-                              if (option) {
-                                setKind(option.value);
-                                setMappings([]);
-                              }
-                            }}
-                            disabled={busy}
-                          >
-                            {KIND_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
+                          <span className="block min-w-0 w-full mt-1.5">
+                            <MenuNativeSelect
+                              density="form"
+                              aria-label="Spreadsheet record type"
+                              value={kind}
+                              onChange={(event) => {
+                                const option = KIND_OPTIONS.find(
+                                  (candidate) => candidate.value === event.target.value
+                                );
+                                if (option) {
+                                  setKind(option.value);
+                                  setMappings([]);
+                                }
+                              }}
+                              disabled={busy}
+                            >
+                              {KIND_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </MenuNativeSelect>
+                          </span>
                         </label>
                       </div>
                       <label className="mt-4 block text-xs font-medium">
                         Permanent unique ID column
-                        <select
-                          aria-label="Spreadsheet unique ID column"
-                          className={`${SELECT_CLASS} mt-1.5`}
-                          value={keyColumn}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setKeyColumn(value);
-                            setMappings((current) =>
-                              current.map((mapping) =>
-                                mapping.sourceColumn === value && mapping.mappingMode === 'ignored'
-                                  ? { ...mapping, mappingMode: 'source_only' }
-                                  : mapping
-                              )
-                            );
-                          }}
-                          disabled={busy}
-                        >
-                          <option value="">Choose an ID column</option>
-                          {inspected?.columns.map((column) => (
-                            <option key={column.sourceColumn} value={column.sourceColumn}>
-                              {column.sourceColumn}
-                            </option>
-                          ))}
-                        </select>
+                        <span className="block min-w-0 w-full mt-1.5">
+                          <MenuNativeSelect
+                            density="form"
+                            aria-label="Spreadsheet unique ID column"
+                            value={keyColumn}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setKeyColumn(value);
+                              setMappings((current) =>
+                                current.map((mapping) =>
+                                  mapping.sourceColumn === value &&
+                                  mapping.mappingMode === 'ignored'
+                                    ? { ...mapping, mappingMode: 'source_only' }
+                                    : mapping
+                                )
+                              );
+                            }}
+                            disabled={busy}
+                          >
+                            <option value="">Choose an ID column</option>
+                            {inspected?.columns.map((column) => (
+                              <option key={column.sourceColumn} value={column.sourceColumn}>
+                                {column.sourceColumn}
+                              </option>
+                            ))}
+                          </MenuNativeSelect>
+                        </span>
                       </label>
                       <p className="mt-1 text-[11px] leading-4 text-fg-subtle">
                         Use an ID that survives sorting and renaming. Changing the ID creates a new
@@ -667,51 +675,53 @@ export function SheetSyncManagerButton() {
                                   <tr key={column.sourceColumn}>
                                     <td className="px-3 py-2">{column.sourceColumn}</td>
                                     <td className="px-3 py-2">
-                                      <select
-                                        aria-label={`Map ${column.sourceColumn}`}
-                                        className={SELECT_CLASS}
-                                        value={value ?? '__source'}
-                                        disabled={busy}
-                                        onChange={(event) => {
-                                          const next = event.target.value;
-                                          setMappings((current) =>
-                                            current.map((item) =>
-                                              item.sourceColumn !== column.sourceColumn
-                                                ? item
-                                                : next === '__ignore'
-                                                  ? {
-                                                      sourceColumn: item.sourceColumn,
-                                                      mappingMode: 'ignored',
-                                                    }
-                                                  : next === '__source'
+                                      <span className="block min-w-0 w-full">
+                                        <MenuNativeSelect
+                                          density="form"
+                                          aria-label={`Map ${column.sourceColumn}`}
+                                          value={value ?? '__source'}
+                                          disabled={busy}
+                                          onChange={(event) => {
+                                            const next = event.target.value;
+                                            setMappings((current) =>
+                                              current.map((item) =>
+                                                item.sourceColumn !== column.sourceColumn
+                                                  ? item
+                                                  : next === '__ignore'
                                                     ? {
                                                         sourceColumn: item.sourceColumn,
-                                                        mappingMode: 'source_only',
+                                                        mappingMode: 'ignored',
                                                       }
-                                                    : {
-                                                        sourceColumn: item.sourceColumn,
-                                                        mappingMode: 'mapped',
-                                                        mappedField: next,
-                                                        confidence: 'user_overridden',
-                                                      }
-                                            )
-                                          );
-                                        }}
-                                      >
-                                        <option value="__source">Keep source value</option>
-                                        <option
-                                          value="__ignore"
-                                          disabled={column.sourceColumn === keyColumn}
+                                                    : next === '__source'
+                                                      ? {
+                                                          sourceColumn: item.sourceColumn,
+                                                          mappingMode: 'source_only',
+                                                        }
+                                                      : {
+                                                          sourceColumn: item.sourceColumn,
+                                                          mappingMode: 'mapped',
+                                                          mappedField: next,
+                                                          confidence: 'user_overridden',
+                                                        }
+                                              )
+                                            );
+                                          }}
                                         >
-                                          Ignore column
-                                        </option>
-                                        <option value="entity.name">Record name</option>
-                                        {fields.map((field) => (
-                                          <option key={field.value} value={field.value}>
-                                            {field.label}
+                                          <option value="__source">Keep source value</option>
+                                          <option
+                                            value="__ignore"
+                                            disabled={column.sourceColumn === keyColumn}
+                                          >
+                                            Ignore column
                                           </option>
-                                        ))}
-                                      </select>
+                                          <option value="entity.name">Record name</option>
+                                          {fields.map((field) => (
+                                            <option key={field.value} value={field.value}>
+                                              {field.label}
+                                            </option>
+                                          ))}
+                                        </MenuNativeSelect>
+                                      </span>
                                     </td>
                                   </tr>
                                 );

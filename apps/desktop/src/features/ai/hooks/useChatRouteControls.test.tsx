@@ -368,13 +368,10 @@ describe("useChatRouteControls — no-conversation usage (Home's call shape)", (
 
     const more = screen.getByTestId('chat-cli-secondary-options');
     expect(more).toHaveAccessibleName('More Codex CLI model options');
-    expect(more).toHaveClass('!text-fg');
-    expect(more.querySelector('svg')).toHaveClass(
-      '!h-[18px]',
-      '!w-[18px]',
-      'shrink-0',
-      'stroke-[3]'
-    );
+    expect(more).toHaveClass('wp-menu-trigger');
+    expect(more).toHaveAttribute('data-menu-density', 'compact');
+    expect(more).toHaveAttribute('data-icon-only', 'true');
+    expect(more.querySelector('.wp-menu-icon svg')).not.toBeNull();
     fireEvent.click(more);
     const speed = screen.getByTestId('chat-cli-secondary-options-speed');
     expect(speed).toHaveTextContent('Speed');

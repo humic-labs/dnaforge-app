@@ -26,6 +26,9 @@ const state = vi.hoisted(() => ({
   primer: vi.fn(),
   canonical: vi.fn(),
   scheme: vi.fn(),
+  workQuery: vi.fn(),
+  workRead: vi.fn(),
+  openWork: vi.fn(),
 }));
 vi.mock('../db/entity-references', () => ({
   getEntityReference: state.reference,
@@ -40,8 +43,10 @@ vi.mock('../platform', () => ({
     db: { select: state.select },
     entityNavigation: { getScheme: state.scheme },
     lims: { queryEntities: state.registry },
+    workTasks: { query: state.workQuery, read: state.workRead },
   }),
 }));
+vi.mock('../features/work/public/work', () => ({ openWorkTask: state.openWork }));
 vi.mock('../stores/workspaceStore', () => ({
   useWorkspaceStore: { getState: () => ({ folders: state.folders }) },
 }));
@@ -88,6 +93,9 @@ beforeEach(() => {
         : state.owners
   );
   state.registry.mockResolvedValue([]);
+  state.workQuery.mockResolvedValue({ projects: [] });
+  state.workRead.mockResolvedValue(null);
+  state.openWork.mockReturnValue(true);
   state.scheme.mockResolvedValue('dnaforge');
   state.present.mockResolvedValue({ entityId: 'stable-sequence' });
   state.mount.mockImplementation(async (source: { path: string }) => {
@@ -97,6 +105,21 @@ beforeEach(() => {
 });
 
 describe('shared entity navigation', () => {
+  it('resolves a task by its scientific project scope and refuses an inaccessible owner', async () => {
+    state.workQuery.mockResolvedValue({ projects: [{ id: 'scientific-scope', root: '/owner' }] });
+    state.workRead.mockResolvedValue({ id: 'task-one' });
+    await openEntityNavigationTarget({
+      entityId: 'work-task:task-one',
+      projectId: 'scientific-scope',
+    });
+    expect(state.workRead).toHaveBeenCalledWith({ workspaceRoot: '/owner', taskId: 'task-one' });
+    expect(state.openWork).toHaveBeenCalledWith({ workspaceRoot: '/owner', taskId: 'task-one' });
+    state.workRead.mockClear();
+    await expect(
+      openEntityNavigationTarget({ entityId: 'work-task:task-one', projectId: 'other-scope' })
+    ).rejects.toThrow('unavailable');
+    expect(state.workRead).not.toHaveBeenCalled();
+  });
   it.each(['archived_at', 'trashed_at'] as const)(
     'refuses a saved selection whose owner has %s without mounting it',
     async (field) => {

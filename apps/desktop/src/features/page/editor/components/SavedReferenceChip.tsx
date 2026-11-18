@@ -106,6 +106,7 @@ export function SavedReferenceChip({ node, extension }: NodeViewProps) {
     >
       <EntityReferenceChip
         entityType={entityType}
+        iconContext={reference?.iconContext}
         label={label}
         detail={reference?.locator}
         busy={loading || opening}

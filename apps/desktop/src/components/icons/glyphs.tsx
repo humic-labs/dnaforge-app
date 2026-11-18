@@ -1,4 +1,5 @@
 import type { IconProps, PinIconProps } from './types';
+import { entityColorFamily } from '../../shared/entity-color-family';
 
 export function SparklesIcon({ size = 14, className }: IconProps) {
   return (
@@ -430,7 +431,11 @@ const BIOLOGY_FILE_ICON_PATHS = [
   'M9 22c1.798-1.998 2.518-3.995 2.807-5.993',
 ] as const;
 
-export function BiologyFileIcon({ size, className = 'w-4 h-4 flex-shrink-0' }: IconProps) {
+export function BiologyFileIcon({
+  colorFamily,
+  size,
+  className = 'w-4 h-4 flex-shrink-0',
+}: IconProps) {
   return (
     <svg
       {...(size ? { width: size, height: size } : {})}
@@ -441,6 +446,7 @@ export function BiologyFileIcon({ size, className = 'w-4 h-4 flex-shrink-0' }: I
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
+      data-entity-color-family={colorFamily ?? 'dna'}
       data-icon="biology-file"
     >
       {BIOLOGY_FILE_ICON_PATHS.map((d) => (
@@ -455,6 +461,7 @@ export function createBiologyFileIconElement(sizePx = 14): SVGSVGElement {
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('width', String(sizePx));
   svg.setAttribute('height', String(sizePx));
+  svg.setAttribute('data-entity-color-family', 'dna');
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.setAttribute('fill', 'none');
   svg.setAttribute('stroke', 'currentColor');
@@ -470,11 +477,18 @@ export function createBiologyFileIconElement(sizePx = 14): SVGSVGElement {
 }
 
 export function FolderIcon({
+  colorFamily,
   expanded,
   className = 'w-4 h-4 text-fg-subtle flex-shrink-0',
 }: IconProps & { expanded?: boolean }) {
   return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg
+      className={className}
+      data-entity-color-family={colorFamily ?? 'neutral'}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
       {expanded ? (
         <path
           strokeLinecap="round"
@@ -494,10 +508,14 @@ export function FolderIcon({
   );
 }
 
-export function ProjectRootIcon({ className = 'w-4 h-4 flex-shrink-0 text-accent' }: IconProps) {
+export function ProjectRootIcon({
+  colorFamily,
+  className = 'w-4 h-4 flex-shrink-0 text-accent',
+}: IconProps) {
   return (
     <svg
       className={className}
+      data-entity-color-family={colorFamily ?? 'neutral'}
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"
@@ -514,9 +532,18 @@ export function ProjectRootIcon({ className = 'w-4 h-4 flex-shrink-0 text-accent
   );
 }
 
-export function GenericFileIcon({ className = 'w-4 h-4 flex-shrink-0 text-fg-subtle' }: IconProps) {
+export function GenericFileIcon({
+  colorFamily,
+  className = 'w-4 h-4 flex-shrink-0 text-fg-subtle',
+}: IconProps) {
   return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg
+      className={className}
+      data-entity-color-family={colorFamily ?? 'neutral'}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -531,11 +558,12 @@ const FILE_ICON_BASE = 'w-4 h-4 flex-shrink-0 text-fg-subtle';
 const STRUCTURE_GLYPH_PATH =
   'M2.8 4.375Q4 4.375 4 5.575V18.5A2 1.5 0 0 0 8 18.5V5.5A2 1.5 0 0 1 12 5.5V18.5A2 1.5 0 0 0 16 18.5V5.5A2 1.5 0 0 1 20 5.5V17.92Q20 19.12 21.2 19.12';
 
-export function StructureFileIcon({ className = FILE_ICON_BASE }: IconProps) {
+export function StructureFileIcon({ colorFamily, className = FILE_ICON_BASE }: IconProps) {
   return (
     <svg
       data-file-type-icon="structure"
       className={className}
+      data-entity-color-family={colorFamily ?? 'protein'}
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
@@ -550,11 +578,12 @@ export function StructureFileIcon({ className = FILE_ICON_BASE }: IconProps) {
 
 export const ProteinIcon = StructureFileIcon;
 
-export function MolecularDocumentIcon({ className = FILE_ICON_BASE }: IconProps) {
+export function MolecularDocumentIcon({ colorFamily, className = FILE_ICON_BASE }: IconProps) {
   return (
     <svg
       data-file-type-icon="molecular-document"
       className={className}
+      data-entity-color-family={colorFamily ?? 'protein'}
       fill="none"
       stroke="currentColor"
       strokeWidth={1.8}
@@ -570,11 +599,12 @@ export function MolecularDocumentIcon({ className = FILE_ICON_BASE }: IconProps)
   );
 }
 
-export function ImageFileIcon({ className = FILE_ICON_BASE }: IconProps) {
+export function ImageFileIcon({ colorFamily, className = FILE_ICON_BASE }: IconProps) {
   return (
     <svg
       data-file-type-icon="image"
       className={className}
+      data-entity-color-family={colorFamily ?? 'neutral'}
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
@@ -589,11 +619,12 @@ export function ImageFileIcon({ className = FILE_ICON_BASE }: IconProps) {
   );
 }
 
-export function WebFileIcon({ className = FILE_ICON_BASE }: IconProps) {
+export function WebFileIcon({ colorFamily, className = FILE_ICON_BASE }: IconProps) {
   return (
     <svg
       data-file-type-icon="web"
       className={className}
+      data-entity-color-family={colorFamily ?? 'code'}
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
@@ -608,11 +639,12 @@ export function WebFileIcon({ className = FILE_ICON_BASE }: IconProps) {
   );
 }
 
-export function PdfFileIcon({ className = FILE_ICON_BASE }: IconProps) {
+export function PdfFileIcon({ colorFamily, className = FILE_ICON_BASE }: IconProps) {
   return (
     <svg
       data-file-type-icon="pdf"
       className={className}
+      data-entity-color-family={colorFamily ?? 'neutral'}
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
@@ -627,11 +659,12 @@ export function PdfFileIcon({ className = FILE_ICON_BASE }: IconProps) {
   );
 }
 
-export function ArchiveFileIcon({ className = FILE_ICON_BASE }: IconProps) {
+export function ArchiveFileIcon({ colorFamily, className = FILE_ICON_BASE }: IconProps) {
   return (
     <svg
       data-file-type-icon="archive"
       className={className}
+      data-entity-color-family={colorFamily ?? 'neutral'}
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
@@ -647,11 +680,12 @@ export function ArchiveFileIcon({ className = FILE_ICON_BASE }: IconProps) {
   );
 }
 
-export function SpreadsheetFileIcon({ className = FILE_ICON_BASE }: IconProps) {
+export function SpreadsheetFileIcon({ colorFamily, className = FILE_ICON_BASE }: IconProps) {
   return (
     <svg
       data-file-type-icon="spreadsheet"
       className={className}
+      data-entity-color-family={colorFamily ?? 'data'}
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
@@ -673,6 +707,7 @@ export function createSpreadsheetFileIconElement(sizePx = 14): SVGSVGElement {
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('width', String(sizePx));
   svg.setAttribute('height', String(sizePx));
+  svg.setAttribute('data-entity-color-family', 'data');
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.setAttribute('fill', 'none');
   svg.setAttribute('stroke', 'currentColor');
@@ -697,11 +732,12 @@ export function createSpreadsheetFileIconElement(sizePx = 14): SVGSVGElement {
   return svg;
 }
 
-export function CodeFileIcon({ className = FILE_ICON_BASE }: IconProps) {
+export function CodeFileIcon({ colorFamily, className = FILE_ICON_BASE }: IconProps) {
   return (
     <svg
       data-file-type-icon="code"
       className={className}
+      data-entity-color-family={colorFamily ?? 'code'}
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
@@ -716,11 +752,12 @@ export function CodeFileIcon({ className = FILE_ICON_BASE }: IconProps) {
   );
 }
 
-export function TextFileIcon({ className = FILE_ICON_BASE }: IconProps) {
+export function TextFileIcon({ colorFamily, className = FILE_ICON_BASE }: IconProps) {
   return (
     <svg
       data-file-type-icon="text"
       className={className}
+      data-entity-color-family={colorFamily ?? 'neutral'}
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
@@ -740,11 +777,12 @@ const CHAT_TAB_ICON_PATHS = [
   'M4 4h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z',
 ] as const;
 
-export function ChatTabIcon({ className = FILE_ICON_BASE }: IconProps) {
+export function ChatTabIcon({ colorFamily, className = FILE_ICON_BASE }: IconProps) {
   return (
     <svg
       data-tab-type-icon="chat"
       className={className}
+      data-entity-color-family={colorFamily ?? 'neutral'}
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
@@ -768,11 +806,12 @@ const NOTEBOOK_TAB_ICON_PATHS = [
   'M3 17h4',
 ] as const;
 
-export function NotebookTabIcon({ className = FILE_ICON_BASE }: IconProps) {
+export function NotebookTabIcon({ colorFamily, className = FILE_ICON_BASE }: IconProps) {
   return (
     <svg
       data-tab-type-icon="page"
       className={className}
+      data-entity-color-family={colorFamily ?? 'neutral'}
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
@@ -794,11 +833,12 @@ const ASSEMBLY_TAB_ICON_PATHS = [
   'M3 12a9 9 0 0 1 4.5-7.8',
 ] as const;
 
-export function AssemblyTabIcon({ className = FILE_ICON_BASE }: IconProps) {
+export function AssemblyTabIcon({ colorFamily, className = FILE_ICON_BASE }: IconProps) {
   return (
     <svg
       data-tab-type-icon="design"
       className={className}
+      data-entity-color-family={colorFamily ?? 'dna'}
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
@@ -877,6 +917,7 @@ export function createTabTypeIconElement(tabType: string, sizePx = 14): SVGSVGEl
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('width', String(sizePx));
   svg.setAttribute('height', String(sizePx));
+  svg.setAttribute('data-entity-color-family', entityColorFamily({ kind: tabType }));
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.setAttribute('fill', 'none');
   svg.setAttribute('stroke', 'currentColor');
@@ -932,10 +973,11 @@ export function FilePlusIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
-export function FolderOpenIcon({ className = 'w-4 h-4' }: IconProps) {
+export function FolderOpenIcon({ colorFamily, className = 'w-4 h-4' }: IconProps) {
   return (
     <svg
       className={className}
+      data-entity-color-family={colorFamily}
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"
@@ -1048,7 +1090,11 @@ function pinchedChromosomePath(cy: number, xc: number): string {
   ].join(' ');
 }
 
-export function GenomeAssemblyIcon({ size, className = 'w-4 h-4 flex-shrink-0' }: IconProps) {
+export function GenomeAssemblyIcon({
+  colorFamily,
+  size,
+  className = 'w-4 h-4 flex-shrink-0',
+}: IconProps) {
   return (
     <svg
       {...(size ? { width: size, height: size } : {})}
@@ -1056,6 +1102,7 @@ export function GenomeAssemblyIcon({ size, className = 'w-4 h-4 flex-shrink-0' }
       fill="currentColor"
       stroke="none"
       className={className}
+      data-entity-color-family={colorFamily ?? 'dna'}
       data-icon="genome-assembly"
     >
       <path d={pinchedChromosomePath(5, 9)} />
@@ -1065,7 +1112,7 @@ export function GenomeAssemblyIcon({ size, className = 'w-4 h-4 flex-shrink-0' }
   );
 }
 
-export function OligoIcon({ size, className = 'w-4 h-4 flex-shrink-0' }: IconProps) {
+export function OligoIcon({ colorFamily, size, className = 'w-4 h-4 flex-shrink-0' }: IconProps) {
   return (
     <svg
       {...(size ? { width: size, height: size } : {})}
@@ -1073,6 +1120,7 @@ export function OligoIcon({ size, className = 'w-4 h-4 flex-shrink-0' }: IconPro
       fill="none"
       stroke="currentColor"
       className={className}
+      data-entity-color-family={colorFamily ?? 'dna'}
     >
       <line {...OLIGO_ICON_BACKBONE} strokeWidth={3.4} strokeLinecap="round" />
       {}
@@ -1101,7 +1149,7 @@ export function MetadataIcon({ size = 20, className }: IconProps) {
   );
 }
 
-export function StrainIcon({ size, className = 'w-4 h-4 flex-shrink-0' }: IconProps) {
+export function StrainIcon({ colorFamily, size, className = 'w-4 h-4 flex-shrink-0' }: IconProps) {
   return (
     <svg
       {...(size ? { width: size, height: size } : {})}
@@ -1112,6 +1160,7 @@ export function StrainIcon({ size, className = 'w-4 h-4 flex-shrink-0' }: IconPr
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
+      data-entity-color-family={colorFamily ?? 'neutral'}
     >
       <ellipse cx="10" cy="12" rx="7.7" ry="6" />
       {}
