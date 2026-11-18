@@ -755,8 +755,9 @@ if (import.meta.env.DEV || import.meta.env.MODE === 'test') {
       return { tabId, documentId: tab.entityId };
     },
     resolveSequenceDocumentIdForSource: async (filePath: string) => {
-      const { getCatalogEntityForFilePath } = await import('./db/workspace-catalog');
-      return (await getCatalogEntityForFilePath(filePath))?.id ?? null;
+      const { resolveSequenceDocumentIdForSource } =
+        await import('./features/sequence/sequence-document-repository');
+      return resolveSequenceDocumentIdForSource(filePath);
     },
     stageAskAiEvalTurn: async (args: {
       locator: string;

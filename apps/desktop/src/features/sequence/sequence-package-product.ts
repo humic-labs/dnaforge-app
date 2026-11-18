@@ -65,9 +65,7 @@ export async function resolveSequencePackageProductPath(
   return sequencePackagePaths(paths.root, { productFile }).productPath;
 }
 
-export async function resolveSequencePackageRootForProductPath(
-  productPath: string
-): Promise<string | null> {
+export async function locateSequenceProductPackage(productPath: string) {
   const normalized = productPath.replace(/\\/g, '/');
   const slash = normalized.lastIndexOf('/');
   if (slash <= 0) return null;
@@ -75,5 +73,11 @@ export async function resolveSequencePackageRootForProductPath(
   const metaPath = await locateSequencePackageMetaPath(packageRoot, (path) =>
     platform().fs.exists(path)
   );
-  return metaPath ? packageRoot : null;
+  return metaPath ? { packageRoot, metaPath } : null;
+}
+
+export async function resolveSequencePackageRootForProductPath(
+  productPath: string
+): Promise<string | null> {
+  return (await locateSequenceProductPackage(productPath))?.packageRoot ?? null;
 }

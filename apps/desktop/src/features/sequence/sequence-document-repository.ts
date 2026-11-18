@@ -1,9 +1,14 @@
 import {
   getCurrentSequenceFileForDocumentId,
   getCatalogEntity,
+  getCatalogFileForPath,
   type DBCatalogEntityFile,
 } from '../../db/workspace-catalog';
-import { isSequencePackageFileKind } from '../../db/sequence-package';
+import {
+  isSequencePackageFileKind,
+  parseSequencePackageDocument,
+  sequencePackagePaths,
+} from '../../db/sequence-package';
 import type {
   CatalogSequenceDocumentRef,
   SequenceDocumentRef,
@@ -13,9 +18,45 @@ import {
   managedSequenceRepository,
   type ManagedSequenceResolutionOptions,
 } from './managed-sequence-repository';
-import { pathIsAtOrUnder } from '../../shared/path-boundary';
+import { normalizePathForBoundary, pathIsAtOrUnder } from '../../shared/path-boundary';
+import { locateSequenceProductPackage } from './sequence-package-product';
 import { platform } from '../../platform';
 import { isFastaKindSourcePath } from '../../shared/fasta-kind';
+
+export async function resolveSequenceDocumentIdForSource(
+  sourcePath: string
+): Promise<string | null> {
+  const fs = platform().fs;
+  if (!(await fs.exists(sourcePath))) return null;
+
+  const owner = await locateSequenceProductPackage(sourcePath);
+  if (owner) {
+    const document = parseSequencePackageDocument(await fs.readTextFile(owner.metaPath));
+    const declared = sequencePackagePaths(owner.packageRoot, {
+      productFile: document.product.file,
+    });
+    if (normalizePathForBoundary(declared.productPath) === normalizePathForBoundary(sourcePath)) {
+      const binding = await getCurrentSequenceFileForDocumentId(document.id);
+      if (
+        !binding ||
+        binding.entity_id !== document.id ||
+        !isSequencePackageFileKind(binding.file_kind)
+      )
+        return null;
+      const boundPath = normalizePathForBoundary(binding.path);
+      return [owner.packageRoot, owner.metaPath].some(
+        (path) => normalizePathForBoundary(path) === boundPath
+      )
+        ? document.id
+        : null;
+    }
+  }
+
+  const file = await getCatalogFileForPath(sourcePath);
+  if (!file || file.status !== 'current') return null;
+  const current = await getCurrentSequenceFileForDocumentId(file.entity_id);
+  return current?.id === file.id ? file.entity_id : null;
+}
 
 export async function assertCanonicalSequenceSource(
   documentId: string,
