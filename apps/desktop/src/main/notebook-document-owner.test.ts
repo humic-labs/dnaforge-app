@@ -1,3 +1,4 @@
+import { workTaskReferenceHref, containsWorkTaskPlacement } from '../shared/work-task-reference';
 // @vitest-environment node
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -197,6 +198,80 @@ async function fixture(pausePublish?: () => Promise<void>) {
   };
 }
 describe('native notebook working copy', () => {
+  it('retains placement receipts through published Markdown, undo and native owner restart', async () => {
+    const f = await fixture();
+    const owner = new NativeNotebookWorkingCopyOwner({
+      ...f.options,
+      prepareReferenceInsertion: async (_scope, op) => ({
+        block: {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'mention',
+              attrs: {
+                entityType: 'reference',
+                referenceUri: workTaskReferenceHref(op.workTask!),
+                label: 'Check certificate',
+              },
+            },
+          ],
+        },
+        verify: async () => {},
+      }),
+    });
+    const initial = await owner.execute({
+      documentId: 'book',
+      operation: { kind: 'inspect-copy' },
+    });
+    const insert = {
+      documentId: 'book',
+      requestId: 'one',
+      expectedRevision: initial.revision,
+      operation: {
+        kind: 'insert-reference' as const,
+        index: 1,
+        workTask: {
+          projectId: 'science',
+          taskId: 'certificate',
+          placementId: 'fb79a995-2683-4647-ae35-f25cc3ef54d9',
+        },
+      },
+    };
+    const placed = await owner.execute(insert);
+    expect(placed.result).toMatchObject({ changed: true, disposition: 'draft' });
+    const saved = await owner.execute({
+      documentId: 'book',
+      expectedRevision: placed.revision,
+      operation: { kind: 'save' },
+    });
+    const href = workTaskReferenceHref(insert.operation.workTask);
+    expect(containsWorkTaskPlacement((await f.load()).content, href)).toBe(true);
+    expect((await owner.execute(insert)).result).toMatchObject({
+      changed: false,
+      disposition: 'published',
+    });
+    const undone = await owner.execute({
+      documentId: 'book',
+      expectedRevision: saved.revision,
+      operation: { kind: 'undo' },
+    });
+    expect(containsWorkTaskPlacement(undone.copy.content, href)).toBe(false);
+    await owner.execute({
+      documentId: 'book',
+      expectedRevision: undone.revision,
+      operation: { kind: 'save' },
+    });
+    const restarted = new NativeNotebookWorkingCopyOwner({
+      ...f.options,
+      prepareReferenceInsertion: async () => ({
+        block: { type: 'paragraph' },
+        verify: async () => {},
+      }),
+    });
+    const replay = await restarted.execute(insert);
+    expect(replay.result).toMatchObject({ changed: false, disposition: 'removed' });
+    expect(containsWorkTaskPlacement((await f.load()).content, href)).toBe(false);
+  });
   it('acknowledges an owned legacy cutover and reads the newer dirty copy across it', async () => {
     const f = await fixture();
     const releaseCutover = Promise.withResolvers<void>();
