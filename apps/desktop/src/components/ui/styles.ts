@@ -13,8 +13,8 @@ export const UI_TEXTAREA_CLASS =
   'w-full rounded-md border border-transparent bg-black/[0.04] px-3 py-2 text-sm leading-5 text-fg transition-colors placeholder:text-fg-subtle focus:border-accent focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/[0.055]';
 export const UI_SURFACE_CLASS = 'bg-black/[0.025] dark:bg-white/[0.035]';
 export const UI_MODAL_LAYER_CLASS = 'z-[10000]';
-export const UI_POPOVER_LAYER_CLASS = 'z-[10050]';
-export const UI_SUBMENU_LAYER_CLASS = 'z-[10060]';
+export const UI_POPOVER_LAYER = 10050;
+export const UI_SUBMENU_LAYER = 10060;
 export const UI_CARD_CLASS = `rounded-md p-4 ${UI_SURFACE_CLASS}`;
 export const UI_LIST_CLASS = `divide-y divide-border/50 overflow-hidden rounded-md ${UI_SURFACE_CLASS}`;
 export const UI_SPLIT_PANEL_CLASS = `grid grid-cols-[13rem_minmax(0,1fr)] overflow-hidden ${UI_SURFACE_CLASS}`;

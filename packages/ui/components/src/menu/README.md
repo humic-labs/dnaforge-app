@@ -7,6 +7,13 @@ supply positioning and presentation ownership; render one `MenuSurface` per
 popup. A host adapter that already renders that surface takes its density and
 slot flags directly. Do not nest a second surface around its rows.
 
+Surfaces and controls reject `className` and `style`, including runtime props.
+Use the surface's `layout` for position, dimensions, scrolling and visibility.
+Its accepted keys exclude padding, borders, colors, fonts and shadows. Use
+`content="menu"` for rows, `content="panel"` for rich content with its own inner
+layout, and `content="form"` for a settings form. Geometry animations use
+`motionMs`; their transition properties come from the shared surface.
+
 | Density   | Minimum control height | Text size | Icon slot |
 | --------- | ---------------------: | --------: | --------: |
 | `compact` |                  28 px |     12 px |     16 px |

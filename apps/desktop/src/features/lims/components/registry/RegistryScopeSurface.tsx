@@ -135,7 +135,7 @@ export function RegistryScopeControls({
         aria-label="Registry actions"
         preferredSide="bottom"
         surfaceVariant="settings"
-        className="w-72 p-4"
+        layout={{ width: '18rem' }}
       >
         <div
           className="space-y-3"

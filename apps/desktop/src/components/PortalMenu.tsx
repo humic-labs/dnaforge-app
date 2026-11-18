@@ -4,6 +4,7 @@ import {
   useMenu,
   type MenuCloseReason,
   type MenuController,
+  type MenuLayout,
   type MenuSurfaceProps,
 } from '@waypoint/ui-components';
 import { scheduleFocus } from '../shared/utils/safeFocus';
@@ -18,7 +19,7 @@ import {
 } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { UI_POPOVER_LAYER_CLASS, UI_SUBMENU_LAYER_CLASS } from './ui/styles';
+import { UI_POPOVER_LAYER, UI_SUBMENU_LAYER } from './ui/styles';
 import {
   PresentationScopeContext,
   usePresentationOverlay,
@@ -140,7 +141,18 @@ export interface PortalMenuProps extends Pick<
   initialFocusRef?: RefObject<HTMLElement | null>;
   insideRefs?: readonly RefObject<HTMLElement | null>[];
   closeOnEscape?: boolean;
-  className?: string;
+  layout?: Pick<
+    MenuLayout,
+    | 'width'
+    | 'minWidth'
+    | 'maxWidth'
+    | 'height'
+    | 'maxHeight'
+    | 'overflow'
+    | 'overflowY'
+    | 'display'
+    | 'flexDirection'
+  >;
   surfaceVariant?: 'default' | 'settings';
   privateContent?: boolean;
   'aria-label'?: string;
@@ -150,6 +162,12 @@ export interface PortalMenuProps extends Pick<
 }
 
 const EMPTY_MENU_ITEMS: readonly never[] = [];
+
+function constrainedMenuSize(requested: number | string | undefined, maximum: number) {
+  return requested === undefined
+    ? maximum
+    : `min(${typeof requested === 'number' ? `${requested}px` : requested}, ${maximum}px)`;
+}
 
 export function PortalMenu(props: PortalMenuProps) {
   return props.menu ? (
@@ -217,7 +235,7 @@ function BoundPortalMenu({
   initialFocusRef,
   insideRefs = [],
   closeOnEscape = true,
-  className = '',
+  layout,
   surfaceVariant = 'default',
   density,
   selection,
@@ -534,7 +552,8 @@ function BoundPortalMenu({
         icons={icons}
         shortcuts={shortcuts}
         submenus={submenus}
-        content={content}
+        content={content ?? (role === 'dialog' ? 'form' : 'menu')}
+        privateContent={privateContent}
         onKeyDown={
           keyboardNavigation
             ? (event) => {
@@ -550,13 +569,18 @@ function BoundPortalMenu({
         data-placement={
           placement.top != null ? 'below' : placement.bottom != null ? 'above' : 'side'
         }
-        className={`fixed ${placementMode === 'submenu' ? UI_SUBMENU_LAYER_CLASS : UI_POPOVER_LAYER_CLASS} overflow-y-auto ${privateContent ? 'ph-no-capture rr-block' : ''} ${className}`}
-        style={{
-          ...(placement.left != null ? { left: placement.left } : { right: placement.right }),
-          ...(placement.top != null ? { top: placement.top } : { bottom: placement.bottom }),
-          minWidth: placement.minWidth,
-          maxWidth: placement.maxWidth,
-          maxHeight: placement.maxHeight,
+        layout={{
+          overflowY: layout?.overflowY ?? layout?.overflow ?? 'auto',
+          ...layout,
+          position: 'fixed',
+          zIndex: placementMode === 'submenu' ? UI_SUBMENU_LAYER : UI_POPOVER_LAYER,
+          left: placement.left,
+          right: placement.right,
+          top: placement.top,
+          bottom: placement.bottom,
+          minWidth: layout?.minWidth ?? placement.minWidth,
+          maxWidth: constrainedMenuSize(layout?.maxWidth, placement.maxWidth),
+          maxHeight: constrainedMenuSize(layout?.maxHeight, placement.maxHeight),
         }}
       >
         {children}

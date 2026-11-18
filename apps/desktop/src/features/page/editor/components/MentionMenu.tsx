@@ -199,8 +199,14 @@ export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function
       icons
       data-menu-id="root"
       data-presentation-surface={presentation.id}
-      style={{ display: presentation.visible ? undefined : 'none' }}
-      className="w-96 max-w-[calc(100vw-16px)] max-h-[min(28rem,calc(100vh-16px))] flex flex-col overflow-hidden"
+      layout={{
+        width: '24rem',
+        maxWidth: 'calc(100vw - 16px)',
+        maxHeight: 'min(28rem, calc(100vh - 16px))',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        display: presentation.visible ? 'flex' : 'none',
+      }}
       data-testid="mention-menu"
     >
       <div className="p-2 border-b border-border flex flex-col gap-2">

@@ -338,7 +338,7 @@ export function ImportWizardModal({
               preferredSide="bottom"
               horizontalAlign="start"
               surfaceVariant="settings"
-              className="w-96"
+              layout={{ width: '24rem' }}
             >
               {locationPicker && (
                 <>

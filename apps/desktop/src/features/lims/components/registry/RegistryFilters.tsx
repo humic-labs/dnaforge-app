@@ -289,7 +289,7 @@ export function RegistryFilters({
         surfaceVariant="settings"
         preferredSide="bottom"
         horizontalAlign="start"
-        className="w-[29rem]"
+        layout={{ width: '29rem' }}
       >
         <div
           onKeyDown={(event) => {

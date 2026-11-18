@@ -294,7 +294,7 @@ function EntityLinkFieldControl({
         aria-label={`Choose ${label}`}
         preferredSide="bottom"
         horizontalAlign="start"
-        className="w-80"
+        layout={{ width: '20rem' }}
         selection={false}
       >
         <label htmlFor={searchId} className="sr-only">

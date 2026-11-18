@@ -5,18 +5,18 @@ slots, carets, checkmarks, captions, density and neutral interaction colors.
 Feature content supplies labels, scientific data, option IDs and actions. It
 does not supply a second menu padding, caret or hover recipe.
 
-| Control family                               | Appearance owner                                                                             | Host responsibility                                                                              |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Button, link and selection menu rows         | `MenuRow`, `MenuLink`, `MenuRowGroup`, `MenuRowAction`                                       | Native role, action, stable ID, selected and active state                                        |
-| Menu shell and rich picker shell             | `MenuSurface`                                                                                | Placement, width and viewport constraints; `content="panel"` preserves scientific content layout |
-| Native select fields                         | `MenuNativeSelect`                                                                           | Native values, options, option groups, callbacks and a layout-only wrapper                       |
-| Search and custom text fields within pickers | `MenuSearchInput`                                                                            | Query or draft value and input semantics                                                         |
-| Shared compact filter controls               | `form-controls/CompactFilterSelect.tsx`, `CompactFilterMultiSelect.tsx`                      | Feature labels and domain selection                                                              |
-| Sequence context actions                     | `context-menu/SequenceContextMenu.tsx`                                                       | Scientific capability gating and callback arguments                                              |
-| Restriction enzyme picker                    | `restriction-enzymes/RestrictionEnzymeDropdown.tsx`, `EnzymeList.tsx`                        | Virtualized content and cut-site rendering                                                       |
-| Desktop menus                                | `apps/desktop/src/components/PortalMenu.tsx`, `ActionMenu.tsx`, `components/ui/controls.tsx` | Presentation ownership, placement and focus policy                                               |
-| Ordinary desktop buttons and rows            | `INTERACTION_CLASS` / `wp-interactive`; `components/ui/styles.ts` forwards it                | Existing layout, content and domain state                                                        |
-| Public-hosted chrome                         | `apps/desktop/src/hosted/hosted.css`                                                         | Host layout; hover colors read `--interaction-*`                                                 |
+| Control family                               | Appearance owner                                                                             | Host responsibility                                                                        |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Button, link and selection menu rows         | `MenuRow`, `MenuLink`, `MenuRowGroup`, `MenuRowAction`                                       | Native role, action, stable ID, selected and active state                                  |
+| Menu shell and rich picker shell             | `MenuSurface`                                                                                | Typed `layout` sets placement and size; `content` selects menu, rich panel or form padding |
+| Native select fields                         | `MenuNativeSelect`                                                                           | Native values, options, option groups, callbacks and a layout-only wrapper                 |
+| Search and custom text fields within pickers | `MenuSearchInput`                                                                            | Query or draft value and input semantics                                                   |
+| Shared compact filter controls               | `form-controls/CompactFilterSelect.tsx`, `CompactFilterMultiSelect.tsx`                      | Feature labels and domain selection                                                        |
+| Sequence context actions                     | `context-menu/SequenceContextMenu.tsx`                                                       | Scientific capability gating and callback arguments                                        |
+| Restriction enzyme picker                    | `restriction-enzymes/RestrictionEnzymeDropdown.tsx`, `EnzymeList.tsx`                        | Virtualized content and cut-site rendering                                                 |
+| Desktop menus                                | `apps/desktop/src/components/PortalMenu.tsx`, `ActionMenu.tsx`, `components/ui/controls.tsx` | Presentation ownership, placement and focus policy                                         |
+| Ordinary desktop buttons and rows            | `INTERACTION_CLASS` / `wp-interactive`; `components/ui/styles.ts` forwards it                | Existing layout, content and domain state                                                  |
+| Public-hosted chrome                         | `apps/desktop/src/hosted/hosted.css`                                                         | Host layout; hover colors read `--interaction-*`                                           |
 
 Paths below are relative to the repository root. They identify rendering
 boundaries, not permission to create another ordinary menu or neutral hover

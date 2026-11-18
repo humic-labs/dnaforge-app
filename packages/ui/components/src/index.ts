@@ -100,6 +100,7 @@ export {
 } from './menu/presentation';
 export type {
   MenuSurfaceProps,
+  MenuLayout,
   MenuTriggerProps,
   MenuRowProps,
   MenuCaretProps,

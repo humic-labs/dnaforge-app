@@ -751,7 +751,13 @@ export function PrimerSequenceInput({
         preferredSide={variant === 'field' ? 'bottom' : 'top'}
         allowFlip={variant !== 'field'}
         data-testid="primer-modification-picker"
-        className="flex w-[610px] max-w-[calc(100vw-16px)] flex-col !overflow-hidden"
+        layout={{
+          width: 610,
+          maxWidth: 'calc(100vw - 16px)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
       >
         <div className="shrink-0 border-b border-border px-2.5 py-1.5">
           <div className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">

@@ -152,7 +152,7 @@ export function FieldMappingPicker({
         selection
         preferredSide="bottom"
         horizontalAlign="start"
-        className="min-w-[216px] max-h-72"
+        layout={{ minWidth: 216, maxHeight: '18rem' }}
       >
         {options.map((option) =>
           row(

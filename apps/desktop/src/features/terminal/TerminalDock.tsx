@@ -1286,7 +1286,7 @@ export function TerminalDock({
                       role="dialog"
                       aria-label="Terminal options"
                       preferredSide="bottom"
-                      className="dnaforge-terminal-options"
+                      layout={{ width: 256 }}
                       density="compact"
                       selection={false}
                     >

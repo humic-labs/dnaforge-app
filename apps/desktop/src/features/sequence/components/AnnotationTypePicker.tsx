@@ -447,7 +447,9 @@ export function AnnotationTypePicker({
             data-testid="annotation-type-picker"
             data-flyout="true"
             data-morphed={morphed ? 'true' : 'false'}
-            style={{
+            layout={{
+              display: 'flex',
+              flexDirection: 'column',
               position: 'fixed',
               top: box.top,
               left: box.left,
@@ -456,9 +458,8 @@ export function AnnotationTypePicker({
               zIndex: 40,
               overflow: 'hidden',
               transformOrigin: 'top left',
-              transition: `top ${MORPH_MS}ms ease-out, left ${MORPH_MS}ms ease-out, width ${MORPH_MS}ms ease-out, height ${MORPH_MS}ms ease-out, box-shadow ${MORPH_MS}ms ease-out`,
             }}
-            className="flex flex-col"
+            motionMs={MORPH_MS}
             onMouseDown={(e) => e.stopPropagation()}
           >
             <button

@@ -1761,7 +1761,13 @@ export function AssemblyPartsSection({
                   horizontalAlign="start"
                   preferredSide="bottom"
                   data-testid={`moclo-drawer-part-picker-menu-${index}`}
-                  className="flex w-[480px] flex-col !overflow-hidden !bg-bg"
+                  layout={{
+                    width: 480,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                  }}
+                  content="panel"
                 >
                   <MocloSlotPartPicker
                     design={design}

@@ -463,11 +463,6 @@
 .dnaforge-terminal-actions > button::-webkit-details-marker {
   display: none;
 }
-.dnaforge-terminal-options {
-  width: 256px;
-  font-family: var(--font-sans);
-  font-size: 12px;
-}
 .dnaforge-terminal-action-menu {
   display: flex;
   flex-direction: column;
@@ -685,10 +680,6 @@
 .dnaforge-terminal-actions > button:focus-visible {
   outline: 2px solid hsl(var(--color-accent) / 0.55);
   outline-offset: 1px;
-}
-.dnaforge-terminal-options {
-  background: hsl(var(--color-bg));
-  color: hsl(var(--color-fg));
 }
 .dnaforge-terminal-command-decoration button[data-status='success'] {
   color: hsl(var(--color-success));

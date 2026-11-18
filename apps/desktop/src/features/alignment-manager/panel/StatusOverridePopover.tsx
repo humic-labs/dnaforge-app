@@ -30,7 +30,7 @@ export function StatusOverridePopover({
       aria-label={`Alignment review for ${track.label}`}
       horizontalAlign="start"
       preferredSide="bottom"
-      className="p-3 w-52"
+      layout={{ width: '13rem' }}
     >
       <div onClick={(e) => e.stopPropagation()}>
         <div className="text-xs text-fg-muted mb-2">

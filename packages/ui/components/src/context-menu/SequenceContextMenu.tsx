@@ -313,7 +313,7 @@ export function SequenceContextMenu(props: SequenceContextMenuProps): React.Reac
       selection={false}
       shortcuts
       onKeyDown={menu.handleKeyDown}
-      style={{
+      layout={{
         position: 'fixed',
         left: adjustedPosition.x,
         top: adjustedPosition.y,

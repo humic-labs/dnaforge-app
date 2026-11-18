@@ -2,6 +2,7 @@ import {
   forwardRef,
   type AnchorHTMLAttributes,
   type ButtonHTMLAttributes,
+  type CSSProperties,
   type HTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
@@ -16,13 +17,44 @@ function controlProps<T extends object>(props: T): Omit<T, 'className' | 'style'
   return clean;
 }
 
-export interface MenuSurfaceProps extends HTMLAttributes<HTMLDivElement> {
+const MENU_LAYOUT_KEYS = [
+  'position',
+  'top',
+  'right',
+  'bottom',
+  'left',
+  'width',
+  'minWidth',
+  'maxWidth',
+  'height',
+  'minHeight',
+  'maxHeight',
+  'overflow',
+  'overflowX',
+  'overflowY',
+  'zIndex',
+  'display',
+  'flexDirection',
+  'transform',
+  'transformOrigin',
+  'visibility',
+] as const;
+
+export type MenuLayout = Pick<CSSProperties, (typeof MENU_LAYOUT_KEYS)[number]>;
+
+export interface MenuSurfaceProps extends Omit<
+  HTMLAttributes<HTMLDivElement>,
+  'className' | 'style'
+> {
   density?: MenuDensity;
-  content?: 'menu' | 'panel';
+  content?: 'menu' | 'panel' | 'form';
   selection?: boolean;
   icons?: boolean;
   shortcuts?: boolean;
   submenus?: boolean;
+  layout?: MenuLayout;
+  motionMs?: number;
+  privateContent?: boolean;
 }
 
 export const MenuSurface = forwardRef<HTMLDivElement, MenuSurfaceProps>(function MenuSurface(
@@ -33,18 +65,29 @@ export const MenuSurface = forwardRef<HTMLDivElement, MenuSurfaceProps>(function
     icons = false,
     shortcuts = false,
     submenus = false,
-    className = '',
-    style,
+    layout,
+    motionMs,
+    privateContent = false,
     ...props
   },
   ref
 ) {
   return (
     <div
-      {...props}
+      {...controlProps(props)}
       ref={ref}
-      className={`wp-menu ${className}`.trim()}
-      style={{ ...style, ...menuDensityStyle(density) }}
+      className={`wp-menu${privateContent ? ' ph-no-capture rr-block' : ''}`}
+      style={{
+        ...Object.fromEntries(MENU_LAYOUT_KEYS.map((key) => [key, layout?.[key]])),
+        ...(motionMs !== undefined && Number.isFinite(motionMs) && motionMs >= 0
+          ? {
+              transition: ['top', 'left', 'width', 'height']
+                .map((key) => `${key} ${motionMs}ms ease-out`)
+                .join(', '),
+            }
+          : {}),
+        ...menuDensityStyle(density),
+      }}
       data-menu-density={density}
       data-menu-content={content}
       data-menu-selection={selection}

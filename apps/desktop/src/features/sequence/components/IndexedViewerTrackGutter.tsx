@@ -155,7 +155,7 @@ function TrackStreamErrorDetails({ message, trackLabel }: { message: string; tra
         role="dialog"
         horizontalAlign="start"
         aria-label={`Load failure details for ${trackLabel}`}
-        className="w-max p-2 text-xs text-fg"
+        layout={{ width: 'max-content' }}
       >
         <p
           ref={focusDetails}

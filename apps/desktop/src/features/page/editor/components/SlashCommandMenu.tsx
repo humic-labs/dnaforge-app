@@ -83,7 +83,7 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
       onKeyDown: ({ event }) => {
         if (
           !menu.isOpen ||
-        event.defaultPrevented ||
+          event.defaultPrevented ||
           event.isComposing ||
           event.keyCode === 229 ||
           !presentation.owner.allowsEvent(presentationParentId ?? origin.id, 'keyboard', event)
@@ -144,8 +144,13 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
         aria-label="Notebook commands"
         data-menu-id="root"
         data-presentation-surface={presentation.id}
-        style={{ display: presentation.visible ? undefined : 'none' }}
-        className={`max-w-[calc(100vw-16px)] max-h-[min(20rem,calc(100vh-16px))] overflow-auto ${hasBothColumns ? 'w-[420px]' : 'w-52'}`}
+        layout={{
+          width: hasBothColumns ? 420 : '13rem',
+          maxWidth: 'calc(100vw - 16px)',
+          maxHeight: 'min(20rem, calc(100vh - 16px))',
+          overflow: 'auto',
+          display: presentation.visible ? undefined : 'none',
+        }}
       >
         {commands.length === 0 ? (
           <MenuStatus>No matching commands</MenuStatus>

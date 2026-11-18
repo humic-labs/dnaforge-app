@@ -210,8 +210,12 @@ export function CompactFilterMultiSelect<T extends string>({
                 event.stopPropagation();
               }}
               onKeyDown={menu.handleKeyDown}
-              className="fixed z-[10060] overflow-y-auto"
-              style={menuPlacement}
+              layout={{
+                position: 'fixed',
+                zIndex: 10060,
+                overflowY: 'auto',
+                ...menuPlacement,
+              }}
             >
               <MenuRow
                 id={optionId(CLEAR_ID)}

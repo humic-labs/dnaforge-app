@@ -144,7 +144,7 @@ export function AssemblyPcrTmConfigurator({
         preferredSide="bottom"
         closeOnEscape={false}
         surfaceVariant="settings"
-        className="w-[220px] border border-border p-2 text-fg"
+        layout={{ width: 220 }}
         aria-label="Polymerase mix settings"
         data-testid="assembly-pcr-mix-settings-panel"
       >

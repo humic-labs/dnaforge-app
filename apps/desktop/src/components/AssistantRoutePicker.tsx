@@ -214,7 +214,7 @@ export function AssistantRoutePicker({
         role="menu"
         aria-label="Assistant source"
         data-testid={menuTestId}
-        className="w-72 sm:w-80"
+        layout={{ width: '20rem' }}
         density="compact"
         selection
         onRequestClose={menu.close}
