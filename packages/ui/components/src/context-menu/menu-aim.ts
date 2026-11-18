@@ -137,7 +137,8 @@ export function useMenuAim({
   }, [session, enabled, cancelPendingActivation]);
 
   useEffect(() => {
-    lifecycle.current.mounted = true;
+    lifecycle.current.mounted = enabled;
+    if (!enabled) return;
     const handlePointerMove = (event: PointerEvent) => {
       const next = { x: event.clientX, y: event.clientY };
       const pending = pendingRef.current;
@@ -159,7 +160,7 @@ export function useMenuAim({
       document.removeEventListener('pointermove', handlePointerMove, true);
       cancelPendingActivation();
     };
-  }, [cancelPendingActivation, finishPendingActivation]);
+  }, [enabled, cancelPendingActivation, finishPendingActivation]);
 
   const requestActivation = useCallback(
     ({ pointer, submenuElement, activate, isCurrent }: MenuAimRequest) => {

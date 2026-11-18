@@ -47,18 +47,34 @@ describe('context menus across the real canvas-store boundary', () => {
         </CommandScopeProvider>
       );
       await act(async () => {});
-      fireEvent.focus(
-        screen.getByRole('button', {
+      fireEvent.click(
+        screen.getByRole('menuitem', {
           name: kind === 'tab' ? 'Merge pane with...' : 'Merge tabs with...',
         })
       );
-      expect(screen.getAllByRole('menu')[0]).toHaveTextContent('pBR322 Follow-up');
-      expect(screen.getAllByRole('menu')[0]).not.toHaveTextContent('.gb');
+      expect(
+        screen.getByRole('menu', {
+          name: kind === 'tab' ? 'Merge pane with...' : 'Merge tabs with...',
+        })
+      ).toHaveTextContent('pBR322 Follow-up');
+      expect(
+        screen.getByRole('menu', {
+          name: kind === 'tab' ? 'Merge pane with...' : 'Merge tabs with...',
+        })
+      ).not.toHaveTextContent('.gb');
       await act(async () =>
         store.updateTabByEntityId('sequence-test', { label: 'pBR322.v2.fasta.gz' })
       );
-      expect(screen.getAllByRole('menu')[0]).toHaveTextContent('pBR322.v2');
-      expect(screen.getAllByRole('menu')[0]).not.toHaveTextContent('.fasta.gz');
+      expect(
+        screen.getByRole('menu', {
+          name: kind === 'tab' ? 'Merge pane with...' : 'Merge tabs with...',
+        })
+      ).toHaveTextContent('pBR322.v2');
+      expect(
+        screen.getByRole('menu', {
+          name: kind === 'tab' ? 'Merge pane with...' : 'Merge tabs with...',
+        })
+      ).not.toHaveTextContent('.fasta.gz');
     }
   );
 });

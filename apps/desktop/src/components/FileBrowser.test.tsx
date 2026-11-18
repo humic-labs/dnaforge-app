@@ -2447,8 +2447,8 @@ describe('FileBrowser', () => {
       const secondRow = screen.getByText('second').closest('[data-testid="file-tree-item"]');
       expect(firstRow).toHaveAttribute('aria-selected', 'true');
       expect(secondRow).toHaveAttribute('aria-selected', 'true');
-      expect(firstRow).toHaveClass('bg-accent/15');
-      expect(secondRow).toHaveClass('bg-accent/15');
+      expect(firstRow).toHaveAttribute('data-selected', 'true');
+      expect(secondRow).toHaveAttribute('data-selected', 'true');
       fireEvent.click(screen.getByText('plasmid'));
       expect(firstRow).toHaveAttribute('aria-selected', 'false');
       expect(secondRow).toHaveAttribute('aria-selected', 'false');
@@ -2501,9 +2501,9 @@ describe('FileBrowser', () => {
           { block: 'center' }
         );
       });
-      expect(screen.getByText('selected').closest('[data-testid="file-tree-item"]')).toHaveClass(
-        'bg-accent/15'
-      );
+      expect(
+        screen.getByText('selected').closest('[data-testid="file-tree-item"]')
+      ).toHaveAttribute('data-selected', 'true');
     });
 
     it('does not keep vertically centering normal selection after a reveal', async () => {

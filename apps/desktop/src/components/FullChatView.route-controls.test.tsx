@@ -64,11 +64,11 @@ const codexMemory = {
 };
 
 function expectComposerPickerDisclosureIcon(button: HTMLElement) {
-  const icon = within(button).getByTestId('chat-composer-picker-icon');
-  expect(icon).toHaveClass('rotate-90', 'opacity-100', 'transition-transform');
-  expect(icon.querySelector('svg')).toHaveAttribute('width', '10');
-  expect(icon.querySelector('svg')).toHaveAttribute('height', '10');
-  expect(icon.querySelector('svg')).toHaveClass('stroke-[2.5]');
+  const icon = button.querySelector('.wp-menu-caret')!;
+  expect(icon).toHaveAttribute('data-direction', 'down');
+  expect(icon).toHaveAttribute('width', '12');
+  expect(icon).toHaveAttribute('height', '12');
+  expect(icon.querySelector('path')).toHaveAttribute('stroke-width', '1.5');
   for (const className of ['justify-between', 'w-28', 'w-36', 'w-44']) {
     expect(button).not.toHaveClass(className);
   }
@@ -110,7 +110,8 @@ describe('FullChatView route controls', () => {
     const modelSelect = within(toolbar).getByTestId('chat-model-version-select');
     expect(modelSelect).toHaveAttribute('data-value', 'gpt-4o');
     expect(modelSelect).toHaveAccessibleName('OpenAI model');
-    expect(modelSelect).toHaveClass('inline-flex', 'rounded-md', 'hover:bg-border/40');
+    expect(modelSelect).toHaveClass('wp-menu-trigger');
+    expect(modelSelect).toHaveAttribute('data-variant', 'toolbar');
     expect(modelSelect).not.toHaveClass('border');
     expect(modelSelect).not.toHaveClass('bg-bg');
     expectComposerPickerDisclosureIcon(modelSelect);
@@ -440,7 +441,7 @@ describe('FullChatView route controls', () => {
     expect(effortSelect).toHaveAttribute('data-value', 'high');
     expect(effortSelect).not.toHaveClass('bg-bg');
     const effortIcon = expectComposerPickerDisclosureIcon(effortSelect);
-    expect(effortIcon.className).toBe(modelIcon.className);
+    expect(effortIcon.getAttribute('class')).toBe(modelIcon.getAttribute('class'));
     expectElementBefore(screen.getByTestId('model-selector-button'), modelSelect);
     expectElementBefore(modelSelect, effortSelect);
 

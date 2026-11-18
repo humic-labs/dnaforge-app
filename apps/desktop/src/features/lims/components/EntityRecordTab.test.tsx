@@ -337,7 +337,7 @@ describe('saved record explicit Save', () => {
     const choose = await screen.findByRole('button', { name: 'Choose Parent entity' });
     await waitFor(() => expect(choose).toBeEnabled());
     fireEvent.click(choose);
-    fireEvent.click(await screen.findByRole('button', { name: /Parent strain/ }));
+    fireEvent.click(await screen.findByRole('option', { name: /Parent strain/ }));
     await waitFor(() => expect(saveControl()).toBeEnabled());
     expect(mocks.update).not.toHaveBeenCalled();
     const saved = fixture();

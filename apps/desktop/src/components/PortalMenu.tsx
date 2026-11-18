@@ -411,7 +411,12 @@ function BoundPortalMenu({
     }
   }, [placement, placementMode, anchorPoint, anchorRef]);
 
-  const mounted = open && placement !== null;
+  const mayMount =
+    menuRef.current !== null || menuId !== 'root' || parent.owner.allows(parent.id, 'keyboard');
+  const mounted = open && placement !== null && mayMount;
+  useLayoutEffect(() => {
+    if (open && !mayMount) requestClose('owner-revoked', menu.state.session);
+  }, [open, mayMount, requestClose, menu.state.session]);
   useLayoutEffect(() => {
     if (mounted) return scheduleFocus(initialFocusRef?.current);
   }, [mounted, initialFocusRef]);
@@ -513,7 +518,7 @@ function BoundPortalMenu({
     });
   }, [open, menu.state.session, requestClose, presentation.owner, parent.owner, parent.id]);
 
-  if (!open || !placement) return null;
+  if (!mounted || !placement) return null;
 
   return createPortal(
     <PresentationScopeContext.Provider value={presentation.scope}>

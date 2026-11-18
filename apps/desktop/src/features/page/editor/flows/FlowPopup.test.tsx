@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import postcss from 'postcss';
@@ -44,11 +46,17 @@ async function backgroundDeclarations(element: HTMLElement): Promise<string[]> {
       ...tailwindConfig,
       content: [{ raw: document.body.innerHTML, extension: 'html' }],
     }),
-  ]).process('@tailwind utilities;', { from: undefined });
+  ]).process(
+    readFileSync(
+      createRequire(import.meta.url).resolve('@waypoint/ui-components/menu.css'),
+      'utf8'
+    ) + '\n@tailwind utilities;',
+    { from: undefined }
+  );
   const backgrounds: string[] = [];
   compiled.root.walkRules((rule) => {
     if (!element.matches(rule.selector)) return;
-    rule.walkDecls('background-color', (declaration) => {
+    rule.walkDecls(/^(background|background-color)$/, (declaration) => {
       backgrounds.push(declaration.value);
     });
   });
@@ -75,7 +83,7 @@ describe('notebook overlay surfaces', () => {
   it('the actual empty mention menu has a compiled theme background', async () => {
     const { container } = render(<MentionMenu items={[]} query="" command={vi.fn()} />);
     expect(await backgroundDeclarations(container.firstElementChild as HTMLElement)).toContain(
-      'hsl(var(--color-bg) / var(--tw-bg-opacity, 1))'
+      'var(--menu-background)'
     );
   });
 });

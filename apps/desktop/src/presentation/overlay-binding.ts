@@ -7,6 +7,32 @@ export class OverlayBinding {
   private unsubscribe: (() => void) | null = null;
   private returnFocus: HTMLElement | null = null;
   private returnFocusPolicy: 'restore' | 'preserve' | 'advance' = 'restore';
+  private lastFocus: HTMLElement | null = null;
+  private focusCleanup: (() => void) | null = null;
+
+  private containModalFocus = (event: FocusEvent): void => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const contains = (element: HTMLElement) =>
+      [...this.nodes.values()].some((node) => node.contains(element));
+    if (contains(target)) {
+      this.lastFocus = target;
+      return;
+    }
+    const previous = this.lastFocus;
+    const lease = this.owner.captureFocus(this.id);
+    if (!previous?.isConnected || !this.owner.allows(this.id, 'keyboard')) return;
+    queueMicrotask(() => {
+      if (
+        this.owner.isCurrent(lease) &&
+        this.owner.allows(this.id, 'keyboard') &&
+        target.ownerDocument.activeElement === target &&
+        previous.isConnected &&
+        contains(previous)
+      )
+        previous.focus({ preventScroll: true });
+    });
+  };
 
   setReturnFocusPolicy = (policy: 'restore' | 'preserve' | 'advance'): void => {
     this.returnFocusPolicy = policy;
@@ -92,6 +118,9 @@ export class OverlayBinding {
           (focused instanceof Node && removed?.contains(focused)));
       this.nodes.delete(key);
       if (!this.nodes.size) {
+        this.focusCleanup?.();
+        this.focusCleanup = null;
+        this.lastFocus = null;
         this.owner.dispatch({ type: 'suspend', id: this.id });
         if (restoreFocus && !(removed instanceof HTMLDialogElement)) this.restoreFocus();
         this.unsubscribe?.();
@@ -133,6 +162,12 @@ export class OverlayBinding {
     }
     node.dataset.presentationSurface = this.id;
     this.nodes.set(key, node);
+    if (this.capture === 'modal' && !this.focusCleanup) {
+      const document = node.ownerDocument;
+      document.addEventListener('focusin', this.containModalFocus, true);
+      this.focusCleanup = () =>
+        document.removeEventListener('focusin', this.containModalFocus, true);
+    }
     this.unsubscribe ??= this.owner.subscribe(this.sync);
     this.owner.dispatch({
       type: 'attach',
