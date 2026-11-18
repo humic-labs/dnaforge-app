@@ -217,9 +217,11 @@ export function nearestRowCopyForBp(
 export function getScrollYForSequencePosition(
   position: number,
   layout: LayoutSnapshot2D | null,
-  preferRealRows: boolean = false
+  preferRealRows: boolean = false,
+  positionAnchor: 'start' | 'center' = 'start'
 ): number | null {
   if (!layout || !layout.lines.length) return null;
+  const withinPosition = positionAnchor === 'center' ? 0.5 : 0;
   if (layout.summary && layout.lines.length !== layout.summary.totalRows) {
     const rowTop = yForBp(position, layout.summary);
     if (rowTop === null) return null;
@@ -231,7 +233,10 @@ export function getScrollYForSequencePosition(
       rowStart <= position
         ? position - rowStart
         : seqLen - rowStart + (((position % seqLen) + seqLen) % seqLen);
-    const progress = Math.max(0, Math.min(1, offset / Math.max(1, layout.summary.cpr)));
+    const progress = Math.max(
+      0,
+      Math.min(1, (offset + withinPosition) / Math.max(1, layout.summary.cpr))
+    );
     return rowTop + progress * rowHeight;
   }
 
@@ -261,7 +266,7 @@ export function getScrollYForSequencePosition(
         charOffset = seqLen - line.startPos + normalizedPos;
       }
 
-      const progressInLine = charOffset / line.sequence.length;
+      const progressInLine = (charOffset + withinPosition) / line.sequence.length;
       return line.y + progressInLine * lineHeight;
     }
     return null;

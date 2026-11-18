@@ -3273,7 +3273,7 @@ function WorkspaceEditorInner(
         lastContinuousCircularSyncPositionRef.current = null;
       }
 
-      let targetY = getScrollYForSequencePosition(pos, layout, true);
+      let targetY = getScrollYForSequencePosition(pos, layout, true, 'center');
 
       if (targetY !== null && options?.continuousCircular === true) {
         const continuousY = continuousCircularScrollY(pos, layout);

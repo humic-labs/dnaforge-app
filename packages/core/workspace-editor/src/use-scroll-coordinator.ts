@@ -70,7 +70,12 @@ export function useScrollCoordinator(opts: UseScrollCoordinatorOpts): ScrollCoor
       const rowY =
         placement === 'anchor' && getAnchorYRef.current
           ? getAnchorYRef.current(targetBp, layout)
-          : getScrollYForSequencePosition(targetBp, layout, true);
+          : getScrollYForSequencePosition(
+              targetBp,
+              layout,
+              true,
+              placement === 'center' ? 'center' : 'start'
+            );
       if (rowY === null) return false;
       const targetPx =
         placement === 'center'
