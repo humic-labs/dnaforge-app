@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { workDatePart, type WorkSchedule } from '@waypoint/domain-services';
 import { platform } from '../../platform';
 import { Button } from '../../shared/components/Button';
-import type { WorkTaskRecord } from '../../shared/work-tasks-ipc';
+import type { WorkRecordDate, WorkTaskRecord } from '../../shared/work-tasks-ipc';
+import { openWorkRecordDate } from './WorkRecordDates';
 import { openWorkTask } from './task-presentation';
 
 function monthStart(date: Date, offset = 0) {
@@ -18,7 +19,14 @@ function dayKey(date: Date) {
 function localDateKey(value: Parameters<typeof workDatePart>[0]) {
   return value.kind === 'timed' ? dayKey(new Date(value.instant)) : workDatePart(value);
 }
-export function WorkCalendar({ tasks }: { tasks: WorkTaskRecord[] }) {
+export function WorkCalendar({
+  tasks,
+  recordDates = [],
+}: {
+  tasks: WorkTaskRecord[];
+  recordDates?: WorkRecordDate[];
+}) {
+  const [sourceError, setSourceError] = useState('');
   const [month, setMonth] = useState(() => monthStart(new Date()));
   const days = useMemo(() => {
     const end = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
@@ -112,6 +120,11 @@ export function WorkCalendar({ tasks }: { tasks: WorkTaskRecord[] }) {
           </Button>
         </p>
       )}
+      {sourceError && (
+        <p role="alert" className="text-xs text-error">
+          {sourceError}
+        </p>
+      )}
       {!current &&
         tasks.some((task) => task.document.recurrence || task.document.occurrences.length) && (
           <p role="status" className="text-xs text-fg-muted">
@@ -164,6 +177,21 @@ export function WorkCalendar({ tasks }: { tasks: WorkTaskRecord[] }) {
                   </button>,
                 ];
               })}
+              {recordDates
+                .filter((row) => row.status === 'resolved' && localDateKey(row.value) === key)
+                .map((row) => (
+                  <button
+                    key={row.id}
+                    type="button"
+                    title={row.entityName + ' · ' + row.label}
+                    className="block w-full truncate rounded px-1 text-left text-[11px] text-fg-muted hover:bg-bg-muted"
+                    onClick={() =>
+                      void openWorkRecordDate(row).catch((cause) => setSourceError(cause.message))
+                    }
+                  >
+                    {row.label} · {row.entityName}
+                  </button>
+                ))}
             </div>
           );
         })}

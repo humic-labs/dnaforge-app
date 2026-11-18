@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { platform } from '../../platform';
 import { Button } from '../../shared/components/Button';
 import { Input } from '../../shared/components/Input';
-import type { WorkAssignee, WorkTaskCommand } from '@waypoint/domain-services';
+import {
+  pastWorkDeadline,
+  type WorkAssignee,
+  type WorkTaskCommand,
+} from '@waypoint/domain-services';
 import type {
   WorkProject,
   WorkTaskHistory,
@@ -21,6 +25,7 @@ import { RelativeDateField } from './RelativeDateField';
 import { RecurrenceEditor } from './RecurrenceEditor';
 import { OccurrencePanel } from './OccurrencePanel';
 import { AssigneeField } from './AssigneeField';
+import { WorkTaskReminders } from './WorkReminders';
 import { changedTaskFields, taskDraft, describeDate, type TaskDraft } from './task-form';
 
 import { readWorkRecovery, writeWorkRecovery, type WorkEditRecovery } from './task-recovery';
@@ -685,6 +690,34 @@ function TaskEditor({
           )}
         </details>
       )}
+      {record?.document.completion && (
+        <section aria-label="Completion" className="rounded border border-border p-3 text-xs">
+          <p>Completed {new Date(record.document.completion.actualAt).toLocaleString()}</p>
+          <p className="text-fg-muted">
+            Recorded {new Date(record.document.completion.recordedAt).toLocaleString()}
+            {record.document.completion.reported ? ' · Actual time supplied' : ''}
+          </p>
+          <p>
+            {record.document.completion.schedule.deadline.kind === 'resolved'
+              ? pastWorkDeadline(
+                  record.document.completion.schedule.deadline.value,
+                  record.document.completion.actualAt
+                )
+                ? 'Completed after the deadline'
+                : 'Completed on time'
+              : record.document.completion.schedule.deadline.kind === 'missing'
+                ? 'No deadline was set'
+                : 'Deadline could not be resolved at completion'}
+          </p>
+        </section>
+      )}
+      {record?.document.cancellation && (
+        <p className="text-xs text-fg-muted">
+          Canceled {new Date(record.document.cancellation.recordedAt).toLocaleString()}
+          {record.document.cancellation.reason ? ' · ' + record.document.cancellation.reason : ''}
+        </p>
+      )}
+      {record && <WorkTaskReminders task={record} />}
       {error && (
         <p role="alert" className="text-xs text-error">
           {error}

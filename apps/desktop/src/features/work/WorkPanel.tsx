@@ -9,6 +9,7 @@ import { WorkCalendar } from './WorkCalendar';
 import { createWorkTask, openWorkTask } from './task-presentation';
 import { describeDate } from './task-form';
 import { useWorkQuery } from './use-work-query';
+import { useWorkRecordDates, WorkRecordDateAgenda } from './WorkRecordDates';
 
 const buckets = [
   ['overdue', 'Overdue'],
@@ -46,6 +47,7 @@ export function WorkPanel({
     mode === 'mine' ? 'me' : 'all'
   );
   const { result, error, refresh } = useWorkQuery({ workspaceRoot, subjectId, state, assignee });
+  const recordDates = useWorkRecordDates(mode === 'project' ? workspaceRoot : undefined);
   const projects =
     result?.projects.filter(
       (p) =>
@@ -157,7 +159,7 @@ export function WorkPanel({
             </p>
           ))}
           {view === 'calendar' ? (
-            <WorkCalendar tasks={tasks} />
+            <WorkCalendar tasks={tasks} recordDates={recordDates.rows} />
           ) : (
             <>
               {buckets.map(([bucket, label]) => {
@@ -228,6 +230,12 @@ export function WorkPanel({
               )}
             </>
           )}
+          {recordDates.error && (
+            <p role="alert" className="text-xs text-error">
+              {recordDates.error}
+            </p>
+          )}
+          {view === 'agenda' && <WorkRecordDateAgenda rows={recordDates.rows} />}
         </>
       )}
     </section>

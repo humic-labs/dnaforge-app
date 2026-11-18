@@ -9,6 +9,7 @@ import {
 } from '@waypoint/domain-services';
 import { WorkPanel } from './WorkPanel';
 import { WorkTaskDialogHost } from './WorkTaskDialogHost';
+import { WorkTaskReminders } from './WorkReminders';
 import { closeWorkTask } from './task-presentation';
 import type {
   WorkTaskInspection,
@@ -27,6 +28,9 @@ const client = vi.hoisted(() => ({
   history: vi.fn(),
   occurrences: vi.fn(),
   records: vi.fn(),
+  reminders: vi.fn(),
+  reminderCommand: vi.fn(),
+  dates: vi.fn(),
 }));
 vi.mock('../../platform', () => ({
   platform: () => ({ workTasks: client, lims: { queryRegistrySummaries: client.records } }),
@@ -72,6 +76,18 @@ describe('linked work', () => {
       stored?.id === input.taskId ? stored : null
     );
     client.history.mockResolvedValue({ revisions: [] });
+    client.dates.mockResolvedValue({ rows: [], total: 0, nextOffset: null });
+    client.reminders.mockResolvedValue({
+      authority: 'local',
+      scope: 'local',
+      available: true,
+      epoch: 1,
+      consent: null,
+      rules: [],
+      inbox: [],
+      deliveries: [],
+      subscriptions: [],
+    });
     client.mutate.mockImplementation(async (input: WorkTaskMutation) => {
       const document = applyWorkTaskCommand(stored?.document ?? null, input.command, {
         actor: actor.id,
@@ -91,6 +107,27 @@ describe('linked work', () => {
       closeWorkTask();
     })
   );
+  it('retains the exact reminder request through an interrupted reply and remount', async () => {
+    const task = makeRecord(
+      'reminded-task',
+      applyWorkTaskCommand(null, { kind: 'create', name: 'Review result' }, { actor: 'p1', now })
+    );
+    client.reminderCommand
+      .mockRejectedValueOnce(new Error('Reply interrupted'))
+      .mockResolvedValueOnce({ outcome: 'applied', revision: 1 });
+    const first = render(<WorkTaskReminders task={task} />);
+    await screen.findByLabelText('In-app reminders');
+    fireEvent.click(screen.getByLabelText('In-app reminders'));
+    await screen.findByText('Reply interrupted');
+    first.unmount();
+    render(<WorkTaskReminders task={task} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry request' }));
+    await waitFor(() => expect(client.reminderCommand).toHaveBeenCalledTimes(2));
+    expect(client.reminderCommand.mock.calls[0]![0]).toEqual(
+      client.reminderCommand.mock.calls[1]![0]
+    );
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Retry request' })).toBeNull());
+  });
   it('creates a task from a source record, then opens its accepted identity from the project', async () => {
     render(
       <>
