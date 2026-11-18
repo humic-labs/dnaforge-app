@@ -190,6 +190,10 @@ export function registerInventoryHandlers(options: {
     }
   };
   return handleGroup(inventoryContract, {
+    scientificWorksForContext: (event, request) => {
+      assertCaller(event);
+      return currentOwner().scientificWorksForContext(request);
+    },
     scientificContextsV2: (event, request) => {
       assertCaller(event);
       return currentOwner().scientificContextsV2(request);

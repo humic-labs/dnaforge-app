@@ -1,5 +1,9 @@
 import { defineGroup, event, invoke } from './contract';
 import type {
+  InventoryScientificWorksForContextRequest,
+  InventoryScientificWorksForContextRead,
+} from '../inventory-scientific-read';
+import type {
   InventoryEquipmentCatalogEntry,
   InventoryEquipmentCatalogUpdatePreview,
   InventoryState,
@@ -71,6 +75,10 @@ import type {
 } from '../inventory-client';
 
 export const inventoryContract = defineGroup('inventory', {
+  scientificWorksForContext: invoke<
+    [request: InventoryScientificWorksForContextRequest],
+    InventoryScientificWorksForContextRead
+  >(),
   scientificContextsV2: invoke<
     [request: InventoryScientificContextsV2Request],
     InventoryScientificContextsV2Snapshot

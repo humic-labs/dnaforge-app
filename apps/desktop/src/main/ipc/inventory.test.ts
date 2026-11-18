@@ -29,6 +29,7 @@ const request: InventoryExecuteRequest = {
   ],
 };
 let owner: NativeInventoryOwner | null;
+let scientificWorksForContext: ReturnType<typeof vi.fn>;
 let inspectBenchlingCapture: ReturnType<typeof vi.fn>;
 let previewBenchlingCapture: ReturnType<typeof vi.fn>;
 let applyBenchlingCapture: ReturnType<typeof vi.fn>;
@@ -61,6 +62,7 @@ const call = (input: unknown = request) =>
   )(event, input);
 
 beforeEach(() => {
+  scientificWorksForContext = vi.fn(() => ({ kind: 'inventory-absent' }));
   inspectBenchlingCapture = vi.fn(() => ({ kind: 'blocked', capture: null }));
   previewBenchlingCapture = vi.fn(() => ({ kind: 'blocked', issues: [] }));
   applyBenchlingCapture = vi.fn(() => ({ status: 'committed', operationId: 'capture-once' }));
@@ -85,6 +87,7 @@ beforeEach(() => {
   previewSourceRevision = vi.fn(() => ({ kind: 'ready', target: { revision: 0 } }));
   acknowledgeSource = vi.fn(() => ({ status: 'committed' }));
   owner = {
+    scientificWorksForContext,
     inspectBenchlingCapture,
     previewBenchlingCapture,
     applyBenchlingCapture,
@@ -110,6 +113,24 @@ beforeEach(() => {
     acknowledgeSource,
   } as unknown as NativeInventoryOwner;
   registerInventoryHandlers({ owner: () => owner, target: () => target });
+});
+
+it('reads physical work under its exact scoped query without any mutation method', () => {
+  const read = captured.handlers.scientificWorksForContext as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => unknown;
+  const input = {
+    project: 'project',
+    inventoryId: 'inventory',
+    context: { kind: 'protocol-run', entityId: 'project::run' },
+    limit: 20,
+  };
+  expect(read(event, input)).toEqual({ kind: 'inventory-absent' });
+  expect(scientificWorksForContext).toHaveBeenCalledExactlyOnceWith(input);
+  expect(execute).not.toHaveBeenCalled();
+  expect(() => read({ ...event, senderFrame: {} } as IpcMainInvokeEvent, input)).toThrow();
+  expect(scientificWorksForContext).toHaveBeenCalledTimes(1);
 });
 
 it('keeps capture inspection under the current renderer caller without mutation', () => {

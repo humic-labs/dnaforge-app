@@ -12,6 +12,7 @@ import type { JSONContent } from '@tiptap/core';
 import {
   getCatalogEntityForFilePath,
   getCatalogWorkspaceRootForFilePath,
+  resolveWorkspaceScope,
 } from '../../db/workspace-catalog';
 import { platform } from '../../platform';
 import { scientificPackageKindForMetaPath } from '../../shared/scientific-package';
@@ -63,6 +64,10 @@ import { openProjectResourceReference } from '../../services/notebook-resource-n
 import { withWorkspaceArtifactOpen } from '../../services/workspace-artifact-open';
 import { isWorkspaceMutationBusyError } from '../../services/workspace-mutation-transaction';
 import { readDesktopScientificDocument } from './services/desktop-scientific-documents';
+import {
+  RunRecordedPhysicalWork,
+  type InventoryRunResource,
+} from '../inventory/public/recorded-physical-work';
 import { commitReadableContent, failReadableContent } from '../../lib/readable-content-telemetry';
 
 type ScientificDocumentTabProps = { filePath: string; canvasTabId?: string };
@@ -92,17 +97,44 @@ async function savedScientificText(
   filePath: string,
   workspaceRoot: string,
   signal?: AbortSignal
-): Promise<{ text: string; readOnly: boolean }> {
+): Promise<{ text: string; readOnly: boolean; runResource: InventoryRunResource | null }> {
   if (
     scientificPackageKindForMetaPath(filePath) ||
     /\.dnaforge-protocol(?:-run)?\.json$/u.test(filePath.toLowerCase())
   ) {
     const saved = await readNativeScientificPackage({ workspaceRoot, metaPath: filePath });
-    return { text: saved.originalText, readOnly: saved.readOnly };
+    return {
+      text: saved.originalText,
+      readOnly: saved.readOnly,
+      runResource:
+        saved.kind === 'protocol-run'
+          ? {
+              projectId: saved.projectId,
+              workspaceScope: saved.workspaceScope,
+              entityId: saved.entityId,
+            }
+          : null,
+    };
   }
   const read = await readDesktopScientificDocument({ filePath, workspaceRoot, signal });
   if (!read.ok) throw new Error(read.error.message);
-  return { text: read.document.content, readOnly: false };
+  let runResource: InventoryRunResource | null = null;
+  if (parseScientificDocument(filePath, read.document.content).kind === 'protocol_run') {
+    try {
+      const entity = await getCatalogEntityForFilePath(filePath);
+      const scope =
+        entity?.type === 'protocol_run' ? await resolveWorkspaceScope(workspaceRoot) : null;
+      if (scope && entity)
+        runResource = { projectId: scope, workspaceScope: scope, entityId: entity.id };
+    } catch {
+      runResource = null;
+    }
+  }
+  return {
+    text: read.document.content,
+    readOnly: false,
+    runResource,
+  };
 }
 
 export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocumentTabProps) {
@@ -116,6 +148,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
     {}
   );
   const [nativeReadOnly, setNativeReadOnly] = useState(false);
+  const [runResource, setRunResource] = useState<InventoryRunResource | null>(null);
   const [workspaceUnlocked, setWorkspaceUnlocked] = useState(false);
   const [resolvedWorkspaceRoot, setResolvedWorkspaceRoot] = useState<string | null>(null);
   const [nativeDestinations, setNativeDestinations] = useState<
@@ -175,6 +208,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
     const controller = new AbortController();
     const load = async () => {
       setLoading(true);
+      setRunResource(null);
       setError(null);
       setNativeDestinations({});
       setResolvedWorkspaceRoot(migrationWorkspaceRoot);
@@ -207,6 +241,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
         if (cancelled) return;
         const text = readResult.text;
         setNativeReadOnly(readResult.readOnly);
+        setRunResource(readResult.runResource);
         adoptDocumentText(text);
         commitReadableContent(filePath);
         const parsed = parseScientificDocument(filePath, text);
@@ -513,6 +548,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
       if (disposition === 'preserve-draft') {
         const text = result.text;
         setNativeReadOnly(result.readOnly);
+        setRunResource(result.runResource);
         const parsed = parseScientificDocument(filePath, text);
         setOriginalText(text);
         setOriginalCanonicalText(serializeScientificDocument(parsed));
@@ -520,6 +556,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
       }
       adoptDocumentText(result.text);
       setNativeReadOnly(result.readOnly);
+      setRunResource(result.runResource);
       setError(null);
       return true;
     } catch (reloadError) {
@@ -868,6 +905,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
             document={document}
             onAddAmendment={addAmendment}
             onAmendmentChange={setAmendment}
+            runResource={runResource}
           />
         ) : null}
         {document.kind === 'legacy_collection' ? (
@@ -1115,12 +1153,14 @@ function ProtocolRunBody({
   document,
   onAddAmendment,
   onAmendmentChange,
+  runResource,
 }: {
   amendment: AmendmentDraft;
   canAmend: boolean;
   document: ScientificProtocolRunDocument;
   onAddAmendment: () => Promise<void>;
   onAmendmentChange: (value: AmendmentDraft) => void;
+  runResource: InventoryRunResource | null;
 }) {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -1130,6 +1170,7 @@ function ProtocolRunBody({
         <MetadataRow label="Protocol version" value={document.protocolVersion} />
       </div>
       <FrozenProtocolDefinition raw={document.raw} />
+      <RunRecordedPhysicalWork resource={runResource} />
       <div className="grid gap-4 md:grid-cols-3">
         <RunValues title="Inputs" values={document.inputs} />
         <RunValues title="Outputs" values={document.outputs} />

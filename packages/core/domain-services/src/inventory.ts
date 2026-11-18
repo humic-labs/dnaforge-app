@@ -1,4 +1,6 @@
 export * from './inventory-scientific-types';
+export * from './inventory-scientific-read';
+export { parseInventoryScientificWork } from './inventory-validation';
 export * from './inventory-scientific';
 export * from './inventory-stockroom-types';
 export * from './inventory-stockroom';

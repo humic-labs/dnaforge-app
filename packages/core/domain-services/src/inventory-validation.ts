@@ -2984,6 +2984,10 @@ function vesselBindings(value: unknown): Record<string, InventoryVesselBinding> 
   return result;
 }
 
+export function parseInventoryScientificWork(value: unknown): InventoryScientificWork {
+  return scientificWorkRecord.parse(value);
+}
+
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;

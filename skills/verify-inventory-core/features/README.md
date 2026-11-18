@@ -81,4 +81,4 @@
 
 - [Observed scientific transfers with notebook context](scientific.md).
 
-- [Protocol creation and Run-linked observed transfers](protocol-run.md).
+- [Protocol creation, Run-linked observed transfers and recorded physical work reads](protocol-run.md).

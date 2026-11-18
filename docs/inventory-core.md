@@ -577,6 +577,30 @@ scientific witness to unrelated operations. The existing request-plus-witness
 size limit still applies. Adoption retains foreign context provenance while
 mapping scientific material references and recorded actors.
 
+## Recorded physical work reads
+
+The Run's Recorded physical work section and authenticated agent query use
+`scientificWorksForContext`. The native owner resolves the project and exact
+Notebook or Run identity, reads one inventory snapshot and returns immutable
+observations in recorded-time and work-ID order. It does not read the current
+source file or require its hash to match a historical source pin. Foreign
+adopted context remains foreign.
+
+Pages contain at most fifty observations, with twenty as the default. A cursor
+binds the exact query, inventory revision and last row. A different query or
+invalid row refuses continuation; a changed revision requires the first page
+again. The view replaces each page and uses the existing inventory-change
+notification to refresh the affected project. It keeps loading, unavailable,
+absent inventory and a successful empty page distinct. Late responses cannot
+replace a newer Run or page.
+
+Amounts, vessel names and placements are the recorded facts. A saved placement
+does not include a full historical freezer hierarchy. Saved context loads
+through the existing retained-source reader; current Run navigation resolves its
+canonical identity independently. This read path does not write stock, Run
+files, inventory revisions or receipts. It does not reinterpret the observation
+as a declared Run input, produced material or scientific success.
+
 ## Protocol and Run creation
 
 Protocol creation and Start run use the generic native scientific-package owner.

@@ -219,6 +219,7 @@ async def execute_native_workflow(
             "preview-benchling-capture",
             "apply-benchling-capture",
             "scientific-contexts",
+            "scientific-works-for-context",
             "scientific-contexts-v2",
             "preview-scientific-transfer",
             "preview-scientific-transfer-v2",

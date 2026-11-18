@@ -1,4 +1,8 @@
 import {
+  runInventoryRunRecordedWork,
+  runInventoryRunRecordedWorkReopen,
+} from './journeys/inventory-run-recorded-work.mjs';
+import {
   runInventoryProtocolRunJourney,
   runInventoryProtocolRunResume,
   runInventoryProtocolRunReopen,
@@ -125,8 +129,13 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const args = process.argv.slice(2);
 const option = (name) => args[args.indexOf(name) + 1];
 const stage = args.includes('--stage') ? option('--stage') : 'doctor';
+const recordedWorkStages = {
+  'run-recorded-work': runInventoryRunRecordedWork,
+  'run-recorded-work-reopen': runInventoryRunRecordedWorkReopen,
+};
 assert.ok(
   [
+    ...Object.keys(recordedWorkStages),
     'doctor',
     'before',
     'journey',
@@ -890,6 +899,23 @@ try {
           ? runInventoryStockroomCorrectionsResume
           : runInventoryStockroomCorrectionsReopen
     )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
+  if (Object.hasOwn(recordedWorkStages, stage)) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass the exact completed Protocol Run revision93 fixture.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    receipt.expected = await recordedWorkStages[stage]({
+      page,
+      expect,
+      inventoryRead,
+      capture,
+      fixture,
+      evidenceDirectory: out,
+    });
   }
   if (['protocol-run', 'protocol-run-resume', 'protocol-run-reopen'].includes(stage)) {
     assert.ok(

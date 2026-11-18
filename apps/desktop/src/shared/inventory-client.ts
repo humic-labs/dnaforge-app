@@ -73,6 +73,15 @@ import type {
 } from './inventory-command';
 import type { NotebookSavedSource } from './notebook-saved-source';
 import type { ProtocolRunSavedSource } from './protocol-packages';
+import type {
+  InventoryScientificWorksForContextRequest,
+  InventoryScientificWorksForContextRead,
+} from './inventory-scientific-read';
+export type {
+  InventoryScientificWorkCursor,
+  InventoryScientificWorksForContextRequest,
+  InventoryScientificWorksForContextRead,
+} from './inventory-scientific-read';
 
 export interface InventoryScientificContextsSnapshot {
   readonly projectId: string;
@@ -273,6 +282,9 @@ export type InventoryArrivalPreviewSnapshot = InventoryArrivalPreview & {
 export type { InventoryArrivalDocumentRead };
 
 export interface InventoryClient {
+  scientificWorksForContext(
+    input: InventoryScientificWorksForContextRequest
+  ): Promise<InventoryScientificWorksForContextRead>;
   scientificContextsV2(
     input: InventoryScientificContextsV2Request
   ): Promise<InventoryScientificContextsV2Snapshot>;
@@ -359,6 +371,7 @@ export function unavailableInventoryClient(): InventoryClient {
     message: 'Inventory requires the connected desktop owner.',
   });
   return {
+    scientificWorksForContext: unavailable,
     scientificContextsV2: unavailable,
     previewScientificTransferV2: unavailable,
     applyScientificTransferV2: unavailableMutation,

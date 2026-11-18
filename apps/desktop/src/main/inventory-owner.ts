@@ -3,6 +3,7 @@ import type Database from 'better-sqlite3';
 import {
   applyInventoryCommandBatch,
   inventoryScientificTransferPreview,
+  inventoryScientificWorksForContext,
   inventoryScientificTransferPreviewV2,
   inventoryScientificTransferExistingV2,
   inventoryScientificTransferExisting,
@@ -118,6 +119,11 @@ import {
   findNativeInventoryScientificSource,
 } from './inventory-scientific';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
+import {
+  inventoryScientificWorksForContextRequestSchema,
+  type InventoryScientificWorksForContextRead,
+} from '../shared/inventory-scientific-read';
+import { readWorkspaceSyncAccessBinding } from './workspace-sync-access-record';
 import type {
   NativeProtocolPackages,
   ProtocolSavedSourceCapture,
@@ -1092,6 +1098,134 @@ export function createNativeInventoryOwner(options: {
   };
 
   return {
+    scientificWorksForContext(input: unknown): InventoryScientificWorksForContextRead {
+      const request = inventoryScientificWorksForContextRequestSchema.parse(input),
+        project = resolveProject(request.project, false),
+        assertProject = options.projectAuthority.capture(project.projectId, false),
+        db = options.db();
+      if (
+        !request.context.entityId.startsWith(`${project.projectId}::`) ||
+        request.context.entityId === `${project.projectId}::`
+      )
+        throw new NativeDocumentCommandError(
+          'INVENTORY_QUERY_CONTEXT_INVALID',
+          'Choose the exact scientific record in this project.',
+          false
+        );
+      const projectSnapshot = () => {
+        const row = db
+          .prepare(
+            'SELECT id,path,repo_uuid,access_mode,archived_at,trashed_at FROM workspaces WHERE id=?'
+          )
+          .get(project.id) as WorkspaceIdentity | undefined;
+        return {
+          row,
+          access: row?.repo_uuid ? readWorkspaceSyncAccessBinding(db, row.repo_uuid) : null,
+        };
+      };
+      const capturedProject = canonicalNativeMutationRequest(projectSnapshot());
+      const assertCaptured = () => {
+        if (canonicalNativeMutationRequest(projectSnapshot()) !== capturedProject)
+          throw new NativeDocumentCommandError(
+            'PROJECT_ACCESS_CHANGED',
+            'The inventory project authority changed.',
+            false
+          );
+      };
+      const unavailable = (
+        code: string,
+        message: string,
+        retryable: boolean
+      ): InventoryScientificWorksForContextRead => ({
+        kind: 'unavailable',
+        code,
+        message,
+        retryable,
+      });
+      const result = db
+        .transaction((): InventoryScientificWorksForContextRead => {
+          assertCaptured();
+          try {
+            const row = inventory(db, request.inventoryId, project.projectId);
+            const facts = {
+              projectId: project.projectId,
+              inventoryId: request.inventoryId,
+              context: request.context,
+            };
+            if (!row) return { kind: 'inventory-absent', ...facts };
+            const state = stateFromRow(row),
+              works = inventoryScientificWorksForContext(state, {
+                projectId: project.projectId,
+                workspaceScope: project.projectId,
+                ...request.context,
+              }),
+              querySha256 = nativeInventorySha256(
+                canonicalNativeMutationRequest([
+                  project.projectId,
+                  request.inventoryId,
+                  request.context.kind,
+                  request.context.entityId,
+                ])
+              );
+            let start = 0;
+            if (request.cursor) {
+              const cursor = request.cursor;
+              if (cursor.querySha256 !== querySha256)
+                return unavailable(
+                  'INVENTORY_QUERY_CURSOR_INVALID',
+                  'This cursor belongs to another scientific-work query.',
+                  false
+                );
+              if (cursor.revision !== state.revision)
+                return unavailable(
+                  'INVENTORY_QUERY_REVISION_CHANGED',
+                  'The inventory changed. Read the first page again.',
+                  true
+                );
+              const after = works.findIndex(
+                (work) => work.id === cursor.after.workId && work.at === cursor.after.at
+              );
+              if (after < 0)
+                return unavailable(
+                  'INVENTORY_QUERY_CURSOR_INVALID',
+                  'The scientific-work cursor does not identify a row in this query.',
+                  false
+                );
+              start = after + 1;
+            }
+            const page = works.slice(start, start + (request.limit ?? 20)),
+              last = page.at(-1);
+            return {
+              kind: 'ready',
+              ...facts,
+              revision: state.revision,
+              works: page,
+              nextCursor:
+                last && start + page.length < works.length
+                  ? {
+                      querySha256,
+                      revision: state.revision,
+                      after: { at: last.at, workId: last.id },
+                    }
+                  : null,
+            };
+          } finally {
+            assertCaptured();
+          }
+        })
+        .deferred();
+      const bounded =
+        Buffer.byteLength(canonicalNativeMutationRequest(result), 'utf8') <=
+        NATIVE_DOCUMENT_MAX_BODY_BYTES - 2048
+          ? result
+          : unavailable(
+              'INVENTORY_QUERY_TOO_LARGE',
+              'This scientific-work page exceeds the inline read limit. Choose a smaller page.',
+              false
+            );
+      assertProject();
+      return structuredClone(bounded);
+    },
     async scientificContextsV2(
       input: unknown,
       invocation: NativeInventoryInvocation = {}

@@ -14,6 +14,7 @@ import { notebookDocumentSchema } from '../shared/notebook-document';
 import type { NativeNotebookWorkingCopyOwner } from './notebook-document-owner';
 import type { NativeProtocolPackages } from './native-protocol-packages';
 import type { NativeProtocolClient } from '../shared/protocol-packages';
+import { inventoryScientificWorksForContextRequestSchema } from '../shared/inventory-scientific-read';
 import {
   protocolDocumentAgentRequestSchema,
   protocolOperationCapabilities,
@@ -102,6 +103,15 @@ const selection = target
   })
   .strict();
 const commandSchema = z.discriminatedUnion('command', [
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.scientific-works-for-context'),
+      request: inventoryScientificWorksForContextRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
   z
     .object({
       ownerInstanceId: identity,
@@ -574,6 +584,7 @@ export async function startNativeDocumentCommandServer(options: {
     ReturnType<typeof createNativeInventoryOwner>,
     | 'execute'
     | 'scientificContexts'
+    | 'scientificWorksForContext'
     | 'scientificContextsV2'
     | 'previewScientificTransfer'
     | 'previewScientificTransferV2'
@@ -771,6 +782,7 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'import-review.execute' ||
           body.command === 'administration.execute' ||
           body.command === 'inventory.scientific-contexts' ||
+          body.command === 'inventory.scientific-works-for-context' ||
           body.command === 'inventory.scientific-contexts-v2' ||
           body.command === 'inventory.preview-scientific-transfer' ||
           body.command === 'inventory.preview-scientific-transfer-v2' ||
@@ -861,6 +873,11 @@ export async function startNativeDocumentCommandServer(options: {
           const run = (() => {
             if (options.inventory) {
               const receiver = options.inventory;
+              if (body.command === 'inventory.scientific-works-for-context')
+                return () => ({
+                  kind: 'scientific-works-for-context',
+                  result: receiver.scientificWorksForContext(body.request),
+                });
               if (
                 body.command === 'inventory.scientific-contexts' ||
                 body.command === 'inventory.scientific-contexts-v2'
@@ -1265,6 +1282,7 @@ export async function startNativeDocumentCommandServer(options: {
             body.command !== 'inventory.history';
           if (
             body.command === 'inventory.scientific-contexts' ||
+            body.command === 'inventory.scientific-works-for-context' ||
             body.command === 'inventory.scientific-contexts-v2' ||
             body.command === 'inventory.preview-scientific-transfer' ||
             body.command === 'inventory.preview-scientific-transfer-v2' ||

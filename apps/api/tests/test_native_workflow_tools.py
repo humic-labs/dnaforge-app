@@ -465,6 +465,49 @@ async def test_inventory_v2_keeps_explicit_context_and_original_retry_identity(n
 
 
 @pytest.mark.asyncio
+async def test_inventory_work_query_keeps_context_cursor_and_only_current_read_grant(native):
+    state, context = native
+    state["scope"] = ["read-workspace"]
+    operation = {
+        "kind": "scientific-works-for-context",
+        "project": "project",
+        "inventoryId": "inventory",
+        "context": {"kind": "protocol-run", "entityId": "project::run"},
+        "limit": 20,
+        "cursor": {
+            "querySha256": "sha256:" + "a" * 64,
+            "revision": 93,
+            "after": {"at": 100, "workId": "scientific-work:" + "b" * 64},
+        },
+    }
+    state["result"] = {
+        "kind": "scientific-works-for-context",
+        "result": {
+            "kind": "unavailable",
+            "code": "INVENTORY_QUERY_REVISION_CHANGED",
+            "message": "Read the first page after the inventory changed.",
+            "retryable": True,
+        },
+    }
+    result = await execute_native_workflow("inventory", {"operation": operation}, context)
+    assert result["result"]["result"]["kind"] == "unavailable"
+    request = {key: value for key, value in operation.items() if key != "kind"}
+    assert state["calls"] == [
+        {
+            "command": "inventory.scientific-works-for-context",
+            "request": request,
+            "projectScope": {"kind": "app-following"},
+            "agent": {"identityId": "caller", "capabilities": ["read-workspace"]},
+        }
+    ]
+    state["revoked"] = True
+    with pytest.raises(ToolExecutionFailure) as revoked:
+        await execute_native_workflow("inventory", {"operation": operation}, context)
+    assert revoked.value.code == "GRANT_REVOKED"
+    assert len(state["calls"]) == 1
+
+
+@pytest.mark.asyncio
 async def test_protocol_creation_and_recovery_keep_request_and_current_creation_grant(native):
     state, context = native
     state["scope"] = ["read-workspace"]

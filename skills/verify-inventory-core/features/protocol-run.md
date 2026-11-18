@@ -74,3 +74,32 @@ Run creation records an in-progress record. It does not execute equipment, move
 stock, complete a biological procedure or establish produced material. Plate
 plans, completion, additional context links and hardware execution remain
 separate workflows.
+
+## Recorded physical work read
+
+Open an existing Run in Files. Recorded physical work lists the completed manual
+transfers originally associated with that Run, separately from its saved Inputs
+and Outputs. Amounts, source balances, destination aliquots, recorded principal,
+time, reason and vessel locations are historical facts. View saved context reads
+the original retained Run and frozen Protocol. Open current Run resolves its
+current canonical project identity.
+
+Loading, unavailable, absent inventory and a successful empty list are distinct.
+Refresh and matching inventory-change events reload the first page. Next page
+replaces at most20 rows; First page resets the cursor. A changed inventory
+revision restarts pagination, and late responses cannot appear under another
+Run. This read view has no inventory or scientific creation controls.
+
+Reuse a completed currentv24 Protocol Run fixture; do not repeat its transfer:
+
+```sh
+node apps/desktop/scripts/inventory-journey.mjs --stage run-recorded-work --fixture /absolute/evidence/protocol-run-reopen-fixture.json --out /absolute/evidence/run-recorded-work
+node apps/desktop/scripts/inventory-journey.mjs --stage run-recorded-work-reopen --fixture /absolute/evidence/run-recorded-work/run-recorded-work-reopen-fixture.json --out /absolute/evidence/run-recorded-work-reopen
+```
+
+The driver opens the existing work-bearing Run, checks its10µL transfer and
+historical70→60µL source balance, reads saved context, refreshes and follows
+current-Run navigation. The separate existing tracking Run must return a real
+successful empty list. Returning to the first Run and restarting preserve exact
+state, history and all current Protocol/Run source snapshots. Native and agent
+read-only qualification independently checks unchanged receipts and raw files.
