@@ -989,6 +989,8 @@ describe('portable catalog record edits', () => {
 
   it('requires a pending edit to settle before a sync snapshot can include its catalog', async () => {
     const { buildWorkspaceSyncSnapshot } = await import('./workspace-sync-snapshotter');
+    const { initManagedRepo } = await import('./workspace-git');
+    await initManagedRepo(workspacePath);
     const publish = vi
       .spyOn(publication, 'publishNativeCatalogBytes')
       .mockRejectedValueOnce(new Error('Interrupted edit'));
@@ -1081,10 +1083,10 @@ describe('portable catalog record edits', () => {
     });
     const result = await worker.flushWorkspace('reagents-workspace');
     expect(result.status, JSON.stringify(result)).toBe('uploaded');
-    expect(readStoragePolicy).toHaveBeenCalledExactlyOnceWith(
-      '11111111-1111-4111-8111-111111111111',
-      'test-account'
-    );
+    expect(readStoragePolicy.mock.calls).toEqual([
+      ['11111111-1111-4111-8111-111111111111', 'test-account'],
+      ['11111111-1111-4111-8111-111111111111', 'test-account'],
+    ]);
     expect(createVersion).toHaveBeenCalledOnce();
     expect(uploadedBytes).toEqual(await readFile(catalog()));
     expect(parseNativeWorkspaceManifest(uploadedBytes!.toString('utf8')).entities[0].name).toBe(

@@ -240,8 +240,7 @@ export class WorkspaceSyncRuntime {
       commitWorkingTreeIfDirty:
         deps.commitWorkingTreeIfDirty ??
         (async (repoPath, options) => {
-          if (!options?.forceInclude?.length && !(await hasWorkspaceSyncWorkingChanges(repoPath)))
-            return null;
+          if (!(await hasWorkspaceSyncWorkingChanges(repoPath, options?.forceInclude))) return null;
           return commitAllIfDirty(repoPath, 'Auto sync: commit local changes before upload', {
             author: await this.gitAuthor(),
             forceInclude: options?.forceInclude,

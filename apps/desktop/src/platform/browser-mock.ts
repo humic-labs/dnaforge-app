@@ -2888,6 +2888,10 @@ ORIGIN
       parseWorkspaceUuid(workspaceUuid);
       return workspaceSyncNotImplemented('deleteCloudCopy');
     },
+    updateSelection: async (workspaceUuid) => {
+      parseWorkspaceUuid(workspaceUuid);
+      return workspaceSyncNotImplemented('updateSelection');
+    },
     previewUpload: async (workspaceUuid) => {
       parseWorkspaceUuid(workspaceUuid);
       return workspaceSyncNotImplemented('previewUpload');

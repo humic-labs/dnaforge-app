@@ -50,6 +50,17 @@ import {
 import type { BlobRef } from '@waypoint/workspace-revisions';
 
 import type { WorkspaceSyncExcludedSummary as StatusExcludedSummary } from '../shared/cloud-sync-status';
+import type {
+  WorkspaceSyncExcludedFile,
+  WorkspaceSyncSelection,
+} from '../shared/workspace-sync-selection';
+import {
+  readWorkspaceSyncMembership,
+  isWorkspaceSyncProjectIgnored,
+  describeWorkspaceSyncSelection,
+  assertWorkspaceSyncSelectionActive,
+  type WorkspaceSyncMembership,
+} from './workspace-sync-membership';
 import {
   SEQUENCE_PACKAGE_META_NAME,
   SEQUENCE_PACKAGE_MIGRATORS,
@@ -148,6 +159,8 @@ export interface WorkspaceSyncSnapshot {
   includedBytes: number;
   excludedSummary: BundleExcludedSummary;
   statusExcludedSummary: StatusExcludedSummary;
+  excludedFiles?: WorkspaceSyncExcludedFile[];
+  selection?: WorkspaceSyncSelection;
 }
 
 export interface WorkspaceSyncUploadCapture {
@@ -162,6 +175,8 @@ export interface WorkspaceSyncUploadCapture {
   includedBytes: number;
   excludedSummary: BundleExcludedSummary;
   statusExcludedSummary: StatusExcludedSummary;
+  excludedFiles?: WorkspaceSyncExcludedFile[];
+  selection?: WorkspaceSyncSelection;
 
   scientificHistory?: ScientificCloudHistoryV1;
   scientificBlobRefs?: readonly BlobRef[];
@@ -183,6 +198,8 @@ interface WorkspaceRow {
 }
 
 interface CollectState {
+  membership: WorkspaceSyncMembership;
+  excludedFiles: WorkspaceSyncExcludedFile[];
   unsupportedLeafPaths?: Map<string, number>;
   files: WorkspaceSyncFile[];
   manifestResources: Array<WorkspaceSyncUploadPreviewFile & { contentType: string }>;
@@ -217,6 +234,8 @@ export interface WorkspaceSyncUploadPreview {
   includedBytes: number;
   excludedSummary: BundleExcludedSummary;
   statusExcludedSummary: StatusExcludedSummary;
+  excludedFiles: WorkspaceSyncExcludedFile[];
+  selection: WorkspaceSyncSelection;
   limits: ShareBundleLimits;
 }
 
@@ -295,6 +314,11 @@ export async function buildWorkspaceSyncRecoveryCapture(
     ? workspaceSyncStoragePolicyLimits(input.storagePolicy)
     : WORKSPACE_SYNC_MANIFEST_READ_LIMITS;
   const excludedSummary = emptyExcludedSummary();
+  const membership = await readWorkspaceSyncMembership(db, {
+    workspaceUuid: input.workspaceUuid,
+    repoPath: workspace.path,
+  });
+  const excludedFiles: WorkspaceSyncExcludedFile[] = [];
   const requiredPaths = new Set<string>();
   const declaredMembers = new Set<string>();
   const candidates: { path: string; source: string; sizeBytes: number }[] = [];
@@ -396,6 +420,17 @@ export async function buildWorkspaceSyncRecoveryCapture(
         sizeBytes: number,
         acceptedScientificPath = false
       ) => {
+        if (
+          acceptedScientificPath ||
+          declaredMembers.has(path) ||
+          path === NATIVE_WORKSPACE_MANIFEST_PATH ||
+          /(?:^|\/)\.forge\/(?:plasmid|notebook)\.json$/u.test(path)
+        )
+          membership.requiredPaths.add(path);
+        if (isWorkspaceSyncProjectIgnored(membership, path)) {
+          excludedFiles.push({ relativePath: path, sizeBytes, reason: 'project-ignore' });
+          return;
+        }
         const portable = parseWorkspacePath(path);
         if (!portable.ok || portable.value !== path) {
           addExcluded(excludedSummary, 'unsupported', sizeBytes);
@@ -408,10 +443,16 @@ export async function buildWorkspaceSyncRecoveryCapture(
           (workspaceSyncResourceMediaType(path) || declaredMembers.has(path));
         if (classification.action === 'exclude' && !recognizedResource && !acceptedScientificPath) {
           addExcluded(excludedSummary, classification.reason ?? 'unsupported', sizeBytes);
+          excludedFiles.push({
+            relativePath: path,
+            sizeBytes,
+            reason: classification.reason ?? 'unsupported',
+          });
           return;
         }
         if (sizeBytes > limits.maxFileBytes) {
           addExcluded(excludedSummary, 'file-too-large', sizeBytes);
+          excludedFiles.push({ relativePath: path, sizeBytes, reason: 'file-too-large' });
           return;
         }
         if (
@@ -419,6 +460,7 @@ export async function buildWorkspaceSyncRecoveryCapture(
           includedBytes + sizeBytes > limits.maxBundleBytes
         ) {
           addExcluded(excludedSummary, 'bundle-too-large', sizeBytes);
+          excludedFiles.push({ relativePath: path, sizeBytes, reason: 'bundle-too-large' });
           return;
         }
         const pinned = join(directory, String(candidates.length));
@@ -492,6 +534,11 @@ export async function buildWorkspaceSyncRecoveryCapture(
     assertScientificCloudTransferSupported(db, workspace.id, input.scientificHistoryFormat);
     const missing = [...requiredPaths].filter((path) => !fileSources.has(path)).sort();
     if (missing.length > 2000) addExcluded(excludedSummary, 'bundle-too-large', null);
+    const selection = describeWorkspaceSyncSelection(
+      membership,
+      files.map((file) => ({ relativePath: file.path, sizeBytes: file.sizeBytes }))
+    );
+    assertWorkspaceSyncSelectionActive(selection);
     const fileManifestSha256 = sha256Hex(workspaceSyncManifestHashInput(parsed.manifest));
     return {
       workspaceId: workspace.id,
@@ -506,7 +553,12 @@ export async function buildWorkspaceSyncRecoveryCapture(
       includedFileCount: files.length,
       includedBytes,
       excludedSummary,
-      statusExcludedSummary: toWorkspaceSyncStatusExcludedSummary(excludedSummary),
+      statusExcludedSummary: {
+        ...toWorkspaceSyncStatusExcludedSummary(excludedSummary),
+        ignoredCount: excludedFiles.filter((file) => file.reason === 'project-ignore').length,
+      },
+      excludedFiles,
+      selection,
       recoveryOnly: { reason: 'invalid-package', missingPaths: missing.slice(0, 2000) },
       dispose,
       ...(scientific
@@ -535,6 +587,10 @@ async function admitScientificCurrentFiles(
   );
   for (const file of files) {
     if (included.has(file.path)) continue;
+    state.membership.requiredPaths.add(file.path);
+    state.excludedFiles = state.excludedFiles.filter(
+      (excluded) => excluded.relativePath !== file.path
+    );
     const lexical = join(workspaceRoot, file.path);
     const canonical = await canonicalWorkspacePath({
       workspaceRoot: workspaceRoot,
@@ -615,6 +671,11 @@ async function prepareWorkspaceSyncUploadCaptureFiles(
   }
 
   const state: CollectState = {
+    membership: await readWorkspaceSyncMembership(db, {
+      workspaceUuid: input.workspaceUuid,
+      repoPath: workspace.path,
+    }),
+    excludedFiles: [],
     files: [],
     manifestResources: [],
     sourceFilePaths: new Map(),
@@ -655,6 +716,9 @@ async function prepareWorkspaceSyncUploadCaptureFiles(
   if (state.packageQuotaError) throw state.packageQuotaError;
   const collectedFiles = [...state.files, ...state.manifestResources].sort((a, b) =>
     a.relativePath.localeCompare(b.relativePath)
+  );
+  assertWorkspaceSyncSelectionActive(
+    describeWorkspaceSyncSelection(state.membership, collectedFiles)
   );
   if (collectedFiles.length === 0) {
     throw new WorkspaceSyncSnapshotError(
@@ -741,7 +805,15 @@ async function hashWorkspaceSyncUploadCaptureFiles(
     includedFileCount: manifest.files.length,
     includedBytes: manifest.files.reduce((total, file) => total + file.sizeBytes, 0),
     excludedSummary: state.excludedSummary,
-    statusExcludedSummary: toWorkspaceSyncStatusExcludedSummary(state.excludedSummary),
+    statusExcludedSummary: {
+      ...toWorkspaceSyncStatusExcludedSummary(state.excludedSummary),
+      ignoredCount: state.excludedFiles.filter((file) => file.reason === 'project-ignore').length,
+    },
+    excludedFiles: state.excludedFiles,
+    selection: describeWorkspaceSyncSelection(state.membership, [
+      ...state.files,
+      ...state.manifestResources,
+    ]),
     ...(scientific
       ? {
           scientificHistory: scientific.descriptor,
@@ -777,6 +849,11 @@ async function buildWorkspaceSyncSnapshotLocked(
   }
 
   const state: CollectState = {
+    membership: await readWorkspaceSyncMembership(db, {
+      workspaceUuid: input.workspaceUuid,
+      repoPath: workspace.path,
+    }),
+    excludedFiles: [],
     files: [],
     manifestResources: [],
     sourceFilePaths: new Map(),
@@ -803,6 +880,9 @@ async function buildWorkspaceSyncSnapshotLocked(
   }
   if (state.packageQuotaError) throw state.packageQuotaError;
 
+  assertWorkspaceSyncSelectionActive(
+    describeWorkspaceSyncSelection(state.membership, [...state.files, ...state.manifestResources])
+  );
   if (state.files.length === 0) {
     throw new WorkspaceSyncSnapshotError(
       'NO_INCLUDED_FILES',
@@ -860,7 +940,15 @@ async function buildWorkspaceSyncSnapshotLocked(
     includedFileCount: state.files.length,
     includedBytes: state.includedBytes,
     excludedSummary: state.excludedSummary,
-    statusExcludedSummary: toWorkspaceSyncStatusExcludedSummary(state.excludedSummary),
+    statusExcludedSummary: {
+      ...toWorkspaceSyncStatusExcludedSummary(state.excludedSummary),
+      ignoredCount: state.excludedFiles.filter((file) => file.reason === 'project-ignore').length,
+    },
+    excludedFiles: state.excludedFiles,
+    selection: describeWorkspaceSyncSelection(state.membership, [
+      ...state.files,
+      ...state.manifestResources,
+    ]),
   };
 }
 
@@ -1033,6 +1121,11 @@ async function collectWorkspaceSyncUploadPreview(
   });
 
   const state: CollectState = {
+    membership: await readWorkspaceSyncMembership(db, {
+      workspaceUuid: input.workspaceUuid,
+      repoPath: workspace.path,
+    }),
+    excludedFiles: [],
     files: [],
     manifestResources: [],
     sourceFilePaths: new Map(),
@@ -1072,7 +1165,15 @@ async function collectWorkspaceSyncUploadPreview(
     includedFileCount: collectedFiles.length,
     includedBytes: state.includedBytes,
     excludedSummary: state.excludedSummary,
-    statusExcludedSummary: toWorkspaceSyncStatusExcludedSummary(state.excludedSummary),
+    statusExcludedSummary: {
+      ...toWorkspaceSyncStatusExcludedSummary(state.excludedSummary),
+      ignoredCount: state.excludedFiles.filter((file) => file.reason === 'project-ignore').length,
+    },
+    excludedFiles: state.excludedFiles,
+    selection: describeWorkspaceSyncSelection(state.membership, [
+      ...state.files,
+      ...state.manifestResources,
+    ]),
     limits,
   };
 }
@@ -1151,6 +1252,11 @@ async function collectWorkspaceFiles(
 
     if (entry.isSymbolicLink()) {
       addExcluded(state.excludedSummary, 'unsupported', null);
+      state.excludedFiles.push({
+        relativePath: normalizeRelativePath(relative(rootPath, absolutePath)),
+        sizeBytes: 0,
+        reason: 'unsupported',
+      });
       continue;
     }
     if (entry.isDirectory()) {
@@ -1380,6 +1486,11 @@ async function collectSequencePackage(
         state.handledAbsolutePaths.add(requiredPath.absolutePath);
       }
       addExcluded(state.excludedSummary, portableClassification.reason, fileStat.size);
+      state.excludedFiles.push({
+        relativePath,
+        sizeBytes: fileStat.size,
+        reason: portableClassification.reason,
+      });
       return;
     }
     candidates.push({
@@ -1393,6 +1504,7 @@ async function collectSequencePackage(
     });
   }
 
+  for (const candidate of candidates) state.membership.requiredPaths.add(candidate.relativePath);
   for (const required of requiredPaths) state.handledAbsolutePaths.add(required.absolutePath);
   const packageBytes = candidates.reduce((sum, candidate) => sum + candidate.sizeBytes, 0);
   if (
@@ -1407,6 +1519,11 @@ async function collectSequencePackage(
       );
     for (const candidate of candidates) {
       addExcluded(state.excludedSummary, 'bundle-too-large', candidate.sizeBytes);
+      state.excludedFiles.push({
+        relativePath: candidate.relativePath,
+        sizeBytes: candidate.sizeBytes,
+        reason: 'bundle-too-large',
+      });
     }
     return;
   }
@@ -1614,11 +1731,13 @@ async function collectNotebookPackage(
         };
     if (classification.action === 'exclude') {
       addExcluded(state.excludedSummary, classification.reason, sizeBytes);
+      state.excludedFiles.push({ relativePath, sizeBytes, reason: classification.reason });
       continue;
     }
     if (sizeBytes > limits.maxFileBytes) {
       for (const path of handled) state.handledAbsolutePaths.add(path);
       addExcluded(state.excludedSummary, 'file-too-large', sizeBytes);
+      state.excludedFiles.push({ relativePath, sizeBytes, reason: 'file-too-large' });
       return;
     }
 
@@ -1632,13 +1751,20 @@ async function collectNotebookPackage(
     stagedBytes += sizeBytes;
   }
 
+  for (const file of admitted) state.membership.requiredPaths.add(file.relativePath);
   for (const path of handled) state.handledAbsolutePaths.add(path);
   if (
     state.files.length + state.manifestResources.length + admitted.length > limits.maxFiles ||
     state.includedBytes + stagedBytes > limits.maxBundleBytes
   ) {
-    for (const file of admitted)
+    for (const file of admitted) {
       addExcluded(state.excludedSummary, 'bundle-too-large', file.sizeBytes);
+      state.excludedFiles.push({
+        relativePath: file.relativePath,
+        sizeBytes: file.sizeBytes,
+        reason: 'bundle-too-large',
+      });
+    }
     return;
   }
 
@@ -1753,6 +1879,21 @@ async function collectWorkspaceFile(
   const relativePath = admitCollectedWorkspaceRelativePath(rootPath, absolutePath, state);
   if (!relativePath) return false;
 
+  const membershipStat = await lstat(absolutePath);
+  if (
+    relativePath === NATIVE_WORKSPACE_MANIFEST_PATH ||
+    /(?:^|\/)\.forge\/(?:plasmid|notebook)\.json$/u.test(relativePath)
+  )
+    state.membership.requiredPaths.add(relativePath);
+  if (isWorkspaceSyncProjectIgnored(state.membership, relativePath)) {
+    state.excludedFiles.push({
+      relativePath,
+      sizeBytes: membershipStat.size,
+      reason: 'project-ignore',
+    });
+    return false;
+  }
+
   const legacyNotebook = await loadLegacyNotebookForSnapshot(
     rootPath,
     absolutePath,
@@ -1764,6 +1905,11 @@ async function collectWorkspaceFile(
   const fileStat = legacyNotebook ? null : await lstat(absolutePath);
   if (fileStat && (fileStat.isSymbolicLink() || !fileStat.isFile())) {
     addExcluded(state.excludedSummary, 'unsupported', null);
+    state.excludedFiles.push({
+      relativePath,
+      sizeBytes: fileStat?.size ?? 0,
+      reason: 'unsupported',
+    });
     return false;
   }
   const fileSize = legacyNotebook?.member.sizeBytes ?? fileStat?.size ?? 0;
@@ -1793,11 +1939,17 @@ async function collectWorkspaceFile(
       ? workspaceSyncResourceMediaType(relativePath)
       : null;
   if (resourceContentType) {
+    if (fileSize > limits.maxFileBytes) {
+      addExcluded(state.excludedSummary, 'file-too-large', fileSize);
+      state.excludedFiles.push({ relativePath, sizeBytes: fileSize, reason: 'file-too-large' });
+      return false;
+    }
     if (
       state.files.length + state.manifestResources.length >= limits.maxFiles ||
       state.includedBytes + fileSize > limits.maxBundleBytes
     ) {
       addExcluded(state.excludedSummary, 'bundle-too-large', fileSize);
+      state.excludedFiles.push({ relativePath, sizeBytes: fileSize, reason: 'bundle-too-large' });
       return false;
     }
     if (options.directStorage && !options.previewOnly) {
@@ -1832,6 +1984,11 @@ async function collectWorkspaceFile(
     if ((classification.reason ?? 'unsupported') === 'unsupported')
       state.unsupportedLeafPaths?.set(relativePath, fileSize);
     addExcluded(state.excludedSummary, classification.reason ?? 'unsupported', fileSize);
+    state.excludedFiles.push({
+      relativePath,
+      sizeBytes: fileSize,
+      reason: classification.reason ?? 'unsupported',
+    });
     return false;
   }
   if (legacyNotebook) {
@@ -1842,6 +1999,7 @@ async function collectWorkspaceFile(
     state.includedBytes + fileSize > limits.maxBundleBytes
   ) {
     addExcluded(state.excludedSummary, 'bundle-too-large', fileSize);
+    state.excludedFiles.push({ relativePath, sizeBytes: fileSize, reason: 'bundle-too-large' });
     return false;
   }
 
@@ -1849,6 +2007,7 @@ async function collectWorkspaceFile(
     const sizeBytes = fileSize;
     if (sizeBytes > limits.maxFileBytes) {
       addExcluded(state.excludedSummary, 'file-too-large', sizeBytes);
+      state.excludedFiles.push({ relativePath, sizeBytes, reason: 'file-too-large' });
       return false;
     }
     state.files.push({
@@ -1920,6 +2079,7 @@ async function collectWorkspaceFile(
   }
   if (sizeBytes > limits.maxFileBytes) {
     addExcluded(state.excludedSummary, 'file-too-large', sizeBytes);
+    state.excludedFiles.push({ relativePath, sizeBytes, reason: 'file-too-large' });
     return false;
   }
 

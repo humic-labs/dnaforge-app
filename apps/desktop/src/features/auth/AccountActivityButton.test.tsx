@@ -2,6 +2,7 @@ import { expectToastCall } from '../../test/toast-assertions';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
 import type { DesktopAuthState } from '../../shared/auth-types';
+import type { WorkspaceSyncUploadPreviewOk } from '../../shared/workspace-sync-ipc';
 
 const h = vi.hoisted(() => ({
   enabled: true,
@@ -44,9 +45,9 @@ const h = vi.hoisted(() => ({
       ],
       includedFileCount: 1,
       includedBytes: 128,
-      excludedSummary: null,
+      excludedSummary: { ignoredCount: 0 },
       limits: { maxFileBytes: 32 * 1024 * 1024, maxBundleBytes: 256 * 1024 * 1024, maxFiles: 2000 },
-    }),
+    } satisfies WorkspaceSyncUploadPreviewOk),
     resolveConflict: vi.fn(),
     deleteCloudCopy: vi.fn(),
     listOrganizations: vi.fn().mockResolvedValue({ ok: true, organizations: [] }),

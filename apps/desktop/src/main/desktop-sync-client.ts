@@ -347,7 +347,7 @@ async function errorFromResponse(response: Response): Promise<DesktopSyncClientE
     return typedError('VALIDATION', message, response.status, false, true, details);
   }
   if (response.status === 426 || code === 'UPGRADE_REQUIRED') {
-    return typedError('VALIDATION', message, response.status, false, true, details);
+    return typedError('UPGRADE_REQUIRED', message, response.status, false, true, details);
   }
   if (response.status === 429) {
     return typedError('RATE_LIMITED', message, response.status, true, false, details);

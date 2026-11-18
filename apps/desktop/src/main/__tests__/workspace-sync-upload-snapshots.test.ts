@@ -602,6 +602,16 @@ describe('durable workspace sync upload snapshots', () => {
         bundleTooLargeCount: 0,
       },
       recoveryOnly: { reason: 'invalid-package', missingPaths: ['contents/missing.bin'] },
+      selection: {
+        version: 1,
+        revision: 'a'.repeat(64),
+        state: 'active',
+        ruleFiles: [{ relativePath: '.gitignore', content: 'temp/\n' }],
+        newlyIncludedPaths: ['large.gb'],
+      },
+      excludedFiles: [
+        { relativePath: 'temp/local.fasta', sizeBytes: 12, reason: 'project-ignore' },
+      ],
     };
 
     const persisted = recordWorkspaceSyncUploadCapture(db, {
@@ -628,6 +638,37 @@ describe('durable workspace sync upload snapshots', () => {
     expect(restored?.contentSha256).toBe(snapshot.contentSha256);
     expect(restored?.fileSources.get('large.gb')).toEqual(persisted.fileSources.get('large.gb'));
     expect(restored?.recoveryOnly).toEqual(snapshot.recoveryOnly);
+    expect(restored?.selection).toEqual(snapshot.selection);
+    expect(restored?.excludedFiles).toEqual(snapshot.excludedFiles);
+    expect(restored?.statusExcludedSummary).toEqual({
+      ...snapshot.statusExcludedSummary,
+      ignoredCount: 1,
+    });
+    const retried = recordWorkspaceSyncUploadCapture(db, {
+      jobId: 'job-a',
+      snapshot: {
+        ...snapshot,
+        selection: { ...snapshot.selection!, revision: 'b'.repeat(64) },
+        excludedFiles: [],
+      },
+      nowMs: 20,
+      root: stagingRoot,
+    });
+    expect(retried.selection).toEqual(snapshot.selection);
+    expect(retried.excludedFiles).toEqual(snapshot.excludedFiles);
+    expect(readFileSync(retried.fileSources.get('large.gb')!, 'utf8')).toBe(content);
+    db.prepare(
+      `UPDATE workspace_sync_upload_snapshots SET bundle_json=json_set(bundle_json,'$.selection.version',2) WHERE job_id='job-a'`
+    ).run();
+    expect(() =>
+      readWorkspaceSyncUploadCapture(db, {
+        jobId: 'job-a',
+        workspaceId: 1,
+        workspaceUuid: 'workspace-a',
+        repoPath: '/managed/workspace-a/repo',
+        root: stagingRoot,
+      })
+    ).toThrow(/queued file selection is invalid/);
   });
 
   it('retains the exact scientific archive across retry without recapturing or downgrading to files', () => {
