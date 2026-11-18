@@ -1447,6 +1447,37 @@ describe('portable prepared reference hydrator', () => {
     );
   });
 
+  it('materializes the same requested raster cell once for overlapping readers', async () => {
+    const fixture = await publicationFixture({ realRaster: true, rasterOccupiedCellCount: 1 });
+    const onIndividualObjectMaterialization = vi.fn();
+    const hydrator = createPortablePreparedReferenceHydrator({
+      cacheRoot: fixture.cacheRoot,
+      assetBaseUrl: new URL('https://assets.example.test/'),
+      fetchAsset: async (input) => {
+        const bytes = fixture.assets.get(new URL(input).pathname.slice(1));
+        return bytes ? new Response(bytes) : new Response(null, { status: 404 });
+      },
+      instrumentation: { onIndividualObjectMaterialization },
+    });
+    const hydration = await hydrator.hydrate({ definition: fixture.definition, tiers: ['view'] });
+    onIndividualObjectMaterialization.mockClear();
+    const address = fixture.raster!.occupiedCells[0].occupiedAddress;
+    const cells = await Promise.all(
+      Array.from({ length: 12 }, () =>
+        hydrator.hydrateBroadRasterCells({
+          definition: fixture.definition,
+          hydration,
+          manifestObjectId: 'raster-manifest',
+          expectedSurfaceManifestFingerprint: fixture.raster!.surfaceManifestFingerprint,
+          addresses: [address],
+        })
+      )
+    );
+    for (const result of cells) expect(result).toEqual(cells[0]);
+    expect(cells[0]).toHaveLength(1);
+    expect(onIndividualObjectMaterialization).toHaveBeenCalledTimes(1);
+  });
+
   it('shares the configured transfer limit across concurrent lazy raster-cell calls', async () => {
     const fixture = await publicationFixture({ realRaster: true, rasterOccupiedCellCount: 3 });
     const cellKeys = new Set(

@@ -81,6 +81,7 @@ const PREPARED_REFERENCE_TIER_ADMISSION_V2 =
 const PACKED_FIRST_VIEW_ADMISSION_V1 = 'dnaforge-packed-first-view-admission.v1';
 const PACKED_FULL_TIER_ADMISSION_V1 = 'dnaforge-packed-full-tier-admission.v1';
 const inFlightObjects = new Map<string, Promise<ContentObjectResult>>();
+const inFlightRasterMaterializations = new Map<string, Promise<void>>();
 const inFlightFirstViewGenerations = new Map<
   string,
   Promise<PackedFirstViewMaterialization | null>
@@ -684,14 +685,24 @@ export function createPortablePreparedReferenceHydrator(input: {
           }
           const destinationPath = resolve(artifactDirectory, record.fileName);
           assertAtOrBelow(artifactDirectory, destinationPath, 'Portable broad-raster cell');
-          await materializeIdentity(
-            cacheRoot,
-            cached.path,
+          const materializationKey = JSON.stringify([
             destinationPath,
-            identity,
-            record.cellId,
-            instrumentation
-          );
+            identity.sha256,
+            identity.byteLength,
+          ]);
+          let materialization = inFlightRasterMaterializations.get(materializationKey);
+          if (!materialization) {
+            materialization = materializeIdentity(
+              cacheRoot,
+              cached.path,
+              destinationPath,
+              identity,
+              record.cellId,
+              instrumentation
+            ).finally(() => inFlightRasterMaterializations.delete(materializationKey));
+            inFlightRasterMaterializations.set(materializationKey, materialization);
+          }
+          await materialization;
           completedObjects += 1;
           report();
         });
