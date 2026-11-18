@@ -44,8 +44,8 @@ export function installAnalyticsFirehose(options: AnalyticsFirehoseOptions): () 
   let lastKeyAt = 0;
 
   const onEvent = (event: Event): void => {
-    if (!isEnabled()) return;
     if (isPrivateInteraction(event)) return;
+    if (!isEnabled()) return;
     const timestamp = now();
     if (event.type === 'wheel') {
       if (timestamp - lastWheelAt < WHEEL_MIN_INTERVAL_MS) return;
