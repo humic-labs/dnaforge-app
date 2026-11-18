@@ -136,6 +136,7 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
     );
     return (
       <MenuSurface
+        surface="workspace"
         ref={bindSurface}
         density="form"
         selection={false}

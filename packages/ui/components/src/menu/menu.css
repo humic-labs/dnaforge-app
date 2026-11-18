@@ -49,6 +49,10 @@
 .wp-menu[data-menu-content='form'] {
   padding: 12px;
 }
+.wp-menu[data-menu-surface='workspace'] {
+  background-color: hsl(var(--color-bg-subtle));
+  border-color: transparent;
+}
 .wp-menu[data-menu-icons='true'] {
   --menu-icon-display: inline-flex;
 }

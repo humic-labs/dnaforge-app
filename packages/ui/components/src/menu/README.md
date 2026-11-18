@@ -12,7 +12,9 @@ Use the surface's `layout` for position, dimensions, scrolling and visibility.
 Its accepted keys exclude padding, borders, colors, fonts and shadows. Use
 `content="menu"` for rows, `content="panel"` for rich content with its own inner
 layout, and `content="form"` for a settings form. Geometry animations use
-`motionMs`; their transition properties come from the shared surface.
+`motionMs`; their transition properties come from the shared surface. Notebook
+suggestions use `surface="workspace"` to match the Files panel's opaque
+background without an outlined edge. Its colors remain in `menu.css`.
 
 | Density   | Minimum control height | Text size | Icon slot |
 | --------- | ---------------------: | --------: | --------: |

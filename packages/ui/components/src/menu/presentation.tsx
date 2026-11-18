@@ -51,6 +51,7 @@ export interface MenuSurfaceProps extends Omit<
 > {
   density?: MenuDensity;
   content?: 'menu' | 'panel' | 'form';
+  surface?: 'default' | 'workspace';
   selection?: boolean;
   icons?: boolean;
   shortcuts?: boolean;
@@ -64,6 +65,7 @@ export const MenuSurface = forwardRef<HTMLDivElement, MenuSurfaceProps>(function
   {
     density = 'compact',
     content = 'menu',
+    surface = 'default',
     selection = true,
     icons = false,
     shortcuts = false,
@@ -93,6 +95,7 @@ export const MenuSurface = forwardRef<HTMLDivElement, MenuSurfaceProps>(function
       }}
       data-menu-density={density}
       data-menu-content={content}
+      data-menu-surface={surface}
       data-menu-selection={selection}
       data-menu-icons={icons}
       data-menu-shortcuts={shortcuts}

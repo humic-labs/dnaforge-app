@@ -192,6 +192,7 @@ export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function
 
   return (
     <MenuSurface
+      surface="workspace"
       ref={bindSurface}
       density="form"
       content="panel"
