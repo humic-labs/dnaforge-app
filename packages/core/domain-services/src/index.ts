@@ -1,3 +1,4 @@
+export * from './organization-inventory-wire';
 export * from './protocol-value-edit';
 export * from './protocol-package';
 export * from './scientific-documents';

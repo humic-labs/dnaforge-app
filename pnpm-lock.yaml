@@ -1027,6 +1027,9 @@ importers:
       qrcode:
         specifier: 1.5.4
         version: 1.5.4
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76(patch_hash=gqcscwn2fay5vv5pth2afpav4u)
     devDependencies:
       '@types/node':
         specifier: ^20.19.0
