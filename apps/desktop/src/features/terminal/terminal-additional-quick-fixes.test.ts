@@ -10,6 +10,23 @@ const command = (text: string, exitCode = 0): TerminalCommand => ({
   finishedAt: 2,
 });
 
+it('finds the Git status branch summary above a long untracked file list', () => {
+  const output = [
+    'On branch main',
+    "Your branch is behind 'origin/main' by 2 commits, and can be fast-forwarded.",
+    '  (use "git pull" to update your local branch)',
+    '',
+    'Untracked files:',
+    ...Array.from({ length: 12 }, (_, index) => `\tlocal-${index}.txt`),
+    '',
+    'nothing added to commit but untracked files present',
+  ].join('\n');
+  expect(terminalAdditionalQuickFixes(command('git status'), output)).toContainEqual({
+    kind: 'command',
+    command: 'git pull --ff-only',
+  });
+});
+
 it('offers bounded Git pull, upstream push and validated PR links only after a completed command', () => {
   expect(
     terminalAdditionalQuickFixes(

@@ -309,6 +309,7 @@ export class StadiumPathMapper implements PathMapper {
 
   private _maxSegmentLengthPx: number | null = null;
   private _maxSpanBpUnderBudget: number | null = null;
+  private readonly unsplitCircleSpanBp: number;
 
   private fwdOffset: number;
   private revOffset: number;
@@ -363,6 +364,12 @@ export class StadiumPathMapper implements PathMapper {
     const circumPx = inputs.dims.totalLength * inputs.zoom;
     const L = inputs.layout;
     this.pixelsPerBp = circumPx / inputs.genomeLength;
+    const capLength = Math.PI * inputs.dims.radius;
+    const shorterCap = Math.min(capLength, inputs.dims.totalLength - capLength);
+    this.unsplitCircleSpanBp =
+      inputs.dims.straightLength === 0 && shorterCap > 0 && this.pixelsPerBp > 0
+        ? (this.maxSegmentLengthPx() * (shorterCap / capLength)) / (2 * this.pixelsPerBp)
+        : 0;
     this.sequenceVisible = L ? L.sequenceVisible : inputs.hasSequence && inputs.bpPerPixel < 5;
     this.sequenceOpacity = L
       ? L.sequenceOpacity
@@ -712,6 +719,11 @@ export class StadiumPathMapper implements PathMapper {
     const start = this.featurePolygonSample(startBp);
     const end = this.featurePolygonSample(startBp + featureLen);
     samples.push(start);
+
+    if (featureLen >= 0 && featureLen < this.unsplitCircleSpanBp) {
+      samples.push(end);
+      return samples;
+    }
 
     if (featureLen > this.maxSpanBpUnderBudget()) {
       this.appendUniformlyCoarseSpan(samples, startBp, startBp + featureLen, end);
