@@ -6,6 +6,7 @@ import {
 import type { WorkPlacementResolution } from '../shared/work-tasks-ipc';
 import type { NativeNotebookWorkingCopyOwner } from './notebook-document-owner';
 import type Database from 'better-sqlite3';
+import { readWorkQuerySnapshot } from './work-query-snapshot';
 import { createHash } from 'node:crypto';
 import { lstatSync } from 'node:fs';
 import { join } from 'node:path';
@@ -163,11 +164,22 @@ export function workTaskHistory(db: Database.Database, input: WorkTaskInspection
 }
 
 export function queryWorkTasks(db: Database.Database, input: WorkTaskQuery): WorkTaskQueryResult {
-  const projects = visibleWorkProjects(db, input.workspaceRoot);
+  return readWorkQuerySnapshot(db, input.workspaceRoot, (projects) =>
+    queryWorkTaskPage(db, input, projects)
+  );
+}
+
+function queryWorkTaskPage(
+  db: Database.Database,
+  input: WorkTaskQuery,
+  projects: WorkProjectAccess[]
+): WorkTaskQueryResult {
   const actor = projects.length === 1 ? projects[0]!.actor : workProfile(db);
   const rows: WorkTaskRecord[] = [];
   const unavailable: WorkTaskQueryResult['unavailable'] = [];
-  const now = Date.now();
+  const now = input.asOf ?? Date.now();
+  if (!Number.isSafeInteger(now) || !Number.isFinite(new Date(now).getTime()))
+    return workRefused('Invalid task query time.');
   const term = input.search?.trim().toLowerCase() ?? '';
   const offset = input.offset ?? 0,
     limit = input.limit ?? 100;

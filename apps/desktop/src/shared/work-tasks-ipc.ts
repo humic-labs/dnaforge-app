@@ -34,6 +34,7 @@ export interface WorkTaskRecord {
 }
 
 export interface WorkTaskQuery {
+  asOf?: number;
   workspaceRoot?: string;
   subjectId?: string;
   state?: 'active' | 'all' | 'done';
@@ -44,6 +45,7 @@ export interface WorkTaskQuery {
 }
 
 export interface WorkTaskQueryResult {
+  snapshotId?: string;
   tasks: WorkTaskRecord[];
   projects: WorkProject[];
   actor: WorkAssignee;
@@ -114,6 +116,7 @@ export type WorkRecordDate = {
   | { status: 'unresolved'; value: null; raw: string | null }
 );
 export interface WorkRecordDateResult {
+  snapshotId?: string;
   rows: WorkRecordDate[];
   total: number;
   nextOffset: number | null;

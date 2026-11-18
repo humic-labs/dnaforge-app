@@ -7,7 +7,8 @@ import type {
   WorkRecordDateResult,
   WorkRecordDateRole,
 } from '../shared/work-tasks-ipc';
-import { publicWorkProject, visibleWorkProjects, workRefused } from './work-task-projects';
+import { readWorkQuerySnapshot } from './work-query-snapshot';
+import { publicWorkProject, workRefused, type WorkProjectAccess } from './work-task-projects';
 
 interface Row {
   workspace_id: number;
@@ -46,29 +47,34 @@ export function queryWorkRecordDates(
     limit > 500
   )
     return workRefused('Invalid record date query range.');
-  const projects = visibleWorkProjects(db, input.workspaceRoot);
+  return readWorkQuerySnapshot(db, input.workspaceRoot, (projects) =>
+    readDatePage(db, projects, offset, limit)
+  );
+}
+
+function readDatePage(
+  db: Database.Database,
+  projects: WorkProjectAccess[],
+  offset: number,
+  limit: number
+): WorkRecordDateResult {
   const byWorkspace = new Map(projects.map((p) => [p.workspaceId, p]));
   if (!byWorkspace.size) return { rows: [], total: 0, nextOffset: null };
   const scope = JSON.stringify([...byWorkspace.keys()]);
-  const result = db
-    .transaction(() => {
-      const total = (db.prepare('SELECT count(*) AS total ' + from).get(scope) as { total: number })
-        .total;
-      const rows = db
-        .prepare(
-          `SELECT e.workspace_id,e.id entity_id,e.name,e.event_seq,e.schema_revision_id,v.key field_key,
+  const total = (db.prepare('SELECT count(*) AS total ' + from).get(scope) as { total: number })
+    .total;
+  const rows = db
+    .prepare(
+      `SELECT e.workspace_id,e.id entity_id,e.name,e.event_seq,e.schema_revision_id,v.key field_key,
       json_extract(f.value,'$.label') field_label,json_extract(f.value,'$.type') field_type,
       json_extract(f.value,'$.agenda.zone') zone,json_extract(f.value,'$.agenda.role') role,v.value raw_value,v.type value_type
       ${from} ORDER BY e.workspace_id,e.id,v.key LIMIT ? OFFSET ?`
-        )
-        .all(scope, limit, offset) as Row[];
-      return { total, rows };
-    })
-    .deferred();
+    )
+    .all(scope, limit, offset) as Row[];
   return {
-    total: result.total,
-    nextOffset: offset + limit < result.total ? offset + limit : null,
-    rows: result.rows.map((row) => {
+    total,
+    nextOffset: offset + limit < total ? offset + limit : null,
+    rows: rows.map((row) => {
       const p = byWorkspace.get(row.workspace_id)!;
       const raw =
         (row.value_type === 'object' || row.value_type === 'array') &&

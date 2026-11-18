@@ -2,7 +2,8 @@ import { mkdir, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it, vi } from 'vitest';
-import { createFileTestDb } from './__tests__/test-db';
+import { queryWorkTasks } from './work-task-store';
+import { createFileTestDb, openFileTestDb } from './__tests__/test-db';
 import { ensureSchema } from './schema';
 import { defineLimsSchemaInsideTx, registerLimsEntityInsideTx } from './lims-engine-core';
 import { withAgentProjectScope } from './registered-project-authority';
@@ -73,6 +74,34 @@ it('projects only opted-in dates from readable records and preserves an ambiguou
     expect(f.db.prepare('SELECT fields FROM lims_entity WHERE id=?').get(entity.id)).toEqual({
       fields: legacy,
     });
+    expect(agenda().snapshotId).not.toBe(observed.snapshotId);
+    f.db.transaction(() =>
+      registerLimsEntityInsideTx(f.db, {
+        kind: 'certificate',
+        name: 'Second certificate',
+        fields: { renewal: '2028-03-01' },
+        workspaceId: workspace,
+        schemaRevisionId: entity.schemaRevisionId,
+      })
+    )();
+    const first = queryWorkRecordDates(f.db, { workspaceRoot: root, limit: 1 });
+    expect(first.nextOffset).toBe(1);
+    expect(first.snapshotId).toMatch(/^[0-9a-f]{64}$/u);
+    const pageTwo = () => queryWorkRecordDates(f.db, { workspaceRoot: root, offset: 1, limit: 1 });
+    expect(pageTwo().snapshotId).toBe(first.snapshotId);
+    const other = openFileTestDb(f.dbPath);
+    try {
+      other
+        .prepare('UPDATE lims_entity SET fields=? WHERE id=?')
+        .run(JSON.stringify({ ...entity.fields, renewal: '2028-04-04' }), entity.id);
+    } finally {
+      other.close();
+    }
+    const updated = pageTwo();
+    expect(updated.snapshotId).not.toBe(first.snapshotId);
+    const tasks = queryWorkTasks(f.db, { workspaceRoot: root, asOf: 123456 });
+    expect(tasks.now).toBe(123456);
+    expect(tasks.snapshotId).toBe(updated.snapshotId);
     expect(withAgentProjectScope({ kind: 'project-roots', roots: [] }, agenda).total).toBe(0);
   } finally {
     f.cleanup();
