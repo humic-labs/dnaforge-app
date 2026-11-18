@@ -150,6 +150,8 @@ it('turns a selected checklist item into one task and delegates its adjacent ref
   expect(await screen.findByLabelText('Name', { exact: true })).toHaveValue('Review measurements');
   fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
   await waitFor(() => expect(operations.finishPlacement).toHaveBeenCalled());
+  fireEvent.click(screen.getByText('Reminders and calendar'));
+  expect(await screen.findByText('Reminders are unavailable in this workspace.')).toBeVisible();
   const create = operations.mutate.mock.calls[0][0] as WorkTaskMutation;
   expect(create.command).toMatchObject({
     kind: 'create',

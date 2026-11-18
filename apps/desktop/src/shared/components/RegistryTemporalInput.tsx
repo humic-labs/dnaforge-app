@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { UI_FIELD_CLASS } from '../../components/ui';
+import { TextField, UI_FIELD_CLASS } from '../../components/ui';
 import {
   encodeClockInput,
   registryClockChoices,
@@ -85,11 +85,10 @@ export function RegistryTemporalInput({
           </button>
         </span>
       )}
-      <input
+      <TextField
         ref={element}
         id={id}
         data-testid={testId}
-        className={UI_FIELD_CLASS}
         type={type === 'date' ? 'date' : 'datetime-local'}
         step={type === 'datetime' ? 'any' : undefined}
         autoFocus={autoFocus}
@@ -107,8 +106,7 @@ export function RegistryTemporalInput({
         <>
           <label className="block text-xs text-fg-muted">
             Time zone
-            <input
-              className={UI_FIELD_CLASS}
+            <TextField
               aria-label={label + ' time zone'}
               disabled={disabled}
               value={input.zone}

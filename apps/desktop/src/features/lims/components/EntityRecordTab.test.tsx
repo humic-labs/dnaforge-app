@@ -1,3 +1,4 @@
+import { emptyWorkTaskQuery } from '../../../test/fixtures/work-tasks';
 import { userMessage } from '@waypoint/user-messages';
 /** @vitest-environment jsdom */
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -27,6 +28,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('../../../platform', () => ({
   platform: () => ({
+    workTasks: { query: emptyWorkTaskQuery },
     lims: { queryRegistrySummaries: mocks.queryTargets, getEntityHistory: async () => [] },
     cloudSync: {
       getOrganizationRegistryRecordSyncStatus: mocks.syncStatus,

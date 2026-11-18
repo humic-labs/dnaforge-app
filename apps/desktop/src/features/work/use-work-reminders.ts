@@ -44,29 +44,32 @@ export function useWorkReminders(workspaceRoot: string) {
       setBlockedKey(key);
       setSnapshot({ key, error: recoveryError });
     }
-    platform()
-      .workTasks.reminders({ workspaceRoot })
-      .then((view) => {
-        if (active) {
-          if (view.pendingHandoff && !localStorage.getItem(key)) {
-            const request: WorkReminderRequest = {
-              workspaceRoot,
-              requestId: view.pendingHandoff.requestId,
-              command: { action: 'handoff', expectedEpoch: view.pendingHandoff.expectedEpoch },
-            };
-            localStorage.setItem(key, JSON.stringify(request));
-            setPending({ key, request });
-          }
-          setSnapshot({ key, view, error: recoveryError });
+    async function read() {
+      try {
+        const client = platform().workTasks;
+        if (typeof client?.reminders !== 'function')
+          throw new Error('Reminders are unavailable in this workspace.');
+        const view = await client.reminders({ workspaceRoot });
+        if (!active) return;
+        if (view.pendingHandoff && !localStorage.getItem(key)) {
+          const request: WorkReminderRequest = {
+            workspaceRoot,
+            requestId: view.pendingHandoff.requestId,
+            command: { action: 'handoff', expectedEpoch: view.pendingHandoff.expectedEpoch },
+          };
+          localStorage.setItem(key, JSON.stringify(request));
+          setPending({ key, request });
         }
-      })
-      .catch((cause) => {
+        setSnapshot({ key, view, error: recoveryError });
+      } catch (cause) {
         if (active)
           setSnapshot({
             key,
             error: cause instanceof Error ? cause.message : 'Reminders are unavailable.',
           });
-      });
+      }
+    }
+    void read();
     return () => {
       active = false;
     };
