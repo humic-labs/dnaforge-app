@@ -146,7 +146,15 @@ export function useGitHistory({
       setSelection(request);
       const ownsRequest = () => scopeRef.current === scope && selectionRef.current === request;
       try {
-        const content = await gitShowCommit(filePath, hash, scope.root);
+        const pathAtCommit =
+          history?.scope === scope && history.phase !== 'idle'
+            ? history.log.find((entry) => entry.hash === hash)?.pathAtCommit
+            : undefined;
+        const content = await gitShowCommit(
+          pathAtCommit ? { pathAtCommit } : filePath,
+          hash,
+          scope.root
+        );
         if (!ownsRequest()) return;
         const next: SelectionState = {
           phase: 'ready',
@@ -163,7 +171,7 @@ export function useGitHistory({
         setSelection(next);
       }
     },
-    [filePath, clearSelection]
+    [filePath, clearSelection, history]
   );
 
   const commitFile = useCallback(

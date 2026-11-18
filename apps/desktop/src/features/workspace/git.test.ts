@@ -292,7 +292,7 @@ describe('gitFileLog', () => {
   it('parses log entries with null-byte separator', async () => {
     mockExecute.mockResolvedValueOnce({
       stdout:
-        'abc123\x00Fix bug\x002026-03-21T10:00:00Z\x002 hours ago\ndef456\x00Add feature\x002026-03-20T10:00:00Z\x00yesterday\n',
+        'abc123\x00Fix bug\x002026-03-21T10:00:00Z\x002 hours ago\x00\nsub/file.gb\x00def456\x00Add feature\x002026-03-20T10:00:00Z\x00yesterday\x00\noriginal name.gb\x00',
       stderr: '',
       code: 0,
     });
@@ -304,12 +304,14 @@ describe('gitFileLog', () => {
       message: 'Fix bug',
       date: '2026-03-21T10:00:00Z',
       relativeDate: '2 hours ago',
+      pathAtCommit: 'sub/file.gb',
     });
     expect(entries[1]).toEqual({
       hash: 'def456',
       message: 'Add feature',
       date: '2026-03-20T10:00:00Z',
       relativeDate: 'yesterday',
+      pathAtCommit: 'original name.gb',
     });
   });
 
