@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SCIENTIFIC_COLOR_PALETTES } from '@waypoint/sequence-utils';
 import { createSequenceDataLayersTool, sequenceDataLayersToolSchema } from './sequence-data-layers';
 
 const { run } = vi.hoisted(() => ({ run: vi.fn() }));
@@ -28,6 +29,75 @@ const request = {
 
 beforeEach(() => {
   run.mockReset();
+});
+
+describe('named dataset palettes at the tool boundary', () => {
+  const colorScale = {
+    kind: 'continuous' as const,
+    domain: [0, 16] as [number, number],
+    missingColor: '#cbd5e1',
+    transform: 'linear' as const,
+  };
+  const presentation = {
+    sampleId: 'fitness',
+    annotationColors: true,
+    signalVisible: true,
+    style: { geometry: 'band' as const, colorScale },
+  };
+  const withScale = (scale: object) => ({
+    ...request,
+    presentation: { ...presentation, style: { ...presentation.style, colorScale: scale } },
+  });
+
+  beforeEach(() => {
+    run.mockResolvedValue({
+      status: 'failed',
+      disposition: 'not-published',
+      message: 'Source changed.',
+    });
+  });
+
+  it('resolves named Cividis to the registry colors before invoking the native command', async () => {
+    const command = sequenceDataLayersToolSchema.parse(
+      withScale({ ...colorScale, paletteId: 'cividis' })
+    );
+    await createSequenceDataLayersTool([project]).execute!(command, options);
+    expect(run).toHaveBeenCalledWith(
+      withScale({ ...colorScale, colors: [...SCIENTIFIC_COLOR_PALETTES.cividis.colors] })
+    );
+    expect(command).not.toHaveProperty('presentation.style.colorScale.paletteId');
+  });
+
+  it('preserves explicit custom RGB scales unchanged', async () => {
+    const custom = withScale({ ...colorScale, colors: ['#123456', '#abcdef'] });
+    const command = sequenceDataLayersToolSchema.parse(custom);
+    await createSequenceDataLayersTool([project]).execute!(command, options);
+    expect(command).toEqual(custom);
+    expect(run).toHaveBeenCalledWith(custom);
+  });
+
+  it('rejects unknown named palettes', () => {
+    expect(
+      sequenceDataLayersToolSchema.safeParse(withScale({ ...colorScale, paletteId: 'invented' }))
+        .success
+    ).toBe(false);
+  });
+
+  it('rejects combining a named palette with conflicting custom colors', () => {
+    expect(
+      sequenceDataLayersToolSchema.safeParse(
+        withScale({ ...colorScale, paletteId: 'cividis', colors: ['#123456', '#abcdef'] })
+      ).success
+    ).toBe(false);
+  });
+
+  it('retains the shared color-domain validation for named palettes', () => {
+    expect(
+      sequenceDataLayersToolSchema.safeParse(
+        withScale({ ...colorScale, paletteId: 'cividis', domain: [16, 0] })
+      ).success
+    ).toBe(false);
+  });
 });
 
 describe('sequence_data_layers command boundary', () => {

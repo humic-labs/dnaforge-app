@@ -61,7 +61,7 @@ export const genomesTools = defineRendererToolCatalog({
   sequence_data_layers: {
     name: 'sequence_data_layers',
     description:
-      'Inspect exact sequence revisions, map user CSV measurements by explicit coordinates or stable annotation IDs, and save reusable data layers. Reports unmatched and ambiguous rows. Dataset snapshots and mappings survive reopening and are independent of the viewer.',
+      'Inspect exact sequence revisions, map user CSV measurements by explicit coordinates or stable annotation IDs, and save reusable data layers. Reports unmatched and ambiguous rows. Dataset snapshots and mappings survive reopening and are independent of the viewer. Select named scientific palettes with presentation.style.colorScale.paletteId; use colors only for custom RGB scales.',
     shape: 'app-action',
     required_capabilities: ['read-workspace', 'read-sequences'],
     conditional_required_capabilities: ['create-entity', 'write-workspace'],

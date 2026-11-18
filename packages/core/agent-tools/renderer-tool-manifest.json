@@ -23768,7 +23768,7 @@
     },
     {
       "name": "sequence_data_layers",
-      "description": "Inspect exact sequence revisions, map user CSV measurements by explicit coordinates or stable annotation IDs, and save reusable data layers. Reports unmatched and ambiguous rows. Dataset snapshots and mappings survive reopening and are independent of the viewer.",
+      "description": "Inspect exact sequence revisions, map user CSV measurements by explicit coordinates or stable annotation IDs, and save reusable data layers. Reports unmatched and ambiguous rows. Dataset snapshots and mappings survive reopening and are independent of the viewer. Select named scientific palettes with presentation.style.colorScale.paletteId; use colors only for custom RGB scales.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -23871,28 +23871,54 @@
                     "enum": ["bars", "band", "points", "arcs", "matrix"]
                   },
                   "colorScale": {
-                    "type": "object",
-                    "properties": {
-                      "kind": { "type": "string", "const": "continuous" },
-                      "domain": {
-                        "type": "array",
-                        "minItems": 2,
-                        "maxItems": 2,
-                        "items": true,
-                        "prefixItems": [{ "type": "number" }, { "type": "number" }]
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "continuous" },
+                          "domain": {
+                            "type": "array",
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "items": true,
+                            "prefixItems": [{ "type": "number" }, { "type": "number" }]
+                          },
+                          "colors": {
+                            "type": "array",
+                            "items": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+                            "minItems": 2,
+                            "maxItems": 32
+                          },
+                          "missingColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+                          "transform": { "type": "string", "enum": ["linear", "log10"] },
+                          "quantization": { "type": "integer", "minimum": 1, "maximum": 256 }
+                        },
+                        "required": ["kind", "domain", "colors", "missingColor", "transform"],
+                        "additionalProperties": false
                       },
-                      "colors": {
-                        "type": "array",
-                        "items": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
-                        "minItems": 2,
-                        "maxItems": 32
-                      },
-                      "missingColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
-                      "transform": { "type": "string", "enum": ["linear", "log10"] },
-                      "quantization": { "type": "integer", "minimum": 1, "maximum": 256 }
-                    },
-                    "required": ["kind", "domain", "colors", "missingColor", "transform"],
-                    "additionalProperties": false
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": { "type": "string", "const": "continuous" },
+                          "domain": {
+                            "type": "array",
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "items": true,
+                            "prefixItems": [{ "type": "number" }, { "type": "number" }]
+                          },
+                          "missingColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+                          "transform": { "type": "string", "enum": ["linear", "log10"] },
+                          "quantization": { "type": "integer", "minimum": 1, "maximum": 256 },
+                          "paletteId": {
+                            "type": "string",
+                            "enum": ["ocean", "viridis", "cividis", "balance"]
+                          }
+                        },
+                        "required": ["kind", "domain", "missingColor", "transform", "paletteId"],
+                        "additionalProperties": false
+                      }
+                    ]
                   }
                 },
                 "required": ["geometry", "colorScale"],

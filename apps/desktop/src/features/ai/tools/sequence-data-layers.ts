@@ -1,10 +1,12 @@
 import { z } from 'zod';
+import { SCIENTIFIC_COLOR_PALETTES } from '@waypoint/sequence-utils';
 import { platform } from '../../../platform';
 import type { WorkspaceFolder } from '../../../stores/workspaceStore';
 import { resolveExplicitProjectRoot } from '../../../shared/project-root-selection';
 import {
   sequenceDataLayerCommandSchema,
   sequenceDataLayerIdSchema,
+  sequenceDataLayerPresentationSchema,
   SEQUENCE_DATA_LAYERS_CHANGED,
   type SequenceDataLayerCommand,
   type PublishedSequenceDataLayer,
@@ -15,11 +17,32 @@ import {
   selectSequenceDataLayerView,
 } from '../../sequence/public/sequence-data-layer-view-commands';
 
+const paletteIds = Object.keys(SCIENTIFIC_COLOR_PALETTES) as [
+  keyof typeof SCIENTIFIC_COLOR_PALETTES,
+  ...(keyof typeof SCIENTIFIC_COLOR_PALETTES)[],
+];
+const colorScaleSchema = sequenceDataLayerPresentationSchema.shape.style.shape.colorScale;
+const namedColorScaleSchema = colorScaleSchema
+  .innerType()
+  .omit({ colors: true })
+  .extend({ paletteId: z.enum(paletteIds) })
+  .strict()
+  .transform(({ paletteId, ...scale }) => ({
+    ...scale,
+    colors: [...SCIENTIFIC_COLOR_PALETTES[paletteId].colors],
+  }));
+const toolPresentationSchema = sequenceDataLayerPresentationSchema.extend({
+  style: sequenceDataLayerPresentationSchema.shape.style.extend({
+    colorScale: z.union([colorScaleSchema, namedColorScaleSchema]),
+  }),
+});
+
 export const sequenceDataLayersToolSchema = sequenceDataLayerCommandSchema.options[0]
   .partial()
   .extend({
     operation: z.enum(['target', 'create', 'inspect', 'list']),
     id: sequenceDataLayerIdSchema.optional(),
+    presentation: toolPresentationSchema.optional(),
   })
   .transform((input, context) => {
     const parsed = sequenceDataLayerCommandSchema.safeParse(input);
@@ -46,7 +69,7 @@ function reusableSource(layer: PublishedSequenceDataLayer, project: string) {
 export function createSequenceDataLayersTool(folders: WorkspaceFolder[]) {
   return resultTool({
     description:
-      'Inspect an existing saved sequence and attach a user CSV dataset as a durable scientific data layer. For an indexed prepared reference, obtain its exact sequenceDataLayerTargets entry with track_views references; indexed mapping currently supports contigs up to 6000000 bases. Start with target to obtain exact sequence and annotation fingerprints. Create requires an explicit position convention or stable annotation identifier join, numeric value columns, units and unmatched-row policy. It retains the CSV snapshot, mapping report and presentation in the project. Missing values remain distinct from zero. Reuse a published dataset on another sequence with csv kind layer and its exact source project, id and revision; keep its units and choose from its measurement columns. Both projects must be available to this caller. It does not edit the sequence. Reuse identical requestId and inputs after an uncertain response; inspect/list before starting a different creation. Returns mapped/unmatched counts and a saved layer path. Existing views discover matching layers; view attachment or drawing is not guaranteed by file publication.',
+      'Inspect an existing saved sequence and attach a user CSV dataset as a durable scientific data layer. For an indexed prepared reference, obtain its exact sequenceDataLayerTargets entry with track_views references; indexed mapping currently supports contigs up to 6000000 bases. Start with target to obtain exact sequence and annotation fingerprints. Create requires an explicit position convention or stable annotation identifier join, numeric value columns, units and unmatched-row policy. For named color palettes, use presentation.style.colorScale.paletteId instead of colors; paletteId resolves the central scientific palette. Use colors only for explicit custom RGB scales. It retains the CSV snapshot, mapping report and presentation in the project. Missing values remain distinct from zero. Reuse a published dataset on another sequence with csv kind layer and its exact source project, id and revision; keep its units and choose from its measurement columns. Both projects must be available to this caller. It does not edit the sequence. Reuse identical requestId and inputs after an uncertain response; inspect/list before starting a different creation. Returns mapped/unmatched counts and a saved layer path. Existing views discover matching layers; view attachment or drawing is not guaranteed by file publication.',
     inputSchema: sequenceDataLayersToolSchema,
     execute: async (input: SequenceDataLayerCommand, options) => {
       if (options.abortSignal?.aborted)
