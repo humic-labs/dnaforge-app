@@ -279,11 +279,15 @@ function fixture() {
       owner = makeOwner();
     },
     async prepare(caller: object, assertCurrent = noop) {
-      const current = await owner.organizationSnapshot({
-        ...pins,
-        expectedAccountId: active.accountId,
-        expectedDesktopSessionId: active.desktopSessionId,
-      });
+      const current = await owner.organizationSnapshot(
+        {
+          ...pins,
+          expectedAccountId: active.accountId,
+          expectedDesktopSessionId: active.desktopSessionId,
+        },
+        assertCurrent,
+        caller
+      );
       if (current.kind !== 'current') throw new Error(`Snapshot unavailable: ${current.kind}`);
       const preview = await owner.organizationPreview(
         {
@@ -320,6 +324,143 @@ const submitRequest = (read: Extract<InventoryOrganizationPreviewRead, { kind: '
 });
 
 describe('organization submission with real file SQLite and synthetic HTTP boundaries', () => {
+  it('preserves one caller live preview when an independent caller refreshes identical confirmed inventory', async () => {
+    const f = fixture();
+    const callerA = {};
+    const callerB = {};
+    const assertCallerA = vi.fn();
+    const assertCallerB = vi.fn();
+    const ready = await f.prepare(callerA, assertCallerA);
+    const independent = await f.owner.organizationSnapshot(pins, assertCallerB, callerB);
+    if (independent.kind !== 'current') throw new Error('Expected independent current snapshot.');
+    expect(independent.snapshot.header.stateSha256).toBe(ready.preview.header.stateSha256);
+    expect(independent.snapshot.header.revision).toBe(ready.preview.header.revision);
+    expect(independent.snapshot.header.accessGeneration).toBe(ready.binding.accessGeneration);
+    const result = await f.owner.organizationSubmit(submitRequest(ready), assertCallerA, callerA);
+    expect(result.kind).toBe('accepted');
+    if (result.kind !== 'accepted')
+      throw new Error('The first caller reviewed a still-current plan.');
+    expect(result.attempt.request.body.expectedPlanDigest).toBe(ready.preview.planDigest);
+    expect(result.disposition.planDigest).toBe(ready.preview.planDigest);
+    expect(f.client.applyAction).toHaveBeenCalledOnce();
+    expect(attempts(f.db)).toHaveLength(1);
+    expect(assertCallerB).toHaveBeenCalled();
+  });
+
+  it.each(['physical-state', 'access-generation', 'access-denial'] as const)(
+    'refuses a reviewed handle after another caller observes changed %s',
+    async (change) => {
+      const f = fixture();
+      const callerA = {};
+      const callerB = {};
+      const ready = await f.prepare(callerA);
+      if (change === 'physical-state') {
+        const changed = applyInventoryOrganizationAction(f.serverState, {
+          target,
+          expectedRevision: f.serverState.revision,
+          action: {
+            kind: 'consume',
+            stockId: 'stock',
+            quantity: { value: '1', unit: 'uL' },
+            reason: 'Independent recorded use',
+          },
+          context: context(),
+          admittedMaterialIds: [],
+        });
+        if (!changed.ok) throw new Error(changed.message);
+        vi.mocked(f.client.readSnapshot).mockResolvedValueOnce({
+          kind: 'ready',
+          header: {
+            ...ready.preview.header,
+            revision: changed.state.revision,
+            stateSha256: organizationInventoryStateSha256(changed.state),
+          },
+          state: changed.state,
+        });
+      } else if (change === 'access-generation') {
+        f.setGeneration('different-opaque-authority');
+      } else {
+        vi.mocked(f.client.readSnapshot).mockResolvedValueOnce({
+          kind: 'unavailable',
+          code: 'ACCESS_UNAVAILABLE',
+          message: 'Current permission removed.',
+          retryable: false,
+        });
+      }
+      const independent = await f.owner.organizationSnapshot(pins, noop, callerB);
+      expect(independent.kind).toBe(change === 'access-denial' ? 'unavailable' : 'current');
+      const submitted = await f.owner.organizationSubmit(submitRequest(ready), noop, callerA);
+      expect(submitted).toMatchObject({ kind: 'unavailable', code: 'PREVIEW_NOT_LIVE' });
+      expect(attempts(f.db)).toHaveLength(0);
+      expect(f.client.applyAction).not.toHaveBeenCalled();
+    }
+  );
+
+  it('refuses an old Ready after another caller receives a blocked preview with newer confirmed facts', async () => {
+    const f = fixture();
+    const callerA = {};
+    const callerB = {};
+    const ready = await f.prepare(callerA);
+    const currentB = await f.owner.organizationSnapshot(pins, noop, callerB);
+    if (currentB.kind !== 'current')
+      throw new Error('Expected the independent caller current snapshot.');
+    const changed = applyInventoryOrganizationAction(f.serverState, {
+      target,
+      expectedRevision: f.serverState.revision,
+      action: {
+        kind: 'consume',
+        stockId: 'stock',
+        quantity: { value: '1', unit: 'uL' },
+        reason: 'Independent recorded use',
+      },
+      context: context(),
+      admittedMaterialIds: [],
+    });
+    if (!changed.ok) throw new Error(changed.message);
+    const response = parseOrganizationInventoryResponseEnvelope({
+      schema: ORGANIZATION_INVENTORY_RESPONSE_SCHEMA,
+      purpose: 'preview',
+      result: {
+        kind: 'blocked',
+        header: {
+          ...ready.preview.header,
+          revision: changed.state.revision,
+          stateSha256: organizationInventoryStateSha256(changed.state),
+        },
+        issues: [{ code: 'REVISION_CONFLICT', message: 'Confirmed inventory advanced.' }],
+      },
+    });
+    if (response.purpose !== 'preview')
+      throw new Error('Expected a valid blocked preview response.');
+    vi.mocked(f.client.preview).mockResolvedValueOnce(response.result);
+    const observed = await f.owner.organizationPreview(
+      {
+        binding: currentB.binding,
+        request: {
+          target,
+          expectedRevision: currentB.snapshot.header.revision,
+          accessGeneration: currentB.binding.accessGeneration,
+          action: {
+            kind: 'consume',
+            stockId: 'stock',
+            quantity: { value: '1', unit: 'uL' },
+            reason: 'Independent preview',
+          },
+        },
+      },
+      noop,
+      callerB
+    );
+    expect(observed.kind).not.toBe('ready');
+    expect(readOrganizationInventoryProjection(f.db, accountId, target)).toBeNull();
+    expect(await f.owner.organizationSubmit(submitRequest(ready), noop, callerA)).toMatchObject({
+      kind: 'unavailable',
+      code: 'PREVIEW_NOT_LIVE',
+    });
+    expect(attempts(f.db)).toHaveLength(0);
+    expect(f.client.applyAction).not.toHaveBeenCalled();
+  });
+
   it('cancels its live handle synchronously before a stalled session read lets Submit authenticate', async () => {
     const f = fixture();
     const caller = {};
@@ -524,6 +665,53 @@ describe('organization submission with real file SQLite and synthetic HTTP bound
     expect(attempts(f.db)[0].disposition_kind).toBeNull();
     expect(f.client.applyAction).toHaveBeenCalledOnce();
     expect(f.serverState.stocks.stock.quantity).toEqual({ kind: 'known', value: '10', unit: 'uL' });
+  });
+
+  it('keeps the original accepted receipt pending after another caller changes shared authority', async () => {
+    const f = fixture();
+    const callerA = {};
+    const callerB = {};
+    const ready = await f.prepare(callerA);
+    const original = inventoryOrganizationActionAttemptReadSchema.parse(
+      await f.owner.organizationSubmit(submitRequest(ready), noop, callerA)
+    );
+    if (original.kind !== 'accepted') throw new Error('Expected the original accepted report.');
+    expect(original.delivery.kind).toBe('current');
+    const retainedRows = attempts(f.db);
+    f.setGeneration('new-opaque-shared-authority');
+    const independent = await f.owner.organizationSnapshot(pins, noop, callerB);
+    if (independent.kind !== 'current')
+      throw new Error('Expected the independent current snapshot.');
+    expect(independent.snapshot.header.revision).toBe(original.disposition.revision);
+    expect(independent.snapshot.header.accessGeneration).not.toBe(
+      original.attempt.request.body.accessGeneration
+    );
+    const cachedRows = f.db.prepare('SELECT * FROM organization_inventory_projection').all();
+    const writes = f.db.prepare('SELECT total_changes()').pluck().get();
+    const observed = inventoryOrganizationActionAttemptReadSchema.parse(
+      await f.owner.organizationAttempt(
+        {
+          ...pins,
+          query: {
+            kind: 'exact',
+            operationId: original.attempt.operationId,
+            requestSha256: original.attempt.requestSha256,
+          },
+        },
+        noop,
+        callerA
+      )
+    );
+    if (observed.kind !== 'accepted') throw new Error('The accepted receipt must remain accepted.');
+    expect(observed.attempt).toEqual(original.attempt);
+    expect(observed.disposition).toEqual(original.disposition);
+    expect(observed.delivery.kind).toBe('pending');
+    expect(attempts(f.db)).toEqual(retainedRows);
+    expect(f.db.prepare('SELECT * FROM organization_inventory_projection').all()).toEqual(
+      cachedRows
+    );
+    expect(f.db.prepare('SELECT total_changes()').pluck().get()).toBe(writes);
+    expect(f.client.applyAction).toHaveBeenCalledOnce();
   });
 
   it('keeps an accepted outcome delivery-pending when the complete snapshot cannot refresh', async () => {

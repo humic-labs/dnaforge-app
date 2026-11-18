@@ -192,6 +192,39 @@ it('does not erase confirmed projection when its caller is disposed during a del
   expect(rows(f.db)).toEqual(before);
   expect(changes(f.db)).toBe(writes);
 });
+it.each(['old-snapshot', 'old-denial'] as const)(
+  'keeps a newer independent caller projection intact after %s completes',
+  async (outcome) => {
+    const f = fixture();
+    const callerA = {};
+    const callerB = {};
+    const gate = deferred<OrganizationInventorySnapshotResponse>();
+    vi.mocked(f.client.readSnapshot).mockImplementationOnce(() => gate.promise);
+    const older = f.owner.organizationSnapshot(request, () => {}, callerA);
+    await vi.waitFor(() => expect(f.client.readSnapshot).toHaveBeenCalledOnce());
+    vi.mocked(f.client.readSnapshot).mockResolvedValueOnce(snapshot(2));
+    const newer = await f.owner.organizationSnapshot(request, () => {}, callerB);
+    expect(newer.kind).toBe('current');
+    expect(
+      readOrganizationInventoryProjection(f.db, accountId, target)?.snapshot.header.revision
+    ).toBe(2);
+    const before = rows(f.db);
+    const writes = changes(f.db);
+    gate.resolve(
+      outcome === 'old-snapshot'
+        ? snapshot()
+        : {
+            kind: 'unavailable',
+            code: 'ACCESS_UNAVAILABLE',
+            message: 'Older independent denied read.',
+            retryable: false,
+          }
+    );
+    expect(await older).toMatchObject({ kind: 'unavailable', code: 'SUPERSEDED' });
+    expect(rows(f.db)).toEqual(before);
+    expect(changes(f.db)).toBe(writes);
+  }
+);
 it('does not publish a delayed old snapshot or let its later failure erase the newer confirmed binding', async () => {
   for (const outcome of ['old-snapshot', 'old-failure'] as const) {
     const f = fixture(),

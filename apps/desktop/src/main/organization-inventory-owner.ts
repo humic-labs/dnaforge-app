@@ -11,7 +11,10 @@ import {
   createOrganizationInventoryClient,
   type OrganizationInventoryHttpClient,
 } from './organization-inventory-client';
-import { createOrganizationInventorySubmission } from './organization-inventory-submission';
+import {
+  createOrganizationInventorySubmission,
+  organizationInventoryConfirmedFactsCurrent,
+} from './organization-inventory-submission';
 import {
   readOrganizationInventoryProjection,
   removeOrganizationInventoryProjection,
@@ -102,12 +105,34 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
   const nowMs = deps.nowMs ?? Date.now;
   const monotonicMs = deps.monotonicMs ?? (() => performance.now());
   const createBindingEpoch = deps.createBindingEpoch ?? randomUUID;
-  const states = new Map<string, InventoryOrganizationSessionState>();
+  let callerStates = new WeakMap<object, Map<string, InventoryOrganizationSessionState>>();
+  const sharedPublications = new Map<string, object>();
+  const statesFor = (callerKey: object) => {
+    let states = callerStates.get(callerKey);
+    if (!states) {
+      states = new Map();
+      callerStates.set(callerKey, states);
+    }
+    return states;
+  };
   const defaultCaller = {};
   let disposed = false;
   const clock = () => ({ wallTime: nowMs(), monotonicTime: monotonicMs() });
-  const keyFor = (accountId: string, orgId: string, inventoryId: string | null) =>
-    JSON.stringify([accountId, orgId, inventoryId]);
+  const keyFor = (
+    accountId: string,
+    orgId: string,
+    inventoryId: string | null,
+    desktopSessionId: string
+  ) => JSON.stringify([accountId, desktopSessionId, orgId, inventoryId]);
+  const beginPublication = (
+    session: InventoryOrganizationSessionIdentity,
+    target: InventoryOrganizationTarget
+  ) => {
+    const key = JSON.stringify([session.accountId, target.orgId, target.inventoryId]);
+    const ticket = {};
+    sharedPublications.set(key, ticket);
+    return () => !disposed && sharedPublications.get(key) === ticket;
+  };
   const assertOwner = (assertCurrent: () => void) => {
     assertCurrent();
     if (disposed) throw new Error('The inventory owner changed.');
@@ -159,6 +184,7 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
     return value;
   };
   const select = (
+    states: Map<string, InventoryOrganizationSessionState>,
     key: string,
     session: InventoryOrganizationSessionIdentity,
     target: InventoryOrganizationTarget | null
@@ -174,13 +200,15 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
   const superseded = () =>
     unavailable('SUPERSEDED', 'The inventory view changed before this read completed.', true);
   const invalidate = (
+    states: Map<string, InventoryOrganizationSessionState>,
     key: string,
     value: InventoryOrganizationUnavailable,
     expectedDesktopSessionId: string,
     accountId?: string,
     target?: InventoryOrganizationTarget,
     generation?: number,
-    assertCurrent: () => void = () => {}
+    assertCurrent: () => void = () => {},
+    publicationCurrent?: () => boolean
   ) => {
     try {
       assertOwner(assertCurrent);
@@ -195,6 +223,10 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
           (generation !== undefined && state.generation !== generation)))
     )
       return superseded();
+    if (publicationCurrent && !publicationCurrent()) {
+      if (state) states.set(key, invalidateInventoryOrganizationSession(state, 'binding-change'));
+      return superseded();
+    }
     if (state)
       states.set(
         key,
@@ -203,7 +235,7 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
           denied(value) ? 'access-denied' : 'binding-change'
         )
       );
-    if (value.code !== 'NETWORK' && accountId && target)
+    if (publicationCurrent?.() && value.code !== 'NETWORK' && accountId && target)
       removeOrganizationInventoryProjection(deps.db, accountId, target, expectedDesktopSessionId);
     return value;
   };
@@ -218,18 +250,32 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
     },
     assertOwner,
     identity,
-    state: (accountId, target) => states.get(keyFor(accountId, target.orgId, target.inventoryId)),
-    snapshot: (request, assertCurrent): Promise<InventoryOrganizationSnapshotRead> =>
-      owner.organizationSnapshot(request, assertCurrent),
-    observeFailure: (value, session, target, generation, assertCurrent) => {
+    state: (accountId, target, callerKey, desktopSessionId) =>
+      statesFor(callerKey).get(
+        keyFor(accountId, target.orgId, target.inventoryId, desktopSessionId)
+      ),
+    snapshot: (request, assertCurrent, callerKey): Promise<InventoryOrganizationSnapshotRead> =>
+      owner.organizationSnapshot(request, assertCurrent, callerKey),
+    beginPublication,
+    observeFailure: (
+      value,
+      session,
+      target,
+      generation,
+      assertCurrent,
+      callerKey,
+      publicationCurrent
+    ) => {
       invalidate(
-        keyFor(session.accountId, target.orgId, target.inventoryId),
+        statesFor(callerKey),
+        keyFor(session.accountId, target.orgId, target.inventoryId, session.desktopSessionId),
         value,
         session.desktopSessionId,
         session.accountId,
         target,
         generation,
-        assertCurrent
+        assertCurrent,
+        publicationCurrent
       );
     },
   });
@@ -237,10 +283,17 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
   const owner = {
     async organizationDirectory(
       input: InventoryOrganizationDirectoryRequest,
-      assertCurrent: () => void = () => {}
+      assertCurrent: () => void = () => {},
+      callerKey: object = defaultCaller
     ): Promise<InventoryOrganizationDirectoryRead> {
       const request = inventoryOrganizationDirectoryRequestSchema.parse(input);
-      const key = keyFor(request.expectedAccountId, request.orgId, null);
+      const states = statesFor(callerKey);
+      const key = keyFor(
+        request.expectedAccountId,
+        request.orgId,
+        null,
+        request.expectedDesktopSessionId
+      );
       let generation: number | undefined;
       try {
         const session = await identity(
@@ -250,7 +303,7 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
           true
         );
         const started = beginInventoryOrganizationDirectory(
-          select(key, session, null),
+          select(states, key, session, null),
           request,
           clock()
         );
@@ -284,6 +337,7 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
         return read;
       } catch (error) {
         return invalidate(
+          states,
           key,
           failure(error),
           request.expectedDesktopSessionId,
@@ -297,13 +351,17 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
 
     async organizationSnapshot(
       input: InventoryOrganizationSnapshotRequest,
-      assertCurrent: () => void = () => {}
+      assertCurrent: () => void = () => {},
+      callerKey: object = defaultCaller
     ): Promise<InventoryOrganizationSnapshotRead> {
       const request = inventoryOrganizationSnapshotRequestSchema.parse(input);
+      const states = statesFor(callerKey);
+      let publicationCurrent: (() => boolean) | undefined;
       const key = keyFor(
         request.expectedAccountId,
         request.target.orgId,
-        request.target.inventoryId
+        request.target.inventoryId,
+        request.expectedDesktopSessionId
       );
       let ticket: ReturnType<typeof beginInventoryOrganizationSnapshot>['ticket'] | undefined;
       try {
@@ -314,12 +372,13 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
           true
         );
         const started = beginInventoryOrganizationSnapshot(
-          select(key, session, request.target),
+          select(states, key, session, request.target),
           request,
           clock()
         );
         ticket = started.ticket;
         states.set(key, started.state);
+        publicationCurrent = beginPublication(session, request.target);
         const snapshot = await client.readSnapshot({
           accountId: session.accountId,
           desktopSessionId: session.desktopSessionId,
@@ -331,15 +390,29 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
           assertCurrent,
           false
         );
+        if (!publicationCurrent())
+          return invalidate(
+            states,
+            key,
+            superseded(),
+            request.expectedDesktopSessionId,
+            undefined,
+            undefined,
+            ticket.generation,
+            assertCurrent,
+            publicationCurrent
+          );
         if (snapshot.kind === 'unavailable')
           return invalidate(
+            states,
             key,
             snapshot,
             request.expectedDesktopSessionId,
             active.accountId,
             request.target,
             ticket.generation,
-            assertCurrent
+            assertCurrent,
+            publicationCurrent
           );
         const binding: InventoryOrganizationBinding = {
           ...active,
@@ -357,6 +430,18 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
         return read;
       } catch (error) {
         const value = failure(error);
+        if (publicationCurrent && !publicationCurrent())
+          return invalidate(
+            states,
+            key,
+            superseded(),
+            request.expectedDesktopSessionId,
+            undefined,
+            undefined,
+            ticket?.generation,
+            assertCurrent,
+            publicationCurrent
+          );
         if (value.code === 'NETWORK' && ticket) {
           try {
             const active = await identity(
@@ -365,6 +450,18 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
               assertCurrent,
               false
             );
+            if (publicationCurrent && !publicationCurrent())
+              return invalidate(
+                states,
+                key,
+                superseded(),
+                request.expectedDesktopSessionId,
+                undefined,
+                undefined,
+                ticket.generation,
+                assertCurrent,
+                publicationCurrent
+              );
             const projection = readOrganizationInventoryProjection(
               deps.db,
               active.accountId,
@@ -404,24 +501,28 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
             }
           } catch {
             return invalidate(
+              states,
               key,
               value,
               request.expectedDesktopSessionId,
               request.expectedAccountId,
               request.target,
               ticket.generation,
-              assertCurrent
+              assertCurrent,
+              publicationCurrent
             );
           }
         }
         return invalidate(
+          states,
           key,
           value,
           request.expectedDesktopSessionId,
           request.expectedAccountId,
           request.target,
           ticket?.generation,
-          assertCurrent
+          assertCurrent,
+          publicationCurrent
         );
       }
     },
@@ -433,7 +534,14 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
     ): Promise<InventoryOrganizationPreviewRead> {
       const request = inventoryOrganizationPreviewRequestSchema.parse(input);
       const binding = request.binding;
-      const key = keyFor(binding.accountId, binding.target.orgId, binding.target.inventoryId);
+      const states = statesFor(callerKey);
+      let publicationCurrent: (() => boolean) | undefined;
+      const key = keyFor(
+        binding.accountId,
+        binding.target.orgId,
+        binding.target.inventoryId,
+        binding.desktopSessionId
+      );
       let generation: number | undefined;
       try {
         const session = await identity(
@@ -445,14 +553,29 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
         const state = states.get(key);
         if (!state)
           return unavailable('REFRESH_REQUIRED', 'Load the current inventory before previewing.');
+        if (
+          state.snapshot?.kind !== 'current' ||
+          !organizationInventoryConfirmedFactsCurrent(deps.db, session, state.snapshot, nowMs())
+        )
+          return invalidate(
+            states,
+            key,
+            unavailable('REFRESH_REQUIRED', 'Refresh the inventory before previewing.'),
+            binding.desktopSessionId,
+            undefined,
+            undefined,
+            undefined,
+            assertCurrent
+          );
         submission.invalidatePreviews(binding.accountId, binding.target, callerKey);
         const started = beginInventoryOrganizationPreview(
-          select(key, session, binding.target),
+          select(states, key, session, binding.target),
           request,
           clock()
         );
         generation = started.ticket.generation;
         states.set(key, started.state);
+        publicationCurrent = beginPublication(session, binding.target);
         const preview = await client.preview({
           accountId: session.accountId,
           desktopSessionId: session.desktopSessionId,
@@ -464,25 +587,41 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
           assertCurrent,
           false
         );
+        if (!publicationCurrent())
+          return invalidate(
+            states,
+            key,
+            superseded(),
+            binding.desktopSessionId,
+            undefined,
+            undefined,
+            generation,
+            assertCurrent,
+            publicationCurrent
+          );
         if (preview.kind === 'unavailable')
           return invalidate(
+            states,
             key,
             preview,
             binding.desktopSessionId,
             active.accountId,
             binding.target,
             generation,
-            assertCurrent
+            assertCurrent,
+            publicationCurrent
           );
         if (preview.header.accessGeneration !== binding.accessGeneration)
           return invalidate(
+            states,
             key,
             unavailable('ACCESS_CHANGED', 'Inventory access changed. Refresh before previewing.'),
             binding.desktopSessionId,
             active.accountId,
             binding.target,
             generation,
-            assertCurrent
+            assertCurrent,
+            publicationCurrent
           );
         const read: InventoryOrganizationPreviewRead =
           preview.kind === 'ready'
@@ -497,6 +636,13 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
           clock()
         );
         if (next === current) return superseded();
+        if (next.failure?.code === 'SNAPSHOT_CHANGED')
+          removeOrganizationInventoryProjection(
+            deps.db,
+            active.accountId,
+            binding.target,
+            active.desktopSessionId
+          );
         states.set(key, next);
         if (
           read.kind === 'ready' &&
@@ -519,13 +665,15 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
           : read;
       } catch (error) {
         return invalidate(
+          states,
           key,
           failure(error),
           binding.desktopSessionId,
           binding.accountId,
           binding.target,
           generation,
-          assertCurrent
+          assertCurrent,
+          publicationCurrent
         );
       }
     },
@@ -548,22 +696,25 @@ export function createOrganizationInventoryOwner(deps: OrganizationInventoryOwne
 
     organizationAttempt(
       input: InventoryOrganizationAttemptRequest,
-      assertCurrent: () => void = () => {}
+      assertCurrent: () => void = () => {},
+      callerKey: object = defaultCaller
     ) {
-      return submission.organizationAttempt(input, assertCurrent);
+      return submission.organizationAttempt(input, assertCurrent, callerKey);
     },
 
     organizationRecover(
       input: InventoryOrganizationRecoverRequest,
-      assertCurrent: () => void = () => {}
+      assertCurrent: () => void = () => {},
+      callerKey: object = defaultCaller
     ) {
-      return submission.organizationRecover(input, assertCurrent);
+      return submission.organizationRecover(input, assertCurrent, callerKey);
     },
 
     dispose(): void {
       disposed = true;
       submission.dispose();
-      states.clear();
+      callerStates = new WeakMap();
+      sharedPublications.clear();
     },
   };
   return owner;

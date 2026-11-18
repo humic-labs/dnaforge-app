@@ -439,11 +439,15 @@ async function runNativeInventoryAcceptance(submit: boolean) {
     }
     const directories = await Promise.all(
       owners.map((owner, index) =>
-        owner.organizationDirectory({
-          expectedAccountId: accounts[index].accountId,
-          expectedDesktopSessionId: accounts[index].desktopSessionId,
-          orgId: fixture.orgId,
-        })
+        owner.organizationDirectory(
+          {
+            expectedAccountId: accounts[index].accountId,
+            expectedDesktopSessionId: accounts[index].desktopSessionId,
+            orgId: fixture.orgId,
+          },
+          () => {},
+          callers[index]
+        )
       )
     );
     directories.forEach((read, index) => {
@@ -458,11 +462,15 @@ async function runNativeInventoryAcceptance(submit: boolean) {
     });
     const reads = await Promise.all(
       owners.map((owner, index) =>
-        owner.organizationSnapshot({
-          expectedAccountId: accounts[index].accountId,
-          expectedDesktopSessionId: accounts[index].desktopSessionId,
-          target: target!,
-        })
+        owner.organizationSnapshot(
+          {
+            expectedAccountId: accounts[index].accountId,
+            expectedDesktopSessionId: accounts[index].desktopSessionId,
+            target: target!,
+          },
+          () => {},
+          callers[index]
+        )
       )
     );
     const confirmed = reads.map((read, index) => {
@@ -553,11 +561,36 @@ async function runNativeInventoryAcceptance(submit: boolean) {
     if (submit) {
       const preview = previews[0];
       if (preview.kind !== 'ready') throw new Error('The original Native preview is not ready.');
+      const originalReadyHandle = preview.previewHandleId;
+      const independentCaller = {};
+      const independentReadRequest = {
+        expectedAccountId: fixture.admin.accountId,
+        expectedDesktopSessionId: fixture.admin.desktopSessionId,
+        target,
+      };
+      save('native-independent-caller-read-before-submit-input.json', {
+        request: independentReadRequest,
+        originalReadyHandle,
+      });
+      stage = 'native-independent-caller-read-before-submit';
+      locate();
+      const independent = await owners[0].organizationSnapshot(
+        independentReadRequest,
+        () => {},
+        independentCaller
+      );
+      save('native-independent-caller-read-before-submit-result.json', independent);
+      if (independent.kind !== 'current')
+        throw new Error('The independent caller did not receive a complete current snapshot.');
+      expect(independent.snapshot.header.stateSha256).toBe(preview.preview.header.stateSha256);
+      expect(independent.snapshot.header.revision).toBe(preview.preview.header.revision);
+      expect(independent.snapshot.header.accessGeneration).toBe(preview.binding.accessGeneration);
+      expect(independent.snapshot.state).toEqual(confirmed[0].snapshot.state);
       const submission = {
         expectedAccountId: fixture.admin.accountId,
         expectedDesktopSessionId: fixture.admin.desktopSessionId,
         target,
-        previewHandleId: preview.previewHandleId,
+        previewHandleId: originalReadyHandle,
       };
       save('native-submit-input.json', submission);
       stage = 'native-submit';
@@ -597,11 +630,15 @@ async function runNativeInventoryAcceptance(submit: boolean) {
       expect(duplicate.delivery).toEqual({ kind: 'current', confirmedRevision: 2 });
       expect(attemptRows(files[0].db)).toEqual(beforeDuplicate);
       expect(submittedHttpCount).toBe(1);
-      const readB = await owners[1].organizationSnapshot({
-        expectedAccountId: fixture.operator.accountId,
-        expectedDesktopSessionId: fixture.operator.desktopSessionId,
-        target,
-      });
+      const readB = await owners[1].organizationSnapshot(
+        {
+          expectedAccountId: fixture.operator.accountId,
+          expectedDesktopSessionId: fixture.operator.desktopSessionId,
+          target,
+        },
+        () => {},
+        callers[1]
+      );
       save('snapshot-operator-after-submit.json', readB);
       if (readB.kind !== 'current') throw new Error('The second Native client is not current.');
       const afterSubmit = await snapshotA();

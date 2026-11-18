@@ -18,6 +18,7 @@ import {
   type OrganizationInventoryStoredAttempt,
 } from './organization-inventory-attempts';
 import { readOrCreateWorkspaceSyncDeviceId } from './workspace-sync-device';
+import { readOrganizationInventoryProjection } from './organization-inventory-cache';
 import {
   inventoryOrganizationAttemptRequestSchema,
   inventoryOrganizationCancelPreviewRequestSchema,
@@ -59,19 +60,28 @@ interface SubmissionDependencies {
   ): Promise<InventoryOrganizationSessionIdentity>;
   state(
     accountId: string,
-    target: InventoryOrganizationTarget
+    target: InventoryOrganizationTarget,
+    callerKey: object,
+    desktopSessionId: string
   ): InventoryOrganizationSessionState | undefined;
   snapshot(
     request: InventoryOrganizationSnapshotRequest,
-    assertCurrent: () => void
+    assertCurrent: () => void,
+    callerKey: object
   ): Promise<InventoryOrganizationSnapshotRead>;
   observeFailure(
     value: InventoryOrganizationUnavailable,
     session: InventoryOrganizationSessionIdentity,
     target: InventoryOrganizationTarget,
     generation: number | undefined,
-    assertCurrent: () => void
+    assertCurrent: () => void,
+    callerKey: object,
+    publicationCurrent: () => boolean
   ): void;
+  beginPublication(
+    session: InventoryOrganizationSessionIdentity,
+    target: InventoryOrganizationTarget
+  ): () => boolean;
   createOperationId?(): string;
   getDeviceId?(): string;
 }
@@ -122,6 +132,33 @@ const descriptor = (
   request: row.request,
 });
 
+export function organizationInventoryConfirmedFactsCurrent(
+  db: Database.Database,
+  session: InventoryOrganizationSessionIdentity,
+  expected: Extract<InventoryOrganizationSnapshotRead, { kind: 'current' }>,
+  now: number
+): boolean {
+  const projection = readOrganizationInventoryProjection(
+    db,
+    session.accountId,
+    expected.binding.target
+  );
+  if (!projection || !inventoryOrganizationSameSession(projection.session, session)) return false;
+  const actual = projection.snapshot.header,
+    header = expected.snapshot.header;
+  return (
+    Math.min(
+      projection.session.knownAccessTokenExpiresAt,
+      expected.binding.knownAccessTokenExpiresAt,
+      session.knownAccessTokenExpiresAt
+    ) > now &&
+    actual.revision === header.revision &&
+    actual.stateSha256 === header.stateSha256 &&
+    actual.accessGeneration === header.accessGeneration &&
+    actual.permission === header.permission
+  );
+}
+
 export function createOrganizationInventorySubmission(deps: SubmissionDependencies) {
   const previews = new Map<string, LivePreview>();
   const flights = new Set<string>();
@@ -129,9 +166,10 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
     JSON.stringify([accountId, target.orgId, target.inventoryId]);
   const current = (
     session: InventoryOrganizationSessionIdentity,
-    target: InventoryOrganizationTarget
+    target: InventoryOrganizationTarget,
+    callerKey: object
   ) => {
-    const state = deps.state(session.accountId, target);
+    const state = deps.state(session.accountId, target, callerKey, session.desktopSessionId);
     if (state?.accessDenied && inventoryOrganizationSameSession(state.session, session))
       throw new DesktopSyncClientError('FORBIDDEN', 'Inventory access is unavailable.', {
         retryable: false,
@@ -140,13 +178,14 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
     return state;
   };
   const view = (
+    callerKey: object,
     row: OrganizationInventoryStoredAttempt,
     session: InventoryOrganizationSessionIdentity,
     assertCurrent: () => void,
     reason: InventoryOrganizationUnavailable | null = null
   ): InventoryOrganizationActionAttemptRead => {
     deps.assertOwner(assertCurrent);
-    const state = current(session, row.key.target);
+    const state = current(session, row.key.target, callerKey);
     const attempt = descriptor(row);
     if (row.disposition?.kind === 'action-refused')
       return { kind: 'refused', session, attempt, disposition: row.disposition };
@@ -156,6 +195,7 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
         snapshot?.kind === 'current' &&
         inventoryOrganizationSameSession(snapshot.binding, session) &&
         snapshot.binding.knownAccessTokenExpiresAt > deps.nowMs() &&
+        organizationInventoryConfirmedFactsCurrent(deps.db, session, snapshot, deps.nowMs()) &&
         snapshot.snapshot.header.revision >= row.disposition.revision &&
         (snapshot.snapshot.header.revision !== row.disposition.revision ||
           snapshot.snapshot.header.stateSha256 === row.disposition.stateSha256);
@@ -192,14 +232,16 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
     )
       return null;
     deps.assertOwner(handle.assertCurrent);
-    const state = current(session, target);
+    const state = current(session, target, callerKey);
+    const snapshot = state?.snapshot;
     if (
       deps.monotonicMs() >= handle.deadline ||
       handle.read.binding.knownAccessTokenExpiresAt <= deps.nowMs() ||
       state?.pending ||
-      state?.snapshot?.kind !== 'current' ||
-      !inventoryOrganizationSameBinding(state.snapshot.binding, handle.read.binding) ||
-      state.preview?.kind !== 'ready' ||
+      snapshot?.kind !== 'current' ||
+      !inventoryOrganizationSameBinding(snapshot.binding, handle.read.binding) ||
+      !organizationInventoryConfirmedFactsCurrent(deps.db, session, snapshot, deps.nowMs()) ||
+      state?.preview?.kind !== 'ready' ||
       state.preview.previewHandleId !== id
     ) {
       previews.delete(id);
@@ -208,6 +250,7 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
     return handle;
   };
   const deliver = async (
+    callerKey: object,
     original: OrganizationInventoryStoredAttempt,
     session: InventoryOrganizationSessionIdentity,
     assertCurrent: () => void,
@@ -221,7 +264,8 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
           expectedDesktopSessionId: session.desktopSessionId,
           target: row.key.target,
         },
-        assertCurrent
+        assertCurrent,
+        callerKey
       );
       session = await deps.identity(
         session.accountId,
@@ -236,15 +280,22 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
         reason = snapshot.kind === 'unavailable' ? snapshot : snapshot.failure;
       }
     }
-    return view(row, session, assertCurrent, reason);
+    return view(callerKey, row, session, assertCurrent, reason);
   };
   const send = async (
+    callerKey: object,
     row: OrganizationInventoryStoredAttempt,
     session: InventoryOrganizationSessionIdentity,
     assertCurrent: () => void
   ): Promise<InventoryOrganizationActionAttemptRead> => {
-    const generation = deps.state(session.accountId, row.key.target)?.generation;
+    const generation = deps.state(
+      session.accountId,
+      row.key.target,
+      callerKey,
+      session.desktopSessionId
+    )?.generation;
     let reason: InventoryOrganizationUnavailable | null = null;
+    const publicationCurrent = deps.beginPublication(session, row.key.target);
     try {
       const response = await deps.client.applyAction({
         accountId: session.accountId,
@@ -266,12 +317,20 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
       false
     );
     if (accessHidden(reason)) {
-      deps.observeFailure(reason, session, row.key.target, generation, assertCurrent);
+      deps.observeFailure(
+        reason,
+        session,
+        row.key.target,
+        generation,
+        assertCurrent,
+        callerKey,
+        publicationCurrent
+      );
       return reason;
     }
     row = readOrganizationInventoryAttempt(deps.db, row.key)!;
     if (!row) throw new TypeError('The retained inventory operation is missing.');
-    return deliver(row, session, assertCurrent, reason);
+    return deliver(callerKey, row, session, assertCurrent, reason);
   };
   return {
     invalidatePreviews(
@@ -360,7 +419,7 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
           ...scope,
           previewHandleId: request.previewHandleId,
         });
-        if (retained) return view(retained, session, assertCurrent);
+        if (retained) return view(callerKey, retained, session, assertCurrent);
         const handle = live(request.previewHandleId, session, request.target, callerKey);
         if (!handle)
           return unavailable(
@@ -371,6 +430,7 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
         const blocking = readBlockingOrganizationInventoryAttempt(deps.db, scope);
         if (blocking)
           return view(
+            callerKey,
             blocking,
             session,
             assertCurrent,
@@ -405,6 +465,7 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
         });
         if (!live(request.previewHandleId, session, request.target, callerKey))
           return view(
+            callerKey,
             retainedAttempt,
             session,
             assertCurrent,
@@ -421,7 +482,7 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
         previews.delete(request.previewHandleId);
         flights.add(flight);
         try {
-          return await send(row, session, assertCurrent);
+          return await send(callerKey, row, session, assertCurrent);
         } finally {
           flights.delete(flight);
         }
@@ -431,7 +492,8 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
     },
     async organizationAttempt(
       input: InventoryOrganizationAttemptRequest,
-      assertCurrent: () => void
+      assertCurrent: () => void,
+      callerKey: object
     ): Promise<InventoryOrganizationAttemptRead> {
       const request = inventoryOrganizationAttemptRequestSchema.parse(input);
       try {
@@ -441,7 +503,7 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
           assertCurrent,
           false
         );
-        current(session, request.target);
+        current(session, request.target, callerKey);
         const scope = { accountId: session.accountId, target: request.target };
         const row =
           request.query.kind === 'pending'
@@ -452,7 +514,7 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
                 requestSha256: request.query.requestSha256,
               });
         return row
-          ? view(row, session, assertCurrent)
+          ? view(callerKey, row, session, assertCurrent)
           : { kind: 'none', session, target: request.target };
       } catch (error) {
         return failure(error);
@@ -460,7 +522,8 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
     },
     async organizationRecover(
       input: InventoryOrganizationRecoverRequest,
-      assertCurrent: () => void
+      assertCurrent: () => void,
+      callerKey: object
     ): Promise<InventoryOrganizationActionAttemptRead> {
       const request = inventoryOrganizationRecoverRequestSchema.parse(input);
       try {
@@ -485,6 +548,7 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
         const flight = scopeKey(session.accountId, request.target);
         if (flights.has(flight))
           return view(
+            callerKey,
             row,
             session,
             assertCurrent,
@@ -495,6 +559,7 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
           );
         if (request.mode === 'retry-exact' && row.sendState === 'never-sent' && !row.disposition)
           return view(
+            callerKey,
             row,
             session,
             assertCurrent,
@@ -506,6 +571,7 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
           );
         if (request.mode === 'confirm-unsent' && row.sendState !== 'never-sent' && !row.disposition)
           return view(
+            callerKey,
             row,
             session,
             assertCurrent,
@@ -518,8 +584,14 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
         flights.add(flight);
         try {
           if (request.mode === 'inspect') {
-            const generation = deps.state(session.accountId, request.target)?.generation;
+            const generation = deps.state(
+              session.accountId,
+              request.target,
+              callerKey,
+              session.desktopSessionId
+            )?.generation;
             let reason: InventoryOrganizationUnavailable | null = null;
+            const publicationCurrent = deps.beginPublication(session, request.target);
             try {
               const response = await deps.client.readOperation({
                 accountId: session.accountId,
@@ -556,18 +628,27 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
               false
             );
             if (accessHidden(reason)) {
-              deps.observeFailure(reason, session, request.target, generation, assertCurrent);
+              deps.observeFailure(
+                reason,
+                session,
+                request.target,
+                generation,
+                assertCurrent,
+                callerKey,
+                publicationCurrent
+              );
               return reason;
             }
-            return deliver(row, session, assertCurrent, reason);
+            return deliver(callerKey, row, session, assertCurrent, reason);
           }
-          if (row.disposition) return deliver(row, session, assertCurrent);
+          if (row.disposition) return deliver(callerKey, row, session, assertCurrent);
           deps.assertOwner(assertCurrent);
           const claimed = markOrganizationInventoryAttemptMayHaveSent(deps.db, row.key);
           row = claimed.attempt;
-          if (claimed.kind === 'terminal') return deliver(row, session, assertCurrent);
+          if (claimed.kind === 'terminal') return deliver(callerKey, row, session, assertCurrent);
           if (request.mode === 'confirm-unsent' && claimed.kind !== 'claimed')
             return view(
+              callerKey,
               row,
               session,
               assertCurrent,
@@ -577,7 +658,7 @@ export function createOrganizationInventorySubmission(deps: SubmissionDependenci
                 false
               )
             );
-          return await send(row, session, assertCurrent);
+          return await send(callerKey, row, session, assertCurrent);
         } finally {
           flights.delete(flight);
         }

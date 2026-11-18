@@ -137,11 +137,7 @@ it.each(['organizationDirectory', 'organizationSnapshot', 'organizationPreview']
     ) => Promise<unknown>;
     const input = { exact: 'retained request' };
     await expect(handler(event, input)).resolves.toEqual(result);
-    expect(read).toHaveBeenCalledExactlyOnceWith(
-      input,
-      expect.any(Function),
-      ...(method === 'organizationPreview' ? [target] : [])
-    );
+    expect(read).toHaveBeenCalledExactlyOnceWith(input, expect.any(Function), target);
     await expect(
       handler({ ...event, senderFrame: {} } as IpcMainInvokeEvent, input)
     ).rejects.toMatchObject({
@@ -152,7 +148,15 @@ it.each(['organizationDirectory', 'organizationSnapshot', 'organizationPreview']
   }
 );
 
-it.each(['organizationPreview', 'organizationCancelPreview', 'organizationSubmit'] as const)(
+it.each([
+  'organizationDirectory',
+  'organizationSnapshot',
+  'organizationPreview',
+  'organizationCancelPreview',
+  'organizationSubmit',
+  'organizationAttempt',
+  'organizationRecover',
+] as const)(
   'passes a stable native WebContents key and fresh current callbacks to %s',
   async (method) => {
     const read = vi.fn(async (_request: unknown, assertCurrent: () => void, callerKey: object) => {

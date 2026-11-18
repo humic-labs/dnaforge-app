@@ -266,11 +266,11 @@ export function registerInventoryHandlers(options: {
   return handleGroup(inventoryContract, {
     organizationDirectory: (event, request) =>
       readOrganization(event, (owner, assertCurrent) =>
-        owner.organizationDirectory(request, assertCurrent)
+        owner.organizationDirectory(request, assertCurrent, event.sender)
       ),
     organizationSnapshot: (event, request) =>
       readOrganization(event, (owner, assertCurrent) =>
-        owner.organizationSnapshot(request, assertCurrent)
+        owner.organizationSnapshot(request, assertCurrent, event.sender)
       ),
     organizationPreview: (event, request) =>
       readOrganization(event, (owner, assertCurrent) =>
@@ -286,11 +286,11 @@ export function registerInventoryHandlers(options: {
       ),
     organizationAttempt: (event, request) =>
       readOrganization(event, (owner, assertCurrent) =>
-        owner.organizationAttempt(request, assertCurrent)
+        owner.organizationAttempt(request, assertCurrent, event.sender)
       ),
     organizationRecover: (event, request) =>
       readOrganization(event, (owner, assertCurrent) =>
-        owner.organizationRecover(request, assertCurrent)
+        owner.organizationRecover(request, assertCurrent, event.sender)
       ),
     previewEquipmentIncidentAction: (event, request) =>
       previewCitation(event, (owner) => owner.previewEquipmentIncidentAction(request)),
