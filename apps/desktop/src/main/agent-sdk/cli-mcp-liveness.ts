@@ -142,7 +142,7 @@ export async function proveCliMcpToolsReachable(
         });
       });
 
-      child.on('exit', (code, signal) => {
+      child.on('close', (code, signal) => {
         clearTimeout(timer);
         finish({
           ok: false,
