@@ -151,6 +151,10 @@ let leaderMaskXMax = new Float64Array(0);
 let leaderMaskYMin = new Float64Array(0);
 let leaderMaskYMax = new Float64Array(0);
 const leaderMaskScratch = { xMin: 0, xMax: 0, yMin: 0, yMax: 0 };
+const leaderMaskOrder: number[] = [];
+const leaderMaskMaxBottom: number[] = [];
+const segmentMasks: number[] = [];
+const ascendingIndex = (a: number, b: number): number => a - b;
 const OUTWARD_EDGE_PROJECTION_EPSILON_PX = 0.01;
 const CIRCULAR_LEADER_ORIENTATION_SAMPLES = Array.from({ length: 32 }, (_, sample) => {
   const angle = (sample / 32) * Math.PI * 2;
@@ -1073,13 +1077,21 @@ export function floatingAnnotationVisibleLeaderSegments(
   const maskYMin = leaderMaskYMin;
   const maskYMax = leaderMaskYMax;
   let maskIndex = 0;
+  leaderMaskOrder.length = placedCount;
   for (const decision of decisions) {
     if (decision.status !== 'placed') continue;
     maskXMin[maskIndex] = decision.bounds.xMin - maskPadding;
     maskXMax[maskIndex] = decision.bounds.xMax + maskPadding;
     maskYMin[maskIndex] = decision.bounds.yMin - maskPadding;
     maskYMax[maskIndex] = decision.bounds.yMax + maskPadding;
+    leaderMaskOrder[maskIndex] = maskIndex;
     maskIndex += 1;
+  }
+  leaderMaskOrder.sort((a, b) => maskYMin[a] - maskYMin[b]);
+  let bottom = -Infinity;
+  for (let i = 0; i < placedCount; i++) {
+    bottom = Math.max(bottom, maskYMax[leaderMaskOrder[i]]);
+    leaderMaskMaxBottom[i] = bottom;
   }
   const mask = leaderMaskScratch;
   const visible: FloatingAnnotationLabelLeaderSegment[] = [];
@@ -1104,15 +1116,28 @@ export function floatingAnnotationVisibleLeaderSegments(
       const segmentYMin = Math.min(rawSegment.start.y, rawSegment.end.y);
       const segmentYMax = Math.max(rawSegment.start.y, rawSegment.end.y);
       let fragments: FloatingAnnotationLabelLeaderSegment[] | null = null;
-      for (let m = 0; m < placedCount; m += 1) {
+      let low = 0;
+      let high = placedCount;
+      while (low < high) {
+        const mid = (low + high) >>> 1;
+        if (leaderMaskMaxBottom[mid] <= segmentYMin) low = mid + 1;
+        else high = mid;
+      }
+      segmentMasks.length = 0;
+      for (let i = low; i < placedCount; i++) {
+        const m = leaderMaskOrder[i];
+        if (segmentYMax <= maskYMin[m]) break;
         if (
-          segmentXMax <= maskXMin[m] ||
           segmentXMin >= maskXMax[m] ||
-          segmentYMax <= maskYMin[m] ||
+          segmentXMax <= maskXMin[m] ||
           segmentYMin >= maskYMax[m]
         ) {
           continue;
         }
+        segmentMasks.push(m);
+      }
+      if (segmentMasks.length > 1) segmentMasks.sort(ascendingIndex);
+      for (const m of segmentMasks) {
         mask.xMin = maskXMin[m];
         mask.xMax = maskXMax[m];
         mask.yMin = maskYMin[m];

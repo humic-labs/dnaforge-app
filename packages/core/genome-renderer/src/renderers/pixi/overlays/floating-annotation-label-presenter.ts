@@ -1443,12 +1443,7 @@ export class FloatingAnnotationLabelPresenter {
           const resolution = targetPillLabelTextResolution();
           if (textObject.resolution !== resolution) textObject.resolution = resolution;
         }
-        textObject.roundPixels = false;
-        textObject.anchor.set(0.5, 0.5);
-        textObject.x = decision.x;
-        textObject.y = decision.y;
-        textObject.rotation = 0;
-        textObject.scale.set(1);
+        textObject.position.set(decision.x, decision.y);
         this.host.recordCallout(state, {
           featureId: decision.featureId,
           text: decision.text,
@@ -1537,6 +1532,7 @@ export class FloatingAnnotationLabelPresenter {
     } else {
       text = new BitmapText({
         text: '',
+        anchor: 0.5,
         style: floatingLabelBitmapStyle(fontName, 0x374151),
       });
       this.host.container.addChild(text);
@@ -1557,6 +1553,7 @@ export class FloatingAnnotationLabelPresenter {
     } else {
       text = new Text({
         text: '',
+        anchor: 0.5,
         style: pillLabelTextStyle(0xffffff),
         resolution: targetPillLabelTextResolution(),
       });
