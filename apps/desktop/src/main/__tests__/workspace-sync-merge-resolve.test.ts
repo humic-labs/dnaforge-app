@@ -32,6 +32,7 @@ import {
   type WorkspaceSyncReconcileDeps,
 } from '../workspace-sync-reconcile-runtime';
 import { reconcileWorkspaceBundles } from '../workspace-sync-reconcile';
+import { recordWorkspaceSyncReplicaFiles } from '../workspace-sync-replica-files';
 import { buildWorkspaceSyncSnapshot } from '../workspace-sync-snapshotter';
 import { commitAllIfDirty } from '../workspace-git';
 import { createTestDb } from './test-db';
@@ -115,6 +116,13 @@ describe('resolving a shared-project merge conflict ', () => {
       ) VALUES (1, 'workspace-a', 'account-a', ?, 1, ?, 4, ?, 1, 1)`
     ).run(REMOTE_WORKSPACE_ID, REMOTE_BASE_ID, localHead);
     const base = bundle({ 'designs/cloud.gb': BASE_CLOUD });
+    recordWorkspaceSyncReplicaFiles(db, {
+      workspaceUuid: 'workspace-a',
+      remoteWorkspaceId: REMOTE_WORKSPACE_ID,
+      remoteVersionId: REMOTE_BASE_ID,
+      paths: base.files.map((file) => file.relativePath),
+      nowMs: 1,
+    });
     const local = bundle({ 'designs/cloud.gb': BASE_CLOUD, 'designs/mine.gb': LOCAL_ONLY });
     const remote = bundle({ 'designs/cloud.gb': REMOTE_CLOUD });
     db.prepare(

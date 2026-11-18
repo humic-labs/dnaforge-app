@@ -181,6 +181,7 @@ describe('workspace-sync manifest/blob upload', () => {
       expect(body).toEqual({
         representation: 'scientific_manifest_v1',
         baseVersionId: null,
+        fileSelectionVersion: 0,
         manifest,
         excludedSummary: {},
         scientificHistory,
@@ -196,6 +197,40 @@ describe('workspace-sync manifest/blob upload', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it('publishes selection version outside portable manifest bytes and keeps ignore counts local', async () => {
+    const source = bundle();
+    const manifest = workspaceSyncManifestFromBundle(source);
+    const requestJson = vi.fn(async (path: string, options: DesktopSyncRequestOptions) => {
+      if (path.endsWith('/blobs/reserve')) {
+        const blob = options.body as { contentSha256: string; sizeBytes: number };
+        return { status: 'ready', blobId: BLOB_ID, ...blob };
+      }
+      if (path.endsWith('/versions')) return { status: 'in_progress' };
+      throw new Error('Unexpected publication route.');
+    });
+    const client = { requestJson, requestStream: vi.fn() } as unknown as DesktopSyncClient;
+    await createManifestWorkspaceSyncVersion(client, {
+      remoteWorkspaceId: REMOTE_WORKSPACE_ID,
+      ownerAccountId: 'account-a',
+      idempotencyKey: 'selected-version',
+      baseVersionId: null,
+      bundle: source,
+      manifest,
+      fileSelectionVersion: 1,
+      excludedSummary: { unsupportedCount: 2, ignoredCount: 3 },
+    });
+    const publication = requestJson.mock.calls.find(([path]) => path.endsWith('/versions'))![1];
+    expect(publication.expectedAccountId).toBe('account-a');
+    expect(publication.idempotencyKey).toBe('selected-version');
+    expect(publication.body).toEqual({
+      baseVersionId: null,
+      fileSelectionVersion: 1,
+      manifest,
+      excludedSummary: { unsupportedCount: 2 },
+    });
+    expect(manifest).toEqual(workspaceSyncManifestFromBundle(source));
   });
 
   it('preserves concurrent resumable upload receipts from separate uploader instances', async () => {

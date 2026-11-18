@@ -62,6 +62,7 @@ export interface WorkspaceScopedDirtyState {
 }
 
 export interface WorkspaceSyncExcludedSummary {
+  ignoredCount?: number;
   unsupportedCount?: number;
   privateRawDataCount?: number;
   referencePointerCount?: number;

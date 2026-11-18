@@ -44,9 +44,9 @@ const PREVIEW: WorkspaceSyncUploadPreviewOk = {
   ],
   includedFileCount: 1,
   includedBytes: 128,
-  excludedSummary: null,
+  excludedSummary: { ignoredCount: 0 },
   limits: { maxFileBytes: 32 * 1024 * 1024, maxBundleBytes: 256 * 1024 * 1024, maxFiles: 2000 },
-} as WorkspaceSyncUploadPreviewOk;
+};
 
 function baseProps() {
   return {

@@ -58,7 +58,8 @@ export type SyncAction =
   | 'people'
   | 'reconcile'
   | 'resolve-merge'
-  | 'recover';
+  | 'recover'
+  | 'selection';
 export type ConflictResolution = 'keep_local' | 'use_remote';
 
 function localOnlySyncStatus(): WorkspaceSyncStatus {
@@ -99,6 +100,8 @@ export interface CloudWorkspaceController {
   runConflictResolution: (resolution: ConflictResolution) => Promise<void>;
   openSyncedProject: (project: WorkspaceSyncProjectSummary) => Promise<void>;
   recoverScientificDrafts: () => Promise<void>;
+  saveSelectionRules: (rules: string) => Promise<void>;
+  approveSelection: () => Promise<void>;
 
   organizations: WorkspaceSyncOrganizationSummary[];
   ownerChoice: WorkspaceSyncOwnerChoice;
@@ -736,6 +739,61 @@ export function useCloudWorkspaceController(
     setSyncStatus(status);
   }
 
+  async function updateSelection(
+    kind: 'save-rules' | 'approve',
+    rootGitignore?: string
+  ): Promise<void> {
+    const workspaceUuid = syncWorkspaceUuid;
+    const selection = uploadPreview?.selection;
+    if (!workspaceUuid || !selection) return;
+    const command = beginCommand();
+    if (command === null) return;
+    setSyncBusy('selection');
+    try {
+      const request =
+        kind === 'save-rules'
+          ? ({
+              kind,
+              expectedRevision: selection.revision,
+              rootGitignore: rootGitignore ?? '',
+            } as const)
+          : ({ kind, expectedRevision: selection.revision } as const);
+      const result = await platform().cloudSync.updateSelection(workspaceUuid, request, {
+        owner: ownerChoice,
+      });
+      if (!isCurrentCommand(command)) return;
+      if (!result.ok) {
+        setUploadPreviewError(toUserMessage(result, 'account.failed'));
+        const refreshed = await platform().cloudSync.previewUpload(workspaceUuid, {
+          owner: ownerChoice,
+        });
+        if (isCurrentCommand(command) && refreshed.ok) setUploadPreview(refreshed);
+        return;
+      }
+      setUploadPreview(result);
+      setUploadPreviewError(null);
+      if (
+        kind === 'approve' &&
+        syncStatus &&
+        syncStatus.syncAxis !== 'local_only' &&
+        !syncStatus.blockers.includes('sync_disabled')
+      ) {
+        await refreshSyncStatus(workspaceUuid, command);
+        const refreshed = await platform().cloudSync.previewUpload(workspaceUuid, {
+          owner: ownerChoice,
+        });
+        if (isCurrentCommand(command) && refreshed.ok) setUploadPreview(refreshed);
+      }
+    } catch (error) {
+      if (isCurrentCommand(command))
+        setUploadPreviewError(
+          renderUserMessage(formatCloudSurfaceError(error, 'notice.sync-action-failed'))
+        );
+    } finally {
+      finishCommand(command);
+    }
+  }
+
   async function runAutoSyncAction(action: SyncAction): Promise<void> {
     if (!syncWorkspaceUuid) return;
     if (commandInFlightRef.current) return;
@@ -837,7 +895,10 @@ export function useCloudWorkspaceController(
       const owner = choice;
       const result =
         action === 'enable'
-          ? await platform().cloudSync.setEnabled(syncWorkspaceUuid, true, { owner })
+          ? await platform().cloudSync.setEnabled(syncWorkspaceUuid, true, {
+              owner,
+              selectionRevision: uploadPreview?.selection?.revision,
+            })
           : await platform().cloudSync.forceSync(syncWorkspaceUuid);
       if (!isCurrentCommand(command)) return;
       if (!result.ok) {
@@ -853,6 +914,8 @@ export function useCloudWorkspaceController(
         { definition: 'use-cloud-workspace-controller-sync-requested' }
       );
       await refreshSyncStatus(syncWorkspaceUuid, command);
+      const refreshed = await platform().cloudSync.previewUpload(syncWorkspaceUuid, { owner });
+      if (isCurrentCommand(command) && refreshed.ok) setUploadPreview(refreshed);
     } catch (err) {
       if (!isCurrentCommand(command)) return;
       addToast(renderUserMessage(formatCloudSurfaceError(err, 'notice.sync-action-failed')), {
@@ -1065,6 +1128,8 @@ export function useCloudWorkspaceController(
     runConflictResolution,
     openSyncedProject,
     recoverScientificDrafts,
+    saveSelectionRules: (rules) => updateSelection('save-rules', rules),
+    approveSelection: () => updateSelection('approve'),
     organizations,
     ownerChoice,
     setOwnerChoice,
