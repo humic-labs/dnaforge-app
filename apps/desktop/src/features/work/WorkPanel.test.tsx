@@ -12,6 +12,7 @@ import { WorkPanel } from './WorkPanel';
 import { WorkTaskDialogHost } from './WorkTaskDialogHost';
 import { WorkTaskReminders } from './WorkReminders';
 import { closeWorkTask } from './task-presentation';
+import { notifyWorkspaceReconciled } from '../../services/workspace-reconciled-event';
 import type {
   WorkTaskInspection,
   WorkTaskMutation,
@@ -452,6 +453,23 @@ describe('linked work', () => {
     expect(await screen.findByText(/History unavailable/)).toBeVisible();
     expect(screen.queryByText('No tasks assigned to you.')).toBeNull();
     expect(client.query).toHaveBeenCalledWith(expect.objectContaining({ assignee: 'me' }));
+  });
+  it('refreshes project eligibility when workspace enrollment finishes', async () => {
+    client.query.mockResolvedValueOnce({
+      tasks: [],
+      projects: [],
+      actor,
+      now,
+      total: 0,
+      nextOffset: null,
+      unavailable: [],
+    });
+    render(<WorkPanel mode="mine" />);
+    await screen.findByText('No tasks assigned to you.');
+    const button = screen.getByRole('button', { name: 'Add task', exact: true });
+    expect(button).toBeDisabled();
+    act(() => notifyWorkspaceReconciled(project.root));
+    await waitFor(() => expect(button).toBeEnabled());
   });
   it.each(['tasks', 'record dates'])(
     'rejects pages from different snapshots for %s',

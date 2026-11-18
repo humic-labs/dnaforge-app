@@ -4,6 +4,7 @@ import type { WorkTaskQuery, WorkTaskQueryResult } from '../../shared/work-tasks
 import { getDesktopAuthSnapshot, subscribeDesktopAuthSnapshot } from '../auth/public/auth-state';
 import { WORK_TASK_CHANGED } from './task-presentation';
 import { WORKSPACE_FILES_CHANGED_EVENT } from '../../services/workspace-files-changed-event';
+import { WORKSPACE_RECONCILED_EVENT } from '../../services/workspace-reconciled-event';
 import { ENTITY_PROJECTION_UPDATED_EVENT } from '../../db/entity-substrate/adapter-events';
 
 function accountKey() {
@@ -18,6 +19,7 @@ export function observeWorkChanges(refresh: () => void) {
   const events = [
     WORK_TASK_CHANGED,
     WORKSPACE_FILES_CHANGED_EVENT,
+    WORKSPACE_RECONCILED_EVENT,
     ENTITY_PROJECTION_UPDATED_EVENT,
     'focus',
   ];
