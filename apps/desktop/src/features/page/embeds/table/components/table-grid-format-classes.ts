@@ -28,11 +28,6 @@ export function tableGridAlignButtonClass(disabled: boolean, active: boolean): s
   return `${base} ${BUTTON_IDLE}`;
 }
 
-export function tableGridColorButtonClass(disabled: boolean, extraBase = ''): string {
-  const base = `${BUTTON_BASE}${extraBase}`;
-  return disabled ? `${base} ${BUTTON_DISABLED}` : `${base} ${BUTTON_IDLE}`;
-}
-
 export function tableGridSwatchColor(value: string | null | 'mixed', fallback: string): string {
   return (typeof value === 'string' ? value : null) || fallback;
 }

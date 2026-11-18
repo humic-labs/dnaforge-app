@@ -19,9 +19,8 @@ export function ColorPalette({
   onPick: (color: string) => void;
   onClear: () => void;
   disabled?: boolean;
-  className: string;
   testId?: string;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const rows = useRef(new Map<string, HTMLButtonElement>());
@@ -57,7 +56,7 @@ export function ColorPalette({
         ref={triggerRef}
         variant="toolbar"
         iconOnly
-        icon={children}
+        icon={children ? <span className="flex flex-col items-center">{children}</span> : undefined}
         disabled={disabled}
         aria-label={label}
         title={label}

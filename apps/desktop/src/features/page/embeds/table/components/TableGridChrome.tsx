@@ -2,7 +2,6 @@ import { ColorPalette } from '../../../components/ColorPalette';
 import type { ChangeEvent, KeyboardEvent, Ref, RefObject } from 'react';
 import {
   tableGridAlignButtonClass,
-  tableGridColorButtonClass,
   tableGridFindWidth,
   tableGridFormatToggleClass,
   tableGridSwatchColor,
@@ -291,7 +290,6 @@ export function TableGridFormulaBar(props: {
           value={selectionFormatState.textColor}
           onPick={setTextColor}
           onClear={() => setTextColor(undefined)}
-          className={tableGridColorButtonClass(formatDisabled, ' flex-col')}
         >
           <span className="text-[10px] font-medium">A</span>
           <span
@@ -320,7 +318,6 @@ export function TableGridFormulaBar(props: {
           value={selectionFormatState.bgColor}
           onPick={setBgColor}
           onClear={() => setBgColor(undefined)}
-          className={tableGridColorButtonClass(formatDisabled)}
         >
           <span
             className="w-4 h-4 rounded border border-border"

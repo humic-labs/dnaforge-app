@@ -314,10 +314,7 @@ function ColorControl({
         onPick={onPick}
         onClear={onClear}
         testId={`toolbar-${kind}-colors`}
-        className="px-0.5 py-0.5 rounded text-[8px] leading-none wp-interactive"
-      >
-        ▾
-      </ColorPalette>
+      />
     </div>
   );
 }
