@@ -38,7 +38,8 @@ export function WorkCalendar({
     });
   }, [month]);
   const start = dayKey(month);
-  const end = dayKey(new Date(month.getFullYear(), month.getMonth() + 1, 0, 12));
+  const from = dayKey(new Date(month.getFullYear(), month.getMonth(), -1, 12));
+  const through = dayKey(new Date(month.getFullYear(), month.getMonth() + 1, 2, 12));
   const [occurrences, setOccurrences] = useState<{
     month: string;
     tasks: WorkTaskRecord[];
@@ -57,8 +58,8 @@ export function WorkCalendar({
           const result = await platform().workTasks.occurrences({
             workspaceRoot: task.project.root,
             taskId: task.id,
-            from: start,
-            through: end,
+            from,
+            through,
           });
           return result
             .filter((item) => item.status !== 'skipped')
@@ -77,7 +78,7 @@ export function WorkCalendar({
     return () => {
       active = false;
     };
-  }, [tasks, start, end, attempt]);
+  }, [tasks, start, from, through, attempt]);
   const current = occurrences?.month === start && occurrences.tasks === tasks ? occurrences : null;
   const dates = [
     ...tasks

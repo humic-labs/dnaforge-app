@@ -4,6 +4,7 @@ import {
   applyWorkTaskCommand,
   expandWorkOccurrences,
   resolveWorkSchedule,
+  workTimeFromInput,
   type WorkSourceReader,
   type WorkTaskDocument,
 } from '@waypoint/domain-services';
@@ -469,4 +470,42 @@ describe('linked work', () => {
       expect(await screen.findByText(/changed while loading/)).toBeVisible();
     }
   );
+  it('includes a timed occurrence whose captured day is in the next viewer month', async () => {
+    const today = new Date();
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1, 12);
+    const date = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`;
+    const anchor = workTimeFromInput({
+      kind: 'timed',
+      local: date + 'T00:30',
+      zone: 'Pacific/Kiritimati',
+    });
+    stored = makeRecord(
+      'midnight',
+      applyWorkTaskCommand(
+        null,
+        {
+          kind: 'create',
+          name: 'Midnight review',
+          plan: { start: { kind: 'fixed', value: anchor } },
+          recurrence: {
+            frequency: 'daily',
+            interval: 1,
+            anchor,
+            fold: 'earlier',
+            state: 'active',
+            count: 1,
+          },
+        },
+        { actor: actor.id, now }
+      )
+    );
+    client.occurrences.mockImplementation(async (input) =>
+      expandWorkOccurrences(stored!.document, input.from, input.through)
+    );
+    render(<WorkPanel mode="project" workspaceRoot={project.root} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'calendar', exact: true }));
+    expect(
+      await screen.findByRole('button', { name: 'Plan · Midnight review', exact: true })
+    ).toBeVisible();
+  });
 });
