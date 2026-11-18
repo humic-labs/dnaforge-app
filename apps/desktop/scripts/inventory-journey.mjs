@@ -1,4 +1,9 @@
 import {
+  runInventoryProtocolRunJourney,
+  runInventoryProtocolRunResume,
+  runInventoryProtocolRunReopen,
+} from './journeys/inventory-protocol-run.mjs';
+import {
   runInventoryScientificJourney,
   runInventoryScientificResume,
   runInventoryScientificReopen,
@@ -175,6 +180,9 @@ assert.ok(
     'arrival-evidence-reopen',
     'arrival-evidence-text',
     'arrival-evidence-text-resume',
+    'protocol-run',
+    'protocol-run-resume',
+    'protocol-run-reopen',
     'scientific',
     'scientific-resume',
     'scientific-reopen',
@@ -231,6 +239,25 @@ const files = execFileSync(
     '--',
     ':(glob)**/*inventory*',
     'apps/desktop/src/features/inventory',
+    'apps/desktop/src/features/scientific-document',
+    'apps/desktop/src/App.tsx',
+    'apps/desktop/src/components/ExplorerAddPicker.tsx',
+    'apps/desktop/src/hooks/useWorkspaceArtifactActions.ts',
+    'apps/desktop/src/main/native-protocol-packages.ts',
+    'apps/desktop/src/main/ipc/protocols.ts',
+    'apps/desktop/src/shared/protocol-packages.ts',
+    'apps/desktop/src/shared/protocol-client.ts',
+    'apps/desktop/src/shared/protocol-command.ts',
+    'apps/desktop/src/shared/ipc/protocols.contract.ts',
+    'apps/desktop/src/shared/ipc/contracts.ts',
+    'apps/desktop/src/services/protocol-package-changes.ts',
+    'apps/desktop/src/features/agent-bridge/catalog/protocols.ts',
+    'apps/desktop/src/features/ai/tools/protocol-document.ts',
+    'apps/desktop/src/services/native-scientific-package-reconcile.ts',
+    'packages/core/domain-services/src/protocol-package.ts',
+    'packages/core/domain-services/src/protocol-document-structure.ts',
+    'packages/core/domain-services/src/protocol-run-model.ts',
+    'packages/core/domain-services/src/paper-protocol-model.ts',
     'apps/desktop/src/feature-registry',
     'apps/desktop/src/shared/activity-view.ts',
     'apps/desktop/src/main/features/native-documents.ts',
@@ -862,6 +889,23 @@ try {
         : stage === 'stockroom-corrections-resume'
           ? runInventoryStockroomCorrectionsResume
           : runInventoryStockroomCorrectionsReopen
+    )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
+  if (['protocol-run', 'protocol-run-resume', 'protocol-run-reopen'].includes(stage)) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass an exact currentv24 fixture or Protocol Run checkpoint.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    await openInventory(fixture.project.name);
+    receipt.expected = await (
+      stage === 'protocol-run'
+        ? runInventoryProtocolRunJourney
+        : stage === 'protocol-run-resume'
+          ? runInventoryProtocolRunResume
+          : runInventoryProtocolRunReopen
     )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
   }
   if (

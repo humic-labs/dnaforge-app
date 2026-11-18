@@ -1,5 +1,6 @@
 import {
   bindCatalogEntityToFile,
+  getCatalogEntityForFilePath,
   registerCatalogEntity,
   resolveCatalogEntityIdForWorkspace,
 } from '../db/workspace-catalog';
@@ -26,6 +27,20 @@ export async function reconcileNativeScientificPackage(input: {
     await platform().fs.readTextFile(input.path)
   );
   const entityId = await resolveCatalogEntityIdForWorkspace(input.workspaceRoot, identity.rawId);
+  const raw = JSON.parse(await platform().fs.readTextFile(input.path)) as Record<string, unknown>;
+  if (raw.creation) {
+    const current = await getCatalogEntityForFilePath(input.path);
+    if (!current || current.id !== entityId)
+      throw new Error(
+        'PROTOCOL_CREATION_RECOVERY_REQUIRED: Recover the original native package creation before discovery.'
+      );
+    const saved = await platform().protocols.readPackage({
+      project: input.workspaceRoot,
+      entityId,
+    });
+    if (saved.path !== input.path) throw new Error('PROTOCOL_CREATION_BINDING_CONFLICT');
+    return { entityId, rawId: identity.rawId, kind: identity.kind };
+  }
   const entity = await registerCatalogEntity({
     id: entityId,
     type: identity.kind === 'protocol' ? 'protocol' : 'protocol_run',

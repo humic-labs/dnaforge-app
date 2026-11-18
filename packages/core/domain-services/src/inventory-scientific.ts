@@ -2,6 +2,7 @@ import { normalizeInventoryAmount } from './inventory-amount';
 import { inventoryRecordIdExists } from './inventory-identity';
 import { applyInventoryCommandBatch } from './inventory-state';
 import { parseInventoryState } from './inventory-validation';
+import { parseProtocolPackage } from './protocol-package';
 import {
   inventoryTableCanonicalJson as canonical,
   inventoryTableSha256,
@@ -9,15 +10,19 @@ import {
 import type { InventoryTableSha256 } from './inventory-table-types';
 import {
   inventoryNotebookSourceSha256,
+  inventoryProtocolRunSourceSha256,
   inventoryScientificWorkId,
   inventoryScientificStockId,
   inventoryScientificTransferIntentSha256,
+  inventoryScientificTransferIntentSha256V2,
 } from './inventory-scientific-source';
 export {
   inventoryNotebookSourceSha256,
+  inventoryProtocolRunSourceSha256,
   inventoryScientificWorkId,
   inventoryScientificStockId,
   inventoryScientificTransferIntentSha256,
+  inventoryScientificTransferIntentSha256V2,
 } from './inventory-scientific-source';
 import type {
   InventoryErrorCode,
@@ -28,6 +33,10 @@ import type {
 import type {
   InventoryScientificTransferApply,
   InventoryScientificTransferChoices,
+  InventoryScientificTransferChoicesV2,
+  InventoryScientificTransferApplicationV2,
+  InventoryScientificTransferPreviewV2,
+  InventoryScientificTransferPreviewInputV2,
   InventoryScientificTransferCommand,
   InventoryScientificTransferExisting,
   InventoryScientificTransferPreview,
@@ -40,8 +49,25 @@ export function inventoryScientificTransferExisting(
   state: Pick<InventoryState, 'scientificWorks'>,
   input: InventoryScientificTransferChoices
 ): InventoryScientificTransferExisting {
+  return inventoryScientificTransferExistingV2(state, notebookInput(input));
+}
+function notebookInput<T extends InventoryScientificTransferChoices>(input: T) {
+  const { pageId, expectedSourceSha256, ...fields } = input;
+  return {
+    ...fields,
+    context: {
+      kind: 'notebook-page' as const,
+      entityId: pageId,
+      sourceSha256: expectedSourceSha256,
+    },
+  };
+}
+export function inventoryScientificTransferExistingV2(
+  state: Pick<InventoryState, 'scientificWorks'>,
+  input: InventoryScientificTransferChoicesV2
+): InventoryScientificTransferExisting {
   const id = inventoryScientificWorkId(input.identity),
-    intentSha256 = inventoryScientificTransferIntentSha256(input),
+    intentSha256 = inventoryScientificTransferIntentSha256V2(input),
     work = Object.hasOwn(state.scientificWorks, id) ? state.scientificWorks[id] : undefined;
   if (!work) return { kind: 'new' };
   return {
@@ -59,13 +85,13 @@ function vesselSnapshot(vessel: InventoryVessel): InventoryScientificVesselSnaps
 }
 function prepare(
   state: InventoryState,
-  input: InventoryScientificTransferPreviewInput
-): { preview: InventoryScientificTransferPreview; state?: InventoryState } {
+  input: InventoryScientificTransferPreviewInputV2
+): { preview: InventoryScientificTransferPreviewV2; state?: InventoryState } {
   let workId: string | null = null,
     intentSha256: InventoryTableSha256 | null = null,
     sourceSha256: InventoryTableSha256 | null = null;
   const facts = () => ({
-    schema: 'dnaforge.inventory-scientific-transfer-preview.v1' as const,
+    schema: 'dnaforge.inventory-scientific-transfer-preview.v2' as const,
     target: structuredClone(input.target),
     workId,
     intentSha256,
@@ -74,7 +100,7 @@ function prepare(
   const blocked = (
     code: InventoryErrorCode,
     message: string
-  ): { preview: InventoryScientificTransferPreview } => ({
+  ): { preview: InventoryScientificTransferPreviewV2 } => ({
     preview: {
       ...facts(),
       kind: 'blocked',
@@ -86,8 +112,8 @@ function prepare(
   });
   try {
     workId = inventoryScientificWorkId(input.identity);
-    intentSha256 = inventoryScientificTransferIntentSha256(input);
-    const existing = inventoryScientificTransferExisting(state, input);
+    intentSha256 = inventoryScientificTransferIntentSha256V2(input);
+    const existing = inventoryScientificTransferExistingV2(state, input);
     if (existing.kind === 'conflict')
       return blocked(
         'SCIENTIFIC_WORK_CONFLICT',
@@ -114,23 +140,47 @@ function prepare(
     const source = input.source;
     if (
       !source ||
-      source.schema !== 'dnaforge.notebook-saved-source.v1' ||
       source.projectId !== input.target.projectId ||
-      source.pageId !== input.pageId ||
       !source.workspaceScope ||
-      !source.pageId.startsWith(`${source.workspaceScope}::`) ||
+      !input.context.entityId.startsWith(`${source.workspaceScope}::`) ||
       !source.fileObjectUuid ||
-      !source.title ||
-      !source.content ||
-      typeof source.content !== 'object' ||
-      Array.isArray(source.content)
+      !source.title
     )
       return blocked(
         'SCIENTIFIC_CONTEXT_MISMATCH',
         'The completed work requires its exact admitted saved notebook source in this project.'
       );
-    sourceSha256 = inventoryNotebookSourceSha256(source);
-    if (sourceSha256 !== input.expectedSourceSha256)
+    if (input.context.kind === 'notebook-page') {
+      if (
+        source.schema !== 'dnaforge.notebook-saved-source.v1' ||
+        source.pageId !== input.context.entityId ||
+        !source.content ||
+        typeof source.content !== 'object' ||
+        Array.isArray(source.content)
+      )
+        return blocked('SCIENTIFIC_CONTEXT_MISMATCH', 'Choose the exact saved Notebook source.');
+      sourceSha256 = inventoryNotebookSourceSha256(source);
+    } else {
+      if (
+        source.schema !== 'dnaforge.protocol-run-saved-source.v1' ||
+        source.runId !== input.context.entityId
+      )
+        return blocked(
+          'SCIENTIFIC_CONTEXT_MISMATCH',
+          'Choose the exact saved Protocol Run source.'
+        );
+      const parsed = parseProtocolPackage(source.originalText);
+      if (
+        parsed.kind !== 'protocol_run' ||
+        `${source.workspaceScope}::${parsed.id.split('::').at(-1)}` !== source.runId
+      )
+        return blocked(
+          'SCIENTIFIC_CONTEXT_MISMATCH',
+          'The saved Protocol Run does not match its canonical identity.'
+        );
+      sourceSha256 = inventoryProtocolRunSourceSha256(source);
+    }
+    if (sourceSha256 !== input.context.sourceSha256)
       return blocked(
         'SCIENTIFIC_CONTEXT_MISMATCH',
         'The saved notebook source changed. Inspect it and preview the transfer again.'
@@ -160,10 +210,11 @@ function prepare(
       identity: { ...input.identity },
       intentSha256,
       context: {
-        kind: 'notebook-page',
+        ...(input.context.kind === 'notebook-page'
+          ? { kind: 'notebook-page' as const, pageId: input.context.entityId }
+          : { kind: 'protocol-run' as const, entityId: input.context.entityId }),
         projectId: source.projectId,
         workspaceScope: source.workspaceScope,
-        pageId: source.pageId,
         source: {
           kind: 'native-observed-saved-source',
           sha256: sourceSha256,
@@ -191,7 +242,10 @@ function prepare(
     };
     const planDigest = inventoryTableSha256(
       canonical({
-        schema: 'dnaforge.inventory-scientific-transfer-plan.v1',
+        schema:
+          input.context.kind === 'notebook-page'
+            ? 'dnaforge.inventory-scientific-transfer-plan.v1'
+            : 'dnaforge.inventory-scientific-transfer-plan.v2',
         target: input.target,
         intentSha256,
         sourceSha256,
@@ -228,13 +282,29 @@ export function inventoryScientificTransferPreview(
   state: InventoryState,
   input: InventoryScientificTransferPreviewInput
 ): InventoryScientificTransferPreview {
-  return prepare(state, input).preview;
+  return {
+    ...prepare(state, notebookInput(input)).preview,
+    schema: 'dnaforge.inventory-scientific-transfer-preview.v1',
+  };
 }
 export const applyInventoryScientificTransfer: InventoryScientificTransferApply = (
   state,
   input,
   context
 ): InventoryTransition => {
+  return applyInventoryScientificTransferV2(state, notebookInput(input), context);
+};
+export function inventoryScientificTransferPreviewV2(
+  state: InventoryState,
+  input: InventoryScientificTransferPreviewInputV2
+): InventoryScientificTransferPreviewV2 {
+  return prepare(state, input).preview;
+}
+export function applyInventoryScientificTransferV2(
+  state: InventoryState,
+  input: InventoryScientificTransferApplicationV2,
+  context: import('./inventory-types').InventoryExecutionContext
+): InventoryTransition {
   const prepared = prepare(state, {
     ...input,
     asOf: context.at,
@@ -258,4 +328,4 @@ export const applyInventoryScientificTransfer: InventoryScientificTransferApply 
         'The transfer observation changed. Preview it again before recording completed work.',
     };
   return { ok: true, state: prepared.state };
-};
+}

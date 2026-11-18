@@ -1,4 +1,5 @@
 import { notebookContract } from './notebook.contract';
+import { protocolsContract } from './protocols.contract';
 import { trackViewCommandsContract } from './track-view-commands.contract';
 import { inventoryContract } from './inventory.contract';
 import { importReviewContract } from './import-review.contract';
@@ -72,6 +73,7 @@ import { workspaceNativeDocumentsContract } from './workspace-native-documents.c
 import { agentSdkMcpHttpListenerContract } from './agent-sdk-mcp-http-listener.contract';
 
 export const ipcContracts = [
+  protocolsContract,
   trackViewCommandsContract,
   notebookContract,
   administrationContract,

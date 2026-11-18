@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import {
   unavailableInventoryClient,
-  type InventoryScientificTransferPreviewSnapshot,
+  type InventoryScientificTransferV2PreviewSnapshot,
 } from '../../shared/inventory-client';
 import {
   InventoryScientificSession,
@@ -12,7 +12,8 @@ const principal = { kind: 'local-profile' as const, profileKey: 'a'.repeat(64) }
 const draft = (): InventoryScientificDraft => ({
   namespace: 'manual-observations',
   workId: 'observed-once',
-  pageId: 'project::page',
+  contextKind: 'notebook-page',
+  entityId: 'project::page',
   expectedSourceSha256: `sha256:${'b'.repeat(64)}`,
   sourceStockId: 'source',
   destinationVesselId: 'well:plate#A1',
@@ -20,8 +21,8 @@ const draft = (): InventoryScientificDraft => ({
   unit: 'uL',
   reason: 'Operator observed this completed transfer',
 });
-const response = (): InventoryScientificTransferPreviewSnapshot => ({
-  schema: 'dnaforge.inventory-scientific-transfer-preview.v1',
+const response = (): InventoryScientificTransferV2PreviewSnapshot => ({
+  schema: 'dnaforge.inventory-scientific-transfer-preview.v2',
   target: { projectId: 'project', inventoryId: 'inventory', revision: 7, present: true },
   projectId: 'project',
   inventoryId: 'inventory',
@@ -55,17 +56,20 @@ function storage() {
 it('retains stable observation identity and sends exact saved page source and choices only for a native preview', async () => {
   const native = unavailableInventoryClient(),
     saved = storage();
-  native.previewScientificTransfer = vi.fn(async () => response());
+  native.previewScientificTransferV2 = vi.fn(async () => response());
   const session = new InventoryScientificSession(native, scope, saved);
   session.edit(draft());
   await session.preview(7);
-  expect(native.previewScientificTransfer).toHaveBeenCalledExactlyOnceWith({
+  expect(native.previewScientificTransferV2).toHaveBeenCalledExactlyOnceWith({
     ...scope,
     expectedRevision: 7,
     choices: {
       identity: { namespace: 'manual-observations', workId: 'observed-once' },
-      pageId: 'project::page',
-      expectedSourceSha256: `sha256:${'b'.repeat(64)}`,
+      context: {
+        kind: 'notebook-page',
+        entityId: 'project::page',
+        sourceSha256: `sha256:${'b'.repeat(64)}`,
+      },
       sourceStockId: 'source',
       destinationVesselId: 'well:plate#A1',
       quantity: { value: '10', unit: 'uL' },
@@ -78,10 +82,10 @@ it('retains stable observation identity and sends exact saved page source and ch
 });
 it('discards late preview after an input edit and refuses a foreign scoped native result', async () => {
   const native = unavailableInventoryClient();
-  let resolve!: (value: InventoryScientificTransferPreviewSnapshot) => void;
-  native.previewScientificTransfer = vi.fn(
+  let resolve!: (value: InventoryScientificTransferV2PreviewSnapshot) => void;
+  native.previewScientificTransferV2 = vi.fn(
     () =>
-      new Promise<InventoryScientificTransferPreviewSnapshot>((accept) => {
+      new Promise<InventoryScientificTransferV2PreviewSnapshot>((accept) => {
         resolve = accept;
       })
   );
@@ -92,7 +96,7 @@ it('discards late preview after an input edit and refuses a foreign scoped nativ
   resolve(response());
   await waiting;
   expect(session.getSnapshot()).toMatchObject({ phase: 'editing', draft: { quantity: '11' } });
-  native.previewScientificTransfer = vi.fn(async () => ({
+  native.previewScientificTransferV2 = vi.fn(async () => ({
     ...response(),
     target: { ...response().target, projectId: 'foreign' },
   }));
@@ -104,7 +108,7 @@ it('discards late preview after an input edit and refuses a foreign scoped nativ
 });
 it('never previews without persisted recovery and starts a separately identified observation deliberately', async () => {
   const native = unavailableInventoryClient();
-  native.previewScientificTransfer = vi.fn(async () => response());
+  native.previewScientificTransferV2 = vi.fn(async () => response());
   const session = new InventoryScientificSession(native, scope, {
     getItem: () => null,
     setItem: () => {
@@ -113,11 +117,11 @@ it('never previews without persisted recovery and starts a separately identified
   });
   session.edit(draft());
   await session.preview(7);
-  expect(native.previewScientificTransfer).not.toHaveBeenCalled();
+  expect(native.previewScientificTransferV2).not.toHaveBeenCalled();
   expect(session.getSnapshot().phase).toBe('failed');
   const next = new InventoryScientificSession(native, scope, storage());
   next.edit(draft());
   next.newObservation();
   expect(next.getSnapshot().draft.workId).not.toBe('observed-once');
-  expect(next.getSnapshot().draft.pageId).toBe('');
+  expect(next.getSnapshot().draft.entityId).toBe('');
 });

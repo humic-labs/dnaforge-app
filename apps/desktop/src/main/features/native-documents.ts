@@ -1,3 +1,5 @@
+import { createNativeProtocolPackages } from '../native-protocol-packages';
+import { registerProtocolHandlers } from '../ipc/protocols';
 import { registerInventoryHandlers } from '../ipc/inventory';
 import { createNativeNotebookWorkingCopies } from '../native-notebook-working-copies';
 import { MarkdownNotebookImporter } from '../markdown-notebook-import';
@@ -158,6 +160,7 @@ export function createNativeDocuments(
   });
   let administration: AdministrationOwner | null = null;
   let inventory: ReturnType<typeof createNativeInventoryOwner> | null = null;
+  let protocols: ReturnType<typeof createNativeProtocolPackages> | null = null;
   let detachInventoryPublisher: (() => void) | null = null;
   let notebookTarget: (() => WebContents | null) | null = null;
   let notebookHandlersRegistered = false;
@@ -181,6 +184,7 @@ export function createNativeDocuments(
       detachInventoryPublisher?.();
       detachInventoryPublisher = null;
       inventory = null;
+      protocols = null;
     }
     profileDirectory = userDataPath;
     profileKey = nextProfileKey;
@@ -201,7 +205,21 @@ export function createNativeDocuments(
     }
     if (!nativeAuthority) return;
     detachInventoryPublisher?.();
+    const boundProfileDirectory = profileDirectory;
+    if (!boundProfileDirectory) throw new Error('Protocol packages started before their profile.');
+    protocols = createNativeProtocolPackages({
+      db: getDb,
+      projectAuthority,
+      workspaces,
+      profileDirectory: () => boundProfileDirectory,
+      actor: () => `native:${nativeAuthority.ownerInstanceId}`,
+      onCommitted: (change) => {
+        const target = notebookTarget?.();
+        if (target && !target.isDestroyed()) sendRendererIpc(target, 'protocols:changed', change);
+      },
+    });
     inventory = createNativeInventoryOwner({
+      protocolSources: protocols,
       notebookSources: notebookDocuments,
       db: getDb,
       projectAuthority,
@@ -278,6 +296,8 @@ export function createNativeDocuments(
     });
     commandServer = await startNativeDocumentCommandServer({
       projectAuthority,
+      protocols,
+      authorizeProtocolsAgent: createNativeAgentGrantAuthorizer(nativeDocumentFetch, 'PROTOCOLS'),
       inventory,
       authorizeInventoryAgent: createNativeAgentGrantAuthorizer(nativeDocumentFetch, 'INVENTORY'),
       owner,
@@ -352,6 +372,7 @@ export function createNativeDocuments(
   }
 
   function registerWorkspaceRootsHandler(isCurrentRendererLoad: CurrentRendererLoad): void {
+    registerProtocolHandlers({ owner: () => protocols, target: () => notebookTarget?.() ?? null });
     registerInventoryHandlers({ owner: () => inventory, target: () => notebookTarget?.() ?? null });
     handleGroup(importReviewContract, {
       call: (_event, request) => importReviews.call(request),

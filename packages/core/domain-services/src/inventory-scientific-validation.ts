@@ -2,7 +2,7 @@ import type { InventoryState } from './inventory-types';
 import { subtractInventoryAmounts } from './inventory-amount';
 import {
   inventoryScientificStockId,
-  inventoryScientificTransferIntentSha256,
+  inventoryScientificTransferIntentSha256V2,
   inventoryScientificWorkId,
 } from './inventory-scientific-source';
 import { inventoryTableCanonicalJson } from './inventory-table-binding';
@@ -18,22 +18,24 @@ export function validateInventoryScientificState(state: InventoryState): void {
   for (const [key, work] of Object.entries(state.scientificWorks)) {
     const transfer = work.transfer,
       source = work.effects.source,
-      destination = work.effects.destination;
+      destination = work.effects.destination,
+      entityId =
+        work.context.kind === 'notebook-page' ? work.context.pageId : work.context.entityId;
     if (key !== work.id || work.id !== inventoryScientificWorkId(work.identity))
       invalid('Scientific work must retain its exact stable observation identity.');
     if (work.at > state.lastRecordedAt)
       invalid('Scientific work cannot exceed the native recorded inventory clock.');
-    if (
-      !work.context.pageId.startsWith(`${work.context.workspaceScope}::`) ||
-      work.reason !== transfer.reason
-    )
-      invalid('Scientific work requires its scoped notebook identity and original reason.');
+    if (!entityId.startsWith(`${work.context.workspaceScope}::`) || work.reason !== transfer.reason)
+      invalid('Scientific work requires its scoped context identity and original reason.');
     if (
       work.intentSha256 !==
-      inventoryScientificTransferIntentSha256({
+      inventoryScientificTransferIntentSha256V2({
         identity: work.identity,
-        pageId: work.context.pageId,
-        expectedSourceSha256: work.context.source.sha256,
+        context: {
+          kind: work.context.kind,
+          entityId,
+          sourceSha256: work.context.source.sha256,
+        },
         sourceStockId: transfer.sourceStockId,
         destinationVesselId: transfer.destination.vesselId,
         quantity: transfer.quantity,

@@ -50,6 +50,8 @@ it.runIf(Boolean(sourcePath))(
       const retry = async (request: InventoryAcceptedRequest) => {
         if (!('kind' in request)) return owner.execute(request);
         switch (request.kind) {
+          case 'record-scientific-transfer-v2':
+            return owner.applyScientificTransferV2(request);
           case 'record-scientific-transfer':
             return owner.applyScientificTransfer(request);
           case 'adopt-archive':
@@ -182,6 +184,34 @@ it.runIf(Boolean(sourcePath))(
               entry.receipt
             );
             expect(await retry(entry.request)).toEqual(entry.receipt);
+          }
+          for (const entry of history) {
+            const request = entry.request;
+            if (!('kind' in request) || request.kind !== 'record-scientific-transfer') continue;
+            const { pageId, expectedSourceSha256, ...physical } = request.choices;
+            const next = {
+              ...request,
+              kind: 'record-scientific-transfer-v2' as const,
+              choices: {
+                ...physical,
+                context: {
+                  kind: 'notebook-page' as const,
+                  entityId: pageId,
+                  sourceSha256: expectedSourceSha256,
+                },
+              },
+            };
+            expect(entry.receipt.context?.version).toBe(6);
+            expect(
+              await owner.applyScientificTransferV2({
+                ...next,
+                operationId: 'v2-duplicate-' + request.operationId,
+              })
+            ).toMatchObject({ status: 'rejected', code: 'INVENTORY_SCIENTIFIC_NO_CHANGES' });
+            expect(await owner.applyScientificTransferV2(next)).toMatchObject({
+              status: 'rejected',
+              code: 'INVENTORY_OPERATION_CONFLICT',
+            });
           }
           expect(raw()).toEqual(before);
           expect(db.prepare('SELECT total_changes() AS count').get()).toEqual(changes);

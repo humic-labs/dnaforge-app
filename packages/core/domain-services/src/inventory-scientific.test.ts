@@ -7,6 +7,10 @@ import {
   inventoryScientificStockId,
   inventoryScientificTransferExisting,
   inventoryScientificTransferIntentSha256,
+  inventoryScientificTransferIntentSha256V2,
+  inventoryProtocolRunSourceSha256,
+  inventoryScientificTransferPreviewV2,
+  applyInventoryScientificTransferV2,
   inventoryScientificTransferPreview,
   inventoryScientificWorkId,
 } from './inventory-scientific';
@@ -21,7 +25,51 @@ import type {
   InventoryNotebookSavedSource,
   InventoryScientificTransferChoices,
   InventoryScientificTransferPreviewInput,
+  InventoryScientificTransferChoicesV2,
+  InventoryProtocolRunSavedSource,
 } from './inventory-scientific-types';
+
+function v2Choices(value = choices()): InventoryScientificTransferChoicesV2 {
+  const { pageId, expectedSourceSha256, ...fields } = value;
+  return {
+    ...fields,
+    context: { kind: 'notebook-page', entityId: pageId, sourceSha256: expectedSourceSha256 },
+  };
+}
+function runSource(): InventoryProtocolRunSavedSource {
+  return {
+    schema: 'dnaforge.protocol-run-saved-source.v1',
+    projectId: 'project',
+    workspaceScope: 'project',
+    runId: 'project::run',
+    fileObjectUuid: 'run-file',
+    title: 'Saved Run',
+    originalText: JSON.stringify({
+      schema: 'dnaforge.protocol-run.v1',
+      kind: 'protocol_run',
+      id: 'run',
+      title: 'Saved Run',
+      status: 'in_progress',
+      immutable: false,
+      protocol: {
+        sourceId: 'protocol',
+        destinationId: 'project::protocol',
+        name: 'Protocol',
+        pinnedVersionId: 'source-v1',
+        pinnedVersionHash: `sha256:${'a'.repeat(64)}`,
+      },
+      inputs: [],
+      outputs: [],
+      measurements: [],
+      tables: [],
+      links: [],
+      startedAt: null,
+      completedAt: null,
+      amendments: [],
+      provenance: { provider: 'dnaforge', immutableSource: false },
+    }),
+  };
+}
 
 const principal = { kind: 'local-profile' as const, profileKey: 'profile' };
 const context = { at: 100, principal, authority: principal };
@@ -390,6 +438,119 @@ it('keeps source provenance and physical work identity through explicit material
         revision: adopted.state.revision,
       },
       source: null,
+    }).kind
+  ).toBe('no-change');
+});
+
+it('preserves the frozen pre-extension V1 digest for either Notebook request format', () => {
+  const original: InventoryScientificTransferChoices = {
+    identity: { namespace: 'frozen-manual', workId: 'frozen-work' },
+    pageId: 'project::page',
+    expectedSourceSha256: `sha256:${'a'.repeat(64)}`,
+    sourceStockId: 'source-stock',
+    destinationVesselId: 'plate:well:A1',
+    quantity: { value: '0.01', unit: 'mL' },
+    reason: 'Observed completed transfer',
+  };
+  const frozen = 'sha256:1d21cb9553bac879edfad35b3dc56ca26e7f58e91e72a1f2e1cacb852507cc1d';
+  expect(inventoryScientificTransferIntentSha256(original)).toBe(frozen);
+  expect(inventoryScientificTransferIntentSha256V2(v2Choices(original))).toBe(frozen);
+});
+
+it('normalizes a fresh V2 Notebook call to the original observation before live source or physical admission', () => {
+  const saved = recorded(),
+    before = JSON.stringify(saved.state),
+    request = {
+      ...v2Choices(),
+      target: input(saved.state).target,
+      source: null,
+      asOf: 120,
+      principal,
+      authority: principal,
+    };
+  expect(inventoryScientificTransferPreviewV2(saved.state, request).kind).toBe('no-change');
+  const result = applyInventoryScientificTransferV2(
+    saved.state,
+    { ...request, expectedPlanDigest: saved.preview.planDigest },
+    { ...context, at: 120 }
+  );
+  expect(result.ok && result.state).toBe(saved.state);
+  expect(JSON.stringify(saved.state)).toBe(before);
+  expect(
+    inventoryScientificTransferPreviewV2(saved.state, {
+      ...request,
+      context: { ...request.context, kind: 'protocol-run' },
+    })
+  ).toMatchObject({ kind: 'blocked', issues: [{ code: 'SCIENTIFIC_WORK_CONFLICT' }] });
+});
+
+it('records a Run context through the same physical reducer and preserves it across explicit adoption', () => {
+  const state = fixture(),
+    packet = runSource(),
+    request = {
+      ...v2Choices(),
+      context: {
+        kind: 'protocol-run' as const,
+        entityId: packet.runId,
+        sourceSha256: inventoryProtocolRunSourceSha256(packet),
+      },
+      target: input(state).target,
+      source: packet,
+      asOf: 100,
+      principal,
+      authority: principal,
+    },
+    preview = inventoryScientificTransferPreviewV2(state, request),
+    before = JSON.stringify(state);
+  expect(preview.kind).toBe('ready');
+  expect(JSON.stringify(state)).toBe(before);
+  if (preview.kind !== 'ready') throw Error(JSON.stringify(preview));
+  const result = applyInventoryScientificTransferV2(
+    state,
+    { ...request, expectedPlanDigest: preview.planDigest },
+    { ...context, at: 110 }
+  );
+  if (!result.ok) throw Error(result.message);
+  const work = result.state.scientificWorks[preview.work.id];
+  expect(work.context).toMatchObject({
+    kind: 'protocol-run',
+    entityId: packet.runId,
+    source: { sha256: request.context.sourceSha256 },
+  });
+  expect('pageId' in work.context).toBe(false);
+  expect(result.state.revision).toBe(state.revision + 1);
+  expect(result.state.stocks.stock.quantity).toEqual({ kind: 'known', value: '90', unit: 'uL' });
+  expect(JSON.stringify(work)).not.toContain('originalText');
+  expect(parseInventoryState(result.state)).toEqual(result.state);
+  const adopted = adoptInventoryState(
+    null,
+    result.state,
+    {
+      source: {
+        archiveSha256: `sha256:${'a'.repeat(64)}`,
+        projectId: 'project',
+        inventoryId: 'inventory',
+        revision: result.state.revision,
+      },
+      materialBindings: { dna: 'local-dna' },
+    },
+    { ...context, at: 200 }
+  );
+  if (!adopted.ok) throw Error(adopted.message);
+  expect(adopted.state.scientificWorks[work.id].context).toEqual(work.context);
+  expect(adopted.state.scientificWorks[work.id].intentSha256).toBe(work.intentSha256);
+  expect(adopted.state.scientificWorks[work.id].effects.source.before.materialId).toBe('local-dna');
+  expect(
+    inventoryScientificTransferPreviewV2(adopted.state, {
+      ...request,
+      target: {
+        projectId: 'local-project',
+        inventoryId: 'local-inventory',
+        present: true,
+        revision: adopted.state.revision,
+      },
+      source: null,
+      asOf: 200,
     }).kind
   ).toBe('no-change');
 });

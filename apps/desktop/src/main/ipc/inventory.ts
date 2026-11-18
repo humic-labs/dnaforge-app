@@ -5,6 +5,7 @@ import { handleGroup } from '../../shared/ipc-contract';
 import { inventoryContract } from '../../shared/ipc/inventory.contract';
 import {
   inventoryApplyScientificTransferRequestSchema,
+  inventoryApplyScientificTransferV2RequestSchema,
   inventoryApplyArrivalRequestSchema,
   inventoryExecuteRequestSchema,
   inventoryApplyImportRequestSchema,
@@ -151,7 +152,54 @@ export function registerInventoryHandlers(options: {
       throw error;
     }
   };
+  const mutateScientific = async (
+    event: IpcMainInvokeEvent,
+    input: unknown,
+    method: 'applyScientificTransfer' | 'applyScientificTransferV2'
+  ) => {
+    assertCaller(event);
+    const schema =
+      method === 'applyScientificTransferV2'
+        ? inventoryApplyScientificTransferV2RequestSchema
+        : inventoryApplyScientificTransferRequestSchema;
+    const request = schema.parse(input);
+    const owner = currentOwner();
+    const assertCurrent = () => {
+      assertCaller(event);
+      if (options.owner() !== owner)
+        throw new NativeDocumentCommandError(
+          'INVENTORY_OWNER_UNAVAILABLE',
+          'The desktop inventory owner changed.',
+          false
+        );
+    };
+    try {
+      return await owner[method](request, assertCurrent, {
+        actor: `human:desktop:${event.sender.id}`,
+      });
+    } catch (error) {
+      if (error instanceof NativeDocumentCommandError && error.stateChanged === false)
+        return {
+          status: 'rejected' as const,
+          inventoryId: request.inventoryId,
+          operationId: request.operationId,
+          code: error.code,
+          message: error.message,
+        };
+      throw error;
+    }
+  };
   return handleGroup(inventoryContract, {
+    scientificContextsV2: (event, request) => {
+      assertCaller(event);
+      return currentOwner().scientificContextsV2(request);
+    },
+    previewScientificTransferV2: (event, request) => {
+      assertCaller(event);
+      return currentOwner().previewScientificTransferV2(request);
+    },
+    applyScientificTransferV2: (event, request) =>
+      mutateScientific(event, request, 'applyScientificTransferV2'),
     scientificContexts: (event, request) => {
       assertCaller(event);
       return currentOwner().scientificContexts(request);
@@ -164,35 +212,8 @@ export function registerInventoryHandlers(options: {
       assertCaller(event);
       return currentOwner().scientificSource(request);
     },
-    applyScientificTransfer: async (event, input) => {
-      assertCaller(event);
-      const request = inventoryApplyScientificTransferRequestSchema.parse(input);
-      const owner = currentOwner();
-      const assertCurrent = () => {
-        assertCaller(event);
-        if (options.owner() !== owner)
-          throw new NativeDocumentCommandError(
-            'INVENTORY_OWNER_UNAVAILABLE',
-            'The desktop inventory owner changed.',
-            false
-          );
-      };
-      try {
-        return await owner.applyScientificTransfer(request, assertCurrent, {
-          actor: `human:desktop:${event.sender.id}`,
-        });
-      } catch (error) {
-        if (error instanceof NativeDocumentCommandError && error.stateChanged === false)
-          return {
-            status: 'rejected' as const,
-            inventoryId: request.inventoryId,
-            operationId: request.operationId,
-            code: error.code,
-            message: error.message,
-          };
-        throw error;
-      }
-    },
+    applyScientificTransfer: (event, request) =>
+      mutateScientific(event, request, 'applyScientificTransfer'),
     stockroom: (event, request) => {
       assertCaller(event);
       return currentOwner().stockroom(request);

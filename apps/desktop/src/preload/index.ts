@@ -1,6 +1,7 @@
 import { trackViewCommandsContract } from '../shared/ipc/track-view-commands.contract';
 import { notebookContract } from '../shared/ipc/notebook.contract';
 import { inventoryContract } from '../shared/ipc/inventory.contract';
+import { protocolsContract } from '../shared/ipc/protocols.contract';
 import { importReviewContract } from '../shared/ipc/import-review.contract';
 import { administrationContract } from '../shared/ipc/administration.contract';
 import { primerArtifactContract } from '../shared/ipc/primer-artifact.contract';
@@ -330,6 +331,7 @@ const api = {
   },
 
   inventory: createClient(inventoryContract),
+  protocols: createClient(protocolsContract),
   importReview: createClient(importReviewContract),
   notebook: createClient(notebookContract),
   administration: createClient(administrationContract),

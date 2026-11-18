@@ -1,3 +1,4 @@
+import { parseProtocolPackageForDisplay } from '@waypoint/domain-services';
 import { scientificPackageKindForMetaPath } from '../../shared/scientific-package';
 import { nativeEntityReferenceIdFromHref } from '../../shared/native-entity-reference';
 import { parsePaperProtocolWorkflow, type PaperProtocolWorkflow } from './paper-protocol-model';
@@ -173,6 +174,7 @@ export function parseScientificDocument(path: string, text: string): ScientificD
     raw.schema === 'dnaforge.protocol.v1' &&
     raw.kind === 'protocol'
   ) {
+    parseProtocolPackageForDisplay(text);
     return parseProtocol(raw);
   }
   if (
@@ -180,6 +182,7 @@ export function parseScientificDocument(path: string, text: string): ScientificD
     raw.schema === 'dnaforge.protocol-run.v1' &&
     raw.kind === 'protocol_run'
   ) {
+    parseProtocolPackageForDisplay(text);
     return parseProtocolRun(raw);
   }
   if (

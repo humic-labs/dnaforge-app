@@ -28,7 +28,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v22. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v24. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -554,6 +554,69 @@ carry that witness. Historical contexts and request digests remain unchanged.
 Adoption maps scientific material references and actors in effect snapshots,
 while preserving physical/work identities and foreign notebook provenance.
 Notebook context does not create a Protocol Run, plate plan or robot execution.
+
+Canonical v24 adds explicit Protocol Run context alongside the unchanged
+notebook context. Reading v23 changes only the outer schema in memory. Its
+notebook records retain their exact fields, identities, intent hashes, source
+pins and effects. A v23 snapshot cannot declare Run context.
+
+The `record-scientific-transfer-v2` request selects context by kind and
+canonical entity ID. Notebook selections normalize to the original V1 intent
+encoding; Run selections use a context-aware V2 encoding. Each kind selects
+exactly one encoding. An equivalent notebook observation through the new API is
+a no-change before reading its current source or checking current physical
+availability. Reusing an operation ID with different raw request bytes remains a
+conflict. Adding another context to existing work requires a separate
+association without a physical transfer.
+
+Receipt context version 7 admits either the unchanged notebook source packet or
+an explicit saved Run packet. The Run packet retains the canonical identity,
+file-object UUID and complete original UTF-8 JSON text. Its hash binds that
+whole packet. Version 6 remains notebook-only, and neither version attaches a
+scientific witness to unrelated operations. The existing request-plus-witness
+size limit still applies. Adoption retains foreign context provenance while
+mapping scientific material references and recorded actors.
+
+## Protocol and Run creation
+
+Protocol creation and Start run use the generic native scientific-package owner.
+The Files creation flow, editor and agent clients share that owner. Creating an
+in-progress Run is a tracking action with no inventory debit, hardware action or
+biological outcome.
+
+The editor requires an explicit successful Save before Start run. Native
+admission reads the checked saved source and freezes its exact text, canonical
+identity, file-object UUID and execution definition. The original declared
+version remains separate because an editor change can leave that declaration
+stale. A later template edit does not change the frozen Run. Legacy Runs without
+a frozen source remain source-declared; opening them cannot manufacture a
+historical snapshot. Saved-file evidence does not acquire accepted scientific
+revision authority.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Prepared: admit and retain creation intent
+    Prepared --> FilePublishedCatalogPending: publish exact prepared file
+    Prepared --> RefusedAttempt: no project artifact published
+    FilePublishedCatalogPending --> Ready: register entity, binding and event
+    FilePublishedCatalogPending --> RecoveryBlocked: authority or artifact conflict
+    RecoveryBlocked --> FilePublishedCatalogPending: resume same intent
+    Ready --> Ready: recover original creation result
+```
+
+Prepared intent retains the original request, generated identities, native actor
+and time, destination and initial source bytes. File publication and SQLite
+registration are separate effects. A failed registration preserves the pending
+file; recovery uses the same identities and deterministic creation event.
+Discovery must not steal a pending creation. A missing acknowledgement is the
+caller's uncertainty, separate from persisted creation state.
+
+Once Ready, an original creation retry returns the original result. It cannot
+overwrite a later amendment, recreate a removed file or undo a move. Current
+availability is checked separately. Guarded Run amendments protect the frozen
+source and creation anchors. Protocol and Run creation have no inventory effect;
+an operator records a completed manual transfer through the existing inventory
+observation owner.
 
 ## Physical custody and observations
 

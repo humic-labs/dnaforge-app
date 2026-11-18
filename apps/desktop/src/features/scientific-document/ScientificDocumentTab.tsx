@@ -1,3 +1,4 @@
+import { FrozenProtocolDefinition } from './FrozenProtocolDefinition';
 import { reportSaveFailure } from '../../lib/report-save-failure';
 import { documentLifecycle } from '../../shared/document-lifecycle';
 import { useDocumentLifecycle } from '../../shared/use-document-lifecycle';
@@ -55,7 +56,10 @@ import {
   type ScientificRichText,
 } from './model';
 import { useScientificDocumentFileWatcher } from './useScientificDocumentFileWatcher';
-import { saveNativeScientificPackage } from './native-package';
+import { saveNativeScientificPackage, readNativeScientificPackage } from './native-package';
+import { ProtocolCreationDialog } from './ProtocolCreationDialog';
+import type { NativeProtocolPackageSnapshot } from '../../shared/protocol-packages';
+import { openProjectResourceReference } from '../../services/notebook-resource-navigation';
 import { withWorkspaceArtifactOpen } from '../../services/workspace-artifact-open';
 import { isWorkspaceMutationBusyError } from '../../services/workspace-mutation-transaction';
 import { readDesktopScientificDocument } from './services/desktop-scientific-documents';
@@ -84,6 +88,23 @@ const EMPTY_AMENDMENT: AmendmentDraft = {
   value: '',
 };
 
+async function savedScientificText(
+  filePath: string,
+  workspaceRoot: string,
+  signal?: AbortSignal
+): Promise<{ text: string; readOnly: boolean }> {
+  if (
+    scientificPackageKindForMetaPath(filePath) ||
+    /\.dnaforge-protocol(?:-run)?\.json$/u.test(filePath.toLowerCase())
+  ) {
+    const saved = await readNativeScientificPackage({ workspaceRoot, metaPath: filePath });
+    return { text: saved.originalText, readOnly: saved.readOnly };
+  }
+  const read = await readDesktopScientificDocument({ filePath, workspaceRoot, signal });
+  if (!read.ok) throw new Error(read.error.message);
+  return { text: read.document.content, readOnly: false };
+}
+
 export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocumentTabProps) {
   const [document, setDocument] = useState<ScientificDocument | null>(null);
   const [originalText, setOriginalText] = useState<string | null>(null);
@@ -94,6 +115,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
   const [protocolStepDrafts, setProtocolStepDrafts] = useState<Record<string, ProtocolStepDraft>>(
     {}
   );
+  const [nativeReadOnly, setNativeReadOnly] = useState(false);
   const [workspaceUnlocked, setWorkspaceUnlocked] = useState(false);
   const [resolvedWorkspaceRoot, setResolvedWorkspaceRoot] = useState<string | null>(null);
   const [nativeDestinations, setNativeDestinations] = useState<
@@ -104,6 +126,8 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
   );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [startSource, setStartSource] = useState<NativeProtocolPackageSnapshot | null>(null);
+  const localStartAllowed = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [amendment, setAmendment] = useState<AmendmentDraft>(EMPTY_AMENDMENT);
@@ -167,11 +191,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
           throw new Error('The project containing this scientific document is unavailable.');
         }
         const [readResult, unlocked] = await Promise.all([
-          readDesktopScientificDocument({
-            filePath,
-            workspaceRoot: effectiveWorkspaceRoot,
-            signal: controller.signal,
-          }),
+          savedScientificText(filePath, effectiveWorkspaceRoot, controller.signal),
           nativePackageKind
             ? Promise.resolve(true)
             : markerPath
@@ -185,8 +205,8 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
               : Promise.resolve(true),
         ]);
         if (cancelled) return;
-        if (!readResult.ok) throw new Error(readResult.error.message);
-        const text = readResult.document.content;
+        const text = readResult.text;
+        setNativeReadOnly(readResult.readOnly);
         adoptDocumentText(text);
         commitReadableContent(filePath);
         const parsed = parseScientificDocument(filePath, text);
@@ -454,6 +474,32 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
     (prepared.error !== null || prepared.text !== originalCanonicalText)
   );
 
+  localStartAllowed.current = Boolean(
+    document?.kind === 'protocol' &&
+    !dirty &&
+    !saving &&
+    !loading &&
+    workspaceUnlocked &&
+    !nativeReadOnly &&
+    !prepared.error
+  );
+  async function openStartRun() {
+    if (!localStartAllowed.current || !resolvedWorkspaceRoot) return;
+    setError(null);
+    try {
+      const source = await readNativeScientificPackage({
+        workspaceRoot: resolvedWorkspaceRoot,
+        metaPath: filePath,
+      });
+      if (!localStartAllowed.current) throw new Error('Save changes before starting a run.');
+      if (source.readOnly || source.kind !== 'protocol')
+        throw new Error('Choose a saved Protocol before starting a run.');
+      setStartSource(source);
+    } catch (cause) {
+      setError(toUserMessage(cause, 'operation.failed'));
+    }
+  }
+
   const reloadDocumentFromDisk = useCallback(async () => {
     const operation = saveOwner.beginReload();
     try {
@@ -461,18 +507,19 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
       if (!workspaceRoot) {
         throw new Error('The project containing this scientific document is unavailable.');
       }
-      const result = await readDesktopScientificDocument({ filePath, workspaceRoot });
-      if (!result.ok) throw new Error(result.error.message);
+      const result = await savedScientificText(filePath, workspaceRoot);
       const disposition = saveOwner.reloadDisposition(operation);
       if (disposition === 'stale') return false;
       if (disposition === 'preserve-draft') {
-        const text = result.document.content;
+        const text = result.text;
+        setNativeReadOnly(result.readOnly);
         const parsed = parseScientificDocument(filePath, text);
         setOriginalText(text);
         setOriginalCanonicalText(serializeScientificDocument(parsed));
         return false;
       }
-      adoptDocumentText(result.document.content);
+      adoptDocumentText(result.text);
+      setNativeReadOnly(result.readOnly);
       setError(null);
       return true;
     } catch (reloadError) {
@@ -501,7 +548,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
 
   const save = useCallback(async (): Promise<boolean> => {
     if (!dirty) return true;
-    if (!workspaceUnlocked) {
+    if (!workspaceUnlocked || nativeReadOnly) {
       setError(userMessage('failure.unlock-the-migrated-project-before-editing-this-document'));
       return false;
     }
@@ -524,7 +571,6 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
         suppressNextChange();
         if (
           resolvedWorkspaceRoot &&
-          scientificPackageKindForMetaPath(filePath) &&
           (prepared.document.kind === 'protocol' || prepared.document.kind === 'protocol_run')
         ) {
           await saveNativeScientificPackage({
@@ -677,7 +723,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
       </CenteredMessage>
     );
 
-  const canEdit = workspaceUnlocked && document.mutable;
+  const canEdit = workspaceUnlocked && !nativeReadOnly && document.mutable;
   const protocolDocument =
     document.kind === 'protocol'
       ? prepared.document?.kind === 'protocol'
@@ -741,8 +787,43 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
             {saving ? 'Saving…' : 'Save'}
           </button>
         ) : null}
+        {document.kind === 'protocol' ? (
+          <button
+            type="button"
+            className="rounded border border-border px-3 py-1.5 text-xs disabled:opacity-50"
+            disabled={!localStartAllowed.current}
+            onClick={() => void openStartRun()}
+          >
+            Start run
+          </button>
+        ) : null}
       </header>
+      {document.kind === 'protocol' && dirty ? (
+        <Notice>Save changes before starting a run.</Notice>
+      ) : null}
+      {startSource ? (
+        <ProtocolCreationDialog
+          projectId={startSource.projectId}
+          protocol={startSource}
+          sourceReady={localStartAllowed.current}
+          onClose={() => setStartSource(null)}
+          onReady={async (run) => {
+            await openProjectResourceReference({
+              kind: 'entity',
+              projectId: run.projectId,
+              entityId: run.entityId,
+            });
+            setStartSource(null);
+          }}
+        />
+      ) : null}
 
+      {nativeReadOnly ? (
+        <Notice>
+          This source is available for viewing. Editing and starting runs require a complete saved
+          protocol.
+        </Notice>
+      ) : null}
       {!workspaceUnlocked ? (
         <Notice>Read-only migration staging. Validate and unlock the project to edit.</Notice>
       ) : document.kind === 'protocol_run' && !document.mutable ? (
@@ -861,7 +942,7 @@ function ProtocolBody({
 }) {
   return (
     <div className="mx-auto max-w-4xl space-y-7">
-      <MetadataRow label="Pinned source version" value={document.versionLabel} />
+      <MetadataRow label="Declared source version" value={document.versionLabel} />
       <Section title="Overview">
         <RichTextView
           canNavigate={canNavigate}
@@ -1048,6 +1129,7 @@ function ProtocolRunBody({
         <MetadataRow label="Pinned protocol" value={document.protocolName} />
         <MetadataRow label="Protocol version" value={document.protocolVersion} />
       </div>
+      <FrozenProtocolDefinition raw={document.raw} />
       <div className="grid gap-4 md:grid-cols-3">
         <RunValues title="Inputs" values={document.inputs} />
         <RunValues title="Outputs" values={document.outputs} />

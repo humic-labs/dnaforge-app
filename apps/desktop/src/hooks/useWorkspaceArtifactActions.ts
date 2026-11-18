@@ -1,3 +1,4 @@
+import { openCreateProtocol } from '../features/scientific-document/ProtocolCreationDialog';
 import { userMessage } from '@waypoint/user-messages';
 import { useCallback } from 'react';
 import type { WorkspaceCreationContext } from '../components/FileBrowser';
@@ -173,6 +174,18 @@ export function useWorkspaceArtifactActions({
 
   const handleCreateEntityFromUi = useCallback(
     async (request: ExplorerEntityCreateRequest) => {
+      if (request.entityType === 'protocol') {
+        if (!request.destinationPath) {
+          setCreateDestinationRequest(request);
+          return;
+        }
+        const owner = findContainingPathBoundary(folders, request.destinationPath);
+        if (!owner || owner.pinned)
+          throw new Error('Choose a writable project folder for the protocol.');
+        openCreateProtocol({ workspaceRoot: owner.path, parentPath: request.destinationPath });
+        return;
+      }
+
       if (request.entityType === 'notebook' || request.entityType === 'assembly') {
         if (!request.destinationPath) {
           setCreateDestinationRequest(request);

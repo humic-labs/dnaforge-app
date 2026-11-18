@@ -26,7 +26,7 @@ import { isHostedCapabilityShown } from '../hosted/capabilities';
 
 export type ExplorerAddPickerLaunchSource = 'context-menu' | 'registry';
 export type ExplorerEntityImportRequest = EntityImportRequest;
-export type ExplorerEntityCreateType = EntityImportType | 'notebook' | 'assembly';
+export type ExplorerEntityCreateType = EntityImportType | 'notebook' | 'assembly' | 'protocol';
 export interface ExplorerEntityCreateRequest {
   entityType: ExplorerEntityCreateType;
   destinationPath: string | null;
@@ -65,9 +65,10 @@ interface PickerPlacement {
 
 type PickerEntityType =
   | { id: EntityImportType; label: string; importAvailable: true }
-  | { id: 'notebook' | 'assembly'; label: string; importAvailable: false };
+  | { id: 'notebook' | 'assembly' | 'protocol'; label: string; importAvailable: false };
 
 const ENTITY_TYPES: readonly PickerEntityType[] = [
+  { id: 'protocol', label: 'Protocol', importAvailable: false },
   {
     id: 'notebook',
     label: 'Notebook Entry',

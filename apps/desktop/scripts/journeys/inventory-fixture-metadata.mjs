@@ -1,5 +1,5 @@
 export function inventoryFixtureMetadataDefaults(state) {
-  if (state.schema !== 'dnaforge.inventory.v23')
+  if (state.schema !== 'dnaforge.inventory.v24')
     throw new Error(
       'Capture an exact current native fixture with refresh-fixture before resuming this journey.'
     );

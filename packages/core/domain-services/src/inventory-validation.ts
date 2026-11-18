@@ -83,6 +83,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_NOTEBOOK_CONTEXT_SCHEMA,
   INVENTORY_STOCKROOM_SCHEMA,
   INVENTORY_ARRIVAL_SCHEMA,
   INVENTORY_VALIDITY_SCHEMA,
@@ -2257,18 +2258,32 @@ const scientificWorkRecord: Codec<InventoryScientificWork> = fields('Scientific 
     workId: arrivalKey,
   }),
   intentSha256: sha256,
-  context: fields('Saved notebook scientific context', {
-    kind: literal('notebook-page'),
-    projectId: id,
-    workspaceScope: id,
-    pageId: id,
-    source: fields('Native observed saved notebook source', {
-      kind: literal('native-observed-saved-source'),
-      sha256,
-      fileObjectUuid: id,
-      title: text('Saved notebook source title', 17 * 1024 * 1024),
+  context: union('Saved scientific context', [
+    fields('Saved notebook scientific context', {
+      kind: literal('notebook-page'),
+      projectId: id,
+      workspaceScope: id,
+      pageId: id,
+      source: fields('Native observed saved notebook source', {
+        kind: literal('native-observed-saved-source'),
+        sha256,
+        fileObjectUuid: id,
+        title: text('Saved notebook source title', 17 * 1024 * 1024),
+      }),
     }),
-  }),
+    fields('Saved protocol run scientific context', {
+      kind: literal('protocol-run'),
+      projectId: id,
+      workspaceScope: id,
+      entityId: id,
+      source: fields('Native observed saved protocol run source', {
+        kind: literal('native-observed-saved-source'),
+        sha256,
+        fileObjectUuid: id,
+        title: text('Saved protocol run source title', 17 * 1024 * 1024),
+      }),
+    }),
+  ]),
   observation: fields('Completed manual observation', {
     kind: literal('completed-manual-transfer'),
   }),
@@ -2972,7 +2987,8 @@ function vesselBindings(value: unknown): Record<string, InventoryVesselBinding> 
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const stockroomRecords = current || row.schema === INVENTORY_STOCKROOM_SCHEMA;
+  const scientificRecords = current || row.schema === INVENTORY_NOTEBOOK_CONTEXT_SCHEMA;
+  const stockroomRecords = scientificRecords || row.schema === INVENTORY_STOCKROOM_SCHEMA;
   const arrivalRecords = stockroomRecords || row.schema === INVENTORY_ARRIVAL_SCHEMA;
   const validityRecords = arrivalRecords || row.schema === INVENTORY_VALIDITY_SCHEMA;
   const controlled = validityRecords || row.schema === INVENTORY_LOT_CONTROLS_SCHEMA;
@@ -2995,6 +3011,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_NOTEBOOK_CONTEXT_SCHEMA),
       literal(INVENTORY_STOCKROOM_SCHEMA),
       literal(INVENTORY_ARRIVAL_SCHEMA),
       literal(INVENTORY_VALIDITY_SCHEMA),
@@ -3019,7 +3036,7 @@ export function parseInventoryState(value: unknown): InventoryState {
       literal(LEGACY_INVENTORY_SCHEMA),
     ]),
     revision,
-    ...(current
+    ...(scientificRecords
       ? { scientificWorks: { schema: { type: 'object' }, parse: (input: unknown) => input } }
       : {}),
     ...(stockroomRecords
@@ -3143,8 +3160,13 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   let state: InventoryState = {
     schema: INVENTORY_SCHEMA,
-    scientificWorks: current
-      ? records(shape.scientificWorks, (raw) => scientificWorkRecord.parse(raw))
+    scientificWorks: scientificRecords
+      ? records(shape.scientificWorks, (raw) => {
+          const work = scientificWorkRecord.parse(raw);
+          if (!current && work.context.kind !== 'notebook-page')
+            invalid('Inventory v23 scientific work supports notebook context only.');
+          return work;
+        })
       : Object.create(null),
     expectedDeliveries: stockroomRecords
       ? records(shape.expectedDeliveries, (raw) => expectedDeliveryRecord.parse(raw))

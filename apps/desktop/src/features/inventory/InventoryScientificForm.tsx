@@ -6,6 +6,8 @@ import {
 } from '@waypoint/domain-services';
 import { Button, Notice, Select, TextArea, TextField } from '../../components/ui';
 import type { InventoryClient } from '../../shared/inventory-client';
+import { parseProtocolPackage } from '@waypoint/domain-services';
+import { FrozenProtocolDefinition } from '../scientific-document/FrozenProtocolDefinition';
 import { openProjectResourceReference } from '../../services/notebook-resource-navigation';
 import { InventoryPhysicalDialog } from './InventoryPhysicalDialog';
 import { PhysicalField } from './InventoryPhysicalControls';
@@ -65,7 +67,10 @@ function WorkFacts({
         result.kind === 'available' &&
         (result.workId !== work.id ||
           result.sourceSha256 !== work.context.source.sha256 ||
-          result.source.pageId !== work.context.pageId ||
+          (result.source.schema === 'dnaforge.notebook-saved-source.v1'
+            ? result.source.pageId
+            : result.source.runId) !==
+            (work.context.kind === 'notebook-page' ? work.context.pageId : work.context.entityId) ||
           result.source.projectId !== work.context.projectId)
       )
         throw Error('The retained notebook context does not match this exact observation.');
@@ -100,8 +105,8 @@ function WorkFacts({
       </p>
       <p className="break-all text-xs">Saved source: {work.context.source.sha256}</p>
       <Notice>
-        This transfer keeps a saved copy of the notebook context from the time it was recorded.
-        Later notebook edits leave that copy unchanged.
+        This transfer keeps a saved copy of its scientific context from the time it was recorded.
+        Later edits leave that copy unchanged.
       </Notice>
       <div className="flex flex-wrap gap-2">
         <Button
@@ -109,7 +114,8 @@ function WorkFacts({
             void openProjectResourceReference({
               kind: 'entity',
               projectId: work.context.projectId,
-              entityId: work.context.pageId,
+              entityId:
+                work.context.kind === 'notebook-page' ? work.context.pageId : work.context.entityId,
             })
               .then(onNavigate)
               .catch((cause) =>
@@ -136,12 +142,16 @@ function WorkFacts({
           <h4 className="text-sm font-semibold">
             Retained structured saved context: {source.source.title}
           </h4>
-          <TextArea
-            readOnly
-            aria-label="Retained saved notebook context"
-            value={savedText(source.source.content)}
-            rows={6}
-          />
+          {source.source.schema === 'dnaforge.notebook-saved-source.v1' ? (
+            <TextArea
+              readOnly
+              aria-label="Retained saved notebook context"
+              value={savedText(source.source.content)}
+              rows={6}
+            />
+          ) : (
+            <FrozenProtocolDefinition raw={parseProtocolPackage(source.source.originalText).raw} />
+          )}
           <details>
             <summary className="text-xs">Complete structured saved source</summary>
             <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs">
@@ -176,7 +186,7 @@ export function InventoryScientificForm({
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot),
     draft = snapshot.draft;
   const [pages, setPages] = useState<
-    Awaited<ReturnType<InventoryClient['scientificContexts']>>['pages']
+    Awaited<ReturnType<InventoryClient['scientificContextsV2']>>['contexts']
   >([]);
   const [pageError, setPageError] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
@@ -210,10 +220,11 @@ export function InventoryScientificForm({
   useEffect(() => {
     let cancelled = false;
     void client
-      .scientificContexts({
+      .scientificContextsV2({
         project: data.project.projectId,
         inventoryId: data.project.defaultInventoryId,
         query,
+        kind: draft.contextKind,
         limit: 50,
       })
       .then((result) => {
@@ -223,7 +234,7 @@ export function InventoryScientificForm({
           result.inventoryId !== data.project.defaultInventoryId
         )
           throw Error('Saved notebook pages belong to another inventory project.');
-        setPages(result.pages);
+        setPages(result.contexts);
         setPageError(null);
       })
       .catch((cause) => {
@@ -237,11 +248,18 @@ export function InventoryScientificForm({
     return () => {
       cancelled = true;
     };
-  }, [client, data.project.projectId, data.project.defaultInventoryId, query, refresh]);
+  }, [
+    client,
+    data.project.projectId,
+    data.project.defaultInventoryId,
+    query,
+    refresh,
+    draft.contextKind,
+  ]);
   async function record() {
     if (!editable || stale || snapshot.phase !== 'previewed' || snapshot.preview.kind !== 'ready')
       return;
-    if (await controller.recordScientificTransfer(snapshot.choices, snapshot.preview.planDigest))
+    if (await controller.recordScientificTransferV2(snapshot.choices, snapshot.preview.planDigest))
       onClose();
   }
   return (
@@ -286,9 +304,36 @@ export function InventoryScientificForm({
             identity only for a separately observed physical action.
           </p>
           <Button onClick={() => session.newObservation()}>Start a separate observation</Button>
-          <PhysicalField label="Find saved notebook page">
+          <PhysicalField label="Scientific context kind">
+            <Select
+              ariaLabel="Scientific context kind"
+              value={draft.contextKind}
+              options={[
+                { value: 'notebook-page', label: 'Notebook page' },
+                { value: 'protocol-run', label: 'Protocol run' },
+              ]}
+              onValueChange={(value) =>
+                edit({
+                  contextKind: value as typeof draft.contextKind,
+                  entityId: '',
+                  expectedSourceSha256: '',
+                })
+              }
+            />
+          </PhysicalField>
+          <PhysicalField
+            label={
+              draft.contextKind === 'notebook-page'
+                ? 'Find saved notebook page'
+                : 'Find saved protocol run'
+            }
+          >
             <TextField
-              aria-label="Find saved notebook page"
+              aria-label={
+                draft.contextKind === 'notebook-page'
+                  ? 'Find saved notebook page'
+                  : 'Find saved protocol run'
+              }
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
@@ -302,21 +347,27 @@ export function InventoryScientificForm({
             Refresh saved notebook pages
           </Button>
           {pageError ? <Notice tone="error">{pageError}</Notice> : null}
-          <PhysicalField label="Saved notebook page">
+          <PhysicalField
+            label={
+              draft.contextKind === 'notebook-page' ? 'Saved notebook page' : 'Saved protocol run'
+            }
+          >
             <Select
-              ariaLabel="Saved notebook page"
-              value={draft.pageId}
+              ariaLabel={
+                draft.contextKind === 'notebook-page' ? 'Saved notebook page' : 'Saved protocol run'
+              }
+              value={draft.entityId}
               options={[
                 { value: '', label: 'Choose a clean, settled saved page in this project' },
                 ...pages.map((page) => ({
-                  value: page.pageId,
+                  value: page.entityId,
                   label: page.title,
-                  description: page.pageId,
+                  description: page.entityId,
                 })),
               ]}
               onValueChange={(value) => {
-                const page = pages.find((item) => item.pageId === value);
-                edit({ pageId: value, expectedSourceSha256: page?.sourceSha256 ?? '' });
+                const page = pages.find((item) => item.entityId === value);
+                edit({ entityId: value, expectedSourceSha256: page?.sourceSha256 ?? '' });
               }}
             />
           </PhysicalField>

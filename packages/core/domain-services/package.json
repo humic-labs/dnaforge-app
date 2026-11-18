@@ -25,6 +25,21 @@
       "types": "./src/inventory-labels.ts",
       "import": "./src/inventory-labels.ts",
       "default": "./src/inventory-labels.ts"
+    },
+    "./protocol-package": {
+      "types": "./src/protocol-package.ts",
+      "import": "./src/protocol-package.ts",
+      "default": "./src/protocol-package.ts"
+    },
+    "./protocol-run-model": {
+      "types": "./src/protocol-run-model.ts",
+      "import": "./src/protocol-run-model.ts",
+      "default": "./src/protocol-run-model.ts"
+    },
+    "./paper-protocol-model": {
+      "types": "./src/paper-protocol-model.ts",
+      "import": "./src/paper-protocol-model.ts",
+      "default": "./src/paper-protocol-model.ts"
     }
   },
   "scripts": {

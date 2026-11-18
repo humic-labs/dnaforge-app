@@ -1,18 +1,13 @@
 import {
-  bindCatalogEntityToFile,
   getCatalogEntityForFilePath,
-  recordCatalogEvent,
-  registerCatalogEntity,
   resolveCatalogEntityIdForWorkspace,
-  updateCatalogEntityName,
+  resolveWorkspaceScope,
 } from '../../db/workspace-catalog';
+import type { NativeProtocolPackageSnapshot } from '../../shared/protocol-packages';
+import { ProtocolOperationSession, type ProtocolOperation } from './protocol-operation-session';
 import { platform } from '../../platform';
 import { isSafeWorkspaceRelativePath } from '../../shared/path-boundary';
-import {
-  scientificPackageKindForMetaPath,
-  scientificPackageMetaPath,
-  type ScientificPackageKind,
-} from '../../shared/scientific-package';
+import { type ScientificPackageKind } from '../../shared/scientific-package';
 import {
   parseScientificDocument,
   serializeScientificDocument,
@@ -52,47 +47,83 @@ export type CreatedNativeScientificPackage = {
   document: ScientificDocument;
 };
 
+async function projectScope(root: string): Promise<string> {
+  const scope = await resolveWorkspaceScope(root);
+  if (!scope) throw new Error('The owning project identity is unavailable.');
+  return scope;
+}
+export async function readNativeScientificPackage(input: {
+  workspaceRoot: string;
+  metaPath: string;
+}): Promise<NativeProtocolPackageSnapshot> {
+  const project = await projectScope(input.workspaceRoot),
+    entity = await getCatalogEntityForFilePath(input.metaPath);
+  if (!entity) throw new Error('The scientific package is not registered in this project.');
+  return platform().protocols.readPackage({ project, entityId: entity.id });
+}
+function operationSession(key: string) {
+  return new ProtocolOperationSession(
+    platform().protocols,
+    typeof localStorage === 'undefined' ? null : localStorage,
+    `dnaforge.protocol.compat.v1:${key}`
+  );
+}
+async function completed(
+  session: ProtocolOperationSession,
+  operation: ProtocolOperation
+): Promise<NativeProtocolPackageSnapshot> {
+  const state = session.getSnapshot();
+  if ('attempt' in state && state.attempt.request.requestId !== operation.request.requestId)
+    throw new Error('Confirm the previous scientific operation before changing its intent.');
+  const result = state.phase === 'editing' ? await session.begin(operation) : await session.retry();
+  if (result?.kind !== 'ready')
+    throw new Error(
+      result && result.kind !== 'missing'
+        ? result.message
+        : 'The scientific operation needs confirmation. Retry the same operation.'
+    );
+  return result.package;
+}
 export async function saveNativeScientificPackage(input: {
   workspaceRoot: string;
   metaPath: string;
   document: ScientificDocument;
   expectedText: string;
 }): Promise<string> {
-  if (input.document.kind !== 'protocol' && input.document.kind !== 'protocol_run') {
+  if (input.document.kind !== 'protocol' && input.document.kind !== 'protocol_run')
     throw new Error('Native scientific package save requires a Protocol or Protocol Run.');
+  const project = await projectScope(input.workspaceRoot),
+    text = serializeScientificDocument(input.document),
+    requestId = `save:${await sha256Hex(JSON.stringify([input.expectedText, text]))}`,
+    session = operationSession(JSON.stringify([project, input.metaPath, 'save'])),
+    pending = session.getSnapshot();
+  if ('attempt' in pending) {
+    if (pending.attempt.request.requestId !== requestId)
+      throw new Error('Confirm the previous save before changing this scientific document.');
+    const result = await session.retry();
+    if (result?.kind !== 'ready')
+      throw new Error(
+        result && result.kind !== 'missing'
+          ? result.message
+          : 'The original save needs confirmation.'
+      );
+    return result.package.originalText;
   }
-  const kind = input.document.kind === 'protocol' ? 'protocol' : 'protocol-run';
-  const expectedKind = scientificPackageKindForMetaPath(input.metaPath);
-  if (expectedKind !== kind)
-    throw new Error('Native scientific package path and document do not match.');
-  const entity = await getCatalogEntityForFilePath(input.metaPath);
-  if (!entity)
-    throw new Error('Native scientific package is not registered in the project catalog.');
-  const text = serializeScientificDocument(input.document);
-  await platform().fs.writeWorkspaceTextFileAtomic({
-    workspaceRoot: input.workspaceRoot,
-    path: input.metaPath,
-    content: text,
-    mode: 'replace',
-    expectedContentHash: await sha256Hex(input.expectedText),
-  });
-  await updateCatalogEntityName(entity.id, input.document.title);
-  await bindCatalogEntityToFile({
-    entityId: entity.id,
-    path: input.metaPath,
-    fileKind: kind === 'protocol' ? 'waypoint-protocol' : 'waypoint-protocol-run',
-    workspaceRoot: input.workspaceRoot,
-    contentHash: `sha256:${await sha256Hex(text)}`,
-    sizeBytes: new TextEncoder().encode(text).byteLength,
-    status: 'current',
-  });
-  await recordCatalogEvent({
-    entityId: entity.id,
-    eventType: 'edited',
-    actor: 'user',
-    summary: `Edited ${kind === 'protocol' ? 'protocol' : 'protocol run'}`,
-  });
-  return text;
+  const saved = await readNativeScientificPackage(input);
+  if (saved.originalText !== input.expectedText)
+    throw new Error('The saved scientific source changed. Reload before saving.');
+  return (
+    await completed(session, {
+      kind: 'save',
+      request: {
+        project,
+        entityId: saved.entityId,
+        requestId,
+        expectedSourceSha256: saved.sourceSha256,
+        originalText: text,
+      },
+    })
+  ).originalText;
 }
 
 export async function createNativeProtocolPackage(
@@ -148,8 +179,6 @@ export async function createNativePaperProtocolPackage(
     throw new Error('A paper protocol must be created as a draft before user finalization.');
   }
   const rawId = requiredText(input.document.raw.id, 'Paper protocol ID');
-  const existing = await existingPaperProtocolPackage(input, rawId);
-  if (existing) return existing;
   return persistNativeScientificPackage(
     {
       workspaceRoot: input.workspaceRoot,
@@ -162,35 +191,6 @@ export async function createNativePaperProtocolPackage(
     input.document.title,
     input.document.raw
   );
-}
-
-async function existingPaperProtocolPackage(
-  input: CreateNativePaperProtocolInput,
-  rawId: string
-): Promise<CreatedNativeScientificPackage | null> {
-  const workspaceRoot = input.workspaceRoot.replace(/[/\\]+$/u, '');
-  const packagePath = input.packagePath.replace(/\\/gu, '/').replace(/\/+$/u, '');
-  if (!isSafeWorkspaceRelativePath(packagePath)) {
-    throw new Error('Native scientific package path must be project-relative.');
-  }
-  const metaPath = `${workspaceRoot}/${scientificPackageMetaPath(packagePath, 'protocol')}`;
-  if (!(await platform().fs.exists(metaPath))) return null;
-
-  const existing = parseScientificDocument(metaPath, await platform().fs.readTextFile(metaPath));
-  if (
-    existing.kind !== 'protocol' ||
-    !existing.paperProtocol ||
-    existing.raw.id !== rawId ||
-    stableStringify(paperCreationIntent(existing.raw)) !==
-      stableStringify(paperCreationIntent(input.document.raw))
-  ) {
-    throw new Error('Protocol package path already exists with a different candidate intent.');
-  }
-  const entity = await getCatalogEntityForFilePath(metaPath);
-  if (!entity) {
-    throw new Error('Existing Protocol package is not registered in the project catalog.');
-  }
-  return { rawId, entityId: entity.id, metaPath, document: existing };
 }
 
 function paperCreationIntent(value: JsonRecord): JsonRecord {
@@ -211,38 +211,32 @@ function paperCreationIntent(value: JsonRecord): JsonRecord {
 export async function createNativeProtocolRunPackage(
   input: CreateNativeProtocolRunInput
 ): Promise<CreatedNativeScientificPackage> {
-  const rawId = nativeRawId(input.rawId, 'protocol-run');
-  const title = requiredText(input.title, 'Protocol run title');
-  const createdAt = isoTimestamp(input.createdAt);
-  const document: JsonRecord = {
-    schema: 'dnaforge.protocol-run.v1',
-    kind: 'protocol_run',
-    id: rawId,
-    title,
-    status: 'in_progress',
-    immutable: false,
-    protocol: {
-      sourceId: requiredText(input.protocol.rawId, 'Protocol ID'),
-      destinationId: requiredText(input.protocol.rawId, 'Protocol destination ID'),
-      name: requiredText(input.protocol.name, 'Protocol name'),
-      pinnedVersionId: requiredText(input.protocol.pinnedVersionId, 'Protocol version ID'),
-      pinnedVersionHash: requiredSha256(input.protocol.pinnedVersionHash),
-    },
-    inputs: [],
-    outputs: [],
-    measurements: [],
-    tables: [],
-    links: [],
-    startedAt: createdAt,
-    completedAt: null,
-    amendments: [],
-    provenance: {
-      immutableSource: false,
-      provider: 'dnaforge',
-      capturedAt: createdAt,
-    },
+  const project = await projectScope(input.workspaceRoot),
+    protocolId = await resolveCatalogEntityIdForWorkspace(
+      input.workspaceRoot,
+      input.protocol.rawId
+    ),
+    protocol = await platform().protocols.readSavedProtocol({ project, entityId: protocolId }),
+    rawId = nativeRawId(input.rawId, 'protocol-run'),
+    parent = input.packagePath.replace(/\\/gu, '/').split('/').slice(0, -1).join('/'),
+    snapshot = await completed(operationSession(JSON.stringify([project, rawId, 'start'])), {
+      kind: 'start',
+      request: {
+        project,
+        requestId: `start:${rawId}`,
+        protocolId: protocol.entityId,
+        expectedSourceSha256: protocol.sourceSha256,
+        title: requiredText(input.title, 'Run title'),
+        ...(parent ? { parentPath: `${input.workspaceRoot}/${parent}` } : {}),
+      },
+    });
+  const current = await platform().protocols.readPackage({ project, entityId: snapshot.entityId });
+  return {
+    rawId: snapshot.portableId,
+    entityId: snapshot.entityId,
+    metaPath: current.path,
+    document: parseScientificDocument(current.path, current.originalText),
   };
-  return persistNativeScientificPackage(input, 'protocol-run', rawId, title, document);
 }
 
 async function persistNativeScientificPackage(
@@ -252,47 +246,31 @@ async function persistNativeScientificPackage(
   title: string,
   rawDocument: JsonRecord
 ): Promise<CreatedNativeScientificPackage> {
-  const workspaceRoot = input.workspaceRoot.replace(/[/\\]+$/u, '');
-  const packagePath = input.packagePath.replace(/\\/gu, '/').replace(/\/+$/u, '');
-  if (!isSafeWorkspaceRelativePath(packagePath)) {
+  if (kind !== 'protocol') throw new Error('Run creation requires the native Start run owner.');
+  if (!isSafeWorkspaceRelativePath(input.packagePath))
     throw new Error('Native scientific package path must be project-relative.');
-  }
-  const relativeMetaPath = scientificPackageMetaPath(packagePath, kind);
-  const metaPath = `${workspaceRoot}/${relativeMetaPath}`;
-  await platform().fs.mkdir(`${workspaceRoot}/${packagePath}/.forge`, { recursive: true });
-  const text = `${JSON.stringify(rawDocument, null, 2)}\n`;
-  const document = parseScientificDocument(metaPath, text);
-  await platform().fs.writeWorkspaceTextFileAtomic({
-    workspaceRoot,
-    path: metaPath,
-    content: text,
-    mode: 'create',
-  });
-
-  const entityId = await resolveCatalogEntityIdForWorkspace(workspaceRoot, rawId);
-  await registerCatalogEntity({
-    id: entityId,
-    type: kind === 'protocol' ? 'protocol' : 'protocol_run',
-    name: title,
-    locator: `file://${metaPath}`,
-    storageType: 'file',
-    workspaceRoot,
-    metadata: { portableId: rawId, nativePackage: kind, relativePath: relativeMetaPath },
-  });
-  await bindCatalogEntityToFile({
-    entityId,
-    path: metaPath,
-    fileKind: kind === 'protocol' ? 'waypoint-protocol' : 'waypoint-protocol-run',
-    workspaceRoot,
-    status: 'current',
-  });
-  await recordCatalogEvent({
-    entityId,
-    eventType: 'created',
-    actor: 'user',
-    summary: `Created ${kind === 'protocol' ? 'protocol' : 'protocol run'}`,
-  });
-  return { rawId, entityId, metaPath, document };
+  const project = await projectScope(input.workspaceRoot),
+    parent = input.packagePath.replace(/\\/gu, '/').split('/').slice(0, -1).join('/'),
+    initialProtocolText = `${JSON.stringify(rawDocument, null, 2)}\n`,
+    intent = paperCreationIntent(rawDocument),
+    requestId = `protocol:${rawId}:${await sha256Hex(stableStringify(intent))}`,
+    snapshot = await completed(operationSession(JSON.stringify([project, rawId, 'create'])), {
+      kind: 'create',
+      request: {
+        project,
+        requestId,
+        title,
+        initialProtocolText,
+        ...(parent ? { parentPath: `${input.workspaceRoot}/${parent}` } : {}),
+      },
+    });
+  const current = await platform().protocols.readPackage({ project, entityId: snapshot.entityId });
+  return {
+    rawId: snapshot.portableId,
+    entityId: snapshot.entityId,
+    metaPath: current.path,
+    document: parseScientificDocument(current.path, current.originalText),
+  };
 }
 
 function nativeRawId(value: string | undefined, prefix: ScientificPackageKind): string {
@@ -322,14 +300,6 @@ function containsControlCharacter(value: string): boolean {
     if (value.charCodeAt(index) <= 0x1f) return true;
   }
   return false;
-}
-
-function requiredSha256(value: string): string {
-  const normalized = value.trim().toLowerCase();
-  if (!/^sha256:[a-f0-9]{64}$/u.test(normalized)) {
-    throw new Error('Protocol version hash must be SHA-256.');
-  }
-  return normalized;
 }
 
 async function sha256Hex(value: string): Promise<string> {

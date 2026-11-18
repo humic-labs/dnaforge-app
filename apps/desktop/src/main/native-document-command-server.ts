@@ -12,6 +12,12 @@ import {
 import type { NativeSequenceWorkingCopyOwner } from './native-sequence-working-copy';
 import { notebookDocumentSchema } from '../shared/notebook-document';
 import type { NativeNotebookWorkingCopyOwner } from './notebook-document-owner';
+import type { NativeProtocolPackages } from './native-protocol-packages';
+import type { NativeProtocolClient } from '../shared/protocol-packages';
+import {
+  protocolDocumentAgentRequestSchema,
+  protocolOperationCapabilities,
+} from '../shared/protocol-command';
 import { workspaceSearchSchema } from '../shared/workspace-search-owner';
 import { projectHistoryAgentRequestSchema } from '../shared/project-history';
 import { importReviewSchema } from '../shared/import-review-command';
@@ -22,8 +28,11 @@ import type { AdministrationOwner } from './administration-owner';
 import { agentProjectScopeSchema } from '../shared/agent-project-scope';
 import {
   inventoryScientificContextsRequestSchema,
+  inventoryScientificContextsV2RequestSchema,
   inventoryPreviewScientificTransferRequestSchema,
+  inventoryPreviewScientificTransferV2RequestSchema,
   inventoryApplyScientificTransferRequestSchema,
+  inventoryApplyScientificTransferV2RequestSchema,
   inventoryScientificSourceRequestSchema,
   inventoryPreviewArrivalRequestSchema,
   inventoryApplyArrivalRequestSchema,
@@ -93,6 +102,42 @@ const selection = target
   })
   .strict();
 const commandSchema = z.discriminatedUnion('command', [
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('protocols.execute'),
+      request: protocolDocumentAgentRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.scientific-contexts-v2'),
+      request: inventoryScientificContextsV2RequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-scientific-transfer-v2'),
+      request: inventoryPreviewScientificTransferV2RequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.apply-scientific-transfer-v2'),
+      request: inventoryApplyScientificTransferV2RequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
   z
     .object({
       ownerInstanceId: identity,
@@ -519,6 +564,8 @@ export async function startNativeDocumentCommandServer(options: {
   fileOwner?: Pick<NativeDocumentDispatcher, 'executeAgent'>;
   sequenceOwner?: Pick<NativeSequenceWorkingCopyOwner, 'execute'>;
   notebookOwner?: Pick<NativeNotebookWorkingCopyOwner, 'executePublic'>;
+  protocols?: Pick<NativeProtocolPackages, keyof NativeProtocolClient>;
+  authorizeProtocolsAgent?(agent: NativeAgentAuthority, required: readonly string[]): Promise<void>;
   flushFileClients?(): Promise<void>;
   workspaceCommands?: Pick<ReturnType<typeof createNativeWorkspaceCommands>, 'search' | 'history'>;
   importReviews?: Pick<NativeImportReviews, 'executeAgent'>;
@@ -527,8 +574,11 @@ export async function startNativeDocumentCommandServer(options: {
     ReturnType<typeof createNativeInventoryOwner>,
     | 'execute'
     | 'scientificContexts'
+    | 'scientificContextsV2'
     | 'previewScientificTransfer'
+    | 'previewScientificTransferV2'
     | 'applyScientificTransfer'
+    | 'applyScientificTransferV2'
     | 'scientificSource'
     | 'stockroom'
     | 'previewArrival'
@@ -647,14 +697,85 @@ export async function startNativeDocumentCommandServer(options: {
           });
           return;
         }
+        if (body.command === 'protocols.execute') {
+          const owner = options.protocols;
+          if (!owner) {
+            failure(res, 503, 'NATIVE_DOCUMENT_OWNER_UNAVAILABLE', false);
+            return;
+          }
+          const operation = body.request.operation;
+          const authorize = async () => {
+            assertCurrent();
+            if (!body.agent) return;
+            const required = protocolOperationCapabilities(operation.kind);
+            if (
+              !hasRequiredCapabilities(body.agent.capabilities, required) ||
+              !options.authorizeProtocolsAgent
+            )
+              throw new NativeDocumentCommandError(
+                'PROTOCOL_CAPABILITY_DENIED',
+                'The current grant does not permit this protocol operation.',
+                false
+              );
+            await options.authorizeProtocolsAgent(body.agent, required);
+            assertCurrent();
+          };
+          await authorize();
+          const { kind, ...request } = operation;
+          const invocation = {
+            ...(body.agent ? { actor: `agent:${body.agent.identityId}` } : {}),
+            assertCurrent,
+            beforeCommit: authorize,
+          };
+          accepted = protocolOperationCapabilities(kind).includes('write-workspace');
+          let result;
+          switch (kind) {
+            case 'create-protocol':
+              result = await owner.createProtocol(request, invocation);
+              break;
+            case 'start-run':
+              result = await owner.startRun(request, invocation);
+              break;
+            case 'recover-creation':
+              result = await owner.recoverCreation(request, invocation);
+              break;
+            case 'save-package':
+              result = await owner.savePackage(request, invocation);
+              break;
+            case 'inspect-creation':
+              result = await owner.inspectCreation(request);
+              break;
+            case 'read-package':
+              result = { kind: 'package', package: await owner.readPackage(request) };
+              break;
+            case 'read-saved-protocol':
+              result = { kind: 'package', package: await owner.readSavedProtocol(request) };
+              break;
+            case 'list-packages': {
+              const { packageKind, ...listRequest } = operation;
+              const { kind: _kind, ...scope } = listRequest;
+              result = {
+                kind: 'packages',
+                packages: await owner.listPackages({ ...scope, kind: packageKind }),
+              };
+              break;
+            }
+          }
+          await authorize();
+          json(res, 200, { ok: true, ownerInstanceId: authority.ownerInstanceId, result });
+          return;
+        }
         if (
           body.command === 'workspace.search' ||
           body.command === 'project-history.execute' ||
           body.command === 'import-review.execute' ||
           body.command === 'administration.execute' ||
           body.command === 'inventory.scientific-contexts' ||
+          body.command === 'inventory.scientific-contexts-v2' ||
           body.command === 'inventory.preview-scientific-transfer' ||
+          body.command === 'inventory.preview-scientific-transfer-v2' ||
           body.command === 'inventory.apply-scientific-transfer' ||
+          body.command === 'inventory.apply-scientific-transfer-v2' ||
           body.command === 'inventory.scientific-source' ||
           body.command === 'inventory.stockroom' ||
           body.command === 'inventory.preview-arrival' ||
@@ -698,6 +819,7 @@ export async function startNativeDocumentCommandServer(options: {
             ) {
               const required =
                 body.command === 'inventory.apply-scientific-transfer' ||
+                body.command === 'inventory.apply-scientific-transfer-v2' ||
                 body.command === 'inventory.apply-arrival' ||
                 body.command === 'inventory.execute' ||
                 body.command === 'inventory.apply-import' ||
@@ -739,26 +861,37 @@ export async function startNativeDocumentCommandServer(options: {
           const run = (() => {
             if (options.inventory) {
               const receiver = options.inventory;
-              if (body.command === 'inventory.scientific-contexts') {
+              if (
+                body.command === 'inventory.scientific-contexts' ||
+                body.command === 'inventory.scientific-contexts-v2'
+              ) {
+                const method =
+                  body.command === 'inventory.scientific-contexts-v2'
+                    ? 'scientificContextsV2'
+                    : 'scientificContexts';
                 const invocation = body.agent
                   ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
                   : undefined;
                 return async () => {
-                  const contexts = await receiver.scientificContexts(body.request, invocation);
+                  const contexts = await receiver[method](body.request, invocation);
                   await authorizeInventoryRequest();
                   assertCurrent();
                   return { kind: 'scientific-contexts', contexts };
                 };
               }
-              if (body.command === 'inventory.preview-scientific-transfer') {
+              if (
+                body.command === 'inventory.preview-scientific-transfer' ||
+                body.command === 'inventory.preview-scientific-transfer-v2'
+              ) {
+                const method =
+                  body.command === 'inventory.preview-scientific-transfer-v2'
+                    ? 'previewScientificTransferV2'
+                    : 'previewScientificTransfer';
                 const invocation = body.agent
                   ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
                   : undefined;
                 return async () => {
-                  const preview = await receiver.previewScientificTransfer(
-                    body.request,
-                    invocation
-                  );
+                  const preview = await receiver[method](body.request, invocation);
                   await authorizeInventoryRequest();
                   assertCurrent();
                   return { kind: 'scientific-transfer-preview', preview };
@@ -769,7 +902,14 @@ export async function startNativeDocumentCommandServer(options: {
                   kind: 'scientific-source',
                   result: receiver.scientificSource(body.request),
                 });
-              if (body.command === 'inventory.apply-scientific-transfer') {
+              if (
+                body.command === 'inventory.apply-scientific-transfer' ||
+                body.command === 'inventory.apply-scientific-transfer-v2'
+              ) {
+                const method =
+                  body.command === 'inventory.apply-scientific-transfer-v2'
+                    ? 'applyScientificTransferV2'
+                    : 'applyScientificTransfer';
                 const invocation = {
                   ...(body.agent
                     ? {
@@ -781,11 +921,7 @@ export async function startNativeDocumentCommandServer(options: {
                 };
                 return async () => ({
                   kind: 'execution',
-                  execution: await receiver.applyScientificTransfer(
-                    body.request,
-                    assertCurrent,
-                    invocation
-                  ),
+                  execution: await receiver[method](body.request, assertCurrent, invocation),
                 });
               }
               if (body.command === 'inventory.stockroom') {
@@ -1129,7 +1265,9 @@ export async function startNativeDocumentCommandServer(options: {
             body.command !== 'inventory.history';
           if (
             body.command === 'inventory.scientific-contexts' ||
+            body.command === 'inventory.scientific-contexts-v2' ||
             body.command === 'inventory.preview-scientific-transfer' ||
+            body.command === 'inventory.preview-scientific-transfer-v2' ||
             body.command === 'inventory.scientific-source' ||
             body.command === 'inventory.preview-arrival' ||
             body.command === 'inventory.arrival-document' ||

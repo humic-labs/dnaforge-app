@@ -1,4 +1,5 @@
 import type { InventoryClient } from '../shared/inventory-client';
+import type { NativeProtocolPlatformClient } from '../shared/protocol-packages';
 import type {
   AppendProjectMemoryEventInput,
   ProjectMemorySnapshot,
@@ -635,6 +636,7 @@ export interface PlatformBridge {
       ): Promise<string>;
     };
   inventory: InventoryClient;
+  protocols: NativeProtocolPlatformClient;
   importReview: {
     call(request: ImportReviewRequest): Promise<ImportReviewInspection>;
     snapshot(id: string): Promise<ImportReviewDocument>;

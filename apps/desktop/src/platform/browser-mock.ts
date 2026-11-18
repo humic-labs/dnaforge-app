@@ -1,4 +1,5 @@
 import { unavailableInventoryClient } from '../shared/inventory-client';
+import { unavailableProtocolClient } from '../shared/protocol-client';
 import type { AuthorizedProjectFolder } from '../shared/agent-project-scope';
 import { registryConfidenceLabel } from '../shared/strain-genome-evidence';
 import { UserMessageError } from '@waypoint/user-messages';
@@ -742,6 +743,7 @@ export const browserMockBridge: PlatformBridge = {
     },
   }),
   inventory: unavailableInventoryClient(),
+  protocols: unavailableProtocolClient(),
   importReview: {
     call: async () => {
       throw new Error('Native import review is unavailable in this runtime.');

@@ -1,5 +1,6 @@
 import { notebookContract } from '../shared/ipc/notebook.contract';
 import { inventoryContract } from '../shared/ipc/inventory.contract';
+import { protocolsContract } from '../shared/ipc/protocols.contract';
 import { importReviewContract } from '../shared/ipc/import-review.contract';
 import { administrationContract } from '../shared/ipc/administration.contract';
 import { primerArtifactContract } from '../shared/ipc/primer-artifact.contract';
@@ -859,6 +860,7 @@ export const electronBridge: PlatformBridge = {
     },
   },
   inventory: forwardGroup(inventoryContract, () => api().inventory),
+  protocols: forwardGroup(protocolsContract, () => api().protocols),
   importReview: forwardGroup(importReviewContract, () => api().importReview),
   notebook: forwardGroup(notebookContract, () => api().notebook),
   administration: forwardGroup(administrationContract, () => api().administration),

@@ -104,7 +104,7 @@ type Drawer =
 
 type InventorySourceKind = Exclude<
   Extract<NativeInventoryHistoryEntry['request'], { kind: string }>['kind'],
-  'record-scientific-transfer'
+  'record-scientific-transfer' | 'record-scientific-transfer-v2'
 >;
 const sourceHistoryCopy: Readonly<
   Record<
@@ -541,14 +541,17 @@ export function InventoryPanel() {
             >
               <p className="font-medium text-fg">
                 {'kind' in entry.request
-                  ? entry.request.kind === 'record-scientific-transfer'
+                  ? entry.request.kind === 'record-scientific-transfer' ||
+                    entry.request.kind === 'record-scientific-transfer-v2'
                     ? 'Recorded observed scientific transfer'
                     : sourceHistoryCopy[entry.request.kind].title
                   : entry.request.commands
                       .map((command) => (state ? historyLabel(command, state) : ''))
                       .join(' · ')}
               </p>
-              {'kind' in entry.request && entry.request.kind === 'record-scientific-transfer' ? (
+              {'kind' in entry.request &&
+              (entry.request.kind === 'record-scientific-transfer' ||
+                entry.request.kind === 'record-scientific-transfer-v2') ? (
                 <div className="space-y-1 text-xs">
                   <p>
                     Operator-reported completed manual transfer:{' '}
@@ -556,8 +559,14 @@ export function InventoryPanel() {
                   </p>
                   <p>{entry.request.choices.reason}</p>
                   <p className="break-all">
-                    Saved notebook source: {entry.request.choices.pageId} ·{' '}
-                    {entry.request.choices.expectedSourceSha256}
+                    Saved scientific source:{' '}
+                    {entry.request.kind === 'record-scientific-transfer'
+                      ? entry.request.choices.pageId
+                      : entry.request.choices.context.entityId}{' '}
+                    ·{' '}
+                    {entry.request.kind === 'record-scientific-transfer'
+                      ? entry.request.choices.expectedSourceSha256
+                      : entry.request.choices.context.sourceSha256}
                   </p>
                   <p>
                     Retained structured context and exact before/after stocks are available in

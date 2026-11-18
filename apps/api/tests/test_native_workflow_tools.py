@@ -410,6 +410,101 @@ async def test_inventory_scientific_transfer_preserves_work_identity_and_require
 
 
 @pytest.mark.asyncio
+async def test_inventory_v2_keeps_explicit_context_and_original_retry_identity(native):
+    state, context = native
+    state["scope"] = ["read-workspace"]
+    await execute_native_workflow(
+        "inventory",
+        {
+            "operation": {
+                "kind": "scientific-contexts-v2",
+                "contextKind": "protocol-run",
+                "project": "project",
+                "inventoryId": "inventory",
+            }
+        },
+        context,
+    )
+    assert state["calls"][0]["command"] == "inventory.scientific-contexts-v2"
+    assert state["calls"][0]["request"] == {
+        "project": "project",
+        "inventoryId": "inventory",
+        "kind": "protocol-run",
+    }
+    operation = {
+        "kind": "apply-scientific-transfer-v2",
+        "project": "project",
+        "inventoryId": "inventory",
+        "operationId": "original-operation",
+        "expectedRevision": 92,
+        "choices": {
+            "identity": {"namespace": "manual", "workId": "original-work"},
+            "context": {
+                "kind": "protocol-run",
+                "entityId": "project::run",
+                "sourceSha256": "sha256:" + "a" * 64,
+            },
+            "sourceStockId": "stock",
+            "destinationVesselId": "well:plate#A2",
+            "quantity": {"value": "0.01", "unit": "mL"},
+            "reason": "Observed manual transfer",
+        },
+        "expectedPlanDigest": "sha256:" + "b" * 64,
+    }
+    with pytest.raises(ToolExecutionFailure) as denied:
+        await execute_native_workflow("inventory", {"operation": operation}, context)
+    assert denied.value.code == "INSUFFICIENT_SCOPE"
+    assert len(state["calls"]) == 1
+    state["scope"] = ["read-workspace", "write-workspace"]
+    await execute_native_workflow("inventory", {"operation": operation}, context)
+    assert state["calls"][1]["command"] == "inventory.apply-scientific-transfer-v2"
+    assert state["calls"][1]["request"] == {
+        **operation,
+        "kind": "record-scientific-transfer-v2",
+    }
+
+
+@pytest.mark.asyncio
+async def test_protocol_creation_and_recovery_keep_request_and_current_creation_grant(native):
+    state, context = native
+    state["scope"] = ["read-workspace"]
+    await execute_native_workflow(
+        "protocol_document",
+        {"operation": {"kind": "inspect-creation", "project": "project", "requestId": "same"}},
+        context,
+    )
+    assert state["calls"][0]["command"] == "protocols.execute"
+    state["scope"] = ["read-workspace", "write-workspace"]
+    operation = {
+        "kind": "start-run",
+        "project": "project",
+        "requestId": "same",
+        "title": "Manual run",
+        "protocolId": "project::protocol",
+        "expectedSourceSha256": "sha256:" + "a" * 64,
+    }
+    with pytest.raises(ToolExecutionFailure) as denied:
+        await execute_native_workflow("protocol_document", {"operation": operation}, context)
+    assert denied.value.code == "INSUFFICIENT_SCOPE"
+    assert len(state["calls"]) == 1
+    state["scope"].append("create-entity")
+    context.agent_capabilities.append("create-entity")
+    state["result"] = {"kind": "pending", "requestId": "same", "entityId": "project::run"}
+    result = await execute_native_workflow("protocol_document", {"operation": operation}, context)
+    assert result["result"]["kind"] == "pending"
+    assert state["calls"][1]["request"] == {"operation": operation}
+    assert state["calls"][1]["agent"]["capabilities"] == state["scope"]
+    recovery = {"kind": "recover-creation", "project": "project", "requestId": "same"}
+    await execute_native_workflow("protocol_document", {"operation": recovery}, context)
+    assert state["calls"][2]["request"] == {"operation": recovery}
+    state["revoked"] = True
+    with pytest.raises(ToolExecutionFailure) as revoked:
+        await execute_native_workflow("protocol_document", {"operation": recovery}, context)
+    assert revoked.value.code == "GRANT_REVOKED"
+    assert len(state["calls"]) == 3
+
+
+@pytest.mark.asyncio
 async def test_inventory_adoption_preserves_accepted_request_tag_and_requires_write(native):
     state, context = native
     operation = {
@@ -985,7 +1080,9 @@ async def test_inventory_source_revision_requires_write_and_preserves_verified_s
 
 
 @pytest.mark.asyncio
-async def test_inventory_arrival_preserves_original_evidence_and_requires_current_write_grant(native):
+async def test_inventory_arrival_preserves_original_evidence_and_requires_current_write_grant(
+    native,
+):
     state, context = native
     state["scope"] = ["read-workspace"]
     preview = {

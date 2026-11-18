@@ -1,7 +1,7 @@
 import {
   INVENTORY_AMOUNT_UNITS,
   type InventoryAmountUnit,
-  type InventoryScientificTransferChoices,
+  type InventoryScientificTransferChoicesV2,
 } from '@waypoint/domain-services';
 import type { InventoryClient } from '../../shared/inventory-client';
 import type { InventoryReadRequest } from '../../shared/inventory-command';
@@ -9,7 +9,8 @@ import type { InventoryReadRequest } from '../../shared/inventory-command';
 export interface InventoryScientificDraft {
   namespace: string;
   workId: string;
-  pageId: string;
+  contextKind: 'notebook-page' | 'protocol-run';
+  entityId: string;
   expectedSourceSha256: string;
   sourceStockId: string;
   destinationVesselId: string;
@@ -20,7 +21,8 @@ export interface InventoryScientificDraft {
 const fresh = (): InventoryScientificDraft => ({
   namespace: 'manual-observations',
   workId: crypto.randomUUID(),
-  pageId: '',
+  contextKind: 'notebook-page',
+  entityId: '',
   expectedSourceSha256: '',
   sourceStockId: '',
   destinationVesselId: '',
@@ -30,7 +32,7 @@ const fresh = (): InventoryScientificDraft => ({
 });
 export function inventoryScientificChoices(
   draft: InventoryScientificDraft
-): InventoryScientificTransferChoices {
+): InventoryScientificTransferChoicesV2 {
   for (const [key, value] of Object.entries(draft))
     if (!value.trim())
       throw Error(
@@ -40,9 +42,11 @@ export function inventoryScientificChoices(
     throw Error('Choose a current saved notebook source.');
   return {
     identity: { namespace: draft.namespace.trim(), workId: draft.workId.trim() },
-    pageId: draft.pageId,
-    expectedSourceSha256:
-      draft.expectedSourceSha256 as InventoryScientificTransferChoices['expectedSourceSha256'],
+    context: {
+      kind: draft.contextKind,
+      entityId: draft.entityId,
+      sourceSha256: draft.expectedSourceSha256 as `sha256:${string}`,
+    },
     sourceStockId: draft.sourceStockId,
     destinationVesselId: draft.destinationVesselId,
     quantity: { value: draft.quantity, unit: draft.unit },
@@ -53,8 +57,8 @@ type Snapshot = { draft: InventoryScientificDraft } & (
   | { phase: 'editing' | 'previewing' }
   | {
       phase: 'previewed';
-      choices: InventoryScientificTransferChoices;
-      preview: Awaited<ReturnType<InventoryClient['previewScientificTransfer']>>;
+      choices: InventoryScientificTransferChoicesV2;
+      preview: Awaited<ReturnType<InventoryClient['previewScientificTransferV2']>>;
     }
   | { phase: 'failed'; message: string }
 );
@@ -72,11 +76,17 @@ export class InventoryScientificSession {
       const raw = storage?.getItem(this.key());
       if (raw) {
         const saved = JSON.parse(raw);
+        if (saved.version === 1 && saved.draft) {
+          const { pageId, ...old } = saved.draft;
+          saved.draft = { ...old, contextKind: 'notebook-page', entityId: pageId };
+          saved.version = 2;
+        }
         if (
-          saved.version !== 1 ||
+          saved.version !== 2 ||
           !saved.draft ||
           Object.keys(draft).some((key) => typeof saved.draft[key] !== 'string') ||
-          !INVENTORY_AMOUNT_UNITS.includes(saved.draft.unit)
+          !INVENTORY_AMOUNT_UNITS.includes(saved.draft.unit) ||
+          !['notebook-page', 'protocol-run'].includes(saved.draft.contextKind)
         )
           throw Error('The saved scientific transfer draft is invalid.');
         draft = saved.draft;
@@ -98,7 +108,7 @@ export class InventoryScientificSession {
   }
   private save(draft: InventoryScientificDraft) {
     if (!this.storage) throw Error('Scientific transfer recovery storage is unavailable.');
-    this.storage.setItem(this.key(), JSON.stringify({ version: 1, draft }));
+    this.storage.setItem(this.key(), JSON.stringify({ version: 2, draft }));
   }
   getSnapshot = (): Snapshot => this.current;
   subscribe = (listener: () => void) => {
@@ -138,7 +148,7 @@ export class InventoryScientificSession {
       this.save(draft);
       const choices = inventoryScientificChoices(draft);
       this.publish({ phase: 'previewing', draft });
-      const preview = await this.client.previewScientificTransfer({
+      const preview = await this.client.previewScientificTransferV2({
         ...this.scope,
         expectedRevision,
         choices,

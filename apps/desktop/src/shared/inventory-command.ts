@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { notebookSavedSourceSchema } from './notebook-saved-source';
+import { protocolRunSavedSourceSchema } from './protocol-packages';
 import { INVENTORY_LABEL_MEDIA_PROFILE_IDS } from '@waypoint/domain-services/inventory-label-types';
 import {
   MAX_INVENTORY_BATCH_COMMANDS,
@@ -47,10 +48,13 @@ export const inventoryReceiptContextSchema = z
       z.literal(4),
       z.literal(5),
       z.literal(6),
+      z.literal(7),
     ]),
     principal: inventoryPrincipalSchema,
     authority: z.object({ kind: z.literal('local-profile'), profileKey }).strict(),
-    scientificSource: notebookSavedSourceSchema.optional(),
+    scientificSource: z
+      .discriminatedUnion('schema', [notebookSavedSourceSchema, protocolRunSavedSourceSchema])
+      .optional(),
   })
   .strict();
 
@@ -97,6 +101,41 @@ export const inventoryApplyScientificTransferRequestSchema =
       expectedPlanDigest: digest,
     })
     .strict();
+export const inventoryScientificContextsV2RequestSchema = inventoryScientificContextsRequestSchema
+  .extend({ kind: z.enum(['notebook-page', 'protocol-run']) })
+  .strict();
+export const inventoryScientificTransferChoicesV2Schema = inventoryScientificTransferChoicesSchema
+  .omit({ pageId: true, expectedSourceSha256: true })
+  .extend({
+    context: z
+      .object({
+        kind: z.enum(['notebook-page', 'protocol-run']),
+        entityId: z.string().min(1).max(1000),
+        sourceSha256: digest,
+      })
+      .strict(),
+  })
+  .strict();
+export const inventoryPreviewScientificTransferV2RequestSchema = inventoryReadRequestSchema
+  .extend({ expectedRevision: revision, choices: inventoryScientificTransferChoicesV2Schema })
+  .strict();
+export const inventoryApplyScientificTransferV2RequestSchema =
+  inventoryPreviewScientificTransferV2RequestSchema
+    .extend({
+      kind: z.literal('record-scientific-transfer-v2'),
+      operationId: identity,
+      expectedPlanDigest: digest,
+    })
+    .strict();
+export type InventoryScientificContextsV2Request = z.infer<
+  typeof inventoryScientificContextsV2RequestSchema
+>;
+export type InventoryPreviewScientificTransferV2Request = z.infer<
+  typeof inventoryPreviewScientificTransferV2RequestSchema
+>;
+export type InventoryApplyScientificTransferV2Request = z.infer<
+  typeof inventoryApplyScientificTransferV2RequestSchema
+>;
 export const inventoryScientificSourceRequestSchema = inventoryReadRequestSchema
   .extend({ workId: identity })
   .strict();
@@ -875,6 +914,7 @@ export const inventoryExecuteRequestSchema = inventoryReadRequestSchema
 
 export const inventoryAcceptedRequestSchema = z.union([
   inventoryApplyScientificTransferRequestSchema,
+  inventoryApplyScientificTransferV2RequestSchema,
   inventoryExecuteRequestSchema,
   inventoryApplyImportRequestSchema,
   inventoryApplyTableRequestSchema,
@@ -1030,6 +1070,7 @@ export type InventoryAcknowledgeSourceRequest = InventoryReadRequest & {
 };
 export type InventoryAcceptedRequest =
   | InventoryApplyScientificTransferRequest
+  | InventoryApplyScientificTransferV2Request
   | InventoryExecuteRequest
   | InventoryApplyImportRequest
   | InventoryApplyTableRequest

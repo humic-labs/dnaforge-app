@@ -1,6 +1,7 @@
 import type {
   InventoryAvailability,
   InventoryScientificTransferPreview,
+  InventoryScientificTransferPreviewV2,
   InventoryStockroomProjection,
   InventoryArrivalPreview,
   InventoryArrivalDocumentRead,
@@ -34,6 +35,9 @@ import type { InventoryRenderedLabel } from '@waypoint/domain-services/inventory
 import type {
   InventoryPreviewArrivalRequest,
   InventoryScientificContextsRequest,
+  InventoryScientificContextsV2Request,
+  InventoryPreviewScientificTransferV2Request,
+  InventoryApplyScientificTransferV2Request,
   InventoryPreviewScientificTransferRequest,
   InventoryApplyScientificTransferRequest,
   InventoryScientificSourceRequest,
@@ -68,6 +72,7 @@ import type {
   NativeInventoryReceipt,
 } from './inventory-command';
 import type { NotebookSavedSource } from './notebook-saved-source';
+import type { ProtocolRunSavedSource } from './protocol-packages';
 
 export interface InventoryScientificContextsSnapshot {
   readonly projectId: string;
@@ -96,10 +101,32 @@ export type InventoryScientificSourceRead =
       readonly kind: 'available';
       readonly workId: string;
       readonly sourceSha256: `sha256:${string}`;
-      readonly source: NotebookSavedSource;
+      readonly source: NotebookSavedSource | ProtocolRunSavedSource;
     }
   | { readonly kind: 'unavailable'; readonly code: string; readonly message: string };
 
+export interface InventoryScientificContextsV2Snapshot {
+  readonly projectId: string;
+  readonly inventoryId: string;
+  readonly revision: number;
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
+  readonly contexts: readonly {
+    readonly kind: 'notebook-page' | 'protocol-run';
+    readonly projectId: string;
+    readonly entityId: string;
+    readonly title: string;
+    readonly sourceSha256: `sha256:${string}`;
+    readonly sourceKind: 'native-observed-saved-source';
+  }[];
+}
+export type InventoryScientificTransferV2PreviewSnapshot = InventoryScientificTransferPreviewV2 & {
+  readonly projectId: string;
+  readonly inventoryId: string;
+  readonly revision: number;
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
+};
 export interface InventoryProject {
   readonly projectId: string;
   readonly name: string;
@@ -246,6 +273,15 @@ export type InventoryArrivalPreviewSnapshot = InventoryArrivalPreview & {
 export type { InventoryArrivalDocumentRead };
 
 export interface InventoryClient {
+  scientificContextsV2(
+    input: InventoryScientificContextsV2Request
+  ): Promise<InventoryScientificContextsV2Snapshot>;
+  previewScientificTransferV2(
+    input: InventoryPreviewScientificTransferV2Request
+  ): Promise<InventoryScientificTransferV2PreviewSnapshot>;
+  applyScientificTransferV2(
+    input: InventoryApplyScientificTransferV2Request
+  ): Promise<NativeInventoryExecution>;
   scientificContexts(
     input: InventoryScientificContextsRequest
   ): Promise<InventoryScientificContextsSnapshot>;
@@ -323,6 +359,9 @@ export function unavailableInventoryClient(): InventoryClient {
     message: 'Inventory requires the connected desktop owner.',
   });
   return {
+    scientificContextsV2: unavailable,
+    previewScientificTransferV2: unavailable,
+    applyScientificTransferV2: unavailableMutation,
     scientificContexts: unavailable,
     previewScientificTransfer: unavailable,
     applyScientificTransfer: unavailableMutation,
@@ -381,6 +420,9 @@ export type {
   InventoryAcknowledgeSourceRequest,
   InventoryAcceptedRequest,
   InventoryScientificContextsRequest,
+  InventoryScientificContextsV2Request,
+  InventoryPreviewScientificTransferV2Request,
+  InventoryApplyScientificTransferV2Request,
   InventoryPreviewScientificTransferRequest,
   InventoryApplyScientificTransferRequest,
   InventoryScientificSourceRequest,

@@ -17,6 +17,7 @@ import {
   type InventoryResolvedBenchlingCaptureOptions,
   type InventoryResolvedArrivalOptions,
   type InventoryScientificTransferChoices,
+  type InventoryScientificTransferChoicesV2,
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
@@ -30,6 +31,7 @@ import {
   inventoryApplyBenchlingCaptureRequestSchema,
   inventoryApplyArrivalRequestSchema,
   inventoryApplyScientificTransferRequestSchema,
+  inventoryApplyScientificTransferV2RequestSchema,
   inventoryReceiptSchema,
   type InventoryAcceptedRequest,
   type NativeInventoryHistoryEntry,
@@ -889,6 +891,26 @@ export class InventoryController {
     );
   }
 
+  async recordScientificTransferV2(
+    choices: InventoryScientificTransferChoicesV2,
+    expectedPlanDigest: InventoryTableSha256
+  ): Promise<NativeInventoryReceipt | null> {
+    return this.sourceAttempt(
+      (data) =>
+        inventoryApplyScientificTransferV2RequestSchema.parse({
+          kind: 'record-scientific-transfer-v2',
+          project: data.project.projectId,
+          inventoryId: data.project.defaultInventoryId,
+          operationId: this.operationId(),
+          expectedRevision: data.state.revision,
+          choices,
+          expectedPlanDigest,
+        }),
+      'Record observed scientific transfer',
+      'Preview the exact observed transfer before recording.'
+    );
+  }
+
   async recordScientificTransfer(
     choices: InventoryScientificTransferChoices,
     expectedPlanDigest: InventoryTableSha256
@@ -1007,6 +1029,8 @@ export class InventoryController {
         return this.client.applyArrival(request);
       case 'record-scientific-transfer':
         return this.client.applyScientificTransfer(request);
+      case 'record-scientific-transfer-v2':
+        return this.client.applyScientificTransferV2(request);
     }
   }
 

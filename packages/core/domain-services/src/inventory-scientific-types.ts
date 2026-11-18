@@ -37,6 +37,42 @@ export interface InventoryScientificNotebookContext {
     readonly title: string;
   };
 }
+export interface InventoryProtocolRunSavedSource {
+  readonly schema: 'dnaforge.protocol-run-saved-source.v1';
+  readonly projectId: string;
+  readonly workspaceScope: string;
+  readonly runId: string;
+  readonly fileObjectUuid: string;
+  readonly title: string;
+  readonly originalText: string;
+}
+export type InventoryScientificContextSource =
+  | InventoryNotebookSavedSource
+  | InventoryProtocolRunSavedSource;
+export interface InventoryScientificRunContext {
+  readonly kind: 'protocol-run';
+  readonly projectId: string;
+  readonly workspaceScope: string;
+  readonly entityId: string;
+  readonly source: InventoryScientificNotebookContext['source'];
+}
+export type InventoryScientificContextSelection =
+  | {
+      readonly kind: 'notebook-page';
+      readonly entityId: string;
+      readonly sourceSha256: InventoryTableSha256;
+    }
+  | {
+      readonly kind: 'protocol-run';
+      readonly entityId: string;
+      readonly sourceSha256: InventoryTableSha256;
+    };
+export interface InventoryScientificTransferChoicesV2 extends Omit<
+  InventoryScientificTransferChoices,
+  'pageId' | 'expectedSourceSha256'
+> {
+  readonly context: InventoryScientificContextSelection;
+}
 export interface InventoryScientificTransferChoices {
   readonly identity: InventoryScientificWorkIdentity;
   readonly pageId: string;
@@ -65,7 +101,7 @@ export interface InventoryScientificWork {
   readonly id: string;
   readonly identity: InventoryScientificWorkIdentity;
   readonly intentSha256: InventoryTableSha256;
-  readonly context: InventoryScientificNotebookContext;
+  readonly context: InventoryScientificNotebookContext | InventoryScientificRunContext;
   readonly observation: { readonly kind: 'completed-manual-transfer' };
   readonly transfer: InventoryScientificTransferCommand;
   readonly effects: {
@@ -91,42 +127,59 @@ export interface InventoryScientificTransferPreviewInput extends InventoryScient
   readonly principal: InventoryPrincipal;
   readonly authority: InventoryAuthority;
 }
-interface InventoryScientificTransferPreviewFacts {
-  readonly schema: 'dnaforge.inventory-scientific-transfer-preview.v1';
+interface InventoryScientificTransferPreviewFacts<Schema extends string> {
+  readonly schema: Schema;
   readonly target: InventoryTableTarget;
   readonly workId: string | null;
   readonly intentSha256: InventoryTableSha256 | null;
   readonly sourceSha256: InventoryTableSha256 | null;
 }
-export type InventoryScientificTransferPreview = InventoryScientificTransferPreviewFacts &
-  (
-    | {
-        readonly kind: 'ready';
-        readonly work: InventoryScientificWork;
-        readonly commands: readonly [InventoryScientificTransferCommand];
-        readonly planDigest: InventoryTableSha256;
-      }
-    | {
-        readonly kind: 'no-change';
-        readonly work: InventoryScientificWork;
-        readonly commands: readonly [];
-        readonly planDigest: null;
-      }
-    | {
-        readonly kind: 'blocked';
-        readonly issues: readonly {
-          readonly code: InventoryErrorCode;
-          readonly pointer: string;
-          readonly message: string;
-        }[];
-        readonly work: null;
-        readonly commands: readonly [];
-        readonly planDigest: null;
-      }
-  );
+type InventoryScientificTransferPreviewOf<Schema extends string> =
+  InventoryScientificTransferPreviewFacts<Schema> &
+    (
+      | {
+          readonly kind: 'ready';
+          readonly work: InventoryScientificWork;
+          readonly commands: readonly [InventoryScientificTransferCommand];
+          readonly planDigest: InventoryTableSha256;
+        }
+      | {
+          readonly kind: 'no-change';
+          readonly work: InventoryScientificWork;
+          readonly commands: readonly [];
+          readonly planDigest: null;
+        }
+      | {
+          readonly kind: 'blocked';
+          readonly issues: readonly {
+            readonly code: InventoryErrorCode;
+            readonly pointer: string;
+            readonly message: string;
+          }[];
+          readonly work: null;
+          readonly commands: readonly [];
+          readonly planDigest: null;
+        }
+    );
+export type InventoryScientificTransferPreview =
+  InventoryScientificTransferPreviewOf<'dnaforge.inventory-scientific-transfer-preview.v1'>;
+export type InventoryScientificTransferPreviewV2 =
+  InventoryScientificTransferPreviewOf<'dnaforge.inventory-scientific-transfer-preview.v2'>;
 export interface InventoryScientificTransferApplication extends InventoryScientificTransferChoices {
   readonly target: InventoryTableTarget;
   readonly source: InventoryNotebookSavedSource | null;
+  readonly expectedPlanDigest: InventoryTableSha256;
+}
+export interface InventoryScientificTransferPreviewInputV2 extends InventoryScientificTransferChoicesV2 {
+  readonly target: InventoryTableTarget;
+  readonly source: InventoryScientificContextSource | null;
+  readonly asOf: number;
+  readonly principal: InventoryPrincipal;
+  readonly authority: InventoryAuthority;
+}
+export interface InventoryScientificTransferApplicationV2 extends InventoryScientificTransferChoicesV2 {
+  readonly target: InventoryTableTarget;
+  readonly source: InventoryScientificContextSource | null;
   readonly expectedPlanDigest: InventoryTableSha256;
 }
 export type InventoryScientificTransferExisting =

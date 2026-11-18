@@ -397,8 +397,12 @@ it('records one notebook-observed physical transfer through real native HTTP and
     const request = application(ready, 'lost-scientific-ack', choices);
     await refused('read-only cannot record', request, reader);
     const receipt = await lostAck(request);
-    expect(receipt.context?.version).toBe(6);
-    expect(receipt.context?.scientificSource?.pageId).toBe(page.pageId);
+    expect(receipt.context?.version).toBe(7);
+    expect(
+      receipt.context?.scientificSource?.schema === 'dnaforge.notebook-saved-source.v1'
+        ? receipt.context.scientificSource.pageId
+        : null
+    ).toBe(page.pageId);
     expect(receipt.requestDigest).toBe(
       `sha256:${createHash('sha256').update(canonicalNativeMutationRequest(request)).digest('hex')}`
     );

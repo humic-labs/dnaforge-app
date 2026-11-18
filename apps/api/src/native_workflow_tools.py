@@ -23,6 +23,7 @@ _COMMANDS = {
     "administration": "administration.execute",
     "sequence_document": "sequence.execute",
     "notebook_document": "notebook.execute",
+    "protocol_document": "protocols.execute",
     "inventory": "inventory.execute",
 }
 
@@ -92,10 +93,16 @@ def _required(name: str, args: dict[str, Any]) -> list[str]:
             "apply-mapped-table",
             "apply-benchling-capture",
             "apply-scientific-transfer",
+            "apply-scientific-transfer-v2",
             "apply-arrival",
             "acknowledge-source",
         }:
             required.append("write-workspace")
+    elif name == "protocol_document":
+        if kind in {"create-protocol", "start-run", "recover-creation", "save-package"}:
+            required.append("write-workspace")
+        if kind in {"create-protocol", "start-run", "recover-creation"}:
+            required.append("create-entity")
     elif name == "notebook_document":
         command = operation.get("command")
         reading = kind in {"inspect", "schema", "search", "list"} or (
@@ -212,8 +219,11 @@ async def execute_native_workflow(
             "preview-benchling-capture",
             "apply-benchling-capture",
             "scientific-contexts",
+            "scientific-contexts-v2",
             "preview-scientific-transfer",
+            "preview-scientific-transfer-v2",
             "apply-scientific-transfer",
+            "apply-scientific-transfer-v2",
             "scientific-source",
             "preview-arrival",
             "apply-arrival",
@@ -231,8 +241,12 @@ async def execute_native_workflow(
                 details={"stateChanged": False},
             )
         request = {key: value for key, value in operation.items() if key != "kind"}
-        if operation["kind"] == "apply-scientific-transfer":
+        if operation["kind"] == "scientific-contexts-v2":
+            request["kind"] = request.pop("contextKind", None)
+        elif operation["kind"] == "apply-scientific-transfer":
             request["kind"] = "record-scientific-transfer"
+        elif operation["kind"] == "apply-scientific-transfer-v2":
+            request["kind"] = "record-scientific-transfer-v2"
         elif operation["kind"] == "apply-arrival":
             request["kind"] = "receive-arrival"
         elif operation["kind"] == "apply-import":
@@ -257,7 +271,7 @@ async def execute_native_workflow(
         "request": request,
         "projectScope": agent.pop("projectScope"),
     }
-    if name in {"administration", "import_review", "inventory"}:
+    if name in {"administration", "import_review", "inventory", "protocol_document"}:
         command["agent"] = agent
     outcome = await dispatch_native_document_command(authority, command)
     if outcome.disposition != "completed" or outcome.result is None:

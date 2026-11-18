@@ -1,3 +1,5 @@
+import { ProtocolCreationHost } from './features/scientific-document/ProtocolCreationDialog';
+import { installProtocolPackageChanges } from './services/protocol-package-changes';
 import {
   toUserMessage,
   userMessage,
@@ -1470,6 +1472,7 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
   }, []);
 
   useEffect(() => installComputeJobTerminalAdapter(), []);
+  useEffect(() => installProtocolPackageChanges(), []);
 
   const bindingRepairRanRef = useRef(false);
   useEffect(() => {
@@ -2040,6 +2043,7 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
           />
         ) : null}
         <ToastContainer />
+        <ProtocolCreationHost />
 
         {benchlingMigrationOpen ? (
           <BenchlingMigrationWizard

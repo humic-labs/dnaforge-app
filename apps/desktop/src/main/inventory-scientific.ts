@@ -1,5 +1,8 @@
 import {
   applyInventoryScientificTransfer,
+  applyInventoryScientificTransferV2,
+  inventoryProtocolRunSourceSha256,
+  parseProtocolPackage,
   inventoryNotebookSourceSha256,
   inventoryScientificWorkId,
   parseInventoryArchive,
@@ -13,18 +16,46 @@ import {
 } from '../shared/notebook-saved-source';
 import type {
   InventoryApplyScientificTransferRequest,
+  InventoryApplyScientificTransferV2Request,
   NativeInventoryHistoryEntry,
 } from '../shared/inventory-command';
 import type { InventoryScientificSourceRead } from '../shared/inventory-client';
+import {
+  protocolRunSavedSourceSchema,
+  type ProtocolRunSavedSource,
+} from '../shared/protocol-packages';
 import { nativeInventoryArchiveRuntime } from './inventory-archive';
 import { parseNativeInventoryJournalEntry } from './inventory-journal';
 
 export function applyNativeInventoryScientificTransfer(
   state: InventoryState,
-  request: InventoryApplyScientificTransferRequest,
+  request: InventoryApplyScientificTransferRequest | InventoryApplyScientificTransferV2Request,
   context: InventoryExecutionContext,
-  source: NotebookSavedSource
+  source: NotebookSavedSource | ProtocolRunSavedSource
 ) {
+  if (request.kind === 'record-scientific-transfer-v2') {
+    const verified =
+      source.schema === 'dnaforge.notebook-saved-source.v1'
+        ? notebookSavedSourceSchema.parse(source)
+        : protocolRunSavedSourceSchema.parse(source);
+    if (verified.schema === 'dnaforge.protocol-run-saved-source.v1')
+      parseProtocolPackage(verified.originalText);
+    return applyInventoryScientificTransferV2(
+      state,
+      {
+        ...request.choices,
+        target: {
+          projectId: request.project,
+          inventoryId: request.inventoryId,
+          present: state.revision !== 0,
+          revision: state.revision,
+        },
+        source: verified,
+        expectedPlanDigest: request.expectedPlanDigest,
+      },
+      context
+    );
+  }
   return applyInventoryScientificTransfer(
     state,
     {
@@ -54,14 +85,28 @@ export function findNativeInventoryScientificSource(
       const request = entry.request;
       if (!('kind' in request)) continue;
       if (
-        request.kind === 'record-scientific-transfer' &&
+        (request.kind === 'record-scientific-transfer' ||
+          request.kind === 'record-scientific-transfer-v2') &&
         inventoryScientificWorkId(request.choices.identity) === work.id
       ) {
-        const source = notebookSavedSourceSchema.parse(entry.receipt.context?.scientificSource);
-        const sourceSha256 = inventoryNotebookSourceSha256(source);
+        const retained = entry.receipt.context?.scientificSource;
+        const source =
+          retained?.schema === 'dnaforge.protocol-run-saved-source.v1'
+            ? protocolRunSavedSourceSchema.parse(retained)
+            : notebookSavedSourceSchema.parse(retained);
+        const sourceSha256 =
+          source.schema === 'dnaforge.notebook-saved-source.v1'
+            ? inventoryNotebookSourceSha256(source)
+            : inventoryProtocolRunSourceSha256(source);
+        const sourceId =
+          source.schema === 'dnaforge.notebook-saved-source.v1' ? source.pageId : source.runId;
+        const workId =
+          work.context.kind === 'notebook-page' ? work.context.pageId : work.context.entityId;
+        if (source.schema === 'dnaforge.protocol-run-saved-source.v1')
+          parseProtocolPackage(source.originalText);
         if (
           sourceSha256 !== work.context.source.sha256 ||
-          source.pageId !== work.context.pageId ||
+          sourceId !== workId ||
           source.projectId !== work.context.projectId ||
           source.fileObjectUuid !== work.context.source.fileObjectUuid
         )

@@ -1,0 +1,127 @@
+{
+  "protocol": {
+    "schema": "dnaforge.protocol.v1",
+    "kind": "protocol",
+    "id": "protocol-fixture",
+    "title": "Synthetic protocol",
+    "editable": true,
+    "overview": {
+      "type": "doc",
+      "content": []
+    },
+    "steps": [
+      {
+        "id": "step-1",
+        "sourceStepId": "source-step-1",
+        "ordinal": 1,
+        "title": "Transfer material",
+        "content": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Use exactly 10 µL."
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "inputs": [],
+    "outputs": [],
+    "links": [],
+    "version": {
+      "sourceVersionId": "source-v1",
+      "pinnedVersionHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "immutable": true,
+      "importedAt": "2026-01-01T00:00:00.000Z"
+    },
+    "provenance": {
+      "immutableSource": true,
+      "provider": "benchling",
+      "sourceObjectId": "source-protocol",
+      "stableSourceId": "source-protocol-stable",
+      "sourceUrl": "https://benchling.com/protocols/synthetic",
+      "sourceSchemaId": null,
+      "sourceCreatedAt": null,
+      "sourceModifiedAt": null,
+      "capturedAt": "2026-01-01T00:00:00.000Z"
+    }
+  },
+  "runSource": {
+    "sourceType": "protocol_run",
+    "id": "source-run",
+    "stableId": "source-run-stable",
+    "name": "Synthetic run",
+    "sourceUrl": "https://benchling.com/protocol-runs/synthetic",
+    "schemaId": null,
+    "createdAt": null,
+    "modifiedAt": null,
+    "content": {
+      "status": "in_progress",
+      "protocol": {
+        "sourceId": "source-protocol-stable",
+        "destinationId": "protocol-fixture",
+        "name": "Synthetic protocol",
+        "versionId": "source-v1",
+        "versionHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "inputs": [],
+      "outputs": [],
+      "measurements": [],
+      "tables": [],
+      "links": [],
+      "startedAt": "2026-01-01T00:00:00.000Z",
+      "completedAt": null
+    }
+  },
+  "originalProtocolText": "{\n  \"editable\": true,\n  \"id\": \"protocol-fixture\",\n  \"inputs\": [],\n  \"kind\": \"protocol\",\n  \"links\": [],\n  \"outputs\": [],\n  \"overview\": {\n    \"content\": [],\n    \"type\": \"doc\"\n  },\n  \"provenance\": {\n    \"capturedAt\": \"2026-01-01T00:00:00.000Z\",\n    \"immutableSource\": true,\n    \"provider\": \"benchling\",\n    \"sourceCreatedAt\": null,\n    \"sourceModifiedAt\": null,\n    \"sourceObjectId\": \"source-protocol\",\n    \"sourceSchemaId\": null,\n    \"sourceUrl\": \"https://benchling.com/protocols/synthetic\",\n    \"stableSourceId\": \"source-protocol-stable\"\n  },\n  \"schema\": \"dnaforge.protocol.v1\",\n  \"steps\": [\n    {\n      \"content\": {\n        \"content\": [\n          {\n            \"content\": [\n              {\n                \"text\": \"Use exactly 10 µL.\",\n                \"type\": \"text\"\n              }\n            ],\n            \"type\": \"paragraph\"\n          }\n        ],\n        \"type\": \"doc\"\n      },\n      \"id\": \"step-1\",\n      \"ordinal\": 1,\n      \"sourceStepId\": \"source-step-1\",\n      \"title\": \"Transfer material\"\n    }\n  ],\n  \"title\": \"Synthetic protocol\",\n  \"version\": {\n    \"immutable\": true,\n    \"importedAt\": \"2026-01-01T00:00:00.000Z\",\n    \"pinnedVersionHash\": \"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n    \"sourceVersionId\": \"source-v1\"\n  }\n}\n",
+  "originalRunProjection": {
+    "converterId": "benchling-protocol-run-v1",
+    "converterVersion": "fixture-v1",
+    "destinationObjectId": "protocol-run-1ca7125b2a27f2252e77b38e",
+    "destinationPath": "Benchling Imports/Protocol Runs/Synthetic_run_1ca7125b2a27f225/.forge/protocol-run.json",
+    "document": {
+      "schema": "dnaforge.protocol-run.v1",
+      "kind": "protocol_run",
+      "id": "protocol-run-1ca7125b2a27f2252e77b38e",
+      "title": "Synthetic run",
+      "status": "in_progress",
+      "immutable": false,
+      "protocol": {
+        "sourceId": "source-protocol-stable",
+        "destinationId": "protocol-fixture",
+        "name": "Synthetic protocol",
+        "pinnedVersionId": "source-v1",
+        "pinnedVersionHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "inputs": [],
+      "outputs": [],
+      "measurements": [],
+      "tables": [],
+      "links": [],
+      "startedAt": "2026-01-01T00:00:00.000Z",
+      "completedAt": null,
+      "amendments": [],
+      "provenance": {
+        "immutableSource": true,
+        "provider": "benchling",
+        "sourceObjectId": "source-run",
+        "stableSourceId": "source-run-stable",
+        "sourceUrl": "https://benchling.com/protocol-runs/synthetic",
+        "sourceSchemaId": null,
+        "sourceCreatedAt": null,
+        "sourceModifiedAt": null,
+        "capturedAt": "2026-01-01T01:00:00.000Z"
+      }
+    },
+    "text": "{\n  \"amendments\": [],\n  \"completedAt\": null,\n  \"id\": \"protocol-run-1ca7125b2a27f2252e77b38e\",\n  \"immutable\": false,\n  \"inputs\": [],\n  \"kind\": \"protocol_run\",\n  \"links\": [],\n  \"measurements\": [],\n  \"outputs\": [],\n  \"protocol\": {\n    \"destinationId\": \"protocol-fixture\",\n    \"name\": \"Synthetic protocol\",\n    \"pinnedVersionHash\": \"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n    \"pinnedVersionId\": \"source-v1\",\n    \"sourceId\": \"source-protocol-stable\"\n  },\n  \"provenance\": {\n    \"capturedAt\": \"2026-01-01T01:00:00.000Z\",\n    \"immutableSource\": true,\n    \"provider\": \"benchling\",\n    \"sourceCreatedAt\": null,\n    \"sourceModifiedAt\": null,\n    \"sourceObjectId\": \"source-run\",\n    \"sourceSchemaId\": null,\n    \"sourceUrl\": \"https://benchling.com/protocol-runs/synthetic\",\n    \"stableSourceId\": \"source-run-stable\"\n  },\n  \"schema\": \"dnaforge.protocol-run.v1\",\n  \"startedAt\": \"2026-01-01T00:00:00.000Z\",\n  \"status\": \"in_progress\",\n  \"tables\": [],\n  \"title\": \"Synthetic run\"\n}\n",
+    "warnings": []
+  },
+  "originalProtocolSha256": "sha256:3c838e21045435e811e24e7f7e4d049f0735a00fcc178ab5adb973feaf851224",
+  "originalRunSha256": "sha256:679e6a77a950fa18deddd68e192c05617f03c79ae6551ecd689a080d0c2c9601"
+}

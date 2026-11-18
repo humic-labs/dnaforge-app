@@ -6,7 +6,7 @@ import {
   inventoryStorageConditionsProjection,
 } from '@waypoint/domain-services';
 import { unavailableInventoryClient } from '../../shared/inventory-client';
-import { inventoryScientificContextsRequestSchema } from '../../shared/inventory-command';
+import { inventoryScientificContextsV2RequestSchema } from '../../shared/inventory-command';
 import { InventoryController, type InventoryData } from './inventory-controller';
 import { InventoryScientificForm } from './InventoryScientificForm';
 
@@ -20,15 +20,15 @@ it('lists saved notebook contexts through the actual native request limit', asyn
     state = createInventoryState(),
     client = unavailableInventoryClient(),
     admitted: unknown[] = [];
-  client.scientificContexts = vi.fn(async (input) => {
-    admitted.push(inventoryScientificContextsRequestSchema.parse(input));
+  client.scientificContextsV2 = vi.fn(async (input) => {
+    admitted.push(inventoryScientificContextsV2RequestSchema.parse(input));
     return {
       projectId: scope.project,
       inventoryId: scope.inventoryId,
       revision: 0,
       asOf: 100,
       principal,
-      pages: [],
+      contexts: [],
     };
   });
   const data: InventoryData = {
@@ -69,5 +69,5 @@ it('lists saved notebook contexts through the actual native request limit', asyn
     />
   );
   await waitFor(() => expect(admitted).toHaveLength(1));
-  expect(admitted[0]).toMatchObject({ ...scope, limit: 50 });
+  expect(admitted[0]).toMatchObject({ ...scope, kind: 'notebook-page', limit: 50 });
 });

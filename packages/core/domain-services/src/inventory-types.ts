@@ -78,7 +78,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v23' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v24' as const;
+export const INVENTORY_NOTEBOOK_CONTEXT_SCHEMA = 'dnaforge.inventory.v23' as const;
 export const INVENTORY_STOCKROOM_SCHEMA = 'dnaforge.inventory.v22' as const;
 export const INVENTORY_ARRIVAL_SCHEMA = 'dnaforge.inventory.v21' as const;
 export const INVENTORY_VALIDITY_SCHEMA = 'dnaforge.inventory.v20' as const;

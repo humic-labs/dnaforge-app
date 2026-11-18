@@ -1,3 +1,4 @@
+export * from './protocol-package';
 export * from './scientific-documents';
 export type * from './scientific-objects';
 export type * from './managed-document-commands';

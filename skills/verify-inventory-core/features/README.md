@@ -80,3 +80,5 @@
   projections.
 
 - [Observed scientific transfers with notebook context](scientific.md).
+
+- [Protocol creation and Run-linked observed transfers](protocol-run.md).
