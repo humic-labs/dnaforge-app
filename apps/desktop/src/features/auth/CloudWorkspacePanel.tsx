@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { toUserMessage } from '@waypoint/user-messages';
 import type { WorkspaceSyncStatus } from '../../shared/cloud-sync-status';
 import type {
@@ -57,6 +58,8 @@ export interface CloudWorkspacePanelProps {
   onRunAction: (action: SyncAction) => void;
   onResolveConflict: (resolution: ConflictResolution) => void;
   onRecoverScientificDrafts?: () => void;
+  onSaveSelectionRules?: (rules: string) => void;
+  onApproveSelection?: () => void;
 
   organizations?: WorkspaceSyncOrganizationSummary[];
   ownerChoice?: WorkspaceSyncOwnerChoice;
@@ -77,6 +80,8 @@ export function CloudWorkspacePanel({
   onRunAction,
   onResolveConflict,
   onRecoverScientificDrafts,
+  onSaveSelectionRules,
+  onApproveSelection,
   organizations = [],
   ownerChoice = { kind: 'personal' },
   onOwnerChoiceChange,
@@ -85,6 +90,30 @@ export function CloudWorkspacePanel({
   onResolveMerge,
 }: CloudWorkspacePanelProps) {
   const shared = syncStatus?.shared ?? false;
+  const selection = uploadPreview?.selection;
+  const savedRules =
+    selection?.ruleFiles.find((file) => file.relativePath === '.gitignore')?.content ?? '';
+  const [rules, setRules] = useState(savedRules);
+  useEffect(() => {
+    setRules(savedRules);
+  }, [savedRules, syncWorkspaceUuid]);
+  const rulesChanged = rules !== savedRules;
+  const selectionPending = selection?.state === 'review-required';
+  const selectedFilesSynced =
+    syncStatus?.syncAxis === 'idle_synced' &&
+    (uploadPreview?.excludedSummary.ignoredCount ?? 0) > 0;
+  const exclusionReason = (reason: string): string =>
+    (
+      ({
+        'project-ignore': 'kept local by project rules',
+        unsupported: 'unsupported file type',
+        'private-raw-data': 'raw data stays local',
+        'reference-pointer': 'reference data stays local',
+        'file-too-large': 'exceeds the file allowance',
+        'bundle-too-large': 'exceeds the project allowance',
+        'selection-review': 'waiting for selection review',
+      }) as Record<string, string>
+    )[reason] ?? reason;
   return (
     <div
       data-testid="account-sync-status"
@@ -119,7 +148,11 @@ export function CloudWorkspacePanel({
             syncDisplay.tone
           )}`}
         >
-          {syncDisplay.label}
+          {selectionPending
+            ? 'Review file selection'
+            : selectedFilesSynced
+              ? 'Selected files backed up'
+              : syncDisplay.label}
         </span>
       </div>
       {syncDisplay.detail ? (
@@ -136,35 +169,132 @@ export function CloudWorkspacePanel({
         </p>
       ) : null}
       {syncWorkspaceUuid ? (
-        <div
-          data-testid="account-cloud-backup-preview"
-          className="mt-2 max-h-64 overflow-auto rounded border border-border bg-bg px-1.5 py-1"
-        >
-          {uploadPreviewError ? (
-            <p className="text-[11px] leading-4 text-warning">
-              {toUserMessage(uploadPreviewError, 'account.failed')}
-            </p>
-          ) : uploadPreview ? (
-            <>
-              <p className="text-[10px] uppercase tracking-wide text-fg-muted">
-                Will upload ({formatFileCount(uploadPreview.includedFileCount)},{' '}
-                {formatBytes(uploadPreview.includedBytes)})
+        <div className="mt-2 max-h-64 overflow-auto rounded border border-border bg-bg px-1.5 py-1">
+          <div data-testid="account-cloud-backup-preview">
+            {uploadPreviewError ? (
+              <p className="text-[11px] leading-4 text-warning">
+                {toUserMessage(uploadPreviewError, 'account.failed')}
               </p>
-              <ul className="mt-1 space-y-0.5">
-                {uploadPreview.includedFiles.map((file) => (
-                  <li
-                    key={file.relativePath}
-                    className="truncate text-[11px] leading-4 text-fg-muted"
-                    title={file.relativePath}
-                  >
-                    {file.relativePath}
-                  </li>
-                ))}
-              </ul>
+            ) : null}
+            {uploadPreview ? (
+              <>
+                <p className="text-[10px] uppercase tracking-wide text-fg-muted">
+                  Will upload ({formatFileCount(uploadPreview.includedFileCount)},{' '}
+                  {formatBytes(uploadPreview.includedBytes)})
+                </p>
+                <ul className="mt-1 space-y-0.5">
+                  {uploadPreview.includedFiles.map((file) => (
+                    <li
+                      key={file.relativePath}
+                      className="truncate text-[11px] leading-4 text-fg-muted"
+                      title={file.relativePath}
+                    >
+                      {file.relativePath}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p className="text-[11px] leading-4 text-fg-muted">Checking what will upload…</p>
+            )}
+          </div>
+          {uploadPreview ? (
+            <>
+              {uploadPreview.excludedFiles && uploadPreview.excludedFiles.length > 0 && (
+                <div
+                  className="mt-2 border-t border-border pt-2"
+                  data-testid="account-cloud-backup-excluded-files"
+                >
+                  <p className="text-[10px] uppercase tracking-wide text-fg-muted">
+                    Kept on this device
+                  </p>
+                  <ul className="mt-1 space-y-1">
+                    {uploadPreview.excludedFiles.map((file) => (
+                      <li key={file.relativePath} className="text-[11px] leading-4 text-fg-muted">
+                        <span className="break-all">{file.relativePath}</span> —{' '}
+                        {exclusionReason(file.reason)} ({formatBytes(file.sizeBytes)})
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {selection?.protectedFiles && selection.protectedFiles.length > 0 && (
+                <p className="mt-2 text-[11px] leading-4 text-fg-muted">
+                  Included despite rules:{' '}
+                  {selection.protectedFiles
+                    .map(
+                      (file) =>
+                        `${file.relativePath} (${file.reason === 'already-backed-up' ? 'already backed up' : file.reason === 'required-scientific' ? 'required scientific member' : 'shared project rules'})`
+                    )
+                    .join(', ')}
+                  .
+                </p>
+              )}
             </>
-          ) : (
-            <p className="text-[11px] leading-4 text-fg-muted">Checking what will upload…</p>
+          ) : null}
+        </div>
+      ) : null}
+      {selection && onSaveSelectionRules && onApproveSelection ? (
+        <div className="mt-3 space-y-2 rounded border border-border p-2">
+          <label className="block text-xs text-fg" htmlFor="account-cloud-backup-rules">
+            Files to keep local
+          </label>
+          <p className="text-[11px] leading-4 text-fg-muted">
+            Project .gitignore patterns keep new files local. Files already backed up remain
+            included; removing shared files is a separate action. Required scientific members and
+            project rules stay included.
+          </p>
+          <textarea
+            id="account-cloud-backup-rules"
+            data-testid="account-cloud-backup-rules"
+            value={rules}
+            onChange={(event) => setRules(event.target.value)}
+            disabled={commandInFlight || syncStatus?.accessRole === 'viewer'}
+            rows={4}
+            spellCheck={false}
+            className="w-full resize-y rounded border border-border bg-bg p-2 font-mono text-xs text-fg disabled:opacity-50"
+          />
+          {selection.ruleFiles
+            .filter((file) => file.relativePath !== '.gitignore')
+            .map((file) => (
+              <p key={file.relativePath} className="text-[11px] text-fg-muted">
+                Also applies: {file.relativePath}. Edit this file in the project to change its
+                rules.
+              </p>
+            ))}
+          {selectionPending && (
+            <p className="text-xs text-warning">
+              Review the included and excluded files, then apply this selection before backing up.
+              {selection.newlyIncludedPaths.length > 0
+                ? ` ${selection.newlyIncludedPaths.length} files in previously excluded folders are now eligible.`
+                : ''}
+            </p>
           )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              data-testid="account-cloud-backup-save-rules"
+              disabled={commandInFlight || !rulesChanged || syncStatus?.accessRole === 'viewer'}
+              onClick={() => onSaveSelectionRules(rules)}
+              className="rounded border border-border px-2 py-1 text-xs disabled:opacity-50"
+            >
+              Save rules
+            </button>
+            <button
+              type="button"
+              data-testid="account-cloud-backup-apply-selection"
+              disabled={
+                commandInFlight ||
+                rulesChanged ||
+                !selectionPending ||
+                syncStatus?.accessRole === 'viewer'
+              }
+              onClick={onApproveSelection}
+              className="rounded border border-border px-2 py-1 text-xs disabled:opacity-50"
+            >
+              Apply selection
+            </button>
+          </div>
         </div>
       ) : null}
       {syncDisplay.canEnableSync && onOwnerChoiceChange ? (
@@ -208,7 +338,13 @@ export function CloudWorkspacePanel({
         <div className="mt-2 grid grid-cols-4 gap-1">
           <button
             type="button"
-            disabled={!syncDisplay.canEnableSync || commandInFlight}
+            disabled={
+              !syncDisplay.canEnableSync ||
+              commandInFlight ||
+              selectionPending ||
+              rulesChanged ||
+              Boolean(uploadPreviewError)
+            }
             onClick={() => onRunAction('enable')}
             data-testid="account-enable-sync"
             className="rounded border border-border px-1 py-1 text-center text-[11px] text-fg-muted wp-interactive disabled:cursor-not-allowed disabled:opacity-50 "
@@ -217,7 +353,9 @@ export function CloudWorkspacePanel({
           </button>
           <button
             type="button"
-            disabled={!syncDisplay.canForceSync || commandInFlight}
+            disabled={
+              !syncDisplay.canForceSync || commandInFlight || selectionPending || rulesChanged
+            }
             onClick={() => onRunAction('force')}
             data-testid="account-sync-now"
             className="rounded border border-border px-1 py-1 text-center text-[11px] text-fg-muted wp-interactive disabled:cursor-not-allowed disabled:opacity-50 "

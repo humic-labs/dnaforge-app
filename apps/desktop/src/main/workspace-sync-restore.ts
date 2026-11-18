@@ -1,3 +1,4 @@
+import { isWorkspaceSyncOperationalPath } from './workspace-sync-paths';
 import { writeEntityProjectionReceiptInDb } from './entity-projection-receipt-store';
 import { notebookProjectionFingerprint } from '../shared/notebook-projection';
 import { userMessage } from '@waypoint/user-messages';
@@ -34,15 +35,6 @@ export interface RehydrateWorkspaceSyncStateResult {
 }
 
 export const LEGACY_LIMS_NOT_IMPORTED_WARNING = userMessage('sync.legacyDataKept');
-
-const SYNC_SKIP_DIRS = new Set([
-  '.git',
-  'node_modules',
-  '.DS_Store',
-  'dist',
-  'dist-electron',
-  'out',
-]);
 
 export function rehydrateWorkspaceSyncState(
   db: Database.Database,
@@ -249,7 +241,6 @@ function discoverWorkspaceArtifacts(
     }
 
     for (const name of entries) {
-      if (SYNC_SKIP_DIRS.has(name)) continue;
       const full = join(dir, name);
       const relativeSegments = relative(workspaceRoot, full).split(sep);
       const waypointIndex = relativeSegments.lastIndexOf('.waypoint');
@@ -264,7 +255,14 @@ function discoverWorkspaceArtifacts(
         continue;
       }
 
-      if (stats.isSymbolicLink()) continue;
+      if (
+        stats.isSymbolicLink() ||
+        isWorkspaceSyncOperationalPath(
+          relative(workspaceRoot, full).split(sep).join('/'),
+          stats.isDirectory()
+        )
+      )
+        continue;
       if (stats.isDirectory()) {
         if (activePackageRoot && full === join(activePackageRoot, '.forge')) continue;
         walk(full, activePackageRoot);

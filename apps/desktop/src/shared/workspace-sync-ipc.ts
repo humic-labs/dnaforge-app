@@ -176,6 +176,7 @@ export type WorkspaceSyncOwnerChoice = { kind: 'personal' } | { kind: 'org'; org
 
 export interface WorkspaceSyncEnableOptions {
   owner?: WorkspaceSyncOwnerChoice;
+  selectionRevision?: string;
 }
 
 export type WorkspaceSyncGrantRole = 'viewer' | 'editor' | 'manager';
@@ -660,6 +661,8 @@ export interface WorkspaceSyncUploadPreviewOk extends WorkspaceSyncActionOk {
   includedFileCount: number;
   includedBytes: number;
   excludedSummary: import('./cloud-sync-status').WorkspaceSyncExcludedSummary;
+  excludedFiles?: import('./workspace-sync-selection').WorkspaceSyncExcludedFile[];
+  selection?: import('./workspace-sync-selection').WorkspaceSyncSelection;
   limits: {
     maxFileBytes: number;
     maxBundleBytes: number;
@@ -758,18 +761,26 @@ export function parseWorkspaceSyncEnableOptions(value: unknown): WorkspaceSyncEn
     throw new Error('enable options must be an object');
   }
   const record = value as Record<string, unknown>;
-  if (record.owner === undefined || record.owner === null) return {};
+  const selectionRevision = record.selectionRevision;
+  if (
+    selectionRevision !== undefined &&
+    (typeof selectionRevision !== 'string' || !/^[a-f0-9]{64}$/u.test(selectionRevision))
+  )
+    throw new Error('Selection revision is invalid.');
+  const selection =
+    selectionRevision === undefined ? {} : { selectionRevision: selectionRevision as string };
+  if (record.owner === undefined || record.owner === null) return selection;
   const owner = record.owner;
   if (!owner || typeof owner !== 'object' || Array.isArray(owner)) {
     throw new Error('owner must be an object');
   }
   const ownerRecord = owner as Record<string, unknown>;
-  if (ownerRecord.kind === 'personal') return { owner: { kind: 'personal' } };
+  if (ownerRecord.kind === 'personal') return { owner: { kind: 'personal' }, ...selection };
   if (ownerRecord.kind === 'org') {
     if (typeof ownerRecord.orgId !== 'string' || !UUID_RE.test(ownerRecord.orgId)) {
       throw new Error('owner.orgId must be a UUID');
     }
-    return { owner: { kind: 'org', orgId: ownerRecord.orgId.toLowerCase() } };
+    return { owner: { kind: 'org', orgId: ownerRecord.orgId.toLowerCase() }, ...selection };
   }
   throw new Error('owner.kind must be personal or org');
 }
@@ -948,4 +959,28 @@ function parseOpaqueWorkspaceId(value: unknown, label: string): string {
     throw new Error(`${label} must be a workspace UUID`);
   }
   return trimmed;
+}
+
+export function parseWorkspaceSyncSelectionUpdate(
+  value: unknown
+): import('./workspace-sync-selection').WorkspaceSyncSelectionUpdate {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new Error('Selection update must be an object.');
+  const input = value as Record<string, unknown>;
+  if (typeof input.expectedRevision !== 'string' || !/^[a-f0-9]{64}$/u.test(input.expectedRevision))
+    throw new Error('Selection revision is required.');
+  if (input.kind === 'approve' && Object.keys(input).length === 2)
+    return { kind: 'approve', expectedRevision: input.expectedRevision };
+  if (
+    input.kind === 'save-rules' &&
+    Object.keys(input).length === 3 &&
+    typeof input.rootGitignore === 'string' &&
+    new TextEncoder().encode(input.rootGitignore).length <= 65536
+  )
+    return {
+      kind: 'save-rules',
+      expectedRevision: input.expectedRevision,
+      rootGitignore: input.rootGitignore,
+    };
+  throw new Error('Selection update is invalid.');
 }

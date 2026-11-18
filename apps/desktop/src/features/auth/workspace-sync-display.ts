@@ -200,7 +200,9 @@ export function describeWorkspaceSyncDisplay(
     case 'idle_synced':
       return status.canDisplayPlainSynced
         ? display(
-            'Up to date',
+            (status.excludedSummary?.ignoredCount ?? 0) > 0
+              ? 'Selected files backed up'
+              : 'Up to date',
             shared
               ? userMessage('copy.your-copy-matches-the-latest-shared-version')
               : userMessage('copy.eligible-design-files-match-the-latest-cloud-version'),
@@ -329,6 +331,7 @@ export function formatExclusionDetail(
 ): UserMessage | null {
   if (!summary) return null;
   const parts: string[] = [];
+  pushCount(parts, summary.ignoredCount, 'excluded by project rules');
   pushCount(parts, summary.privateRawDataCount, 'raw/sequencing');
   pushCount(parts, summary.referencePointerCount, 'reference annotations');
   pushCount(parts, summary.fileTooLargeCount, 'too large');

@@ -281,6 +281,8 @@ export function AccountActivityButton() {
           onRunAction={(action) => void cloud.runAutoSyncAction(action)}
           onResolveConflict={(resolution) => void cloud.runConflictResolution(resolution)}
           onRecoverScientificDrafts={() => void cloud.recoverScientificDrafts()}
+          onSaveSelectionRules={(rules) => void cloud.saveSelectionRules(rules)}
+          onApproveSelection={() => void cloud.approveSelection()}
           organizations={cloud.organizations}
           ownerChoice={cloud.ownerChoice}
           onOwnerChoiceChange={cloud.setOwnerChoice}
