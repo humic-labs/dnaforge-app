@@ -25,6 +25,7 @@ import {
   ANALYTICS_ORGANIZATION_GROUP,
   acceptIdentityContext,
   classifyInternalOperator,
+  classifyTelemetryOrigin,
   sanitizePostHogSdkEvent,
   type AnalyticsConsentBasis,
   type AnalyticsIdentityContext,
@@ -486,20 +487,6 @@ function sameProperties(a: object, b: object): boolean {
   return sorted(a) === sorted(b);
 }
 
-function optionalClassification(): OptionalTelemetryOrigin['classification'] {
-  return runtimeConfig?.isSynthetic ||
-    ['canary', 'ci'].includes(runtimeConfig?.telemetryActor ?? '')
-    ? 'synthetic'
-    : runtimeConfig?.telemetryActor === 'maintainer' ||
-        ['local', 'development', 'test'].includes(APP_BUILD.kind)
-      ? 'private'
-      : APP_BUILD.kind === 'release' &&
-          runtimeConfig?.environment === 'production' &&
-          runtimeConfig.telemetryActor === 'user'
-        ? 'eligible_release'
-        : 'unknown';
-}
-
 function bindAcceptedOptionalContext(identity: AnalyticsIdentityContext): void {
   const live = acceptedOptionalContext;
   acceptedOptionalContext = null;
@@ -521,7 +508,7 @@ function bindAcceptedOptionalContext(identity: AnalyticsIdentityContext): void {
       if (!consentScope || !FEEDBACK_SCOPE_RE.test(consentScope)) consentScope = randomUUID();
       const raw = get(OPTIONAL_CONTEXT_KEY);
       const previous = raw ? (JSON.parse(raw) as AcceptedOptionalContext) : null;
-      const classification = optionalClassification();
+      const classification = classifyTelemetryOrigin(runtimeConfig, APP_BUILD.kind);
       const runtimeProperties = originalRuntimeProperties();
       const canReuse = mayResumePersistedContext || (live !== null && raw === JSON.stringify(live));
       const resume =
@@ -582,7 +569,8 @@ function currentOptionalContext(): AcceptedOptionalContext | null {
       get('analytics_consent_version') !== ANALYTICS_CONSENT_VERSION ||
       get(FEEDBACK_CONSENT_SCOPE) !== acceptedOptionalContext.consentScope ||
       get(OPTIONAL_CONTEXT_KEY) !== JSON.stringify(acceptedOptionalContext) ||
-      optionalClassification() !== acceptedOptionalContext.classification
+      classifyTelemetryOrigin(runtimeConfig, APP_BUILD.kind) !==
+        acceptedOptionalContext.classification
     )
       return null;
     return acceptedOptionalContext;
