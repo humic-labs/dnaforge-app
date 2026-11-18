@@ -113,7 +113,7 @@ export function EntityDetailsRelated({
               <button
                 type="button"
                 data-testid="lims-registry-view-original-source"
-                className="h-7 rounded border border-border px-2.5 text-xs font-medium text-fg hover:bg-bg-subtle"
+                className="h-7 rounded border border-border px-2.5 text-xs font-medium text-fg wp-interactive"
                 onClick={() =>
                   onViewOriginalSource({
                     request: originalSourceRequest,
@@ -138,7 +138,7 @@ export function EntityDetailsRelated({
                       ? toUserMessage(registryActionDisabledReason, 'operation.failed')
                       : undefined
                   }
-                  className="h-7 rounded border border-border px-2.5 text-xs font-medium text-fg hover:bg-bg-subtle disabled:opacity-50"
+                  className="h-7 rounded border border-border px-2.5 text-xs font-medium text-fg wp-interactive disabled:opacity-50"
                   onClick={() => void handleRestoreEntity(registryPreview.summary)}
                 >
                   Restore
@@ -156,7 +156,7 @@ export function EntityDetailsRelated({
                         ? toUserMessage(registryActionDisabledReason, 'operation.failed')
                         : undefined
                     }
-                    className="h-7 rounded border border-border px-2.5 text-xs font-medium text-fg hover:bg-bg-subtle disabled:opacity-50"
+                    className="h-7 rounded border border-border px-2.5 text-xs font-medium text-fg wp-interactive disabled:opacity-50"
                     onClick={() => void handleRevertEntity(registryPreview.summary)}
                   >
                     Undo last change
@@ -283,7 +283,7 @@ export function EntityDetailsRelated({
                       type="button"
                       disabled={pendingActionBusy}
                       data-testid="pending-ref-dismiss"
-                      className="rounded px-2 py-0.5 text-xs text-fg-muted hover:text-fg disabled:opacity-50"
+                      className="rounded px-2 py-0.5 text-xs text-fg-muted wp-interactive disabled:opacity-50"
                       onClick={() => onDismissPendingRef?.(ref)}
                     >
                       Dismiss
@@ -324,7 +324,7 @@ export function EntityDetailsRelated({
                         type="button"
                         disabled={pendingActionBusy}
                         data-testid="pending-ref-dismiss"
-                        className="rounded px-2 py-0.5 text-[11px] text-fg-muted hover:text-fg disabled:opacity-50"
+                        className="rounded px-2 py-0.5 text-[11px] text-fg-muted wp-interactive disabled:opacity-50"
                         onClick={() => onDismissPendingRef?.(ref)}
                       >
                         Dismiss

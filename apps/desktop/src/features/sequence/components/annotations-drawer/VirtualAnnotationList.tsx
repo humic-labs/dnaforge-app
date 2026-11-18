@@ -210,7 +210,7 @@ export function VirtualAnnotationList({
                 onClick={() => onRowClick(originalIndex, ann)}
                 onDoubleClick={() => onRowDoubleClick(originalIndex)}
                 className={`group grid items-center px-1 py-0.5 text-xs cursor-pointer select-none ${
-                  isExpanded || isSelected ? 'bg-green-500/15' : 'hover:bg-bg-subtle'
+                  isExpanded || isSelected ? 'bg-green-500/15' : 'wp-interactive'
                 }`}
                 style={{ gridTemplateColumns: ANNOTATION_GRID, height: ROW_HEIGHT }}
               >
@@ -242,7 +242,7 @@ export function VirtualAnnotationList({
                       isExpanded ? 'Collapse annotation editor' : 'Expand annotation editor'
                     }
                     title={isExpanded ? 'Collapse' : 'Expand'}
-                    className={`absolute -right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded hover:bg-bg-muted cursor-pointer ${
+                    className={`absolute -right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded wp-interactive cursor-pointer ${
                       isExpanded
                         ? 'text-accent opacity-100'
                         : isSelected

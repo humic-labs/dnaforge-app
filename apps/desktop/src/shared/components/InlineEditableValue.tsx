@@ -1,4 +1,5 @@
 import { forwardRef, type ComponentProps, type ReactNode } from 'react';
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { EditIcon } from '../../components/icons';
 
 export const InlineEditableValue = forwardRef<
@@ -10,7 +11,7 @@ export const InlineEditableValue = forwardRef<
       type="button"
       ref={ref}
       {...props}
-      className={`group/field-edit relative block min-w-0 rounded-md border border-transparent pr-6 text-left hover:bg-bg-muted focus-visible:border-accent focus-visible:outline-none disabled:cursor-default disabled:hover:bg-transparent ${
+      className={`${INTERACTION_CLASS} group/field-edit relative block min-w-0 rounded-md border border-transparent pr-6 text-left ${
         compact
           ? 'w-full truncate py-0.5 pl-1'
           : 'min-h-10 w-full whitespace-pre-wrap break-words py-2 pl-3 text-sm'

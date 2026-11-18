@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import {
   usePresentationOverlay,
   PresentationScopeContext,
@@ -65,7 +66,7 @@ export function ConfirmDialogHost() {
           aria-label="Close dialog"
           data-testid="confirm-dialog-close"
           onClick={() => resolveCurrent(false)}
-          className="absolute right-3 top-3 rounded p-1 text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg"
+          className={`${INTERACTION_CLASS} absolute right-3 top-3 rounded p-1 text-fg-muted transition-colors`}
         >
           <CloseIcon size={14} />
         </button>

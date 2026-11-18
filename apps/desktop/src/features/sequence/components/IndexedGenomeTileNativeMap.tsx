@@ -1344,7 +1344,7 @@ function ReadDetailsCard(props: {
             aria-label="Close read details"
             title="Close"
             onClick={props.onClose}
-            className="rounded text-fg-muted hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+            className="rounded text-fg-muted wp-interactive "
             style={READ_DETAILS_ICON_BUTTON_STYLE}
           >
             <XIcon size={12} />
@@ -1480,8 +1480,8 @@ function ReadDetailsCopyButton({ details }: { details: AlignmentReadDetails }) {
       data-copy-state={copyState}
       data-testid="indexed-read-copy-button"
       onClick={() => void copyDetails()}
-      className={`rounded hover:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-        copyState === 'error' ? 'text-error' : 'text-fg-muted hover:text-fg'
+      className={`rounded wp-interactive ${
+        copyState === 'error' ? 'text-error' : 'text-fg-muted wp-interactive'
       }`}
       style={READ_DETAILS_ICON_BUTTON_STYLE}
     >

@@ -889,7 +889,7 @@ describe('IndexedGenomeTab loading screen — phase transitions', () => {
     expect(menu).toHaveTextContent('Copy Translation');
     expect(menu).toHaveTextContent('Add Annotation');
 
-    fireEvent.mouseDown(screen.getByRole('button', { name: 'Add Annotation' }));
+    fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'Add Annotation' }));
     expect(await screen.findByTestId('indexed-annotation-dialog')).toBeInTheDocument();
     fireEvent.change(screen.getByTestId('add-name-input'), {
       target: { value: 'reviewed locus' },
@@ -934,7 +934,7 @@ describe('IndexedGenomeTab loading screen — phase transitions', () => {
       });
     };
     openOverlayMenu();
-    fireEvent.mouseDown(await screen.findByRole('button', { name: 'Edit Annotation' }));
+    fireEvent.mouseDown(await screen.findByRole('menuitem', { name: 'Edit Annotation' }));
     fireEvent.change(screen.getByTestId('edit-name-input'), {
       target: { value: 'renamed locus' },
     });
@@ -950,7 +950,7 @@ describe('IndexedGenomeTab loading screen — phase transitions', () => {
     });
 
     openOverlayMenu();
-    fireEvent.mouseDown(await screen.findByRole('button', { name: 'Delete Annotation' }));
+    fireEvent.mouseDown(await screen.findByRole('menuitem', { name: 'Delete Annotation' }));
     await waitFor(() => {
       const location = useCanvasStore.getState().findTab('sequence', tab.entityId);
       const current = location
@@ -987,7 +987,7 @@ describe('IndexedGenomeTab loading screen — phase transitions', () => {
         highlightRange: [10, 14],
       });
     });
-    fireEvent.mouseDown(await screen.findByRole('button', { name: 'Copy Sequence' }));
+    fireEvent.mouseDown(await screen.findByRole('menuitem', { name: 'Copy Sequence' }));
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('AACCG'));
     expect(mockGetSequence).toHaveBeenCalledWith(
@@ -1087,7 +1087,7 @@ describe('IndexedGenomeTab loading screen — phase transitions', () => {
     };
 
     openCdsMenu();
-    fireEvent.mouseDown(await screen.findByRole('button', { name: /Copy CDS Translation/ }));
+    fireEvent.mouseDown(await screen.findByRole('menuitem', { name: /Copy CDS Translation/ }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('MMM'));
     expect(mockGetFeatureDetailsByManifest).toHaveBeenCalledWith(
       expect.objectContaining({ chrom: 'chr11' }),
@@ -1095,7 +1095,9 @@ describe('IndexedGenomeTab loading screen — phase transitions', () => {
     );
 
     openCdsMenu();
-    fireEvent.mouseDown(await screen.findByRole('button', { name: /Create amino acid sequence/ }));
+    fireEvent.mouseDown(
+      await screen.findByRole('menuitem', { name: /Create amino acid sequence/ })
+    );
     const proteinDialog = await screen.findByTestId('create-amino-acid-sequence-dialog');
     expect(proteinDialog).toHaveTextContent('MMM');
     await waitFor(() =>
@@ -1207,15 +1209,15 @@ describe('IndexedGenomeTab loading screen — phase transitions', () => {
     };
 
     openTranscriptMenu();
-    fireEvent.mouseDown(await screen.findByRole('button', { name: /Copy transcript DNA/ }));
+    fireEvent.mouseDown(await screen.findByRole('menuitem', { name: /Copy transcript DNA/ }));
     await waitFor(() => expect(writeText).toHaveBeenLastCalledWith('ATGTTA'));
 
     openTranscriptMenu();
-    fireEvent.mouseDown(await screen.findByRole('button', { name: /Copy transcript RNA/ }));
+    fireEvent.mouseDown(await screen.findByRole('menuitem', { name: /Copy transcript RNA/ }));
     await waitFor(() => expect(writeText).toHaveBeenLastCalledWith('AUGUUA'));
 
     openTranscriptMenu();
-    fireEvent.mouseDown(await screen.findByRole('button', { name: /Choose isoform/ }));
+    fireEvent.mouseDown(await screen.findByRole('menuitem', { name: /Choose isoform/ }));
     const sibling = await screen.findByRole('radio', { name: /Isoform 2/ });
     fireEvent.click(sibling);
     fireEvent.click(screen.getByRole('button', { name: 'Copy RNA' }));

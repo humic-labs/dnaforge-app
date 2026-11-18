@@ -267,7 +267,7 @@ export function NotebookSourceDetailsControl({
         aria-expanded={open}
         aria-controls={open ? `${titleId}-popover` : undefined}
         onClick={() => setOpen((current) => !current)}
-        className="inline-flex h-6 items-center gap-1.5 rounded-full border border-border bg-bg-subtle px-2 text-[11px] font-medium text-fg-muted transition-colors hover:border-border-hover hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+        className="inline-flex h-6 items-center gap-1.5 rounded-full border border-border bg-bg-subtle px-2 text-[11px] font-medium text-fg-muted transition-colors wp-interactive "
       >
         <NotebookTabIcon className="h-3.5 w-3.5" />
         Imported from Benchling
@@ -293,7 +293,7 @@ export function NotebookSourceDetailsControl({
               type="button"
               aria-label="Close source details"
               onClick={() => close(true)}
-              className="rounded p-1 text-fg-muted hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+              className="rounded p-1 text-fg-muted wp-interactive "
             >
               <XIcon size={13} />
             </button>

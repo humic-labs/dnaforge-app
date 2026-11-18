@@ -58,7 +58,7 @@ export function QueuedMessageStack({
                 aria-label={`Advance queue through ${positionLabel}`}
                 title="Advance queue through this message"
                 data-testid="advance-queued-message"
-                className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-bg text-fg-muted transition-colors hover:bg-border/45 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-bg text-fg-muted transition-colors  wp-interactive "
                 onClick={() => onAdvanceThrough(message.id)}
               >
                 <ChevronRightIcon size={12} />

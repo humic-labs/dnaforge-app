@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { useEffect, useRef, useState } from 'react';
 import type { DragEvent, ReactNode } from 'react';
 import type { ImportDestination } from '../workspace-loader/public/resolve-import-destination';
@@ -106,15 +107,14 @@ export function ImportDestinationPicker({
         type="button"
         role="treeitem"
         aria-selected={selected.kind === 'new-workspace'}
+        data-selected={selected.kind === 'new-workspace'}
         data-testid="dest-new-workspace"
         onClick={() => onSelect({ kind: 'new-workspace' })}
         {...newWorkspaceDropProps}
         className={
-          'flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 ' +
+          `${INTERACTION_CLASS} flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-sm ` +
           'data-[drop-active]:bg-accent/20 data-[drop-active]:ring-1 data-[drop-active]:ring-inset data-[drop-active]:ring-accent ' +
-          (selected.kind === 'new-workspace'
-            ? 'bg-accent/15 text-fg'
-            : 'text-fg-muted hover:bg-bg-muted')
+          (selected.kind === 'new-workspace' ? 'text-fg' : 'text-fg-muted')
         }
       >
         ＋ New project from these files
@@ -126,15 +126,14 @@ export function ImportDestinationPicker({
             type="button"
             role="treeitem"
             aria-selected={selected.kind === 'registry'}
+            data-selected={selected.kind === 'registry'}
             data-testid="dest-registry"
             onClick={() => onSelect({ kind: 'registry' })}
             {...registryDropProps}
             className={
-              'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm ' +
+              `${INTERACTION_CLASS} flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm ` +
               'data-[drop-active]:bg-accent/20 data-[drop-active]:ring-1 data-[drop-active]:ring-inset data-[drop-active]:ring-accent ' +
-              (selected.kind === 'registry'
-                ? 'bg-accent/15 text-fg'
-                : 'text-fg-muted hover:bg-bg-muted')
+              (selected.kind === 'registry' ? 'text-fg' : 'text-fg-muted')
             }
           >
             ⛃ Register as entities

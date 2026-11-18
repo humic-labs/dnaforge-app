@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useId, useState } from 'react';
 import {
@@ -221,18 +222,20 @@ export function InspectionMeasurements({
           </label>
           <label>
             Input
-            <select
-              aria-label="Measurement input"
-              value={kind}
-              onChange={(event) => {
-                setKind(event.target.value as typeof kind);
-                if (event.target.value === 'enrichment') setPalette('diverging');
-              }}
-              className="block w-full bg-bg"
-            >
-              <option value="values">Residue values</option>
-              <option value="enrichment">Before/after counts → enrichment</option>
-            </select>
+            <span className="block min-w-0 w-full">
+              <MenuNativeSelect
+                density="compact"
+                aria-label="Measurement input"
+                value={kind}
+                onChange={(event) => {
+                  setKind(event.target.value as typeof kind);
+                  if (event.target.value === 'enrichment') setPalette('diverging');
+                }}
+              >
+                <option value="values">Residue values</option>
+                <option value="enrichment">Before/after counts → enrichment</option>
+              </MenuNativeSelect>
+            </span>
           </label>
           <label>
             {kind === 'enrichment' ? 'Pseudocount' : 'Units'}
@@ -260,25 +263,29 @@ export function InspectionMeasurements({
           />
         </label>
         <div className="my-2 flex flex-wrap items-center gap-2">
-          <select
-            aria-label="Measurement palette"
-            value={palette}
-            onChange={(event) => setPalette(event.target.value as typeof palette)}
-            className="bg-bg"
-          >
-            {Object.keys(MEASUREMENT_PALETTES).map((key) => (
-              <option key={key}>{key}</option>
-            ))}
-          </select>
-          <select
-            aria-label="Measurement scale"
-            value={transform}
-            onChange={(event) => setTransform(event.target.value as typeof transform)}
-            className="bg-bg"
-          >
-            <option value="linear">Linear</option>
-            <option value="log10">Log₁₀</option>
-          </select>
+          <span className="inline-block min-w-0">
+            <MenuNativeSelect
+              density="compact"
+              aria-label="Measurement palette"
+              value={palette}
+              onChange={(event) => setPalette(event.target.value as typeof palette)}
+            >
+              {Object.keys(MEASUREMENT_PALETTES).map((key) => (
+                <option key={key}>{key}</option>
+              ))}
+            </MenuNativeSelect>
+          </span>
+          <span className="inline-block min-w-0">
+            <MenuNativeSelect
+              density="compact"
+              aria-label="Measurement scale"
+              value={transform}
+              onChange={(event) => setTransform(event.target.value as typeof transform)}
+            >
+              <option value="linear">Linear</option>
+              <option value="log10">Log₁₀</option>
+            </MenuNativeSelect>
+          </span>
           <input
             aria-label="Color minimum"
             placeholder="Auto min"

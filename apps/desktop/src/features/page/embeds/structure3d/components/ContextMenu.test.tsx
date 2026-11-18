@@ -1,7 +1,14 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ContextMenu } from './ContextMenu';
 import { SafeAgentApprovalDialog } from '@/components/SafeAgentApprovalDialog';
+import { installPresentationInput } from '@/presentation/browser-input';
+
+let disposeInput: () => void;
+beforeEach(() => {
+  disposeInput = installPresentationInput(document);
+});
+afterEach(() => disposeInput());
 
 it('lets a later tool approval deny on Escape while a structure menu is open', () => {
   const onDeny = vi.fn();
@@ -38,6 +45,7 @@ it('lets a later tool approval deny on Escape while a structure menu is open', (
 it('takes keyboard focus after the opening gesture finishes', async () => {
   const trigger = document.createElement('button');
   document.body.append(trigger);
+  trigger.focus();
   render(
     <ContextMenu
       position={{ x: 20, y: 30 }}
@@ -47,7 +55,6 @@ it('takes keyboard focus after the opening gesture finishes', async () => {
       onCenterSelection={vi.fn()}
     />
   );
-  trigger.focus();
   await waitFor(() =>
     expect(screen.getByRole('menuitem', { name: 'Center on residue' })).toHaveFocus()
   );

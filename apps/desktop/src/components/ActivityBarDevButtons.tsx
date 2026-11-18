@@ -42,7 +42,7 @@ function DevActivityButton({
       data-testid={testId}
       className={cn(
         'w-12 h-12 flex items-center justify-center transition-colors relative',
-        active ? 'text-accent' : 'text-fg-muted hover:text-fg'
+        active ? 'text-accent' : 'text-fg-muted wp-interactive'
       )}
     >
       {active && <div className="absolute left-0 top-0 w-[3px] h-full bg-accent dark:bg-accent" />}

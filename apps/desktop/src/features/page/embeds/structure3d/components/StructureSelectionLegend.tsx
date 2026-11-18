@@ -22,8 +22,7 @@ export interface StructureSelectionLegendProps extends Omit<
   onDeleteSelection?: (id: string) => void;
 }
 
-const actionClass =
-  'rounded px-1.5 py-0.5 text-fg-muted hover:bg-bg-hover hover:text-fg disabled:opacity-50';
+const actionClass = 'rounded px-1.5 py-0.5 text-fg-muted wp-interactive disabled:opacity-50';
 
 export function StructureSelectionLegend({
   legends = [],
@@ -222,7 +221,7 @@ export function StructureSelectionLegend({
                     <summary
                       aria-label={`Manage ${group.label}`}
                       title={`Manage ${group.label}`}
-                      className="cursor-pointer list-none rounded px-1 text-fg-muted hover:bg-bg-hover"
+                      className="cursor-pointer list-none rounded px-1 text-fg-muted wp-interactive"
                     >
                       ···
                     </summary>

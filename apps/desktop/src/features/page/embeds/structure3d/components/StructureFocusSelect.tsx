@@ -1,5 +1,7 @@
 'use client';
 
+import { MenuNativeSelect } from '@waypoint/ui-components';
+
 import type { StructureComplexMember } from '../types';
 import { structureMemberOptionLabel } from '../utils/structureMemberLabels';
 
@@ -17,15 +19,10 @@ export function StructureFocusSelect({
   layout,
 }: StructureFocusSelectProps) {
   const select = (
-    <select
+    <MenuNativeSelect
       aria-label="Focused structure member"
       value={activeMemberId}
       onChange={(e) => onFocusMemberChange(e.target.value)}
-      className={
-        layout === 'sidebar'
-          ? 'text-xs px-1.5 py-1 rounded border bg-bg text-fg text-left cursor-pointer hover:border-fg-muted focus:outline-none focus:ring-1 focus:ring-accent border-border'
-          : 'text-xs px-2 py-1 rounded border bg-bg text-fg cursor-pointer hover:border-fg-muted focus:outline-none focus:ring-1 focus:ring-accent border-border'
-      }
       data-testid="structure-focus-select"
     >
       {members.map((member) => (
@@ -33,7 +30,7 @@ export function StructureFocusSelect({
           {structureMemberOptionLabel(member)}
         </option>
       ))}
-    </select>
+    </MenuNativeSelect>
   );
 
   if (layout === 'sidebar') {

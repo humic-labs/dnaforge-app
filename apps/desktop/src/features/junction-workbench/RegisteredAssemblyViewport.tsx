@@ -737,7 +737,7 @@ export function RegisteredAssemblyViewport({
                       : 'Show source rows to drag and move the crossover point'
                   }
                   onClick={() => setSourceRowsVisible((visible) => !visible)}
-                  className="mt-0.5 h-4 w-full rounded-[3px] border border-border/70 bg-bg-muted px-1 text-[8px] font-medium leading-3 text-fg hover:bg-bg-emphasis"
+                  className="mt-0.5 h-4 w-full rounded-[3px] border border-border/70 bg-bg-muted px-1 text-[8px] font-medium leading-3 text-fg wp-interactive"
                 >
                   {sourceRowsVisible ? 'Done' : 'Edit Crossover'}
                 </button>

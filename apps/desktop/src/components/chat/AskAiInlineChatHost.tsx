@@ -195,7 +195,7 @@ function AskAiInlineChat({ inline }: { inline: AskAiInlineChat }) {
           data-testid="ask-ai-inline-open-in-pane"
           onClick={openInPane}
           title="Open in chat pane"
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-fg-muted transition-colors wp-interactive "
         >
           <OpenExternalIcon size={13} />
           <span>Open in chat pane</span>
@@ -206,7 +206,7 @@ function AskAiInlineChat({ inline }: { inline: AskAiInlineChat }) {
           onClick={close}
           title="Close"
           aria-label="Close inline chat"
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-fg-muted transition-colors wp-interactive "
         >
           <span aria-hidden="true">✕</span>
         </button>

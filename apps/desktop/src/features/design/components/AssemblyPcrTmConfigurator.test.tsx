@@ -128,7 +128,7 @@ describe('AssemblyPcrTmConfigurator', () => {
 
       const panel = screen.getByTestId('assembly-pcr-mix-settings-panel');
       expect(panel).toHaveAttribute('data-placement', placement);
-      expect(panel).toHaveClass('overflow-y-auto');
+      expect(panel).toHaveStyle({ overflowY: 'auto' });
       const maxHeight = Number.parseFloat(panel.style.maxHeight);
       const top =
         placement === 'above'

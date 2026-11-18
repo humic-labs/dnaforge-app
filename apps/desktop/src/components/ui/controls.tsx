@@ -1,6 +1,12 @@
 import {
+  MenuRow,
+  MenuTrigger,
+  MenuSearchInput,
+  MenuStatus,
+  useMenu,
+} from '@waypoint/ui-components';
+import {
   forwardRef,
-  useCallback,
   useEffect,
   useId,
   useMemo,
@@ -11,24 +17,19 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { ChatComposerDisclosureIcon } from '../ChatComposerDisclosureIcon';
 import { PortalMenu } from '../PortalMenu';
-import { safeFocus, scheduleFocus } from '../../shared/utils/safeFocus';
 import {
   UI_DANGER_BUTTON_CLASS,
   UI_APPBAR_ACTION_CLASS,
   UI_FIELD_CLASS,
   UI_ICON_BUTTON_CLASS,
   UI_LINK_BUTTON_CLASS,
-  UI_MENU_OPTION_CLASS,
   UI_PRIMARY_BUTTON_CLASS,
   UI_PROSE_WRAP_CLASS,
   UI_READONLY_FIELD_CLASS,
   UI_SECONDARY_BUTTON_CLASS,
   UI_SEGMENTED_SURFACE_CLASS,
   segmentedOptionClass,
-  UI_SELECT_CARET_CLASS,
-  UI_SELECT_TRIGGER_CLASS,
   UI_SURFACE_CLASS,
   UI_TEXTAREA_CLASS,
 } from './styles';
@@ -205,120 +206,75 @@ export function Select({
   onSelect?: (value: string) => void;
   privateContent?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen && !disabled);
   const [search, setSearch] = useState('');
-  const selectedIndex = Math.max(
-    0,
-    options.findIndex((option) => option.value === value)
-  );
-  const [activeIndex, setActiveIndex] = useState(selectedIndex);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listboxId = useId();
   const filteredOptions = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return options.flatMap((option, index) => {
+    return options.filter((option) => {
       const text = `${option.searchText ?? (typeof option.label === 'string' ? option.label : option.value)} ${option.description ?? ''}`;
-      return !searchable || !query || text.toLowerCase().includes(query) ? [{ option, index }] : [];
+      return !searchable || !query || text.toLowerCase().includes(query);
     });
   }, [options, search, searchable]);
-  const enabledIndexes = useMemo(
-    () => filteredOptions.flatMap(({ option, index }) => (option.disabled ? [] : [index])),
+  const items = useMemo(
+    () =>
+      filteredOptions.map((option) => ({
+        id: option.value,
+        textValue:
+          option.searchText ?? (typeof option.label === 'string' ? option.label : option.value),
+        disabled: option.disabled,
+      })),
     [filteredOptions]
   );
-  const selected = options[selectedIndex] ?? options[0];
+  const menu = useMenu({
+    items,
+    selectedId: value,
+    defaultOpen: defaultOpen && !disabled,
+    onClose: () => setSearch(''),
+    onActivate: (itemId) => {
+      if (itemId !== value) onValueChange(itemId);
+      onSelect?.(itemId);
+    },
+  });
+  const open = menu.isOpen;
+  const selected = options.find((option) => option.value === value) ?? options[0];
+  const activeDescendant =
+    open && menu.activeId !== null
+      ? `${listboxId}-option-${encodeURIComponent(menu.activeId)}`
+      : undefined;
 
   useEffect(() => {
-    if (!open) setActiveIndex(selectedIndex);
-  }, [open, selectedIndex]);
+    if (disabled) menu.close('anchor-lost');
+  }, [disabled, menu.close]);
 
-  useEffect(() => {
-    if (disabled) setOpen(false);
-  }, [disabled]);
-
-  useEffect(() => {
-    if (open && !enabledIndexes.includes(activeIndex))
-      setActiveIndex(enabledIndexes[0] ?? selectedIndex);
-  }, [activeIndex, enabledIndexes, open, selectedIndex]);
-
-  useEffect(() => {
-    if (!open || !searchable) return;
-    return scheduleFocus(searchRef.current);
-  }, [open, searchable]);
-
-  const close = useCallback(() => setOpen(false), []);
-  const openFromTrigger = useCallback(() => {
+  const openFromTrigger = () => {
     if (disabled || options.length === 0) return;
-    setActiveIndex(selectedIndex);
     setSearch('');
-    setOpen(true);
-  }, [disabled, options.length, selectedIndex]);
-
-  const moveActive = useCallback(
-    (direction: 1 | -1) => {
-      if (enabledIndexes.length === 0) return;
-      setActiveIndex((current) => {
-        const currentPosition = enabledIndexes.indexOf(current);
-        const start =
-          currentPosition >= 0 ? currentPosition : enabledIndexes.indexOf(selectedIndex);
-        const next = Math.max(0, Math.min(enabledIndexes.length - 1, start + direction));
-        return enabledIndexes[next] ?? selectedIndex;
-      });
-    },
-    [enabledIndexes, selectedIndex]
-  );
-
-  const commit = useCallback(
-    (index: number) => {
-      const option = options[index];
-      if (!option || option.disabled) return;
-      setOpen(false);
-      if (option.value !== value) onValueChange(option.value);
-      onSelect?.(option.value);
-    },
-    [onSelect, onValueChange, options, value]
-  );
-
+    menu.openMenu(value);
+  };
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
-    if (event.key === 'Tab' && open) {
-      close();
-      safeFocus(triggerRef.current);
+    if (
+      !open &&
+      (event.key === 'ArrowDown' ||
+        event.key === 'ArrowUp' ||
+        event.key === 'Enter' ||
+        event.key === ' ')
+    ) {
+      if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+      event.preventDefault();
+      openFromTrigger();
       return;
     }
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      if (!open) openFromTrigger();
-      else moveActive(event.key === 'ArrowDown' ? 1 : -1);
-      return;
-    }
-    if (event.key === 'Home' || event.key === 'End') {
-      if (!open || enabledIndexes.length === 0) return;
-      event.preventDefault();
-      setActiveIndex(
-        event.key === 'Home'
-          ? (enabledIndexes[0] ?? selectedIndex)
-          : (enabledIndexes[enabledIndexes.length - 1] ?? selectedIndex)
-      );
-      return;
-    }
-    if (event.key === 'Enter' || (event.key === ' ' && event.currentTarget.tagName !== 'INPUT')) {
-      event.preventDefault();
-      if (open) commit(activeIndex);
-      else openFromTrigger();
-      return;
-    }
-    if (event.key === 'Escape' && open) {
-      event.preventDefault();
-      event.stopPropagation();
-      close();
-    }
+    menu.handleKeyDown(event);
   };
 
   return (
     <div className={`relative min-w-0 ${containerClassName}`.trim()}>
-      <button
+      <MenuTrigger
         ref={triggerRef}
+        density="form"
+        open={open}
         id={id}
         type="button"
         role="combobox"
@@ -327,29 +283,27 @@ export function Select({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listboxId}
-        aria-activedescendant={open ? `${listboxId}-option-${activeIndex}` : undefined}
+        aria-activedescendant={activeDescendant}
         title={title}
         disabled={disabled || options.length === 0}
         data-testid={testId}
         data-settings-control="select"
         data-ui-control="select"
         data-value={value}
-        onClick={() => (open ? close() : openFromTrigger())}
+        onClick={() => (open ? menu.close('trigger') : openFromTrigger())}
         onKeyDown={handleKeyDown}
-        className={`${UI_SELECT_TRIGGER_CLASS}${open ? ' border-accent' : ''}`}
       >
         <span className="min-w-0 truncate">
           {selected?.selectedLabel ?? selected?.label ?? value}
         </span>
-        <span className={UI_SELECT_CARET_CLASS} data-settings-caret="true">
-          <ChatComposerDisclosureIcon open={open} />
-        </span>
-      </button>
+      </MenuTrigger>
       <PortalMenu
         id={searchable ? undefined : listboxId}
         open={open}
+        menu={menu}
+        initialFocusRef={searchable ? searchRef : undefined}
         anchorRef={triggerRef}
-        onRequestClose={close}
+        onRequestClose={menu.close}
         role={searchable ? 'dialog' : 'listbox'}
         aria-label={ariaLabel}
         horizontalAlign="start"
@@ -357,41 +311,40 @@ export function Select({
         surfaceVariant="settings"
         data-testid={testId ? `${testId}-menu` : undefined}
         dataAttributes={menuAttributes}
-        className="space-y-0.5 p-1"
         privateContent={privateContent}
       >
         {searchable ? (
           <div className="sticky top-0 z-10 bg-bg p-1">
-            <TextField
+            <MenuSearchInput
+              density="form"
               ref={searchRef}
               type="search"
               aria-label={searchLabel}
               placeholder={searchLabel}
               aria-controls={listboxId}
-              aria-activedescendant={`${listboxId}-option-${activeIndex}`}
+              aria-activedescendant={activeDescendant}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               onKeyDown={handleKeyDown}
             />
           </div>
         ) : null}
-        {loading ? (
-          <span role="status" className="block px-3 py-2 text-sm text-fg-muted">
-            Loading…
-          </span>
-        ) : null}
+        {loading ? <MenuStatus>Loading…</MenuStatus> : null}
         <div
           id={searchable ? listboxId : undefined}
           role={searchable ? 'listbox' : 'presentation'}
           aria-label={searchable ? ariaLabel : undefined}
         >
-          {filteredOptions.map(({ option, index }) => {
+          {filteredOptions.map((option) => {
             const selectedOption = option.value === value;
-            const active = index === activeIndex;
+            const active = option.value === menu.activeId;
             return (
-              <button
+              <MenuRow
                 key={option.value}
-                id={`${listboxId}-option-${index}`}
+                active={active}
+                selected={selectedOption}
+                description={option.description}
+                id={`${listboxId}-option-${encodeURIComponent(option.value)}`}
                 type="button"
                 role="option"
                 tabIndex={-1}
@@ -400,35 +353,15 @@ export function Select({
                 title={option.title}
                 data-testid={option.testId}
                 data-value={option.value}
-                onMouseMove={() => setActiveIndex(index)}
-                onClick={() => commit(index)}
-                className={`${UI_MENU_OPTION_CLASS} ${
-                  active
-                    ? 'bg-black/[0.07] text-fg dark:bg-white/[0.09]'
-                    : 'text-fg-muted hover:bg-black/[0.05] hover:text-fg dark:hover:bg-white/[0.07]'
-                } disabled:cursor-not-allowed disabled:opacity-40`}
+                onMouseMove={() => menu.point(option.value, 'root')}
+                onClick={() => menu.activate(option.value, 'root')}
               >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{option.label}</span>
-                  {option.description ? (
-                    <span className="mt-0.5 block text-xs leading-4 text-fg-subtle">
-                      {option.description}
-                    </span>
-                  ) : null}
-                </span>
-                {selectedOption ? (
-                  <span
-                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
-                    aria-hidden="true"
-                  />
-                ) : null}
-              </button>
+                {option.label}
+              </MenuRow>
             );
           })}
           {!loading && filteredOptions.length === 0 ? (
-            <span role="status" className="block px-3 py-2 text-sm text-fg-muted">
-              {emptyMessage}
-            </span>
+            <MenuStatus>{emptyMessage}</MenuStatus>
           ) : null}
         </div>
       </PortalMenu>

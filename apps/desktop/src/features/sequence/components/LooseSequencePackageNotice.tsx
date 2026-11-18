@@ -211,7 +211,7 @@ export function LooseSequencePackageNotice({
           type="button"
           data-testid="loose-sequence-package-recover"
           onClick={() => void convert()}
-          className="shrink-0 rounded border border-border px-2 py-1 font-medium hover:bg-surface-hover"
+          className="shrink-0 rounded border border-border px-2 py-1 font-medium wp-interactive"
         >
           Recover copy with N
         </button>
@@ -222,7 +222,7 @@ export function LooseSequencePackageNotice({
           data-testid="loose-sequence-package-convert"
           disabled={state.status === 'converting'}
           onClick={() => void convert()}
-          className="shrink-0 rounded border border-border px-2 py-1 font-medium hover:bg-surface-hover disabled:opacity-50"
+          className="shrink-0 rounded border border-border px-2 py-1 font-medium wp-interactive disabled:opacity-50"
         >
           {state.status === 'converting'
             ? 'Converting…'
@@ -238,7 +238,7 @@ export function LooseSequencePackageNotice({
           type="button"
           data-testid="loose-sequence-package-convert-rna"
           onClick={() => void convert('rna')}
-          className="shrink-0 rounded border border-border px-2 py-1 font-medium hover:bg-surface-hover"
+          className="shrink-0 rounded border border-border px-2 py-1 font-medium wp-interactive"
         >
           Convert to RNA
         </button>

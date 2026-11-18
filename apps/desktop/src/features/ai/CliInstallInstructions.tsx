@@ -37,7 +37,7 @@ function CommandRow({
       <button
         type="button"
         onClick={() => onCopy(cmd.command)}
-        className="flex flex-shrink-0 items-center gap-1 rounded border border-border px-2 text-[11px] font-medium text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg"
+        className="flex flex-shrink-0 items-center gap-1 rounded border border-border px-2 text-[11px] font-medium text-fg-muted transition-colors wp-interactive "
         aria-label={`Copy ${cmd.label} install command`}
         data-testid={copyTestId}
       >
@@ -142,7 +142,7 @@ export function CliInstallInstructions({
           type="button"
           onClick={() => void handleRecheck()}
           disabled={rechecking}
-          className="rounded border border-border px-2 py-1 text-[11px] font-medium text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded border border-border px-2 py-1 text-[11px] font-medium text-fg-muted transition-colors wp-interactive disabled:cursor-not-allowed disabled:opacity-50"
           data-testid={`cli-install-recheck-${transport}`}
         >
           {rechecking ? 'Checking…' : 'Re-check'}

@@ -502,7 +502,7 @@ export function ToolResultDisplay({
             data-testid="tool-result-reactivate"
             onClick={handleReactivate}
             disabled={reactivationState === 'running'}
-            className="mt-1 flex-shrink-0 rounded border border-border px-2 py-0.5 text-[11px] font-medium text-accent transition-colors hover:bg-bg-muted disabled:cursor-wait disabled:opacity-60"
+            className="mt-1 flex-shrink-0 rounded border border-border px-2 py-0.5 text-[11px] font-medium text-accent transition-colors wp-interactive disabled:cursor-wait disabled:opacity-60"
           >
             {reactivationState === 'running'
               ? 'Showing…'

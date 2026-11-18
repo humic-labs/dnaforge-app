@@ -20,7 +20,7 @@ export function StructureErrorState({ error, onRetry }: Props) {
       <button
         data-testid="structure-error-retry"
         onClick={onRetry}
-        className="rounded border border-border bg-bg-subtle px-3 py-1 text-xs hover:bg-bg-muted"
+        className="rounded border border-border bg-bg-subtle px-3 py-1 text-xs wp-interactive"
       >
         {error.failedStep ? 'Try a different source' : 'Retry'}
       </button>

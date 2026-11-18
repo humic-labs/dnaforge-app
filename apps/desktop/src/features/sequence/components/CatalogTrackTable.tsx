@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import {
   userMessage,
   userMessageWithValues,
@@ -44,7 +45,7 @@ const ACTION_WIDTH = 72;
 const COLUMN_GAP = 16;
 const COLUMN_WIDTHS_KEY = 'waypoint:ucsc-catalog-column-widths';
 const controlClass =
-  'inline-flex h-6 items-center rounded border border-border px-2 text-[11px] font-medium leading-none text-fg-muted hover:bg-bg-muted hover:text-fg disabled:opacity-40';
+  'inline-flex h-6 items-center rounded border border-border px-2 text-[11px] font-medium leading-none text-fg-muted wp-interactive disabled:opacity-40';
 
 export function CatalogTrackTable({
   query,
@@ -228,33 +229,35 @@ export function CatalogTrackTable({
               : `${filtered.length.toLocaleString()} matches · ${rows.length.toLocaleString()} datasets. Catalog incomplete; counts are lower bounds.`}
         </p>
         <div className="flex items-center gap-2">
-          <select
-            aria-label="Sort results"
-            title={
-              query.trim()
-                ? 'Relevance ranks exact IDs, names, descriptions, then metadata'
-                : 'Sort catalog results'
-            }
-            value={sort ? `${sort.columnId}:${sort.direction}` : 'relevance'}
-            onChange={(event) => {
-              if (event.target.value === 'relevance') {
-                setSort(null);
-                return;
+          <span className="inline-block min-w-0">
+            <MenuNativeSelect
+              density="compact"
+              aria-label="Sort results"
+              title={
+                query.trim()
+                  ? 'Relevance ranks exact IDs, names, descriptions, then metadata'
+                  : 'Sort catalog results'
               }
-              const [columnId, direction] = event.target.value.split(':');
-              if (columnId && (direction === 'asc' || direction === 'desc')) {
-                setSort({ columnId, direction });
-              }
-            }}
-            className="h-6 rounded border border-border bg-bg px-1.5 text-[11px] font-medium text-fg-muted outline-none focus:border-accent"
-          >
-            <option value="relevance">{query.trim() ? 'Relevance' : 'Catalog order'}</option>
-            <option value="track:asc">Track A–Z</option>
-            <option value="track:desc">Track Z–A</option>
-            <option value="scientificKind:asc">Track type A–Z</option>
-            <option value="collection:asc">Collection A–Z</option>
-            <option value="source:asc">Source A–Z</option>
-          </select>
+              value={sort ? `${sort.columnId}:${sort.direction}` : 'relevance'}
+              onChange={(event) => {
+                if (event.target.value === 'relevance') {
+                  setSort(null);
+                  return;
+                }
+                const [columnId, direction] = event.target.value.split(':');
+                if (columnId && (direction === 'asc' || direction === 'desc')) {
+                  setSort({ columnId, direction });
+                }
+              }}
+            >
+              <option value="relevance">{query.trim() ? 'Relevance' : 'Catalog order'}</option>
+              <option value="track:asc">Track A–Z</option>
+              <option value="track:desc">Track Z–A</option>
+              <option value="scientificKind:asc">Track type A–Z</option>
+              <option value="collection:asc">Collection A–Z</option>
+              <option value="source:asc">Source A–Z</option>
+            </MenuNativeSelect>
+          </span>
           {activeFilters.length ? (
             <button
               type="button"
@@ -306,7 +309,7 @@ export function CatalogTrackTable({
                     .map((column) => (
                       <label
                         key={column.id}
-                        className="flex cursor-pointer items-center gap-2 rounded px-1 py-1.5 text-xs text-fg hover:bg-bg-muted"
+                        className="flex cursor-pointer items-center gap-2 rounded px-1 py-1.5 text-xs text-fg wp-interactive"
                       >
                         <input
                           type="checkbox"
@@ -406,7 +409,7 @@ export function CatalogTrackTable({
                                 : 'asc',
                           }))
                         }
-                        className={`flex min-w-0 items-center gap-1 truncate uppercase tracking-wider transition-colors ${direction ? 'font-bold text-accent' : 'text-fg-subtle hover:text-fg'}`}
+                        className={`flex min-w-0 items-center gap-1 truncate uppercase tracking-wider transition-colors ${direction ? 'font-bold text-accent' : 'text-fg-subtle wp-interactive'}`}
                       >
                         <span className="truncate">{column.label}</span>
                         <span
@@ -432,7 +435,7 @@ export function CatalogTrackTable({
                         aria-label={`Filter ${column.label}`}
                         title={`Filter ${column.label}`}
                         onClick={() => setOpenFilterId(column.id)}
-                        className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded text-fg-subtle transition-colors hover:text-fg"
+                        className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded text-fg-subtle transition-colors wp-interactive"
                       >
                         <SearchIcon size={14} strokeWidth={2.5} />
                       </button>
@@ -488,7 +491,8 @@ export function CatalogTrackTable({
                 <Fragment key={row.track.catalogId}>
                   <tr
                     data-testid={`ucsc-track-result-${track.track}`}
-                    className="group grid h-9 w-full items-center border-b border-border px-4 text-left text-xs hover:bg-bg-muted focus-within:bg-bg-muted"
+                    data-interaction-group="true"
+                    className="group grid h-9 w-full items-center border-b border-border px-4 text-left text-xs wp-interactive"
                     style={gridStyle}
                   >
                     {visibleColumns.map((column) => (
@@ -517,25 +521,27 @@ export function CatalogTrackTable({
                             <span className="min-w-0 truncate">{trackHeadline(track)}</span>
                           </span>
                         ) : column.id === 'release' && row.versions.length > 1 ? (
-                          <select
-                            data-testid={`ucsc-track-version-${row.track.track}`}
-                            aria-label={`Release of ${row.track.shortLabel}`}
-                            value={track.catalogId}
-                            disabled={addingTrack !== null}
-                            onChange={(event) =>
-                              setChosenVersions((current) => ({
-                                ...current,
-                                [row.track.catalogId]: event.target.value,
-                              }))
-                            }
-                            className="max-w-full rounded border border-border bg-bg px-1 py-0.5 text-[11px] text-fg outline-none focus:border-accent disabled:opacity-40"
-                          >
-                            {row.versions.map((entry, index) => (
-                              <option key={entry.track.catalogId} value={entry.track.catalogId}>
-                                {index === 0 ? `${entry.label} (newest)` : entry.label}
-                              </option>
-                            ))}
-                          </select>
+                          <span className="inline-block min-w-0 max-w-full">
+                            <MenuNativeSelect
+                              density="compact"
+                              data-testid={`ucsc-track-version-${row.track.track}`}
+                              aria-label={`Release of ${row.track.shortLabel}`}
+                              value={track.catalogId}
+                              disabled={addingTrack !== null}
+                              onChange={(event) =>
+                                setChosenVersions((current) => ({
+                                  ...current,
+                                  [row.track.catalogId]: event.target.value,
+                                }))
+                              }
+                            >
+                              {row.versions.map((entry, index) => (
+                                <option key={entry.track.catalogId} value={entry.track.catalogId}>
+                                  {index === 0 ? `${entry.label} (newest)` : entry.label}
+                                </option>
+                              ))}
+                            </MenuNativeSelect>
+                          </span>
                         ) : (
                           <span
                             data-testid={
@@ -549,7 +555,10 @@ export function CatalogTrackTable({
                         )}
                       </td>
                     ))}
-                    <td className="sticky right-0 z-10 min-w-0 overflow-hidden bg-bg text-right group-hover:bg-bg-muted group-focus-within:bg-bg-muted">
+                    <td
+                      data-interaction-cover="true"
+                      className="sticky right-0 z-10 min-w-0 overflow-hidden bg-bg text-right"
+                    >
                       {addedCatalogIds.has(track.catalogId) ? (
                         <span
                           data-testid={`ucsc-track-added-${track.track}`}
@@ -576,7 +585,7 @@ export function CatalogTrackTable({
                                   })
                           }
                           onClick={() => onAdd(track)}
-                          className="inline-flex h-5 items-center rounded border border-border px-2 text-[11px] font-medium leading-none text-fg-muted hover:bg-bg hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+                          className="inline-flex h-5 items-center rounded border border-border px-2 text-[11px] font-medium leading-none text-fg-muted wp-interactive disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           {addingTrack === track.catalogId
                             ? 'Adding…'

@@ -1,4 +1,5 @@
 import { selectableCardClass } from '../../../components/ui/styles';
+import { INTERACTION_CLASS, MenuNativeSelect } from '@waypoint/ui-components';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Tooltip } from '../../../shared/components/Tooltip';
 import { candidateRowsForResolved } from '../api/candidates';
@@ -193,7 +194,7 @@ export function StructureCandidatePicker({
                     data-testid="structure-candidate-toggle"
                     data-ignore-picker-shortcuts="true"
                     aria-expanded="true"
-                    className="h-6 rounded border border-border px-2 text-[11px] text-fg-muted hover:bg-bg-muted hover:text-fg focus:outline-none focus:ring-1 focus:ring-accent"
+                    className={`${INTERACTION_CLASS} h-6 rounded px-2 text-[11px] text-fg-muted`}
                     onClick={onClosePicker}
                   >
                     Done
@@ -272,7 +273,7 @@ function SourceFilters({
           filter === 'all'
             ? active
               ? 'border-border bg-bg-muted text-fg'
-              : 'border-border text-fg-muted hover:bg-bg-muted hover:text-fg'
+              : `${INTERACTION_CLASS} border-border text-fg-muted`
             : active
               ? SOURCE_STYLES[filter].filterActive
               : SOURCE_STYLES[filter].filterIdle;
@@ -306,11 +307,10 @@ function SortSelect({
   if (options.length <= 1) return null;
 
   return (
-    <select
+    <MenuNativeSelect
       data-testid="structure-hit-sort"
       data-ignore-picker-shortcuts="true"
       aria-label="Sort structure hits"
-      className="h-6 rounded border border-border bg-bg px-1.5 text-[11px] text-fg-muted hover:bg-bg-muted focus:outline-none focus:ring-1 focus:ring-accent"
       value={value}
       onChange={(event) => onChange(event.target.value as HitSortMode)}
     >
@@ -319,7 +319,7 @@ function SortSelect({
           {option.label}
         </option>
       ))}
-    </select>
+    </MenuNativeSelect>
   );
 }
 

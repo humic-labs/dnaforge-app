@@ -141,7 +141,7 @@ export function MigrationSettingsContent({ view }: { view: MigrationSettingsView
                     type="button"
                     data-testid={`migration-history-${entry.sourceId}-${entry.id}`}
                     onClick={entry.onOpenDetails}
-                    className="w-full rounded text-left transition-colors hover:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                    className="w-full rounded text-left transition-colors wp-interactive "
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
