@@ -117,7 +117,7 @@ describe('FullChatView route controls', () => {
     expectComposerPickerDisclosureIcon(modelSelect);
     fireEvent.click(modelSelect);
     expect(document.body.contains(screen.getByTestId('chat-model-version-select-menu'))).toBe(true);
-    expect(screen.getByTestId('chat-model-version-select-menu')).toHaveClass('fixed');
+    expect(screen.getByTestId('chat-model-version-select-menu')).toHaveStyle({ position: 'fixed' });
     fireEvent.click(screen.getByTestId('chat-model-version-select-option-gpt-4o-mini'));
     expect(mockSetAssistantRoute).toHaveBeenCalledWith({
       kind: 'provider',
@@ -447,13 +447,13 @@ describe('FullChatView route controls', () => {
 
     fireEvent.click(modelSelect);
     expect(document.body.contains(screen.getByTestId('chat-cli-model-select-menu'))).toBe(true);
-    expect(screen.getByTestId('chat-cli-model-select-menu')).toHaveClass('fixed');
+    expect(screen.getByTestId('chat-cli-model-select-menu')).toHaveStyle({ position: 'fixed' });
     fireEvent.click(screen.getByTestId('chat-cli-model-select-option-gpt-5'));
     expect(mockSetCliModel).toHaveBeenCalledWith('codex-sdk', 'gpt-5');
 
     fireEvent.click(effortSelect);
     expect(document.body.contains(screen.getByTestId('chat-cli-effort-select-menu'))).toBe(true);
-    expect(screen.getByTestId('chat-cli-effort-select-menu')).toHaveClass('fixed');
+    expect(screen.getByTestId('chat-cli-effort-select-menu')).toHaveStyle({ position: 'fixed' });
     fireEvent.click(screen.getByTestId('chat-cli-effort-select-option-xhigh'));
     expect(mockSetCliReasoningEffort).toHaveBeenCalledWith('codex-sdk', 'xhigh');
   });

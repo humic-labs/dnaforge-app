@@ -439,7 +439,7 @@ describe('PrimerSequenceInput', () => {
     fireEvent.click(categoryFilter);
     const categoryMenu = screen.getByRole('menu', { name: 'IDT modification category' });
     expect(categoryMenu).toHaveAttribute('data-menu-align', 'end');
-    expect(categoryMenu.className.split(/\s+/)).toContain('fixed');
+    expect(categoryMenu).toHaveStyle({ position: 'fixed' });
     expect(categoryMenu).toHaveStyle({ top: '148px', left: '12px', width: '200px' });
   });
 
