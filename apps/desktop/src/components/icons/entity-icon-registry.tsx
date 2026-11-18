@@ -12,11 +12,19 @@ import {
   StructureFileIcon,
   MolecularDocumentIcon,
   TextFileIcon,
+  ArchiveFileIcon,
+  CodeFileIcon,
+  GenericFileIcon,
+  ImageFileIcon,
+  PdfFileIcon,
+  SpreadsheetFileIcon,
+  WebFileIcon,
 } from './glyphs';
 import { AlignmentIcon, AnnotationsIcon } from './stateful';
 import { getTabTypeForFile } from '../../utils/fileTypes';
 import type { InlineReferenceTargetType } from '../../shared/inline-reference-ipc';
 import type { CatalogRecordPresentationKind } from '../../shared/catalog-entity';
+import { entityIconClassName, type EntityColorContext } from '../../shared/entity-color-family';
 
 export type EntityIconKind =
   | 'molecular-document'
@@ -33,7 +41,14 @@ export type EntityIconKind =
   | 'genome'
   | 'chat'
   | 'folder'
-  | 'text';
+  | 'text'
+  | 'table'
+  | 'image'
+  | 'pdf'
+  | 'archive'
+  | 'code'
+  | 'web'
+  | 'generic';
 
 const ALIASES: Readonly<Record<string, EntityIconKind>> = {
   'molecular-document': 'molecular-document',
@@ -41,6 +56,12 @@ const ALIASES: Readonly<Record<string, EntityIconKind>> = {
   'page-link': 'notebook',
   notebook: 'notebook',
   sequence: 'sequence',
+  biology: 'sequence',
+  dna_sequence: 'sequence',
+  rna_sequence: 'sequence',
+  guide_rna: 'sequence',
+  rna: 'sequence',
+  dna: 'sequence',
   plasmid: 'sequence',
   sequence_region: 'annotation',
   annotation: 'annotation',
@@ -53,11 +74,22 @@ const ALIASES: Readonly<Record<string, EntityIconKind>> = {
   'rna-oligos': 'primer',
   design: 'design',
   assembly: 'design',
+  'assembly-panel': 'design',
+  'assembly-browser': 'design',
+  'adjacency-graph': 'design',
+  construct: 'design',
   protein: 'protein',
   proteins: 'protein',
+  protein_sequence: 'protein',
   strain: 'strain',
   record: 'record',
   strains: 'strain',
+  organism: 'strain',
+  allele: 'sequence',
+  locus: 'sequence',
+  part: 'sequence',
+  fragment: 'sequence',
+  marker: 'sequence',
   'dna-sequences': 'sequence',
   structure: 'structure',
   structure3d: 'structure',
@@ -65,15 +97,29 @@ const ALIASES: Readonly<Record<string, EntityIconKind>> = {
   chromosome: 'genome',
   'track-view': 'genome',
   chat: 'chat',
+  protocol: 'notebook',
+  protocol_run: 'notebook',
+  'protocol-run': 'notebook',
+  'scientific-document': 'notebook',
   folder: 'folder',
   workspace: 'folder',
   text: 'text',
   file: 'text',
   directory: 'folder',
+  table: 'table',
+  spreadsheet: 'table',
+  image: 'image',
+  pdf: 'pdf',
+  archive: 'archive',
+  code: 'code',
+  config: 'code',
+  web: 'web',
+  html: 'web',
+  generic: 'generic',
 };
 
 export function canonicalEntityIconKind(raw: string): EntityIconKind | null {
-  return ALIASES[raw] ?? null;
+  return Object.hasOwn(ALIASES, raw) ? ALIASES[raw] : null;
 }
 
 export function entityIconKindForCatalogPresentation(
@@ -107,12 +153,25 @@ const GLYPHS: Readonly<Record<EntityIconKind, GlyphComponent>> = {
   chat: ChatTabIcon as GlyphComponent,
   folder: FolderIcon as GlyphComponent,
   text: TextFileIcon as GlyphComponent,
+  table: SpreadsheetFileIcon as GlyphComponent,
+  image: ImageFileIcon as GlyphComponent,
+  pdf: PdfFileIcon as GlyphComponent,
+  archive: ArchiveFileIcon as GlyphComponent,
+  code: CodeFileIcon as GlyphComponent,
+  web: WebFileIcon as GlyphComponent,
+  generic: GenericFileIcon as GlyphComponent,
 };
 
-export function iconForEntityKind(rawKind: string, className = 'w-4 h-4'): ReactNode | null {
+export function iconForEntityKind(
+  rawKind: string,
+  className = 'w-4 h-4',
+  context: EntityColorContext = {}
+): ReactNode | null {
   const kind = canonicalEntityIconKind(rawKind);
   if (!kind) return null;
-  return createElement(GLYPHS[kind], { className });
+  return createElement(GLYPHS[kind], {
+    className: entityIconClassName({ ...context, kind: context.kind ?? rawKind }, className),
+  });
 }
 
 export function entityIconKindForWorkspaceTarget(

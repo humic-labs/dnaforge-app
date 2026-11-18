@@ -12,10 +12,8 @@ import type {
 } from '../features/import-wizard/entity-import-intent';
 import {
   ChatTabIcon,
-  AssemblyTabIcon,
   ChevronRightIcon,
   FolderOpenIcon,
-  GenericFileIcon,
   ImportIcon,
   OpenExternalIcon,
   PlusIcon,
@@ -24,7 +22,7 @@ import {
 import { useMenuAim } from '@waypoint/ui-components';
 import { isHostedCapabilityShown } from '../hosted/capabilities';
 import { isElectron } from '../utils/environment';
-import { SpreadsheetFileIcon } from './icons/glyphs';
+import { entityIconClassName } from '../shared/entity-color-family';
 
 export type ExplorerAddPickerLaunchSource = 'context-menu' | 'registry';
 export type ExplorerEntityImportRequest = EntityImportRequest;
@@ -299,13 +297,7 @@ export function ExplorerAddPicker({
     onCreateAssembly({ mode, destinationPath: destinationPath ?? null });
   };
   const entityTypeIcon = (entityType: PickerEntityType) =>
-    entityType.id === 'table' ? (
-      <SpreadsheetFileIcon className="h-4 w-4" />
-    ) : entityType.id === 'assembly' ? (
-      <AssemblyTabIcon className="h-4 w-4" />
-    ) : (
-      (iconForEntityKind(entityType.id, 'h-4 w-4') ?? <GenericFileIcon className="h-4 w-4" />)
-    );
+    iconForEntityKind(entityType.id, 'h-4 w-4') ?? iconForEntityKind('generic', 'h-4 w-4');
 
   return createPortal(
     <div
@@ -338,7 +330,9 @@ export function ExplorerAddPicker({
           <div className="flex h-10 items-center gap-2 border-b border-border px-3">
             {launchSource === 'context-menu' ? (
               <>
-                <FolderOpenIcon className="h-4 w-4 flex-none text-fg-muted" />
+                <FolderOpenIcon
+                  className={entityIconClassName({ kind: 'folder' }, 'h-4 w-4 flex-none')}
+                />
                 <div className="min-w-0 leading-tight">
                   <div className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">
                     Add to folder
@@ -462,7 +456,7 @@ export function ExplorerAddPicker({
                     className={MENU_ITEM_CLASS}
                   >
                     <span className={MENU_ICON_CLASS}>
-                      <AssemblyTabIcon className="h-4 w-4" />
+                      <>{iconForEntityKind('assembly', 'h-4 w-4')}</>
                     </span>
                     <span>From schema…</span>
                   </button>

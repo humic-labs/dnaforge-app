@@ -15,6 +15,8 @@ import { soleWritableProjectRoot } from '../../../shared/project-root-selection'
 import { CanvasTabStrip } from './CanvasTabStrip';
 import { requestManagedSequenceRename } from '../../sequence/public/managed-sequence-rename';
 import { projectTabStripTab } from '../tab-menu-presentation';
+import { useSequenceStore } from '../../sequence/public/store';
+import { sequenceDocumentKey } from '../../../shared/managed-sequence-document';
 
 const INSERT_GAP_WIDTH = 80;
 
@@ -35,6 +37,15 @@ export const TabBar = React.memo(function TabBar({
   onCloseTab,
   onReorderTab,
 }: TabBarProps) {
+  useSequenceStore((state) =>
+    tabs
+      .map((tab) =>
+        tab.sequenceDocument
+          ? (state.sequences[sequenceDocumentKey(tab.sequenceDocument)]?.molecule ?? '')
+          : ''
+      )
+      .join('|')
+  );
   const [contextMenu, setContextMenu] = useState<{
     tabId: string;
     position: { x: number; y: number };

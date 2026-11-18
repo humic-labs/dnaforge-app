@@ -82,7 +82,12 @@ export function TrackViewLibraryEntries({
           onClick={() => onOpenView(saved.path)}
           className={`flex w-full min-w-0 items-center gap-1.5 py-1 pl-7 pr-2 text-left text-sm hover:bg-bg-muted focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent ${saved.path === activePath ? 'bg-accent/15' : ''}`}
         >
-          <FileTypeIcon category="genome" className="h-4 w-4 shrink-0" />
+          <FileTypeIcon
+            category="genome"
+            path={saved.path}
+            context={{ kind: 'track-view' }}
+            className="h-4 w-4 shrink-0"
+          />
           <span className="truncate">{saved.document.name}</span>
         </button>
       ))}

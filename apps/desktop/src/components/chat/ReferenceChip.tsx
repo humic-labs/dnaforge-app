@@ -9,6 +9,7 @@ import { molViewSpecStorySteps } from '../../features/page/embeds/structure3d/ut
 import { resolveMolecularReference } from '../../shared/molecular-reference';
 import type { MolecularView } from '../../shared/molecular-view';
 import { molecularDocumentReferenceLocator } from '../../shared/molecular-document-reference';
+import { catalogIconContext } from '../../shared/catalog-icon-context';
 
 interface ReferenceChipProps {
   reference: DBEntityReference;
@@ -195,7 +196,8 @@ export function ReferenceChip({
     reference.entity_type === 'structure'
       ? `Open ${reference.display_label} in 3D`
       : `Open ${reference.display_label}`;
-  const canReveal = inlineWorkspaceDeclarationFromReference(reference) !== null;
+  const workspaceDeclaration = inlineWorkspaceDeclarationFromReference(reference);
+  const canReveal = workspaceDeclaration !== null;
   const selectedViewLabel = savedView
     ? (molViewSpecStorySteps(savedView.scene)[selectedSnapshotIndex]?.title ?? savedView.title)
     : undefined;
@@ -288,6 +290,10 @@ export function ReferenceChip({
             entityType={reference.entity_type}
             kindLabel={molecularKind ?? undefined}
             iconOverride={molecularIcon}
+            iconContext={catalogIconContext({
+              path: workspaceDeclaration?.segments.join('/'),
+              metadata: reference.data,
+            })}
             label={reference.display_label}
             detail={reference.locator}
             onOpen={onClick ? () => onClick(reference) : undefined}

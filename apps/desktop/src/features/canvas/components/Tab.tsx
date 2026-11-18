@@ -2,6 +2,7 @@ import React, { useCallback, useRef, useEffect, useMemo, useState } from 'react'
 import type { TabType } from '../types';
 import type { TabStripPresentation } from '../tab-menu-presentation';
 import { stripDisplayExtension } from '../../../utils/fileTypes';
+import { entityIconClassName, type EntityColorContext } from '../../../shared/entity-color-family';
 
 const TAB_TYPES_SHOWING_RAW_LABEL: ReadonlySet<TabType> = new Set(['sequence', 'chat', 'record']);
 import type { GitFileStatus } from '../../workspace/public/git';
@@ -44,8 +45,13 @@ interface TabProps {
 
 const INSERT_GAP_WIDTH = 80;
 
-export function getTabIcon(tabType: TabType, className = 'w-3.5 h-3.5 flex-shrink-0') {
-  const shared = iconForEntityKind(tabType, className);
+export function getTabIcon(
+  tabType: TabType,
+  className = 'w-3.5 h-3.5 flex-shrink-0',
+  context?: EntityColorContext
+) {
+  const shared = iconForEntityKind(tabType, className, context);
+  className = entityIconClassName({ kind: tabType, ...context }, className);
   if (shared) return shared;
 
   switch (tabType) {
@@ -100,11 +106,18 @@ export function getTabIconForTab(
   className = 'w-3.5 h-3.5 flex-shrink-0'
 ) {
   if (tab.type === 'structure' && tab.isMolecularDocument)
-    return iconForEntityKind('molecular-document', className);
+    return iconForEntityKind('molecular-document', className, {
+      ...tab.iconContext,
+      kind: 'molecular-document',
+    });
   if (tab.type === 'sequence' && tab.isIndexedSequence) {
-    return <GenomeAssemblyIcon className={className} />;
+    return (
+      <GenomeAssemblyIcon
+        className={entityIconClassName({ kind: 'genome', ...tab.iconContext }, className)}
+      />
+    );
   }
-  return getTabIcon(tab.type, className);
+  return getTabIcon(tab.type, className, tab.iconContext);
 }
 
 const DRAG_THRESHOLD = 5;

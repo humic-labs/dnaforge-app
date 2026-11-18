@@ -96,6 +96,13 @@
   --color-fg-muted: 40 5% 40%;
   --color-fg-subtle: 40 3% 55%;
 
+  --entity-icon-dna: #298054;
+  --entity-icon-rna: #8055af;
+  --entity-icon-protein: #bc4d51;
+  --entity-icon-data: #3479b5;
+  --entity-icon-code: #a46a25;
+  --entity-icon-neutral: #77786f;
+
   --color-border: 40 10% 88%;
   --color-border-hover: 40 8% 78%;
 
@@ -190,6 +197,13 @@
   --color-fg: 40 15% 92%;
   --color-fg-muted: 40 8% 60%;
   --color-fg-subtle: 40 5% 45%;
+
+  --entity-icon-dna: #80c79c;
+  --entity-icon-rna: #c2a0e7;
+  --entity-icon-protein: #f29798;
+  --entity-icon-data: #8ab8ec;
+  --entity-icon-code: #e2b270;
+  --entity-icon-neutral: #a4aa9b;
 
   --color-border: 30 5% 18%;
   --color-border-hover: 30 5% 25%;
@@ -1461,35 +1475,21 @@ a[data-benchling-link-destination='external']::after {
   }
 }
 
-.file-type-color {
-  display: inline-flex;
-  flex-shrink: 0;
-  color: var(--file-type-color, currentColor);
+.entity-icon-color-dna {
+  color: var(--entity-icon-dna) !important;
 }
-.file-type-color-sequence,
-.file-type-color-shell,
-.file-type-color-python {
-  --file-type-color: hsl(var(--color-accent));
+.entity-icon-color-rna {
+  color: var(--entity-icon-rna) !important;
 }
-.file-type-color-structure,
-.file-type-color-config {
-  --file-type-color: hsl(var(--color-code-keyword));
+.entity-icon-color-protein {
+  color: var(--entity-icon-protein) !important;
 }
-.file-type-color-data,
-.file-type-color-source,
-.file-type-color-web {
-  --file-type-color: hsl(var(--color-code-string));
+.entity-icon-color-data {
+  color: var(--entity-icon-data) !important;
 }
-.file-type-color-javascript {
-  --file-type-color: hsl(var(--color-code-literal));
+.entity-icon-color-code {
+  color: var(--entity-icon-code) !important;
 }
-.file-type-color-image {
-  --file-type-color: hsl(var(--color-code-variable));
-}
-.file-type-color-archive,
-.file-type-color-pdf {
-  --file-type-color: hsl(var(--color-error));
-}
-.file-type-color-document {
-  --file-type-color: hsl(var(--color-fg-muted));
+.entity-icon-color-neutral {
+  color: var(--entity-icon-neutral) !important;
 }

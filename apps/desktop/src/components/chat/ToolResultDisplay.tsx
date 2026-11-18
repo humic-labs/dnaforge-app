@@ -8,7 +8,8 @@ import {
   type UserMessage,
 } from '@waypoint/user-messages';
 import { useState, type ReactNode } from 'react';
-import { ChevronRightIcon, BiologyFileIcon } from '../icons';
+import { ChevronRightIcon, FileTypeIcon, iconForEntityKind } from '../icons';
+import { getFileIconCategory } from '../../utils/fileTypes';
 import { toolHistoryPolicy } from '../../shared/tool-history-policy';
 import type {
   StoredToolResult,
@@ -84,8 +85,17 @@ export function ToolResultDisplay({
     if (toolName === 'list_files') {
       const path = (input?.path as string) || '.';
       const entries =
-        (output as { entries?: Array<{ name: string; type: string; isBiologyFile?: boolean }> })
-          ?.entries || [];
+        (
+          output as {
+            entries?: Array<{
+              name: string;
+              path?: string;
+              type: string;
+              isBiologyFile?: boolean;
+              molecule?: string;
+            }>;
+          }
+        )?.entries || [];
       const bioFiles = entries.filter((e) => e.isBiologyFile);
       const displayPath = !path || path === '.' ? 'project root' : path;
       summary = `Listed ${entries.length} items in "${displayPath}"`;
@@ -101,15 +111,16 @@ export function ToolResultDisplay({
             {entries.slice(0, LIST_FILES_LIMIT).map((entry, i) => (
               <div key={i} className="flex items-center gap-2 text-xs py-0.5">
                 {entry.type === 'directory' ? (
-                  <span>📁</span>
-                ) : entry.isBiologyFile ? (
-                  <BiologyFileIcon className="w-3.5 h-3.5 flex-shrink-0 text-accent" />
+                  iconForEntityKind('folder', 'w-3.5 h-3.5 flex-shrink-0')
                 ) : (
-                  <span>📄</span>
+                  <FileTypeIcon
+                    category={getFileIconCategory(entry.path ?? entry.name)}
+                    path={entry.path ?? `${path}/${entry.name}`}
+                    molecule={entry.molecule}
+                    className="w-3.5 h-3.5 flex-shrink-0"
+                  />
                 )}
-                <span className={entry.isBiologyFile ? 'text-accent' : 'text-fg-muted'}>
-                  {entry.name}
-                </span>
+                <span className="text-fg-muted">{entry.name}</span>
               </div>
             ))}
             {entries.length > LIST_FILES_LIMIT && (
@@ -237,21 +248,17 @@ export function ToolResultDisplay({
       summary = `Project: ${panels.length} panel${panels.length !== 1 ? 's' : ''}, ${totalTabs} tab${totalTabs !== 1 ? 's' : ''} open`;
 
       if (panels.length > 0) {
-        const tabIcon = (type: string): ReactNode => {
-          switch (type) {
-            case 'sequence':
-              return <BiologyFileIcon className="w-3.5 h-3.5 inline-block" />;
-            case 'chat':
-              return '💬';
-            case 'file':
-              return '📄';
-            case 'plasmid':
-              return '🔵';
-            case 'alignment':
-              return '📊';
-            default:
-              return '📋';
-          }
+        const tabIcon = (type: string, entityId?: string): ReactNode => {
+          const context = { kind: type, path: type === 'file' ? entityId : undefined };
+          return (
+            iconForEntityKind(type, 'w-3.5 h-3.5 inline-block', context) ?? (
+              <FileTypeIcon
+                category="generic"
+                context={context}
+                className="w-3.5 h-3.5 inline-block"
+              />
+            )
+          );
         };
         details = (
           <div className="mt-2 space-y-2">
@@ -269,7 +276,9 @@ export function ToolResultDisplay({
                       const isActive = tab.id === panel.activeTabId;
                       return (
                         <div key={ti} className="flex items-center gap-2 text-xs py-0.5">
-                          <span className="inline-flex items-center">{tabIcon(tab.type)}</span>
+                          <span className="inline-flex items-center">
+                            {tabIcon(tab.type, tab.entityId)}
+                          </span>
                           <span className={isActive ? 'text-accent' : 'text-fg-muted'}>
                             {tab.label}
                           </span>

@@ -268,7 +268,7 @@ function ResultSection({ title, itemLabel, entities, onSelect }: ResultSectionPr
           className="w-full px-4 py-2 text-left hover:bg-bg-muted transition-colors flex items-center gap-2"
         >
           <span className="text-base" aria-hidden="true">
-            {referenceIconFor(entity.entityType)}
+            {referenceIconFor(entity.entityType, 'w-4 h-4', entity.iconContext)}
           </span>
           <div className="flex-1 min-w-0">
             <div className="text-sm text-fg truncate">{entity.name}</div>
