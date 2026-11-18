@@ -5,6 +5,8 @@ import {
 import { platform } from '../platform';
 import { stripTrailingSep } from '../shared/path-boundary';
 import type { SqliteIpcValue } from '../shared/sqlite-ipc';
+import { catalogIconContext } from '../shared/catalog-icon-context';
+import type { EntityColorContext } from '../shared/entity-color-family';
 
 export interface PrimerReferenceCandidate {
   primerId: string;
@@ -16,6 +18,7 @@ export interface PrimerReferenceCandidate {
   workspaceRelativePath: string | null;
 
   localOnly: boolean;
+  iconContext?: EntityColorContext;
 }
 
 interface SearchInput {
@@ -34,6 +37,8 @@ interface PrimerReferenceRow {
   catalog_number: string | null;
   origin_details: string | null;
   workspace_path: string | null;
+  icon_kind: string | null;
+  catalog_metadata: string | null;
 }
 
 interface PrimerOriginRow {
@@ -68,9 +73,14 @@ export async function searchPrimerReferencesByName({
            p.length AS length,
            p.catalog_number AS catalog_number,
            p.origin_details AS origin_details,
+           l.kind AS icon_kind,
+           e.metadata AS catalog_metadata,
            w.path AS workspace_path
     FROM primers p
-    LEFT JOIN workspaces w ON w.id = p.workspace_id`;
+    LEFT JOIN workspaces w ON w.id = p.workspace_id
+    LEFT JOIN lims_entity l
+      ON l.id = json_extract(CASE WHEN json_valid(p.origin_details) THEN p.origin_details ELSE '{}' END, '$.limsEntityId')
+    LEFT JOIN catalog_entities e ON e.id = l.id`;
 
   const conditions: string[] = [];
   if (primerId) {
@@ -102,6 +112,15 @@ export async function searchPrimerReferencesByName({
       catalogNumber: row.catalog_number,
       workspaceRelativePath: portablePath,
       localOnly: portablePath === null,
+      ...(row.icon_kind || row.catalog_metadata
+        ? {
+            iconContext: catalogIconContext({
+              kind: row.icon_kind,
+              path: portablePath,
+              metadata: row.catalog_metadata,
+            }),
+          }
+        : {}),
     };
   });
 }

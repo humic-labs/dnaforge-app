@@ -95,6 +95,95 @@ describe('workspace:listChildren', () => {
     });
   });
 
+  it('projects native artifact kinds from current bindings in the requested workspace', async () => {
+    db.prepare(
+      `INSERT INTO workspaces (id, name, path, created_at, last_opened_at)
+       VALUES (2, 'Other', ?, 0, 0)`
+    ).run(join(root, 'Other'));
+    db.prepare(
+      `INSERT INTO lims_schema
+         (id, kind, name, display_name, fields, created_at, updated_at)
+       VALUES ('icon-schema', 'entity', 'icon-test', 'Icon test', '[]', 0, 0)`
+    ).run();
+    db.prepare(
+      `INSERT INTO lims_schema_revision (id, schema_id, version, fields, created_at)
+       VALUES ('icon-revision', 'icon-schema', 1, '[]', 0)`
+    ).run();
+
+    for (const artifact of [
+      { id: 'native-protein', type: 'record', workspaceId: 1, status: 'current', metadata: {} },
+      {
+        id: 'rna-primer',
+        type: 'primer',
+        workspaceId: 1,
+        status: 'current',
+        metadata: { entitySchema: { name: 'rna_oligo' } },
+      },
+      { id: 'other-workspace', type: 'protein', workspaceId: 2, status: 'current', metadata: {} },
+      { id: 'historical', type: 'protein', workspaceId: 1, status: 'historical', metadata: {} },
+    ]) {
+      const path = join(root, 'Strains', `${artifact.id}.entity.json`);
+      writeFileSync(path, '{}');
+      db.prepare(
+        `INSERT INTO catalog_entities
+           (id, type, name, locator, storage_type, status, workspace_id, metadata, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'file', 'active', ?, ?, 0, 0)`
+      ).run(
+        artifact.id,
+        artifact.type,
+        artifact.id,
+        `entity://test/${artifact.id}`,
+        artifact.workspaceId,
+        JSON.stringify(artifact.metadata)
+      );
+      db.prepare(
+        `INSERT INTO catalog_entity_files
+           (id, entity_id, workspace_id, path, file_kind, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'entity-record', ?, 0, 0)`
+      ).run(artifact.id, artifact.id, artifact.workspaceId, path, artifact.status);
+    }
+    db.prepare(
+      `INSERT INTO lims_entity
+         (id, kind, schema_revision_id, name, fields, registration_status, created_at, updated_at)
+       VALUES ('native-protein', 'protein', 'icon-revision', 'Protein', '{}', 'tracked', 0, 0)`
+    ).run();
+
+    const result = await listWorkspaceChildren(db, {
+      workspaceRoot: root,
+      parentRelativePath: 'Strains',
+    });
+    expect(result.partialError).toBeNull();
+    const contexts = new Map(
+      result.entries
+        .filter((entry) => entry.kind === 'filesystem')
+        .map((entry) => [entry.name, entry.iconContext])
+    );
+    expect(contexts.get('native-protein.entity.json')).toMatchObject({ kind: 'protein' });
+    expect(contexts.get('rna-primer.entity.json')).toMatchObject({ kind: 'rna_oligo' });
+    expect(contexts.get('other-workspace.entity.json')).toBeUndefined();
+    expect(contexts.get('historical.entity.json')).toBeUndefined();
+    expect(contexts.get('notes.txt')).toBeUndefined();
+  });
+
+  it('lists an unregistered developer source without querying file bindings', async () => {
+    const sourceRoot = join(root, 'Strains');
+    db.prepare('INSERT INTO settings(key,value,updated_at) VALUES(?,?,0)').run(
+      'developer-import-source-roots',
+      JSON.stringify([sourceRoot])
+    );
+    db.exec('DROP TABLE catalog_entity_files');
+
+    const result = await listWorkspaceChildren(db, {
+      workspaceRoot: sourceRoot,
+      parentRelativePath: '',
+    });
+    expect(result.workspaceId).toBeNull();
+    expect(result.partialError).toBeNull();
+    expect(result.entries).toEqual([
+      expect.objectContaining({ kind: 'filesystem', name: 'notes.txt' }),
+    ]);
+  });
+
   it('rejects unsafe parents and inactive workspace rows before listing', async () => {
     await expect(
       listWorkspaceChildren(db, { workspaceRoot: root, parentRelativePath: '../outside' })

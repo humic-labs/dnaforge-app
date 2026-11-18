@@ -845,6 +845,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
               tabData.initialStructureAttrs !== undefined &&
               tabData.initialStructureAttrs !== existingTab.initialStructureAttrs;
             const shouldRefreshSourceMetadata =
+              (tabData.entityKind !== undefined && tabData.entityKind !== existingTab.entityKind) ||
               (tabData.sourceFileName !== undefined &&
                 tabData.sourceFileName !== existingTab.sourceFileName) ||
               (tabData.readOnly !== undefined && tabData.readOnly !== existingTab.readOnly);
@@ -861,6 +862,9 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
                                 ...tab,
                                 ...(shouldRefreshInitialStructureAttrs
                                   ? { initialStructureAttrs: tabData.initialStructureAttrs }
+                                  : {}),
+                                ...(tabData.entityKind !== undefined
+                                  ? { entityKind: tabData.entityKind }
                                   : {}),
                                 ...(tabData.sourceFileName !== undefined
                                   ? { sourceFileName: tabData.sourceFileName }

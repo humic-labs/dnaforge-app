@@ -658,6 +658,22 @@ describe('useCanvasStore', () => {
   });
 
   describe('openTab', () => {
+    it('refreshes a reused record tab with its actual entity kind', () => {
+      const store = useCanvasStore.getState();
+      const id = store.openTab('main', createTab({ type: 'record', entityId: 'protein-record' }));
+      expect(
+        store.openTab(
+          'main',
+          createTab({ type: 'record', entityId: 'protein-record', entityKind: 'protein' })
+        )
+      ).toBe(id);
+      expect(useCanvasStore.getState().panels.main.tabs).toHaveLength(1);
+      expect(useCanvasStore.getState().panels.main.tabs[0]).toMatchObject({
+        type: 'record',
+        entityKind: 'protein',
+      });
+    });
+
     it('creates a new tab and activates it', () => {
       const store = useCanvasStore.getState();
 

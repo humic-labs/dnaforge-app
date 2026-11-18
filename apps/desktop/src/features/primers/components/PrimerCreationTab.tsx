@@ -74,6 +74,13 @@ export function PrimerCreationTab({ tab, panelId }: PrimerCreationTabProps) {
   const { session: metadataSession, state: metadataState } = useOptionalEntityDetailsSession(
     metadataEntityId ? { entityId: metadataEntityId } : null
   );
+  const loadedOrderType =
+    metadataState?.draft?.scientific?.orderType ??
+    (loadedArtifact ? (loadedArtifact.artifact.oligo?.orderType ?? 'dna') : undefined);
+  useEffect(() => {
+    if (!context || !loadedOrderType || context.orderType === loadedOrderType) return;
+    updateTab(panelId, tab.id, { artifactDocument: { ...context, orderType: loadedOrderType } });
+  }, [context, loadedOrderType, panelId, tab.id, updateTab]);
   useEffect(() => {
     const scientific = metadataState?.draft?.scientific;
     if (!metadataSession || !scientific) return;
