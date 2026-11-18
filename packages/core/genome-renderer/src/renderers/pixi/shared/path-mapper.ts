@@ -757,17 +757,14 @@ export class StadiumPathMapper implements PathMapper {
     halfHeight?: number
   ): number[] {
     const last = this.lastFeaturePolygon;
-    if (
-      last !== null &&
-      last.startBp === startBp &&
-      last.endBp === endBp &&
-      last.offsetPx === offsetPx &&
-      last.halfHeight === halfHeight
-    ) {
-      return last.pts;
-    }
-    const pts = this.buildFeaturePolygon(startBp, endBp, offsetPx, halfHeight);
-    this.lastFeaturePolygon = { startBp, endBp, offsetPx, halfHeight, pts };
+    const sameSpan = last !== null && last.startBp === startBp && last.endBp === endBp;
+    if (sameSpan && last.offsetPx === offsetPx && last.halfHeight === halfHeight) return last.pts;
+
+    const featureLen =
+      endBp > startBp ? endBp - startBp : this.inputs.genomeLength - startBp + endBp;
+    const samples = sameSpan ? last.samples : this.buildFeaturePolygonSamples(startBp, featureLen);
+    const pts = this.buildFeaturePolygon(samples, offsetPx, halfHeight);
+    this.lastFeaturePolygon = { startBp, endBp, offsetPx, halfHeight, samples, pts };
     return pts;
   }
 
@@ -776,20 +773,17 @@ export class StadiumPathMapper implements PathMapper {
     endBp: number;
     offsetPx: number;
     halfHeight: number | undefined;
+    samples: FeaturePolygonSample[];
     pts: number[];
   } | null = null;
 
   private buildFeaturePolygon(
-    startBp: number,
-    endBp: number,
+    samples: FeaturePolygonSample[],
     offsetPx: number,
     halfHeight?: number
   ): number[] {
     const scaledOffset = this.scaledOffset(offsetPx);
     const hh = this.scaledOffset(halfHeight ?? 8);
-    const genomeLen = this.inputs.genomeLength;
-    const featureLen = endBp > startBp ? endBp - startBp : genomeLen - startBp + endBp;
-    const samples = this.buildFeaturePolygonSamples(startBp, featureLen);
 
     const pts: number[] = [];
     for (const sample of samples) {

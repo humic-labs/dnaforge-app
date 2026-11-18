@@ -2176,13 +2176,12 @@ export class SequenceAnnotationOverlay implements RetainedOverlayTrack {
       } else {
         sink.fillPoly(pts, color, alpha);
       }
-      const outlineCommands = [{ kind: 'poly' as const, pts }];
-      this.setFeatureOutline(feature.id, outlineCommands);
+      this.setFeaturePolygonOutline(feature.id, pts);
       if (hasDraftOutline(feature)) {
         this.strokeDraftOutlineCommands(
           this.graphics,
           path,
-          outlineCommands,
+          [{ kind: 'poly', pts }],
           color,
           0.95 * effectiveAlphaScale
         );
@@ -2234,12 +2233,6 @@ export class SequenceAnnotationOverlay implements RetainedOverlayTrack {
     if (isCDS) {
       const outlineOnly = isOutlineOnlyFeature(feature);
       const detailProgress = this.cdsDetailProgress();
-      const featureLabelCenterBp = this.featureLevelLabelCenterBp(
-        feature,
-        featureLen,
-        hitPts,
-        state
-      );
       if (detailProgress <= 0) {
         this.drawStandard(
           sink,
@@ -2279,7 +2272,9 @@ export class SequenceAnnotationOverlay implements RetainedOverlayTrack {
           path,
           state,
           detailProgress,
-          detailProgress < 1 ? featureLabelCenterBp : null,
+          detailProgress < 1
+            ? this.featureLevelLabelCenterBp(feature, featureLen, hitPts, state)
+            : null,
           detailProgress >= 1,
           detailProgress < 1 ? this.cdsTransitionHalfHeight(detailProgress) : null
         );
@@ -2448,6 +2443,10 @@ export class SequenceAnnotationOverlay implements RetainedOverlayTrack {
     return aggregateDecision;
   }
 
+  private setFeaturePolygonOutline(featureId: number, points: number[]): void {
+    this.outlineCache.set(featureId, points.length >= 6 ? [{ kind: 'poly', pts: points }] : []);
+  }
+
   private setFeatureOutline(featureId: number, commands: OutlineCommand[]): void {
     this.outlineCache.set(
       featureId,
@@ -2549,7 +2548,7 @@ export class SequenceAnnotationOverlay implements RetainedOverlayTrack {
     if (isTranscript(feature)) {
       this.setFeatureOutline(feature.id, this.transcriptGlyphOutlineCommands(feature, path));
     } else {
-      this.setFeatureOutline(feature.id, [{ kind: 'poly', pts: drawPts }]);
+      this.setFeaturePolygonOutline(feature.id, drawPts);
     }
   }
 
@@ -3083,7 +3082,7 @@ export class SequenceAnnotationOverlay implements RetainedOverlayTrack {
       halfHeight
     );
     const outlineOnly = isOutlineOnlyFeature(feature);
-    this.setFeatureOutline(feature.id, [{ kind: 'poly', pts: drawPts }]);
+    this.setFeaturePolygonOutline(feature.id, drawPts);
     if (alpha <= 0) return;
 
     g.poly(drawPts);
@@ -3227,7 +3226,7 @@ export class SequenceAnnotationOverlay implements RetainedOverlayTrack {
     }
 
     const drawPts = this.standardFeatureDrawPoints(feature, endBp, pixelWidth, path, hitPts);
-    this.setFeatureOutline(feature.id, [{ kind: 'poly', pts: drawPts }]);
+    this.setFeaturePolygonOutline(feature.id, drawPts);
     if (outlineOnly) {
       sink.strokePoly(drawPts, color, 0.9 * labelAlphaScale);
     } else {
