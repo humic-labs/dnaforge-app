@@ -111,6 +111,7 @@ import {
 } from './pileup-read-glyph-layer';
 import {
   advanceReadRowHeightFieldJob,
+  READ_ROW_HEIGHT_TARGET_BIN_BP,
   beginReadRowHeightFieldJob,
   finishReadRowHeightFieldJob,
   isReadRowHeightFieldJobComplete,
@@ -252,6 +253,7 @@ const READ_ROWS_URGENT_ASSIGN_WORK_BUDGET_MS = 2;
 const READ_ROWS_RETAIN_RECORDS_PER_FRAME = 512;
 const READ_ROWS_BUILD_RECORDS_PER_FRAME = 512;
 const FIRST_STATIC_MESH_MAX_RECORDS = 4;
+const FIRST_STATIC_MAX_FIELD_ITEMS = 512;
 const READ_ROWS_URGENT_RECORDS_PER_FRAME = 4_096;
 const READ_ROWS_URGENT_BUILD_RECORDS_PER_FRAME = 8_192;
 const READ_ROWS_HANDOFF_RUNWAY_VIEWPORTS = 1;
@@ -363,6 +365,41 @@ interface ReadRowsAssignmentBuildJob {
 interface ReadRowsPreparationAllowance {
   startedAt: number;
   workBudgetMs: number;
+}
+
+function isFirstStaticBatch(
+  state: ContainerState,
+  input: ExactReadCommitInput,
+  records: ReadonlyArray<PileupRecord>,
+  maxRecords: number
+): boolean {
+  return (
+    state.rows === null &&
+    state.rowsBack.bufferCapacity === 0 &&
+    !input.tileEngineAuthority &&
+    records === state.incomingReadInput?.records &&
+    records.length <= Math.min(FIRST_STATIC_MESH_MAX_RECORDS, maxRecords) &&
+    records.every((record) => !record.mismatches?.length)
+  );
+}
+
+function firstStaticFieldsFit(
+  input: ExactReadCommitInput,
+  records: ReadonlyArray<PileupRecord>,
+  maxRows: number
+): boolean {
+  const start = Math.min(...records.map((record) => record.start));
+  const end = Math.max(...records.map((record) => record.end));
+  const heightBins = Math.ceil((end - start) / READ_ROW_HEIGHT_TARGET_BIN_BP);
+  const aggregateSpan = (input.sourceWindowEndBp ?? end) - (input.sourceWindowStartBp ?? start);
+  if (end < start || aggregateSpan < 0) return false;
+  const aggregateBinSize = input.experimentalHybridHeightMorph ? 1 : COLLAPSED_FIELD_TARGET_BIN_BP;
+  const aggregateBins = input.needsExactCollapsedAggregate
+    ? Math.ceil(aggregateSpan / aggregateBinSize)
+    : 0;
+  const heightItems = records.length * (heightBins + 1);
+  const aggregateItems = aggregateBins * (maxRows + 1) * records.length;
+  return maxRows + heightItems + aggregateItems <= FIRST_STATIC_MAX_FIELD_ITEMS;
 }
 
 function remainingReadRowsWorkMs(allowance: ReadRowsPreparationAllowance): number {
@@ -2919,17 +2956,33 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
     }
     const assignStartedAt = nowMs();
     const assignmentJob = state.rowsAssignmentBuildJob;
+    const assignmentLimit = urgentReadRowsWork
+      ? this.readRowsUrgentAssignRecordsPerFrame
+      : this.readRowsAssignRecordsPerFrame;
+    const finishFirstAssignment =
+      state.rowsAssignmentBuildChunkCount === 0 &&
+      allowance.workBudgetMs >= READ_ROWS_URGENT_ASSIGN_WORK_BUDGET_MS &&
+      input.exactRowsMayRender &&
+      isFirstStaticBatch(
+        state,
+        input,
+        records,
+        Math.min(assignmentLimit, this.readRowsUrgentBuildRecordsPerFrame)
+      ) &&
+      firstStaticFieldsFit(input, records, effectiveMaxRows);
     const assignmentBudgetMs = remainingReadRowsWorkMs(allowance);
-    work.assignRecordsProcessed =
-      assignmentJob && assignmentBudgetMs > 0
-        ? assignmentJob.layout.advanceAssignmentWithinBudget(
-            assignmentJob.job,
-            urgentReadRowsWork
-              ? this.readRowsUrgentAssignRecordsPerFrame
-              : this.readRowsAssignRecordsPerFrame,
-            assignmentBudgetMs
-          )
-        : 0;
+    if (assignmentJob && finishFirstAssignment) {
+      work.assignRecordsProcessed = assignmentJob.layout.advanceAssignment(
+        assignmentJob.job,
+        assignmentLimit
+      );
+    } else if (assignmentJob && assignmentBudgetMs > 0) {
+      work.assignRecordsProcessed = assignmentJob.layout.advanceAssignmentWithinBudget(
+        assignmentJob.job,
+        assignmentLimit,
+        assignmentBudgetMs
+      );
+    }
     work.assignMs = nowMs() - assignStartedAt;
     this.lastRowsAssignmentBuildRecordsThisFrame = work.assignRecordsProcessed;
     state.rowsAssignmentBuildRecordsLastFrame = work.assignRecordsProcessed;
@@ -2954,11 +3007,13 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         );
       }
       const heightBudgetMs = remainingReadRowsWorkMs(allowance);
-      if (assignmentJob.heightJob !== null && heightBudgetMs > 0) {
+      if (assignmentJob.heightJob !== null && (finishFirstAssignment || heightBudgetMs > 0)) {
         const heightStartedAt = nowMs();
-        advanceReadRowHeightFieldJob(assignmentJob.heightJob, Number.POSITIVE_INFINITY, {
-          workBudgetMs: heightBudgetMs,
-        });
+        advanceReadRowHeightFieldJob(
+          assignmentJob.heightJob,
+          Number.POSITIVE_INFINITY,
+          finishFirstAssignment ? undefined : { workBudgetMs: heightBudgetMs }
+        );
         work.rowHeightFieldMs = nowMs() - heightStartedAt;
       }
     }
@@ -4534,13 +4589,12 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
         if (state.rows) this.applyCamera(state.rows, args, rowsY);
         return;
       }
-      const finishFirstStaticMesh =
-        state.rows === null &&
-        state.rowsBack.bufferCapacity === 0 &&
-        !active.input.tileEngineAuthority &&
-        active.records === state.incomingReadInput?.records &&
-        active.records.length <= Math.min(FIRST_STATIC_MESH_MAX_RECORDS, maxRecords) &&
-        active.records.every((record) => !record.mismatches?.length);
+      const finishFirstStaticMesh = isFirstStaticBatch(
+        state,
+        active.input,
+        active.records,
+        maxRecords
+      );
       if (
         active.job === null &&
         (finishFirstStaticMesh || remainingReadRowsWorkMs(allowance) > 0)
