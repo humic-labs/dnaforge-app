@@ -669,12 +669,29 @@ export function splitWorkSeries(
     );
   }
   const delta = first.compare(calendarDay(workDatePart(rule.anchor)));
+  if (
+    replacement.anchor.kind !== rule.anchor.kind ||
+    replacement.anchor.zone !== rule.anchor.zone ||
+    (replacement.anchor.kind === 'timed' &&
+      rule.anchor.kind === 'timed' &&
+      replacement.anchor.local.slice(11) !== rule.anchor.local.slice(11))
+  )
+    reject(
+      'Keep the original clock time and zone when splitting a series. Edit the successor schedule explicitly to change them.'
+    );
+  const scheduleDelta = calendarDay(workDatePart(replacement.anchor)).compare(
+    calendarDay(workDatePart(rule.anchor))
+  );
   const shifted = (source: WorkDateSpec): WorkDateSpec => {
     if (source.kind === 'relative')
       reject('Choose explicit dates for the successor of a relative series.');
     return {
       kind: 'fixed',
-      value: offsetWorkTime(source.value, { unit: 'days', amount: delta }, replacement.fold),
+      value: offsetWorkTime(
+        source.value,
+        { unit: 'days', amount: scheduleDelta },
+        replacement.fold
+      ),
     };
   };
   const plan = task.plan

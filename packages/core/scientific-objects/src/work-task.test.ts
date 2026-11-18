@@ -224,6 +224,33 @@ it('resumes a paused series without generating missed occurrences and reads dead
   ]);
 });
 
+it('starts a delayed successor series at its chosen anchor while keeping the old cutoff', () => {
+  const anchor = { kind: 'day' as const, date: '2026-11-17', zone: 'UTC' };
+  const task = run(null, {
+    kind: 'create',
+    name: 'Inspect',
+    plan: { start: { kind: 'fixed', value: anchor } },
+    deadline: { kind: 'fixed', value: anchor },
+    recurrence: { frequency: 'daily', interval: 1, anchor, fold: 'earlier', state: 'active' },
+  });
+  const result = splitWorkSeries(
+    task,
+    '2026-11-18',
+    { ...task.recurrence!, anchor: { ...anchor, date: '2026-11-20' } },
+    { actor: 'p1', now: now + 1 }
+  );
+  expect(result.previous.recurrence?.until).toBe('2026-11-17');
+  expect(expandWorkOccurrences(result.successor, '2026-11-20', '2026-11-20')[0]?.slot).toBe(
+    '2026-11-20'
+  );
+  expect(
+    expandWorkOccurrences(result.successor, '2026-11-20', '2026-11-20')[0]?.schedule
+  ).toMatchObject({
+    start: { value: { date: '2026-11-20' } },
+    deadline: { value: { date: '2026-11-20' } },
+  });
+});
+
 it('retains a recorded instant across changes to zone rules and checks current rules on new schedules', () => {
   const base = run(null, { kind: 'create', name: 'Inspection' });
   const earlierRules = {
