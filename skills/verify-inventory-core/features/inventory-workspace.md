@@ -11,6 +11,9 @@
 - Choose an organization inventory independently of an open project, inspect its
   confirmed stock and current permission, preview completed use, explicitly record
   it, and recover its original request without recording the use twice.
+- Inspect an existing agent's organization inventory claim policy through the
+  paired Native service, verify denied observation admission and keep private
+  Native authority out of renderer requests.
 
 ## How to get to it (user POV)
 
@@ -204,6 +207,108 @@ after file reopen. Inspect its original artifacts and the authoritative server
 state rather than accepting a test exit code alone. The separately named
 preview-only case proves no post-bootstrap effects; it does not substitute for
 submission or real desktop interaction captures.
+
+### Paired Native agent policy read and denial
+
+This service check uses the real background Electron app and its owned Python
+compute process. Launch through [the desktop verification skill](../../verify-dnaforge/SKILL.md)
+with an isolated scenario profile and the profile's configured control-plane
+database. Require the actual compute session to be Electron-owned and `ready`.
+An external compute service, substituted fetch or injected connection does not
+exercise the captured Native pairing.
+
+Use the ordinary signed-in authentication owner. If a token needs refresh, let a
+normal inventory snapshot refresh it and verify the issued desktop session ID
+is unchanged. Preserve the confirmed inventory target, original accepted attempt
+and current projection as the baseline. Keep the source/build fingerprint, main
+and compute process identities, profile provenance and ready-session generation
+in private evidence, with tokens omitted.
+
+Read an existing active grant through the main test bridge's
+`sidecarRequest('/agent-grants?pageSize=200')`. Select its actual identity and
+retain only safe fields such as identity, scopes, expiry and revocation status.
+Do not create a grant, expand its scopes or enroll it for this check. The
+maintained main entry is
+`globalThis.__waypointTest.inspectOrganizationInventoryAgentClaimForTest`.
+It is available only in the unpackaged test harness; it inspects the real grant
+and constructs the production claim client with its actual capabilities and
+captured compute lifecycle.
+
+From the existing Playwright `ElectronApplication`, call that entry with
+`{ identityId }`. Require `policy.kind === 'policy'`, the exact selected identity,
+the captured Native owner and `policy.policy === null`. A denial, unavailable
+result or transport exception does not qualify a successful private policy read.
+If a policy already exists, stop this negative case rather than changing it.
+
+Then call the same entry with `{ identityId, unenrolledRequest }`. Build
+`unenrolledRequest` from the current public session and confirmed inventory:
+
+```js
+const unenrolledRequest = {
+  schema: 'dnaforge.organization-inventory-agent-lease.v1',
+  delegationId: crypto.randomUUID(),
+  delegationIncarnation: crypto.randomUUID(),
+  accountId: currentSession.accountId,
+  desktopSessionId: currentSession.desktopSessionId,
+  target: confirmedTarget,
+  flightId: crypto.randomUUID(),
+  purpose: { kind: 'observe', operation: 'inspect' },
+};
+const result = await electronApp.evaluate(
+  async (_electron, input) =>
+    globalThis.__waypointTest.inspectOrganizationInventoryAgentClaimForTest(input),
+  { identityId: selectedGrant.id, unenrolledRequest }
+);
+```
+
+These new labels are untrusted negative-probe inputs. They do not represent a
+human attachment or authorized delegation and must create no records. The main
+entry refuses physical purposes and an unexpected granted admission. Preserve
+the actual decoded Python denial, not merely a failed promise:
+
+| Actual grant scope | Expected denial | Boundary exercised |
+| --- | --- | --- |
+| Missing `read-organization-inventory` | `INSUFFICIENT_SCOPE` | Existing grant cannot observe organization inventory |
+| Contains that scope or a matching wildcard, with absent policy | `ORGANIZATION_CLAIM_NOT_LIVE` | Unenrolled policy refuses admission after the capability check |
+
+The service checks capability before policy. An absent policy plus
+`INSUFFICIENT_SCOPE` does not independently exercise the unenrollment guard.
+`unavailable`, connection failure and malformed responses are not passing
+denials. Verify the same ready compute generation and current account/session
+after the requests; a replacement process invalidates the captured attempt.
+
+From the genuine renderer page, use ordinary `fetch` against the runtime's API
+origin. First require `GET /agent-grants?pageSize=200` to return HTTP 200 and
+contain the selected grant. Then require
+`GET /agent-grants/{encodedIdentityId}/organization-inventory/claim-policy` to
+return HTTP 403. Supply no private header. The ordinary renderer session path
+must continue to work while the private Native route refuses it. A CORS error or
+failed connection alone does not establish that refusal. Do not use the main
+`sidecarRequest` helper for this check; it does not exercise the renderer request
+owner.
+
+Independently inspect the actual configured control-plane SQLite database using
+a read-only connection. Retain the count and rows from
+`agent_organization_inventory_claim_policy`; this negative case must leave the
+table empty. An after-only observation establishes current absence; claim it was
+empty before only when an original before capture exists. Inspect only safe
+selected grant columns, excluding credential hashes.
+
+Compare every original inventory attempt column, canonical request text/hash and
+accepted receipt with the baseline. Require no new attempts or physical events.
+Compare the complete physical projection state, revision and state hash with
+the authoritative inventory, operation and event rows. Normal token expiry or
+snapshot freshness metadata can change without changing physical inventory;
+record those facts separately. Preserve the exact issued session identity and
+original request provenance. Capture the real service responses and original
+workflow media, then close only the owned app and verify its compute process
+has stopped.
+
+This check qualifies private policy reads, actual denial and renderer authority
+isolation. It does not qualify enrollment, human attachments, successful leases,
+agent tool use or physical commands. The default client keeps granted admission
+closed until its production clock contract is qualified; denied responses do
+not establish lease timing or suspend behavior.
 
 ## Gotchas
 

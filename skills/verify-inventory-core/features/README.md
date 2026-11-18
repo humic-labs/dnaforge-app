@@ -5,7 +5,8 @@
 - [Inventory workspace](inventory-workspace.md): project selection, hierarchical
   locations, receive, move, use, history and application reopen; explicit
   organization inventory selection, use previews, explicit submission and
-  exact original-request recovery across desktop restarts.
+  exact original-request recovery across desktop restarts; paired Native agent
+  policy reads, denied observation admission and renderer authority isolation.
 
 - [Lots and material operations](material-operations.md): batches, aliquots,
   pooling, tracked dilution, container limits and restart parity.
