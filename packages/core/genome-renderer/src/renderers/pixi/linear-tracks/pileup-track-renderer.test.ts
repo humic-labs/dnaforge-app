@@ -3242,6 +3242,89 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       }
     });
 
+    function idleAssignmentClock() {
+      const callbacks: IdleRequestCallback[] = [];
+      vi.stubGlobal('requestIdleCallback', (callback: IdleRequestCallback) =>
+        callbacks.push(callback)
+      );
+      const cancel = vi.fn();
+      vi.stubGlobal('cancelIdleCallback', cancel);
+      const clock = vi.spyOn(performance, 'now').mockReturnValue(0);
+      const advance = PersistentRowLayout.prototype.advanceAssignmentWithinBudget;
+      const slices = vi
+        .spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget')
+        .mockImplementation(function (this: PersistentRowLayout, job, cap, ms) {
+          let now = 0;
+          return advance.call(this, job, cap, ms, () => now++ * 2);
+        });
+      return {
+        callbacks,
+        cancel,
+        slices,
+        restore() {
+          slices.mockRestore();
+          clock.mockRestore();
+          vi.unstubAllGlobals();
+        },
+      };
+    }
+
+    it.each([[0.75, 0.75], [15, 2]])(
+      'advances dense rows within %d ms of spare time and publishes them on paint',
+      (availableMs, expectedBudgetMs) => {
+        const { callbacks, slices, restore } = idleAssignmentClock();
+        const r = new PixiPileupTrackRenderer({ type: 'pileup', readRowsAssignRecordsPerFrame: 10 });
+        const c = r.mount(mountArgs);
+        const records = makeWindowReads(12, 100_000);
+        try {
+          r.paint(readPaint(c, records));
+          expect(callbacks).toHaveLength(1);
+          const job = slices.mock.calls[0][0];
+          expect(job.processedCount).toBe(4);
+          callbacks[0]({ didTimeout: false, timeRemaining: () => availableMs });
+          expect(slices.mock.lastCall).toEqual([job, 6, expectedBudgetMs]);
+          expect(job.processedCount).toBe(8);
+          expect(r.getReadPresentationSnapshot(c)?.kind).toBe('pending');
+          r.paint(readPaint(c, records));
+          expect(r.getReadPresentationSnapshot(c)?.kind).toBe('reads');
+          expect(callbacks).toHaveLength(1);
+        } finally {
+          r.unmount(c);
+          restore();
+        }
+      }
+    );
+
+    it('skips exhausted idle deadlines and discards work on replacement or unmount', () => {
+      const { callbacks, cancel, slices, restore } = idleAssignmentClock();
+      const r = new PixiPileupTrackRenderer({ type: 'pileup' });
+      const c = r.mount(mountArgs);
+      const records = makeWindowReads(100, 100_000);
+      let mounted = true;
+      try {
+        r.paint(readPaint(c, records));
+        expect(callbacks).toHaveLength(1);
+        callbacks[0]({ didTimeout: false, timeRemaining: () => 0 });
+        expect(slices).toHaveBeenCalledTimes(1);
+        r.paint(readPaint(c, records));
+        const original = slices.mock.lastCall![0];
+        r.paint(readPaint(c, records.slice(1)));
+        expect(cancel).toHaveBeenCalledWith(2);
+        expect(slices.mock.lastCall![0]).not.toBe(original);
+        const afterReplacement = slices.mock.calls.length;
+        callbacks[1]({ didTimeout: false, timeRemaining: () => 10 });
+        expect(slices).toHaveBeenCalledTimes(afterReplacement);
+        r.unmount(c);
+        mounted = false;
+        expect(cancel).toHaveBeenCalledWith(3);
+        callbacks[2]({ didTimeout: false, timeRemaining: () => 10 });
+        expect(slices).toHaveBeenCalledTimes(afterReplacement);
+      } finally {
+        if (mounted) r.unmount(c);
+        restore();
+      }
+    });
+
     it('prioritizes a missing read front within the urgent elapsed-work budget', () => {
       const r = new PixiPileupTrackRenderer({ type: 'pileup-test' });
       const c = r.mount(mountArgs);
