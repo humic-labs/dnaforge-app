@@ -1280,7 +1280,7 @@ a[data-benchling-link-destination='external']::after {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  opacity: 0.75;
+  opacity: 1;
   color: var(--entity-ref-icon);
 }
 
