@@ -271,8 +271,11 @@ export function assertPreparedReferenceMatchesPortableView(
   if (savedIdentity && entry.referenceIdentity) {
     const compatibility = referenceViewCompatibility(savedIdentity, entry.referenceIdentity);
     if (!compatibility.compatible) {
-      throw new Error(
-        `Hosted reference ${entry.name} has changed since this view was saved. DNAForge refused to open the view against a different sequence.`
+      throw withUserMessage(
+        new Error(
+          `Hosted reference ${entry.name} has changed since this view was saved. DNAForge refused to open the view against a different sequence.`
+        ),
+        'reference.sequenceChanged'
       );
     }
     if (

@@ -457,6 +457,7 @@ export const USER_MESSAGES = {
   'assistant.needsLogin': 'Needs login',
   'assistant.installCli': 'Install CLI',
   'assistant.editorHost': 'Editor agent host',
+  'reference.sequenceChanged': 'The reference sequence has changed since this view was saved.',
   'reference.preparedOpenFailed': 'The reference was prepared but could not be opened.',
   'reference.assemblyInput': 'Paste an assembly link or a reference assembly accession.',
   'reference.dropInput': 'Drop one FASTA file, one NCBI Datasets ZIP, or one reference folder.',

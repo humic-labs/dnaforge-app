@@ -1020,6 +1020,7 @@ describe('ReferenceGenomePicker — assemblies section', () => {
 
       if (sequence === 'different') {
         expect(await screen.findByTestId('reference-picker-open-saved-view-error')).toBeVisible();
+        expect(screen.getByRole('alert')).toHaveTextContent(/sequence has changed/u);
         expect(mockOpenAssembly).not.toHaveBeenCalled();
         expect(onClose).not.toHaveBeenCalled();
       } else {
@@ -1088,6 +1089,7 @@ describe('ReferenceGenomePicker — assemblies section', () => {
         await expect(opened).resolves.toBe('tab-1');
       } else {
         expect(await screen.findByTestId('reference-picker-open-saved-view-error')).toBeVisible();
+        expect(screen.getByRole('alert')).toHaveTextContent(/sequence has changed/u);
       }
       expect(mockAdmitPortableTracks).toHaveBeenCalledOnce();
       expect(mockOpenSavedTrackView).toHaveBeenCalledOnce();
