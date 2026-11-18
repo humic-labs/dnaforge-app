@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import type { ReactNode } from 'react';
 import type { SequenceDisplayName } from '../../../shared/sequence-presentation';
 import { EditIcon } from '../../../components/icons';
@@ -111,19 +112,22 @@ export function SequenceInfoBar({
           {recordSelector && recordSelector.records.length > 1 ? (
             <label className="flex items-center gap-1.5">
               <span className="text-fg-muted">Record</span>
-              <select
-                data-testid="quick-look-record-selector"
-                aria-label="Quick Look record"
-                value={recordSelector.selectedRecordId}
-                onChange={(event) => recordSelector.onSelect(event.target.value)}
-                className="max-w-56 rounded border border-border bg-bg px-1.5 py-0.5 text-xs text-fg"
-              >
-                {recordSelector.records.map((record, index) => (
-                  <option key={record.recordId} value={record.recordId}>
-                    {index + 1}. {record.displayName} ({numberFmt.format(record.sequenceLength)} bp)
-                  </option>
-                ))}
-              </select>
+              <span className="inline-block min-w-0 max-w-56">
+                <MenuNativeSelect
+                  density="compact"
+                  data-testid="quick-look-record-selector"
+                  aria-label="Quick Look record"
+                  value={recordSelector.selectedRecordId}
+                  onChange={(event) => recordSelector.onSelect(event.target.value)}
+                >
+                  {recordSelector.records.map((record, index) => (
+                    <option key={record.recordId} value={record.recordId}>
+                      {index + 1}. {record.displayName} ({numberFmt.format(record.sequenceLength)}{' '}
+                      bp)
+                    </option>
+                  ))}
+                </MenuNativeSelect>
+              </span>
             </label>
           ) : null}
           {accessMode?.kind === 'read-only' ? (
@@ -211,7 +215,7 @@ function CompactSegmentedButton<T extends string>({
         if (!active) onChange(option);
       }}
       className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-        active ? 'bg-bg text-fg shadow-sm dark:bg-bg-muted' : 'text-fg-muted hover:text-fg'
+        active ? 'bg-bg text-fg shadow-sm dark:bg-bg-muted' : 'text-fg-muted wp-interactive'
       }`}
       title={label}
     >

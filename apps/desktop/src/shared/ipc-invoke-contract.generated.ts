@@ -58,6 +58,7 @@ export interface InvokeContract {
   "genome:getTrackTile": InvokeEntry<[sessionId: string, request: import("./indexed-genome").GenomeTileRequest, requestId?: string], import("./indexed-genome").GenomeTrackTile>;
   "genome:init": InvokeEntry<[manifest: import("./indexed-genome").IndexedGenomeManifest], { length: number; }>;
   "genome:open": InvokeEntry<[source: import("./indexed-genome").GenomeOpenSource], import("./indexed-genome").GenomeSessionShell>;
+  "genome:prepareAssemblyAnnotationAppearanceV1": InvokeEntry<[input: import("./indexed-genome").AssemblyAnnotationAppearancePrepareRequestV1], import("./indexed-genome").AssemblyAnnotationAppearancePrepareResultV1>;
   "genome:queryAssemblyAnnotationSearch": InvokeEntry<[input: import("./indexed-genome").AssemblyAnnotationSearchQueryRequestV1], import("./indexed-genome").AssemblyAnnotationSearchQueryResultV1 | null>;
   "genome:queryAssemblyProteinSearch": InvokeEntry<[input: import("./indexed-genome").AssemblyProteinSearchQueryRequestV1], import("./indexed-genome").AssemblyProteinSearchQueryResultV1 | null>;
   "genome:readAssemblyAnnotationProductSetInventoryV1": InvokeEntry<[input: import("./indexed-genome").AssemblyAnnotationProductSetInventoryReadRequestV1], import("./indexed-genome").AssemblyAnnotationProductSetInventoryReadResultV1>;

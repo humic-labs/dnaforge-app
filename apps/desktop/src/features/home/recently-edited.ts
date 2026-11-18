@@ -1,4 +1,5 @@
 import { platform } from '../../platform';
+import type { EntityColorContext } from '../../shared/entity-color-family';
 import { userEntityLabel, type UserEntityLabel } from '@waypoint/user-messages';
 import {
   getRecentlyEditedCatalogEntities,
@@ -22,6 +23,7 @@ export type RecentlyEditedOpenTarget =
   | { kind: 'file'; path: string; tabType: TabType };
 
 export interface RecentlyEditedItem {
+  iconContext?: EntityColorContext;
   id: string;
   title: UserEntityLabel;
   workspaceRoot: string | null;
@@ -133,6 +135,7 @@ function catalogRecentItems(
         workspaceRoot: entity.workspace_path,
         workspaceName: entity.workspace_name,
         updatedAt: entity.updated_at,
+        ...(entity.iconContext ? { iconContext: entity.iconContext } : {}),
         open: { kind: 'file', path, tabType },
       });
       continue;
@@ -144,6 +147,7 @@ function catalogRecentItems(
       workspaceRoot: entity.workspace_path,
       workspaceName: entity.workspace_name,
       updatedAt: entity.updated_at,
+      ...(entity.iconContext ? { iconContext: entity.iconContext } : {}),
       open: { kind: 'entity', tabType, entityId: entity.id },
     });
   }
@@ -253,21 +257,27 @@ export async function getRecentlyEdited(limit: number = 8): Promise<RecentlyEdit
     .slice(0, RECENT_WORKSPACE_SCAN_LIMIT)
     .map((w) => ({ path: w.path, name: w.name }));
 
-  const [pages, catalogRows, gitFiles] = await Promise.all([
+  const [pages, gitFiles] = await Promise.all([
     getRecentlyEditedPages(limit),
-    getRecentlyEditedCatalogEntities(limit),
     getRecentlyEditedGitFiles(recentWorkspaces, GIT_COMMIT_SCAN_DEPTH),
   ]);
+  const catalogRows = await getRecentlyEditedCatalogEntities(
+    limit,
+    gitFiles.flatMap((item) => (item.open.kind === 'file' ? [item.open.path] : []))
+  );
   const things = catalogRecentItems(catalogRows);
-  const fileNames = new Map<string, UserEntityLabel>();
+  const entitiesByPath = new Map<string, RecentlyEditedCatalogEntity>();
   for (const entity of catalogRows) {
-    if (entity.current_file_path)
-      fileNames.set(entity.current_file_path, userEntityLabel(entity.name));
+    if (entity.current_file_path) entitiesByPath.set(entity.current_file_path, entity);
   }
-  const namedGitFiles = gitFiles.map((item) => ({
-    ...item,
-    title: item.open.kind === 'file' ? (fileNames.get(item.open.path) ?? item.title) : item.title,
-  }));
+  const namedGitFiles = gitFiles.map((item) => {
+    const entity = item.open.kind === 'file' ? entitiesByPath.get(item.open.path) : undefined;
+    return {
+      ...item,
+      title: entity ? userEntityLabel(entity.name) : item.title,
+      ...(entity?.iconContext ? { iconContext: entity.iconContext } : {}),
+    };
+  });
   const merged = [...pages, ...things, ...namedGitFiles].sort((a, b) => b.updatedAt - a.updatedAt);
   const seen = new Set<string>();
   const deduped: RecentlyEditedItem[] = [];

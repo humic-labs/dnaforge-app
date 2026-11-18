@@ -28,8 +28,6 @@ describe('CliModelPicker dropdown portal', () => {
           onModelChange={vi.fn()}
           selectTestId="cli-model-select"
           customInputTestId="cli-model-custom"
-          selectClassName=""
-          customInputClassName=""
         />
       </div>
     );
@@ -57,8 +55,6 @@ describe('CliModelPicker dropdown portal', () => {
         onModelChange={onModelChange}
         selectTestId="cli-model-select"
         customInputTestId="cli-model-custom"
-        selectClassName=""
-        customInputClassName=""
       />
     );
     fireEvent.click(screen.getByTestId('cli-model-select'));
@@ -93,8 +89,6 @@ describe('CliModelPicker dropdown portal', () => {
         onModelChange={vi.fn()}
         selectTestId="codex-model-select"
         customInputTestId="codex-model-custom"
-        selectClassName=""
-        customInputClassName=""
       />
     );
 
@@ -123,8 +117,6 @@ describe('CliModelPicker dropdown portal', () => {
         onRefreshModels={onRefreshModels}
         selectTestId="refresh-models"
         customInputTestId="refresh-custom"
-        selectClassName=""
-        customInputClassName=""
       />
     );
     fireEvent.click(screen.getByTestId('refresh-models'));
@@ -147,8 +139,6 @@ describe('CliModelPicker dropdown portal', () => {
         onModelChange={vi.fn()}
         selectTestId="codex-live-model-select"
         customInputTestId="codex-live-model-custom"
-        selectClassName=""
-        customInputClassName=""
       />
     );
 

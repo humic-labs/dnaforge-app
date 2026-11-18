@@ -1,3 +1,7 @@
+import {
+  assertSourceAnnotationAliasesV1,
+  type SourceAnnotationAliasesV1,
+} from '../../../annotation-data-appearance';
 import type {
   AnnotationSceneAssemblyContractV1,
   AnnotationSceneDatasetContractV1,
@@ -108,6 +112,7 @@ export interface PartitionedTranscriptSceneBinaryManifestV4 {
   assemblyContract: AnnotationSceneAssemblyContractV1;
   families: AnnotationShapeFamilyV1[];
   featureCount: number;
+  sourceAnnotationAliases?: readonly SourceAnnotationAliasesV1[];
   sourcePrimitiveCount: number;
   partitionSpanBp: number;
   maxPrimitiveSpanBp: number;
@@ -405,6 +410,9 @@ export async function packGpuReadyPartitionedTranscriptSceneBinaryV4(
     assemblyContract: structuredClone(input.assemblyContract),
     families: structuredClone([...input.families]),
     featureCount: input.interactionIndex.featureCount,
+    ...(input.scene.sourceAnnotationAliases
+      ? { sourceAnnotationAliases: structuredClone(input.scene.sourceAnnotationAliases) }
+      : {}),
     sourcePrimitiveCount: input.scene.featureIndices.length,
     partitionSpanBp: input.scene.partitionSpanBp,
     maxPrimitiveSpanBp: input.scene.maxPrimitiveSpanBp,
@@ -929,6 +937,17 @@ export function unpackTrustedMainValidatedPartitionedTranscriptSceneBinaryV4(
   ]) as number[];
   Object.freeze(policyProjection);
   const scene = {
+    sourceAnnotationIdentity: Object.freeze({
+      payloadSha256: manifest.integrity.payloadSha256,
+      contractSha256: manifest.integrity.contractSha256,
+    }),
+    ...(manifest.sourceAnnotationAliases
+      ? {
+          sourceAnnotationAliases: freezeSmallContainerGraph(
+            structuredClone(manifest.sourceAnnotationAliases)
+          ),
+        }
+      : {}),
     partitionSpanBp: manifest.partitionSpanBp,
     maxPrimitiveSpanBp: manifest.maxPrimitiveSpanBp,
     packedInstanceData: expanded.packedInstanceData,
@@ -1628,6 +1647,8 @@ function assertZeroPadding(payload: Uint8Array, start: number, end: number): voi
 function contractMaterial(
   manifest: PartitionedTranscriptSceneBinaryManifestV4
 ): AnnotationSceneJsonValue {
+  if (manifest.sourceAnnotationAliases)
+    assertSourceAnnotationAliasesV1(manifest.sourceAnnotationAliases, manifest.featureCount);
   const { integrity: _integrity, ...contract } = manifest;
   return contract as unknown as AnnotationSceneJsonValue;
 }

@@ -1034,6 +1034,9 @@ importers:
 
   packages/core/genome-data:
     dependencies:
+      '@waypoint/platform':
+        specifier: workspace:*
+        version: link:../platform
       '@gmod/indexedfasta':
         specifier: ^5.0.5
         version: 5.0.5
@@ -1143,6 +1146,9 @@ importers:
 
   packages/core/scientific-objects:
     dependencies:
+      '@internationalized/date':
+        specifier: 3.12.1
+        version: 3.12.1
       '@waypoint/sequence-utils':
         specifier: workspace:*
         version: link:../sequence-utils

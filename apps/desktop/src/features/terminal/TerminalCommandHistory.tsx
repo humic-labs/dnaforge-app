@@ -127,10 +127,11 @@ export function TerminalCommandHistory({
       >
         <div className="dnaforge-terminal-toolbar">
           <h2>{directory === undefined ? 'Run recent command' : 'Go to recent directory'}</h2>
-          <button onClick={onKindChange}>
+          <button className="wp-interactive" onClick={onKindChange}>
             {directory === undefined ? 'Directories' : 'Commands'}
           </button>
           <button
+            className="wp-interactive"
             aria-label="Fuzzy search"
             aria-pressed={fuzzy}
             title="Match characters in order with gaps"
@@ -143,6 +144,7 @@ export function TerminalCommandHistory({
             Fuzzy search
           </button>
           <button
+            className="wp-interactive"
             aria-label={
               directory === undefined
                 ? 'Close terminal command history'
@@ -231,6 +233,7 @@ export function TerminalCommandHistory({
             insert
           </span>
           <button
+            className="wp-interactive"
             disabled={!matches.length}
             onClick={() => {
               const entry = matches[index];
@@ -245,6 +248,7 @@ export function TerminalCommandHistory({
           {directory === undefined && (
             <>
               <button
+                className="wp-interactive"
                 disabled={!matches[index]?.command?.id || !matches[index]?.command?.range}
                 onClick={() => {
                   const commandId = matches[index]?.command?.id;
@@ -257,6 +261,7 @@ export function TerminalCommandHistory({
                 Go to command
               </button>
               <button
+                className="wp-interactive"
                 disabled={matches[index]?.command?.range?.endLine === undefined}
                 onClick={() => {
                   const commandId = matches[index]?.command?.id;
@@ -271,12 +276,17 @@ export function TerminalCommandHistory({
             </>
           )}
           <button
+            className="wp-interactive"
             disabled={!running || !matches.length}
             onClick={() => pick(matches[index], false)}
           >
             {directory === undefined ? 'Insert command' : 'Insert directory change'}
           </button>
-          <button disabled={!running || !matches.length} onClick={() => pick(matches[index], true)}>
+          <button
+            className="wp-interactive"
+            disabled={!running || !matches.length}
+            onClick={() => pick(matches[index], true)}
+          >
             {directory === undefined ? 'Run command' : 'Change directory'}
           </button>
         </div>

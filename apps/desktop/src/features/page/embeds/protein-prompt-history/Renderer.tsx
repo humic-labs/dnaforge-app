@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import {
   withUserMessage,
   toUserMessage,
@@ -556,35 +557,37 @@ export function ProteinPromptHistoryRenderer({ attrs }: EmbedRendererProps) {
           </div>
         </td>
         <td className="px-2 py-2">
-          <select
-            aria-label={`Version for ${entry.caseTitle}`}
-            value={version.id}
-            disabled={busyId !== null}
-            className="w-full rounded border border-border bg-bg px-1 py-1 text-xs text-fg"
-            onChange={(event) => {
-              const group = versions.find((value) => value.id === event.target.value)!;
-              const run =
-                group.runs.find((value) => value.experiment?.replicate === replicateIndex) ??
-                group.runs[replicateIndex - 1] ??
-                group.runs[0];
-              void switchVersion(run.id);
-            }}
-          >
-            {versions.map((group) => (
-              <option key={group.id} value={group.id}>
-                {group.label}
-                {(versionLabels.get(group.label) ?? 0) > 1
-                  ? ` · ${new Date(group.runs[0].createdAt).toLocaleString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      second: '2-digit',
-                    })}`
-                  : ''}
-              </option>
-            ))}
-          </select>
+          <span className="block min-w-0 w-full">
+            <MenuNativeSelect
+              density="compact"
+              aria-label={`Version for ${entry.caseTitle}`}
+              value={version.id}
+              disabled={busyId !== null}
+              onChange={(event) => {
+                const group = versions.find((value) => value.id === event.target.value)!;
+                const run =
+                  group.runs.find((value) => value.experiment?.replicate === replicateIndex) ??
+                  group.runs[replicateIndex - 1] ??
+                  group.runs[0];
+                void switchVersion(run.id);
+              }}
+            >
+              {versions.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.label}
+                  {(versionLabels.get(group.label) ?? 0) > 1
+                    ? ` · ${new Date(group.runs[0].createdAt).toLocaleString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      })}`
+                    : ''}
+                </option>
+              ))}
+            </MenuNativeSelect>
+          </span>
           {version.runs.length > 1 && (
             <div className="mt-1 flex flex-wrap items-center gap-1">
               <span className="text-xs text-fg-muted">Run</span>
@@ -601,7 +604,7 @@ export function ProteinPromptHistoryRenderer({ attrs }: EmbedRendererProps) {
                       className={`rounded border px-2 py-0.5 text-xs disabled:opacity-50 ${
                         run.id === entry.id
                           ? 'border-accent bg-accent/10 text-accent'
-                          : 'border-border hover:bg-bg-muted'
+                          : 'border-border wp-interactive'
                       }`}
                       onClick={() => void switchVersion(run.id)}
                     >
@@ -610,19 +613,21 @@ export function ProteinPromptHistoryRenderer({ attrs }: EmbedRendererProps) {
                   );
                 })
               ) : (
-                <select
-                  aria-label={`Run for ${entry.caseTitle}`}
-                  value={entry.id}
-                  disabled={busyId !== null}
-                  className="min-w-0 rounded border border-border bg-bg text-xs"
-                  onChange={(event) => void switchVersion(event.target.value)}
-                >
-                  {version.runs.map((run, index) => (
-                    <option key={run.id} value={run.id}>
-                      {index + 1} · {new Date(run.createdAt).toLocaleTimeString()}
-                    </option>
-                  ))}
-                </select>
+                <span className="inline-block min-w-0">
+                  <MenuNativeSelect
+                    density="compact"
+                    aria-label={`Run for ${entry.caseTitle}`}
+                    value={entry.id}
+                    disabled={busyId !== null}
+                    onChange={(event) => void switchVersion(event.target.value)}
+                  >
+                    {version.runs.map((run, index) => (
+                      <option key={run.id} value={run.id}>
+                        {index + 1} · {new Date(run.createdAt).toLocaleTimeString()}
+                      </option>
+                    ))}
+                  </MenuNativeSelect>
+                </span>
               )}
             </div>
           )}
@@ -632,7 +637,7 @@ export function ProteinPromptHistoryRenderer({ attrs }: EmbedRendererProps) {
               disabled={busyId !== null}
               aria-label={`Switch ${entry.caseTitle} to ${alternate.promptLabel}`}
               title={`Switch to ${alternate.promptLabel}`}
-              className="mt-1 rounded border border-border px-2 py-1 text-xs hover:bg-bg-muted disabled:opacity-50"
+              className="mt-1 rounded border border-border px-2 py-1 text-xs wp-interactive disabled:opacity-50"
               onClick={() => void switchVersion(alternate.id)}
             >
               ↔{' '}
@@ -884,7 +889,7 @@ export function ProteinPromptHistoryRenderer({ attrs }: EmbedRendererProps) {
                 type="button"
                 disabled={busyId !== null}
                 onClick={() => void openSelected(referenceId, true)}
-                className="rounded border border-border px-2 py-1 hover:bg-bg-muted disabled:opacity-50"
+                className="rounded border border-border px-2 py-1 wp-interactive disabled:opacity-50"
               >
                 {entry.outputIds.length ? 'Chat' : 'Chat only'}
               </button>
@@ -923,7 +928,7 @@ export function ProteinPromptHistoryRenderer({ attrs }: EmbedRendererProps) {
                       className={`block w-full min-w-0 truncate rounded border px-2 py-1 text-left text-xs disabled:opacity-50 ${
                         referenceId === id
                           ? 'border-accent bg-accent/10 font-medium text-accent'
-                          : 'border-border text-fg hover:bg-bg-hover'
+                          : 'border-border text-fg wp-interactive'
                       }`}
                     >
                       {outputIndex + 1}. {userEntityLabel(previews[id]?.label)}
@@ -1011,7 +1016,7 @@ export function ProteinPromptHistoryRenderer({ attrs }: EmbedRendererProps) {
           type="button"
           onClick={() => void refresh()}
           disabled={loading}
-          className="rounded border border-border px-2 py-1 text-xs hover:bg-bg-muted disabled:opacity-50"
+          className="rounded border border-border px-2 py-1 text-xs wp-interactive disabled:opacity-50"
         >
           Refresh
         </button>
@@ -1050,19 +1055,21 @@ export function ProteinPromptHistoryRenderer({ attrs }: EmbedRendererProps) {
                 className="min-w-44 flex-1 rounded border border-border bg-bg px-2 py-1 text-sm text-fg"
                 placeholder="Search question, prompt, harness, or scene"
               />
-              <select
-                value={questionFilter}
-                onChange={(event) => setQuestionFilter(event.target.value)}
-                aria-label="Filter question"
-                className="max-w-full rounded border border-border bg-bg px-2 py-1 text-sm text-fg"
-              >
-                <option value="">All questions</option>
-                {questions.map(([question, caseTitle]) => (
-                  <option key={question} value={question}>
-                    {caseTitle}: {question}
-                  </option>
-                ))}
-              </select>
+              <span className="inline-block min-w-0 max-w-full">
+                <MenuNativeSelect
+                  density="form"
+                  value={questionFilter}
+                  onChange={(event) => setQuestionFilter(event.target.value)}
+                  aria-label="Filter question"
+                >
+                  <option value="">All questions</option>
+                  {questions.map(([question, caseTitle]) => (
+                    <option key={question} value={question}>
+                      {caseTitle}: {question}
+                    </option>
+                  ))}
+                </MenuNativeSelect>
+              </span>
               <span className="text-xs text-fg-muted">
                 {visibleCases.length} of {cases.length} cases
               </span>

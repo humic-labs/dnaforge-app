@@ -81,7 +81,7 @@ export function ReferenceSavedViewMenu({
           <h4 className="px-2 py-1.5 text-xs font-semibold text-fg-muted">Saved views</h4>
           <ul>
             {views.map((view) => (
-              <li key={view.id} className="flex items-center gap-2 rounded hover:bg-bg">
+              <li key={view.id} className="flex items-center gap-2 rounded wp-interactive">
                 <button
                   type="button"
                   data-testid={`reference-saved-view-${view.id}`}

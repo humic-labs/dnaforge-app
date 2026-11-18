@@ -72,7 +72,7 @@ export function PredictStructureDialog() {
             <button
               type="button"
               onClick={close}
-              className="text-fg-subtle hover:text-fg"
+              className="text-fg-subtle wp-interactive"
               aria-label="Close"
             >
               ×

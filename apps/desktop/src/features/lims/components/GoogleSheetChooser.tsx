@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
@@ -104,25 +105,27 @@ export function GoogleSheetChooser(input: {
       <div className="flex flex-wrap items-end gap-2">
         <label className="min-w-48 flex-1 text-xs font-medium">
           Google account
-          <select
-            aria-label="Google Sheets account"
-            className={SELECT}
-            value={grantId}
-            disabled={locked}
-            onChange={(event) => {
-              setGrantId(event.target.value);
-              setSpreadsheet(null);
-            }}
-          >
-            <option value="">Choose an account</option>
-            {status?.accounts
-              .filter((entry) => entry.kind === 'connected')
-              .map((entry) => (
-                <option key={entry.account.id} value={entry.account.id}>
-                  {entry.account.email}
-                </option>
-              ))}
-          </select>
+          <span className="block min-w-0 mt-1.5 w-full">
+            <MenuNativeSelect
+              density="form"
+              aria-label="Google Sheets account"
+              value={grantId}
+              disabled={locked}
+              onChange={(event) => {
+                setGrantId(event.target.value);
+                setSpreadsheet(null);
+              }}
+            >
+              <option value="">Choose an account</option>
+              {status?.accounts
+                .filter((entry) => entry.kind === 'connected')
+                .map((entry) => (
+                  <option key={entry.account.id} value={entry.account.id}>
+                    {entry.account.email}
+                  </option>
+                ))}
+            </MenuNativeSelect>
+          </span>
         </label>
         <Button
           disabled={
@@ -208,21 +211,23 @@ export function GoogleSheetChooser(input: {
           <p className="text-xs font-medium">{spreadsheet.title}</p>
           <label className="block text-xs font-medium">
             Worksheet
-            <select
-              aria-label="Google worksheet"
-              className={SELECT}
-              value={sheetId ?? ''}
-              disabled={locked || !!input.source}
-              onChange={(event) =>
-                setSheetId(z.coerce.number().int().nonnegative().parse(event.target.value))
-              }
-            >
-              {spreadsheet.sheets.map((sheet) => (
-                <option key={sheet.id} value={sheet.id}>
-                  {sheet.title}
-                </option>
-              ))}
-            </select>
+            <span className="block min-w-0 mt-1.5 w-full">
+              <MenuNativeSelect
+                density="form"
+                aria-label="Google worksheet"
+                value={sheetId ?? ''}
+                disabled={locked || !!input.source}
+                onChange={(event) =>
+                  setSheetId(z.coerce.number().int().nonnegative().parse(event.target.value))
+                }
+              >
+                {spreadsheet.sheets.map((sheet) => (
+                  <option key={sheet.id} value={sheet.id}>
+                    {sheet.title}
+                  </option>
+                ))}
+              </MenuNativeSelect>
+            </span>
           </label>
           <Button
             disabled={locked || sheetId === null}

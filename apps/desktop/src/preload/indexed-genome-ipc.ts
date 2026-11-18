@@ -74,6 +74,9 @@ export function createIndexedGenomeIpc() {
         input: AssemblyAnnotationRasterReadRequestV2
       ): Promise<AssemblyAnnotationRasterReadResultV2 | null> =>
         rendererIpc.invoke('genome:readAssemblyAnnotationRasterV2', input),
+      prepareAssemblyAnnotationAppearanceV1: (
+        input: import('../shared/indexed-genome').AssemblyAnnotationAppearancePrepareRequestV1
+      ) => rendererIpc.invoke('genome:prepareAssemblyAnnotationAppearanceV1', input),
       readAssemblyCompiledBroadRasterManifestV1: (
         input: AssemblyCompiledBroadRasterManifestRequestV1
       ): Promise<AssemblyCompiledBroadRasterManifestResultV1 | null> =>

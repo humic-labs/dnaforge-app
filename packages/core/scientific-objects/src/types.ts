@@ -1,3 +1,4 @@
+import type { WorkTaskDocument } from './work-task-types';
 import type {
   BlobHash,
   CanonicalMap,
@@ -121,7 +122,8 @@ export type ScientificDocument =
   | BindingEvidenceDocument
   | StrainSequenceDocument
   | StrainDescentDocument
-  | AcceptedAssemblyDocument;
+  | AcceptedAssemblyDocument
+  | WorkTaskDocument;
 
 export interface ScientificSnapshot extends RevisionPin {
   readonly document: ScientificDocument;

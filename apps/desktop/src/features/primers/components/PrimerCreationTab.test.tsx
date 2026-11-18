@@ -483,6 +483,25 @@ describe('PrimerCreationTab', () => {
     expect(useCanvasStore.getState().panels.main.tabs).toHaveLength(0);
   });
 
+  it('projects a loaded RNA oligo into the existing tab context', async () => {
+    const existing = existingPrimerRead();
+    const rnaArtifact = {
+      ...existing.artifact,
+      oligo: { ...existing.artifact.oligo, orderType: 'rna' as const },
+    };
+    commandMocks.readArtifactAtPath.mockResolvedValue({ ...existing, artifact: rnaArtifact });
+    const savedTab = existingPrimerTab();
+    useCanvasStore.setState({
+      panels: { main: { id: 'main', tabs: [savedTab], activeTabId: savedTab.id } },
+    });
+    render(<SavedPrimerHarness />);
+    await waitFor(() =>
+      expect(useCanvasStore.getState().panels.main.tabs[0].artifactDocument?.orderType).toBe('rna')
+    );
+    expect(commandMocks.updateArtifactContent).not.toHaveBeenCalled();
+    expect(commandMocks.createPrimer).not.toHaveBeenCalled();
+  });
+
   it('opens an existing authoritative primer in the same editable tab', async () => {
     const existing = existingPrimerRead();
     commandMocks.readArtifactAtPath.mockResolvedValue(existing);

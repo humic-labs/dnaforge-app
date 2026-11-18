@@ -4,9 +4,11 @@ import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { configureDevelopmentEntry } from './dev-app-bootstrap.mjs';
-import { disableKeychainInteraction } from '../../src/main/noninteractive-keychain.cjs';
 
 try {
+  const { disableKeychainInteraction } = createRequire(import.meta.url)(
+    '../../src/main/noninteractive-keychain.cjs'
+  );
   const configPath = resolve(dirname(process.execPath), '../../../..', 'runtime.json');
   const configuration = JSON.parse(readFileSync(configPath, 'utf8'));
   configureDevelopmentEntry({

@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { Button, Notice } from './ui';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import {
@@ -486,7 +487,7 @@ function ProviderPicker({
             type="button"
             aria-label={meta.label}
             onClick={() => onChoose(meta.name)}
-            className="flex items-center justify-between gap-4 rounded-md px-3 py-3 text-left transition-colors hover:bg-black/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 dark:hover:bg-white/[0.06]"
+            className={`${INTERACTION_CLASS} flex items-center justify-between gap-4 rounded-md px-3 py-3 text-left transition-colors`}
           >
             <span className="min-w-0">
               <span className="block text-sm font-medium text-fg">{meta.label}</span>
@@ -1472,9 +1473,10 @@ function SettingsNavButton({
       type="button"
       onClick={onClick}
       aria-current={active ? 'location' : undefined}
+      data-selected={active}
       data-testid={`settings-nav-${id}`}
-      className={`flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-        active ? 'bg-bg-muted text-fg' : 'text-fg-muted hover:bg-bg-muted hover:text-fg'
+      className={`${INTERACTION_CLASS} flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-sm font-medium transition-colors ${
+        active ? 'bg-bg-muted text-fg' : 'text-fg-muted '
       }`}
     >
       <Icon className="h-4 w-4 shrink-0" />

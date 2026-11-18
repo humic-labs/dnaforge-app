@@ -542,7 +542,7 @@ export const SequenceTrack = memo(function SequenceTrack({
           type="button"
           onClick={() => onToggleCollapse?.(effectiveCollapseKey)}
           onPointerDown={(event) => event.stopPropagation()}
-          className="-m-0.5 flex shrink-0 items-center justify-center rounded p-0.5 hover:bg-bg-muted focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+          className="-m-0.5 flex shrink-0 items-center justify-center rounded p-0.5 wp-interactive "
           aria-expanded={!collapsed}
           aria-label={`${collapsed ? 'Expand' : 'Collapse'} chain ${displayChainId} sequence`}
           data-testid={`chain-collapse-toggle-${chain.chainId}`}
@@ -644,7 +644,7 @@ export const SequenceTrack = memo(function SequenceTrack({
           <button
             type="button"
             onClick={handleChainSelect}
-            className={`-mx-1 flex min-w-0 max-w-[60%] items-baseline gap-1.5 rounded px-1 text-left hover:bg-bg-muted focus:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+            className={`-mx-1 flex min-w-0 max-w-[60%] items-baseline gap-1.5 rounded px-1 text-left wp-interactive ${
               chainSelectionState === 'none' ? '' : 'bg-accent/10'
             }`}
             data-testid={`chain-selection-toggle-${chain.chainId}`}

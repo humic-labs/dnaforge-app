@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { toUserMessage, userMessageValue, type UserMessageValue } from '@waypoint/user-messages';
 import { useSidecarStatus } from '../hooks/use-sidecar-status';
 import { platform } from '../platform';
@@ -161,7 +162,7 @@ export function AppBar({ appVersion, extraControls }: AppBarProps) {
           </TelemetryBlockedSurface>
           <button
             onClick={toggleDarkMode}
-            className={`${windowsTitleBar ? 'p-1' : 'p-1.5'} rounded text-fg-muted hover:text-fg hover:bg-bg-muted transition-colors`}
+            className={`${INTERACTION_CLASS} ${windowsTitleBar ? 'p-1' : 'p-1.5'} rounded text-fg-muted transition-colors`}
             title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             data-ph-capture-attribute-action={darkMode ? 'disable' : 'enable'}

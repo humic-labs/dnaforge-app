@@ -377,7 +377,14 @@ describe('MocloAssemblyWorkspace', () => {
     expect(onSelectRegion).toHaveBeenCalledWith('cidar-b0034m-bc');
     await screen.findByText('B0034m_BC');
 
-    expect(screen.getByTestId('moclo-part-picker-popover')).toHaveClass('bg-bg');
+    expect(screen.getByTestId('moclo-part-picker-popover')).toHaveAttribute(
+      'data-menu-content',
+      'panel'
+    );
+    expect(screen.getByRole('searchbox', { name: 'Search parts for RBS' })).toHaveAttribute(
+      'data-menu-density',
+      'form'
+    );
     expect(screen.getByText('Cross-kit RBS')).toBeInTheDocument();
     expect(screen.queryByText(/Different part type/)).not.toBeInTheDocument();
     expect(

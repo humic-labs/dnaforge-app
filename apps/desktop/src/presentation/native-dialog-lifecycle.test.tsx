@@ -43,6 +43,42 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it('modal focus recovery yields to a child overlay and stops when its owner closes', async () => {
+  const owner = new PresentationOwner();
+  const card = document.createElement('div');
+  const input = document.createElement('input');
+  card.append(input);
+  const outside = document.createElement('button');
+  const child = document.createElement('button');
+  document.body.append(card, outside, child);
+  const modal = new OverlayBinding(owner, 'window', 'modal', 'modal');
+  const menu = new OverlayBinding(owner, 'modal', 'child-menu', 'keyboard');
+  try {
+    modal.bind('card', card);
+    input.focus();
+    outside.focus();
+    expect(document.activeElement).toBe(outside);
+    await Promise.resolve();
+    expect(document.activeElement).toBe(input);
+    menu.bind('child', child);
+    child.focus();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(child);
+    menu.bind('child', null);
+    input.focus();
+    outside.focus();
+    modal.bind('card', null);
+    await Promise.resolve();
+    expect(document.activeElement).toBe(outside);
+  } finally {
+    menu.bind('child', null);
+    modal.bind('card', null);
+    card.remove();
+    outside.remove();
+    child.remove();
+  }
+});
+
 it('a retained closed native dialog grants no capture until the platform opens it', () => {
   render(<NativeDialog onCancel={vi.fn()} />);
   const dialog = screen.getByTestId('native-dialog') as HTMLDialogElement;

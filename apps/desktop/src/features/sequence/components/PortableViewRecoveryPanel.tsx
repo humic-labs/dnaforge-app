@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useState, type FormEvent } from 'react';
 import { Button, UI_FIELD_CLASS } from '../../../components/ui';
@@ -146,7 +147,7 @@ export function PortableViewRecoveryPanel({
                     type="button"
                     disabled={busy}
                     onClick={() => onRelink(track.trackId)}
-                    className="rounded border border-border px-2 py-1 font-medium text-fg hover:border-emerald-500 disabled:opacity-50"
+                    className="rounded border border-border px-2 py-1 font-medium text-fg wp-interactive disabled:opacity-50"
                   >
                     Locate file…
                   </button>
@@ -158,7 +159,7 @@ export function PortableViewRecoveryPanel({
                         type="button"
                         disabled={busy}
                         onClick={() => onConnect(track.trackId, authRef)}
-                        className="rounded border border-border px-2 py-1 font-medium text-fg hover:border-emerald-500 disabled:opacity-50"
+                        className="rounded border border-border px-2 py-1 font-medium text-fg wp-interactive disabled:opacity-50"
                       >
                         Connect {authRef}
                       </button>
@@ -169,7 +170,7 @@ export function PortableViewRecoveryPanel({
                     type="button"
                     disabled={busy}
                     onClick={() => onToggleSkip(track.trackId)}
-                    className="rounded border border-border px-2 py-1 text-fg-muted hover:border-emerald-500 hover:text-fg disabled:opacity-50"
+                    className="rounded border border-border px-2 py-1 text-fg-muted wp-interactive disabled:opacity-50"
                   >
                     {skipped ? 'Restore instead' : 'Skip'}
                   </button>
@@ -292,22 +293,24 @@ function PortableCredentialForm({
       {prompt.kinds.length > 1 ? (
         <label className="block font-medium text-fg" htmlFor="portable-credential-kind">
           Credential type
-          <select
-            id="portable-credential-kind"
-            value={kind}
-            onChange={(event) => setKind(event.target.value as GenomeSourceCredentialKind)}
-            className={`${UI_FIELD_CLASS} mt-1 block`}
-          >
-            {prompt.kinds.includes('http-bearer') ? (
-              <option value="http-bearer">Bearer token</option>
-            ) : null}
-            {prompt.kinds.includes('http-basic') ? (
-              <option value="http-basic">Username and password</option>
-            ) : null}
-            {prompt.kinds.includes('http-header') ? (
-              <option value="http-header">Custom request header</option>
-            ) : null}
-          </select>
+          <span className="block min-w-0 w-full mt-1">
+            <MenuNativeSelect
+              density="form"
+              id="portable-credential-kind"
+              value={kind}
+              onChange={(event) => setKind(event.target.value as GenomeSourceCredentialKind)}
+            >
+              {prompt.kinds.includes('http-bearer') ? (
+                <option value="http-bearer">Bearer token</option>
+              ) : null}
+              {prompt.kinds.includes('http-basic') ? (
+                <option value="http-basic">Username and password</option>
+              ) : null}
+              {prompt.kinds.includes('http-header') ? (
+                <option value="http-header">Custom request header</option>
+              ) : null}
+            </MenuNativeSelect>
+          </span>
         </label>
       ) : null}
       {kind === 'http-bearer' ? (

@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { buildSequencePackageDocument } from '../../../db/sequence-package';
 import {
   buildCustomGeneticCode,
@@ -404,7 +405,7 @@ describe('SequenceMetadataDrawer', () => {
       screen.getByRole('button', { name: 'Edit Description' }),
     ];
     for (const trigger of triggers) {
-      expect(trigger).toHaveClass('group/field-edit', 'hover:bg-bg-muted');
+      expect(trigger).toHaveClass('group/field-edit', INTERACTION_CLASS);
       expect(trigger.className).not.toMatch(/transition|duration|delay/);
       expect(trigger.lastElementChild?.className).not.toMatch(/transition|duration|delay/);
     }

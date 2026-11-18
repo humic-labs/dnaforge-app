@@ -401,7 +401,7 @@ function RecoveryFolderCard({
           <button
             type="button"
             onClick={() => void onOpenLocation('folder', folder.sourceId)}
-            className="inline-flex items-center gap-1.5 rounded border border-border bg-bg px-2.5 py-1.5 text-[11px] font-medium text-fg-muted hover:bg-bg-muted hover:text-accent"
+            className="inline-flex items-center gap-1.5 rounded border border-border bg-bg px-2.5 py-1.5 text-[11px] font-medium text-fg-muted wp-interactive hover:text-accent"
           >
             Find correct folder <OpenExternalIcon size={12} />
           </button>

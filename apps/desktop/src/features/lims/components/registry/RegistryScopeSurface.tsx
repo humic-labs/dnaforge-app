@@ -123,7 +123,7 @@ export function RegistryScopeControls({
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="rounded-md px-2 py-1.5 text-xs text-fg-muted hover:bg-bg-muted hover:text-fg"
+        className="rounded-md px-2 py-1.5 text-xs text-fg-muted wp-interactive "
       >
         •••
       </button>
@@ -135,7 +135,7 @@ export function RegistryScopeControls({
         aria-label="Registry actions"
         preferredSide="bottom"
         surfaceVariant="settings"
-        className="w-72 p-4"
+        layout={{ width: '18rem' }}
       >
         <div
           className="space-y-3"
@@ -343,7 +343,7 @@ export function OrganizationRegistryTable({
                   onSelectRecord?.(record);
                 }
               }}
-              className={`px-4 py-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${selectedEntityId === record.id ? 'bg-accent/5' : 'hover:bg-bg-subtle'} ${record.archived ? 'opacity-55' : ''}`}
+              className={`px-4 py-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${selectedEntityId === record.id ? 'bg-accent/5' : 'wp-interactive'} ${record.archived ? 'opacity-55' : ''}`}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -394,7 +394,7 @@ export function OrganizationRegistryTable({
                         event.stopPropagation();
                         onOpenRecord(record);
                       }}
-                      className="mb-1 rounded border border-border px-2 py-1 text-[11px] font-medium text-fg hover:bg-bg-muted"
+                      className="mb-1 rounded border border-border px-2 py-1 text-[11px] font-medium text-fg wp-interactive"
                     >
                       Open
                     </button>

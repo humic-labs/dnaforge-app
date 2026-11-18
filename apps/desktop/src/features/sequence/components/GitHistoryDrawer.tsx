@@ -118,7 +118,7 @@ export function GitHistoryDrawer({
         <button
           onClick={handleRevert}
           disabled={isReverting || !hasUncommittedChanges}
-          className="w-full px-2 py-1 rounded text-xs text-fg-muted hover:bg-bg-elevated disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full px-2 py-1 rounded text-xs text-fg-muted wp-interactive disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isReverting ? 'Reverting...' : 'Discard changes'}
         </button>

@@ -1,3 +1,4 @@
+import { temporalFieldDraft } from '../../../shared/registry-temporal-input';
 import { reportSaveFailure } from '../../../lib/report-save-failure';
 import { useDocumentLifecycle } from '../../../shared/use-document-lifecycle';
 import { firstOligoErrorUserMessage, oligoDiagnosticUserMessage } from '../oligo-user-messages';
@@ -396,7 +397,7 @@ export function PrimerCreationForm({
     initialSchemaView?.schemaId ?? schemaOptions[0].schemaId
   );
   const [schemaFieldDrafts, setSchemaFieldDrafts] = useState<PrimerSchemaFieldDrafts>(() =>
-    primerSchemaDrafts(initialEntityFields)
+    primerSchemaDrafts(initialEntityFields, initialSchemaView)
   );
 
   useEffect(() => {
@@ -451,7 +452,13 @@ export function PrimerCreationForm({
       fields: Object.fromEntries(
         editablePrimerSchemaFields(selectedSchema).map((field) => [
           field.key,
-          parsePrimerSchemaFieldValue(field, schemaFieldDrafts[field.key] ?? ''),
+          parsePrimerSchemaFieldValue(
+            field,
+            schemaFieldDrafts[field.key] ?? '',
+            initialSchemaView?.schemaId === selectedSchema.schemaId
+              ? initialEntityFields?.[field.key]
+              : undefined
+          ),
         ])
       ),
       direction,
@@ -465,6 +472,8 @@ export function PrimerCreationForm({
       orderType,
       selectedSchema,
       schemaFieldDrafts,
+      initialEntityFields,
+      initialSchemaView,
       direction,
       threePrimeExt,
       bindingOffset,
@@ -726,6 +735,8 @@ export function PrimerCreationForm({
         name,
         schema: selectedSchema,
         schemaFieldDrafts,
+        previousFields:
+          initialSchemaView?.schemaId === selectedSchema.schemaId ? initialEntityFields : undefined,
       },
       destination: {
         workspaceRoot,
@@ -852,7 +863,7 @@ export function PrimerCreationForm({
             title="Edit primer name"
             onClick={focusNameField}
             disabled={isSaving}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-subtle transition-colors hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:opacity-50"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-subtle transition-colors wp-interactive disabled:opacity-50"
           >
             <EditIcon size={12} />
           </button>
@@ -1171,12 +1182,23 @@ function primerSchemaViewFromSnapshot(
   };
 }
 
-function primerSchemaDrafts(fields: Record<string, unknown> | undefined): PrimerSchemaFieldDrafts {
+function primerSchemaDrafts(
+  fields: Record<string, unknown> | undefined,
+  schema: LimsSchemaDefinitionView | null
+): PrimerSchemaFieldDrafts {
   if (!fields) return {};
   const drafts: PrimerSchemaFieldDrafts = {};
   for (const [key, value] of Object.entries(fields)) {
-    if (typeof value === 'boolean') drafts[key] = value;
+    if (
+      schema?.fields.some(
+        (field) => field.key === key && (field.type === 'date' || field.type === 'datetime')
+      )
+    )
+      drafts[key] = temporalFieldDraft(value);
+    else if (typeof value === 'boolean') drafts[key] = value;
     else if (typeof value === 'string' || typeof value === 'number') drafts[key] = String(value);
+    else if (value && typeof value === 'object' && 'kind' in value && value.kind === 'timed')
+      drafts[key] = JSON.stringify(value);
     else if (Array.isArray(value) && value.every((item) => typeof item === 'string')) {
       drafts[key] = value.join(', ');
     }

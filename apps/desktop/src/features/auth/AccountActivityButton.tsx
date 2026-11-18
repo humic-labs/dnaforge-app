@@ -1,7 +1,5 @@
-import {
-  usePresentationOverlay,
-  PresentationScopeContext,
-} from '../../presentation/PresentationSurface';
+import { ActionMenu, type ActionMenuEntry } from '../../components/ActionMenu';
+import { INTERACTION_CLASS, MenuSeparator } from '@waypoint/ui-components';
 import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '../../stores/auth-store';
 import { CloudBackupModal } from './CloudBackupModal';
@@ -37,8 +35,6 @@ function ProfileIcon({ className }: { className?: string }) {
 }
 
 export function AccountActivityButton() {
-  const presentationOverlay = usePresentationOverlay('keyboard');
-
   const enabled = useDesktopSignInEnabled();
   const cloudSyncEnabled = useWorkspaceCloudSyncEnabled();
   const state = useAuthStore((s) => s.state);
@@ -48,7 +44,7 @@ export function AccountActivityButton() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [cloudModalOpen, setCloudModalOpen] = useState(false);
   const [projectSharingOpen, setProjectSharingOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const signedIn = state.status === 'signed-in';
   const session = state.status === 'signed-in' ? state.session : null;
@@ -104,30 +100,76 @@ export function AccountActivityButton() {
     });
   }, []);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [menuOpen]);
+  const entries: ActionMenuEntry[] = [
+    ...(showCloudSurface
+      ? [
+          {
+            id: 'cloud',
+            label: 'Cloud backup',
+            testId: 'account-cloud-backup',
+            onSelect: () => setCloudModalOpen(true),
+          },
+        ]
+      : []),
+    ...(signedIn
+      ? [
+          {
+            id: 'organizations',
+            label: 'Organizations',
+            testId: 'account-manage-orgs',
+            onSelect: openOrganizationsSettings,
+          },
+          { id: 'account-separator', separator: true as const },
+          {
+            id: 'settings',
+            label: 'Account settings',
+            title: 'Profile settings',
+            testId: 'account-settings',
+            onSelect: openAccountSettings,
+          },
+          { id: 'sign-out-separator', separator: true as const },
+          {
+            id: 'sign-out',
+            label: 'Sign out',
+            testId: 'account-sign-out',
+            onSelect: () => {
+              void signOut();
+            },
+          },
+        ]
+      : [
+          {
+            id: 'sign-in',
+            label: busy ? 'Signing in…' : 'Sign in',
+            disabled: busy,
+            testId: 'account-sign-in',
+            onSelect: () => {
+              void startSignIn();
+            },
+          },
+        ]),
+  ];
 
   if (!enabled) return null;
 
   return (
-    <div ref={wrapRef} className="relative">
+    <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setMenuOpen((v) => !v)}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            setMenuOpen(true);
+          }
+        }}
         title={signedIn ? identity : 'Account'}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         data-testid="account-button"
         data-account-state={signedIn ? 'signed-in' : busy ? 'busy' : 'signed-out'}
-        className={`relative flex h-12 w-12 items-center justify-center transition-colors ${
-          signedIn ? 'text-accent hover:text-fg' : 'text-fg-muted hover:text-fg'
-        }`}
+        className={`${INTERACTION_CLASS} relative flex h-12 w-12 items-center justify-center ${signedIn ? 'text-accent' : 'text-fg-muted'}`}
       >
         <div className="h-6 w-6 overflow-hidden rounded-full">
           {avatarUrl ? (
@@ -146,15 +188,15 @@ export function AccountActivityButton() {
         )}
       </button>
 
-      {menuOpen && (
-        <PresentationScopeContext.Provider value={presentationOverlay.scope}>
-          <div
-            role="menu"
-            data-testid="account-menu"
-            className="absolute bottom-0 left-12 z-50 ml-1 w-60 rounded-md border border-border bg-bg p-1 shadow-xl"
-            ref={presentationOverlay.bindRef(undefined, '0')}
-          >
-            {}
+      <ActionMenu
+        open={menuOpen}
+        anchorRef={triggerRef}
+        label="Account"
+        testId="account-menu"
+        onClose={() => setMenuOpen(false)}
+        entries={entries}
+        header={
+          <>
             <div className="flex items-center gap-2.5 px-2 py-2">
               <div
                 data-testid="account-avatar"
@@ -182,91 +224,10 @@ export function AccountActivityButton() {
               </div>
             </div>
 
-            <div className="my-1 h-px bg-border" />
-
-            {showCloudSurface ? (
-              <button
-                type="button"
-                role="menuitem"
-                data-testid="account-cloud-backup"
-                onClick={() => {
-                  setMenuOpen(false);
-                  setCloudModalOpen(true);
-                }}
-                className="w-full rounded px-2 py-1.5 text-left text-sm text-fg-muted hover:bg-bg-muted hover:text-fg"
-              >
-                Cloud backup
-              </button>
-            ) : null}
-
-            {signedIn ? (
-              <button
-                type="button"
-                role="menuitem"
-                data-testid="account-manage-orgs"
-                onClick={() => {
-                  setMenuOpen(false);
-                  openOrganizationsSettings();
-                }}
-                className="w-full rounded px-2 py-1.5 text-left text-sm text-fg-muted hover:bg-bg-muted hover:text-fg"
-              >
-                Organizations
-              </button>
-            ) : null}
-
-            {signedIn || showCloudSurface ? <div className="my-1 h-px bg-border" /> : null}
-
-            {signedIn ? (
-              <>
-                <button
-                  type="button"
-                  role="menuitem"
-                  data-testid="account-settings"
-                  title="Profile settings"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    openAccountSettings();
-                  }}
-                  className="w-full rounded px-2 py-1.5 text-left text-sm text-fg-muted hover:bg-bg-muted hover:text-fg"
-                >
-                  Account settings
-                </button>
-                <div className="my-1 h-px bg-border" />
-              </>
-            ) : null}
-
-            {}
-            {signedIn ? (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setMenuOpen(false);
-                  void signOut();
-                }}
-                data-testid="account-sign-out"
-                className="w-full rounded px-2 py-1.5 text-left text-sm text-fg-muted hover:bg-bg-muted hover:text-fg"
-              >
-                Sign out
-              </button>
-            ) : (
-              <button
-                type="button"
-                role="menuitem"
-                disabled={busy}
-                onClick={() => {
-                  setMenuOpen(false);
-                  void startSignIn();
-                }}
-                data-testid="account-sign-in"
-                className="w-full rounded px-2 py-1.5 text-left text-sm text-fg-muted hover:bg-bg-muted hover:text-fg disabled:opacity-60 disabled:hover:bg-transparent"
-              >
-                {busy ? 'Signing in…' : 'Sign in'}
-              </button>
-            )}
-          </div>
-        </PresentationScopeContext.Provider>
-      )}
+            <MenuSeparator />
+          </>
+        }
+      />
 
       <CloudBackupModal
         open={projectSharingOpen}

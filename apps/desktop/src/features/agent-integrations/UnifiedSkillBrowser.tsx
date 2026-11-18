@@ -221,9 +221,7 @@ export function UnifiedSkillBrowser({
             aria-pressed={browserView === 'installed'}
             onClick={() => changeView('installed')}
             className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
-              browserView === 'installed'
-                ? 'bg-fg text-bg'
-                : 'text-fg-muted hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.055]'
+              browserView === 'installed' ? 'bg-fg text-bg' : 'text-fg-muted wp-interactive '
             }`}
           >
             Installed
@@ -234,9 +232,7 @@ export function UnifiedSkillBrowser({
             aria-pressed={browserView === 'available'}
             onClick={() => changeView('available')}
             className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
-              browserView === 'available'
-                ? 'bg-fg text-bg'
-                : 'text-fg-muted hover:bg-black/[0.04] hover:text-fg dark:hover:bg-white/[0.055]'
+              browserView === 'available' ? 'bg-fg text-bg' : 'text-fg-muted wp-interactive '
             }`}
           >
             Available
@@ -353,9 +349,7 @@ export function UnifiedSkillBrowser({
                     <li
                       key={row.key}
                       className={`flex min-h-14 items-center gap-2 rounded-md px-3 transition-colors ${
-                        selected
-                          ? 'bg-black/[0.07] dark:bg-white/[0.09]'
-                          : 'hover:bg-black/[0.05] dark:hover:bg-white/[0.07]'
+                        selected ? 'bg-black/[0.07] dark:bg-white/[0.09]' : 'wp-interactive '
                       }`}
                     >
                       <button

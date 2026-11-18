@@ -54,10 +54,30 @@ describe('FileContextMenu', () => {
 
   describe('visibility and positioning', () => {
     it('renders at the specified position', () => {
-      render(<FileContextMenu {...defaultProps} />);
-
-      const menu = screen.getByRole('menu');
-      expect(menu).toHaveStyle({ left: '100px', top: '200px' });
+      const rect = vi
+        .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+        .mockImplementation(function (this: HTMLElement) {
+          const left = Number.parseFloat(this.style.left) || 0;
+          const top = Number.parseFloat(this.style.top) || 0;
+          return {
+            x: left,
+            y: top,
+            left,
+            top,
+            right: left + 200,
+            bottom: top + 300,
+            width: 200,
+            height: 300,
+            toJSON: () => ({}),
+          };
+        });
+      try {
+        render(<FileContextMenu {...defaultProps} />);
+        const menu = screen.getByRole('menu');
+        expect(menu).toHaveStyle({ left: '100px', top: '200px' });
+      } finally {
+        rect.mockRestore();
+      }
     });
 
     it('closes when clicking outside', () => {
@@ -197,7 +217,6 @@ describe('FileContextMenu', () => {
       { isDirectory: true, isRootFolder: false },
       { isDirectory: true, isRootFolder: true },
     ])('keeps Notebook and Assembly inside the shared picker for %j', (context) => {
-      const onOpenAddPicker = vi.fn();
       const onNewTextFile = vi.fn();
       render(
         <FileContextMenu
@@ -206,14 +225,19 @@ describe('FileContextMenu', () => {
           onNewNotebook={vi.fn()}
           onNewAssembly={vi.fn()}
           onNewTextFile={onNewTextFile}
-          onOpenAddPicker={onOpenAddPicker}
+          newMenuEntries={[
+            { id: 'notebook', label: 'Notebook Entry', onSelect: vi.fn() },
+            { id: 'assembly', label: 'Assembly', onSelect: vi.fn() },
+          ]}
         />
       );
 
       expect(screen.queryByRole('menuitem', { name: 'Notebook Entry' })).not.toBeInTheDocument();
       expect(screen.queryByRole('menuitem', { name: 'Assembly' })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole('menuitem', { name: 'New…' }));
-      expect(onOpenAddPicker).toHaveBeenCalledOnce();
+      expect(screen.getByTestId('explorer-add-picker')).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Notebook Entry' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Assembly' })).toBeInTheDocument();
       fireEvent.click(screen.getByRole('menuitem', { name: 'Text File' }));
       expect(onNewTextFile).toHaveBeenCalledOnce();
     });
@@ -400,8 +424,14 @@ describe('FileContextMenu', () => {
         />
       );
 
-      expect(screen.getByText('Archive project…').closest('button')).not.toHaveClass('text-error');
-      expect(screen.getByText('Move to Trash…').closest('button')).toHaveClass('text-error');
+      expect(screen.getByText('Archive project…').closest('button')).toHaveAttribute(
+        'data-tone',
+        'default'
+      );
+      expect(screen.getByText('Move to Trash…').closest('button')).toHaveAttribute(
+        'data-tone',
+        'danger'
+      );
     });
   });
 
@@ -466,12 +496,13 @@ describe('FileContextMenu', () => {
 
     it('offers Duplicate for a supported non-root item and calls its handler', () => {
       const onDuplicate = vi.fn();
-      const { rerender } = render(<FileContextMenu {...defaultProps} onDuplicate={onDuplicate} />);
+      const { unmount } = render(<FileContextMenu {...defaultProps} onDuplicate={onDuplicate} />);
 
       fireEvent.click(screen.getByRole('menuitem', { name: 'Duplicate' }));
       expect(onDuplicate).toHaveBeenCalledOnce();
 
-      rerender(
+      unmount();
+      const { rerender } = render(
         <FileContextMenu
           {...defaultProps}
           isDirectory={true}
@@ -575,7 +606,7 @@ describe('FileContextMenu', () => {
     it('calls direct New Folder and Find in Folder... actions', () => {
       const onNewFolder = vi.fn();
       const onFindInFolder = vi.fn();
-      const { rerender } = render(
+      const { unmount } = render(
         <FileContextMenu
           {...defaultProps}
           isDirectory={true}
@@ -587,7 +618,8 @@ describe('FileContextMenu', () => {
       fireEvent.click(screen.getByRole('menuitem', { name: 'New Folder' }));
       expect(onNewFolder).toHaveBeenCalled();
 
-      rerender(
+      unmount();
+      render(
         <FileContextMenu
           {...defaultProps}
           isDirectory={true}
@@ -665,19 +697,13 @@ describe('FileContextMenu', () => {
       fireEvent.click(screen.getByRole('menuitem', { name: 'New File(s)...' }));
 
       for (const item of screen.getAllByRole('menuitem')) {
-        expect(item).toHaveClass('flex');
-        expect(item).toHaveClass('min-h-7');
-        expect(item).toHaveClass('items-center');
-        expect(item).toHaveClass('py-1');
-        expect(item).toHaveClass('leading-5');
-        expect(item).toHaveClass('whitespace-nowrap');
-        expect(item).toHaveClass('focus-visible:outline-none');
+        expect(item).toHaveClass('wp-menu-row');
+        expect(item.closest('[data-menu-density]')).toHaveAttribute('data-menu-density', 'compact');
+        expect(item.querySelector('.wp-menu-row-label')).not.toBeNull();
       }
 
       for (const separator of screen.getAllByRole('separator')) {
-        expect(separator).toHaveClass('my-1');
-        expect(separator).toHaveClass('h-px');
-        expect(separator).toHaveClass('bg-border');
+        expect(separator).toHaveClass('wp-menu-separator');
       }
     });
 
@@ -697,8 +723,14 @@ describe('FileContextMenu', () => {
 
       expect(screen.getByRole('menuitem', { name: 'New Folder' })).toBeInTheDocument();
       expect(screen.getByRole('menuitem', { name: 'Find in Folder...' })).toBeInTheDocument();
-      expect(screen.getByText('⌘⇧N')).toHaveClass('text-fg-muted/45');
-      expect(screen.getByText('⌘⌥⇧C')).toHaveClass('text-fg-muted/45');
+      expect(screen.getByText('⌘⇧N').closest('.wp-menu-row-shortcut')).toHaveAttribute(
+        'aria-hidden',
+        'true'
+      );
+      expect(screen.getByText('⌘⌥⇧C').closest('.wp-menu-row-shortcut')).toHaveAttribute(
+        'aria-hidden',
+        'true'
+      );
       expect(screen.queryByText('Shift+Cmd+N')).not.toBeInTheDocument();
     });
 

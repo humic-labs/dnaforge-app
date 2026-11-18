@@ -9,6 +9,18 @@ import {
 } from './quantitative-track-presentation';
 
 describe('quantitative track presentation', () => {
+  it.each(['band', 'points'] as const)(
+    'retains native %s geometry and a shared palette without changing scaling',
+    (graph) => {
+      const input = {
+        ...DEFAULT_QUANTITATIVE_TRACK_PRESENTATION,
+        graph,
+        palette: 'cividis' as const,
+      };
+      expect(normalizeQuantitativeTrackPresentation(input)).toEqual(input);
+    }
+  );
+
   it.each(['robust-global', 'full-global', 'visible-window', 'fixed'] as const)(
     'preserves %s ranges and clipping with values visited directly from intervals',
     (mode) => {

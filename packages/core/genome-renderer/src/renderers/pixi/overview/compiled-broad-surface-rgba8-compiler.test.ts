@@ -1,3 +1,8 @@
+import {
+  annotationDataAppearanceArtifactKeyV1,
+  compileAnnotationDataAppearanceV1,
+  type SourceAnnotationAliasesV1,
+} from '../../../annotation-data-appearance';
 import { describe, expect, it } from 'vitest';
 
 import type { AnnotationScenePrimitiveV1 } from './annotation-scene-binary-v1';
@@ -117,6 +122,89 @@ const SHAPE_SPECS: readonly PrimitiveSpec[] = [
 ];
 
 describe('compiled broad surface RGBA8 compiler', () => {
+  it('renders distinct measurements for the same source role through identical TypeScript and WASM pixels', async () => {
+    const fixture = await buildFixture(
+      [
+        {
+          featureIndex: 0,
+          lane: 0,
+          startBp: 30,
+          endBp: 90,
+          halfH: 7,
+          color: 0x808080,
+          alpha: 0.85,
+          dirSign: 0,
+          canonical: true,
+        },
+        {
+          featureIndex: 1,
+          lane: 0,
+          startBp: 120,
+          endBp: 180,
+          halfH: 7,
+          color: 0x808080,
+          alpha: 0.85,
+          dirSign: 0,
+          canonical: true,
+        },
+      ],
+      {
+        sourceAnnotationAliases: [
+          { featureIndex: 1, aliases: ['b0002'] },
+          { featureIndex: 0, aliases: ['gene-b0001', 'b0001'] },
+        ],
+      }
+    );
+    const original = fixture.packed.payload.slice();
+    const appearance = await compileAnnotationDataAppearanceV1({
+      colors: [
+        ['gene-b0001', 0x440154],
+        ['b0002', 0xfde725],
+      ],
+      themeMode: 'dark',
+    });
+    const surface = await buildSurface(fixture.packed, {
+      artifactKey: annotationDataAppearanceArtifactKeyV1(
+        'fixture-artifact',
+        appearance.fingerprint
+      ),
+    });
+    const compile = async (rasterizer: 'typescript' | 'wasm') => {
+      const cells: CapturedCell[] = [];
+      await compilePackedTranscriptBroadSurfaceRgba8V1({
+        packedScene: fixture.packed,
+        surfaceManifest: surface,
+        appearance,
+        rasterizer,
+        onCell: (cell) => {
+          cells.push(capture(cell));
+        },
+      });
+      return cells;
+    };
+    const typescript = await compile('typescript');
+    const wasm = await compile('wasm');
+    expect(wasm).toHaveLength(typescript.length);
+    for (let index = 0; index < typescript.length; index++) {
+      expect(equalBytes(wasm[index].pixels, typescript[index].pixels)).toBe(true);
+    }
+    for (const mode of ['canonical', 'expanded'] as const) {
+      const cell = findCell(typescript, mode, 0, 0, 0);
+      const first = Array.from(
+        cell.pixels.slice((7 * cell.widthPx + 50) * 4, (7 * cell.widthPx + 50) * 4 + 4)
+      );
+      const second = Array.from(
+        cell.pixels.slice((7 * cell.widthPx + 140) * 4, (7 * cell.widthPx + 140) * 4 + 4)
+      );
+      expect(first[3]).toBe(second[3]);
+      expect(first[0]).toBeLessThan(first[2]);
+      expect(second[0]).toBeGreaterThan(second[2]);
+      expect(first).not.toEqual(second);
+    }
+    expect(fixture.packed.payload).toEqual(original);
+    expect(surface.manifestFingerprint).not.toBe(fixture.surface.manifestFingerprint);
+  });
+
   it('streams every exact address including transparent cells with one bounded pixel buffer', async () => {
     const fixture = await buildFixture(SHAPE_SPECS);
     const captured: CapturedCell[] = [];
@@ -565,6 +653,7 @@ async function buildFixture(
     assemblyLengthBp?: number;
     finestSpanBp?: number;
     rasterDevicePixelRatio?: 1 | 2 | 3;
+    sourceAnnotationAliases?: readonly SourceAnnotationAliasesV1[];
   } = {}
 ): Promise<Fixture> {
   const assemblyLengthBp = options.assemblyLengthBp ?? 1_024;
@@ -626,7 +715,12 @@ async function buildFixture(
     assemblyContract: { assemblyId: 'fixture-assembly', assemblyLengthBp },
     families: [{ id: 'transcript-glyph-v2', kind: 'transcript', metadata: {} }],
     featureFamilyIndices: new Uint32Array(maxFeatureIndex + 1),
-    scene,
+    scene: {
+      ...scene,
+      ...(options.sourceAnnotationAliases
+        ? { sourceAnnotationAliases: options.sourceAnnotationAliases }
+        : {}),
+    },
     interactionIndex,
     policyProjection,
   });
@@ -640,6 +734,7 @@ async function buildFixture(
 async function buildSurface(
   packed: PackedPartitionedTranscriptSceneBinaryV4,
   options: {
+    artifactKey?: string;
     genomeLengthBp?: number;
     finestSpanBp?: number;
     rasterDevicePixelRatio?: 1 | 2 | 3;
@@ -649,7 +744,7 @@ async function buildSurface(
 ): Promise<CompiledBroadSurfaceManifestV2> {
   const rasterDevicePixelRatio = options.rasterDevicePixelRatio ?? 1;
   return buildCompiledBroadSurfaceManifestV2({
-    artifactKey: 'fixture-artifact',
+    artifactKey: options.artifactKey ?? 'fixture-artifact',
     trackId: 'mRNA',
     genomeLengthBp: options.genomeLengthBp ?? packed.manifest.assemblyContract.assemblyLengthBp,
     broadCorridorFinestSpanBp: options.finestSpanBp ?? 512,

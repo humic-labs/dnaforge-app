@@ -2,6 +2,9 @@ import { recoverComputeResult } from '../workspace-git/compute-result-recovery';
 import { configContract } from '../../shared/ipc/config.contract';
 import { registerGoogleSheetsHandlers } from './google-sheets';
 import { registerTrackViewIpcHandlers } from './track-views';
+import { registerSequenceDataLayerIpcHandlers } from './sequence-data-layers';
+import { registerContactSourceIpcHandlers } from './contact-sources';
+import { registerComparisonSourceIpcHandlers } from './comparison-sources';
 import { registerMolecularDocumentIpcHandlers } from './molecular-documents';
 import { handleGroup, mainIpc } from '../../shared/ipc-contract';
 import { app } from 'electron';
@@ -10,6 +13,8 @@ import { dirname, resolve } from 'node:path';
 import { getDb, registerDatabaseHandlers } from './database';
 import { registerFilesystemHandlers } from './filesystem';
 import { registerScientificDocumentHandlers } from './scientific-documents';
+import { registerWorkTaskHandlers } from './work-tasks';
+import { requestEntityNavigation } from '../features/entity-navigation';
 import { registerScientificObjectHandlers } from './scientific-objects';
 import { registerPdfExtractionHandlers } from '../pdf-extraction';
 import { registerDialogHandlers } from './dialog';
@@ -177,6 +182,7 @@ export function registerAllIpcHandlers(deps: RegisterAllIpcHandlersDeps = {}): v
   registerFilesystemHandlers();
   registerScientificDocumentHandlers();
   registerScientificObjectHandlers();
+  registerWorkTaskHandlers(nativeDocuments.notebookDocuments, requestEntityNavigation, getDb);
   registerInlineReferenceTargetHandlers();
   registerPdfExtractionHandlers();
   registerDialogHandlers();
@@ -291,5 +297,8 @@ export function registerAllIpcHandlers(deps: RegisterAllIpcHandlersDeps = {}): v
     appVersion: app.getVersion(),
   });
   registerTrackViewIpcHandlers();
+  registerSequenceDataLayerIpcHandlers();
+  registerContactSourceIpcHandlers();
+  registerComparisonSourceIpcHandlers();
   registerMolecularDocumentIpcHandlers();
 }

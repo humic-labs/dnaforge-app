@@ -1,3 +1,4 @@
+import { RegistryTemporalInput } from '../../../shared/components/RegistryTemporalInput';
 import { useMemo } from 'react';
 import {
   SETTINGS_FIELD_CLASS,
@@ -51,6 +52,23 @@ function FieldControl({
       </>
     );
   }
+  if (field.type === 'date' || field.type === 'datetime')
+    return (
+      <>
+        {label}
+        <RegistryTemporalInput
+          type={field.type}
+          label={field.label}
+          id={id}
+          testId={`entity-schema-field-${field.key}`}
+          text={String(value)}
+          change={onChange}
+          min={field.minDate}
+          max={field.maxDate}
+          required={field.required}
+        />
+      </>
+    );
   if (field.type === 'long_text') {
     return (
       <>
@@ -92,7 +110,7 @@ function FieldControl({
       <input
         id={id}
         data-testid={`entity-schema-field-${field.key}`}
-        type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+        type={field.type === 'number' ? 'number' : 'text'}
         required={field.required}
         value={String(value)}
         onChange={(event) => onChange(event.target.value)}

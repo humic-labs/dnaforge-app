@@ -24,7 +24,7 @@ export function NoStructurePlaceholder({
           type="button"
           data-testid="no-structure-predict"
           onClick={onPredictStructure}
-          className="mt-1 rounded border border-border px-3 py-1.5 text-xs font-medium text-fg hover:bg-bg-muted"
+          className="mt-1 rounded border border-border px-3 py-1.5 text-xs font-medium text-fg wp-interactive"
         >
           Predict structure
         </button>

@@ -84,6 +84,9 @@ export function ProjectResourceReferenceChip({ node, extension }: NodeViewProps)
     >
       <EntityReferenceChip
         entityType={entityType}
+        iconContext={
+          resource?.iconContext ?? { path: resource?.path, isDirectory: entityType === 'directory' }
+        }
         label={label}
         busy={loading || opening}
         onOpen={resource ? open : undefined}

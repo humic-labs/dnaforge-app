@@ -203,7 +203,7 @@ export function AnnotationAddForm({
           onClick={onCancel}
           title="Discard annotation draft"
           aria-label="Cancel annotation draft"
-          className="px-3 py-1 text-xs border border-border text-fg-muted rounded hover:bg-bg-subtle"
+          className="px-3 py-1 text-xs border border-border text-fg-muted rounded wp-interactive"
         >
           Cancel
         </button>

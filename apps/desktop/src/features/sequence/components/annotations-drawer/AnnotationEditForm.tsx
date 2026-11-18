@@ -141,7 +141,7 @@ export function AnnotationEditForm({
           onClick={onCancel}
           title="Discard unsaved annotation edits"
           aria-label="Cancel annotation edit"
-          className="px-3 py-1 text-xs border border-border text-fg-muted rounded hover:bg-bg-subtle"
+          className="px-3 py-1 text-xs border border-border text-fg-muted rounded wp-interactive"
         >
           Cancel
         </button>

@@ -1,3 +1,4 @@
+import type { AnnotationDataAppearanceV1 } from '@waypoint/genome-renderer/pure';
 import { isAnnotationColorRoleKeyV1 } from '@waypoint/genome-renderer/pure';
 import {
   COMPILED_BROAD_SURFACE_ADMISSION_PROVENANCE_V1,
@@ -71,6 +72,7 @@ export interface AssemblyCompiledBroadRasterLoaderTargetV1 {
   readonly genomeLengthBp: number;
   readonly placementFingerprint: string;
   readonly sceneRequest: AssemblyAnnotationSceneReadRequest;
+  readonly appearance?: AnnotationDataAppearanceV1;
   readonly artifact: AssemblyAnnotationSceneArtifactContract;
   readonly expectedAssetGeneration?: AssemblyReferenceAssetGenerationV1 | null;
   readonly policy: AssemblyAnnotationRuntimePolicy;
@@ -282,6 +284,11 @@ export interface AssemblyCompiledBroadRasterReadinessReceiptV1 {
 }
 
 interface AssemblyCompiledBroadRasterLoaderDependenciesV1 {
+  readonly prepareAppearance?: (
+    request: import('../../../shared/indexed-genome').AssemblyAnnotationAppearancePrepareRequestV1
+  ) => Promise<
+    import('../../../shared/indexed-genome').AssemblyAnnotationAppearancePrepareResultV1
+  >;
   readonly readManifest: (
     request: AssemblyCompiledBroadRasterManifestRequestV1
   ) => Promise<AssemblyCompiledBroadRasterManifestResultV1 | null>;
@@ -666,6 +673,7 @@ export class AssemblyCompiledBroadRasterLoaderV1 {
     const request: AssemblyCompiledBroadRasterManifestRequestV1 = {
       contract: ASSEMBLY_COMPILED_BROAD_RASTER_WIRE_V1,
       scene: target.sceneRequest,
+      ...(target.appearance ? { appearance: target.appearance } : {}),
     };
     const presentationLifecycle = this.#rendererPresentationLifecycle();
     const renderer = presentationLifecycle?.renderer ?? null;
@@ -688,6 +696,24 @@ export class AssemblyCompiledBroadRasterLoaderV1 {
     const publicationController = target.expectedAssetGeneration ? new AbortController() : null;
     if (publicationController) this.#manifestPublicationController = publicationController;
     try {
+      if (target.appearance) {
+        const prepared = await this.#dependencies.prepareAppearance?.({
+          ...request,
+          appearance: target.appearance,
+        });
+        if (this.#isStale(generation, target.identityKey)) {
+          this.#stale('appearance');
+          return;
+        }
+        if (
+          prepared?.status !== 'ready' ||
+          prepared.appearanceFingerprint !== target.appearance.fingerprint
+        ) {
+          throw new Error(
+            `Annotation data colors are unavailable: ${prepared?.status === 'unavailable' ? prepared.reason : 'preparation-unavailable'}`
+          );
+        }
+      }
       let publicationAttempt = 0;
       const readManifest =
         async (): Promise<AssemblyCompiledBroadRasterManifestResultV1 | null> => {
@@ -2092,6 +2118,7 @@ export class AssemblyCompiledBroadRasterLoaderV1 {
     const request: AssemblyCompiledBroadRasterManifestRequestV1 = {
       contract: ASSEMBLY_COMPILED_BROAD_RASTER_WIRE_V1,
       scene: ready.target.sceneRequest,
+      ...(ready.target.appearance ? { appearance: ready.target.appearance } : {}),
     };
     let wireResult: AssemblyCompiledBroadRasterManifestResultV1 | null;
     try {

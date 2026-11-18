@@ -1,4 +1,6 @@
-('use client');
+'use client';
+
+import { MenuNativeSelect } from '@waypoint/ui-components';
 
 import { memo, useState, useRef } from 'react';
 import type {
@@ -100,10 +102,10 @@ export const ViewerControls = memo(function ViewerControls({
         {}
         <div className="flex flex-col gap-1">
           <span className="text-[10px] text-fg-muted uppercase tracking-wide">Color</span>
-          <select
+          <MenuNativeSelect
+            aria-label="Structure color mode"
             value={colorMode}
             onChange={(e) => onColorModeChange(e.target.value as Structure3dColorMode)}
-            className="min-w-0 w-full text-xs px-1.5 py-1 rounded border bg-bg text-fg text-left cursor-pointer hover:border-fg-muted focus:outline-none focus:ring-1 focus:ring-accent border-border"
             data-testid="color-mode-select"
           >
             {colorOptions.map((opt) => (
@@ -111,7 +113,7 @@ export const ViewerControls = memo(function ViewerControls({
                 {opt.label}
               </option>
             ))}
-          </select>
+          </MenuNativeSelect>
         </div>
 
         {}
@@ -156,7 +158,7 @@ export const ViewerControls = memo(function ViewerControls({
               className={`w-full text-[10px] px-1.5 py-1 rounded border transition-colors ${
                 selectionsCount > 0
                   ? 'border-accent text-accent hover:bg-accent/10'
-                  : 'border-border text-fg-muted hover:border-fg-muted'
+                  : 'border-border text-fg-muted wp-interactive'
               }`}
             >
               Selections{selectionsCount > 0 ? ` (${selectionsCount})` : ''}
@@ -204,10 +206,10 @@ export const ViewerControls = memo(function ViewerControls({
       {}
       <div className="flex items-center gap-2">
         <span className="text-xs text-fg-muted">Color:</span>
-        <select
+        <MenuNativeSelect
+          aria-label="Structure color mode"
           value={colorMode}
           onChange={(e) => onColorModeChange(e.target.value as Structure3dColorMode)}
-          className="text-xs px-2 py-1 rounded border bg-bg text-fg cursor-pointer hover:border-fg-muted focus:outline-none focus:ring-1 focus:ring-accent border-border"
           data-testid="color-mode-select"
         >
           {colorOptions.map((opt) => (
@@ -215,7 +217,7 @@ export const ViewerControls = memo(function ViewerControls({
               {opt.label}
             </option>
           ))}
-        </select>
+        </MenuNativeSelect>
       </div>
 
       <div className="w-px h-4 bg-border" />
@@ -265,7 +267,7 @@ export const ViewerControls = memo(function ViewerControls({
             className={`text-xs px-2 py-1 rounded border transition-colors ${
               selectionsCount > 0
                 ? 'border-accent text-accent hover:bg-accent/10'
-                : 'border-border text-fg-muted hover:border-fg-muted'
+                : 'border-border text-fg-muted wp-interactive'
             }`}
           >
             Selections{selectionsCount > 0 ? ` (${selectionsCount})` : ''}

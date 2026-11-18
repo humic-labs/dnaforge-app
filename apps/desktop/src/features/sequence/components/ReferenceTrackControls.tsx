@@ -170,7 +170,7 @@ export function ReferenceTrackControls({
               disabled={preparing || !canIncreaseLaneLimit}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => stepLaneLimit(1)}
-              className="flex min-h-0 flex-1 items-center justify-center text-fg-muted hover:bg-bg-subtle hover:text-fg disabled:opacity-40"
+              className="flex min-h-0 flex-1 items-center justify-center text-fg-muted wp-interactive disabled:opacity-40"
             >
               <svg viewBox="0 0 8 5" className="h-1.5 w-2" aria-hidden>
                 <path d="M1 4 4 1l3 3" fill="none" stroke="currentColor" strokeWidth="1.25" />
@@ -182,7 +182,7 @@ export function ReferenceTrackControls({
               disabled={preparing || !canDecreaseLaneLimit}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => stepLaneLimit(-1)}
-              className="flex min-h-0 flex-1 items-center justify-center border-t border-border/80 text-fg-muted hover:bg-bg-subtle hover:text-fg disabled:opacity-40"
+              className="flex min-h-0 flex-1 items-center justify-center border-t border-border/80 text-fg-muted wp-interactive disabled:opacity-40"
             >
               <svg viewBox="0 0 8 5" className="h-1.5 w-2" aria-hidden>
                 <path d="m1 1 3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.25" />

@@ -1,3 +1,10 @@
+import { join } from 'node:path';
+import { resealPartitionedTranscriptSceneBinaryDatasetContractV4 } from '@waypoint/genome-renderer/pure';
+import { expandedAnnotationSceneAuthorizedInputPaths } from './assembly-expanded-annotation-scene-compiler';
+import {
+  assemblyAnnotationAppearanceArtifactDirectoryV1,
+  prepareAssemblyAnnotationAppearanceV1,
+} from './assembly-annotation-appearance-command';
 import {
   MAX_SEQUENCE_WINDOW_BASES,
   sequenceWindowRequestIssue,
@@ -43,6 +50,7 @@ import type {
   AssemblyCompiledBroadRasterCellsRequestV1,
   AssemblyCompiledBroadRasterCellsResultV1,
   AssemblyCompiledBroadRasterManifestRequestV1,
+  AssemblyAnnotationAppearancePrepareRequestV1,
   AssemblyCompiledBroadInteractionWireHitResultV1,
   AssemblyAnnotationSceneDetailReadRequestV1,
   AssemblyAnnotationSceneDetailWireReadResultV1,
@@ -245,11 +253,52 @@ async function admitSafePath(filePath: string): Promise<void> {
 
 const {
   service: assemblyReferenceAssets,
+  productIndex: assemblyAnnotationProductIndex,
   broadRasterPreparation: compiledBroadRasterPreparation,
   searchReadiness: assemblySearchReadiness,
 } = createAssemblyReferenceAssetAuthoritiesV1({
   assertSafePath: admitSafePath,
   sourceBuildFingerprint: __WAYPOINT_BUILD_SOURCE_FINGERPRINT__,
+  prepareSourceAnnotationAliases: async (hit) => {
+    const authority = await assemblyAnnotationGenerationAuthorityV1(hit.request);
+    if (authority === 'mismatch') throw new Error('Annotation source generation changed.');
+    const verify = async () => {
+      if (authority === 'portable')
+        await portablePreparedReferenceViewAuthorityV1.assertRetainedAnnotationSources(hit.request);
+      const current = await readAdmittedAnnotationSceneIndexV1(hit.request);
+      if (
+        !current ||
+        current.payloadSha256 !== hit.payloadSha256 ||
+        current.manifest.integrity.contractSha256 !== hit.sceneManifest.integrity.contractSha256
+      )
+        throw new Error('Retained annotation scene changed.');
+    };
+    await verify();
+    const authorizedSourceRealPaths = await Promise.all(
+      expandedAnnotationSceneAuthorizedInputPaths(hit.request).map(async (inputPath) => {
+        await admitSafePath(inputPath);
+        return { inputPath, realPath: await realpath(inputPath) };
+      })
+    );
+    const { compileRetainedSourceAnnotationAliasesInDedicatedWorkerV1 } =
+      await import('./assembly-expanded-annotation-scene-worker-factory');
+    const aliases = await compileRetainedSourceAnnotationAliasesInDedicatedWorkerV1(
+      {
+        request: hit.request,
+        authorizedMiss: {
+          status: 'miss',
+          ipcContractVersion: hit.request.ipcContractVersion,
+          fingerprint: hit.sourceFingerprint,
+          sourceBuildFingerprint: hit.sceneManifest.integrity.contractSha256,
+        },
+        runtimeSourceBuildFingerprint: __WAYPOINT_BUILD_SOURCE_FINGERPRINT__,
+        authorizedSourceRealPaths,
+      },
+      hit.payloadSha256
+    );
+    await verify();
+    return aliases;
+  },
   ensureSourceSummaries: async () => {
     throw new Error('Reference-asset refresh is not available through viewer runtime IPC.');
   },
@@ -263,6 +312,45 @@ const {
     });
   },
 });
+
+function annotationAppearanceCacheRootV1(): string {
+  return join(app.getPath('userData'), 'annotation-appearances.v1');
+}
+
+async function readAdmittedAnnotationSceneIndexV1(input: AssemblyAnnotationSceneReadRequest) {
+  const authority = await assemblyAnnotationGenerationAuthorityV1(input);
+  if (authority === 'mismatch') return null;
+  const readLocal = async () => {
+    const result = await readAssemblyAnnotationSceneCacheIndex(input, {
+      assertSafePath: admitSafePath,
+      sourceBuildFingerprint: __WAYPOINT_BUILD_SOURCE_FINGERPRINT__,
+    });
+    return result?.status === 'hit' ? result : null;
+  };
+  return authority === 'portable'
+    ? portablePreparedReferenceViewAuthorityV1.readSceneIndex(input)
+    : authority === 'local'
+      ? readLocal()
+      : ((await portablePreparedReferenceViewAuthorityV1.readSceneIndex(input)) ?? readLocal());
+}
+
+async function readAnnotationAppearanceSceneIndexV1(input: AssemblyAnnotationSceneReadRequest) {
+  const scene = await readAdmittedAnnotationSceneIndexV1(input);
+  if (!scene || scene.manifest.sourceAnnotationAliases) return scene;
+  const binding = await assemblyAnnotationProductIndex.readSourceAnnotationAliases({
+    request: input,
+    sourceFingerprint: scene.fingerprint,
+    scenePath: scene.scenePath,
+    sceneManifest: scene.manifest,
+    payloadSha256: scene.payloadSha256,
+  });
+  if (!binding) return scene;
+  const manifest = await resealPartitionedTranscriptSceneBinaryDatasetContractV4(
+    { ...scene.manifest, sourceAnnotationAliases: binding.aliases },
+    scene.manifest.datasetContract
+  );
+  return { ...scene, manifest };
+}
 
 function genomeSessionSearchReadinessDeps(): GenomeSessionSearchReadinessDeps {
   return {
@@ -1103,6 +1191,29 @@ export function registerGenomeDataHandlers(): void {
   );
 
   mainIpc.handle(
+    'genome:prepareAssemblyAnnotationAppearanceV1',
+    async (event, input: AssemblyAnnotationAppearancePrepareRequestV1) => {
+      const rendererGeneration = genomeRendererLifecycle.register(event.sender);
+      const result = await prepareAssemblyAnnotationAppearanceV1(input, {
+        cacheRoot: annotationAppearanceCacheRootV1(),
+        readSceneIndex: readAdmittedAnnotationSceneIndexV1,
+        prepareSourceAliases: (scene) =>
+          assemblyAnnotationProductIndex.prepareSourceAnnotationAliases({
+            request: input.scene,
+            sourceFingerprint: scene.fingerprint,
+            scenePath: scene.scenePath,
+            sceneManifest: scene.manifest,
+            payloadSha256: scene.payloadSha256,
+          }),
+        assertSafePath: admitSafePath,
+        preparation: compiledBroadRasterPreparation,
+      });
+      genomeRendererLifecycle.assertCurrent(event.sender, rendererGeneration);
+      return result;
+    }
+  );
+
+  mainIpc.handle(
     'genome:readAssemblyCompiledBroadRasterManifestV1',
     async (event, input: AssemblyCompiledBroadRasterManifestRequestV1) => {
       try {
@@ -1116,8 +1227,20 @@ export function registerGenomeDataHandlers(): void {
             readerCache: compiledBroadRasterReaders,
             maximumReaderCacheEntries: MAX_COMPILED_BROAD_RASTER_READER_CACHE,
           });
-        const opening =
-          generationAuthority === 'portable'
+        const opening = input.appearance
+          ? await openAssemblyCompiledBroadRasterCatalogV1(input, {
+              assertSafePath: admitSafePath,
+              sourceBuildFingerprint: __WAYPOINT_BUILD_SOURCE_FINGERPRINT__,
+              readSceneIndex: async (request) => readAnnotationAppearanceSceneIndexV1(request),
+              artifactDirectory: (address) =>
+                assemblyAnnotationAppearanceArtifactDirectoryV1({
+                  ...address,
+                  cacheRoot: annotationAppearanceCacheRootV1(),
+                }),
+              readerCache: compiledBroadRasterReaders,
+              maximumReaderCacheEntries: MAX_COMPILED_BROAD_RASTER_READER_CACHE,
+            })
+          : generationAuthority === 'portable'
             ? await portablePreparedReferenceViewAuthorityV1.open(input)
             : generationAuthority === 'local'
               ? await openLocal()
@@ -1178,7 +1301,10 @@ export function registerGenomeDataHandlers(): void {
             ...admitted.opening.request,
             surfaceManifestFingerprint: admitted.opening.surfaceManifest.manifestFingerprint,
           };
-          if (isPreparedReferenceRuntimePath(repairInput.scene.workspaceRoot)) {
+          if (
+            !repairInput.appearance &&
+            isPreparedReferenceRuntimePath(repairInput.scene.workspaceRoot)
+          ) {
             return compiledBroadRasterCellsUnavailable('artifact-io-failure');
           }
           return compiledBroadRasterCellsRepairState(

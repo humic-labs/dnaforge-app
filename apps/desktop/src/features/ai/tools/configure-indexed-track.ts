@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   DEFAULT_QUANTITATIVE_TRACK_PRESENTATION,
   MAX_QUANTITATIVE_SMOOTHING_SIGMA_BINS,
+  QUANTITATIVE_COLOR_PALETTE_IDS,
   normalizeQuantitativeTrackPresentation,
   type QuantitativeTrackPresentationV1,
 } from '@waypoint/genome-data';
@@ -25,6 +26,8 @@ import {
 
 const quantitativeSettingsSchema = z
   .object({
+    graph: z.enum(['bar', 'band', 'points']).optional().describe('Native genomic bars, heatmap band, or value points.'),
+    palette: z.enum(QUANTITATIVE_COLOR_PALETTE_IDS).optional().describe('Shared scientific color palette used by heatmap bands.'),
     mode: z
       .enum(['robust-global', 'full-global', 'visible-window', 'fixed'])
       .optional()
@@ -271,7 +274,10 @@ export function presentationPatchFromAgentSettings(
       ...patch,
       quantitative: {
         version: 1,
-        graph: 'bar',
+        graph: settings.quantitative.graph ?? current.graph,
+        ...((settings.quantitative.palette ?? current.palette) !== undefined
+          ? { palette: settings.quantitative.palette ?? current.palette }
+          : {}),
         showRange: settings.quantitative.showRange ?? current.showRange,
         smoothingSigmaBins:
           settings.quantitative.smoothingSigmaBins ?? current.smoothingSigmaBins ?? 0,

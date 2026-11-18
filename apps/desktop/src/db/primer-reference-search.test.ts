@@ -38,6 +38,15 @@ describe('searchPrimerReferencesByName', () => {
     mockSelect.mockResolvedValue([]);
   });
 
+  it('retains the canonical RNA oligo kind without changing the primer identity', async () => {
+    mockSelect.mockResolvedValue([row({ icon_kind: 'rna_oligo' })]);
+    const [candidate] = await searchPrimerReferencesByName({
+      query: 'M13',
+      workspaceRoot: '/ws/beta',
+    });
+    expect(candidate).toMatchObject({ primerId: 'p1', iconContext: { kind: 'rna_oligo' } });
+  });
+
   it('widens the SELECT to include origin_details', async () => {
     await searchPrimerReferencesByName({ query: 'M13', workspaceRoot: '/ws/beta' });
 

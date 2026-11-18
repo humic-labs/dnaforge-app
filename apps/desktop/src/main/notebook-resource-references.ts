@@ -1,3 +1,4 @@
+import { parseWorkTaskReferenceHref } from '../shared/work-task-reference';
 import type Database from 'better-sqlite3';
 import type { JSONContent } from '@tiptap/core';
 import { canonicalJson } from '../shared/canonical-json';
@@ -73,6 +74,16 @@ export function createNotebookResourceReferences(options: {
             (declaration.declaration.kind === 'workspace-path' ||
               declaration.declaration.kind === 'path-entity');
           if (remaining > 0 && !migrateLegacy) return node;
+          const workTask = typeof input === 'string' ? parseWorkTaskReferenceHref(input) : null;
+          if (workTask) {
+            const prepared = await prepareNotebookReferenceInsertion(options.db(), scope, {
+              kind: 'insert-reference',
+              index: 0,
+              workTask,
+            });
+            verifiers.push(prepared.verify);
+            return node;
+          }
           const referenceId = typeof input === 'string' ? savedReferenceIdFromHref(input) : null;
           const documentReference =
             typeof input === 'string' ? molecularDocumentReferenceFromHref(input) : null;

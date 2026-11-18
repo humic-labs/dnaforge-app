@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { structureScoreState } from '../utils/structureScoreState';
 import type { StructureScoreContext } from '../utils/structureScoreState';
 import { toUserMessage } from '@waypoint/user-messages';
@@ -74,23 +75,25 @@ export function MolViewSpecColorControls({
     <div className="text-xs">
       <label className="flex flex-col gap-1">
         <span className="text-[10px] uppercase tracking-wide text-fg-muted">Color</span>
-        <select
-          aria-label="Color structure"
-          data-testid="color-mode-select"
-          value={selectedMode}
-          disabled={!plugin || busy}
-          onChange={(event) => void apply(event.target.value as SceneColorMode)}
-          className="w-full rounded border border-border bg-bg px-2 py-1"
-        >
-          <option value="" disabled>
-            Custom scene colors
-          </option>
-          {sceneColorOptions(source).map(({ mode, label }) => (
-            <option key={mode} value={mode}>
-              {label}
+        <span className="block min-w-0 w-full">
+          <MenuNativeSelect
+            density="compact"
+            aria-label="Color structure"
+            data-testid="color-mode-select"
+            value={selectedMode}
+            disabled={!plugin || busy}
+            onChange={(event) => void apply(event.target.value as SceneColorMode)}
+          >
+            <option value="" disabled>
+              Custom scene colors
             </option>
-          ))}
-        </select>
+            {sceneColorOptions(source).map(({ mode, label }) => (
+              <option key={mode} value={mode}>
+                {label}
+              </option>
+            ))}
+          </MenuNativeSelect>
+        </span>
         {busy && <span role="status">Applying colors…</span>}
       </label>
       {error && (

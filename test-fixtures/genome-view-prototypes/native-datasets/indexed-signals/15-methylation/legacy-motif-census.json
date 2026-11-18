@@ -1,0 +1,89 @@
+{
+  "number": 15,
+  "title": "A methylation motif census",
+  "study": "Fang et al., 2012 \u00b7 published Table 1",
+  "description": "Published counts of tested and detected modifications for five unambiguous single-motif rows. This exploration compares motif-level prevalence; it does not fabricate a chromosome-wide modification track.",
+  "organism": "E. coli",
+  "reference": "C227-11 \u00b7 published Table 1, not MG1655",
+  "unit": "detected / tested positions (%)",
+  "sources": [
+    {
+      "file": "raw/comparison/fang.html",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3879109/",
+      "sha256": "05a37bfc72c4b06075f951d99ecbe3cd35c8d49ea540a049f4afacdd45a90f96",
+      "citation": "https://doi.org/10.1038/nbt.2432"
+    }
+  ],
+  "processing": "Transcribe the unique GATC, ACCACC, ATGCAT, CTGCAG and CCWGG Table 1 occurrence/detection counts; compute exact detected/tested \u00d7100. Deduplicate GATC rows referring to the same count; omit the two-part motif row whose denominator needs separate treatment.",
+  "dimensions": [
+    {
+      "key": "value",
+      "label": "Detected fraction",
+      "unit": "%"
+    },
+    {
+      "key": "detected",
+      "label": "Detected positions",
+      "unit": "positions"
+    },
+    {
+      "key": "tested",
+      "label": "Tested positions",
+      "unit": "positions"
+    }
+  ],
+  "records": [
+    {
+      "id": "GATC",
+      "label": "GATC",
+      "value": 94.09681510373046,
+      "tested": 41791,
+      "detected": 39324,
+      "notDetected": 2467,
+      "category": "motif-level summary"
+    },
+    {
+      "id": "ACCACC",
+      "label": "ACCACC",
+      "value": 93.18592057761734,
+      "tested": 4432,
+      "detected": 4130,
+      "notDetected": 302,
+      "category": "motif-level summary"
+    },
+    {
+      "id": "ATGCAT",
+      "label": "ATGCAT",
+      "value": 0.0,
+      "tested": 2000,
+      "detected": 0,
+      "notDetected": 2000,
+      "category": "motif-level summary"
+    },
+    {
+      "id": "CTGCAG",
+      "label": "CTGCAG",
+      "value": 96.17860016090106,
+      "tested": 2486,
+      "detected": 2391,
+      "notDetected": 95,
+      "category": "motif-level summary"
+    },
+    {
+      "id": "CCWGG",
+      "label": "CCWGG",
+      "value": 0.34152498329497366,
+      "tested": 26938,
+      "detected": 92,
+      "notDetected": 26846,
+      "category": "motif-level summary"
+    }
+  ],
+  "limits": [
+    "These are motif-level published aggregates, not individual modification-site coordinates.",
+    "Single-site processed calls were not retrieved for this prototype.",
+    "The ATGCAT row is reported inactive in the source; zero is a real published detection count.",
+    "Detection is thresholded evidence of kinetic variation, not a literal molecule-by-molecule methylation fraction."
+  ],
+  "id": "15-methylation"
+}

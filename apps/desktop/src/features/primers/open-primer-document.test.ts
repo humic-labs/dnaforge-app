@@ -5,12 +5,14 @@ import type { ProjectEditFolder } from '../workspace-loader/public/project-edit-
 const mocks = vi.hoisted(() => ({
   list: vi.fn(),
   present: vi.fn(),
+  catalogEntity: vi.fn(),
   mounted: [{ path: '/other-project', name: 'Other project' }],
 }));
 vi.mock('../../stores/workspaceStore', () => ({
   useWorkspaceStore: { getState: () => ({ folders: mocks.mounted }) },
 }));
 vi.mock('../canvas/public/present-document', () => ({ presentDocument: mocks.present }));
+vi.mock('../../db/workspace-catalog', () => ({ getCatalogEntityForFilePath: mocks.catalogEntity }));
 vi.mock('../workspace-loader/public/project-edit-folders', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../workspace-loader/public/project-edit-folders')>()),
   listProjectEditFolders: mocks.list,
@@ -20,6 +22,8 @@ import { openPrimerDocument } from './open-primer-document';
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.catalogEntity.mockReset();
+  mocks.catalogEntity.mockResolvedValue(null);
   mocks.mounted = [{ path: '/other-project', name: 'Other project' }];
   mocks.list.mockResolvedValue([
     { path: '/saved-home', name: 'Saved home', lifecycle: 'active', pinned: false },
@@ -35,6 +39,22 @@ beforeEach(() => {
 });
 
 describe('saved primer opening uses durable project ownership', () => {
+  it('presents a known saved RNA oligo with its entity kind before the editor loads', async () => {
+    mocks.catalogEntity.mockResolvedValue({
+      type: 'primer',
+      metadata: JSON.stringify({ entitySchema: { name: 'rna_oligo' } }),
+    });
+    await openPrimerDocument({
+      target: { kind: 'file', path: '/saved-home/p.primer.json', tabType: 'primer' },
+      label: 'Saved oligo',
+    });
+    expect(mocks.catalogEntity).toHaveBeenCalledWith('/saved-home/p.primer.json');
+    expect(mocks.present).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'primer', entityKind: 'rna_oligo' }),
+      undefined
+    );
+  });
+
   it('opens its registered home without mounting it or borrowing the active project', async () => {
     const folders = structuredClone(mocks.mounted);
     await expect(

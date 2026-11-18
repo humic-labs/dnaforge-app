@@ -93,7 +93,7 @@ export function IndexedGenomeIsoformDialog({
                   {state.isoforms.map((isoform) => (
                     <label
                       key={isoform.featureId}
-                      className="flex cursor-pointer items-start gap-3 rounded border border-border px-3 py-2 hover:bg-bg-muted"
+                      className="flex cursor-pointer items-start gap-3 rounded border border-border px-3 py-2 wp-interactive"
                     >
                       <input
                         type="radio"
@@ -124,7 +124,7 @@ export function IndexedGenomeIsoformDialog({
           <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-3">
             <button
               type="button"
-              className="rounded border border-border px-3 py-1.5 text-sm text-fg hover:bg-bg-muted"
+              className="rounded border border-border px-3 py-1.5 text-sm text-fg wp-interactive"
               onClick={onCancel}
             >
               Close
@@ -133,7 +133,7 @@ export function IndexedGenomeIsoformDialog({
               <>
                 <button
                   type="button"
-                  className="rounded border border-border px-3 py-1.5 text-sm font-medium text-fg hover:bg-bg-muted"
+                  className="rounded border border-border px-3 py-1.5 text-sm font-medium text-fg wp-interactive"
                   onClick={() => onCopy(selectedIsoform, 'dna')}
                 >
                   Copy DNA

@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useId, useMemo, useRef, useState } from 'react';
+import { MenuRow, MenuSearchInput, MenuStatus, useMenu } from '@waypoint/ui-components';
+import { PortalMenu } from '../../../components/PortalMenu';
 import { safeFocus } from '../../../shared/utils/safeFocus';
 
 export interface FilterableSelectOption {
@@ -47,60 +49,48 @@ export function FilterableSelect({
   emptyMessage = 'No matches',
 }: FilterableSelectProps) {
   const listId = useId();
-  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [activeValue, setActiveValue] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
+  const previousQuery = useRef(query);
   const selectedLabel = options.find((option) => option.value === value)?.label ?? '';
   const visible = useMemo(() => filterOptions(options, query), [options, query]);
-  const activeIndex = visible.findIndex((option) => option.value === activeValue);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    window.addEventListener('pointerdown', onPointerDown);
-    return () => window.removeEventListener('pointerdown', onPointerDown);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) setQuery('');
-  }, [open]);
-
-  const commit = (option: FilterableSelectOption) => {
-    setOpen(false);
-    setQuery('');
-    if (option.value !== value) onChange(option.value);
-  };
-
+  const menu = useMenu({
+    items: visible.map((option) => ({ id: option.value, textValue: option.label, disabled })),
+    selectedId: value,
+    onClose: () => setQuery(''),
+    onActivate: (id) => {
+      if (id !== value) onChange(id);
+    },
+  });
+  useLayoutEffect(() => {
+    if (previousQuery.current !== query) {
+      previousQuery.current = query;
+      if (visible[0]) menu.point(visible[0].value);
+    }
+  }, [query, visible, menu.point]);
   const openList = () => {
-    if (disabled || open) return;
-    setOpen(true);
-    setActiveValue(value || (options[0]?.value ?? null));
+    if (!disabled && !menu.isOpen) menu.openMenu(value);
   };
-
   return (
-    <div ref={containerRef} className="relative min-w-0 flex-1" data-testid={testId}>
-      <input
+    <div className="relative min-w-0 flex-1" data-testid={testId}>
+      <MenuSearchInput
         ref={inputRef}
         type="text"
         role="combobox"
         aria-label={label}
-        aria-expanded={open}
+        aria-expanded={menu.isOpen}
         aria-controls={listId}
         aria-autocomplete="list"
-        aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
+        aria-activedescendant={
+          menu.isOpen && menu.activeId !== null ? `${listId}-${menu.activeId}` : undefined
+        }
         autoComplete="off"
         spellCheck={false}
         disabled={disabled}
-        value={open ? query : selectedLabel}
-        placeholder={open ? selectedLabel || placeholder : placeholder}
-        className="h-8 w-full min-w-0 rounded border border-border bg-bg px-2 text-xs text-fg outline-none focus:border-accent disabled:opacity-60"
+        value={menu.isOpen ? query : selectedLabel}
+        placeholder={menu.isOpen ? selectedLabel || placeholder : placeholder}
         onMouseDown={(event) => {
-          if (open) return;
+          if (menu.isOpen) return;
           event.preventDefault();
           safeFocus(inputRef.current);
           openList();
@@ -108,75 +98,42 @@ export function FilterableSelect({
         onFocus={openList}
         onChange={(event) => {
           setQuery(event.target.value);
-          if (!open) setOpen(true);
-          const next = filterOptions(options, event.target.value);
-          setActiveValue(next[0]?.value ?? null);
+          openList();
         }}
-        onBlur={() => setOpen(false)}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape') {
-            if (!open) return;
-            event.preventDefault();
-            event.stopPropagation();
-            setOpen(false);
-            return;
-          }
-          if (event.key === 'Enter') {
-            if (!open) return;
-            event.preventDefault();
-            if (activeIndex >= 0) commit(visible[activeIndex]);
-            return;
-          }
-          if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-          event.preventDefault();
-          if (!open) {
-            openList();
-            return;
-          }
-          if (!visible.length) return;
-          const next =
-            event.key === 'ArrowDown'
-              ? Math.min(activeIndex + 1, visible.length - 1)
-              : activeIndex < 0
-                ? visible.length - 1
-                : Math.max(0, activeIndex - 1);
-          setActiveValue(visible[next].value);
-        }}
+        onBlur={() => menu.close('handoff')}
+        onKeyDown={menu.handleKeyDown}
       />
-      {}
-      {open ? (
-        <div
-          id={listId}
-          role="listbox"
-          aria-label={label}
-          className="absolute left-0 right-0 top-9 z-50 max-h-56 overflow-y-auto overscroll-contain rounded border border-border bg-bg p-1 shadow-lg"
-        >
-          {visible.length === 0 ? (
-            <p className="px-2 py-3 text-center text-[11px] text-fg-muted">{emptyMessage}</p>
-          ) : null}
-          {visible.map((option, index) => (
-            <button
-              key={option.value}
-              type="button"
-              id={`${listId}-${index}`}
-              role="option"
-              aria-selected={option.value === value}
-              tabIndex={-1}
-              onMouseDown={(event) => event.preventDefault()}
-              onPointerMove={() => setActiveValue(option.value)}
-              onClick={() => commit(option)}
-              className={`flex w-full items-baseline gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-bg-muted ${
-                index === activeIndex ? 'bg-bg-muted ring-1 ring-inset ring-accent/40' : ''
-              }`}
-            >
-              <span className="min-w-0 flex-1 truncate text-fg">{option.label}</span>
-              {option.hint ? (
-                <span className="shrink-0 truncate text-[11px] text-fg-muted">{option.hint}</span>
-              ) : null}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <PortalMenu
+        id={listId}
+        menu={menu}
+        open={menu.isOpen}
+        anchorRef={inputRef}
+        role="listbox"
+        aria-label={label}
+        preferredSide="bottom"
+        horizontalAlign="start"
+        selection
+        onRequestClose={menu.close}
+      >
+        {visible.length === 0 ? <MenuStatus>{emptyMessage}</MenuStatus> : null}
+        {visible.map((option) => (
+          <MenuRow
+            key={option.value}
+            id={`${listId}-${option.value}`}
+            role="option"
+            aria-selected={option.value === value}
+            selected={option.value === value}
+            active={menu.activeId === option.value}
+            tabIndex={-1}
+            onMouseDown={(event) => event.preventDefault()}
+            onPointerMove={() => menu.point(option.value)}
+            onClick={() => menu.activate(option.value)}
+            description={option.hint}
+          >
+            {option.label}
+          </MenuRow>
+        ))}
+      </PortalMenu>
     </div>
   );
 }

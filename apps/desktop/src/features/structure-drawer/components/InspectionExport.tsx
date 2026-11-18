@@ -74,7 +74,7 @@ export function InspectionExport({ view }: { view: MolecularView }) {
             key={format}
             disabled={busy || (format === 'csv' && !view.measurements?.length)}
             onClick={() => void save(format)}
-            className="block w-full rounded px-2 py-1 text-left hover:bg-bg-muted disabled:opacity-50"
+            className="block w-full rounded px-2 py-1 text-left wp-interactive disabled:opacity-50"
           >
             {label}
           </button>

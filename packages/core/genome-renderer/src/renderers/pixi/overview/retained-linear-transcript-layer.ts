@@ -57,7 +57,10 @@ export function getRetainedLinearTranscriptPackDebugSnapshot(): RetainedLinearTr
   return { ...transcriptPackDiagnostics };
 }
 
-function buildTranscriptVertexShader(policyProjection: boolean): string {
+export function buildTranscriptVertexShader(
+  policyProjection: boolean,
+  dataAppearance = false
+): string {
   const policyAttributes = policyProjection
     ? `
 attribute vec4 aPolicyLanes; // expanded, expandedTrack, canonical, canonicalTrack`
@@ -99,7 +102,7 @@ attribute float aHalfH;
 attribute float aDirSign;   // 0 plain rect | +1 fwd arrow | -1 rev arrow
 attribute float aCdsFade;
 attribute float aCorner;    // pentagon corner 0..4
-attribute vec4 aColor;${policyAttributes}
+attribute vec4 aColor;${dataAppearance ? '\nattribute vec4 aDataAppearance;' : ''}${policyAttributes}
 
 uniform float uXScale;
 uniform float uXOrigin;
@@ -182,6 +185,7 @@ void main() {
         uAnnotationTranscriptPalette,
         uAnnotationRnaPalette
       );
+  ${dataAppearance ? 'rgb = mix(rgb, aDataAppearance.rgb, aDataAppearance.a);' : ''}
   vColor = vec4(rgb, aColor.a * fade * policyVisible);
   vSubpixelActualWidth = actualWidth;
 }

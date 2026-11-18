@@ -34,20 +34,6 @@
     color var(--duration-fast) var(--ease-out);
 }
 
-.appbar-action:hover {
-  background-color: hsl(var(--color-bg-muted));
-  color: hsl(var(--color-fg));
-}
-
-.appbar-action:active {
-  background-color: hsl(var(--color-fg-muted) / 0.18);
-}
-
-.appbar-action:focus-visible {
-  outline: 2px solid hsl(var(--color-accent) / 0.55);
-  outline-offset: 2px;
-}
-
 .appbar-action-ai {
   color: hsl(var(--color-fg));
   background-image: linear-gradient(
@@ -96,6 +82,13 @@
   --color-fg: 40 10% 12%;
   --color-fg-muted: 40 5% 40%;
   --color-fg-subtle: 40 3% 55%;
+
+  --entity-icon-dna: #298054;
+  --entity-icon-rna: #8055af;
+  --entity-icon-protein: #bc4d51;
+  --entity-icon-data: #3479b5;
+  --entity-icon-code: #a46a25;
+  --entity-icon-neutral: #77786f;
 
   --color-border: 40 10% 88%;
   --color-border-hover: 40 8% 78%;
@@ -192,6 +185,13 @@
   --color-fg: 210 10% 93%;
   --color-fg-muted: 215 7% 74%;
   --color-fg-subtle: 215 6% 68%;
+
+  --entity-icon-dna: #80c79c;
+  --entity-icon-rna: #c2a0e7;
+  --entity-icon-protein: #f29798;
+  --entity-icon-data: #8ab8ec;
+  --entity-icon-code: #e2b270;
+  --entity-icon-neutral: #a4aa9b;
 
   --color-border: 220 6% 25%;
   --color-border-hover: 220 6% 34%;
@@ -454,13 +454,6 @@
   display: none;
 }
 
-.map-pane-zoom-step-button:hover:not(:disabled),
-.map-pane-zoom-step-button:focus-visible:not(:disabled) {
-  background: hsl(var(--color-fg) / 0.08);
-  color: hsl(var(--color-fg));
-  outline: none;
-}
-
 .map-pane-zoom-step-button:disabled {
   color: hsl(var(--color-fg-muted) / 0.28);
   cursor: default;
@@ -682,21 +675,9 @@
   transition: color var(--duration-fast) var(--ease-out);
 }
 
-.webgl-sync-lock-toggle:hover,
-.webgl-sync-lock-toggle:focus-visible {
-  background: hsl(var(--color-bg) / 0.8);
-  color: hsl(var(--color-fg));
-  outline: none;
-}
-
-.dark .webgl-sync-lock-toggle:hover,
-.dark .webgl-sync-lock-toggle:focus-visible {
-  background: hsl(var(--color-bg-muted) / 0.72);
-}
-
 .webgl-sync-lock-toggle:hover .webgl-sync-lock-toggle-state,
 .webgl-sync-lock-toggle:focus-visible .webgl-sync-lock-toggle-state {
-  color: hsl(var(--color-fg));
+  color: var(--interaction-hover-foreground);
 }
 
 .webgl-sync-lock-toggle[data-sync-state='on'] {
@@ -1264,7 +1245,7 @@ a[data-benchling-link-destination='external']::after {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  opacity: 0.75;
+  opacity: 1;
   color: var(--entity-ref-icon);
 }
 
@@ -1284,27 +1265,6 @@ a[data-benchling-link-destination='external']::after {
   font-size: 0.75rem;
   font-weight: 400;
   box-shadow: 0 4px 12px hsl(0 0% 0% / 0.15);
-}
-
-.entity-reference-chip__menu {
-  min-width: 10rem;
-}
-
-.entity-reference-chip__menu-item {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  padding: 0.375rem 0.75rem;
-  color: hsl(var(--color-fg));
-  font-size: 0.8125rem;
-  line-height: 1.25rem;
-  text-align: left;
-}
-
-.entity-reference-chip__menu-item:hover,
-.entity-reference-chip__menu-item:focus-visible {
-  background-color: hsl(var(--color-bg-muted));
-  outline: none;
 }
 
 .ProseMirror .mention-registry {
@@ -1459,35 +1419,21 @@ a[data-benchling-link-destination='external']::after {
   }
 }
 
-.file-type-color {
-  display: inline-flex;
-  flex-shrink: 0;
-  color: var(--file-type-color, currentColor);
+[data-entity-color-family='dna'] {
+  color: var(--entity-icon-dna) !important;
 }
-.file-type-color-sequence,
-.file-type-color-shell,
-.file-type-color-python {
-  --file-type-color: hsl(var(--color-accent));
+[data-entity-color-family='rna'] {
+  color: var(--entity-icon-rna) !important;
 }
-.file-type-color-structure,
-.file-type-color-config {
-  --file-type-color: hsl(var(--color-code-keyword));
+[data-entity-color-family='protein'] {
+  color: var(--entity-icon-protein) !important;
 }
-.file-type-color-data,
-.file-type-color-source,
-.file-type-color-web {
-  --file-type-color: hsl(var(--color-code-string));
+[data-entity-color-family='data'] {
+  color: var(--entity-icon-data) !important;
 }
-.file-type-color-javascript {
-  --file-type-color: hsl(var(--color-code-literal));
+[data-entity-color-family='code'] {
+  color: var(--entity-icon-code) !important;
 }
-.file-type-color-image {
-  --file-type-color: hsl(var(--color-code-variable));
-}
-.file-type-color-archive,
-.file-type-color-pdf {
-  --file-type-color: hsl(var(--color-error));
-}
-.file-type-color-document {
-  --file-type-color: hsl(var(--color-fg-muted));
+[data-entity-color-family='neutral'] {
+  color: var(--entity-icon-neutral) !important;
 }

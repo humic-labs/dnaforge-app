@@ -1,3 +1,8 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
+import { assertLimsTemporalEdits } from '@waypoint/scientific-artifacts/shared/lims-temporal';
+import { requireSupportedLimsFieldDefinitions } from '../../../../shared/lims';
+import { RegistryTemporalInput } from '../../../../shared/components/RegistryTemporalInput';
+import { temporalFieldValue, temporalFieldDraft } from '../../../../shared/registry-temporal-input';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
@@ -18,7 +23,7 @@ import type {
 import { RegistryRecordFields, RegistryRecordValue } from './RegistryRecordFields';
 import { RegistryRelationshipInput } from './RegistryRelationshipInput';
 import { getWorkspaceRootById } from '../../../../db/workspace-catalog';
-import { Button, TextField, TextArea, UI_FIELD_CLASS } from '../../../../components/ui';
+import { Button, TextField, TextArea } from '../../../../components/ui';
 import { MetadataSection } from '../../../../shared/components/MetadataSection';
 import { MetadataSaveButton } from '../../../../shared/components/MetadataSaveButton';
 import { metadataValuesEqual, metadataFieldDraftValue } from '../../../../shared/metadata-values';
@@ -134,6 +139,13 @@ export function RegistryRecordEditor({
         expectedEventSeq: draft.eventSeq,
         operationId: draft.operationId,
       };
+      assertLimsTemporalEdits(
+        input.fields ?? {},
+        requireSupportedLimsFieldDefinitions(
+          schema.fields.filter((f) => f.type === 'date' || f.type === 'datetime')
+        ),
+        draft.savedFields
+      );
       if (draft.scientificAuthority) await onSave(input, draft.scientificAuthority);
       else await onSave(input);
       setDraft(null);
@@ -314,16 +326,27 @@ function RecordFieldInput({
   if (field.readOnly) return <RegistryRecordValue type={field.type} value={value} />;
   const text = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
   switch (field.type) {
-    case 'text':
     case 'date':
+    case 'datetime':
+      return (
+        <RegistryTemporalInput
+          type={field.type}
+          label={field.label}
+          text={temporalFieldDraft(value)}
+          change={(text) =>
+            onChange(temporalFieldValue(field.type === 'datetime' ? 'datetime' : 'date', text))
+          }
+          min={field.minDate}
+          max={field.maxDate}
+          required={field.required}
+        />
+      );
+    case 'text':
       return (
         <TextField
           aria-label={field.label}
           value={text}
-          placeholder={field.type === 'date' ? 'YYYY-MM-DD' : undefined}
-          onChange={(event) =>
-            onChange(field.type === 'date' && !event.target.value ? null : event.target.value)
-          }
+          onChange={(event) => onChange(event.target.value)}
         />
       );
     case 'long_text':
@@ -351,34 +374,38 @@ function RecordFieldInput({
       );
     case 'boolean':
       return (
-        <select
-          aria-label={field.label}
-          className={UI_FIELD_CLASS}
-          value={value === true ? 'true' : value === false ? 'false' : ''}
-          onChange={(event) =>
-            onChange(event.target.value === '' ? null : event.target.value === 'true')
-          }
-        >
-          <option value="">No value</option>
-          <option value="true">Yes</option>
-          <option value="false">No</option>
-        </select>
+        <span className="block min-w-0 w-full">
+          <MenuNativeSelect
+            density="form"
+            aria-label={field.label}
+            value={value === true ? 'true' : value === false ? 'false' : ''}
+            onChange={(event) =>
+              onChange(event.target.value === '' ? null : event.target.value === 'true')
+            }
+          >
+            <option value="">No value</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </MenuNativeSelect>
+        </span>
       );
     case 'enum':
       return (
-        <select
-          aria-label={field.label}
-          className={UI_FIELD_CLASS}
-          value={text}
-          onChange={(event) => onChange(event.target.value || null)}
-        >
-          <option value="">No value</option>
-          {field.enumOptions?.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+        <span className="block min-w-0 w-full">
+          <MenuNativeSelect
+            density="form"
+            aria-label={field.label}
+            value={text}
+            onChange={(event) => onChange(event.target.value || null)}
+          >
+            <option value="">No value</option>
+            {field.enumOptions?.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </MenuNativeSelect>
+        </span>
       );
     case 'string_array':
       return (
