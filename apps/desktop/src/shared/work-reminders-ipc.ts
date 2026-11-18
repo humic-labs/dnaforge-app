@@ -87,6 +87,8 @@ export interface WorkReminderRuleView {
 export interface WorkReminderView {
   authority: 'local' | 'fenced' | 'hosted' | 'unarmed' | 'suspended';
   epoch: number;
+  canOfferHandoff?: boolean;
+  canAcceptHandoff?: boolean;
   pendingHandoff?: { requestId: string; expectedEpoch: number };
   offers?: { id: string; epoch: number }[];
   scope: 'local' | 'shared';

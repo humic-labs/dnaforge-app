@@ -16,7 +16,7 @@ import {
   type LocalEffect,
 } from './work-reminder-local';
 import {
-  handoffWorkReminders,
+  startProjectReminderHandoff,
   readRemoteWorkReminders,
   remoteWorkReminderClient,
   runRemoteReminderCommand,
@@ -47,7 +47,7 @@ async function applyReminderCommand(db: Database.Database, input: WorkReminderRe
     );
   const remote = remoteWorkReminderClient(db, p);
   if (cmd.action === 'handoff' && !cmd.sourceOfferId)
-    return handoffWorkReminders(db, p, requestId, cmd.expectedEpoch, remote);
+    return startProjectReminderHandoff(db, p, requestId, cmd.expectedEpoch, remote);
   if (cmd.action === 'rearm') return workRefused('Shared dispatch requires a verified handoff.');
   if ((cmd.action === 'consent' || cmd.action === 'rule') && cmd.desktop)
     return workRefused('Choose a shared delivery channel.');
