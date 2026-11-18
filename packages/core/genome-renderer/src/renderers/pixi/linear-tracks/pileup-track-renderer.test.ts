@@ -3160,41 +3160,41 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       const r = new PixiPileupTrackRenderer({ type: 'pileup-test' });
       const c = r.mount(mountArgs);
       const records = makeWindowReads(5_500, 100_000);
-      const advance = PersistentRowLayout.prototype.advanceAssignmentWithinBudget;
-      const assignment = vi
-        .spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget')
-        .mockImplementation(function (this: PersistentRowLayout, job, maxRecords, budgetMs) {
-          return advance.call(this, job, maxRecords, budgetMs, () => job.processedCount * 0.001);
-        });
-      let meshClock: ReturnType<typeof vi.spyOn> | undefined;
+      const msPerRecord = 0.001;
+      const recordsPerBudgetCheck = 4;
+      let clockReads = 0;
+      const clock = vi
+        .spyOn(performance, 'now')
+        .mockImplementation(() => ++clockReads * recordsPerBudgetCheck * msPerRecord);
+      const assignment = vi.spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget');
       try {
         r.paint(readPaint(c, records));
         expect(assignment.mock.lastCall?.[1]).toBe(4_096);
         expect(assignment.mock.lastCall?.[2]).toBeGreaterThan(0);
         expect(assignment.mock.lastCall?.[2]).toBeLessThanOrEqual(2);
         let d = r.getDiagnostics(c)!;
-        const expectedRecords = Math.floor(assignment.mock.lastCall![2] * 1_000);
+        const expectedRecords = Math.floor(assignment.mock.lastCall![2] / msPerRecord);
         expect(d.rowsAssignmentBuildRecordsLastFrame).toBeGreaterThanOrEqual(expectedRecords);
-        expect(d.rowsAssignmentBuildRecordsLastFrame).toBeLessThanOrEqual(expectedRecords + 4);
+        expect(d.rowsAssignmentBuildRecordsLastFrame).toBeLessThanOrEqual(
+          expectedRecords + recordsPerBudgetCheck
+        );
         expect(d.rowsAssignmentBuildInProgress).toBe(true);
-        while (d.rowsAssignmentBuildInProgress) {
+        for (let frame = 0; d.rowsAssignmentBuildInProgress && frame < 100; frame++) {
           r.paint(readPaint(c, records));
           d = r.getDiagnostics(c)!;
         }
-        let clock = 0;
-        meshClock = vi.spyOn(performance, 'now').mockImplementation(() => (clock += 0.01));
-        let mesh = r.getDiagnostics(c)!;
-        for (let frame = 0; frame < 100; frame++) {
+        expect(d.rowsAssignmentBuildInProgress).toBe(false);
+        let mesh = d;
+        for (let frame = 0; mesh.rowsMeshBuildRecordsLastFrame === 0 && frame < 100; frame++) {
+          expect(r.hasPendingPaintWork(c)).toBe(true);
           r.paint(readPaint(c, records));
           mesh = r.getDiagnostics(c)!;
-          if (mesh.rowsMeshBuildRecordsLastFrame > 0) break;
-          expect(r.hasPendingPaintWork(c)).toBe(true);
         }
         expect(mesh.rowsMeshBuildRecordsLastFrame).toBeGreaterThan(0);
         expect(mesh.rowsMeshBuildRecordsLastFrame).toBeLessThan(records.length);
         expect(mesh.rowsMeshBuildInProgress).toBe(true);
       } finally {
-        meshClock?.mockRestore();
+        clock.mockRestore();
         assignment.mockRestore();
         r.unmount(c);
       }
