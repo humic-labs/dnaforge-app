@@ -77,6 +77,7 @@ describe('project work', () => {
       make('today', '2026-11-17', '2026-11-21'),
       make('next', '2026-11-01', '2026-11-18'),
       make('later', '2026-11-19', '2026-11-20'),
+      make('earlier', '2026-11-12', null),
       make('none', null, null),
     ];
     expect(entries.map((e) => workAgendaBucket(e.status, e.schedule, now))).toEqual([
@@ -84,6 +85,7 @@ describe('project work', () => {
       'today',
       'upcoming',
       'upcoming',
+      'past-plan',
       'unscheduled',
     ]);
     expect(sortWorkAgenda([...entries].reverse(), now).map((e) => e.id)).toEqual(
@@ -220,4 +222,22 @@ it('resumes a paused series without generating missed occurrences and reads dead
     '2026-11-20',
     '2026-11-21',
   ]);
+});
+
+it('retains a recorded instant across changes to zone rules and checks current rules on new schedules', () => {
+  const base = run(null, { kind: 'create', name: 'Inspection' });
+  const earlierRules = {
+    kind: 'fixed' as const,
+    value: {
+      kind: 'timed' as const,
+      zone: 'America/Los_Angeles',
+      local: '2026-11-01T01:30:00',
+      instant: Date.parse('2026-11-01T07:30:00Z'),
+    },
+  };
+  const history = parseScientificDocument({ ...base, deadline: earlierRules });
+  expect(history).toMatchObject({ deadline: earlierRules });
+  expect(() => run(base, { kind: 'edit', deadline: earlierRules })).toThrow(
+    'current time zone rules'
+  );
 });

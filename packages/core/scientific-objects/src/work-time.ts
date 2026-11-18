@@ -1,6 +1,5 @@
 import {
   fromAbsolute,
-  parseAbsolute,
   parseDate,
   parseDateTime,
   toCalendarDate,
@@ -217,7 +216,10 @@ export function classifyLegacyWorkDate(raw: unknown, zone: string): LegacyWorkDa
   try {
     if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/.test(raw)) {
       calendarDay(raw.slice(0, 10));
-      const point = parseAbsolute(raw, 'UTC');
+      parseDateTime(raw.replace(/(Z|[+-]\d{2}:\d{2})$/, ''));
+      const instant = Date.parse(raw);
+      if (!Number.isSafeInteger(instant)) return { kind: 'unresolved', raw };
+      const point = fromAbsolute(instant, 'UTC');
       return {
         kind: 'exact',
         raw,
@@ -225,7 +227,7 @@ export function classifyLegacyWorkDate(raw: unknown, zone: string): LegacyWorkDa
           kind: 'timed',
           local: toCalendarDateTime(point).toString(),
           zone: 'UTC',
-          instant: point.toDate().getTime(),
+          instant,
         },
       };
     }

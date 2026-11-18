@@ -86,14 +86,13 @@ function time(value: unknown): WorkTime {
   const local = string(o.local),
     zone = string(o.zone),
     at = instant(o.instant);
-  const parsed = workTimeFromInput({ kind: 'timed', local, zone, fold: 'earlier' });
-  if (
-    parsed.kind !== 'timed' ||
-    toCalendarDateTime(fromAbsolute(at, zone)).toString() !== parsed.local
-  ) {
-    reject('Saved local time does not match its resolved instant.');
-  }
-  return { kind: 'timed', local: parsed.local, zone, instant: at };
+  if (/^[+-]/.test(zone)) reject('Choose a named time zone.');
+  new Intl.DateTimeFormat('en', { timeZone: zone });
+  const wall = workTimeFromInput({ kind: 'timed', local, zone: 'UTC' });
+  if (wall.kind !== 'timed') reject('Expected a timed work value.');
+  const offset = wall.instant - at;
+  if (Math.abs(offset) >= 86_400_000 || offset % 1000 !== 0) reject('Invalid saved UTC offset.');
+  return { kind: 'timed', local: wall.local, zone, instant: at };
 }
 
 function link(value: unknown): WorkLink {
@@ -355,6 +354,19 @@ function changes(command: WorkTaskFields, context: WorkTaskContext): WorkTaskFie
   if (command.plan !== undefined) result.plan = plan(command.plan);
   if (command.deadline !== undefined)
     result.deadline = command.deadline === null ? null : spec(command.deadline);
+  const activeTimes = [
+    result.recurrence?.anchor,
+    ...[result.plan?.start, result.plan?.end, result.deadline].flatMap((value) =>
+      value?.kind === 'fixed' ? [value.value] : []
+    ),
+  ];
+  for (const value of activeTimes) {
+    if (
+      value?.kind === 'timed' &&
+      toCalendarDateTime(fromAbsolute(value.instant, value.zone)).toString() !== value.local
+    )
+      reject('The selected instant does not match its local time in the current time zone rules.');
+  }
   for (const binding of [result.plan?.start, result.plan?.end, result.deadline]) {
     if (binding?.kind !== 'relative') continue;
     const resolution = resolveWorkSchedule(
@@ -844,6 +856,7 @@ export type WorkAgendaBucket =
   | 'overdue'
   | 'today'
   | 'upcoming'
+  | 'past-plan'
   | 'unscheduled'
   | 'unresolved'
   | 'terminal';
@@ -864,6 +877,7 @@ export function workAgendaBucket(
   )
     return 'today';
   if (due === 'upcoming' || (start && workTimeStart(start) > now)) return 'upcoming';
+  if (start && due === 'unscheduled' && schedule.end.kind !== 'unresolved') return 'past-plan';
   if (
     due === 'unresolved' ||
     schedule.start.kind === 'unresolved' ||
@@ -880,6 +894,7 @@ export function sortWorkAgenda<
     'overdue',
     'today',
     'upcoming',
+    'past-plan',
     'unresolved',
     'unscheduled',
     'terminal',

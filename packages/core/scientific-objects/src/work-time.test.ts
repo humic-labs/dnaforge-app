@@ -63,6 +63,10 @@ describe('work dates', () => {
       kind: 'exact',
       value: { kind: 'timed', instant: Date.parse('2024-02-29T08:30:00Z'), zone: 'UTC' },
     });
+    expect(classifyLegacyWorkDate('2024-02-29T09:30:00-03:30', zone)).toMatchObject({
+      kind: 'exact',
+      value: { instant: Date.parse('2024-02-29T13:00:00Z') },
+    });
     expect(classifyLegacyWorkDate('2026-11', zone)).toEqual({
       kind: 'partial',
       raw: '2026-11',
