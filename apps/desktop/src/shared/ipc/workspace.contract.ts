@@ -15,6 +15,7 @@ import type {
   ImportSequenceContentResult,
   ManagedCatalogHeadIndex,
   ManagedCatalogHeadIndexRequest,
+  WorkspaceEntityMigrationResult,
   ManagedHeadIndex,
   ManagedWorkspaceLifecycleRequest,
   ManagedWorkspaceLifecycleResult,
@@ -36,6 +37,9 @@ import type { DedupPreviewItem } from '../import-dedup';
 import { defineGroup, invoke, event } from './contract';
 
 export const workspaceContract = defineGroup('workspace', {
+  onMigrationCandidatesChanged: event<[event: { workspaceRoot: string }]>().channel(
+    'workspace:migrationCandidatesChanged'
+  ),
   resolveProjectRoot: invoke<[request: ResolveProjectRootRequest], ResolvedProjectRoot>(),
   rootStatus: invoke<[], WorkspaceRootStatus[]>(),
   relinkRoot: invoke<[request: RelinkWorkspaceRootRequest], RelinkWorkspaceRootResult>(),
@@ -106,6 +110,10 @@ export const workspaceContract = defineGroup('workspace', {
   discoverArtifacts: invoke<
     [request: WorkspaceArtifactDiscoveryRequest],
     WorkspaceArtifactDiscoveryResult
+  >(),
+  migrateLegacyProjectFiles: invoke<
+    [request: { repoPath: string; mutationToken?: string }],
+    WorkspaceEntityMigrationResult
   >(),
   onImportProgress: event<[event: ImportProgressEvent]>().channel('workspace:import-progress'),
 });

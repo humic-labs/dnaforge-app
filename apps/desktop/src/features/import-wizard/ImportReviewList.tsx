@@ -26,6 +26,7 @@ const BLOCK_LABELS = {
   non_dna_content: userMessage('import.label.non-dna-content'),
   lossless_conversion_blocked: userMessage('import.label.lossless-conversion-blocked'),
   source_too_large: userMessage('import.label.source-too-large'),
+  automatic_split_required: userMessage('import.label.automatic-split-required'),
   record_name_conflict: userMessage('import.label.record-name-conflict'),
 } as const;
 

@@ -1447,10 +1447,10 @@ async function materializeSyncedWorkspace(
         : input.downloadManifestFile
     );
     if (conversion.failures.length > 0) {
-      console.warn(
-        `[workspace-sync] Restored workspace "${workspaceUuid}" with ` +
-          `${conversion.failures.length} package conversion failure(s).`,
-        conversion.failures
+      throw new Error(
+        `Remote workspace package conversion failed: ${conversion.failures
+          .map((failure) => `${failure.path}: ${failure.message}`)
+          .join('; ')}`
       );
     }
     const registryProjection: FreshRestoreRegistryProjection =
@@ -3066,6 +3066,7 @@ async function writeRemoteVersionIntoFreshManagedRepo(
     failures: [],
     requiredGitFiles: [],
     mutatedGitFiles: [],
+    expectedContentSha256: {},
   };
 }
 
@@ -3457,7 +3458,9 @@ async function replaceBundleFilesInExistingManagedRepo(
         if (!isNodeError(error) || error.code !== 'ENOENT') throw error;
       }
     }
-    const generatedPackageFiles = conversion.mutatedGitFiles;
+    const generatedPackageFiles = conversion.mutatedGitFiles.filter(
+      (path) => conversion.expectedContentSha256[path] !== null
+    );
     const pathsToInstall = [
       ...new Set([MANAGED_WORKSPACE_MARKER, ...existingBundlePaths, ...generatedPackageFiles]),
     ];
