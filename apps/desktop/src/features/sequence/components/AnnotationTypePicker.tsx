@@ -1,6 +1,12 @@
 import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  INTERACTION_CLASS,
+  MenuCaret,
+  MenuSearchInput,
+  MenuSurface,
+} from '@waypoint/ui-components';
 
 import type { AnnotationTrackDefinition } from '../annotation-track-registry';
 
@@ -182,23 +188,6 @@ interface Box {
   left: number;
   width: number;
   height: number;
-}
-
-function ChevronIcon({ open, className }: { open: boolean; className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.25}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      {open ? <path d="M6 15l6-6 6 6" /> : <path d="M6 9l6 6 6-6" />}
-    </svg>
-  );
 }
 
 function SummaryBadges({
@@ -412,7 +401,7 @@ export function AnnotationTypePicker({
       >
         {selectedCount} of {registry.length}
       </span>
-      <ChevronIcon open={open && morphed} className="h-4 w-4 shrink-0 text-fg-muted" />
+      <MenuCaret direction={open && morphed ? 'up' : 'down'} />
     </div>
   );
 
@@ -438,8 +427,8 @@ export function AnnotationTypePicker({
           if (open) beginClose();
           else beginOpen();
         }}
-        className={`flex w-full min-w-0 flex-col items-stretch gap-1 rounded px-0.5 py-0.5 text-left transition-[background-color] duration-0 ${
-          open ? 'invisible' : 'hover:bg-fg/[0.08]'
+        className={`${INTERACTION_CLASS} flex w-full min-w-0 flex-col items-stretch gap-1 rounded px-0.5 py-0.5 text-left ${
+          open ? 'invisible' : ''
         }`}
       >
         {headerRow}
@@ -449,8 +438,10 @@ export function AnnotationTypePicker({
       {open &&
         box &&
         createPortal(
-          <div
+          <MenuSurface
             ref={panelRef}
+            content="panel"
+            selection={false}
             role="group"
             aria-label="Annotation types"
             data-testid="annotation-type-picker"
@@ -467,9 +458,7 @@ export function AnnotationTypePicker({
               transformOrigin: 'top left',
               transition: `top ${MORPH_MS}ms ease-out, left ${MORPH_MS}ms ease-out, width ${MORPH_MS}ms ease-out, height ${MORPH_MS}ms ease-out, box-shadow ${MORPH_MS}ms ease-out`,
             }}
-            className={`flex flex-col rounded-md border border-border/60 bg-bg ${
-              morphed ? 'shadow-lg' : 'shadow-sm'
-            }`}
+            className="flex flex-col"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <button
@@ -480,7 +469,7 @@ export function AnnotationTypePicker({
                 e.stopPropagation();
                 beginClose();
               }}
-              className="flex w-full min-w-0 shrink-0 flex-col items-stretch gap-1 px-2.5 pt-2 pb-1.5 text-left hover:bg-fg/[0.04]"
+              className={`${INTERACTION_CLASS} flex w-full min-w-0 shrink-0 flex-col items-stretch gap-1 px-2.5 pt-2 pb-1.5 text-left`}
             >
               {headerRow}
               {badgesBlock}
@@ -511,7 +500,7 @@ export function AnnotationTypePicker({
                         className={`rounded-full border px-2.5 py-0.5 text-[11px] transition-[background-color,color,border-color] duration-0 ${
                           active
                             ? 'border-fg bg-fg text-bg'
-                            : 'border-border text-fg-muted hover:border-fg-muted hover:bg-fg/[0.08] hover:text-fg'
+                            : `${INTERACTION_CLASS} border-border text-fg-muted`
                         }`}
                       >
                         {preset.label}
@@ -520,14 +509,13 @@ export function AnnotationTypePicker({
                   })}
                 </div>
 
-                <input
+                <MenuSearchInput
                   type="search"
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
                   placeholder="Filter…"
                   data-testid="annotation-type-filter"
                   autoFocus={bodyRevealed}
-                  className="h-7 w-full border-0 border-b border-border/50 bg-transparent px-0 text-xs text-fg outline-none placeholder:text-fg-subtle focus:border-fg-muted"
                 />
               </div>
 
@@ -566,7 +554,7 @@ export function AnnotationTypePicker({
                                 className={`rounded-full border px-2.5 py-0.5 text-[11px] transition-[background-color,color,border-color] duration-0 ${
                                   checked
                                     ? 'border-emerald-600/40 bg-emerald-600/15 text-fg'
-                                    : 'border-border text-fg-muted hover:border-fg-muted hover:bg-fg/[0.08] hover:text-fg'
+                                    : `${INTERACTION_CLASS} border-border text-fg-muted`
                                 }`}
                               >
                                 {track.label}
@@ -580,7 +568,7 @@ export function AnnotationTypePicker({
                 )}
               </div>
             </div>
-          </div>,
+          </MenuSurface>,
           document.body
         )}
     </div>

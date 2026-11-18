@@ -236,7 +236,7 @@ export function MergeConflictPanel({
                   className={`rounded border px-1 py-1 text-[10px] disabled:opacity-40 ${
                     choice === 'mine'
                       ? 'border-accent bg-accent/10 text-accent'
-                      : 'border-border text-fg-muted hover:bg-bg-muted hover:text-fg'
+                      : 'border-border text-fg-muted wp-interactive '
                   }`}
                 >
                   {item.local === null ? 'Keep my deletion' : 'Keep mine'}
@@ -250,7 +250,7 @@ export function MergeConflictPanel({
                   className={`rounded border px-1 py-1 text-[10px] disabled:opacity-40 ${
                     choice === 'theirs'
                       ? 'border-accent bg-accent/10 text-accent'
-                      : 'border-border text-fg-muted hover:bg-bg-muted hover:text-fg'
+                      : 'border-border text-fg-muted wp-interactive '
                   }`}
                 >
                   {item.remote === null ? (
@@ -273,7 +273,7 @@ export function MergeConflictPanel({
                   className={`rounded border px-1 py-1 text-[10px] disabled:opacity-40 ${
                     choice === 'both'
                       ? 'border-accent bg-accent/10 text-accent'
-                      : 'border-border text-fg-muted hover:bg-bg-muted hover:text-fg'
+                      : 'border-border text-fg-muted wp-interactive '
                   }`}
                 >
                   Keep both
@@ -322,7 +322,7 @@ export function MergeConflictPanel({
           disabled={commandInFlight || !allChosen}
           onClick={() => onResolve(choices)}
           data-testid="merge-conflict-apply"
-          className="rounded border border-border px-1 py-1 text-center text-[11px] text-fg-muted hover:bg-bg-muted hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded border border-border px-1 py-1 text-center text-[11px] text-fg-muted wp-interactive disabled:cursor-not-allowed disabled:opacity-50"
         >
           {commandInFlight ? 'Applying…' : 'Apply choices'}
         </button>
@@ -331,7 +331,7 @@ export function MergeConflictPanel({
           disabled={commandInFlight}
           onClick={onReconcileAgain}
           data-testid="merge-conflict-refresh"
-          className="rounded border border-border px-1 py-1 text-center text-[11px] text-fg-muted hover:bg-bg-muted hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded border border-border px-1 py-1 text-center text-[11px] text-fg-muted wp-interactive disabled:cursor-not-allowed disabled:opacity-50"
         >
           Check again
         </button>

@@ -523,7 +523,7 @@ function BoundPortalMenu({
             : undefined
         }
         aria-label={ariaLabel}
-        data-testid={testId}
+        data-testid={testId ?? dataAttributes?.['data-testid']}
         data-ph-no-capture={privateContent || undefined}
         data-analytics-block={privateContent || undefined}
         data-ph-mask={privateContent || undefined}

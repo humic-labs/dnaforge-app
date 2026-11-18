@@ -925,7 +925,8 @@ describe('FileBrowser', () => {
       expect(screen.queryByRole('button', { name: 'New text file' })).not.toBeInTheDocument();
 
       const picker = openExplorerAddPicker();
-      expect(picker).toHaveAttribute('data-placement', 'native-cascade');
+      expect(picker).toBeVisible();
+      expect(picker).toHaveAttribute('data-menu-id', 'root/new-entity');
       expect(picker).toHaveAttribute('data-launch-source', 'context-menu');
       expect(picker).toHaveAttribute('data-destination-path', '/mock/test/workspace');
       expect(within(picker).queryByText('Project-scale actions')).not.toBeInTheDocument();
@@ -961,13 +962,12 @@ describe('FileBrowser', () => {
       expect(within(picker).queryByText(/plasmid|chromosome/i)).not.toBeInTheDocument();
       fireEvent.click(within(picker).getByRole('menuitem', { name: 'DNA sequences' }));
       expect(
-        within(within(picker).getByRole('menu', { name: 'DNA sequences actions' })).getByRole(
-          'menuitem',
-          { name: 'Create' }
-        )
+        within(screen.getByRole('menu', { name: 'DNA sequences actions' })).getByRole('menuitem', {
+          name: 'Create',
+        })
       ).toBeDisabled();
       fireEvent.click(within(picker).getByRole('menuitem', { name: 'Notebook Entry' }));
-      const notebookActions = within(picker).getByRole('menu', { name: 'Notebook Entry actions' });
+      const notebookActions = screen.getByRole('menu', { name: 'Notebook Entry actions' });
       expect(within(notebookActions).getByRole('menuitem', { name: 'Create' })).toBeEnabled();
       expect(within(notebookActions).queryByRole('menuitem', { name: 'Import' })).toBeNull();
     });
@@ -988,7 +988,7 @@ describe('FileBrowser', () => {
       let picker = openExplorerAddPicker();
       expect(within(picker).queryByRole('menuitem', { name: 'Assemblies' })).toBeNull();
       fireEvent.click(within(picker).getByRole('menuitem', { name: 'Assembly' }));
-      let actions = within(picker).getByRole('menu', { name: 'Assembly actions' });
+      let actions = screen.getByRole('menu', { name: 'Assembly actions' });
       fireEvent.click(within(actions).getByRole('menuitem', { name: 'Blank assembly' }));
       expect(onCreateAssembly).toHaveBeenLastCalledWith({
         mode: 'blank',
@@ -997,7 +997,7 @@ describe('FileBrowser', () => {
 
       picker = openExplorerAddPicker();
       fireEvent.click(within(picker).getByRole('menuitem', { name: 'Assembly' }));
-      actions = within(picker).getByRole('menu', { name: 'Assembly actions' });
+      actions = screen.getByRole('menu', { name: 'Assembly actions' });
       fireEvent.click(within(actions).getByRole('menuitem', { name: 'From schema…' }));
       expect(onCreateAssembly).toHaveBeenLastCalledWith({
         mode: 'schema',
@@ -1016,7 +1016,7 @@ describe('FileBrowser', () => {
 
       const picker = openExplorerAddPicker();
       fireEvent.click(within(picker).getByRole('menuitem', { name: 'DNA oligos' }));
-      const actions = within(picker).getByRole('menu', { name: 'DNA oligos actions' });
+      const actions = screen.getByRole('menu', { name: 'DNA oligos actions' });
       expect(within(actions).getByRole('menuitem', { name: 'Create' })).toBeDisabled();
       fireEvent.click(within(actions).getByRole('menuitem', { name: 'Import' }));
 
@@ -1065,7 +1065,7 @@ describe('FileBrowser', () => {
 
       const picker = openProjectScopedPicker();
       fireEvent.click(within(picker).getByRole('menuitem', { name: 'DNA sequences' }));
-      const dnaActions = within(picker).getByRole('menu', { name: 'DNA sequences actions' });
+      const dnaActions = screen.getByRole('menu', { name: 'DNA sequences actions' });
       const create = within(dnaActions).getByRole('menuitem', { name: 'Create' });
       expect(create).toBeEnabled();
       fireEvent.click(create);
@@ -1097,7 +1097,7 @@ describe('FileBrowser', () => {
         const reopenedPicker = openProjectScopedPicker();
         fireEvent.click(within(reopenedPicker).getByRole('menuitem', { name: type.label }));
         const createAction = within(
-          within(reopenedPicker).getByRole('menu', { name: `${type.label} actions` })
+          screen.getByRole('menu', { name: `${type.label} actions` })
         ).getByRole('menuitem', { name: 'Create' });
         expect(createAction).toBeEnabled();
         fireEvent.click(createAction);
@@ -1134,7 +1134,7 @@ describe('FileBrowser', () => {
       const notebookItem = within(picker).getByRole('menuitem', { name: 'Notebook Entry' });
       expect(notebookItem.querySelector('svg[data-tab-type-icon="page"]')).not.toBeNull();
       fireEvent.click(notebookItem);
-      const notebookActions = within(picker).getByRole('menu', { name: 'Notebook Entry actions' });
+      const notebookActions = screen.getByRole('menu', { name: 'Notebook Entry actions' });
       expect(notebookActions.querySelector('svg[data-tab-type-icon="page"]')).not.toBeNull();
       fireEvent.click(within(notebookActions).getByRole('menuitem', { name: 'Create' }));
 
@@ -1186,10 +1186,9 @@ describe('FileBrowser', () => {
       const picker = openExplorerAddPicker();
       fireEvent.click(within(picker).getByRole('menuitem', { name: 'DNA sequences' }));
       fireEvent.click(
-        within(within(picker).getByRole('menu', { name: 'DNA sequences actions' })).getByRole(
-          'menuitem',
-          { name: 'Import' }
-        )
+        within(screen.getByRole('menu', { name: 'DNA sequences actions' })).getByRole('menuitem', {
+          name: 'Import',
+        })
       );
 
       expect(onImportEntity).toHaveBeenCalledWith({
@@ -1465,6 +1464,28 @@ describe('FileBrowser', () => {
       expect(within(picker).queryByRole('menuitem', { name: 'Text File' })).not.toBeInTheDocument();
     });
 
+    it('keeps parent keyboard navigation after hovering New and enters its shared child explicitly', async () => {
+      render(<FileBrowser onFileSelect={vi.fn()} onAddFolder={vi.fn()} />);
+      const file = await screen.findByText('plasmid');
+      fireEvent.contextMenu(file);
+      const newItem = screen.getByRole('menuitem', { name: 'New…' });
+      act(() => newItem.focus());
+      fireEvent.pointerEnter(newItem);
+      expect(screen.getByTestId('explorer-add-picker')).toBeInTheDocument();
+      expect(newItem).toHaveFocus();
+      fireEvent.keyDown(newItem, { key: 'ArrowDown' });
+      const nextTopLevel = screen.getByRole('menuitem', { name: 'Text File' });
+      expect(nextTopLevel).toHaveFocus();
+      expect(screen.queryByTestId('explorer-add-picker')).not.toBeInTheDocument();
+      fireEvent.keyDown(nextTopLevel, { key: 'ArrowUp' });
+      expect(newItem).toHaveFocus();
+      fireEvent.keyDown(newItem, { key: 'ArrowRight' });
+      const firstType = screen.getByRole('menuitem', { name: 'Notebook Entry' });
+      expect(firstType).toHaveFocus();
+      fireEvent.keyDown(firstType, { key: 'ArrowLeft' });
+      expect(newItem).toHaveFocus();
+    });
+
     it('selects and focuses a right-clicked tree row with an app-styled focus ring', async () => {
       render(<FileBrowser onFileSelect={vi.fn()} onAddFolder={vi.fn()} />);
 
@@ -1478,10 +1499,19 @@ describe('FileBrowser', () => {
 
       fireEvent.contextMenu(plasmidRow);
 
-      expect(plasmidRow).toHaveFocus();
       expect(mockSetSelectedPath).toHaveBeenCalledWith('/mock/test/workspace/plasmid.gb');
-      expect(plasmidRow).toHaveClass('outline-none');
-      expect(plasmidRow).toHaveClass('focus-visible:ring-accent/45');
+      expect(plasmidRow).toHaveAttribute('data-selected', 'true');
+      const menu = screen.getByRole('menu', { name: 'File actions for plasmid' });
+      const firstCommand = within(menu)
+        .getAllByRole('menuitem')
+        .find((item) => !item.hasAttribute('disabled'))!;
+      expect(firstCommand).toHaveFocus();
+      fireEvent.keyDown(firstCommand, { key: 'Escape' });
+      await waitFor(() => expect(plasmidRow).toHaveFocus());
+      expect(
+        screen.queryByRole('menu', { name: 'File actions for plasmid' })
+      ).not.toBeInTheDocument();
+      expect(plasmidRow).toHaveAttribute('data-selected', 'true');
     });
 
     it('wires Copy Relative Path to the filesystem-relative path', async () => {
@@ -1553,7 +1583,7 @@ describe('FileBrowser', () => {
       expect(within(picker).getByRole('menuitem', { name: 'DNA sequences' })).toBeVisible();
 
       fireEvent.click(within(picker).getByRole('menuitem', { name: 'Strains' }));
-      expect(within(picker).getByRole('menu', { name: 'Strains actions' })).toBeVisible();
+      expect(screen.getByRole('menu', { name: 'Strains actions' })).toBeVisible();
     });
 
     it('wires Find in Folder... for directory context menus', async () => {
@@ -1617,10 +1647,9 @@ describe('FileBrowser', () => {
       const picker = screen.getByTestId('explorer-add-picker');
       fireEvent.click(within(picker).getByRole('menuitem', { name: 'DNA sequences' }));
       fireEvent.click(
-        within(within(picker).getByRole('menu', { name: 'DNA sequences actions' })).getByRole(
-          'menuitem',
-          { name: 'Create' }
-        )
+        within(screen.getByRole('menu', { name: 'DNA sequences actions' })).getByRole('menuitem', {
+          name: 'Create',
+        })
       );
 
       await screen.findByDisplayValue('Untitled DNA sequence');
@@ -1649,10 +1678,9 @@ describe('FileBrowser', () => {
       let picker = screen.getByTestId('explorer-add-picker');
       fireEvent.click(within(picker).getByRole('menuitem', { name: 'DNA sequences' }));
       fireEvent.click(
-        within(within(picker).getByRole('menu', { name: 'DNA sequences actions' })).getByRole(
-          'menuitem',
-          { name: 'Create' }
-        )
+        within(screen.getByRole('menu', { name: 'DNA sequences actions' })).getByRole('menuitem', {
+          name: 'Create',
+        })
       );
       const sequenceInput = await screen.findByDisplayValue('Untitled DNA sequence');
       fireEvent.change(sequenceInput, { target: { value: 'renamed' } });
@@ -1673,10 +1701,9 @@ describe('FileBrowser', () => {
       picker = screen.getByTestId('explorer-add-picker');
       fireEvent.click(within(picker).getByRole('menuitem', { name: 'DNA sequences' }));
       fireEvent.click(
-        within(within(picker).getByRole('menu', { name: 'DNA sequences actions' })).getByRole(
-          'menuitem',
-          { name: 'Create' }
-        )
+        within(screen.getByRole('menu', { name: 'DNA sequences actions' })).getByRole('menuitem', {
+          name: 'Create',
+        })
       );
       const secondInput = await screen.findByDisplayValue('Untitled DNA sequence');
       fireEvent.keyDown(secondInput, { key: 'Escape' });

@@ -48,7 +48,7 @@ function renderPicker(
       buttonTestId="route-button"
       menuTestId="route-menu"
       optionTestIdPrefix="route-option"
-      buttonClassName=""
+      wrapperClassName=""
       menuClassName=""
     />
   );

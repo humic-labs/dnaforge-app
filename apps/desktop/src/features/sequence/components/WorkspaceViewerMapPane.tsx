@@ -148,7 +148,7 @@ export function WorkspaceViewerMapPane({
           >
             <button
               type="button"
-              className="webgl-sync-lock-toggle"
+              className="webgl-sync-lock-toggle wp-interactive"
               data-testid="webgl-sync-lock-toggle"
               data-sync-state={isWebglSyncLocked ? 'on' : 'off'}
               aria-pressed={isWebglSyncLocked}

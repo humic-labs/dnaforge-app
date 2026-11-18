@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { MenuTrigger, MenuRow, useMenu } from '@waypoint/ui-components';
 import { PortalMenu } from '@/components/PortalMenu';
 import { safeFocus } from '@/shared/utils/safeFocus';
 
@@ -9,7 +10,6 @@ export function ColorPalette({
   onPick,
   onClear,
   disabled = false,
-  className,
   testId,
   children,
 }: {
@@ -23,139 +23,133 @@ export function ColorPalette({
   testId?: string;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const close = () => {
-    setOpen(false);
-    safeFocus(triggerRef.current, { preventScroll: true });
-  };
-
+  const rows = useRef(new Map<string, HTMLButtonElement>());
+  const items = [
+    ...colors.map((color) => ({
+      id: `color:${color.value}`,
+      textValue: color.name,
+      closeOnActivate: false,
+    })),
+    { id: 'clear', textValue: 'Reset color', closeOnActivate: false },
+  ];
+  const menu = useMenu({
+    items,
+    selectedId: value ? `color:${value}` : null,
+    onFocusItem: (id) => safeFocus(rows.current.get(id)),
+    onActivate: (id) => {
+      menu.close('handoff');
+      if (id === 'clear') onClear();
+      else {
+        const color = colors.find((candidate) => `color:${candidate.value}` === id);
+        if (color) onPick(color.value);
+      }
+    },
+  });
+  const closeMenu = menu.close;
   useEffect(() => {
-    if (!open) return;
-    const frame = requestAnimationFrame(() =>
-      safeFocus(
-        menuRef.current?.querySelector<HTMLElement>('[aria-checked="true"]') ??
-          menuRef.current?.querySelector<HTMLElement>('[role="menuitemradio"]')
-      )
-    );
-    return () => cancelAnimationFrame(frame);
-  }, [open]);
-  useEffect(() => {
-    if (disabled) setOpen(false);
-  }, [disabled]);
+    if (disabled) closeMenu('owner-revoked');
+  }, [disabled, closeMenu]);
 
   return (
     <>
-      <button
+      <MenuTrigger
         ref={triggerRef}
-        type="button"
+        variant="toolbar"
+        iconOnly
+        icon={children}
         disabled={disabled}
         aria-label={label}
         title={label}
         aria-haspopup="menu"
-        aria-expanded={open}
+        open={menu.isOpen}
         data-testid={testId}
-        className={`${className} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent`}
-        onClick={() => setOpen((current) => !current)}
-        onKeyDown={(event) => {
-          if (event.key === 'ArrowDown') {
-            event.preventDefault();
-            setOpen(true);
-          }
-        }}
-      >
-        {children}
-      </button>
+        onClick={() => (menu.isOpen ? menu.close('trigger') : menu.openMenu())}
+        onKeyDown={menu.handleKeyDown}
+      />
       <PortalMenu
-        open={open && !disabled}
+        open={menu.isOpen && !disabled}
+        menu={menu}
         anchorRef={triggerRef}
-        surfaceRef={menuRef}
-        onRequestClose={close}
+        onRequestClose={menu.close}
         role="menu"
         aria-label={label}
         horizontalAlign="start"
         preferredSide="bottom"
-        className="p-2"
+        selection={false}
       >
         <div
           onKeyDown={(event) => {
-            const controls = Array.from(
-              menuRef.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? []
-            );
-            const index = controls.indexOf(document.activeElement as HTMLElement);
+            if (event.defaultPrevented || event.nativeEvent.isComposing) return;
+            const index = items.findIndex((item) => item.id === menu.activeId);
+            if (index < 0) return;
             let next: number;
             switch (event.key) {
               case 'ArrowRight':
-                next = (index + 1) % controls.length;
+                next = (index + 1) % items.length;
                 break;
               case 'ArrowLeft':
-                next = (index - 1 + controls.length) % controls.length;
+                next = (index - 1 + items.length) % items.length;
                 break;
               case 'ArrowDown':
-                next = Math.min(index + 4, controls.length - 1);
+                next = Math.min(index + 4, items.length - 1);
                 break;
               case 'ArrowUp':
                 next = Math.max(index - 4, 0);
                 break;
-              case 'Home':
-                next = 0;
-                break;
-              case 'End':
-                next = controls.length - 1;
-                break;
-              case 'Escape':
-                event.preventDefault();
-                event.stopPropagation();
-                close();
-                return;
-              case 'Tab':
-                setOpen(false);
-                return;
               default:
                 return;
             }
             event.preventDefault();
             event.stopPropagation();
-            safeFocus(controls[next]);
+            menu.move('next', 'root', { itemIds: [items[index].id, items[next].id] });
           }}
         >
-          <div className="grid grid-cols-4 gap-1.5">
-            {colors.map((color) => (
-              <button
-                key={color.value}
-                type="button"
-                role="menuitemradio"
-                aria-label={color.name}
-                aria-checked={value === color.value}
-                title={color.name}
-                data-testid={
-                  testId
-                    ? `${testId.replace(/-colors$/, '')}-${color.name.toLowerCase()}`
-                    : undefined
-                }
-                className="h-6 w-6 rounded-sm border border-border hover:border-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                style={{ backgroundColor: color.value }}
-                onClick={() => {
-                  onPick(color.value);
-                  close();
-                }}
-              />
-            ))}
+          <div className="grid grid-cols-4 gap-1.5 p-1">
+            {colors.map((color) => {
+              const id = `color:${color.value}`;
+              return (
+                <button
+                  key={id}
+                  ref={(node) => {
+                    if (node) rows.current.set(id, node);
+                    else rows.current.delete(id);
+                  }}
+                  type="button"
+                  role="menuitemradio"
+                  aria-label={color.name}
+                  aria-checked={value === color.value}
+                  data-active={menu.activeId === id}
+                  tabIndex={menu.activeId === id ? 0 : -1}
+                  title={color.name}
+                  data-testid={
+                    testId
+                      ? `${testId.replace(/-colors$/, '')}-${color.name.toLowerCase()}`
+                      : undefined
+                  }
+                  className="h-6 w-6 rounded-sm border border-border hover:border-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  style={{ backgroundColor: color.value }}
+                  onFocus={() => menu.point(id)}
+                  onClick={() => menu.activate(id)}
+                />
+              );
+            })}
           </div>
-          <button
-            type="button"
+          <MenuRow
+            ref={(node) => {
+              if (node) rows.current.set('clear', node);
+              else rows.current.delete('clear');
+            }}
             role="menuitem"
+            active={menu.activeId === 'clear'}
+            tabIndex={menu.activeId === 'clear' ? 0 : -1}
             aria-label={`Remove ${label === 'Highlight color' ? 'highlight' : label.toLowerCase()}`}
             data-testid={testId ? `${testId.replace(/-colors$/, '')}-none` : undefined}
-            className="mt-2 w-full rounded px-2 py-1 text-left text-xs text-fg-muted hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            onClick={() => {
-              onClear();
-              close();
-            }}
+            onFocus={() => menu.point('clear')}
+            onClick={() => menu.activate('clear')}
           >
             Reset color
-          </button>
+          </MenuRow>
         </div>
       </PortalMenu>
     </>

@@ -14,7 +14,7 @@ export function StructureTargetButton({
       title={`Center and zoom to ${label}`}
       disabled={disabled || !onClick}
       onClick={onClick}
-      className="shrink-0 rounded p-1 text-fg-muted enabled:hover:bg-bg-hover enabled:hover:text-fg disabled:opacity-40"
+      className="shrink-0 rounded p-1 text-fg-muted wp-interactive disabled:opacity-40"
     >
       <svg
         width="14"

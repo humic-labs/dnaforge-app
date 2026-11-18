@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import {
   usePresentationOverlay,
   PresentationScopeContext,
@@ -152,7 +153,7 @@ export function OpenSourceLicensesDialog({ onClose }: { onClose: () => void }) {
                 data-testid="open-source-licenses-close"
                 onClick={onClose}
                 aria-label="Close"
-                className="p-1 rounded hover:bg-bg-muted text-fg-muted hover:text-fg transition-colors"
+                className={`${INTERACTION_CLASS} p-1 rounded text-fg-muted transition-colors`}
               >
                 <CloseIcon size={16} />
               </button>

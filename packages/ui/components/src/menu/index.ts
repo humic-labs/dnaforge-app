@@ -1,3 +1,5 @@
+'use client';
+
 export * from './appearance';
 export * from './presentation';
 export * from './menu-state';

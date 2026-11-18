@@ -53,7 +53,7 @@ export function SessionListItem({
         <span className="text-xs text-red-400 flex-1">Delete &ldquo;{session.name}&rdquo;?</span>
         <button
           onClick={() => onCancelDelete()}
-          className="px-2 py-1 text-xs text-fg-muted hover:text-fg rounded border border-border"
+          className="px-2 py-1 text-xs text-fg-muted wp-interactive rounded border border-border"
         >
           Cancel
         </button>
@@ -72,7 +72,7 @@ export function SessionListItem({
       data-testid={`alignment-session-${session.id}`}
       onClick={() => onSetActive(session.id)}
       className={`group flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors ${
-        isActive ? 'bg-accent/10' : 'hover:bg-bg-subtle'
+        isActive ? 'bg-accent/10' : 'wp-interactive'
       } ${isArchived ? 'opacity-50' : ''}`}
     >
       <div className="flex-1 min-w-0">
@@ -133,7 +133,7 @@ export function SessionListItem({
               onArchive(session.id);
             }
           }}
-          className="text-fg-muted hover:text-fg p-1 rounded hover:bg-bg-subtle transition-colors"
+          className="text-fg-muted wp-interactive p-1 rounded transition-colors"
           aria-label={isArchived ? 'Unarchive' : 'Archive'}
           title={isArchived ? 'Unarchive' : 'Archive'}
         >

@@ -100,7 +100,7 @@ export function PrimerLengthField({
           onClick={() => step(1)}
           disabled={!wrap && value >= max}
           tabIndex={-1}
-          className="flex items-center justify-center rounded px-0.5 py-px text-fg-muted hover:bg-bg-muted hover:text-fg disabled:opacity-20"
+          className="flex items-center justify-center rounded px-0.5 py-px text-fg-muted wp-interactive disabled:opacity-20"
         >
           <StepperTriangle direction="up" className="h-2 w-3" />
         </button>
@@ -110,7 +110,7 @@ export function PrimerLengthField({
           onClick={() => step(-1)}
           disabled={!wrap && value <= min}
           tabIndex={-1}
-          className="flex items-center justify-center rounded px-0.5 py-px text-fg-muted hover:bg-bg-muted hover:text-fg disabled:opacity-20"
+          className="flex items-center justify-center rounded px-0.5 py-px text-fg-muted wp-interactive disabled:opacity-20"
         >
           <StepperTriangle direction="down" className="h-2 w-3" />
         </button>

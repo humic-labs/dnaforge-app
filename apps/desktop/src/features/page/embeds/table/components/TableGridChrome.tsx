@@ -128,7 +128,7 @@ export function TableGridFindOverlay(props: {
         type="button"
         onClick={closeFind}
         aria-label="Close find"
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-xs leading-none text-fg-muted hover:bg-bg-muted hover:text-fg"
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-xs leading-none text-fg-muted wp-interactive "
       >
         x
       </button>

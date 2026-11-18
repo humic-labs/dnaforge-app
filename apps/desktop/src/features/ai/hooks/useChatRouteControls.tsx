@@ -5,14 +5,13 @@ import {
   userMessage,
 } from '@waypoint/user-messages';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Button } from '../../../shared/components/Button';
 import { ConnectComputeProviderChip } from '../../compute';
 import {
   ChatComposerNestedOptionsMenu,
   type ChatComposerMenuAction,
   ChatComposerPicker,
   DirectApiModelTextInput,
-  CHAT_COMPOSER_PICKER_CLASS,
-  CHAT_MODEL_INPUT_CLASS,
   TURN_PROVIDER_LABELS,
   TURN_TRANSPORT_LABELS,
 } from '../../../components/chat/composer-controls';
@@ -425,7 +424,7 @@ export function useChatRouteControls({
         buttonTestId="model-selector-button"
         menuTestId="chat-assistant-route-menu"
         optionTestIdPrefix="chat-assistant-route-option"
-        buttonClassName={`${CHAT_COMPOSER_PICKER_CLASS} max-w-[14rem]`}
+        wrapperClassName="max-w-[14rem]"
         menuClassName="w-72 sm:w-80"
       />
     );
@@ -448,29 +447,29 @@ export function useChatRouteControls({
 
     if (!configured) {
       return (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="xs"
           disabled
-          className={CHAT_COMPOSER_PICKER_CLASS}
           title={`${providerLabel} needs an API key before model selection is available`}
           data-testid="chat-model-version-disabled"
         >
           Model needs key
-        </button>
+        </Button>
       );
     }
 
     if (fetchStatus === 'loading') {
       return (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="xs"
           disabled
-          className={CHAT_COMPOSER_PICKER_CLASS}
           title={`Loading ${providerLabel} models`}
           data-testid="chat-model-version-loading"
         >
           Loading models
-        </button>
+        </Button>
       );
     }
 
@@ -541,9 +540,10 @@ export function useChatRouteControls({
                 })
           }
         >
-          <button
-            type="button"
-            className={`${CHAT_COMPOSER_PICKER_CLASS} text-danger`}
+          <Button
+            variant="ghost"
+            size="xs"
+            className="text-danger"
             aria-label={`Retry ${TURN_TRANSPORT_LABELS[transport]} model discovery`}
             data-testid="chat-cli-model-discovery-error"
             onClick={() => {
@@ -553,7 +553,7 @@ export function useChatRouteControls({
             }}
           >
             Models unavailable · Retry
-          </button>
+          </Button>
           {beforeOptionsMenu}
           <ChatComposerNestedOptionsMenu
             ariaLabel={`More ${TURN_TRANSPORT_LABELS[transport]} options`}
@@ -602,8 +602,8 @@ export function useChatRouteControls({
           }}
           selectTestId="chat-cli-model-select"
           customInputTestId="chat-cli-model-custom-input"
-          selectClassName={`${CHAT_COMPOSER_PICKER_CLASS} max-w-[14rem]`}
-          customInputClassName={`${CHAT_MODEL_INPUT_CLASS} w-44`}
+          wrapperClassName="max-w-[14rem]"
+          customInputWrapperClassName="w-44"
           defaultModel={defaultModel}
           codexAuthMode={
             transport === 'codex-sdk' ? (agentDetection?.codex.authMode ?? null) : undefined

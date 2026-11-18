@@ -195,7 +195,7 @@ export function SequenceToolbarSidebar({
               className={`
               w-full h-8 flex items-center justify-center rounded text-sm relative overflow-visible
               transition-colors
-              ${viewPopoutOpen ? 'text-accent bg-accent/10' : 'text-fg-muted hover:bg-bg-muted hover:text-fg'}
+              ${viewPopoutOpen ? 'text-accent bg-accent/10' : 'text-fg-muted wp-interactive '}
             `}
             >
               <svg
@@ -490,7 +490,7 @@ function SequenceSelectionReadout({
             onClick={() =>
               dispatchCommand(COMMAND_IDS.appOpenSettings, { payload: { focus: 'primer-tm' } })
             }
-            className="text-fg-muted/70 transition-colors hover:text-fg"
+            className="text-fg-muted/70 transition-colors wp-interactive"
           >
             <svg
               viewBox="0 0 16 16"
@@ -558,7 +558,7 @@ function ToolbarToggle({ icon, title, active, onClick, testId }: ToolbarTogglePr
         className={`
           w-full h-8 flex items-center justify-center rounded text-sm relative overflow-visible
           transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-fg-muted
-          ${active ? 'text-accent' : 'text-fg-muted hover:bg-bg-muted hover:text-fg'}
+          ${active ? 'text-accent' : 'text-fg-muted wp-interactive '}
         `}
       >
         {active && (
@@ -599,7 +599,7 @@ function CompositionButton({
         className={`
           w-full h-8 flex items-center justify-center rounded text-sm relative overflow-visible
           transition-colors
-          ${active ? 'text-accent' : 'text-fg-muted hover:bg-bg-muted hover:text-fg'}
+          ${active ? 'text-accent' : 'text-fg-muted wp-interactive '}
         `}
       >
         {icon}
@@ -815,7 +815,7 @@ function ComplementToggle({ active, onClick }: { active: boolean; onClick: () =>
         className={`
           w-full h-8 flex items-center justify-center rounded text-sm relative overflow-visible
           transition-colors
-          ${active ? 'text-accent' : 'text-fg-muted hover:bg-bg-muted hover:text-fg'}
+          ${active ? 'text-accent' : 'text-fg-muted wp-interactive '}
         `}
       >
         {active && (
@@ -842,7 +842,7 @@ function PrimerToggle({ active, onClick }: { active: boolean; onClick: () => voi
         className={`
           w-full h-8 flex items-center justify-center rounded text-sm relative overflow-visible
           transition-colors
-          ${active ? 'text-accent' : 'text-fg-muted hover:bg-bg-muted hover:text-fg'}
+          ${active ? 'text-accent' : 'text-fg-muted wp-interactive '}
         `}
       >
         {active && (
@@ -869,7 +869,7 @@ function AlignmentToggle({ active, onClick }: { active: boolean; onClick: () => 
         className={`
           w-full h-8 flex items-center justify-center rounded text-sm relative overflow-visible
           transition-colors
-          ${active ? 'text-accent' : 'text-fg-muted hover:bg-bg-muted hover:text-fg'}
+          ${active ? 'text-accent' : 'text-fg-muted wp-interactive '}
         `}
       >
         {active && (
@@ -906,7 +906,7 @@ function StructureToggle({
           w-full h-8 flex items-center justify-center rounded text-sm relative overflow-visible
           transition-colors
           disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent
-          ${active ? 'text-accent' : 'text-fg-muted hover:bg-bg-muted hover:text-fg'}
+          ${active ? 'text-accent' : 'text-fg-muted wp-interactive '}
         `}
       >
         {active && (
@@ -939,7 +939,7 @@ function AnnotationColorModeToggle({
           className={`
             w-full h-8 flex items-center justify-center rounded text-sm relative overflow-visible
             transition-colors
-            ${open ? 'text-accent bg-accent/10' : 'text-fg-muted hover:bg-bg-muted hover:text-fg'}
+            ${open ? 'text-accent bg-accent/10' : 'text-fg-muted wp-interactive '}
           `}
         >
           <span className="grid grid-cols-2 gap-[2px]" aria-hidden="true">
@@ -977,7 +977,7 @@ function AnnotationColorModeToggle({
                 className={`w-full text-left px-2 py-1 text-[10px] rounded transition-colors ${
                   value === option.id
                     ? 'text-accent font-medium bg-accent/10'
-                    : 'text-fg-muted hover:bg-bg-muted hover:text-fg'
+                    : 'text-fg-muted wp-interactive '
                 }`}
                 title={option.description}
               >
@@ -1018,7 +1018,7 @@ function TranslationToggle({
           className={`
             w-full h-8 flex items-center justify-center rounded text-sm relative overflow-visible
             transition-colors
-            ${active ? 'text-accent' : 'text-fg-muted hover:bg-bg-muted hover:text-fg'}
+            ${active ? 'text-accent' : 'text-fg-muted wp-interactive '}
           `}
         >
           {active && (
@@ -1083,7 +1083,7 @@ function TranslationToggle({
                 className={`w-full text-left px-2 py-1 text-[10px] rounded transition-colors ${
                   aaColorScheme === id
                     ? 'text-accent font-medium bg-accent/10'
-                    : 'text-fg-muted hover:bg-bg-muted hover:text-fg'
+                    : 'text-fg-muted wp-interactive '
                 }`}
               >
                 {label}
@@ -1127,7 +1127,7 @@ function CutSitesToggle({
           w-full h-8 flex items-center justify-center rounded text-sm relative overflow-visible
           transition-colors
           disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent
-          ${active ? 'text-accent' : 'text-fg-muted hover:bg-bg-muted hover:text-fg'}
+          ${active ? 'text-accent' : 'text-fg-muted wp-interactive '}
         `}
       >
         {active && (
@@ -1170,7 +1170,7 @@ function REToolToggle({
           w-full h-8 flex items-center justify-center rounded text-sm relative overflow-visible
           transition-colors
           disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent
-          ${active ? 'text-accent' : 'text-fg-muted hover:bg-bg-muted hover:text-fg'}
+          ${active ? 'text-accent' : 'text-fg-muted wp-interactive '}
         `}
       >
         {active && (
@@ -1206,7 +1206,7 @@ function AnnotationsToggle({
         className={`
           w-full h-8 flex items-center justify-center rounded text-sm relative overflow-visible
           transition-colors
-          ${active ? 'text-accent' : 'text-fg-muted hover:bg-bg-muted hover:text-fg'}
+          ${active ? 'text-accent' : 'text-fg-muted wp-interactive '}
         `}
       >
         {active && (

@@ -1,14 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentCliModelCapabilityShape, AgentTransport } from '../../platform';
 import { type CodexAuthMode } from '../../shared/codex-model-support';
-import { ChatComposerDisclosureIcon } from '../../components/ChatComposerDisclosureIcon';
-import { ChatComposerPickerLabel } from '../../components/ChatComposerPickerLabel';
 import { PortalMenu } from '../../components/PortalMenu';
-import {
-  SETTINGS_FIELD_CLASS,
-  SETTINGS_SELECT_CARET_CLASS,
-  SettingsSelect,
-} from '../../components/SettingsSubsection';
+import { MenuRow, MenuSearchInput, MenuTrigger, useMenu } from '@waypoint/ui-components';
+import { safeFocus } from '../../shared/utils/safeFocus';
 import { AGENT_TRANSPORT_LABELS } from './agent-cli-labels';
 import {
   CLI_CUSTOM_MODEL_SELECT_VALUE,
@@ -20,7 +15,7 @@ import {
   isCliModelInCatalog,
 } from './cli-model-catalog';
 
-interface CliModelPickerBaseProps {
+export interface CliModelPickerProps {
   transport: AgentTransport;
   model: string | null;
   onRefreshModels?: () => void | Promise<void>;
@@ -34,13 +29,10 @@ interface CliModelPickerBaseProps {
   customInputPlacement?: 'inline' | 'replace-select';
   disabled?: boolean;
   ariaLabel?: string;
+  appearance?: 'settings' | 'inline';
+  wrapperClassName?: string;
+  customInputWrapperClassName?: string;
 }
-
-export type CliModelPickerProps = CliModelPickerBaseProps &
-  (
-    | { appearance: 'settings'; selectClassName?: never; customInputClassName?: never }
-    | { appearance?: 'default'; selectClassName: string; customInputClassName: string }
-  );
 
 interface CliModelPickerOption {
   value: string;
@@ -61,8 +53,8 @@ export function CliModelPicker({
   onRefreshModels,
   selectTestId,
   customInputTestId,
-  selectClassName = '',
-  customInputClassName = '',
+  wrapperClassName = '',
+  customInputWrapperClassName = '',
   defaultModel = null,
   codexAuthMode,
   availableModels = [],
@@ -70,7 +62,7 @@ export function CliModelPicker({
   customInputPlacement = 'inline',
   disabled = false,
   ariaLabel,
-  appearance = 'default',
+  appearance = 'inline',
 }: CliModelPickerProps) {
   const options = useMemo(
     () => getCliModelCatalogOptions(transport, codexAuthMode, availableModels),
@@ -90,8 +82,9 @@ export function CliModelPicker({
     !options.some((option) => option.value === currentModel);
   const [customDraft, setCustomDraft] = useState(currentOverrideModel ?? '');
   const [customInputOpen, setCustomInputOpen] = useState(currentModelIsCustom);
-  const [pickerOpen, setPickerOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const density = appearance === 'settings' ? 'form' : 'compact';
   const transportLabel = AGENT_TRANSPORT_LABELS[transport];
 
   useEffect(() => {
@@ -178,7 +171,6 @@ export function CliModelPicker({
   const selectedLabel = selectedOption.selectedLabel ?? selectedOption.label;
   const selectModelValue = useCallback(
     (nextValue: string) => {
-      setPickerOpen(false);
       if (nextValue === '__refresh_cli_models__') {
         void onRefreshModels?.();
         return;
@@ -201,63 +193,74 @@ export function CliModelPicker({
     [commitModel, currentOverrideModel, onRefreshModels]
   );
 
-  const customInputElement = customInputOpen ? (
-    <input
-      type="text"
-      value={customDraft}
-      disabled={disabled}
-      onChange={(event) => setCustomDraft(event.currentTarget.value)}
-      onBlur={commitCustomDraft}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          commitCustomDraft();
-        } else if (event.key === 'Escape') {
-          event.preventDefault();
-          setCustomDraft(currentOverrideModel ?? '');
-          setCustomInputOpen(false);
-        }
-      }}
-      placeholder="Model name"
-      aria-label={`${transportLabel} custom model`}
-      title={`Custom ${transportLabel} model`}
-      data-testid={customInputTestId}
-      className={`${appearance === 'settings' ? SETTINGS_FIELD_CLASS : customInputClassName} ${replaceSelectWithCustomInput ? (appearance === 'settings' ? 'pr-10' : 'pr-7') : ''}`}
-    />
-  ) : null;
-  const customInput = replaceSelectWithCustomInput ? (
-    <div className="relative min-w-0">
-      {customInputElement}
-      <button
-        type="button"
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={() => setCustomInputOpen(false)}
-        className={`absolute right-0 top-0 inline-flex ${appearance === 'settings' ? `h-full w-10 ${SETTINGS_SELECT_CARET_CLASS}` : 'h-7 w-7 text-fg-subtle'} items-center justify-center rounded-r-md transition-colors hover:bg-bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50`}
-        title="Show model choices"
-        aria-label={`Show ${transportLabel} model choices`}
-        data-testid={`${customInputTestId}-picker-button`}
-      >
-        <ChatComposerDisclosureIcon />
-      </button>
+  const menu = useMenu({
+    items: pickerOptions.map((option) => ({ id: option.value, textValue: option.label, disabled })),
+    selectedId: selectValue,
+    onActivate: selectModelValue,
+    onFocusItem: (id) =>
+      safeFocus(
+        menuRef.current?.querySelector<HTMLButtonElement>(`[data-menu-item-id="${CSS.escape(id)}"]`)
+      ),
+  });
+
+  const customInput = customInputOpen ? (
+    <div className={`flex min-w-0 items-center gap-1 ${customInputWrapperClassName}`}>
+      <div className="min-w-0 flex-1">
+        <MenuSearchInput
+          type="text"
+          density={density}
+          value={customDraft}
+          disabled={disabled}
+          onChange={(event) => setCustomDraft(event.currentTarget.value)}
+          onBlur={commitCustomDraft}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              commitCustomDraft();
+            } else if (event.key === 'Escape') {
+              event.preventDefault();
+              setCustomDraft(currentOverrideModel ?? '');
+              setCustomInputOpen(false);
+            }
+          }}
+          placeholder="Model name"
+          aria-label={`${transportLabel} custom model`}
+          title={`Custom ${transportLabel} model`}
+          data-testid={customInputTestId}
+        />
+      </div>
+      {replaceSelectWithCustomInput ? (
+        <MenuTrigger
+          density={density}
+          variant="toolbar"
+          iconOnly
+          disabled={disabled}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => setCustomInputOpen(false)}
+          title="Show model choices"
+          aria-label={`Show ${transportLabel} model choices`}
+          data-testid={`${customInputTestId}-picker-button`}
+        />
+      ) : null}
     </div>
-  ) : (
-    customInputElement
-  );
+  ) : null;
 
   return (
     <div className={containerClassName}>
-      {!replaceSelectWithCustomInput &&
-        (appearance === 'settings' ? (
-          <SettingsSelect
-            value={selectValue}
-            onValueChange={selectModelValue}
-            ariaLabel={ariaLabel ?? `${transportLabel} model`}
+      {!replaceSelectWithCustomInput ? (
+        <div className={`min-w-0 ${wrapperClassName}`}>
+          <MenuTrigger
+            ref={buttonRef}
+            density={density}
+            variant={appearance === 'settings' ? 'field' : 'toolbar'}
+            role="combobox"
             disabled={disabled}
-            testId={selectTestId}
-            options={pickerOptions.map((option) => ({
-              ...option,
-              testId: `${selectTestId}-option-${option.value}`,
-            }))}
+            open={menu.isOpen}
+            onClick={() => (menu.isOpen ? menu.close('trigger') : menu.openMenu())}
+            onKeyDown={menu.handleKeyDown}
+            aria-label={ariaLabel ?? `${transportLabel} model`}
+            aria-haspopup="listbox"
+            aria-controls={menu.isOpen ? `${selectTestId}-menu` : undefined}
             title={
               currentOverrideModel
                 ? `${transportLabel} model: ${getCliModelDisplayLabel(transport, currentOverrideModel, codexAuthMode, availableModels)}`
@@ -265,69 +268,48 @@ export function CliModelPicker({
                   ? `${transportLabel} default: ${defaultModelLabel}`
                   : `${transportLabel} uses its provider-selected default model`
             }
-          />
-        ) : (
-          <>
-            <button
-              ref={buttonRef}
-              type="button"
-              disabled={disabled}
-              onClick={() => setPickerOpen((value) => !value)}
-              aria-label={ariaLabel ?? `${transportLabel} model`}
-              aria-haspopup="listbox"
-              aria-expanded={pickerOpen}
-              title={
-                currentOverrideModel
-                  ? `${transportLabel} model: ${getCliModelDisplayLabel(transport, currentOverrideModel, codexAuthMode, availableModels)}`
-                  : configuredDefaultModel
-                    ? `${transportLabel} default: ${defaultModelLabel}`
-                    : `${transportLabel} uses its provider-selected default model`
-              }
-              data-testid={selectTestId}
-              data-value={selectValue}
-              className={`${selectClassName} ${
-                pickerOpen ? 'bg-border/40 text-fg dark:bg-border-hover/60' : ''
-              }`}
-            >
-              <ChatComposerPickerLabel label={selectedLabel} />
-              <ChatComposerDisclosureIcon open={pickerOpen} />
-            </button>
-            <PortalMenu
-              open={pickerOpen}
-              anchorRef={buttonRef}
-              role="listbox"
-              data-testid={`${selectTestId}-menu`}
-              className="py-1"
-              onRequestClose={() => setPickerOpen(false)}
-            >
-              {pickerOptions.map((option) => {
-                const active = option.value === selectValue;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    role="option"
-                    aria-selected={active}
-                    title={option.title}
-                    onClick={() => selectModelValue(option.value)}
-                    data-testid={`${selectTestId}-option-${option.value}`}
-                    data-value={option.value}
-                    className={`flex w-full min-w-0 items-center gap-2 whitespace-nowrap px-2.5 py-1.5 text-left text-xs font-medium transition-colors ${
-                      active
-                        ? 'bg-border/45 text-accent dark:bg-border-hover/65'
-                        : 'text-fg-muted hover:bg-border/45 hover:text-fg dark:hover:bg-border-hover/65'
-                    }`}
-                  >
-                    <span className="min-w-0 truncate">{option.label}</span>
-                    {active && (
-                      <span className="ml-auto h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent" />
-                    )}
-                  </button>
-                );
-              })}
-            </PortalMenu>
-          </>
-        ))}
+            data-testid={selectTestId}
+            data-value={selectValue}
+            data-settings-control={appearance === 'settings' ? 'select' : undefined}
+          >
+            {selectedLabel}
+          </MenuTrigger>
+          <PortalMenu
+            menu={menu}
+            open={menu.isOpen}
+            anchorRef={buttonRef}
+            surfaceRef={menuRef}
+            role="listbox"
+            aria-label={`${transportLabel} models`}
+            id={`${selectTestId}-menu`}
+            data-testid={`${selectTestId}-menu`}
+            density={density}
+            selection
+            onRequestClose={menu.close}
+          >
+            {pickerOptions.map((option) => (
+              <MenuRow
+                key={option.value}
+                role="option"
+                aria-selected={option.value === selectValue}
+                selected={option.value === selectValue}
+                active={option.value === menu.activeId}
+                disabled={disabled}
+                title={option.title}
+                tabIndex={option.value === menu.activeId ? 0 : -1}
+                onFocus={() => menu.point(option.value)}
+                onMouseMove={() => menu.point(option.value)}
+                onClick={() => menu.activate(option.value)}
+                data-testid={`${selectTestId}-option-${option.value}`}
+                data-value={option.value}
+                data-menu-item-id={option.value}
+              >
+                {option.label}
+              </MenuRow>
+            ))}
+          </PortalMenu>
+        </div>
+      ) : null}
       {customInput}
       {unavailableSelection && (
         <span className="text-xs text-danger" data-testid={`${selectTestId}-model-error`}>

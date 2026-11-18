@@ -32,12 +32,17 @@ it('keeps global actions out of folder destinations while retaining typed create
   const picker = screen.getByTestId('explorer-add-picker');
   for (const name of labels) expect(within(picker).queryByRole('menuitem', { name })).toBeNull();
   fireEvent.click(within(picker).getByRole('menuitem', { name: 'DNA sequences' }));
-  fireEvent.click(within(picker).getByRole('menuitem', { name: 'Create' }));
+  fireEvent.click(
+    within(screen.getByRole('menu', { name: 'DNA sequences actions' })).getByRole('menuitem', {
+      name: 'Create',
+    })
+  );
   expect(create).toHaveBeenCalledWith({
     entityType: 'dna-sequences',
     destinationPath: '/project/selected',
   });
-  view.rerender(
+  view.unmount();
+  render(
     <ExplorerAddPicker
       {...base}
       launchSource="context-menu"
@@ -45,7 +50,13 @@ it('keeps global actions out of folder destinations while retaining typed create
       onImportEntity={imported}
     />
   );
-  fireEvent.click(within(picker).getByRole('menuitem', { name: 'Import' }));
+  const reopened = screen.getByTestId('explorer-add-picker');
+  fireEvent.click(within(reopened).getByRole('menuitem', { name: 'DNA sequences' }));
+  fireEvent.click(
+    within(screen.getByRole('menu', { name: 'DNA sequences actions' })).getByRole('menuitem', {
+      name: 'Import',
+    })
+  );
   expect(imported).toHaveBeenCalledWith({
     entityType: 'dna-sequences',
     destination: { kind: 'explicit', path: '/project/selected' },

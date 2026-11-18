@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 
 import { TreeRow } from './TreeRow';
 
@@ -86,7 +87,8 @@ describe('TreeRow', () => {
     it('applies selected classes when isSelected', () => {
       const { row } = renderRow({ isSelected: true });
       const cls = row.getAttribute('class') ?? '';
-      expect(cls).toContain('bg-accent/15');
+      expect(cls).toContain(INTERACTION_CLASS);
+      expect(row.getAttribute('data-selected')).toBe('true');
       expect(cls).toContain('text-accent');
     });
 
@@ -94,7 +96,8 @@ describe('TreeRow', () => {
       const { row } = renderRow({ isSelected: false });
       const cls = row.getAttribute('class') ?? '';
       expect(cls).toContain('text-fg');
-      expect(cls).toContain('hover:bg-accent/10');
+      expect(cls).toContain(INTERACTION_CLASS);
+      expect(row.getAttribute('data-selected')).not.toBe('true');
     });
 
     it('sets data-drop-active + the canonical drop-active class set when isDropActive', () => {

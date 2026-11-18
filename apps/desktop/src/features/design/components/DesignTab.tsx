@@ -132,7 +132,7 @@ function DesignEyebrowActions(props: {
           type="button"
           data-testid="assembly-return-to-sequence"
           onClick={props.onExitToSequence}
-          className="rounded border border-border bg-bg-muted px-2 py-1 text-xs hover:bg-bg-emphasis"
+          className="rounded border border-border bg-bg-muted px-2 py-1 text-xs wp-interactive"
         >
           Back to sequence
         </button>
@@ -145,7 +145,7 @@ function DesignEyebrowActions(props: {
         className={`flex h-7 flex-shrink-0 items-center gap-1 rounded border px-2 py-1 text-xs transition-colors ${
           props.isAssemblyDrawerOpen
             ? 'border-accent bg-accent text-accent-fg'
-            : 'border-border bg-bg-muted hover:bg-bg-emphasis'
+            : 'border-border bg-bg-muted wp-interactive'
         }`}
         title={props.isAssemblyDrawerOpen ? 'Hide assembly details' : 'Show assembly details'}
       >
@@ -1398,7 +1398,7 @@ export function DesignTab({ designId, tab, panelId, onExitToSequence }: DesignTa
                   data-testid="design-rename-button"
                   aria-label="Rename assembly design"
                   onClick={handleNameEditStart}
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-fg-subtle hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-fg-subtle wp-interactive "
                   title="Rename assembly design"
                 >
                   <EditIcon size={12} />
@@ -1546,7 +1546,7 @@ export function DesignTab({ designId, tab, panelId, onExitToSequence }: DesignTa
                 data-testid="design-rename-button"
                 aria-label="Rename assembly design"
                 onClick={handleNameEditStart}
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-fg-subtle hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-fg-subtle wp-interactive "
                 title="Rename assembly design"
               >
                 <EditIcon size={12} />

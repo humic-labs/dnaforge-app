@@ -1,8 +1,15 @@
 import { toUserMessage } from '@waypoint/user-messages';
-import { useEffect, useId, useRef, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useId, useRef, useState, type RefObject } from 'react';
+import {
+  MenuTrigger,
+  MenuSearchInput,
+  MenuRow,
+  MenuStatus,
+  useMenu,
+} from '@waypoint/ui-components';
 import type { LimsRecordRelationshipValue } from '../../shared/lims';
 import { PortalMenu } from '../PortalMenu';
-import { Button, TextField } from '../ui';
+import { Button } from '../ui';
 import { EntityReferenceChip } from './EntityReferenceChip';
 
 export interface EntityLinkChoice {
@@ -71,8 +78,8 @@ function EntityLinkFieldControl({
   const localAnchorRef = useRef<HTMLButtonElement>(null);
   const anchorRef = triggerRef ?? localAnchorRef;
   const requestRef = useRef(0);
-  const [localOpen, setOpen] = useState(false);
-  const open = editing ?? localOpen;
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [loadedQuery, setLoadedQuery] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [offset, setOffset] = useState(0);
   const [attempt, setAttempt] = useState(0);
@@ -87,9 +94,43 @@ function EntityLinkFieldControl({
   const committing = useRef(false);
   const searchId = useId();
   const current = pending === undefined ? relationshipValue(value) : pending;
+  const queryKey = JSON.stringify([search, offset, attempt]);
+  const visibleChoices = loadedQuery === queryKey ? choices : [];
+  const menu = useMenu({
+    items: visibleChoices.map((choice) => ({
+      id: choice.id,
+      textValue: choice.name,
+      disabled: busy,
+      closeOnActivate: false,
+    })),
+    selectedId: current?.destinationEntityId,
+    defaultOpen: editing,
+    onClose: () => onEditingChange?.(false),
+    onActivate: (id) => {
+      const choice = visibleChoices.find((candidate) => candidate.id === id);
+      if (choice)
+        void commit({
+          origin: 'native',
+          destinationEntityId: choice.id,
+          relationType: 'references',
+          label: choice.name,
+          resolution: 'exact',
+        });
+    },
+  });
+  const open = menu.isOpen;
+  const controlled = useRef({ menu, selectedId: current?.destinationEntityId });
+  controlled.current = { menu, selectedId: current?.destinationEntityId };
+  useLayoutEffect(() => {
+    const { menu: currentMenu, selectedId } = controlled.current;
+    if (editing === true && !currentMenu.isOpen) currentMenu.openMenu(selectedId);
+    else if (editing === false) currentMenu.close('handoff');
+  }, [editing]);
   const changeOpen = (next: boolean) => {
-    setOpen(next);
-    onEditingChange?.(next);
+    if (next) {
+      menu.openMenu(current?.destinationEntityId);
+      onEditingChange?.(true);
+    } else menu.close('trigger');
   };
 
   useEffect(() => {
@@ -103,6 +144,7 @@ function EntityLinkFieldControl({
         if (cancelled) return;
         setChoices(page.choices.filter((choice) => choice.id !== sourceEntityId));
         setTotalCount(page.totalCount);
+        setLoadedQuery(queryKey);
       })
       .catch((cause) => {
         if (!cancelled) setQueryError(toUserMessage(cause, 'failure.entity-search-could-not-load'));
@@ -113,7 +155,7 @@ function EntityLinkFieldControl({
     return () => {
       cancelled = true;
     };
-  }, [open, disabled, onCommit, searchTargets, search, offset, sourceEntityId, attempt]);
+  }, [open, disabled, onCommit, searchTargets, search, offset, sourceEntityId, attempt, queryKey]);
 
   useEffect(
     () => () => {
@@ -129,7 +171,7 @@ function EntityLinkFieldControl({
     setBusy(true);
     setPending(next);
     setError(null);
-    changeOpen(false);
+    menu.close('selection');
     try {
       await onCommit(next);
       if (request === requestRef.current) setPending(undefined);
@@ -177,11 +219,19 @@ function EntityLinkFieldControl({
         ) : null}
         {onCommit ? (
           <>
-            <Button
+            <MenuTrigger
               ref={anchorRef}
+              open={open}
+              aria-haspopup="dialog"
               aria-label={`${current ? 'Change' : 'Choose'} ${label}`}
               aria-expanded={open}
               disabled={disabled || busy}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  changeOpen(true);
+                }
+              }}
               onClick={() => {
                 setSearch('');
                 setOffset(0);
@@ -189,7 +239,7 @@ function EntityLinkFieldControl({
               }}
             >
               {current ? 'Change' : 'Choose entity…'}
-            </Button>
+            </MenuTrigger>
             {current && !required ? (
               <Button
                 aria-label={`Clear ${label}`}
@@ -236,21 +286,28 @@ function EntityLinkFieldControl({
       <PortalMenu
         dataAttributes={menuAttributes}
         open={open && !disabled && Boolean(onCommit)}
+        menu={menu}
+        initialFocusRef={inputRef}
         anchorRef={anchorRef}
-        onRequestClose={() => changeOpen(false)}
+        onRequestClose={menu.close}
         role="dialog"
         aria-label={`Choose ${label}`}
         preferredSide="bottom"
         horizontalAlign="start"
-        className="w-80 p-2"
+        className="w-80"
+        selection={false}
       >
         <label htmlFor={searchId} className="sr-only">
           Search entities for {label}
         </label>
-        <TextField
+        <MenuSearchInput
+          ref={inputRef}
+          aria-controls={`${searchId}-choices`}
+          aria-activedescendant={
+            menu.activeId === null ? undefined : `${searchId}-${encodeURIComponent(menu.activeId)}`
+          }
           id={searchId}
           type="search"
-          autoFocus
           value={search}
           placeholder="Search by name or record ID"
           onChange={(event) => {
@@ -258,11 +315,14 @@ function EntityLinkFieldControl({
             setOffset(0);
           }}
         />
-        <div className="mt-2 max-h-64 overflow-y-auto">
-          {loading ? (
-            <p role="status" className="p-2 text-xs text-fg-muted">
-              Searching entities…
-            </p>
+        <div
+          id={`${searchId}-choices`}
+          role="listbox"
+          aria-label={`${label} entities`}
+          className="mt-2 max-h-64 overflow-y-auto"
+        >
+          {loading || (loadedQuery !== queryKey && !queryError) ? (
+            <MenuStatus role="status">Searching entities…</MenuStatus>
           ) : queryError ? (
             <div className="p-2 text-xs">
               <p role="alert" className="text-error">
@@ -270,30 +330,26 @@ function EntityLinkFieldControl({
               </p>
               <Button onClick={() => setAttempt((value) => value + 1)}>Retry search</Button>
             </div>
-          ) : choices.length === 0 ? (
-            <p className="p-2 text-xs text-fg-muted">No matching entities.</p>
+          ) : visibleChoices.length === 0 ? (
+            <MenuStatus>No matching entities.</MenuStatus>
           ) : (
-            choices.map((choice) => (
-              <button
+            visibleChoices.map((choice) => (
+              <MenuRow
                 key={choice.id}
-                type="button"
-                className="block w-full rounded px-2 py-2 text-left hover:bg-bg-muted focus-visible:bg-bg-muted"
-                onClick={() =>
-                  void commit({
-                    origin: 'native',
-                    destinationEntityId: choice.id,
-                    relationType: 'references',
-                    label: choice.name,
-                    resolution: 'exact',
-                  })
-                }
+                id={`${searchId}-${encodeURIComponent(choice.id)}`}
+                role="option"
+                aria-selected={current?.destinationEntityId === choice.id}
+                active={menu.activeId === choice.id}
+                selected={current?.destinationEntityId === choice.id}
+                tabIndex={-1}
+                disabled={busy}
+                description={`${choice.registryId ? `${choice.registryId} · ` : ''}${choice.kind.replace(/_/g, ' ')}`}
+                onMouseDown={(event) => event.preventDefault()}
+                onPointerMove={() => menu.point(choice.id)}
+                onClick={() => menu.activate(choice.id)}
               >
-                <span className="block text-xs font-medium text-fg">{choice.name}</span>
-                <span className="block text-[11px] text-fg-muted">
-                  {choice.registryId ? `${choice.registryId} · ` : ''}
-                  {choice.kind.replace(/_/g, ' ')}
-                </span>
-              </button>
+                {choice.name}
+              </MenuRow>
             ))
           )}
         </div>

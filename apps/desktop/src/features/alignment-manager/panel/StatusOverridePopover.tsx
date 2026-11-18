@@ -44,7 +44,7 @@ export function StatusOverridePopover({
               className={`flex-1 px-2 py-1 text-xs rounded border transition-colors ${
                 track.userStatus === s.value
                   ? 'border-accent bg-accent/20 font-medium'
-                  : 'border-border hover:bg-bg-subtle'
+                  : 'border-border wp-interactive'
               } ${s.color}`}
             >
               {s.label}

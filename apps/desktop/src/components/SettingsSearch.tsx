@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { useId, useRef, type KeyboardEvent } from 'react';
 import { safeFocus } from '../shared/utils/safeFocus';
 import { SETTINGS_FIELD_CLASS, SETTINGS_SECONDARY_BUTTON_CLASS } from './SettingsSubsection';
@@ -81,7 +82,7 @@ export function SettingsSearch({
                   type="button"
                   onClick={() => onSelect(result)}
                   data-settings-result={result.id}
-                  className="w-full rounded-md bg-black/[0.025] p-3 text-left hover:bg-black/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 dark:bg-white/[0.035] dark:hover:bg-white/[0.075]"
+                  className={`${INTERACTION_CLASS} w-full rounded-md bg-black/[0.025] p-3 text-left dark:bg-white/[0.035]`}
                 >
                   <span className="block text-xs text-fg-muted">
                     {groups.get(result.section)} · {SETTINGS_SECTIONS[result.section].label}

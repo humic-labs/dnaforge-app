@@ -171,7 +171,7 @@ function TrackRow({
         {source ? <EvidenceChip label={source.evidenceLabel} /> : null}
         <button
           type="button"
-          className="rounded px-1 text-[13px] leading-none text-fg-muted hover:bg-bg-muted hover:text-fg"
+          className="rounded px-1 text-[13px] leading-none text-fg-muted wp-interactive "
           aria-label={`Remove ${track.label}`}
           title="Remove track"
           onClick={() => run({ kind: 'remove-track', trackId: binding.id })}
@@ -466,7 +466,7 @@ export function SequenceAnnotationTracksControl({
     >
       <button
         type="button"
-        className="webgl-sync-lock-toggle"
+        className="webgl-sync-lock-toggle wp-interactive"
         data-testid="annotation-tracks-toggle"
         aria-expanded={open}
         aria-haspopup="dialog"

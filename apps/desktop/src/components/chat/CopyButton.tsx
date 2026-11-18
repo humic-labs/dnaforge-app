@@ -49,7 +49,7 @@ export function CopyButton({
         aria-label={label}
         aria-busy={state === 'copying'}
         aria-describedby={state === 'error' ? errorId : undefined}
-        className="p-1 rounded hover:bg-bg-muted text-fg-muted hover:text-fg transition-colors flex items-center gap-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 aria-disabled:cursor-wait"
+        className="p-1 rounded wp-interactive text-fg-muted transition-colors flex items-center gap-1 text-xs aria-disabled:cursor-wait"
         title={label}
         data-testid={testId}
       >

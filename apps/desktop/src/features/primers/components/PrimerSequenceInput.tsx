@@ -1,8 +1,5 @@
-import {
-  usePresentationOverlay,
-  PresentationScopeContext,
-  usePresentationListener,
-} from '../../../presentation/PresentationSurface';
+import { MenuRow, MenuStatus, useMenu } from '@waypoint/ui-components';
+import { ActionMenu } from '../../../components/ActionMenu';
 import { oligoDiagnosticUserMessage } from '../oligo-user-messages';
 import {
   Fragment,
@@ -10,13 +7,14 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useId,
   useRef,
   useState,
   type ReactElement,
   type FormEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { CompactFilterMultiSelect } from '@waypoint/ui-components';
+import { CompactFilterMultiSelect } from '../../../components/CompactFilterMultiSelect';
 import { PortalMenu } from '../../../components/PortalMenu';
 import { OpenExternalIcon } from '../../../components/icons';
 import { Tooltip } from '../../../shared/components/Tooltip';
@@ -74,7 +72,6 @@ interface SlashPickerState {
   start: number;
   end: number;
   query: string;
-  activeIndex: number;
   replacingExisting: boolean;
 }
 
@@ -155,16 +152,14 @@ export function PrimerSequenceInput({
   enableModifications = true,
   orderType = 'dna',
 }: PrimerSequenceInputProps) {
-  const presentationOverlay = usePresentationOverlay('keyboard');
-  const presentationEvents = usePresentationListener(presentationOverlay.scope);
-
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const automaticHeightRef = useRef<number | null>(null);
   const manualHeightRef = useRef<number | null>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const slashAnchorRef = useRef<HTMLSpanElement>(null);
   const modificationOptionRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
-  const contextMenuRef = useRef<HTMLDivElement>(null);
+  const modificationMenuId = useId();
+  const preferredModification = useRef<string | null>(null);
   const hoveredModificationCloseTimerRef = useRef<number | null>(null);
   const pendingCaretRef = useRef<{ notation: string; caret: number } | null>(null);
   const editSelectionRef = useRef<OligoEntrySelection | null>(null);
@@ -281,7 +276,43 @@ export function PrimerSequenceInput({
       ...(placementFilters.length > 0 ? { placements: placementFilters } : {}),
     });
   }, [categoryFilters, orderType, placementFilters, slashPicker]);
-  const activeSlashOption = slashOptions[slashPicker?.activeIndex ?? 0] ?? slashOptions[0];
+  const modificationMenu = useMenu({
+    items: slashOptions.map((option) => ({
+      id: option.vendorCode,
+      textValue: option.label,
+      disabled,
+      closeOnActivate: false,
+    })),
+    onClose: () => setSlashPicker(null),
+    onActivate: (id) => {
+      const option = slashOptions.find((candidate) => candidate.vendorCode === id);
+      if (option) chooseModification(option);
+    },
+  });
+  const slashOpen = slashPicker !== null;
+  const sendModification = modificationMenu.send;
+  useLayoutEffect(() => {
+    if (disabled) {
+      modificationMenu.close('owner-revoked');
+      preferredModification.current = null;
+      return;
+    }
+    if (
+      slashOpen &&
+      (modificationMenu.stateRef.current.phase === 'closed' ||
+        preferredModification.current !== null)
+    )
+      sendModification({
+        type: 'open',
+        menuId: 'root',
+        preferredId: preferredModification.current,
+      });
+    else if (!slashOpen) modificationMenu.close('handoff');
+    preferredModification.current = null;
+  });
+  const activeSlashOption =
+    slashOptions.find((option) => option.vendorCode === modificationMenu.activeId) ??
+    slashOptions[0];
 
   useEffect(() => {
     if (!activeSlashOption) return;
@@ -307,23 +338,6 @@ export function PrimerSequenceInput({
     setCategoryFilters([]);
     setPlacementFilters([]);
   }, [orderType]);
-
-  useEffect(() => {
-    if (!contextMenu) return;
-    const closeOnOutsidePointer = (event: MouseEvent) => {
-      if (contextMenuRef.current?.contains(event.target as Node)) return;
-      setContextMenu(null);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setContextMenu(null);
-    };
-    document.addEventListener('mousedown', closeOnOutsidePointer);
-    presentationEvents.add(document, 'keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('mousedown', closeOnOutsidePointer);
-      presentationEvents.remove(document, 'keydown', closeOnEscape);
-    };
-  }, [contextMenu, presentationEvents]);
 
   useEffect(
     () => () => {
@@ -388,13 +402,12 @@ export function PrimerSequenceInput({
       setSlashPicker(null);
       return;
     }
-    setSlashPicker((current) => ({
+    setSlashPicker({
       start,
       end: caret,
       query,
-      activeIndex: current?.start === start && current.query === query ? current.activeIndex : 0,
       replacingExisting: false,
-    }));
+    });
   }, []);
 
   const reopenModificationPicker = useCallback(
@@ -407,21 +420,15 @@ export function PrimerSequenceInput({
           caret <= candidate.rawEnd
       );
       if (!run?.catalogEntry) return;
-      const activeIndex = Math.max(
-        0,
-        IDT_MODIFICATION_CATALOG.findIndex(
-          (option) => option.vendorCode === run.catalogEntry?.vendorCode
-        )
-      );
+      preferredModification.current = run.catalogEntry.vendorCode;
       setSlashPicker({
         start: run.rawStart,
         end: run.rawEnd,
         query: '',
-        activeIndex,
         replacingExisting: true,
       });
     },
-    [displayRuns, enableModifications, value]
+    [displayRuns, enableModifications]
   );
 
   const selectionStillAnchorsPicker = useCallback(
@@ -444,6 +451,7 @@ export function PrimerSequenceInput({
     [slashPicker, projection.runs]
   );
 
+  const closeModificationMenu = modificationMenu.close;
   const chooseModification = useCallback(
     (option: OligoModificationCatalogEntry) => {
       if (!slashPicker) return;
@@ -455,9 +463,9 @@ export function PrimerSequenceInput({
         { consumeFollowingBase: !slashPicker.replacingExisting, orderType }
       );
       commitNotation(inserted);
-      setSlashPicker(null);
+      closeModificationMenu('handoff');
     },
-    [commitNotation, orderType, slashPicker, value]
+    [commitNotation, orderType, slashPicker, value, closeModificationMenu]
   );
 
   const handleEntryChange = (event: FormEvent<HTMLTextAreaElement>) => {
@@ -658,6 +666,7 @@ export function PrimerSequenceInput({
           setSlashPicker(null);
         }}
         onKeyDown={(event) => {
+          if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
           if (
             (event.metaKey || event.ctrlKey) &&
             (event.key.toLowerCase() === 'z' || event.key.toLowerCase() === 'y')
@@ -681,30 +690,8 @@ export function PrimerSequenceInput({
             return;
           }
           if (!slashPicker) return;
-          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-            event.preventDefault();
-            const delta = event.key === 'ArrowDown' ? 1 : -1;
-            setSlashPicker((current) =>
-              current
-                ? {
-                    ...current,
-                    activeIndex:
-                      slashOptions.length === 0
-                        ? 0
-                        : (current.activeIndex + delta + slashOptions.length) % slashOptions.length,
-                  }
-                : null
-            );
-            return;
-          }
-          if (event.key === 'Enter' && slashOptions.length > 0) {
-            event.preventDefault();
-            chooseModification(slashOptions[slashPicker.activeIndex] ?? slashOptions[0]);
-            return;
-          }
-          if (event.key === 'Escape') {
-            event.preventDefault();
-            setSlashPicker(null);
+          if (['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(event.key)) {
+            modificationMenu.handleKeyDown(event, { wrap: true });
             return;
           }
           if (
@@ -741,20 +728,30 @@ export function PrimerSequenceInput({
         autoCapitalize="off"
         autoFocus={autoFocus}
         aria-label="Primer sequence"
+        aria-controls={slashOpen ? modificationMenuId : undefined}
+        aria-activedescendant={
+          slashOpen && modificationMenu.activeId !== null
+            ? `${modificationMenuId}-${encodeURIComponent(modificationMenu.activeId)}`
+            : undefined
+        }
         aria-invalid={parsedValue.errors.length > 0 ? true : undefined}
         placeholder={placeholder}
         className={`relative z-10 block w-full ${variant === 'field' ? 'resize-y' : 'resize-none'} overflow-x-hidden overflow-y-auto bg-transparent text-transparent caret-fg placeholder:text-fg-muted/50 focus:outline-none ${textareaSize} ${textMetrics} ${padding}`}
       />
       <PortalMenu
-        open={slashPicker !== null}
+        id={modificationMenuId}
+        open={slashOpen}
+        menu={modificationMenu}
         anchorRef={variant === 'field' ? textareaRef : slashAnchorRef}
-        onRequestClose={() => setSlashPicker(null)}
+        onRequestClose={modificationMenu.close}
         role="listbox"
+        selection={false}
+        shortcuts
         horizontalAlign="start"
         preferredSide={variant === 'field' ? 'bottom' : 'top'}
         allowFlip={variant !== 'field'}
         data-testid="primer-modification-picker"
-        className="flex w-[610px] max-w-[calc(100vw-16px)] flex-col !overflow-hidden !rounded-md py-0"
+        className="flex w-[610px] max-w-[calc(100vw-16px)] flex-col !overflow-hidden"
       >
         <div className="shrink-0 border-b border-border px-2.5 py-1.5">
           <div className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">
@@ -776,7 +773,6 @@ export function PrimerSequenceInput({
                 }))}
                 onChange={(nextCategories) => {
                   setCategoryFilters(nextCategories);
-                  setSlashPicker((current) => (current ? { ...current, activeIndex: 0 } : current));
                 }}
                 ariaLabel="IDT modification category"
                 allLabel="All categories"
@@ -789,7 +785,6 @@ export function PrimerSequenceInput({
                 options={placementFilterOptions}
                 onChange={(nextPlacements) => {
                   setPlacementFilters(nextPlacements);
-                  setSlashPicker((current) => (current ? { ...current, activeIndex: 0 } : current));
                 }}
                 ariaLabel="IDT modification position"
                 allLabel="Any position"
@@ -802,44 +797,33 @@ export function PrimerSequenceInput({
               className="min-h-0 flex-1 overflow-y-auto py-1"
             >
               {slashOptions.length === 0 ? (
-                <div className="px-3 py-8 text-center text-[11px] text-fg-subtle">
-                  No IDT modifications match these filters.
-                </div>
+                <MenuStatus>No IDT modifications match these filters.</MenuStatus>
               ) : null}
-              {slashOptions.map((option, optionIndex) => (
-                <button
+              {slashOptions.map((option) => (
+                <MenuRow
                   key={option.vendorCode}
+                  id={`${modificationMenuId}-${encodeURIComponent(option.vendorCode)}`}
                   ref={(element) => {
                     if (element) modificationOptionRefs.current.set(option.vendorCode, element);
                     else modificationOptionRefs.current.delete(option.vendorCode);
                   }}
-                  type="button"
                   role="option"
-                  aria-selected={optionIndex === slashPicker?.activeIndex}
+                  aria-selected={option.vendorCode === modificationMenu.activeId}
+                  active={option.vendorCode === modificationMenu.activeId}
                   aria-label={`${option.label} ${option.vendorCode}`}
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    chooseModification(option);
-                  }}
-                  onMouseEnter={() =>
-                    setSlashPicker((current) =>
-                      current ? { ...current, activeIndex: optionIndex } : current
-                    )
+                  tabIndex={-1}
+                  shortcut={
+                    <span className="flex items-center gap-2">
+                      <span>{placementLabel(option)}</span>
+                      <code>{displayIdtToken(option.vendorCode)}</code>
+                    </span>
                   }
-                  className={`flex w-full items-center justify-between gap-3 px-2.5 py-1.5 text-left text-xs ${
-                    optionIndex === slashPicker?.activeIndex
-                      ? 'bg-bg-muted text-fg'
-                      : 'text-fg-muted hover:bg-bg-muted hover:text-fg'
-                  }`}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => modificationMenu.activate(option.vendorCode)}
+                  onMouseEnter={() => modificationMenu.point(option.vendorCode)}
                 >
-                  <span className="truncate">{option.label}</span>
-                  <span className="flex shrink-0 items-center gap-2">
-                    <span className="text-[9px] text-fg-subtle">{placementLabel(option)}</span>
-                    <code className="text-[10px] text-fg-subtle">
-                      {displayIdtToken(option.vendorCode)}
-                    </code>
-                  </span>
-                </button>
+                  {option.label}
+                </MenuRow>
               ))}
             </div>
           </div>
@@ -878,52 +862,35 @@ export function PrimerSequenceInput({
             document.body
           )
         : null}
-      {contextMenu
-        ? createPortal(
-            <PresentationScopeContext.Provider value={presentationOverlay.scope}>
-              <div
-                ref={presentationOverlay.bindRef(contextMenuRef, '0')}
-                role="menu"
-                aria-label="Primer copy options"
-                data-testid="primer-copy-menu"
-                className="fixed z-[10060] min-w-40 rounded-md border border-border bg-bg-subtle py-1 text-xs shadow-lg"
-                style={{ left: contextMenu.x, top: contextMenu.y }}
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={parsedValue.errors.length > 0}
-                  title={parsedValue.errors[0]}
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    if (parsedValue.errors.length > 0) return;
-                    void writePrimerNaturalBasesClipboard(value, orderType);
-                    setContextMenu(null);
-                  }}
-                  className="block w-full px-3 py-1.5 text-left text-fg hover:bg-bg-muted disabled:cursor-not-allowed disabled:text-fg-subtle disabled:hover:bg-transparent"
-                >
-                  Copy bases
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={parsedValue.errors.length > 0}
-                  title={parsedValue.errors[0]}
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    if (parsedValue.errors.length > 0) return;
-                    void writePrimerIdtOrderClipboard(parsedValue.bases, value, orderType);
-                    setContextMenu(null);
-                  }}
-                  className="block w-full px-3 py-1.5 text-left text-fg hover:bg-bg-muted disabled:cursor-not-allowed disabled:text-fg-subtle disabled:hover:bg-transparent"
-                >
-                  Copy for IDT
-                </button>
-              </div>
-            </PresentationScopeContext.Provider>,
-            document.body
-          )
-        : null}
+      {contextMenu ? (
+        <ActionMenu
+          open
+          label="Primer copy options"
+          testId="primer-copy-menu"
+          anchorPoint={contextMenu}
+          onClose={() => setContextMenu(null)}
+          entries={[
+            {
+              id: 'copy-bases',
+              label: 'Copy bases',
+              disabled: parsedValue.errors.length > 0,
+              title: parsedValue.errors[0],
+              onSelect: () => {
+                void writePrimerNaturalBasesClipboard(value, orderType);
+              },
+            },
+            {
+              id: 'copy-idt',
+              label: 'Copy for IDT',
+              disabled: parsedValue.errors.length > 0,
+              title: parsedValue.errors[0],
+              onSelect: () => {
+                void writePrimerIdtOrderClipboard(parsedValue.bases, value, orderType);
+              },
+            },
+          ]}
+        />
+      ) : null}
     </div>
   );
 }

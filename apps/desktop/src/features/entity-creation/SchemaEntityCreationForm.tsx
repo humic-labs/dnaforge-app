@@ -1,5 +1,6 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
-import { Button, TextField, TextArea, UI_FIELD_CLASS } from '../../components/ui';
+import { Button, TextField, TextArea } from '../../components/ui';
 import { useMemo, useState } from 'react';
 import { WorkspaceFolderPicker } from '../../components/WorkspaceFolderPicker';
 import { findContainingPathBoundary } from '../../shared/path-boundary';
@@ -118,21 +119,23 @@ function SchemaField({
     return (
       <div className="space-y-2">
         {label}
-        <select
-          id={id}
-          data-testid={testId}
-          required={field.required}
-          value={String(value)}
-          onChange={(event) => onChange(event.target.value)}
-          className={UI_FIELD_CLASS}
-        >
-          <option value="">Choose…</option>
-          {field.enumOptions?.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+        <span className="block min-w-0 w-full">
+          <MenuNativeSelect
+            density="form"
+            id={id}
+            data-testid={testId}
+            required={field.required}
+            value={String(value)}
+            onChange={(event) => onChange(event.target.value)}
+          >
+            <option value="">Choose…</option>
+            {field.enumOptions?.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </MenuNativeSelect>
+        </span>
       </div>
     );
   }

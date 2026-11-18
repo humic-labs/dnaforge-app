@@ -149,3 +149,6 @@ Compound rows use `data-interaction-cover` on foreground pieces that must cover
 text behind them; their ancestor sets `data-interaction-group="true"`. Both
 pieces read the same hover color. Drag targets with `data-drop-active` retain
 their drag feedback instead of ordinary hover or selection fills.
+
+[Appearance ownership and rendering exceptions](./appearance-owners.md) lists
+the adapters and the domain visuals that retain their own rendering.

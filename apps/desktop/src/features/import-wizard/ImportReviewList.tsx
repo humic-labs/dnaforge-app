@@ -208,7 +208,7 @@ export function ImportReviewList({
                 {canConfirmDna && (
                   <button
                     type="button"
-                    className="ml-6 mt-2 rounded border border-border px-2 py-1 text-xs text-fg hover:bg-bg-muted disabled:opacity-40"
+                    className="ml-6 mt-2 rounded border border-border px-2 py-1 text-xs text-fg wp-interactive disabled:opacity-40"
                     disabled={confirmingDnaSources?.has(source)}
                     onClick={() => onConfirmDnaIdentity?.(item, 'dna')}
                   >
@@ -222,7 +222,7 @@ export function ImportReviewList({
                 {canConvertToRna && (
                   <button
                     type="button"
-                    className="ml-2 mt-2 rounded border border-border px-2 py-1 text-xs text-fg hover:bg-bg-muted disabled:opacity-40"
+                    className="ml-2 mt-2 rounded border border-border px-2 py-1 text-xs text-fg wp-interactive disabled:opacity-40"
                     disabled={confirmingDnaSources?.has(source)}
                     onClick={() => onConfirmDnaIdentity?.(item, 'rna')}
                   >

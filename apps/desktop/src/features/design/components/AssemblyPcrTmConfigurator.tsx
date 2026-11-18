@@ -118,7 +118,7 @@ export function AssemblyPcrTmConfigurator({
           aria-label="Polymerase mix settings"
           title="nM, target Tm, and salt conditions"
           onClick={() => setOpen((current) => !current)}
-          className="inline-flex h-[27px] w-[27px] items-center justify-center rounded-md border border-border text-fg-muted hover:border-fg-muted hover:text-fg"
+          className="inline-flex h-[27px] w-[27px] items-center justify-center rounded-md border border-border text-fg-muted wp-interactive "
         >
           <SettingsIcon size={12} />
         </button>

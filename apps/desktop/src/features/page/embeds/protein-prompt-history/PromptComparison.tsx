@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { useMemo, useState } from 'react';
 import type { ProteinRunIndexEntry } from './run-index';
 import { diffRecordedPrompt } from './prompt-diff';
@@ -46,15 +47,17 @@ function PromptDifference({
       <p className="text-fg-muted">
         {before.promptLabel} → {after.promptLabel}
       </p>
-      <select
-        aria-label="Prompt comparison content"
-        value={content}
-        className="my-2 max-w-full rounded border border-border bg-bg px-2 py-1 text-xs"
-        onChange={(event) => setContent(event.target.value)}
-      >
-        <option value="guidance">Variant guidance</option>
-        <option value="full">Full app-sent prompts</option>
-      </select>
+      <span className="inline-block min-w-0 my-2 max-w-full">
+        <MenuNativeSelect
+          density="compact"
+          aria-label="Prompt comparison content"
+          value={content}
+          onChange={(event) => setContent(event.target.value)}
+        >
+          <option value="guidance">Variant guidance</option>
+          <option value="full">Full app-sent prompts</option>
+        </MenuNativeSelect>
+      </span>
       {changes ? (
         <div
           className="rounded border border-border text-xs"

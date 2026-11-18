@@ -187,7 +187,7 @@ function ActivityButton({
       data-ph-capture-attribute-surface="header"
       className={cn(
         'w-12 h-12 flex items-center justify-center transition-colors relative',
-        active ? 'text-accent' : 'text-fg-muted hover:text-fg'
+        active ? 'text-accent' : 'text-fg-muted wp-interactive'
       )}
     >
       {}

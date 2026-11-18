@@ -638,7 +638,7 @@ export function PrimerCreationTab({ tab, panelId }: PrimerCreationTabProps) {
               aria-pressed={metadataOpen}
               data-testid="primer-toolbar-metadata"
               className={`relative flex h-8 w-full items-center justify-center rounded transition-colors ${
-                metadataOpen ? 'text-accent' : 'text-fg-muted hover:bg-bg-muted hover:text-fg'
+                metadataOpen ? 'text-accent' : 'text-fg-muted wp-interactive '
               }`}
             >
               {metadataOpen ? (

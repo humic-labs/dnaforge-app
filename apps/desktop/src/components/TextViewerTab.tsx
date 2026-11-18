@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { reportSaveFailure } from '../lib/report-save-failure';
 import { useDocumentLifecycle } from '../shared/use-document-lifecycle';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
@@ -605,7 +606,7 @@ export function TextViewerTab({
           </div>
           <button
             onClick={handleCopyPath}
-            className="mt-4 px-3 py-1.5 text-sm bg-bg-muted hover:bg-bg-subtle rounded transition-colors"
+            className={`${INTERACTION_CLASS} mt-4 px-3 py-1.5 text-sm bg-bg-muted rounded transition-colors`}
           >
             Copy Path
           </button>
@@ -655,7 +656,7 @@ export function TextViewerTab({
               </button>
               <button
                 onClick={handleDiscard}
-                className="px-2 py-1 text-xs text-fg-muted hover:text-fg hover:bg-bg-muted rounded transition-colors"
+                className={`${INTERACTION_CLASS} px-2 py-1 text-xs text-fg-muted rounded transition-colors`}
                 title="Discard changes"
               >
                 Discard
@@ -673,7 +674,7 @@ export function TextViewerTab({
                   title="Run the saved file in the active terminal"
                   disabled={loading || Boolean(error) || isBinary}
                   onClick={runFile}
-                  className="px-2 py-1 text-xs text-fg-muted hover:text-fg hover:bg-bg-muted rounded"
+                  className={`${INTERACTION_CLASS} px-2 py-1 text-xs text-fg-muted rounded`}
                 >
                   Run saved file
                 </button>
@@ -682,7 +683,7 @@ export function TextViewerTab({
                 aria-label="Run Selection in Active Terminal"
                 disabled={!editorView}
                 onClick={() => runSelection()}
-                className="px-2 py-1 text-xs text-fg-muted hover:text-fg hover:bg-bg-muted rounded"
+                className={`${INTERACTION_CLASS} px-2 py-1 text-xs text-fg-muted rounded`}
               >
                 Run selection
               </button>
@@ -690,7 +691,7 @@ export function TextViewerTab({
                 aria-label="Run Selection in New Terminal"
                 disabled={!editorView}
                 onClick={() => runSelection(true)}
-                className="px-2 py-1 text-xs text-fg-muted hover:text-fg hover:bg-bg-muted rounded"
+                className={`${INTERACTION_CLASS} px-2 py-1 text-xs text-fg-muted rounded`}
               >
                 Run in new terminal
               </button>
@@ -698,7 +699,7 @@ export function TextViewerTab({
           )}
           <button
             onClick={handleCopyPath}
-            className="px-2 py-1 text-xs text-fg-muted hover:text-fg hover:bg-bg-muted rounded transition-colors"
+            className={`${INTERACTION_CLASS} px-2 py-1 text-xs text-fg-muted rounded transition-colors`}
             title={filePath}
           >
             {copied ? 'Copied!' : 'Copy Path'}
@@ -734,10 +735,9 @@ export function TextViewerTab({
           {}
           <button
             onClick={() => setShowLineNumbers(!showLineNumbers)}
-            className={`px-2 py-1 text-xs rounded transition-colors ${
-              showLineNumbers
-                ? 'bg-accent/10 text-accent'
-                : 'text-fg-muted hover:text-fg hover:bg-bg-muted'
+            data-selected={showLineNumbers}
+            className={`${INTERACTION_CLASS} px-2 py-1 text-xs rounded transition-colors ${
+              showLineNumbers ? 'bg-accent/10 text-accent' : 'text-fg-muted '
             }`}
             title="Toggle line numbers"
           >
@@ -747,10 +747,9 @@ export function TextViewerTab({
           {}
           <button
             onClick={() => setWordWrap(!wordWrap)}
-            className={`px-2 py-1 text-xs rounded transition-colors ${
-              wordWrap
-                ? 'bg-accent/10 text-accent'
-                : 'text-fg-muted hover:text-fg hover:bg-bg-muted'
+            data-selected={wordWrap}
+            className={`${INTERACTION_CLASS} px-2 py-1 text-xs rounded transition-colors ${
+              wordWrap ? 'bg-accent/10 text-accent' : 'text-fg-muted '
             }`}
             title="Toggle word wrap"
           >
@@ -857,7 +856,7 @@ function LargeTextPreviewView({
         </div>
         <button
           onClick={onCopyPath}
-          className="px-2 py-1 text-xs text-fg-muted hover:text-fg hover:bg-bg-muted rounded transition-colors flex-shrink-0"
+          className={`${INTERACTION_CLASS} px-2 py-1 text-xs text-fg-muted rounded transition-colors flex-shrink-0`}
           title={filePath}
         >
           {copied ? 'Copied!' : 'Copy Path'}

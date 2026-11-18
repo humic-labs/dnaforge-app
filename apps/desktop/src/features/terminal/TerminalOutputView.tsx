@@ -37,8 +37,10 @@ export function TerminalOutputView({
       >
         <div className="dnaforge-terminal-toolbar">
           <h2>Terminal output</h2>
-          <button onClick={onCopy}>Copy output</button>
-          <button aria-label="Close terminal output" onClick={close}>
+          <button className="wp-interactive" onClick={onCopy}>
+            Copy output
+          </button>
+          <button className="wp-interactive" aria-label="Close terminal output" onClick={close}>
             Close
           </button>
         </div>

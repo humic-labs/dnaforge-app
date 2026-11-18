@@ -4,7 +4,7 @@ import {
   userMessageValue,
   type UserVisibleText,
 } from '@waypoint/user-messages';
-import { useCallback, useRef, useState } from 'react';
+import { useRef } from 'react';
 import {
   getAssistantRouteDetail,
   getAssistantRouteLabel,
@@ -13,7 +13,16 @@ import {
 } from '../features/ai/assistant-routes';
 import type { AssistantHostId } from '../features/ai/assistant-hosts';
 import { SlidersIcon } from './icons';
-import { ChatComposerDisclosureIcon } from './ChatComposerDisclosureIcon';
+import {
+  MenuTrigger,
+  MenuRow,
+  MenuRowGroup,
+  MenuRowAction,
+  MenuSeparator,
+  MenuStatus,
+  useMenu,
+} from '@waypoint/ui-components';
+import { safeFocus } from '../shared/utils/safeFocus';
 import { PortalMenu } from './PortalMenu';
 
 interface AssistantRoutePickerProps {
@@ -28,7 +37,7 @@ interface AssistantRoutePickerProps {
   menuTestId: string;
   optionTestIdPrefix: string;
   manageTestId?: string;
-  buttonClassName: string;
+  wrapperClassName?: string;
   menuClassName: string;
   showInlineDetail?: boolean;
   emptyLabel?: string;
@@ -93,12 +102,11 @@ export function AssistantRoutePicker({
   menuTestId,
   optionTestIdPrefix,
   manageTestId,
-  buttonClassName,
+  wrapperClassName = '',
   menuClassName,
   showInlineDetail = false,
   emptyLabel = 'No assistant source is configured.',
 }: AssistantRoutePickerProps) {
-  const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const activeOption = options.find((option) => option.active);
   const activeRouteConfigured = activeOption?.configured ?? isConfigured;
@@ -112,175 +120,183 @@ export function AssistantRoutePicker({
       ? (activeOption?.detail ?? userMessage('copy.needs-api-key'))
       : (activeOption?.readinessLabel ?? userMessage('assistant.readiness.needs-login'));
 
-  const selectRoute = useCallback(
-    (route: AssistantRouteSelection) => {
-      setOpen(false);
-      onSelect(route);
-    },
-    [onSelect]
-  );
-
-  const manageSources = useCallback(() => {
-    setOpen(false);
-    onManageSources();
-  }, [onManageSources]);
-
-  const configureHost = useCallback(
-    (hostId: AssistantHostId) => {
-      if (!onConfigureHost) return;
-      setOpen(false);
-      onConfigureHost(hostId);
-    },
-    [onConfigureHost]
-  );
-
-  const renderOption = (option: AssistantRouteOption) => {
-    const canConfigure = option.category !== 'future' && !!onConfigureHost;
-    const unavailable = option.readiness === 'unavailable';
-    const display = getOptionDisplay(option);
-    const detail = display.secondary;
-    const selectOrConfigureRoute = () => {
-      if (unavailable) return;
+  const rowRefs = useRef(new Map<string, HTMLButtonElement>());
+  const configurationId = (id: string) => `configure:${id}`;
+  const menu = useMenu({
+    items: [
+      ...options.flatMap((option) => [
+        {
+          id: option.id,
+          textValue: option.label,
+          disabled: option.readiness === 'unavailable',
+          closeOnActivate: false,
+        },
+        ...(option.category !== 'future' && onConfigureHost
+          ? [
+              {
+                id: configurationId(option.id),
+                textValue: `Configure ${option.label}`,
+                closeOnActivate: false,
+              },
+            ]
+          : []),
+      ]),
+      { id: 'manage-sources', textValue: 'AI settings', closeOnActivate: false },
+    ],
+    selectedId: activeOption?.id,
+    onFocusItem: (id) => safeFocus(rowRefs.current.get(id)),
+    onActivate: (id) => {
+      if (id === 'manage-sources') {
+        menu.close('handoff');
+        onManageSources();
+        return;
+      }
+      const configure = options.find((option) => configurationId(option.id) === id);
+      if (configure) {
+        menu.close('handoff');
+        onConfigureHost?.(configure.hostId);
+        return;
+      }
+      const option = options.find((candidate) => candidate.id === id);
+      if (!option || option.readiness === 'unavailable') return;
       if (option.selection.kind === 'hosted' && !option.configured) {
         if (option.readiness === 'needs-login' && onHostedSignInRequired) {
-          setOpen(false);
+          menu.close('handoff');
           onHostedSignInRequired(option.selection);
         }
         return;
       }
       if (!option.configured && option.category === 'cli') {
-        if (canConfigure) configureHost(option.hostId);
-        else manageSources();
+        menu.close('handoff');
+        if (onConfigureHost) onConfigureHost(option.hostId);
+        else onManageSources();
         return;
       }
-      selectRoute(option.selection);
-    };
-    return (
-      <div
-        key={option.id}
-        role="none"
-        className={`flex items-center transition-colors ${
-          option.active
-            ? 'bg-border/45 text-accent dark:bg-border-hover/65'
-            : 'text-fg-muted hover:bg-border/45 hover:text-fg dark:hover:bg-border-hover/65'
-        }`}
-      >
-        <button
-          type="button"
-          role="menuitem"
-          aria-current={option.active ? 'true' : undefined}
-          aria-disabled={
-            option.selection.kind === 'hosted' &&
-            !option.configured &&
-            option.readiness !== 'needs-login'
-              ? 'true'
-              : undefined
-          }
-          onClick={selectOrConfigureRoute}
-          disabled={unavailable}
-          className="min-w-0 flex-1 px-3 py-1.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-60"
-          data-testid={`${optionTestIdPrefix}-${option.id}`}
-        >
-          <div className="flex min-w-0 items-center gap-2">
-            <span className={`text-xs font-medium ${option.active ? 'text-accent' : 'text-fg'}`}>
-              {display.primary}
-            </span>
-            {option.active && (
-              <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent" aria-hidden />
-            )}
-            {!option.configured && (
-              <span className="rounded bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning">
-                {option.readinessLabel ?? 'Needs setup'}
-              </span>
-            )}
-          </div>
-          <div className="mt-0.5 truncate text-[11px] text-fg-subtle">{detail}</div>
-        </button>
-        {canConfigure && (
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => configureHost(option.hostId)}
-            className="mr-2 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-fg-subtle transition-colors hover:bg-border/45 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 dark:hover:bg-border-hover/65"
-            title={`Configure ${option.label}`}
-            aria-label={`Configure ${option.label}`}
-            data-testid={`${optionTestIdPrefix}-${option.id}-configure`}
-          >
-            <SlidersIcon size={13} />
-          </button>
-        )}
-      </div>
-    );
+      menu.close('selection');
+      onSelect(option.selection);
+    },
+  });
+  const bindRow = (id: string) => (node: HTMLButtonElement | null) => {
+    if (node) rowRefs.current.set(id, node);
+    else rowRefs.current.delete(id);
   };
-
-  const renderGroup = (
-    label: string,
-    groupOptions: AssistantRouteOption[],
-    showTopBorder: boolean
-  ) => {
-    if (groupOptions.length === 0) return null;
-    return (
-      <div role="group" aria-label={label}>
-        <div
-          className={`px-3 pb-1 pt-2 text-[10px] font-medium uppercase tracking-[0.08em] text-fg-subtle ${
-            showTopBorder ? 'border-t border-border/70' : ''
-          }`}
-        >
-          {label}
-        </div>
-        {groupOptions.map(renderOption)}
-      </div>
-    );
-  };
-
   return (
-    <div className="min-w-0">
-      <button
+    <div className={`min-w-0 ${wrapperClassName}`}>
+      <MenuTrigger
         ref={buttonRef}
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        className={`${buttonClassName} max-w-full`}
+        density="compact"
+        variant="toolbar"
+        open={menu.isOpen}
+        onClick={() => (menu.isOpen ? menu.close('trigger') : menu.openMenu())}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            menu.openMenu();
+          }
+        }}
         title={userMessageWithValues('assistant.routeTitle', {
           route: userMessageValue(label),
           detail: userMessageValue(detail),
         })}
         aria-label={`Run with: ${label}`}
         aria-haspopup="menu"
-        aria-expanded={open}
         data-testid={buttonTestId}
       >
         <span className="flex min-w-0 items-center gap-1">
-          <span className="min-w-0 truncate font-medium">{label}</span>
+          <span className="min-w-0 truncate">{label}</span>
           {showInlineDetail && (
             <span className="hidden max-w-[96px] truncate text-fg-subtle lg:inline">
               / {detail}
             </span>
           )}
         </span>
-        <ChatComposerDisclosureIcon open={open} />
-      </button>
+      </MenuTrigger>
       <PortalMenu
-        open={open}
+        menu={menu}
+        open={menu.isOpen}
         anchorRef={buttonRef}
         role="menu"
+        aria-label="Assistant source"
         data-testid={menuTestId}
         className={menuClassName}
-        onRequestClose={() => setOpen(false)}
+        density="compact"
+        selection
+        onRequestClose={menu.close}
       >
         {options.length === 0 ? (
-          <div className="px-3 py-2 text-xs text-fg-muted">{emptyLabel}</div>
+          <MenuStatus>{emptyLabel}</MenuStatus>
         ) : (
-          <>{renderGroup('Run with', options, false)}</>
+          <div role="group" aria-label="Run with">
+            <MenuStatus>Run with</MenuStatus>
+            {options.map((option) => {
+              const display = getOptionDisplay(option);
+              const configureId = configurationId(option.id);
+              return (
+                <MenuRowGroup
+                  key={option.id}
+                  active={menu.activeId === option.id || menu.activeId === configureId}
+                >
+                  <MenuRow
+                    ref={bindRow(option.id)}
+                    role="menuitemradio"
+                    selected={option.active}
+                    aria-checked={option.active}
+                    aria-current={option.active ? 'true' : undefined}
+                    aria-disabled={
+                      option.selection.kind === 'hosted' &&
+                      !option.configured &&
+                      option.readiness !== 'needs-login'
+                        ? true
+                        : undefined
+                    }
+                    disabled={option.readiness === 'unavailable'}
+                    active={menu.activeId === option.id}
+                    description={display.secondary}
+                    tabIndex={menu.activeId === option.id ? 0 : -1}
+                    onPointerEnter={() => menu.point(option.id)}
+                    onClick={() => menu.activate(option.id)}
+                    data-testid={`${optionTestIdPrefix}-${option.id}`}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span>{display.primary}</span>
+                      {!option.configured && (
+                        <span className="rounded bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                          {option.readinessLabel ?? 'Needs setup'}
+                        </span>
+                      )}
+                    </span>
+                  </MenuRow>
+                  {option.category !== 'future' && onConfigureHost && (
+                    <MenuRowAction
+                      ref={bindRow(configureId)}
+                      role="menuitem"
+                      tabIndex={menu.activeId === configureId ? 0 : -1}
+                      onPointerEnter={() => menu.point(configureId)}
+                      onClick={() => menu.activate(configureId)}
+                      title={`Configure ${option.label}`}
+                      aria-label={`Configure ${option.label}`}
+                      data-testid={`${optionTestIdPrefix}-${option.id}-configure`}
+                    >
+                      <SlidersIcon size={16} />
+                    </MenuRowAction>
+                  )}
+                </MenuRowGroup>
+              );
+            })}
+          </div>
         )}
-        <button
-          type="button"
+        <MenuSeparator />
+        <MenuRow
+          ref={bindRow('manage-sources')}
           role="menuitem"
-          onClick={manageSources}
-          className="w-full border-t border-border px-3 py-2 text-left text-xs font-medium text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg"
+          active={menu.activeId === 'manage-sources'}
+          tabIndex={menu.activeId === 'manage-sources' ? 0 : -1}
+          onPointerEnter={() => menu.point('manage-sources')}
+          onClick={() => menu.activate('manage-sources')}
           data-testid={manageTestId}
         >
           AI settings...
-        </button>
+        </MenuRow>
       </PortalMenu>
     </div>
   );

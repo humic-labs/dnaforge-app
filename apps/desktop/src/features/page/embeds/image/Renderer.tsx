@@ -283,7 +283,7 @@ export function ImageRenderer({
               className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
                 inputMode === 'upload'
                   ? 'bg-accent text-white'
-                  : 'bg-bg-muted text-fg-muted hover:bg-bg-subtle'
+                  : 'bg-bg-muted text-fg-muted wp-interactive'
               }`}
             >
               Upload
@@ -296,7 +296,7 @@ export function ImageRenderer({
               className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
                 inputMode === 'url'
                   ? 'bg-accent text-white'
-                  : 'bg-bg-muted text-fg-muted hover:bg-bg-subtle'
+                  : 'bg-bg-muted text-fg-muted wp-interactive'
               }`}
             >
               URL
@@ -348,7 +348,7 @@ export function ImageRenderer({
                   ? 'border-accent bg-accent/5 cursor-wait'
                   : isDragging
                     ? 'border-accent bg-accent/5 cursor-copy'
-                    : 'border-border hover:border-fg-muted cursor-pointer'
+                    : 'border-border wp-interactive cursor-pointer'
               }`}
             >
               {isUploading ? (

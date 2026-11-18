@@ -1,8 +1,5 @@
-import {
-  usePresentationOverlay,
-  PresentationScopeContext,
-  usePresentationListener,
-} from '../../presentation/PresentationSurface';
+import { ActionMenu } from '../../components/ActionMenu';
+import { MenuTrigger } from '@waypoint/ui-components';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { useEffect, useRef, useState } from 'react';
 import { useToastStore } from '../../stores/toast-store';
@@ -28,35 +25,16 @@ export function SequenceRegistrationSection({
   length,
   readOnly = false,
 }: SequenceRegistrationSectionProps) {
-  const presentationOverlay = usePresentationOverlay('keyboard');
-  const presentationEvents = usePresentationListener(presentationOverlay.scope);
-
   const { status, error } = useLimsRegistrationBadge(documentId, sourcePath);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [registering, setRegistering] = useState(false);
-  const pickerRef = useRef<HTMLDivElement>(null);
+  const pickerRef = useRef<HTMLButtonElement>(null);
   const canRegister = !readOnly && Boolean(documentId && sourcePath) && status === 'not_registered';
   const options = getOpenSequenceRegistrationKindOptions({
     sourceType: 'file_dna_sequence',
     topology,
     length,
   });
-
-  useEffect(() => {
-    if (!pickerOpen) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (!pickerRef.current?.contains(event.target as Node)) setPickerOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setPickerOpen(false);
-    };
-    window.addEventListener('pointerdown', onPointerDown);
-    presentationEvents.add(window, 'keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown);
-      presentationEvents.remove(window, 'keydown', onKeyDown);
-    };
-  }, [pickerOpen, presentationEvents]);
 
   useEffect(() => {
     if (!canRegister) setPickerOpen(false);
@@ -107,44 +85,43 @@ export function SequenceRegistrationSection({
         </p>
       )}
       {canRegister && (
-        <div ref={pickerRef} className="relative mt-3">
-          <button
-            type="button"
+        <div className="relative mt-3">
+          <MenuTrigger
+            ref={pickerRef}
+            density="compact"
+            variant="toolbar"
             data-testid="sequence-metadata-register"
-            aria-expanded={pickerOpen}
+            open={pickerOpen}
             aria-haspopup="menu"
             disabled={registering}
             onClick={() => setPickerOpen((open) => !open)}
-            className="h-7 rounded border border-border px-2.5 text-xs text-fg hover:bg-bg-muted disabled:opacity-60"
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                setPickerOpen(true);
+              }
+            }}
           >
             {registering ? 'Registering…' : 'Register'}
-          </button>
-          {pickerOpen && (
-            <PresentationScopeContext.Provider value={presentationOverlay.scope}>
-              <div
-                role="menu"
-                data-testid="lims-registration-kind-picker"
-                className="absolute left-0 top-8 z-50 w-44 rounded border border-border bg-bg p-1 shadow-lg"
-                ref={presentationOverlay.bindRef(undefined, '0')}
-              >
-                {options.map((option) => (
-                  <button
-                    key={option.kind}
-                    type="button"
-                    role="menuitem"
-                    data-testid={`lims-registration-kind-${option.kind}`}
-                    title={option.title}
-                    disabled={option.disabled}
-                    onClick={() => void register(option.kind)}
-                    className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-[11px] text-fg hover:bg-bg-muted focus:bg-bg-muted focus:outline-none disabled:cursor-not-allowed disabled:text-fg-subtle"
-                  >
-                    <span>{option.label}</span>
-                    {option.disabled && <span title={option.disabledReason}>Unavailable</span>}
-                  </button>
-                ))}
-              </div>
-            </PresentationScopeContext.Provider>
-          )}
+          </MenuTrigger>
+          <ActionMenu
+            open={pickerOpen}
+            anchorRef={pickerRef}
+            label="Register sequence as"
+            testId="lims-registration-kind-picker"
+            onClose={() => setPickerOpen(false)}
+            entries={options.map((option) => ({
+              id: option.kind,
+              label: option.label,
+              title: option.title,
+              disabled: option.disabled,
+              description: option.disabled ? (option.disabledReason ?? 'Unavailable') : undefined,
+              testId: `lims-registration-kind-${option.kind}`,
+              onSelect: () => {
+                void register(option.kind);
+              },
+            }))}
+          />
         </div>
       )}
     </section>

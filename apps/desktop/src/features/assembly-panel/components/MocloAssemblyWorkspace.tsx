@@ -433,7 +433,7 @@ export function MocloAssemblyWorkspace({
             <button
               type="button"
               onClick={addPosition}
-              className="ml-1 h-7 flex-none px-2 text-[11px] text-fg-muted hover:text-fg-default"
+              className="ml-1 h-7 flex-none px-2 text-[11px] text-fg-muted wp-interactive"
             >
               + Position
             </button>
@@ -602,7 +602,7 @@ export function MocloPartPicker(props: {
           type="button"
           onClick={props.onClose}
           aria-label="Close part picker"
-          className="h-8 w-8 rounded text-fg-muted hover:bg-bg-muted hover:text-fg-default"
+          className="h-8 w-8 rounded text-fg-muted wp-interactive "
         >
           ×
         </button>
@@ -678,7 +678,7 @@ function CandidateRow(props: {
       onPointerMove={props.onPointerMove}
       onMouseDown={(event) => event.preventDefault()}
       onClick={() => props.onChoose(props.candidate)}
-      className={`flex w-full items-center gap-3 rounded px-2.5 py-2 text-left transition-colors duration-100 hover:bg-bg-muted focus-visible:bg-bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${props.active ? 'bg-bg-muted ring-1 ring-inset ring-accent/40' : ''}`}
+      className={`flex w-full items-center gap-3 rounded px-2.5 py-2 text-left transition-colors duration-100 wp-interactive ${props.active ? 'bg-bg-muted ring-1 ring-inset ring-accent/40' : ''}`}
     >
       <span className="min-w-0 flex-1">
         <span

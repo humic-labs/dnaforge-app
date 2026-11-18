@@ -95,7 +95,7 @@ export function AlignedReadRepairNotice({ bamImport }: { bamImport: BamTrackImpo
           type="button"
           onClick={bamImport.clearNotice}
           aria-label="Dismiss aligned-read Repair status"
-          className="shrink-0 rounded px-1.5 py-0.5 font-semibold hover:bg-bg-muted"
+          className="shrink-0 rounded px-1.5 py-0.5 font-semibold wp-interactive"
         >
           Dismiss
         </button>

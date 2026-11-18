@@ -359,7 +359,7 @@ export function AlignmentDrawerContent({
               onClick={() => toggleAlignmentVisibility(documentId, activeSession.id)}
               className={`p-1.5 rounded transition-colors ${
                 activeSessionPrefs?.alignmentVisible === false
-                  ? 'text-fg-muted hover:text-fg bg-bg-subtle'
+                  ? 'text-fg-muted wp-interactive bg-bg-subtle'
                   : 'text-accent hover:text-accent/80'
               }`}
               title={
@@ -512,7 +512,7 @@ export function AlignmentDrawerContent({
                       <button
                         onClick={() => setShowArchived(!showArchived)}
                         className={`text-xs transition-colors ${
-                          showArchived ? 'text-accent' : 'text-fg-muted hover:text-fg'
+                          showArchived ? 'text-accent' : 'text-fg-muted wp-interactive'
                         }`}
                       >
                         {showArchived ? 'Hide' : 'Show'} archived ({archivedCount})
@@ -699,9 +699,7 @@ export function AlignmentDrawerContent({
                       <button
                         onClick={() => setCurationMode(!curationMode)}
                         className={`text-xs px-2 py-1 rounded transition-colors ${
-                          curationMode
-                            ? 'bg-accent text-white'
-                            : 'text-fg-muted hover:text-fg hover:bg-bg-subtle'
+                          curationMode ? 'bg-accent text-white' : 'text-fg-muted wp-interactive '
                         }`}
                       >
                         {curationMode ? 'Done' : 'Review'}

@@ -85,7 +85,7 @@ export function RecentRemoteEndpoints({
               type="button"
               disabled={locked}
               onClick={() => onSelect(profile.target)}
-              className="min-w-0 flex-1 rounded px-1 py-1 text-left text-xs text-fg hover:bg-bg-muted disabled:opacity-50"
+              className="min-w-0 flex-1 rounded px-1 py-1 text-left text-xs text-fg wp-interactive disabled:opacity-50"
             >
               <span className="font-medium">{profile.displayName}</span>{' '}
               <span className="font-mono text-fg-muted">{profile.target}</span>

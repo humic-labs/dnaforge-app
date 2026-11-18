@@ -1,6 +1,6 @@
 const BUTTON_BASE = 'w-6 h-6 flex items-center justify-center rounded text-xs transition-colors';
 const BUTTON_DISABLED = 'opacity-40 cursor-not-allowed text-fg-muted';
-const BUTTON_IDLE = 'text-fg-muted hover:bg-bg-muted hover:text-fg';
+const BUTTON_IDLE = 'text-fg-muted wp-interactive ';
 
 export function tableGridFormatControlsDisabled(
   effectiveSelection: unknown,

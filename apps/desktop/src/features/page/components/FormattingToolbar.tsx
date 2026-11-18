@@ -105,9 +105,6 @@ export function FormattingToolbar({ editor }: FormattingToolbarProps) {
 
   return (
     <div className="tab-chrome-surface flex flex-wrap items-center gap-0.5 px-2 py-1 border-b border-border">
-      <NotebookLayoutControl editor={editor} />
-      <ToolbarDivider />
-
       <ToolbarGroup>
         <ToolbarButton
           isActive={formatState.bold}
@@ -254,6 +251,9 @@ export function FormattingToolbar({ editor }: FormattingToolbarProps) {
           <span className="font-mono text-[10px]">{'{}'}</span>
         </ToolbarButton>
       </ToolbarGroup>
+
+      <ToolbarDivider />
+      <NotebookLayoutControl editor={editor} />
     </div>
   );
 }
@@ -293,7 +293,7 @@ function ColorControl({
           aria-pressed={isActive}
           onClick={onToggle}
           className={`px-1.5 py-0.5 rounded text-xs transition-colors ${
-            isActive ? 'bg-accent text-accent-fg' : 'hover:bg-bg-muted'
+            isActive ? 'bg-accent text-accent-fg' : 'wp-interactive'
           }`}
         >
           <span
@@ -314,7 +314,7 @@ function ColorControl({
         onPick={onPick}
         onClear={onClear}
         testId={`toolbar-${kind}-colors`}
-        className="px-0.5 py-0.5 rounded text-[8px] leading-none hover:bg-bg-muted"
+        className="px-0.5 py-0.5 rounded text-[8px] leading-none wp-interactive"
       >
         ▾
       </ColorPalette>
@@ -343,7 +343,7 @@ function ToolbarButton({ isActive, onClick, tooltip, shortcut, children }: Toolb
         className={`
           w-7 h-7 flex items-center justify-center rounded text-xs
           transition-colors duration-100
-          ${isActive ? 'bg-accent text-accent-fg' : 'text-fg hover:bg-bg-muted'}
+          ${isActive ? 'bg-accent text-accent-fg' : 'text-fg wp-interactive'}
         `}
       >
         {children}

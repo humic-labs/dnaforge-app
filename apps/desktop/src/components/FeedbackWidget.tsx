@@ -5,6 +5,7 @@ import { TelemetryBlockedSurface } from './TelemetryBlockedSurface';
 import { sanitizeFeedbackText as sanitize, type FeedbackError } from '../shared/feedback';
 import { ChatTabIcon } from './icons/glyphs';
 import { Button, TextArea } from './ui';
+import { UI_APPBAR_ACTION_CLASS } from './ui/styles';
 
 const MAX_LENGTH = 2000;
 
@@ -164,7 +165,7 @@ export function FeedbackWidget({ appVersion, titleBarInset = false }: FeedbackWi
           session.current += 1;
           setIsOpen(true);
         }}
-        className="appbar-action"
+        className={UI_APPBAR_ACTION_CLASS}
         aria-label="Send feedback"
         title="Send feedback"
       >
