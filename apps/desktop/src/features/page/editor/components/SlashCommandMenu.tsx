@@ -122,7 +122,7 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
 
     if (items.length === 0) {
       return (
-        <div className="bg-bg text-fg border border-border rounded-lg shadow-lg p-2 w-72 max-w-[calc(100vw-16px)]">
+        <div className="bg-bg-subtle text-fg rounded-lg shadow-md p-2 w-72 max-w-[calc(100vw-16px)]">
           <div className="text-sm text-fg-muted px-2 py-1">No matching commands</div>
         </div>
       );
@@ -153,7 +153,7 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
     return (
       <div
         className={cn(
-          'bg-bg text-fg border border-border rounded-lg shadow-lg p-1.5 max-w-[calc(100vw-16px)] max-h-[min(20rem,calc(100vh-16px))] overflow-auto',
+          'bg-bg-subtle text-fg rounded-lg shadow-md p-1.5 max-w-[calc(100vw-16px)] max-h-[min(20rem,calc(100vh-16px))] overflow-auto',
           hasBothColumns ? 'w-[420px]' : 'w-52'
         )}
       >

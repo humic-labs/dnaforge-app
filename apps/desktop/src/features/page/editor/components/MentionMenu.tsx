@@ -164,7 +164,7 @@ export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function
 
   return (
     <div
-      className="bg-bg text-fg border border-border rounded-lg shadow-lg w-96 max-w-[calc(100vw-16px)] max-h-[min(28rem,calc(100vh-16px))] flex flex-col overflow-hidden"
+      className="bg-bg-subtle text-fg rounded-lg shadow-md w-96 max-w-[calc(100vw-16px)] max-h-[min(28rem,calc(100vh-16px))] flex flex-col overflow-hidden"
       data-testid="mention-menu"
     >
       <div className="p-2 border-b border-border flex flex-col gap-2">
