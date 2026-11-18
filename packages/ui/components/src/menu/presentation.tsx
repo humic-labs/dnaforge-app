@@ -40,7 +40,10 @@ const MENU_LAYOUT_KEYS = [
   'visibility',
 ] as const;
 
-export type MenuLayout = Pick<CSSProperties, (typeof MENU_LAYOUT_KEYS)[number]>;
+export type MenuLayout = Omit<
+  Pick<CSSProperties, (typeof MENU_LAYOUT_KEYS)[number]>,
+  'overflow'
+> & { overflow?: CSSProperties['overflowY'] };
 
 export interface MenuSurfaceProps extends Omit<
   HTMLAttributes<HTMLDivElement>,
