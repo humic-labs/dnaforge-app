@@ -11,6 +11,7 @@ import { DateField, fieldClass } from './DateField';
 import { dateDraft, describeDate, type DateDraft } from './task-form';
 
 interface SourceOption {
+  dayField?: boolean;
   unavailable?: string;
   label: string;
   source: WorkSource;
@@ -72,6 +73,7 @@ function SourcePicker({
                       unavailable:
                         parsed.kind === 'missing' ? 'Empty field' : 'Needs an exact date',
                     }),
+                dayField: parsed.kind === 'exact' && parsed.value.kind === 'day',
                 label: record.name + ' · ' + field.label,
                 source: { projectId: project.id, resourceId: record.id, role: field.key },
               });
@@ -86,7 +88,13 @@ function SourcePicker({
                 label: task.document.name + ' · Plan for',
                 unavailable:
                   task.schedule.start.kind === 'resolved' ? undefined : 'Date unavailable',
-                source: { projectId: project.id, resourceId: task.id, role: 'plan' },
+                source: { projectId: project.id, resourceId: task.id, role: 'plan-start' },
+              });
+            if (task.document.plan?.end)
+              choices.push({
+                label: task.document.name + ' · Planned end',
+                unavailable: task.schedule.end.kind === 'resolved' ? undefined : 'Date unavailable',
+                source: { projectId: project.id, resourceId: task.id, role: 'plan-end' },
               });
             if (task.document.deadline)
               choices.push({
@@ -200,7 +208,7 @@ export function RelativeDateField({
       ...dateDraft(),
       relative: {
         kind: 'relative',
-        source: option.source,
+        source: option.dayField ? { ...option.source, zone: value.zone } : option.source,
         offset: spec?.offset ?? { unit: 'days', amount: 0 },
       },
     });
@@ -211,10 +219,29 @@ export function RelativeDateField({
         <div className="space-y-1">
           <p className="text-xs font-medium">{label}</p>
           <p className="break-words text-xs">
-            {picked && JSON.stringify(picked.source) === JSON.stringify(spec.source)
+            {picked &&
+            picked.source.projectId === spec.source.projectId &&
+            picked.source.resourceId === spec.source.resourceId &&
+            picked.source.role === spec.source.role
               ? picked.label
               : spec.source.role + ' · ' + spec.source.resourceId}
           </p>
+          {spec.source.zone !== undefined && (
+            <label className="block text-xs">
+              Source date time zone
+              <input
+                className={fieldClass}
+                aria-label={label + ' source time zone'}
+                value={spec.source.zone}
+                onChange={(e) =>
+                  change({
+                    ...value,
+                    relative: { ...spec, source: { ...spec.source, zone: e.target.value } },
+                  })
+                }
+              />
+            </label>
+          )}
           {resolution && (
             <p className="text-xs text-fg-muted">
               {resolution.kind === 'resolved'

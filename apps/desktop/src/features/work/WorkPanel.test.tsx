@@ -193,6 +193,9 @@ describe('linked work', () => {
       expect.objectContaining({ ids: ['lot-a'], workspaceIds: [4] })
     );
     expect(screen.queryByRole('button', { name: 'Lot A · Date notes' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Due source time zone'), {
+      target: { value: 'Europe/London' },
+    });
     fireEvent.change(screen.getByLabelText('Due offset direction'), { target: { value: '-1' } });
     fireEvent.change(screen.getByLabelText('Due offset', { exact: true }), {
       target: { value: 2 },
@@ -207,7 +210,12 @@ describe('linked work', () => {
     await screen.findByText('Saved');
     expect(stored?.document.deadline).toEqual({
       kind: 'relative',
-      source: { projectId: 'project-a', resourceId: 'lot-a', role: 'expiry' },
+      source: {
+        projectId: 'project-a',
+        resourceId: 'lot-a',
+        role: 'expiry',
+        zone: 'Europe/London',
+      },
       offset: { unit: 'days', amount: -2 },
     });
     expect(stored?.document.recurrence).toMatchObject({
