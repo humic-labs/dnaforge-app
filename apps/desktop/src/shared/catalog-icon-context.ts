@@ -9,7 +9,8 @@ export function catalogIconContext(input: {
   if (input.metadata) {
     try {
       const parsed: unknown = JSON.parse(input.metadata);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) metadata = parsed;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed))
+        metadata = Object.fromEntries(Object.entries(parsed));
     } catch {}
   }
   const schema = metadata.entitySchema;

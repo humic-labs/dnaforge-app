@@ -22,7 +22,6 @@ import {
 import { useMenuAim } from '@waypoint/ui-components';
 import { isHostedCapabilityShown } from '../hosted/capabilities';
 import { isElectron } from '../utils/environment';
-import { entityIconClassName } from '../shared/entity-color-family';
 
 export type ExplorerAddPickerLaunchSource = 'context-menu' | 'registry';
 export type ExplorerEntityImportRequest = EntityImportRequest;
@@ -330,9 +329,7 @@ export function ExplorerAddPicker({
           <div className="flex h-10 items-center gap-2 border-b border-border px-3">
             {launchSource === 'context-menu' ? (
               <>
-                <FolderOpenIcon
-                  className={entityIconClassName({ kind: 'folder' }, 'h-4 w-4 flex-none')}
-                />
+                <FolderOpenIcon className="h-4 w-4 flex-none" colorFamily="neutral" />
                 <div className="min-w-0 leading-tight">
                   <div className="text-[10px] font-medium uppercase tracking-wide text-fg-muted">
                     Add to folder

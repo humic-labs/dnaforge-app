@@ -1475,21 +1475,21 @@ a[data-benchling-link-destination='external']::after {
   }
 }
 
-.entity-icon-color-dna {
+[data-entity-color-family='dna'] {
   color: var(--entity-icon-dna) !important;
 }
-.entity-icon-color-rna {
+[data-entity-color-family='rna'] {
   color: var(--entity-icon-rna) !important;
 }
-.entity-icon-color-protein {
+[data-entity-color-family='protein'] {
   color: var(--entity-icon-protein) !important;
 }
-.entity-icon-color-data {
+[data-entity-color-family='data'] {
   color: var(--entity-icon-data) !important;
 }
-.entity-icon-color-code {
+[data-entity-color-family='code'] {
   color: var(--entity-icon-code) !important;
 }
-.entity-icon-color-neutral {
+[data-entity-color-family='neutral'] {
   color: var(--entity-icon-neutral) !important;
 }

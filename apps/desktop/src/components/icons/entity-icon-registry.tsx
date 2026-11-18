@@ -24,7 +24,8 @@ import { AlignmentIcon, AnnotationsIcon } from './stateful';
 import { getTabTypeForFile } from '../../utils/fileTypes';
 import type { InlineReferenceTargetType } from '../../shared/inline-reference-ipc';
 import type { CatalogRecordPresentationKind } from '../../shared/catalog-entity';
-import { entityIconClassName, type EntityColorContext } from '../../shared/entity-color-family';
+import { entityColorFamily, type EntityColorContext } from '../../shared/entity-color-family';
+import type { IconProps } from './types';
 
 export type EntityIconKind =
   | 'molecular-document'
@@ -135,7 +136,7 @@ export function entityIconKindForCatalogPresentation(
   }
 }
 
-type GlyphComponent = (props: { className?: string }) => ReactNode;
+type GlyphComponent = (props: IconProps) => ReactNode;
 
 const GLYPHS: Readonly<Record<EntityIconKind, GlyphComponent>> = {
   'molecular-document': MolecularDocumentIcon as GlyphComponent,
@@ -165,12 +166,15 @@ const GLYPHS: Readonly<Record<EntityIconKind, GlyphComponent>> = {
 export function iconForEntityKind(
   rawKind: string,
   className = 'w-4 h-4',
-  context: EntityColorContext = {}
+  context: EntityColorContext = {},
+  size?: number
 ): ReactNode | null {
   const kind = canonicalEntityIconKind(rawKind);
   if (!kind) return null;
   return createElement(GLYPHS[kind], {
-    className: entityIconClassName({ ...context, kind: context.kind ?? rawKind }, className),
+    className,
+    size,
+    colorFamily: entityColorFamily({ ...context, kind: context.kind ?? rawKind }),
   });
 }
 

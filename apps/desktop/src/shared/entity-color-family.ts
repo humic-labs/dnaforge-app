@@ -282,9 +282,3 @@ export function entityColorFamily(context: EntityColorContext): EntityColorFamil
   }
   return molecule ?? 'neutral';
 }
-
-export function entityIconClassName(context: EntityColorContext, className = ''): string {
-  if (/(?:^|\s)entity-icon-color-(?:dna|rna|protein|data|code|neutral)(?:\s|$)/.test(className))
-    return className;
-  return `${className} entity-icon-color entity-icon-color-${entityColorFamily(context)}`.trim();
-}

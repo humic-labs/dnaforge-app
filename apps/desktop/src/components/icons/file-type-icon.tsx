@@ -1,12 +1,7 @@
 import type { FileIconCategory } from '../../utils/fileTypes';
 import type { IconProps } from './types';
 import { iconForEntityKind } from './entity-icon-registry';
-import { BiologyFileIcon } from './glyphs';
-import {
-  entityColorFamily,
-  entityIconClassName,
-  type EntityColorContext,
-} from '../../shared/entity-color-family';
+import { entityColorFamily, type EntityColorContext } from '../../shared/entity-color-family';
 
 interface FileTypeIconProps extends IconProps {
   category: FileIconCategory;
@@ -33,10 +28,7 @@ export function FileTypeIcon({
     molecule,
     ...context,
   };
-  if (category === 'biology') {
-    if (entityColorFamily(colorContext) === 'protein')
-      return <>{iconForEntityKind('protein', className, colorContext)}</>;
-    return <BiologyFileIcon size={size} className={entityIconClassName(colorContext, className)} />;
-  }
-  return <>{iconForEntityKind(category, className, colorContext)}</>;
+  const kind =
+    category === 'biology' && entityColorFamily(colorContext) === 'protein' ? 'protein' : category;
+  return <>{iconForEntityKind(kind, className, colorContext, size)}</>;
 }

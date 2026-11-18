@@ -7,8 +7,9 @@ import { startFileDrag } from '../hooks/useFileDrag';
 import type { GitFileStatus } from '../features/workspace/git';
 import { safeFocus, scrollIntoNearestScrollContainer } from '../shared/utils/safeFocus';
 import { FileTypeIcon, FolderIcon } from './icons';
-import { entityIconClassName } from '../shared/entity-color-family';
 import { useSequenceStore } from '../features/sequence/store';
+import { useCanvasStore } from '../features/canvas/store';
+import { sequenceDocumentKey } from '../shared/managed-sequence-document';
 import {
   entityIconKindForCatalogPresentation,
   iconForEntityKind,
@@ -62,8 +63,23 @@ function focusTreeItemWithinActiveRoot(item: HTMLElement | null): void {
 }
 
 const FileIcon = ({ entry }: { entry: FileEntry }) => {
+  const documentId = useCanvasStore((state) => {
+    if (entry.sequenceDocument) return sequenceDocumentKey(entry.sequenceDocument);
+    for (const panel of Object.values(state.panels)) {
+      for (const tab of panel.tabs) {
+        if (tab.type !== 'sequence' || !tab.sequenceDocument) continue;
+        const sourcePath =
+          tab.sequenceDocument.kind === 'import-source-sequence'
+            ? tab.sequenceDocument.sourcePath
+            : tab.sourceFileName;
+        if (sourcePath?.replace(/\\/g, '/') === entry.path.replace(/\\/g, '/'))
+          return sequenceDocumentKey(tab.sequenceDocument);
+      }
+    }
+    return undefined;
+  });
   const molecule = useSequenceStore((state) =>
-    entry.sequenceDocument ? state.sequences[entry.sequenceDocument.packageId]?.molecule : undefined
+    documentId ? state.sequences[documentId]?.molecule : undefined
   );
   const context = {
     path: entry.path,
@@ -483,10 +499,7 @@ function FilesystemTreeItem({
           .join(' ')}
         icon={
           entry.isDirectory ? (
-            <FolderIcon
-              expanded={isExpanded}
-              className={entityIconClassName({ kind: 'folder' }, 'w-4 h-4 flex-shrink-0')}
-            />
+            <FolderIcon expanded={isExpanded} className="w-4 h-4 flex-shrink-0" />
           ) : (
             <FileIcon entry={entry} />
           )

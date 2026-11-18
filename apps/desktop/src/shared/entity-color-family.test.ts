@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { entityColorFamily, entityIconClassName } from './entity-color-family';
+import { entityColorFamily } from './entity-color-family';
 
 describe('entity color family', () => {
   it.each([
@@ -85,16 +85,5 @@ describe('entity color family', () => {
   it('treats unknown names as data rather than object properties', () => {
     expect(entityColorFamily({ kind: 'constructor' })).toBe('neutral');
     expect(entityColorFamily({ path: '/unknown.toString' })).toBe('neutral');
-  });
-
-  it('adds semantic color classes while preserving caller layout', () => {
-    expect(entityIconClassName({ kind: 'rna_oligo' }, 'h-4 w-4')).toBe(
-      'h-4 w-4 entity-icon-color entity-icon-color-rna'
-    );
-  });
-
-  it('preserves semantic context when an entity glyph adds its default', () => {
-    const rna = entityIconClassName({ kind: 'rna_oligo' }, 'h-4 w-4');
-    expect(entityIconClassName({ kind: 'primer' }, rna)).toBe(rna);
   });
 });
