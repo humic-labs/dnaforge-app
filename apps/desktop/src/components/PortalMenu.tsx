@@ -375,8 +375,23 @@ function BoundPortalMenu({
         : r.right > window.innerWidth - MENU_MARGIN
           ? Math.max(MENU_MARGIN, window.innerWidth - MENU_MARGIN - r.width)
           : null;
-    const top =
-      placementMode !== 'submenu' && !anchorPoint
+    const firstRow =
+      placementMode === 'submenu'
+        ? menu.querySelector<HTMLElement>(
+            '[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"]'
+          )
+        : null;
+    const anchor = placementMode === 'submenu' ? anchorRef?.current : null;
+    const top = anchor
+      ? Math.max(
+          MENU_MARGIN,
+          Math.min(
+            anchor.getBoundingClientRect().top -
+              (firstRow ? firstRow.getBoundingClientRect().top - r.top : 0),
+            window.innerHeight - MENU_MARGIN - r.height
+          )
+        )
+      : placementMode !== 'submenu' && !anchorPoint
         ? null
         : r.top < MENU_MARGIN
           ? MENU_MARGIN
@@ -394,7 +409,7 @@ function BoundPortalMenu({
           : current
       );
     }
-  }, [placement, placementMode, anchorPoint]);
+  }, [placement, placementMode, anchorPoint, anchorRef]);
 
   const mounted = open && placement !== null;
   useLayoutEffect(() => {

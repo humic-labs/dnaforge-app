@@ -48,7 +48,7 @@ function Harness({
         data-testid="menu"
         onRequestClose={() => setOpen(false)}
       >
-        <button data-testid="opt" onClick={() => setOpen(false)}>
+        <button role="menuitem" data-testid="opt" onClick={() => setOpen(false)}>
           option
         </button>
         <span data-testid="inside">stays open on click</span>
@@ -58,6 +58,32 @@ function Harness({
 }
 
 describe('PortalMenu', () => {
+  it.each([5, 45])('aligns the first submenu row after a %ipx inset', (inset) => {
+    rectSpy?.mockImplementation(function (this: HTMLElement) {
+      const surface = this.getAttribute('data-testid') === 'menu';
+      const option = this.getAttribute('data-testid') === 'opt';
+      const menuTop = Number.parseFloat(screen.queryByTestId('menu')?.style.top ?? '400');
+      const top = surface ? menuTop : option ? menuTop + inset : 400;
+      const height = surface ? 160 : 28;
+      return {
+        top,
+        bottom: top + height,
+        left: 100,
+        right: 200,
+        width: 100,
+        height,
+        x: 100,
+        y: top,
+        toJSON: () => ({}),
+      } as DOMRect;
+    });
+    render(<Harness placement="submenu" />);
+    fireEvent.click(screen.getByTestId('trigger'));
+    expect(screen.getByTestId('opt').getBoundingClientRect().top).toBe(
+      screen.getByTestId('trigger').getBoundingClientRect().top
+    );
+  });
+
   it('opens below a part when requested without changing the composer default', () => {
     const view = render(<Harness preferredSide="bottom" />);
     fireEvent.click(screen.getByTestId('trigger'));
