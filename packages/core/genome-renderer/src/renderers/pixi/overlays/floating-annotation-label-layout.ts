@@ -317,6 +317,8 @@ export function floatingLabelOutwardAnchor(
 }
 
 const OBSTACLE_BUCKET_PX = 64;
+const MAX_REPAIR_ANCHOR_DISTANCE_PX =
+  FLOATING_LABEL_MAX_LEADER_PX + FLOATING_LABEL_TEXT_GAP_PX + FLOATING_LABEL_TERMINAL_TICK_PX;
 
 function bucketObstaclesByX(
   obstacles: readonly FloatingAnnotationLabelObstacle[]
@@ -1242,6 +1244,11 @@ export function planFloatingAnnotationLabels(
       (outsideRunway || (slot.outwardRow >= OUTWARD_ROW_COUNT && !insidePane(bounds, viewport)))
     ) {
       return null;
+    }
+    if (!assigned) {
+      const dx = Math.max(0, bounds.xMin - candidate.anchor.x, candidate.anchor.x - bounds.xMax);
+      const dy = Math.max(0, bounds.yMin - candidate.anchor.y, candidate.anchor.y - bounds.yMax);
+      if (dx * dx + dy * dy > MAX_REPAIR_ANCHOR_DISTANCE_PX ** 2) return null;
     }
     const firstBucket = Math.floor(bounds.xMin / OBSTACLE_BUCKET_PX);
     const lastBucket = Math.floor(bounds.xMax / OBSTACLE_BUCKET_PX);
