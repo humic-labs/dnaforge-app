@@ -230,3 +230,89 @@ it('confirms the exact stored refusal after restart and keeps a previously inter
     f.cleanup();
   }
 });
+
+it('keeps restored reminders suspended and retires queued deliveries before explicit rearm', async () => {
+  const f = createFileTestDb('work-reminder-archive');
+  try {
+    ensureSchema(f.db, f.dbPath);
+    const root = join(await realpath(f.tmpDir), 'project');
+    await mkdir(root);
+    f.db
+      .prepare('INSERT INTO workspaces(name,path,repo_uuid,created_at) VALUES(?,?,?,1)')
+      .run('Archive test', root, randomUUID());
+    const project = visibleWorkProjects(f.db, root)[0]!;
+    const start = Date.UTC(2028, 0, 7, 12),
+      fire = start + 120000;
+    await mutateWorkTask(f.db, {
+      workspaceRoot: root,
+      taskId: 'check',
+      operationId: randomUUID(),
+      expectedRevisionId: null,
+      command: {
+        kind: 'create',
+        name: 'Review',
+        deadline: {
+          kind: 'fixed',
+          value: workTimeFromInput({ kind: 'timed', local: '2028-01-07T12:02', zone: 'UTC' }),
+        },
+      },
+    });
+    changeLocalReminder(
+      f.db,
+      project,
+      randomUUID(),
+      { action: 'consent', inbox: true, desktop: true, email: false, expectedRevision: 0 },
+      start
+    );
+    for (const offsetMs of [60000, 0]) {
+      changeLocalReminder(
+        f.db,
+        project,
+        randomUUID(),
+        {
+          action: 'rule',
+          taskId: 'check',
+          role: 'deadline',
+          offsetMs,
+          desktop: true,
+          email: false,
+        },
+        start
+      );
+    }
+    const notify = vi.fn();
+    scanLocalWorkReminders(f.db, project, start + 60000, notify);
+    f.db.exec(
+      "CREATE TEMP TRIGGER interrupt_delivery BEFORE UPDATE OF channel ON scientific_work_effects WHEN NEW.channel='submit-intent' BEGIN SELECT RAISE(ABORT,'interrupted delivery'); END"
+    );
+    expect(() => scanLocalWorkReminders(f.db, project, fire, notify)).toThrow(
+      'interrupted delivery'
+    );
+    f.db.exec('DROP TRIGGER interrupt_delivery');
+    const channels = () =>
+      f.db.prepare('SELECT channel FROM scientific_work_effects ORDER BY due_at').pluck().all();
+    expect(channels()).toEqual(['submit-intent', 'queued']);
+    const original = dispatchRow(f.db, project)!;
+    f.db.prepare('UPDATE workspaces SET archived_at=? WHERE id=?').run(fire, project.workspaceId);
+    f.db.prepare('UPDATE workspaces SET archived_at=NULL WHERE id=?').run(project.workspaceId);
+    const restored = dispatchRow(f.db, project)!;
+    expect(restored).toMatchObject({ state: 'suspended', epoch: original.epoch + 1 });
+    expect(channels()).toEqual(['submit-intent', 'suppressed']);
+    scanLocalWorkReminders(f.db, project, fire + 100, notify);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(
+      changeLocalReminder(
+        f.db,
+        project,
+        randomUUID(),
+        { action: 'rearm', expectedEpoch: restored.epoch },
+        fire + 200
+      )
+    ).toEqual({ state: 'local', epoch: restored.epoch + 1 });
+    scanLocalWorkReminders(f.db, project, fire + 300, notify);
+    expect(channels()).toEqual(['submit-intent', 'suppressed']);
+    expect(notify).toHaveBeenCalledTimes(1);
+  } finally {
+    f.cleanup();
+  }
+});

@@ -185,7 +185,7 @@ export function localReminderView(db: Database.Database, p: WorkProjectAccess): 
           e.channel === 'unsupported'
             ? 'System notifications unavailable'
             : e.channel === 'suppressed'
-              ? 'Consent or schedule changed'
+              ? 'Consent, schedule or project authority changed'
               : null,
         admittedAt: iso(e.admitted_at),
       })),

@@ -34,6 +34,11 @@ export function createWorkReminderTables(db: Database.Database) {
     BEGIN
       UPDATE scientific_work_dispatch SET state='fenced',epoch=epoch+1 WHERE workspace_id=NEW.workspace_id AND state IN ('local','suspended');
     END;
+    CREATE TRIGGER IF NOT EXISTS scientific_work_suspended_deliveries AFTER UPDATE OF state ON scientific_work_dispatch
+    WHEN (OLD.state='local' AND NEW.state='suspended') OR (OLD.state='suspended' AND NEW.state='local') BEGIN
+      UPDATE scientific_work_effects SET channel='suppressed'
+      WHERE workspace_id=NEW.workspace_id AND principal='local:' || NEW.installation_id AND channel='queued';
+    END;
     CREATE TRIGGER IF NOT EXISTS scientific_work_project_suspended AFTER UPDATE OF archived_at,trashed_at,access_mode ON workspaces
     WHEN NEW.archived_at IS NOT NULL OR NEW.trashed_at IS NOT NULL OR NEW.access_mode <> 'writable' BEGIN
       UPDATE scientific_work_dispatch SET state='suspended',epoch=epoch+1 WHERE workspace_id=NEW.id AND state='local';
