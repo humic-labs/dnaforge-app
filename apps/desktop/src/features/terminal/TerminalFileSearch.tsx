@@ -75,7 +75,9 @@ export function TerminalFileSearch({
       >
         <div className="dnaforge-terminal-toolbar">
           <h2>Find terminal file</h2>
-          <button onClick={close}>Close</button>
+          <button className="wp-interactive" onClick={close}>
+            Close
+          </button>
         </div>
         <input
           autoFocus
@@ -145,6 +147,7 @@ export function TerminalFileSearch({
               : 'Files in open projects'}
           </span>
           <button
+            className="wp-interactive"
             disabled={loading || !result.paths.length}
             onClick={() => open(result.paths[index])}
           >

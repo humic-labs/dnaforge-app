@@ -4,7 +4,7 @@ import { SequenceContextMenu } from '@waypoint/ui-components';
 import { describe, expect, it, vi } from 'vitest';
 
 function labelOf(text: string) {
-  return screen.getByRole('button', { name: text });
+  return screen.getByRole('menuitem', { name: text });
 }
 
 describe('SequenceContextMenu — Attach Primers ', () => {
@@ -21,7 +21,7 @@ describe('SequenceContextMenu — Attach Primers ', () => {
       />
     );
     expect(labelOf('Attach Primers')).toBeDefined();
-    expect(screen.queryByRole('button', { name: 'Attach Primers to selection' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Attach Primers to selection' })).toBeNull();
   });
 
   it('labels the action "Attach Primers" with no selection too', () => {
@@ -56,8 +56,8 @@ describe('SequenceContextMenu — Attach Primers ', () => {
 
   it('omits the action (and shows the empty hint) when onAttachPrimers is absent', () => {
     render(<SequenceContextMenu x={0} y={0} isOpen onClose={() => {}} />);
-    expect(screen.queryByRole('button', { name: /Attach Primers/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Design Primers' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /Attach Primers/ })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Design Primers' })).toBeNull();
     expect(screen.getByText('Select sequence first')).toBeDefined();
   });
 });

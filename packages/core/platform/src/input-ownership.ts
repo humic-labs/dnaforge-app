@@ -47,11 +47,23 @@ export function captureInputOwnership(
     (input !== 'keyboard' || target.ownerDocument.activeElement === focused);
 }
 
-export function captureFocusOwnership(target: Element): () => boolean {
+export function captureFocusOwnership(
+  target: Element,
+  { allowDetachedOrigin = false }: { allowDetachedOrigin?: boolean } = {}
+): () => boolean {
   const authority = authorities.get(target.ownerDocument);
-  const current = authority?.captureFocus?.(target) ?? captureInputOwnership(target, 'keyboard');
+  const current =
+    authority?.captureFocus?.(target) ??
+    authority?.capture(target, 'keyboard') ??
+    (() => target.isConnected);
   const focused = target.ownerDocument.activeElement;
-  return () => current() && target.ownerDocument.activeElement === focused;
+  return () =>
+    current() &&
+    (target.ownerDocument.activeElement === focused ||
+      (allowDetachedOrigin &&
+        focused !== null &&
+        !focused.isConnected &&
+        target.ownerDocument.activeElement === target.ownerDocument.body));
 }
 
 export function subscribeInputRevocation(

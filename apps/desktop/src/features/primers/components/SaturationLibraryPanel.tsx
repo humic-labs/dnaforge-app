@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { toUserMessage, renderUserMessage, type UserMessage } from '@waypoint/user-messages';
 import { useMemo, useState } from 'react';
 import { designSaturationLibrary, saturationLibraryTsv } from '../saturation-library';
@@ -77,31 +78,35 @@ export function SaturationLibraryPanel({ referenceSequence }: SaturationLibraryP
         {numberField('CDS end (inclusive)', cdsEnd, setCdsEnd)}
         <label className="flex flex-col gap-1 text-xs">
           Coding strand
-          <select
-            value={strand}
-            onChange={(event) => {
-              setStrand(event.target.value === 'reverse' ? 'reverse' : 'forward');
-              setCopyStatus('');
-            }}
-            className="rounded border border-border bg-background px-2 py-1.5"
-          >
-            <option value="forward">Forward</option>
-            <option value="reverse">Reverse</option>
-          </select>
+          <span className="inline-block min-w-0">
+            <MenuNativeSelect
+              density="compact"
+              value={strand}
+              onChange={(event) => {
+                setStrand(event.target.value === 'reverse' ? 'reverse' : 'forward');
+                setCopyStatus('');
+              }}
+            >
+              <option value="forward">Forward</option>
+              <option value="reverse">Reverse</option>
+            </MenuNativeSelect>
+          </span>
         </label>
         <label className="flex flex-col gap-1 text-xs">
           Degenerate codon
-          <select
-            value={codon}
-            onChange={(event) => {
-              setCodon(event.target.value === 'NNS' ? 'NNS' : 'NNK');
-              setCopyStatus('');
-            }}
-            className="rounded border border-border bg-background px-2 py-1.5"
-          >
-            <option value="NNK">NNK</option>
-            <option value="NNS">NNS</option>
-          </select>
+          <span className="inline-block min-w-0">
+            <MenuNativeSelect
+              density="compact"
+              value={codon}
+              onChange={(event) => {
+                setCodon(event.target.value === 'NNS' ? 'NNS' : 'NNK');
+                setCopyStatus('');
+              }}
+            >
+              <option value="NNK">NNK</option>
+              <option value="NNS">NNS</option>
+            </MenuNativeSelect>
+          </span>
         </label>
         {numberField('First residue', firstResidue, setFirstResidue)}
         {numberField('Last residue', lastResidue, setLastResidue)}

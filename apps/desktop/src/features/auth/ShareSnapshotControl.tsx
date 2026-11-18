@@ -18,7 +18,7 @@ import {
 } from './share-snapshot';
 
 const ACTION_CLASS =
-  'inline-flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-40';
+  'inline-flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted transition-colors wp-interactive disabled:pointer-events-none disabled:opacity-40';
 
 type SyncWorkspaceRow = { repo_uuid: string | null };
 type SnapshotContext = { accountId: string; workspaceRootPath: string; workspaceUuid: string };

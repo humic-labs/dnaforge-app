@@ -81,7 +81,7 @@ export function ChatPermissionPickers({
             ariaLabel={picker.label}
             title={`${picker.label}: ${selected?.label ?? permissions[picker.key]}`}
             testId={picker.testId}
-            className="max-w-[13rem]"
+            width="standard"
           />
         );
       })}

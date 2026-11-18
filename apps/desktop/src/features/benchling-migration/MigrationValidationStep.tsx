@@ -196,7 +196,7 @@ export function ValidationStep({
         <button
           type="button"
           onClick={onViewMigrationDetails}
-          className="rounded px-1 py-1 text-xs font-medium text-fg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="rounded px-1 py-1 text-xs font-medium text-fg-muted wp-interactive "
         >
           Back to migration history
         </button>
@@ -1079,7 +1079,7 @@ function ImportReceiptCard({
       </dl>
       {retained > 0 && conflictResolution?.policy !== 'use_incoming' ? (
         <details className="mt-3" data-testid="benchling-migration-import-receipt-retained">
-          <summary className="cursor-pointer text-xs font-medium text-fg-muted hover:text-fg">
+          <summary className="cursor-pointer text-xs font-medium text-fg-muted wp-interactive">
             Which existing versions were kept
           </summary>
           <ul className="mt-2 space-y-1">

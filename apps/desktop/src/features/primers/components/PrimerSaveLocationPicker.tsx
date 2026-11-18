@@ -3,12 +3,9 @@ import {
   WorkspaceFolderPicker,
   type WorkspaceFolderPickerProps,
 } from '../../../components/WorkspaceFolderPicker';
-import { ChevronRotatableIcon, FolderIcon } from '../../../components/icons';
-import {
-  SETTINGS_SELECT_CARET_CLASS,
-  SETTINGS_SELECT_TRIGGER_CLASS,
-  SETTINGS_SURFACE_CLASS,
-} from '../../../components/SettingsSubsection';
+import { FolderIcon } from '../../../components/icons';
+import { MenuTrigger } from '@waypoint/ui-components';
+import { SETTINGS_SURFACE_CLASS } from '../../../components/SettingsSubsection';
 import { findContainingPathBoundary, pathRelativeToBoundary } from '../../../shared/path-boundary';
 
 type PrimerSaveLocationPickerProps = Pick<
@@ -41,20 +38,18 @@ export function PrimerSaveLocationPicker({
           expanded ? 'flex h-full min-h-0 flex-col' : ''
         }`}
       >
-        <button
+        <MenuTrigger
           type="button"
           data-testid="primer-save-location-trigger"
-          aria-expanded={expanded}
+          open={expanded}
+          density="form"
+          title={selectedLabel}
+          icon={<FolderIcon expanded={expanded} className="text-fg-subtle" />}
           aria-controls={expandedRegionId}
           onClick={() => setExpanded((current) => !current)}
-          className={SETTINGS_SELECT_TRIGGER_CLASS}
         >
-          <FolderIcon expanded={expanded} className="h-4 w-4 shrink-0 text-fg-subtle" />
-          <span className="min-w-0 flex-1 truncate" title={selectedLabel}>
-            {selectedLabel}
-          </span>
-          <ChevronRotatableIcon expanded={expanded} className={SETTINGS_SELECT_CARET_CLASS} />
-        </button>
+          {selectedLabel}
+        </MenuTrigger>
 
         {expanded && (
           <div

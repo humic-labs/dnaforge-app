@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useEffect, useState } from 'react';
 import {
@@ -40,19 +41,17 @@ export async function applyProteinComparisonToTab(
   const latest = useCanvasStore.getState().panels[panelId]?.tabs.find((tab) => tab.id === tabId);
   if (!latest || latest.entityId !== expectedSavedViewId)
     throw new Error('The structure tab changed before the comparison could open.');
-  useCanvasStore
-    .getState()
-    .retargetTab(
-      panelId,
-      tabId,
-      { type: 'structure', entityId: savedViewId },
-      {
-        label: comparison.title,
-        initialStructureAttrs: molecularViewAttrs(savedViewId, comparison),
-        viewState: undefined,
-        pendingViewState: undefined,
-      }
-    );
+  useCanvasStore.getState().retargetTab(
+    panelId,
+    tabId,
+    { type: 'structure', entityId: savedViewId },
+    {
+      label: comparison.title,
+      initialStructureAttrs: molecularViewAttrs(savedViewId, comparison),
+      viewState: undefined,
+      pendingViewState: undefined,
+    }
+  );
   return reference.id;
 }
 
@@ -215,34 +214,36 @@ export function ProteinRunVersionSwitcher({
 
   return (
     <div className="flex items-center gap-2">
-      <select
-        aria-label="Saved run version"
-        data-testid="protein-run-version-select"
-        title="Compare saved versions of this structure view"
-        value={savedViewId}
-        disabled={busy}
-        className="max-w-52 rounded border border-border bg-bg px-2 py-1 text-xs text-fg"
-        onChange={(event) => {
-          const next = versions.find((version) => version.savedViewId === event.target.value);
-          if (!next || next.savedViewId === savedViewId) return;
-          setBusy(true);
-          setError(null);
-          void applyProteinRunVersionToTab(panelId, tabId, savedViewId, next)
-            .catch((cause: unknown) =>
-              setError(toUserMessage(cause, 'failure.the-saved-version-could-not-open'))
-            )
-            .finally(() => setBusy(false));
-        }}
-      >
-        {versions.map((version) => (
-          <option key={version.resultId} value={version.savedViewId}>
-            {version.label}
-            {(labelCounts.get(version.label) ?? 0) > 1
-              ? ` · ${new Date(version.recordedAt).toLocaleString()}`
-              : ''}
-          </option>
-        ))}
-      </select>
+      <span className="inline-block min-w-0 max-w-52">
+        <MenuNativeSelect
+          density="compact"
+          aria-label="Saved run version"
+          data-testid="protein-run-version-select"
+          title="Compare saved versions of this structure view"
+          value={savedViewId}
+          disabled={busy}
+          onChange={(event) => {
+            const next = versions.find((version) => version.savedViewId === event.target.value);
+            if (!next || next.savedViewId === savedViewId) return;
+            setBusy(true);
+            setError(null);
+            void applyProteinRunVersionToTab(panelId, tabId, savedViewId, next)
+              .catch((cause: unknown) =>
+                setError(toUserMessage(cause, 'failure.the-saved-version-could-not-open'))
+              )
+              .finally(() => setBusy(false));
+          }}
+        >
+          {versions.map((version) => (
+            <option key={version.resultId} value={version.savedViewId}>
+              {version.label}
+              {(labelCounts.get(version.label) ?? 0) > 1
+                ? ` · ${new Date(version.recordedAt).toLocaleString()}`
+                : ''}
+            </option>
+          ))}
+        </MenuNativeSelect>
+      </span>
       {error && (
         <span role="alert" className="max-w-52 text-xs text-error">
           {toUserMessage(error, 'structure.failed')}

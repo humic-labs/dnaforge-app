@@ -344,7 +344,7 @@ function IndexedGenomeTabToolbar({
         <button
           type="button"
           onClick={onGoToPosition}
-          className="-ml-px flex h-8 w-8 items-center justify-center rounded-r border border-border text-fg-muted hover:bg-bg-muted hover:text-fg focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50"
+          className="-ml-px flex h-8 w-8 items-center justify-center rounded-r border border-border text-fg-muted wp-interactive focus-visible:z-10 disabled:pointer-events-none disabled:opacity-50"
           disabled={!canNavigate}
           aria-label="Go to entered coordinate"
           title="Go to coordinate"
@@ -368,7 +368,7 @@ function IndexedGenomeTabToolbar({
       <button
         type="button"
         onClick={() => onOpenSearch(assemblyAnnotationSearchReady ? searchMode : 'nucleotide')}
-        className="h-8 rounded border border-border px-3 text-sm hover:bg-bg-muted"
+        className="h-8 rounded border border-border px-3 text-sm wp-interactive"
         disabled={!sequenceSearchReady}
         aria-label={
           assemblyAnnotationSearchNotApplicable
@@ -387,7 +387,7 @@ function IndexedGenomeTabToolbar({
         <button
           type="button"
           onClick={onSavePortableView}
-          className="h-8 rounded border border-border px-3 text-sm hover:bg-bg-muted disabled:cursor-wait disabled:opacity-50"
+          className="h-8 rounded border border-border px-3 text-sm wp-interactive disabled:cursor-wait disabled:opacity-50"
           disabled={!canNavigate || savingPortableView}
           data-testid="portable-genome-view-save"
         >

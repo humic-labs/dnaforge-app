@@ -68,7 +68,7 @@ export function RuntimeCanvasTab({
       className={`ph-no-capture tab-shell group relative flex max-w-[240px] flex-1 basis-0 select-none items-center self-stretch border-0 bg-transparent p-0 text-sm ${
         selected
           ? 'chrome-tab-active z-10 min-w-[6.5rem] text-fg'
-          : 'min-w-[3.5rem] cursor-pointer text-fg-muted hover:text-fg'
+          : 'min-w-[3.5rem] cursor-pointer text-fg-muted wp-interactive'
       }`}
       onClick={() => onSelect(id)}
     >
@@ -86,7 +86,7 @@ export function RuntimeCanvasTab({
             role="button"
             tabIndex={0}
             aria-label={`Close ${label}`}
-            className="rounded-sm p-0.5 text-fg-muted hover:bg-bg-emphasis hover:text-fg"
+            className="rounded-sm p-0.5 text-fg-muted wp-interactive "
             onClick={(event) => {
               event.stopPropagation();
               onClose(id);

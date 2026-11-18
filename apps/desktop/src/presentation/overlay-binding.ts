@@ -6,17 +6,53 @@ export class OverlayBinding {
   private readonly suspendedDialogs = new WeakSet<HTMLDialogElement>();
   private unsubscribe: (() => void) | null = null;
   private returnFocus: HTMLElement | null = null;
+  private returnFocusPolicy: 'restore' | 'preserve' | 'advance' = 'restore';
+  private lastFocus: HTMLElement | null = null;
+  private focusCleanup: (() => void) | null = null;
+
+  private containModalFocus = (event: FocusEvent): void => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const contains = (element: HTMLElement) =>
+      [...this.nodes.values()].some((node) => node.contains(element));
+    if (contains(target)) {
+      this.lastFocus = target;
+      return;
+    }
+    const previous = this.lastFocus;
+    const lease = this.owner.captureFocus(this.id);
+    if (!previous?.isConnected || !this.owner.allows(this.id, 'keyboard')) return;
+    queueMicrotask(() => {
+      if (
+        this.owner.isCurrent(lease) &&
+        this.owner.allows(this.id, 'keyboard') &&
+        target.ownerDocument.activeElement === target &&
+        previous.isConnected &&
+        contains(previous)
+      )
+        previous.focus({ preventScroll: true });
+    });
+  };
+
+  setReturnFocusPolicy = (policy: 'restore' | 'preserve' | 'advance'): void => {
+    this.returnFocusPolicy = policy;
+  };
 
   setReturnFocus = (target: HTMLElement | null): void => {
     this.returnFocus = target;
   };
 
   private restoreFocus = (): void => {
+    if (this.returnFocusPolicy === 'preserve') return;
     const target = this.returnFocus;
     const surfaceId =
       target?.closest<HTMLElement>('[data-presentation-surface]')?.dataset.presentationSurface ??
       'window';
-    if (target?.isConnected && this.owner.allows(surfaceId, 'keyboard')) {
+    const allowed =
+      this.returnFocusPolicy === 'advance'
+        ? this.owner.allowsFocus(surfaceId)
+        : this.owner.allows(surfaceId, 'keyboard');
+    if (target?.isConnected && allowed) {
       target.focus({ preventScroll: true });
       this.returnFocus = null;
     }
@@ -77,10 +113,14 @@ export class OverlayBinding {
       const removed = this.nodes.get(key);
       const focused = removed?.ownerDocument.activeElement;
       const restoreFocus =
-        focused === removed?.ownerDocument.body ||
-        (focused instanceof Node && removed?.contains(focused));
+        this.returnFocusPolicy !== 'preserve' &&
+        (focused === removed?.ownerDocument.body ||
+          (focused instanceof Node && removed?.contains(focused)));
       this.nodes.delete(key);
       if (!this.nodes.size) {
+        this.focusCleanup?.();
+        this.focusCleanup = null;
+        this.lastFocus = null;
         this.owner.dispatch({ type: 'suspend', id: this.id });
         if (restoreFocus && !(removed instanceof HTMLDialogElement)) this.restoreFocus();
         this.unsubscribe?.();
@@ -90,12 +130,15 @@ export class OverlayBinding {
         const surfaceId =
           target?.closest<HTMLElement>('[data-presentation-surface]')?.dataset
             .presentationSurface ?? 'window';
-        const focusLease = this.owner.captureFocus(surfaceId);
+        const focusLease = this.owner.captureFocus(
+          this.returnFocusPolicy === 'advance' ? this.parentId : surfaceId
+        );
         queueMicrotask(() => {
           if (this.nodes.size || this.owner.getSnapshot().surfaces[this.id] !== surface) return;
           this.owner.dispatch({ type: 'dispose', id: this.id });
           if (
             restoreFocus &&
+            this.returnFocusPolicy !== 'preserve' &&
             target?.isConnected &&
             target.ownerDocument.activeElement === target.ownerDocument.body &&
             this.returnFocus === target &&
@@ -109,11 +152,22 @@ export class OverlayBinding {
     }
     if (!this.nodes.size) {
       const focused = node.ownerDocument.activeElement;
-      if (!this.returnFocus && focused instanceof HTMLElement && !node.contains(focused))
+      if (
+        this.returnFocusPolicy === 'restore' &&
+        !this.returnFocus &&
+        focused instanceof HTMLElement &&
+        !node.contains(focused)
+      )
         this.returnFocus = focused;
     }
     node.dataset.presentationSurface = this.id;
     this.nodes.set(key, node);
+    if (this.capture === 'modal' && !this.focusCleanup) {
+      const document = node.ownerDocument;
+      document.addEventListener('focusin', this.containModalFocus, true);
+      this.focusCleanup = () =>
+        document.removeEventListener('focusin', this.containModalFocus, true);
+    }
     this.unsubscribe ??= this.owner.subscribe(this.sync);
     this.owner.dispatch({
       type: 'attach',

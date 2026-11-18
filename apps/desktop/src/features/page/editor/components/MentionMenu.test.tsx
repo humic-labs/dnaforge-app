@@ -144,6 +144,40 @@ describe('notebook @ search menu', () => {
     expect(command).toHaveBeenCalledWith(expect.objectContaining({ entityId: 'seq-1' }));
   });
 
+  it('keeps the active entity identity when existing search results reorder', () => {
+    const command = vi.fn();
+    const ref = createRef<MentionMenuRef>();
+    const second = entity({
+      id: 'seq-2',
+      name: 'pBL21 second.gb',
+      type: 'sequence',
+      path: 'second.gb',
+    });
+    const third = entity({
+      id: 'seq-3',
+      name: 'pBL21 third.gb',
+      type: 'sequence',
+      path: 'third.gb',
+    });
+    const group = { ...sequences, items: [...sequences.items, second, third] };
+    const { rerender } = render(
+      <MentionMenu ref={ref} items={[group]} query="BL21" command={command} />
+    );
+    key(ref, 'ArrowDown');
+    rerender(
+      <MentionMenu
+        ref={ref}
+        items={[{ ...group, items: [third, ...sequences.items, second] }]}
+        query="BL21"
+        command={command}
+      />
+    );
+    key(ref, 'Enter');
+    expect(command).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ entityId: 'seq-2', path: 'second.gb' })
+    );
+  });
+
   it('inserts a Registry record with its kind', () => {
     const command = vi.fn();
     const ref = createRef<MentionMenuRef>();

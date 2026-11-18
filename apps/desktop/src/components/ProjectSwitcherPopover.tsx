@@ -1,5 +1,6 @@
 import { usePresentationListener } from '../presentation/PresentationSurface';
 import { Button } from './ui';
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { dispatchWorkspaceFileRelocated } from '../features/workspace/relocate-registry-file';
 import { getWorkspaceProjectControl } from '../features/workspace-loader/workspace-project-control';
 import {
@@ -313,7 +314,7 @@ export function ProjectSwitcherPopover({
           data-testid="project-switcher-trigger-row"
           aria-label="Close project switcher"
           onClick={onClose}
-          className="inline-flex h-7 flex-shrink-0 items-center rounded bg-bg-muted px-2 text-xs font-medium text-fg hover:bg-bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className={`${INTERACTION_CLASS} inline-flex h-7 flex-shrink-0 items-center rounded bg-bg-muted px-2 text-xs font-medium text-fg`}
         >
           Manage projects
         </button>
@@ -389,7 +390,7 @@ export function ProjectSwitcherPopover({
               aria-label="Cancel new project"
               onClick={() => setNewProjectName(null)}
               disabled={creating}
-              className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-fg-muted hover:bg-bg-muted hover:text-fg"
+              className={`${INTERACTION_CLASS} inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-fg-muted`}
             >
               <XIcon className="h-3.5 w-3.5" />
             </button>
@@ -509,8 +510,7 @@ export function ProjectSwitcherPopover({
   );
 }
 
-const ACTION_BUTTON_CLASS =
-  'inline-flex h-8 items-center justify-center gap-1.5 rounded border border-border bg-bg px-2 text-xs font-medium text-fg hover:bg-bg-muted disabled:cursor-default disabled:opacity-50';
+const ACTION_BUTTON_CLASS = `${INTERACTION_CLASS} inline-flex h-8 items-center justify-center gap-1.5 rounded border border-border bg-bg px-2 text-xs font-medium text-fg`;
 
 function SectionHeading({ label, count }: { label: string; count: number }) {
   return (
@@ -567,7 +567,7 @@ function ProjectRow({
             : formatWorkspaceRelativeTime(workspace.lastOpenedAt);
   return (
     <div
-      className="group flex items-center hover:bg-bg-muted"
+      className={`${INTERACTION_CLASS} group flex items-center`}
       data-testid={`project-switcher-row-wrap-${workspace.repoUuid ?? workspace.repoPath}`}
     >
       <button
@@ -613,7 +613,7 @@ function ProjectRow({
               data-testid={`project-switcher-restore-${workspace.repoUuid ?? workspace.repoPath}`}
               onClick={onRestore}
               disabled={Boolean(workspace.rootState)}
-              className="rounded border border-border px-2 py-0.5 text-[11px] font-medium text-fg hover:bg-bg hover:text-fg"
+              className={`${INTERACTION_CLASS} rounded border border-border px-2 py-0.5 text-[11px] font-medium text-fg`}
             >
               Restore
             </button>

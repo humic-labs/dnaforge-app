@@ -32,7 +32,8 @@ import type {
 import { sequenceItemsFromPreview } from './build-import-wizard-state';
 import { ImportDestinationField } from './ImportDestinationField';
 import { PortalMenu } from '../../components/PortalMenu';
-import { SettingsButton, SETTINGS_MENU_OPTION_CLASS } from '../../components/SettingsSubsection';
+import { SettingsButton } from '../../components/SettingsSubsection';
+import { MenuRow } from '@waypoint/ui-components';
 
 interface Props {
   requestId?: string;
@@ -337,19 +338,18 @@ export function ImportWizardModal({
               preferredSide="bottom"
               horizontalAlign="start"
               surfaceVariant="settings"
-              className="w-96"
+              layout={{ width: '24rem' }}
             >
               {locationPicker && (
                 <>
                   <div className="p-1">
-                    <button
+                    <MenuRow
                       type="button"
                       data-testid="dest-new-workspace"
-                      className={`${SETTINGS_MENU_OPTION_CLASS} text-fg hover:bg-bg-muted`}
                       onClick={() => chooseDestination({ kind: 'new-workspace' })}
                     >
                       New project
-                    </button>
+                    </MenuRow>
                   </div>
                   <WorkspaceFolderPicker
                     roots={roots}
@@ -449,7 +449,7 @@ export function ImportWizardModal({
                 type="button"
                 data-testid="import-cancel"
                 onClick={onCancel}
-                className="rounded-md border border-border px-3 py-2 text-sm text-fg hover:bg-bg-muted"
+                className="rounded-md border border-border px-3 py-2 text-sm text-fg wp-interactive"
               >
                 Cancel
               </button>

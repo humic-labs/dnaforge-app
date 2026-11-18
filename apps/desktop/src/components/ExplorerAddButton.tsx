@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import type { ButtonHTMLAttributes } from 'react';
 import { PlusIcon } from './icons';
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 
 type ExplorerAddButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'>;
 
@@ -11,7 +12,7 @@ export const ExplorerAddButton = forwardRef<HTMLButtonElement, ExplorerAddButton
         ref={ref}
         type="button"
         aria-label="New…"
-        className={`inline-flex h-7 w-7 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${className}`}
+        className={`${INTERACTION_CLASS} inline-flex h-7 w-7 items-center justify-center rounded-sm text-fg-muted ${className}`}
         {...props}
       >
         <PlusIcon className="h-3.5 w-3.5" />

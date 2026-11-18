@@ -277,9 +277,9 @@ describe('sequence package History Restore', () => {
         }}
       />
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Choose source for Description' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Choose source for Description' }));
     const sourceMenu = screen.getByTestId('restore-source-options-field:description');
-    fireEvent.click(within(sourceMenu).getByRole('button', { name: /Earlier saved sequence/ }));
+    fireEvent.click(within(sourceMenu).getByRole('option', { name: /Earlier saved sequence/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Preview Restore' }));
     await waitFor(() => expect(screen.getByTestId('restore-preview')).toBeTruthy());
     expect(fs.previewSequenceRestore).toHaveBeenCalledWith(
@@ -322,9 +322,9 @@ describe('sequence package History Restore', () => {
     const { rerender } = render(
       <SequencePackageHistoryPanel history={history} restore={restore} />
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Choose source for Description' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Choose source for Description' }));
     fireEvent.click(
-      within(screen.getByTestId('restore-source-options-field:description')).getByRole('button', {
+      within(screen.getByTestId('restore-source-options-field:description')).getByRole('option', {
         name: /Earlier saved sequence/,
       })
     );
@@ -358,9 +358,9 @@ describe('sequence package History Restore', () => {
       apply: vi.fn(),
     };
     rerender(<SequencePackageHistoryPanel history={history} restore={restore} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Choose source for Description' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Choose source for Description' }));
     fireEvent.click(
-      within(screen.getByTestId('restore-source-options-field:description')).getByRole('button', {
+      within(screen.getByTestId('restore-source-options-field:description')).getByRole('option', {
         name: /Earlier saved sequence/,
       })
     );
@@ -415,9 +415,9 @@ describe('sequence package History Restore', () => {
     const { rerender } = render(
       <SequencePackageHistoryPanel history={history} restore={restore} />
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Choose source for Description' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Choose source for Description' }));
     fireEvent.click(
-      within(screen.getByTestId('restore-source-options-field:description')).getByRole('button', {
+      within(screen.getByTestId('restore-source-options-field:description')).getByRole('option', {
         name: /Earlier saved sequence/,
       })
     );

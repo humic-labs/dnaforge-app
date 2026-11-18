@@ -1,3 +1,4 @@
+import { MenuNativeSelect, MenuSearchInput, MenuTrigger } from '@waypoint/ui-components';
 import {
   SCIENTIFIC_COLOR_PALETTES,
   TRACK_COLOR_PRESETS,
@@ -160,14 +161,11 @@ function TrackStreamErrorDetails({ message, trackLabel }: { message: string; tra
         id={detailsId}
         open={open}
         anchorRef={trigger}
-        onRequestClose={() => {
-          setOpen(false);
-          safeFocus(trigger.current, { preventScroll: true });
-        }}
+        onRequestClose={() => setOpen(false)}
         role="dialog"
         horizontalAlign="start"
         aria-label={`Load failure details for ${trackLabel}`}
-        className="w-max p-2 text-xs text-fg"
+        layout={{ width: 'max-content' }}
       >
         <p
           ref={focusDetails}
@@ -792,7 +790,7 @@ export function IndexedViewerTrackGutter({
                   bamImport.clearNotice();
                   setRemoteDetailsTrackId(trackId);
                 }}
-                className="shrink-0 rounded px-1 py-0.5 font-semibold hover:bg-bg-muted"
+                className="shrink-0 rounded px-1 py-0.5 font-semibold wp-interactive"
               >
                 Details
               </button>
@@ -824,7 +822,7 @@ export function IndexedViewerTrackGutter({
                     setRemoteDetailsTrackId(pileupStatusTrackId);
                   }}
                   aria-label={`Connection details for ${lane.dataset.label}`}
-                  className="shrink-0 rounded px-1 py-0.5 font-semibold hover:bg-bg-muted"
+                  className="shrink-0 rounded px-1 py-0.5 font-semibold wp-interactive"
                 >
                   Details
                 </button>
@@ -1413,7 +1411,8 @@ function TrackSettingsPanel({
           disabled={resetDisabled}
           aria-label="Reset to defaults"
           title="Restore the default appearance and scale; keeps the track name and data"
-          className="flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-border bg-bg text-[10px] font-medium text-fg-muted shadow-sm outline-none transition-colors hover:border-fg-subtle/60 hover:bg-bg-subtle hover:text-fg focus-visible:border-fg-subtle focus-visible:ring-1 focus-visible:ring-fg-subtle/20 disabled:cursor-default disabled:opacity-40"
+          data-interaction-border="true"
+          className="flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-border bg-bg text-[10px] font-medium text-fg-muted shadow-sm outline-none transition-colors wp-interactive focus-visible:border-fg-subtle disabled:cursor-default disabled:opacity-40"
         >
           <RefreshIcon size={12} />
           Reset to defaults
@@ -1435,7 +1434,7 @@ function TrackLabelControl({
   return (
     <label className={TRACK_SETTING_ROW_CLASS}>
       <span className="font-medium">Name</span>
-      <input
+      <MenuSearchInput
         key={value}
         type="text"
         defaultValue={value}
@@ -1448,7 +1447,6 @@ function TrackLabelControl({
         onKeyDown={(event) => {
           if (event.key === 'Enter') event.currentTarget.blur();
         }}
-        className={TRACK_SETTING_CONTROL_CLASS}
       />
     </label>
   );
@@ -1558,7 +1556,7 @@ function NumberStepButton({
       disabled={disabled}
       onPointerDown={(event) => event.preventDefault()}
       onClick={onStep}
-      className={`flex min-h-0 flex-1 items-center justify-center text-fg-subtle outline-none transition-colors hover:bg-bg-muted hover:text-fg focus-visible:bg-bg-muted focus-visible:text-fg disabled:pointer-events-none disabled:opacity-25 ${
+      className={`flex min-h-0 flex-1 items-center justify-center text-fg-subtle outline-none transition-colors wp-interactive disabled:pointer-events-none disabled:opacity-25 ${
         direction === 'up' ? 'border-b border-border/60' : ''
       }`}
     >
@@ -1604,33 +1602,18 @@ function SelectSetting<T extends string>({
     <label className={TRACK_SETTING_ROW_CLASS}>
       <span className="font-medium">{label}</span>
       <span className="relative min-w-0">
-        <select
+        <MenuNativeSelect
           value={value}
           onChange={(event) => onChange(event.target.value as T)}
           aria-label={ariaLabel}
           data-testid={testId}
-          className={`${TRACK_SETTING_CONTROL_CLASS} cursor-pointer appearance-none py-0 pl-2 pr-8`}
         >
           {options.map((option) => (
             <option key={option.value} value={option.value} disabled={option.disabled}>
               {option.label}
             </option>
           ))}
-        </select>
-        <svg
-          aria-hidden
-          viewBox="0 0 12 12"
-          className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-fg-subtle"
-          fill="none"
-        >
-          <path
-            d="m3 4.5 3 3 3-3"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        </MenuNativeSelect>
       </span>
     </label>
   );
@@ -1673,7 +1656,7 @@ function SignalGeometryControl<
               title={name}
               aria-pressed={geometry === value}
               onClick={() => onChange(value)}
-              className="flex h-7 w-9 items-center justify-center border-l border-border text-fg-muted outline-none first:border-l-0 hover:bg-bg-muted aria-pressed:bg-fg/10 aria-pressed:text-fg focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-fg-subtle"
+              className="flex h-7 w-9 items-center justify-center border-l border-border text-fg-muted first:border-l-0 wp-interactive"
             >
               <svg aria-hidden viewBox="0 0 20 16" className="h-4 w-5" fill="currentColor">
                 {value === 'bars' ? (
@@ -2084,29 +2067,29 @@ function TrackColorControl({
   return (
     <div ref={rootRef} className={TRACK_SETTING_ROW_CLASS}>
       <span className="font-medium">{controlLabel}</span>
-      <button
+      <MenuTrigger
         ref={controlRef}
-        type="button"
         onClick={() => {
           setDraft(color);
           setOpen((current) => !current);
         }}
         aria-label={colorLabel}
-        aria-expanded={open}
+        open={open}
         aria-controls={open ? pickerId : undefined}
         data-color={color}
         data-testid={`track-color-control-${trackId}`}
-        className="relative flex h-7 min-w-0 items-center gap-2 overflow-hidden rounded-md border border-border bg-bg px-2 text-left shadow-sm outline-none transition-[border-color,box-shadow,background-color] hover:border-fg-subtle/60 focus-visible:border-fg-subtle focus-visible:ring-1 focus-visible:ring-fg-subtle/20"
+        icon={
+          <span
+            aria-hidden
+            className="h-3.5 w-6 shrink-0 rounded-sm border border-black/10 shadow-inner"
+            style={{ backgroundColor: color }}
+          />
+        }
       >
-        <span
-          aria-hidden
-          className="h-3.5 w-6 shrink-0 rounded-sm border border-black/10 shadow-inner"
-          style={{ backgroundColor: color }}
-        />
         <span aria-hidden className="truncate font-mono text-[10px] uppercase text-fg-muted">
           {color}
         </span>
-      </button>
+      </MenuTrigger>
       {open ? (
         <div
           id={pickerId}
@@ -2129,7 +2112,7 @@ function TrackColorControl({
           </div>
           <label className="mt-2 flex items-center gap-2">
             <span className="shrink-0 font-medium">Hex</span>
-            <input
+            <MenuSearchInput
               autoFocus
               type="text"
               value={draft}
@@ -2143,7 +2126,6 @@ function TrackColorControl({
                 event.preventDefault();
                 commit(normalizedDraft);
               }}
-              className={`${TRACK_SETTING_CONTROL_CLASS} flex-1 font-mono uppercase aria-[invalid=true]:border-danger aria-[invalid=true]:ring-1 aria-[invalid=true]:ring-danger/20`}
             />
           </label>
         </div>

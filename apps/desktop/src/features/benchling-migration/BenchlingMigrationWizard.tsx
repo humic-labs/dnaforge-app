@@ -158,7 +158,7 @@ export function BenchlingMigrationWizard({
       aria-label={closeLabel}
       title={closeLabel}
       onClick={closeWizard}
-      className="rounded p-1 text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg"
+      className="rounded p-1 text-fg-muted transition-colors wp-interactive "
     >
       <CloseIcon size={16} />
     </button>

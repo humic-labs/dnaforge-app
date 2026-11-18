@@ -223,7 +223,7 @@ export function Structure3dRenderer({
           </div>
         ) : isOpenInPanel ? (
           <div
-            className="min-h-[200px] flex items-center justify-center cursor-pointer hover:bg-bg-muted/50 rounded-md transition-colors"
+            className="min-h-[200px] flex items-center justify-center cursor-pointer wp-interactive rounded-md transition-colors"
             onClick={handleFocusPanel}
             title="Click to focus the panel"
           >

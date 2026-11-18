@@ -162,7 +162,7 @@ export function AddComputeEndpointDialog({
             <button
               type="button"
               aria-label="Close"
-              className="text-fg-subtle hover:text-fg disabled:opacity-50"
+              className="text-fg-subtle wp-interactive disabled:opacity-50"
               disabled={busy}
               onClick={onClose}
             >

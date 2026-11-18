@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useState } from 'react';
 import {
@@ -50,20 +51,22 @@ export function ProteinViewAssessment({
         <p className="break-words text-fg-muted">Reviewing: {viewLabel}</p>
         <label className="grid gap-1">
           <span>Judgment</span>
-          <select
-            aria-label="Saved output judgment"
-            value={assessment}
-            disabled={saving}
-            onChange={(event) =>
-              setAssessment(event.target.value as MolecularPromptTrialAssessment | '')
-            }
-            className="min-w-0 rounded border border-border bg-bg px-1 py-1"
-          >
-            <option value="">Choose one</option>
-            <option value="acceptable">Meets the question</option>
-            <option value="needs-work">Needs revision</option>
-            <option value="uncertain">Uncertain</option>
-          </select>
+          <span className="inline-block min-w-0">
+            <MenuNativeSelect
+              density="compact"
+              aria-label="Saved output judgment"
+              value={assessment}
+              disabled={saving}
+              onChange={(event) =>
+                setAssessment(event.target.value as MolecularPromptTrialAssessment | '')
+              }
+            >
+              <option value="">Choose one</option>
+              <option value="acceptable">Meets the question</option>
+              <option value="needs-work">Needs revision</option>
+              <option value="uncertain">Uncertain</option>
+            </MenuNativeSelect>
+          </span>
         </label>
         <label className="grid gap-1">
           <span>What worked or failed?</span>

@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { toUserMessage, userToolLabel } from '@waypoint/user-messages';
 import { loadCatalogStructure } from '../../compute/public/molecular-catalog';
 import { canonicalEncodedMolecule } from '../../../shared/encoded-molecule';
@@ -525,29 +526,31 @@ export function StructureInspectionTab({
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-1 text-xs">
         <label className="flex items-center gap-1.5">
           Camera
-          <select
-            aria-label="Mutation camera"
-            className="rounded border border-border bg-transparent px-2 py-1"
-            value={inspection.mutationCamera ?? 'follow'}
-            onChange={(event) => {
-              const mutationCamera = event.target.value === 'keep' ? 'keep' : 'follow';
-              const canvas = useCanvasStore.getState();
-              const current = canvas.panels[panelId]?.tabs.find(
-                (tab) => tab.id === tabId
-              )?.structureInspection;
-              if (!current) return;
-              canvas.updateTab(panelId, tabId, {
-                structureInspection: {
-                  ...current,
-                  mutationCamera,
-                  focusSelectionId: undefined,
-                },
-              });
-            }}
-          >
-            <option value="follow">Follow mutation</option>
-            <option value="keep">Keep view</option>
-          </select>
+          <span className="inline-block min-w-0">
+            <MenuNativeSelect
+              density="compact"
+              aria-label="Mutation camera"
+              value={inspection.mutationCamera ?? 'follow'}
+              onChange={(event) => {
+                const mutationCamera = event.target.value === 'keep' ? 'keep' : 'follow';
+                const canvas = useCanvasStore.getState();
+                const current = canvas.panels[panelId]?.tabs.find(
+                  (tab) => tab.id === tabId
+                )?.structureInspection;
+                if (!current) return;
+                canvas.updateTab(panelId, tabId, {
+                  structureInspection: {
+                    ...current,
+                    mutationCamera,
+                    focusSelectionId: undefined,
+                  },
+                });
+              }}
+            >
+              <option value="follow">Follow mutation</option>
+              <option value="keep">Keep view</option>
+            </MenuNativeSelect>
+          </span>
         </label>
         {inspection.savedViewReferenceId && !restoringScene && (
           <span role="status">Saved with coordinates</span>

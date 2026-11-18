@@ -20,7 +20,6 @@ export interface TmModelSelectProps {
   value: TmModel;
   onChange: (model: TmModel) => void;
   testId?: string;
-  className?: string;
   settingsAppearance?: boolean;
 }
 
@@ -28,7 +27,6 @@ export function TmModelSelect({
   value,
   onChange,
   testId = 'tm-model-select',
-  className,
   settingsAppearance = false,
 }: TmModelSelectProps) {
   const selectValue = tmModelSelectValue(value);
@@ -57,7 +55,6 @@ export function TmModelSelect({
       title="Tm calculation model"
       value={selectValue}
       label={tmModelLabel(value)}
-      className={className}
       options={options}
       onChange={(next) => onChange(tmModelFromSelectValue(next))}
     />

@@ -695,7 +695,7 @@ export function ChatHistorySurface({
         {filteredConversations.map((conversation) => (
           <div
             key={conversation.id}
-            className={`group relative transition-colors hover:bg-bg-muted ${
+            className={`group relative transition-colors wp-interactive ${
               conversation.id === viewConversationId ? 'bg-accent/10' : ''
             }`}
             data-testid="conversation-item"
@@ -814,7 +814,7 @@ export function ChatHistorySurface({
                     });
                     updateFailedRename(conversation.id, null);
                   }}
-                  className="p-1 text-fg-muted transition-colors hover:text-fg"
+                  className="p-1 text-fg-muted transition-colors wp-interactive"
                   title="Rename conversation"
                   data-testid="ai-rename-button"
                 >
@@ -969,7 +969,7 @@ export function ChatHistorySurface({
             });
             setPinned(!pinned);
           }}
-          className={`absolute left-0 top-0 z-10 inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-bg-muted hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+          className={`absolute left-0 top-0 z-10 inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors wp-interactive hover:text-accent ${
             pinned ? 'text-accent' : 'text-fg-muted'
           }`}
           title={
@@ -1041,7 +1041,7 @@ export function ChatHistorySurface({
               <button
                 type="button"
                 onClick={() => void handleNewConversation()}
-                className="mx-2 mt-0.5 flex h-8 flex-shrink-0 items-center gap-2 rounded-md px-2 text-left text-[13px] font-semibold leading-4 text-fg transition-colors hover:bg-bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
+                className="mx-2 mt-0.5 flex h-8 flex-shrink-0 items-center gap-2 rounded-md px-2 text-left text-[13px] font-semibold leading-4 text-fg transition-colors wp-interactive "
                 title="New conversation"
                 aria-label="New conversation"
                 data-testid="ai-new-conversation-button"
@@ -1102,7 +1102,7 @@ export function ChatHistorySurface({
         <button
           type="button"
           onClick={() => void handleNewConversation()}
-          className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-bg-muted hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+          className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors wp-interactive hover:text-accent "
           title="New conversation"
           aria-label="New conversation"
           data-testid="ai-new-conversation-button"

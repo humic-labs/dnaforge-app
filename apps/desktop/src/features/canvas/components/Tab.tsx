@@ -298,7 +298,7 @@ export const Tab = React.memo(function Tab({
         ${
           isActive
             ? 'chrome-tab-active text-fg z-10 min-w-[6.5rem]'
-            : 'text-fg-muted hover:text-fg min-w-[3.5rem]'
+            : 'text-fg-muted wp-interactive min-w-[3.5rem]'
         }
       `}
     >
@@ -369,15 +369,15 @@ export const Tab = React.memo(function Tab({
               data-testid={`tab-close-${tab.id}`}
               onClick={handleClose}
               className={`
-                flex items-center justify-center w-full h-full rounded hover:bg-bg-muted
-                transition-opacity duration-fast
-                ${
-                  tab.isDirty
-                    ? 'opacity-0 group-hover:opacity-100'
-                    : isActive
-                      ? 'opacity-60 hover:opacity-100'
-                      : 'opacity-0 group-hover:opacity-60 hover:!opacity-100'
-                }
+ flex items-center justify-center w-full h-full rounded wp-interactive
+ transition-opacity duration-fast
+ ${
+   tab.isDirty
+     ? 'opacity-0 group-hover:opacity-100'
+     : isActive
+       ? 'opacity-60 hover:opacity-100'
+       : 'opacity-0 group-hover:opacity-60 hover:!opacity-100'
+ }
               `}
               aria-label={`Close ${tab.label}`}
               title="Close tab"

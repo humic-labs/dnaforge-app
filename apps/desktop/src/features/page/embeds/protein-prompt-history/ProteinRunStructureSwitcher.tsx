@@ -113,7 +113,7 @@ export function ProteinRunStructureSwitcher({
           className={`max-w-full whitespace-normal rounded px-2 py-1 text-left text-xs disabled:opacity-50 ${
             structure.savedViewId === savedViewId
               ? 'bg-accent text-white'
-              : 'bg-bg-subtle text-fg hover:bg-bg-hover'
+              : 'bg-bg-subtle text-fg wp-interactive'
           }`}
         >
           {structure.label}

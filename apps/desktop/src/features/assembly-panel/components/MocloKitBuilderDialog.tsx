@@ -1,9 +1,12 @@
+'use client';
+
+import { MenuNativeSelect } from '@waypoint/ui-components';
+
 import {
   usePresentationOverlay,
   PresentationScopeContext,
   usePresentationListener,
 } from '../../../presentation/PresentationSurface';
-('use client');
 
 import { toUserMessage, userEntityLabel } from '@waypoint/user-messages';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -291,7 +294,7 @@ export function MocloKitBuilderDialog({
               <h3 className="text-xs font-semibold text-fg">Layouts</h3>
               <button
                 type="button"
-                className="rounded border border-border px-2 py-1 text-[11px] text-fg hover:bg-bg-muted"
+                className="rounded border border-border px-2 py-1 text-[11px] text-fg wp-interactive"
                 onClick={() =>
                   setState((current) => {
                     const layout = emptyLayout(current.layouts.map((entry) => entry.id));
@@ -321,7 +324,7 @@ export function MocloKitBuilderDialog({
                     className={`rounded px-2 py-1 text-[11px] ${
                       layout.id === activeLayout?.id
                         ? 'bg-bg-muted text-fg ring-1 ring-inset ring-accent/40'
-                        : 'text-fg-muted hover:bg-bg-muted'
+                        : 'text-fg-muted wp-interactive'
                     }`}
                   >
                     {userEntityLabel(layout.name)}
@@ -415,31 +418,36 @@ function LayoutEditor({
           onFocus={selectGeneratedDefault(DEFAULT_LAYOUT_NAME)}
           onChange={(event) => onPatch({ name: event.target.value })}
         />
-        <select
-          aria-label="Layout enzyme"
-          className={`${fieldClass} w-24`}
-          value={layout.enzyme}
-          onChange={(event) => onPatch({ enzyme: event.target.value as GoldenGateEnzyme })}
-        >
-          {KIT_BUILDER_ENZYMES.map((enzyme) => (
-            <option key={enzyme} value={enzyme}>
-              {enzyme}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Layout topology"
-          className={`${fieldClass} w-28`}
-          value={layout.topology}
-          onChange={(event) => onPatch({ topology: event.target.value as 'linear' | 'circular' })}
-        >
-          <option value="circular">Circular</option>
-          <option value="linear">Linear</option>
-        </select>
+        <span className="inline-block min-w-0 w-24">
+          <MenuNativeSelect
+            density="form"
+            aria-label="Layout enzyme"
+            value={layout.enzyme}
+            onChange={(event) => onPatch({ enzyme: event.target.value as GoldenGateEnzyme })}
+          >
+            {KIT_BUILDER_ENZYMES.map((enzyme) => (
+              <option key={enzyme} value={enzyme}>
+                {enzyme}
+              </option>
+            ))}
+          </MenuNativeSelect>
+        </span>
+        <span className="inline-block min-w-0 w-28">
+          <MenuNativeSelect
+            density="form"
+            aria-label="Layout topology"
+            value={layout.topology}
+            onChange={(event) => onPatch({ topology: event.target.value as 'linear' | 'circular' })}
+          >
+            <option value="circular">Circular</option>
+            <option value="linear">Linear</option>
+          </MenuNativeSelect>
+        </span>
         {onRemove ? (
           <button
             type="button"
-            className="ml-auto rounded px-2 py-1 text-[11px] text-fg-muted hover:bg-bg-muted hover:text-error"
+            data-tone="danger"
+            className="ml-auto rounded px-2 py-1 text-[11px] text-fg-muted wp-interactive "
             onClick={onRemove}
           >
             Remove layout
@@ -491,7 +499,8 @@ function LayoutEditor({
               <button
                 type="button"
                 aria-label={`Remove position ${index + 1}`}
-                className="h-7 w-7 shrink-0 rounded text-fg-muted hover:bg-bg-muted hover:text-error disabled:opacity-40"
+                data-tone="danger"
+                className="h-7 w-7 shrink-0 rounded text-fg-muted wp-interactive  disabled:opacity-40"
                 disabled={layout.positions.length <= 1}
                 onClick={() =>
                   onPatch({
@@ -508,7 +517,7 @@ function LayoutEditor({
 
       <button
         type="button"
-        className="mt-2 rounded border border-border px-2 py-1 text-[11px] text-fg hover:bg-bg-muted"
+        className="mt-2 rounded border border-border px-2 py-1 text-[11px] text-fg wp-interactive"
         onClick={() =>
           onPatch({
             positions: [
@@ -599,7 +608,8 @@ function KitMembersSection({
               <button
                 type="button"
                 aria-label={`Remove ${member.name} from this kit`}
-                className="rounded px-1 text-fg-muted hover:bg-bg-muted hover:text-error"
+                data-tone="danger"
+                className="rounded px-1 text-fg-muted wp-interactive "
                 onClick={() =>
                   onChange(
                     members.filter((entry) => entry.sequencePackageId !== member.sequencePackageId)
@@ -636,7 +646,7 @@ function KitMembersSection({
               type="button"
               role="option"
               aria-selected={false}
-              className="flex w-full items-center justify-between gap-2 px-2 py-1 text-left text-[11px] text-fg hover:bg-bg-muted"
+              className="flex w-full items-center justify-between gap-2 px-2 py-1 text-left text-[11px] text-fg wp-interactive"
               onClick={() => onChange([...members, result])}
             >
               <span className="min-w-0 truncate">{result.name}</span>

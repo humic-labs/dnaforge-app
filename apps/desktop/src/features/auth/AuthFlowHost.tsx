@@ -285,7 +285,7 @@ export function AuthFlowHost() {
                     type="button"
                     onClick={() => void reopenSignIn()}
                     data-testid="auth-open-browser"
-                    className="text-sm text-fg-muted hover:text-fg"
+                    className="text-sm text-fg-muted wp-interactive"
                   >
                     Open browser again
                   </button>
