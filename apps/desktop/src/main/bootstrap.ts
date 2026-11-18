@@ -20,6 +20,8 @@ import { configureQualificationEphemeralAuth } from './qualification-auth-state'
 import { installQualificationSafeStorageGuard } from './qualification-safe-storage';
 import { isBackgroundWindowMode } from './background-window-mode';
 import { disableKeychainInteraction } from './noninteractive-keychain.cjs';
+import { fileURLToPath } from 'node:url';
+import { configureDevelopmentCredentialIdentity } from './development-credential-identity';
 import {
   isAgentLaunch as isAgentEnvironment,
   isTestLaunch,
@@ -68,6 +70,7 @@ disableKeychainInteraction({
     requestsManagedRuntime(process.argv) ||
     qualificationEphemeralAuthLaunch !== null,
 });
+configureDevelopmentCredentialIdentity({ app, entryPath: fileURLToPath(import.meta.url) });
 configureElectronBeforeReady();
 
 const bootstrapBuildIdentity = {
