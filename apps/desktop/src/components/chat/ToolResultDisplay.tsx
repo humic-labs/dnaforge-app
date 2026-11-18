@@ -17,6 +17,7 @@ import type {
 } from '../../features/ai/history/reactivate-tool-result';
 import { canReactivateToolResult } from '../../features/ai/history/can-reactivate-tool-result';
 import { presentToolAction } from '../../shared/agent-tool-presentation';
+import type { EntityColorContext } from '../../shared/entity-color-family';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -93,6 +94,7 @@ export function ToolResultDisplay({
               type: string;
               isBiologyFile?: boolean;
               molecule?: string;
+              iconContext?: EntityColorContext;
             }>;
           }
         )?.entries || [];
@@ -110,16 +112,34 @@ export function ToolResultDisplay({
           <div className="max-h-40 overflow-y-auto">
             {entries.slice(0, LIST_FILES_LIMIT).map((entry, i) => (
               <div key={i} className="flex items-center gap-2 text-xs py-0.5">
-                {entry.type === 'directory' ? (
-                  iconForEntityKind('folder', 'w-3.5 h-3.5 flex-shrink-0')
-                ) : (
-                  <FileTypeIcon
-                    category={getFileIconCategory(entry.path ?? entry.name)}
-                    path={entry.path ?? `${path}/${entry.name}`}
-                    molecule={entry.molecule}
-                    className="w-3.5 h-3.5 flex-shrink-0"
-                  />
-                )}
+                {entry.type === 'directory'
+                  ? iconForEntityKind('folder', 'w-3.5 h-3.5 flex-shrink-0')
+                  : ((entry.iconContext?.kind &&
+                    !['file', 'text', 'generic'].includes(entry.iconContext.kind)
+                      ? iconForEntityKind(
+                          entry.iconContext.kind,
+                          'w-3.5 h-3.5 flex-shrink-0',
+                          entry.iconContext
+                        )
+                      : null) ?? (
+                      <FileTypeIcon
+                        category={
+                          entry.isBiologyFile ||
+                          entry.type === 'sequence-document' ||
+                          entry.type === 'sequence-source'
+                            ? 'biology'
+                            : getFileIconCategory(entry.path ?? entry.name)
+                        }
+                        path={
+                          entry.type === 'sequence-document'
+                            ? undefined
+                            : (entry.path ?? `${path}/${entry.name}`)
+                        }
+                        molecule={entry.molecule}
+                        context={entry.iconContext}
+                        className="w-3.5 h-3.5 flex-shrink-0"
+                      />
+                    ))}
                 <span className="text-fg-muted">{entry.name}</span>
               </div>
             ))}
@@ -238,7 +258,13 @@ export function ToolResultDisplay({
             focusedPanelId?: string;
             panels?: Array<{
               id: string;
-              tabs: Array<{ id: string; type: string; entityId?: string; label: string }>;
+              tabs: Array<{
+                id: string;
+                type: string;
+                entityId?: string;
+                label: string;
+                iconContext?: EntityColorContext;
+              }>;
               activeTabId?: string;
             }>;
           }
@@ -248,9 +274,18 @@ export function ToolResultDisplay({
       summary = `Project: ${panels.length} panel${panels.length !== 1 ? 's' : ''}, ${totalTabs} tab${totalTabs !== 1 ? 's' : ''} open`;
 
       if (panels.length > 0) {
-        const tabIcon = (type: string, entityId?: string): ReactNode => {
-          const context = { kind: type, path: type === 'file' ? entityId : undefined };
+        const tabIcon = (
+          type: string,
+          entityId?: string,
+          iconContext?: EntityColorContext
+        ): ReactNode => {
+          const context = {
+            kind: type,
+            path: type === 'file' ? entityId : undefined,
+            ...iconContext,
+          };
           return (
+            iconForEntityKind(context.kind, 'w-3.5 h-3.5 inline-block', context) ??
             iconForEntityKind(type, 'w-3.5 h-3.5 inline-block', context) ?? (
               <FileTypeIcon
                 category="generic"
@@ -277,7 +312,7 @@ export function ToolResultDisplay({
                       return (
                         <div key={ti} className="flex items-center gap-2 text-xs py-0.5">
                           <span className="inline-flex items-center">
-                            {tabIcon(tab.type, tab.entityId)}
+                            {tabIcon(tab.type, tab.entityId, tab.iconContext)}
                           </span>
                           <span className={isActive ? 'text-accent' : 'text-fg-muted'}>
                             {tab.label}

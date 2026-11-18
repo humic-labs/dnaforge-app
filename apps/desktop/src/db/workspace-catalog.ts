@@ -22,6 +22,7 @@ export const {
   getCatalogEntityForWorkspaceRoot,
   getCatalogEntityByLocator,
   getCatalogEntityForFilePath,
+  getCatalogIconContextsForPaths,
   getCatalogFileForPath,
   releaseMissingCatalogFilePath,
   getCatalogWorkspaceRootForFilePath,
