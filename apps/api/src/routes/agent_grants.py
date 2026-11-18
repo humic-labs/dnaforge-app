@@ -6,10 +6,11 @@ import base64
 import binascii
 import json
 import os
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
-from fastapi import APIRouter, BackgroundTasks, Header, Query
+from fastapi import APIRouter, BackgroundTasks, Header, Query, Request
 from pydantic import BaseModel, Field
 from starlette.responses import JSONResponse
 
@@ -21,6 +22,20 @@ from ..external_access_observation import (
     committed_grant_observation,
     emit_external_access_observation,
     observations_enabled,
+)
+from ..organization_inventory_agent_claims import (
+    Identifier,
+    OrganizationInventoryAgentClaimPolicyEnrollment,
+    OrganizationInventoryAgentClaimService,
+    OrganizationInventoryAgentClaimUnavailable,
+    OrganizationInventoryAgentLeaseRead,
+    OrganizationInventoryAgentLeaseRequest,
+    OrganizationInventoryAgentPolicyRead,
+    OrganizationInventoryGrantAuthorityUnavailable,
+)
+from ..security.native_document_authority import (
+    native_document_command_url,
+    require_native_document_authority,
 )
 from .mcp_auth import (
     check_sidecar_session,
@@ -103,6 +118,84 @@ class BindLocalMcpGrantRequest(BaseModel):
     grant_id: str = Field(min_length=1, max_length=200, alias="grantId")
     workspace_id: str = Field(min_length=1, max_length=4096, alias="workspaceId")
     workspace_label: str = Field(min_length=1, max_length=4096, alias="workspaceLabel")
+
+
+def _organization_claim_owner(request: Request) -> str | OrganizationInventoryAgentClaimUnavailable:
+    owner_id = require_native_document_authority(request)
+    authority = request.app.state.native_document_authority
+    if (
+        native_document_command_url(authority.command_url) is None
+        or request.client is None
+        or request.client.host not in {"127.0.0.1", "::1"}
+    ):
+        return OrganizationInventoryAgentClaimUnavailable(
+            code="ORGANIZATION_CLAIM_CLOCK_UNAVAILABLE",
+            message="A supported same-host Native claim owner is required.",
+        )
+    return owner_id
+
+
+@router.post(
+    "/{agent_id}/organization-inventory/claim-policy",
+    response_model=OrganizationInventoryAgentPolicyRead,
+)
+async def enroll_organization_inventory_claim_policy(
+    agent_id: Identifier,
+    body: OrganizationInventoryAgentClaimPolicyEnrollment,
+    request: Request,
+):
+    owner = _organization_claim_owner(request)
+    if isinstance(owner, OrganizationInventoryAgentClaimUnavailable):
+        return owner
+    try:
+        return OrganizationInventoryAgentClaimService(get_control_plane_store()).enroll(
+            agent_id, owner
+        )
+    except (sqlite3.Error, OrganizationInventoryGrantAuthorityUnavailable):
+        return OrganizationInventoryAgentClaimUnavailable(
+            code="GRANT_AUTHORITY_UNAVAILABLE", message="The grant claim policy is unavailable."
+        )
+
+
+@router.get(
+    "/{agent_id}/organization-inventory/claim-policy",
+    response_model=OrganizationInventoryAgentPolicyRead,
+)
+async def organization_inventory_claim_policy_status(agent_id: Identifier, request: Request):
+    owner = _organization_claim_owner(request)
+    if isinstance(owner, OrganizationInventoryAgentClaimUnavailable):
+        return owner
+    try:
+        return OrganizationInventoryAgentClaimService(get_control_plane_store()).status(
+            agent_id, owner
+        )
+    except (sqlite3.Error, OrganizationInventoryGrantAuthorityUnavailable):
+        return OrganizationInventoryAgentClaimUnavailable(
+            code="GRANT_AUTHORITY_UNAVAILABLE", message="The grant claim policy is unavailable."
+        )
+
+
+@router.post(
+    "/{agent_id}/organization-inventory/lease",
+    response_model=OrganizationInventoryAgentLeaseRead,
+)
+async def acquire_organization_inventory_agent_lease(
+    agent_id: Identifier,
+    body: OrganizationInventoryAgentLeaseRequest,
+    request: Request,
+):
+    owner = _organization_claim_owner(request)
+    if isinstance(owner, OrganizationInventoryAgentClaimUnavailable):
+        return owner
+    try:
+        return OrganizationInventoryAgentClaimService(get_control_plane_store()).lease(
+            agent_id, owner, body
+        )
+    except (sqlite3.Error, OrganizationInventoryGrantAuthorityUnavailable):
+        return OrganizationInventoryAgentClaimUnavailable(
+            code="GRANT_AUTHORITY_UNAVAILABLE",
+            message="Current grant claim admission is unavailable.",
+        )
 
 
 @router.get("")
@@ -318,7 +411,20 @@ async def revoke_agent_grant(
     if session_error is not None:
         return JSONResponse(status_code=401, content=session_error)
 
-    if not get_control_plane_store().revoke_agent_identity(grant_id):
+    try:
+        revoked = await OrganizationInventoryAgentClaimService(get_control_plane_store()).revoke(
+            grant_id
+        )
+    except OrganizationInventoryGrantAuthorityUnavailable:
+        return JSONResponse(
+            status_code=503,
+            content=error_response(
+                "GRANT_REVOCATION_PENDING",
+                "Grant revocation is not yet confirmed complete.",
+                retriable=True,
+            ),
+        )
+    if not revoked:
         return JSONResponse(
             status_code=404,
             content=error_response(

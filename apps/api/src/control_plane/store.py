@@ -720,6 +720,11 @@ class ControlPlaneStore:
 
         self._tx_lock = threading.RLock()
         self._tx_depth = 0
+        from .organization_inventory_claim_policy import OrganizationInventoryClaimPolicyStore
+
+        self.organization_inventory_claims = OrganizationInventoryClaimPolicyStore(
+            self._conn, self.transaction
+        )
 
     def _commit(self) -> None:
         """DAO-internal commit. No-op while an explicit transaction is open
@@ -850,6 +855,7 @@ class ControlPlaneStore:
 
     def initialize(self) -> None:
         self._conn.executescript(SCHEMA_SQL)
+        self.organization_inventory_claims.initialize()
         self._ensure_external_resource_binding_paper_source_kind()
         self._ensure_agent_action_authorized_scope_column()
         self._ensure_agent_action_job_columns()
@@ -2988,7 +2994,7 @@ class ControlPlaneStore:
         provenance: dict[str, Any] | None = None,
         tags: list[str] | None = None,
     ) -> str:
-        """ — idempotent agent_artifact insert keyed on (action_id, name).
+        """— idempotent agent_artifact insert keyed on (action_id, name).
 
         Retries of the same external.fetch (transient network blip, sidecar
         restart) MUST resolve to one artifact row, not many. Backed by the
