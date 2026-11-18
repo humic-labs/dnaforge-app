@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { assertLimsTemporalEdits } from '@waypoint/scientific-artifacts/shared/lims-temporal';
 import { requireSupportedLimsFieldDefinitions } from '../../../../shared/lims';
 import { RegistryTemporalInput } from '../../../../shared/components/RegistryTemporalInput';
@@ -22,7 +23,7 @@ import type {
 import { RegistryRecordFields, RegistryRecordValue } from './RegistryRecordFields';
 import { RegistryRelationshipInput } from './RegistryRelationshipInput';
 import { getWorkspaceRootById } from '../../../../db/workspace-catalog';
-import { Button, TextField, TextArea, UI_FIELD_CLASS } from '../../../../components/ui';
+import { Button, TextField, TextArea } from '../../../../components/ui';
 import { MetadataSection } from '../../../../shared/components/MetadataSection';
 import { MetadataSaveButton } from '../../../../shared/components/MetadataSaveButton';
 import { metadataValuesEqual, metadataFieldDraftValue } from '../../../../shared/metadata-values';
@@ -373,34 +374,38 @@ function RecordFieldInput({
       );
     case 'boolean':
       return (
-        <select
-          aria-label={field.label}
-          className={UI_FIELD_CLASS}
-          value={value === true ? 'true' : value === false ? 'false' : ''}
-          onChange={(event) =>
-            onChange(event.target.value === '' ? null : event.target.value === 'true')
-          }
-        >
-          <option value="">No value</option>
-          <option value="true">Yes</option>
-          <option value="false">No</option>
-        </select>
+        <span className="block min-w-0 w-full">
+          <MenuNativeSelect
+            density="form"
+            aria-label={field.label}
+            value={value === true ? 'true' : value === false ? 'false' : ''}
+            onChange={(event) =>
+              onChange(event.target.value === '' ? null : event.target.value === 'true')
+            }
+          >
+            <option value="">No value</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </MenuNativeSelect>
+        </span>
       );
     case 'enum':
       return (
-        <select
-          aria-label={field.label}
-          className={UI_FIELD_CLASS}
-          value={text}
-          onChange={(event) => onChange(event.target.value || null)}
-        >
-          <option value="">No value</option>
-          {field.enumOptions?.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+        <span className="block min-w-0 w-full">
+          <MenuNativeSelect
+            density="form"
+            aria-label={field.label}
+            value={text}
+            onChange={(event) => onChange(event.target.value || null)}
+          >
+            <option value="">No value</option>
+            {field.enumOptions?.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </MenuNativeSelect>
+        </span>
       );
     case 'string_array':
       return (

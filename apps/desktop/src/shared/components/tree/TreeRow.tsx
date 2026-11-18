@@ -1,5 +1,6 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 import { forwardRef } from 'react';
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 
 import { ChevronRotatableIcon, SpinnerIcon } from '../../../components/icons';
 
@@ -20,16 +21,14 @@ export interface TreeRowProps extends HTMLAttributes<HTMLDivElement> {
   [dataAttr: `data-${string}`]: unknown;
 }
 
-const ROW_BASE =
-  'relative w-full flex items-center gap-1.5 py-1 pr-2 text-left text-sm cursor-pointer select-none ' +
-  'outline-none focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/45';
+const ROW_BASE = `${INTERACTION_CLASS} relative w-full flex items-center gap-1.5 py-1 pr-2 text-left text-sm cursor-pointer select-none`;
 
 const ROW_DROP_ACTIVE =
   'data-[drop-active=true]:bg-accent/25 data-[drop-active=true]:ring-1 ' +
   'data-[drop-active=true]:ring-inset data-[drop-active=true]:ring-accent';
 
-const ROW_SELECTED = 'bg-accent/15 text-accent';
-const ROW_UNSELECTED = 'text-fg hover:bg-accent/10';
+const ROW_SELECTED = 'text-accent';
+const ROW_UNSELECTED = 'text-fg';
 
 function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(' ');
@@ -75,7 +74,7 @@ export const TreeRow = forwardRef<HTMLDivElement, TreeRowProps>(function TreeRow
           event.stopPropagation();
           onToggleExpand();
         }}
-        className="flex flex-shrink-0 items-center outline-none focus:outline-none"
+        className={`${INTERACTION_CLASS} flex flex-shrink-0 items-center`}
       >
         <span className="w-3 flex-shrink-0">{chevronContent}</span>
       </button>
@@ -87,6 +86,7 @@ export const TreeRow = forwardRef<HTMLDivElement, TreeRowProps>(function TreeRow
     <div
       ref={ref}
       {...rest}
+      data-selected={isSelected || undefined}
       {...(isDropActive ? { 'data-drop-active': 'true' } : {})}
       style={{ ...style, paddingLeft }}
       className={cx(

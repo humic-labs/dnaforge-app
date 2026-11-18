@@ -51,7 +51,7 @@ export function CutterFilter({
         ariaLabel="Restriction enzyme cutter filter"
         className="flex-1"
         disabled={disabled}
-        density={compact ? 'compact' : 'default'}
+        density={compact ? 'compact' : 'form'}
       />
     </div>
   );

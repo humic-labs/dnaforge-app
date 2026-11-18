@@ -863,7 +863,7 @@ export function PrimerCreationForm({
             title="Edit primer name"
             onClick={focusNameField}
             disabled={isSaving}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-subtle transition-colors hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:opacity-50"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-subtle transition-colors wp-interactive disabled:opacity-50"
           >
             <EditIcon size={12} />
           </button>

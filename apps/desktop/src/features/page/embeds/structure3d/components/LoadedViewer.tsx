@@ -786,7 +786,7 @@ export function LoadedViewer({ attrs, onUpdateAttrs, onReset, structureId }: Loa
           <div className="flex gap-2">
             <button
               onClick={handleRetry}
-              className="px-3 py-1.5 text-xs bg-bg-subtle border border-border rounded hover:bg-bg-muted transition-colors"
+              className="px-3 py-1.5 text-xs bg-bg-subtle border border-border rounded wp-interactive transition-colors"
             >
               Try different ID
             </button>
@@ -820,7 +820,7 @@ export function LoadedViewer({ attrs, onUpdateAttrs, onReset, structureId }: Loa
             </div>
             <button
               onClick={handleRetry}
-              className="text-xs text-fg-muted hover:text-fg transition-colors shrink-0"
+              className="text-xs text-fg-muted wp-interactive transition-colors shrink-0"
               title="Change structure"
             >
               Edit
@@ -986,7 +986,7 @@ export function LoadedViewer({ attrs, onUpdateAttrs, onReset, structureId }: Loa
       {}
       <div
         className={`h-2 cursor-ns-resize flex items-center justify-center group ${
-          isResizing ? 'bg-accent/20' : 'hover:bg-bg-muted'
+          isResizing ? 'bg-accent/20' : 'wp-interactive'
         }`}
         onMouseDown={handleResizeStart}
       >

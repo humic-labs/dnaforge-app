@@ -253,7 +253,7 @@ export function ReferenceChip({
                 onClick?.(reference, { snapshotIndex: selectedSnapshotIndex });
               else onClick?.(reference);
             }}
-            className="group flex flex-col text-left hover:bg-bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:opacity-50"
+            className="group flex flex-col text-left wp-interactive disabled:opacity-50"
           >
             <span className="flex w-full items-center justify-between gap-3 px-3 pt-2">
               <span className="text-xs font-medium text-fg">View · {selectedViewLabel}</span>
@@ -326,7 +326,7 @@ export function ReferenceChip({
               aria-label={`Target ${reference.display_label}`}
               title={`Focus on ${reference.display_label}`}
               disabled={busy || isUnresolved}
-              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-muted hover:bg-bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
+              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-muted wp-interactive disabled:opacity-50"
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -339,7 +339,7 @@ export function ReferenceChip({
           {selectionDetails && (
             <button
               type="button"
-              className="inline-flex h-5 w-5 items-center justify-center rounded text-[10px] text-fg-muted hover:bg-bg-subtle hover:text-fg"
+              className="inline-flex h-5 w-5 items-center justify-center rounded text-[10px] text-fg-muted wp-interactive "
               aria-expanded={expanded}
               aria-controls={detailsId}
               aria-label={expanded ? 'Hide selected residues' : 'Show selected residues'}

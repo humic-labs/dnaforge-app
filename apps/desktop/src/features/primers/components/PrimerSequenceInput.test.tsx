@@ -13,6 +13,12 @@ vi.mock('../../../shared/utils/safeFocus', async (importOriginal) => {
   };
 });
 
+function clickMenuItem(element: Element) {
+  fireEvent.mouseDown(element);
+  fireEvent.mouseUp(element);
+  fireEvent.click(element);
+}
+
 function modificationFact(term: string): string | null {
   const facts = screen.getByTestId('primer-modification-facts');
   const label = within(facts).queryByText(term, { selector: 'dt' });
@@ -225,7 +231,7 @@ describe('PrimerSequenceInput', () => {
     expect(screen.getByTestId('primer-modification-picker')).toBeVisible();
     expect(screen.getByRole('option', { name: /5′ phosphorylation.*5Phos/i })).toBeVisible();
     expect(screen.getByRole('option', { name: /3′ phosphorylation.*3Phos/i })).toBeVisible();
-    fireEvent.mouseDown(screen.getByRole('option', { name: /5′ phosphorylation.*5Phos/i }));
+    clickMenuItem(screen.getByRole('option', { name: /5′ phosphorylation.*5Phos/i }));
 
     expect(input).toHaveAttribute('data-oligo-notation', '/5Phos/');
     expect(screen.queryByTestId('primer-modification-picker')).not.toBeInTheDocument();
@@ -354,43 +360,43 @@ describe('PrimerSequenceInput', () => {
     const placement = screen.getByLabelText('IDT modification position');
 
     fireEvent.click(category);
-    fireEvent.click(screen.getByLabelText(/Fluorophores \(/));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Fluorophores \(/ }));
     fireEvent.click(category);
     expect(screen.getByRole('option', { name: /5′ 6-FAM 56-FAM$/i })).toBeVisible();
     expect(screen.queryByRole('option', { name: /5′ phosphorylation.*5Phos/i })).toBeNull();
 
     fireEvent.click(placement);
-    fireEvent.click(screen.getByLabelText(/3′ end \(/));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /3′ end \(/ }));
     expect(screen.getByRole('option', { name: /3′ 6-FAM 36-FAM$/i })).toBeVisible();
     expect(screen.queryByRole('option', { name: /5′ 6-FAM 56-FAM$/i })).toBeNull();
 
-    fireEvent.click(screen.getByLabelText(/5′ end \(/));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /5′ end \(/ }));
     expect(screen.getByRole('option', { name: /3′ 6-FAM 36-FAM$/i })).toBeVisible();
     expect(screen.getByRole('option', { name: /5′ 6-FAM 56-FAM$/i })).toBeVisible();
     expect(placement).toHaveTextContent('2 selected');
-    fireEvent.click(screen.getByLabelText(/5′ end \(/));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /5′ end \(/ }));
     fireEvent.click(placement);
 
     fireEvent.click(category);
-    fireEvent.click(screen.getByLabelText(/Fluorophores \(/));
-    fireEvent.click(screen.getByLabelText(/Phosphorylation \(/));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Fluorophores \(/ }));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Phosphorylation \(/ }));
     fireEvent.click(category);
     expect(screen.getByRole('option', { name: /3′ phosphorylation.*3Phos/i })).toBeVisible();
     expect(screen.queryByRole('option', { name: /5′ phosphorylation.*5Phos/i })).toBeNull();
 
     fireEvent.click(placement);
-    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
-    fireEvent.click(screen.getByLabelText(/Internal \(/));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Clear' }));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Internal \(/ }));
     fireEvent.click(placement);
     expect(screen.getByTestId('primer-modification-picker')).toBeVisible();
     expect(screen.getByText('No IDT modifications match these filters.')).toBeVisible();
 
     fireEvent.click(category);
-    fireEvent.click(screen.getByLabelText(/Phosphorylation \(/));
-    fireEvent.click(screen.getByLabelText(/Click Chemistry \(/));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Phosphorylation \(/ }));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Click Chemistry \(/ }));
     fireEvent.click(category);
     fireEvent.click(placement);
-    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Clear' }));
     fireEvent.click(placement);
     expect(screen.getByRole('option', { name: /5′ Hexynyl.*5Hexynyl/i })).toBeVisible();
     expect(screen.queryByRole('option', { name: /5′ phosphorylation.*5Phos/i })).toBeNull();
@@ -419,14 +425,11 @@ describe('PrimerSequenceInput', () => {
     fireEvent.click(positionFilter);
     const positionMenu = screen.getByRole('menu', { name: 'IDT modification position' });
     expect(positionMenu).toHaveAttribute('data-compact-filter-menu', 'true');
-    expect(positionMenu).toHaveStyle({ top: '144px', left: '220px', width: '124px' });
-    expect(positionMenu.className).not.toContain('mt-1');
-    expect(positionFilter.className).toContain('rounded-b-none');
-    expect(positionFilter.className).toContain('border-b-0');
-    expect(positionFilter.className).toContain('border-accent');
-    expect(positionMenu.className).toContain('border-accent');
-    expect(positionFilter.className.split(/\s+/)).toContain('bg-bg');
-    expect(positionMenu.className.split(/\s+/)).toContain('bg-bg');
+    expect(positionMenu).toHaveStyle({ top: '148px', left: '220px', width: '124px' });
+    expect(positionFilter).toHaveClass('wp-menu-trigger');
+    expect(positionFilter).toHaveAttribute('aria-expanded', 'true');
+    expect(positionMenu).toHaveClass('wp-menu');
+    expect(positionFilter).toHaveAttribute('aria-controls', positionMenu.id);
 
     fireEvent.click(positionFilter);
     const categoryFilter = screen.getByLabelText('IDT modification category');
@@ -436,8 +439,8 @@ describe('PrimerSequenceInput', () => {
     fireEvent.click(categoryFilter);
     const categoryMenu = screen.getByRole('menu', { name: 'IDT modification category' });
     expect(categoryMenu).toHaveAttribute('data-menu-align', 'end');
-    expect(categoryMenu.className.split(/\s+/)).toContain('fixed');
-    expect(categoryMenu).toHaveStyle({ top: '144px', left: '12px', width: '200px' });
+    expect(categoryMenu).toHaveStyle({ position: 'fixed' });
+    expect(categoryMenu).toHaveStyle({ top: '148px', left: '12px', width: '200px' });
   });
 
   it('combines checked modification categories with OR semantics', () => {
@@ -448,8 +451,8 @@ describe('PrimerSequenceInput', () => {
       target: { value: '/', selectionStart: 1, selectionEnd: 1 },
     });
     fireEvent.click(screen.getByLabelText('IDT modification category'));
-    fireEvent.click(screen.getByLabelText(/Fluorophores \(/));
-    fireEvent.click(screen.getByLabelText(/Phosphorylation \(/));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Fluorophores \(/ }));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Phosphorylation \(/ }));
 
     expect(screen.getByRole('option', { name: /5′ 6-FAM 56-FAM$/i })).toBeVisible();
     expect(screen.getByRole('option', { name: /5′ phosphorylation.*5Phos/i })).toBeVisible();
@@ -477,7 +480,7 @@ describe('PrimerSequenceInput', () => {
       clientX: 10,
       clientY: 10,
     });
-    fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'Copy for IDT' }));
+    clickMenuItem(screen.getByRole('menuitem', { name: 'Copy for IDT' }));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('/5Phos/rAmCrGrU');
   });
 
@@ -491,14 +494,14 @@ describe('PrimerSequenceInput', () => {
       clientX: 10,
       clientY: 10,
     });
-    fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'Copy bases' }));
+    clickMenuItem(screen.getByRole('menuitem', { name: 'Copy bases' }));
     expect(navigator.clipboard.writeText).toHaveBeenLastCalledWith('AUC');
 
     fireEvent.contextMenu(screen.getByTestId('primer-sequence-input'), {
       clientX: 10,
       clientY: 10,
     });
-    fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'Copy for IDT' }));
+    clickMenuItem(screen.getByRole('menuitem', { name: 'Copy for IDT' }));
     expect(navigator.clipboard.writeText).toHaveBeenLastCalledWith(notation);
   });
 
@@ -511,7 +514,7 @@ describe('PrimerSequenceInput', () => {
       clientX: 10,
       clientY: 10,
     });
-    fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'Copy for IDT' }));
+    clickMenuItem(screen.getByRole('menuitem', { name: 'Copy for IDT' }));
     expect(navigator.clipboard.writeText).toHaveBeenLastCalledWith('rMrRrGrU');
   });
 
@@ -544,7 +547,7 @@ describe('PrimerSequenceInput', () => {
       target: { value: 'AC/affinity', selectionStart: 11, selectionEnd: 11 },
     });
     const option = screen.getByRole('option', { name: /Affinity Plus A.*\+A/i });
-    fireEvent.mouseDown(option);
+    clickMenuItem(option);
 
     expect(input).toHaveAttribute('data-oligo-notation', 'AC+A');
     expect(input).not.toHaveAttribute('aria-invalid');
@@ -564,7 +567,7 @@ describe('PrimerSequenceInput', () => {
     expect(screen.getByRole('option', { name: /Internal Spacer 18.*iSp18/i })).toBeVisible();
     expect(screen.getByRole('option', { name: /3′ Spacer 18.*3Sp18/i })).toBeVisible();
 
-    fireEvent.mouseDown(screen.getByRole('option', { name: /Internal Spacer 18.*iSp18/i }));
+    clickMenuItem(screen.getByRole('option', { name: /Internal Spacer 18.*iSp18/i }));
     expect(input).toHaveAttribute('data-oligo-notation', 'AC/iSp18/');
     expect(input).toHaveAttribute('aria-invalid', 'true');
 
@@ -628,7 +631,7 @@ describe('PrimerSequenceInput', () => {
     expect(within(menu).queryByRole('menuitem', { name: 'Copy' })).not.toBeInTheDocument();
     expect(screen.queryByText('Copy Special')).not.toBeInTheDocument();
     expect(screen.queryByText('Natural DNA')).not.toBeInTheDocument();
-    fireEvent.mouseDown(within(menu).getByRole('menuitem', { name: 'Copy bases' }));
+    clickMenuItem(within(menu).getByRole('menuitem', { name: 'Copy bases' }));
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('ACGTACGTACGT');
   });
@@ -638,7 +641,7 @@ describe('PrimerSequenceInput', () => {
     const input = screen.getByTestId('primer-sequence-input');
 
     fireEvent.contextMenu(input, { clientX: 120, clientY: 80 });
-    fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'Copy for IDT' }));
+    clickMenuItem(screen.getByRole('menuitem', { name: 'Copy for IDT' }));
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('/5Phos/ACGT/3SpC3/');
   });
@@ -850,7 +853,7 @@ describe('PrimerSequenceInput', () => {
     });
     const option = screen.getByRole('option', { name: /Internal Super G.*iSuper-dG/i });
     expect(option).toBeVisible();
-    fireEvent.mouseDown(option);
+    clickMenuItem(option);
 
     expect(input).toHaveAttribute('data-oligo-notation', 'AC/iSuper-dG/');
     fireEvent.change(input, {
@@ -871,7 +874,7 @@ describe('PrimerSequenceInput', () => {
 
     expect(screen.getByTestId('primer-modification-picker')).toBeVisible();
     expect(screen.getByText('5′ Spacer 18')).toBeVisible();
-    fireEvent.mouseDown(screen.getByRole('option', { name: /5′ Spacer 18.*5Sp18/i }));
+    clickMenuItem(screen.getByRole('option', { name: /5′ Spacer 18.*5Sp18/i }));
 
     expect(input).toHaveAttribute('data-oligo-notation', '/5Sp18/ACGT');
     expect(input.dataset.oligoNotation).not.toContain('5Phos');
@@ -889,7 +892,7 @@ describe('PrimerSequenceInput', () => {
         .getByTestId('primer-sequence-highlight')
         .querySelector('[data-vendor-code="5Phos"]');
       fireEvent.mouseDown(token as Element);
-      fireEvent.mouseDown(screen.getByRole('option', { name: /5′ Spacer 18.*5Sp18/i }));
+      clickMenuItem(screen.getByRole('option', { name: /5′ Spacer 18.*5Sp18/i }));
       expect(input).toHaveAttribute('data-oligo-notation', '/5Sp18/ACGT');
       expect(input.selectionStart).toBe(1);
       expect(requestAnimationFrame).not.toHaveBeenCalled();

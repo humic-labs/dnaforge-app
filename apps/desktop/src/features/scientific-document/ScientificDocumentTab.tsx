@@ -769,7 +769,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
             Reload
           </button>
           <button
-            className="border-b border-transparent px-1 py-0.5 text-fg-muted hover:border-border"
+            className="border-b border-transparent px-1 py-0.5 text-fg-muted wp-interactive"
             onClick={dismissExternalChange}
             type="button"
           >
@@ -988,7 +988,7 @@ function ProtocolBody({
         {canEdit ? (
           <button
             type="button"
-            className="mt-4 border border-border bg-bg px-3 py-1.5 text-xs font-medium text-fg hover:border-fg-muted hover:bg-bg-subtle"
+            className="mt-4 border border-border bg-bg px-3 py-1.5 text-xs font-medium text-fg wp-interactive "
             onClick={() => void onAddStep()}
           >
             Add step
@@ -1123,7 +1123,7 @@ function ProtocolRunBody({
             />
             <button
               type="button"
-              className="w-fit border border-border px-3 py-1.5 text-xs font-medium text-fg hover:bg-bg-subtle"
+              className="w-fit border border-border px-3 py-1.5 text-xs font-medium text-fg wp-interactive"
               onClick={() => void onAddAmendment()}
             >
               Add amendment
@@ -1155,7 +1155,7 @@ function LegacyFolderBody({
           return canNavigate && target ? (
             <button
               type="button"
-              className="rounded-md border border-border bg-bg px-3 py-2 text-sm text-accent hover:bg-bg-subtle"
+              className="rounded-md border border-border bg-bg px-3 py-2 text-sm text-accent wp-interactive"
               key={id}
               onClick={() => onOpenDestination(target)}
             >
@@ -1321,7 +1321,7 @@ function StepAction({
     <button
       type="button"
       aria-label={label}
-      className="border-l border-border px-2 py-1 text-[11px] text-fg-muted hover:bg-bg-subtle hover:text-fg disabled:opacity-40"
+      className="border-l border-border px-2 py-1 text-[11px] text-fg-muted wp-interactive disabled:opacity-40"
       disabled={disabled}
       onClick={onClick}
     >

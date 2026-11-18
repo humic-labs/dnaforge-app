@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { useState } from 'react';
 import {
   parseRegistryTableMappingDecision,
@@ -76,20 +77,24 @@ export function RegistryTableReview({
       )}
       <label className="flex flex-wrap items-center gap-2 text-sm text-fg">
         Import as
-        <select
-          aria-label={`How to import ${candidate.entryPath}`}
-          value={draft.kind}
-          className={inputClass}
-          onChange={(event) => {
-            const kind = event.target.value;
-            if (kind === '' || kind === 'records' || kind === 'source_only')
-              update({ ...draft, kind });
-          }}
-        >
-          <option value="">Choose…</option>
-          {candidate.status === 'ready' ? <option value="records">Registry records</option> : null}
-          <option value="source_only">Keep in original ZIP only</option>
-        </select>
+        <span className="inline-block min-w-0">
+          <MenuNativeSelect
+            density="form"
+            aria-label={`How to import ${candidate.entryPath}`}
+            value={draft.kind}
+            onChange={(event) => {
+              const kind = event.target.value;
+              if (kind === '' || kind === 'records' || kind === 'source_only')
+                update({ ...draft, kind });
+            }}
+          >
+            <option value="">Choose…</option>
+            {candidate.status === 'ready' ? (
+              <option value="records">Registry records</option>
+            ) : null}
+            <option value="source_only">Keep in original ZIP only</option>
+          </MenuNativeSelect>
+        </span>
       </label>
       {draft.kind === 'source_only' ? (
         <label className="grid gap-1 text-xs text-fg-muted">
@@ -126,25 +131,27 @@ export function RegistryTableReview({
                   </p>
                 </div>
                 <div className="grid gap-1">
-                  <select
-                    aria-label={`Column ${index + 1} role`}
-                    className={inputClass}
-                    value={column.role}
-                    onChange={(event) => {
-                      const role = event.target.value;
-                      if (isColumnRole(role)) updateColumn(index, { role });
-                    }}
-                  >
-                    <option value="">Choose a purpose…</option>
-                    <option value="name">Record name</option>
-                    <option value="provider_id">Benchling ID</option>
-                    {FIELD_TYPES.map(([type, label]) => (
-                      <option key={type} value={type}>
-                        {label}
-                      </option>
-                    ))}
-                    <option value="source_only">Keep in original ZIP only</option>
-                  </select>
+                  <span className="inline-block min-w-0">
+                    <MenuNativeSelect
+                      density="form"
+                      aria-label={`Column ${index + 1} role`}
+                      value={column.role}
+                      onChange={(event) => {
+                        const role = event.target.value;
+                        if (isColumnRole(role)) updateColumn(index, { role });
+                      }}
+                    >
+                      <option value="">Choose a purpose…</option>
+                      <option value="name">Record name</option>
+                      <option value="provider_id">Benchling ID</option>
+                      {FIELD_TYPES.map(([type, label]) => (
+                        <option key={type} value={type}>
+                          {label}
+                        </option>
+                      ))}
+                      <option value="source_only">Keep in original ZIP only</option>
+                    </MenuNativeSelect>
+                  </span>
                   {isFieldType(column.role) ? (
                     <input
                       aria-label={`Column ${index + 1} field name`}

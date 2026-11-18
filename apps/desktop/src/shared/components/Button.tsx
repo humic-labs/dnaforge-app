@@ -1,4 +1,5 @@
 import { forwardRef } from 'react';
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { cn } from '../lib/cn';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -13,15 +14,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       'inline-flex items-center justify-center',
       'font-medium rounded-md',
       'transition-colors duration-fast ease-out',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2',
-      'disabled:opacity-50 disabled:pointer-events-none',
+      'disabled:pointer-events-none',
     ];
 
     const variants = {
-      primary: 'bg-accent text-accent-fg hover:bg-accent/90',
-      secondary:
-        'border border-border bg-transparent text-fg hover:bg-bg-muted hover:border-border-hover',
-      ghost: 'bg-transparent text-fg hover:bg-bg-muted',
+      primary:
+        'bg-accent text-accent-fg hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:opacity-50',
+      secondary: `${INTERACTION_CLASS} border border-border bg-transparent text-fg`,
+      ghost: `${INTERACTION_CLASS} bg-transparent text-fg`,
     };
 
     const sizes = {
@@ -34,6 +34,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={cn(...baseStyles, variants[variant], sizes[size], className)}
+        data-interaction-border={variant === 'secondary' || undefined}
         disabled={disabled || loading}
         {...props}
       >

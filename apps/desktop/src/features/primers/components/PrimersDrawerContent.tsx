@@ -345,7 +345,7 @@ export function PrimersDrawerContent({
               {onRetry && (
                 <button
                   onClick={onRetry}
-                  className="text-sm px-3 py-1.5 rounded border border-border text-fg-muted hover:bg-bg-muted"
+                  className="text-sm px-3 py-1.5 rounded border border-border text-fg-muted wp-interactive"
                 >
                   Retry
                 </button>
@@ -407,7 +407,7 @@ function DrawerTabButton({
       className={`text-xs px-2.5 py-1 rounded border transition-colors ${
         active
           ? 'border-accent bg-accent/10 text-accent'
-          : 'border-transparent text-fg-muted hover:bg-bg-muted hover:text-fg'
+          : 'border-transparent text-fg-muted wp-interactive '
       }`}
     >
       {label}

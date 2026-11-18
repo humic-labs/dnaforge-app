@@ -131,7 +131,7 @@ export function MolecularViewLibrary({
                 setQuery('');
                 safeFocus(search.current, { preventScroll: true });
               }}
-              className="absolute right-1 top-1 z-10 rounded p-1 text-fg-muted hover:bg-bg-muted focus-visible:ring-1 focus-visible:ring-accent/40"
+              className="absolute right-1 top-1 z-10 rounded p-1 text-fg-muted wp-interactive "
             >
               <XIcon size={12} />
             </button>
@@ -206,7 +206,7 @@ export function MolecularViewLibrary({
                   disabled={disabled}
                   title={[step.title, step.description].filter(Boolean).join('\n')}
                   onClick={() => onSelect(step.index)}
-                  className={`absolute left-0 flex w-full min-w-0 cursor-pointer items-center gap-2 rounded px-2 text-left text-fg-muted hover:bg-black/[0.07] hover:text-fg active:bg-black/[0.1] dark:hover:bg-white/[0.09] dark:active:bg-white/[0.13] ${current ? 'bg-bg-muted/70 font-medium text-fg' : ''} ${keyboardFocus && focusIndex === first + offset ? 'bg-bg-muted ring-1 ring-inset ring-accent/50' : ''} disabled:cursor-default disabled:opacity-40`}
+                  className={`absolute left-0 flex w-full min-w-0 cursor-pointer items-center gap-2 rounded px-2 text-left text-fg-muted wp-interactive active:bg-black/[0.1] dark:active:bg-white/[0.13] ${current ? 'bg-bg-muted/70 font-medium text-fg' : ''} ${keyboardFocus && focusIndex === first + offset ? 'bg-bg-muted ring-1 ring-inset ring-accent/50' : ''} disabled:cursor-default disabled:opacity-40`}
                   style={{ top: (first + offset) * ROW_HEIGHT, height: ROW_HEIGHT }}
                 >
                   <span

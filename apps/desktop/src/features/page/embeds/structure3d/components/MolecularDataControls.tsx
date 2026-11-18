@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useEffect, useState } from 'react';
 import { MolecularVariationPicker } from './MolecularVariationPicker';
@@ -371,65 +372,73 @@ export function MolecularDataControls({
       </div>
       {editorOpen && !!state?.datasets.length && (
         <div className="mt-2 flex flex-wrap items-center gap-2 rounded border border-border p-2">
-          <select
-            aria-label="Data source"
-            className={selectClass}
-            disabled={busy}
-            value={dataset ? `${dataset.id}:${dataset.revision}` : ''}
-            onChange={(event) => {
-              setDatasetKey(event.target.value);
-              setColumn('');
-              setPalette('viridis');
-            }}
-          >
-            {state.datasets.map((item, index) => (
-              <option key={`${item.id}:${item.revision}`} value={`${item.id}:${item.revision}`}>
-                {item.name}
-                {state.datasets.filter((dataset) => dataset.id === item.id).length > 1
-                  ? ` · revision ${state.datasets.slice(0, index + 1).filter((dataset) => dataset.id === item.id).length}`
-                  : ''}
+          <span className="inline-block min-w-0">
+            <MenuNativeSelect
+              density="compact"
+              aria-label="Data source"
+              disabled={busy}
+              value={dataset ? `${dataset.id}:${dataset.revision}` : ''}
+              onChange={(event) => {
+                setDatasetKey(event.target.value);
+                setColumn('');
+                setPalette('viridis');
+              }}
+            >
+              {state.datasets.map((item, index) => (
+                <option key={`${item.id}:${item.revision}`} value={`${item.id}:${item.revision}`}>
+                  {item.name}
+                  {state.datasets.filter((dataset) => dataset.id === item.id).length > 1
+                    ? ` · revision ${state.datasets.slice(0, index + 1).filter((dataset) => dataset.id === item.id).length}`
+                    : ''}
+                </option>
+              ))}
+            </MenuNativeSelect>
+          </span>
+          <span className="inline-block min-w-0">
+            <MenuNativeSelect
+              density="compact"
+              aria-label="Data column"
+              disabled={busy}
+              value={column}
+              onChange={(event) => chooseColumn(event.target.value)}
+            >
+              <option value="" disabled>
+                Choose signal
               </option>
-            ))}
-          </select>
-          <select
-            aria-label="Data column"
-            className={selectClass}
-            disabled={busy}
-            value={column}
-            onChange={(event) => chooseColumn(event.target.value)}
-          >
-            <option value="" disabled>
-              Choose signal
-            </option>
-            {columns.map((column) => (
-              <option key={column}>{column}</option>
-            ))}
-          </select>
-          <select
-            aria-label="Data kind"
-            className={selectClass}
-            disabled={busy}
-            value={valueKind}
-            onChange={(event) => {
-              setValueKind(event.target.value as 'continuous' | 'categorical');
-              setPalette('viridis');
-            }}
-          >
-            <option value="continuous">Numbers</option>
-            <option value="categorical">Categories</option>
-          </select>
-          <select
-            aria-label="Data palette"
-            className={selectClass}
-            disabled={busy}
-            value={palette}
-            onChange={(event) => setPalette(event.target.value as typeof palette)}
-          >
-            {palette === 'custom' && <option value="custom">Custom colors</option>}
-            {Object.keys(MEASUREMENT_PALETTES).map((name) => (
-              <option key={name}>{name}</option>
-            ))}
-          </select>
+              {columns.map((column) => (
+                <option key={column}>{column}</option>
+              ))}
+            </MenuNativeSelect>
+          </span>
+          <span className="inline-block min-w-0">
+            <MenuNativeSelect
+              density="compact"
+              aria-label="Data kind"
+              disabled={busy}
+              value={valueKind}
+              onChange={(event) => {
+                setValueKind(event.target.value as 'continuous' | 'categorical');
+                setPalette('viridis');
+              }}
+            >
+              <option value="continuous">Numbers</option>
+              <option value="categorical">Categories</option>
+            </MenuNativeSelect>
+          </span>
+          <span className="inline-block min-w-0">
+            <MenuNativeSelect
+              density="compact"
+              aria-label="Data palette"
+              disabled={busy}
+              value={palette}
+              onChange={(event) => setPalette(event.target.value as typeof palette)}
+            >
+              {palette === 'custom' && <option value="custom">Custom colors</option>}
+              {Object.keys(MEASUREMENT_PALETTES).map((name) => (
+                <option key={name}>{name}</option>
+              ))}
+            </MenuNativeSelect>
+          </span>
           {valueKind === 'continuous' && (
             <>
               <input
@@ -512,42 +521,48 @@ export function MolecularDataControls({
                 <>
                   <label>
                     Chain column{' '}
-                    <select
-                      aria-label="Target chain column"
-                      className={selectClass}
-                      value={chainColumn}
-                      onChange={(event) => setChainColumn(event.target.value)}
-                    >
-                      {importColumns.map((column) => (
-                        <option key={column}>{column}</option>
-                      ))}
-                    </select>
+                    <span className="inline-block min-w-0">
+                      <MenuNativeSelect
+                        density="compact"
+                        aria-label="Target chain column"
+                        value={chainColumn}
+                        onChange={(event) => setChainColumn(event.target.value)}
+                      >
+                        {importColumns.map((column) => (
+                          <option key={column}>{column}</option>
+                        ))}
+                      </MenuNativeSelect>
+                    </span>
                   </label>
                   <label>
                     Numbering{' '}
-                    <select
-                      aria-label="Target numbering"
-                      className={selectClass}
-                      value={numbering}
-                      onChange={(event) => setNumbering(event.target.value as 'label' | 'auth')}
-                    >
-                      <option value="label">File labels</option>
-                      <option value="auth">Author labels</option>
-                    </select>
+                    <span className="inline-block min-w-0">
+                      <MenuNativeSelect
+                        density="compact"
+                        aria-label="Target numbering"
+                        value={numbering}
+                        onChange={(event) => setNumbering(event.target.value as 'label' | 'auth')}
+                      >
+                        <option value="label">File labels</option>
+                        <option value="auth">Author labels</option>
+                      </MenuNativeSelect>
+                    </span>
                   </label>
                   <label>
                     Position column{' '}
-                    <select
-                      aria-label="Target position column"
-                      className={selectClass}
-                      value={positionColumn}
-                      onChange={(event) => setPositionColumn(event.target.value)}
-                    >
-                      <option value="">Whole chain</option>
-                      {importColumns.map((column) => (
-                        <option key={column}>{column}</option>
-                      ))}
-                    </select>
+                    <span className="inline-block min-w-0">
+                      <MenuNativeSelect
+                        density="compact"
+                        aria-label="Target position column"
+                        value={positionColumn}
+                        onChange={(event) => setPositionColumn(event.target.value)}
+                      >
+                        <option value="">Whole chain</option>
+                        {importColumns.map((column) => (
+                          <option key={column}>{column}</option>
+                        ))}
+                      </MenuNativeSelect>
+                    </span>
                   </label>
                 </>
               )}

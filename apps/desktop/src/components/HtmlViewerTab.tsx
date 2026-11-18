@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getFilename } from '../utils/fileTypes';
@@ -110,10 +111,9 @@ export function HtmlViewerTab({ filePath }: HtmlViewerTabProps) {
                 onClick={() => setMode(m)}
                 data-testid={`html-viewer-mode-${m}`}
                 aria-pressed={mode === m}
-                className={`px-2 py-1 text-xs transition-colors ${
-                  mode === m
-                    ? 'bg-accent/10 text-accent'
-                    : 'text-fg-muted hover:text-fg hover:bg-bg-muted'
+                data-selected={mode === m}
+                className={`${INTERACTION_CLASS} px-2 py-1 text-xs transition-colors ${
+                  mode === m ? 'bg-accent/10 text-accent' : 'text-fg-muted '
                 }`}
               >
                 {m === 'rendered' ? 'Rendered' : 'Source'}
@@ -140,7 +140,7 @@ export function HtmlViewerTab({ filePath }: HtmlViewerTabProps) {
 
           <button
             onClick={handleCopyPath}
-            className="px-2 py-1 text-xs text-fg-muted hover:text-fg hover:bg-bg-muted rounded transition-colors"
+            className={`${INTERACTION_CLASS} px-2 py-1 text-xs text-fg-muted rounded transition-colors`}
             title={filePath}
           >
             Copy Path

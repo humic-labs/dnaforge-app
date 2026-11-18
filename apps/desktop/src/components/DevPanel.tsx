@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { usePresentationListener } from '../presentation/PresentationSurface';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -127,7 +128,7 @@ export function DevPanel({ isOpen, onClose }: DevPanelProps) {
         </span>
         <button
           onClick={onClose}
-          className="rounded p-1 text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg"
+          className={`${INTERACTION_CLASS} rounded p-1 text-fg-muted transition-colors`}
           title="Close"
           type="button"
         >
@@ -175,7 +176,7 @@ export function DevPanel({ isOpen, onClose }: DevPanelProps) {
           <button
             type="button"
             onClick={() => setDevFixturesMounted(!devFixturesMounted)}
-            className="flex w-full items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs transition-colors hover:bg-bg-muted/50"
+            className={`${INTERACTION_CLASS} flex w-full items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs transition-colors`}
             data-testid="dev-fixtures-toggle"
             title="Show or hide developer folders used for preview and import. This does not reset the database."
           >
@@ -199,7 +200,7 @@ export function DevPanel({ isOpen, onClose }: DevPanelProps) {
             type="button"
             data-testid="devpanel-protein-run-comparison"
             onClick={openProteinRunComparison}
-            className="border-b border-border px-3 py-2 text-left text-xs font-medium text-accent hover:bg-bg-muted/50"
+            className={`${INTERACTION_CLASS} border-b border-border px-3 py-2 text-left text-xs font-medium text-accent`}
           >
             Protein run comparison
           </button>
@@ -253,7 +254,7 @@ export function DevPanel({ isOpen, onClose }: DevPanelProps) {
                   type="button"
                   data-testid={b.testid}
                   onClick={() => handleSimulateUpdate(...b.args)}
-                  className="rounded border border-border px-2 py-1.5 text-xs text-fg transition-colors hover:bg-bg-muted"
+                  className={`${INTERACTION_CLASS} rounded border border-border px-2 py-1.5 text-xs text-fg transition-colors`}
                 >
                   {b.label}
                 </button>
@@ -314,14 +315,14 @@ export function DevPanel({ isOpen, onClose }: DevPanelProps) {
                       aria-pressed={isActive}
                       aria-busy={isPending}
                       disabled={pendingPreset !== null}
-                      className={`w-full rounded px-3 py-2 text-left text-sm transition-colors ${
+                      className={`${INTERACTION_CLASS} w-full rounded px-3 py-2 text-left text-sm transition-colors ${
                         isActive
                           ? 'border border-accent/30 bg-accent/15 text-accent'
                           : isPending
                             ? 'cursor-wait border border-accent/30 bg-accent/10 text-fg'
                             : pendingPreset
                               ? 'cursor-not-allowed border border-transparent text-fg-muted opacity-60'
-                              : 'border border-transparent text-fg hover:bg-bg-muted'
+                              : 'border border-transparent text-fg '
                       }`}
                       data-testid={`devpanel-${preset.id}`}
                     >
@@ -350,9 +351,9 @@ export function DevPanel({ isOpen, onClose }: DevPanelProps) {
               onClick={handleReset}
               disabled={!activePreset}
               type="button"
-              className={`w-full rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+              className={`${INTERACTION_CLASS} w-full rounded px-3 py-1.5 text-xs font-medium transition-colors ${
                 activePreset
-                  ? 'bg-bg-muted text-fg hover:bg-bg-muted/80'
+                  ? 'bg-bg-muted text-fg '
                   : 'cursor-not-allowed bg-bg-muted/50 text-fg-muted'
               }`}
             >

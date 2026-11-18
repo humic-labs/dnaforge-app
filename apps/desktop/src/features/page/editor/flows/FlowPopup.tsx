@@ -1,9 +1,10 @@
+'use client';
+
 import {
   usePresentationOverlay,
   PresentationScopeContext,
   usePresentationListener,
 } from '../../../../presentation/PresentationSurface';
-('use client');
 
 import { useId, useLayoutEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -140,7 +141,7 @@ export function FlowPopup({ returnFocusTarget }: { returnFocusTarget?: HTMLEleme
                 <button
                   onClick={goBack}
                   type="button"
-                  className="p-1 text-fg-muted hover:text-fg hover:bg-bg-muted rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className="p-1 text-fg-muted wp-interactive rounded transition-colors "
                   aria-label="Go back"
                 >
                   <ChevronLeftIcon className="w-4 h-4" />
@@ -153,7 +154,7 @@ export function FlowPopup({ returnFocusTarget }: { returnFocusTarget?: HTMLEleme
             <button
               onClick={cancelFlow}
               type="button"
-              className="p-1 text-fg-muted hover:text-fg hover:bg-bg-muted rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="p-1 text-fg-muted wp-interactive rounded transition-colors "
               aria-label="Cancel"
             >
               <XIcon className="w-4 h-4" />

@@ -371,7 +371,7 @@ function ImportRow({
       }}
       style={selectionShadow ? { boxShadow: selectionShadow } : undefined}
       className={`cursor-pointer select-none border-b border-border ${accent} ${
-        selected ? 'bg-accent/10' : 'hover:bg-fg/[0.04]'
+        selected ? 'bg-accent/10' : 'wp-interactive'
       } ${record.accepted ? '' : 'opacity-50'}`}
     >
       <td className="px-3 py-1.5 align-top">

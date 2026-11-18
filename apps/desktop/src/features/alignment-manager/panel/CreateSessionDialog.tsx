@@ -162,7 +162,7 @@ export function CreateSessionDialog({
               <button
                 type="button"
                 onClick={onCancel}
-                className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary"
+                className="px-4 py-2 text-sm text-text-secondary wp-interactive"
               >
                 Cancel
               </button>

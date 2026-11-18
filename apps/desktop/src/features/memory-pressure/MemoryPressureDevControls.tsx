@@ -39,7 +39,7 @@ export function MemoryPressureDevControls() {
             type="button"
             data-testid={`devpanel-memory-pressure-${choice.label.toLowerCase()}`}
             onClick={() => force(choice.level)}
-            className="rounded border border-border px-2 py-1.5 text-xs text-fg transition-colors hover:bg-bg-muted"
+            className="rounded border border-border px-2 py-1.5 text-xs text-fg transition-colors wp-interactive"
           >
             {choice.label}
           </button>

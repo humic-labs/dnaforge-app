@@ -110,7 +110,7 @@ export function PrimerPicker({ onAdvance, onCancel }: PickerStageProps) {
               type="button"
               aria-pressed={selected?.id === primer.id}
               onClick={() => setSelected(primer)}
-              className={`w-full px-3 py-2 text-left hover:bg-bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${
+              className={`w-full px-3 py-2 text-left wp-interactive transition-colors ${
                 selected?.id === primer.id ? 'bg-accent-subtle text-fg' : ''
               }`}
             >

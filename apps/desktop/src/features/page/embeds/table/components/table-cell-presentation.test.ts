@@ -102,7 +102,7 @@ describe('tableCellWrapperClasses', () => {
       hasBgColor: false,
     }).split(' ');
 
-    expect(classes).toContain('hover:bg-bg-muted');
+    expect(classes).toContain('wp-interactive');
     expect(classes).toContain('transition-none');
   });
 });

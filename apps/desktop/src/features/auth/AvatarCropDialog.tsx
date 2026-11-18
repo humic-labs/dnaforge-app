@@ -157,7 +157,7 @@ export function AvatarCropDialog({
               type="button"
               aria-label="Close"
               data-testid="avatar-crop-close"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-lg leading-none text-fg-muted hover:bg-bg-muted hover:text-fg disabled:opacity-50"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-lg leading-none text-fg-muted wp-interactive disabled:opacity-50"
               disabled={locked}
               onClick={onClose}
             >

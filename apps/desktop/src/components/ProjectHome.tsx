@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { WorkPanel } from '../features/work/public/work';
 import { useEffect, useState } from 'react';
 import type { GitLogEntry } from '../features/workspace/git';
@@ -72,7 +73,7 @@ export function ProjectHome({
               type="button"
               data-testid="project-home-switch"
               onClick={onOpenSwitcher}
-              className="rounded border border-border px-3 py-1.5 text-xs font-medium text-fg hover:bg-bg-muted"
+              className={`${INTERACTION_CLASS} rounded border border-border px-3 py-1.5 text-xs font-medium text-fg`}
             >
               Projects
             </button>
@@ -88,7 +89,7 @@ export function ProjectHome({
               type="button"
               data-testid="project-home-close"
               onClick={onClose}
-              className="inline-flex h-7 w-7 items-center justify-center rounded text-fg-muted hover:bg-bg-muted hover:text-fg"
+              className={`${INTERACTION_CLASS} inline-flex h-7 w-7 items-center justify-center rounded text-fg-muted`}
               aria-label="Close project home"
             >
               <CloseIcon />
@@ -121,7 +122,7 @@ export function ProjectHome({
                 type="button"
                 data-testid="project-home-reveal"
                 onClick={() => onRevealProject(project.repoPath)}
-                className="inline-flex items-center gap-2 rounded border border-border px-3 py-1.5 text-xs font-medium text-fg hover:bg-bg-muted"
+                className={`${INTERACTION_CLASS} inline-flex items-center gap-2 rounded border border-border px-3 py-1.5 text-xs font-medium text-fg`}
               >
                 <FolderOpenIcon className="h-4 w-4" />
                 Reveal in Finder
@@ -139,7 +140,7 @@ export function ProjectHome({
                 type="button"
                 data-testid="project-home-open-registry"
                 onClick={onOpenRegistry}
-                className="rounded border border-border px-3 py-1.5 text-xs font-medium text-fg hover:bg-bg-muted"
+                className={`${INTERACTION_CLASS} rounded border border-border px-3 py-1.5 text-xs font-medium text-fg`}
               >
                 Open registry
               </button>

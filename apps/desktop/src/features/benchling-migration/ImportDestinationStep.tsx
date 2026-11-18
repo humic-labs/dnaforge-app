@@ -175,7 +175,7 @@ export function ImportDestinationStep({
                       <button
                         type="button"
                         onClick={() => setShowAllAlternates((visible) => !visible)}
-                        className="w-full rounded px-3 py-2 text-left text-xs font-medium text-fg-muted hover:bg-bg-muted hover:text-fg"
+                        className="w-full rounded px-3 py-2 text-left text-xs font-medium text-fg-muted wp-interactive "
                       >
                         {canCollapseAlternates ? (
                           'Show fewer projects'
@@ -338,7 +338,7 @@ function DestinationRadioRow({
   return (
     <label
       className={`flex cursor-pointer items-center justify-between gap-4 rounded-lg border px-3 py-3 transition-colors ${
-        selected ? 'border-accent bg-accent/[0.035]' : 'border-border hover:bg-bg-muted'
+        selected ? 'border-accent bg-accent/[0.035]' : 'border-border wp-interactive'
       }`}
     >
       <span className="flex min-w-0 items-center gap-3">

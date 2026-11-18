@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import {
   toUserMessage,
   userMessage,
@@ -229,7 +230,7 @@ function JobDetails({
       {onRefreshActions ? (
         <button
           type="button"
-          className="mt-2 rounded border border-border px-1.5 py-0.5 text-[10px] text-fg-muted hover:bg-bg-muted disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent/40"
+          className="mt-2 rounded border border-border px-1.5 py-0.5 text-[10px] text-fg-muted wp-interactive disabled:opacity-50 "
           disabled={actionHistoryStatus === 'loading'}
           onClick={onRefreshActions}
         >
@@ -555,7 +556,7 @@ function JobRow({
         aria-label={disclosureLabel(job, expanded)}
         aria-expanded={expanded}
         aria-controls={detailsId}
-        className="flex w-full min-w-0 items-start gap-1.5 rounded text-left hover:bg-bg-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/40"
+        className="flex w-full min-w-0 items-start gap-1.5 rounded text-left wp-interactive "
         onClick={toggleExpanded}
       >
         <JobSummary job={job} expanded={expanded} />
@@ -566,7 +567,7 @@ function JobRow({
           {showStop ? (
             <button
               type="button"
-              className="rounded border border-border px-1.5 py-0.5 text-[10px] text-fg hover:bg-bg-muted focus:outline-none focus:ring-2 focus:ring-accent/40"
+              className="rounded border border-border px-1.5 py-0.5 text-[10px] text-fg wp-interactive "
               onClick={() => onStop(job.owner)}
             >
               Stop
@@ -748,7 +749,7 @@ export function JobsSidebar({
           <button
             type="button"
             disabled={importingRecordedRun}
-            className="mt-2 w-full rounded border border-border bg-bg px-1.5 py-1 text-[10px] text-fg hover:bg-bg-muted focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:cursor-wait disabled:opacity-60"
+            className="mt-2 w-full rounded border border-border bg-bg px-1.5 py-1 text-[10px] text-fg wp-interactive disabled:cursor-wait disabled:opacity-60"
             onClick={onImportRecordedRun}
           >
             {importingRecordedRun ? 'Recording completed run…' : 'Record completed run…'}
@@ -757,19 +758,21 @@ export function JobsSidebar({
         {showScopeFilter ? (
           <label className="mt-2 block">
             <span className="sr-only">Job scope</span>
-            <select
-              aria-label="Job scope"
-              value={selectedScopeExists ? (snapshot.selectedScopeId ?? '') : ''}
-              onChange={(event) => changeScope(event.currentTarget.value || null)}
-              className="h-7 w-full min-w-0 rounded border border-border bg-bg px-1.5 text-[10px] text-fg focus:outline-none focus:ring-2 focus:ring-accent/40"
-            >
-              <option value="">All workspaces</option>
-              {scopes.map((scope) => (
-                <option key={scope.id} value={scope.id}>
-                  {scope.label}
-                </option>
-              ))}
-            </select>
+            <span className="block min-w-0 w-full">
+              <MenuNativeSelect
+                density="compact"
+                aria-label="Job scope"
+                value={selectedScopeExists ? (snapshot.selectedScopeId ?? '') : ''}
+                onChange={(event) => changeScope(event.currentTarget.value || null)}
+              >
+                <option value="">All workspaces</option>
+                {scopes.map((scope) => (
+                  <option key={scope.id} value={scope.id}>
+                    {scope.label}
+                  </option>
+                ))}
+              </MenuNativeSelect>
+            </span>
           </label>
         ) : null}
       </header>
@@ -806,7 +809,7 @@ export function JobsSidebar({
             {snapshot.collectionObservation.canReconnect && onReconnect ? (
               <button
                 type="button"
-                className="mt-1.5 rounded border border-border bg-bg px-1.5 py-0.5 text-[10px] text-fg hover:bg-bg-muted focus:outline-none focus:ring-2 focus:ring-accent/40"
+                className="mt-1.5 rounded border border-border bg-bg px-1.5 py-0.5 text-[10px] text-fg wp-interactive "
                 onClick={onReconnect}
               >
                 Reconnect
