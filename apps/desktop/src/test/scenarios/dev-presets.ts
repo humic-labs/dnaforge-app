@@ -1,5 +1,6 @@
 import { cdsMutationGallery, CDS_MUTATION_GALLERY_ID } from './cds-mutation-gallery';
 import { agentWorkflowCheck } from './agent-workflow-check';
+import type { NativeDataLayerExample } from './native-data-layer-examples';
 import {
   typicalSession,
   freshSession,
@@ -356,6 +357,12 @@ export interface DevScenarioPreset {
   factory: () => AppScenario;
   aliases?: string[];
   referenceAssemblyId?: string;
+  referenceSourcePath?: string;
+  nativeContactProjection?: boolean;
+  nativeComparisonProjection?: boolean;
+  nativeExpressionTracks?: boolean;
+  nativeOrdinaryExpression?: boolean;
+  nativeDataLayerExample?: NativeDataLayerExample;
 
   indexedReference?: {
     preferredLocalAssemblyAccession: string;
@@ -496,8 +503,7 @@ export const DEV_SCENARIO_PRESET_GROUPS: readonly DevScenarioPresetGroup[] = [
       {
         id: 'privacy-usage-analytics-unavailable',
         label: 'privacyUsageAnalyticsUnavailable',
-        description:
-          ' — Settings → Privacy where this window cannot report the telemetry choice',
+        description: ' — Settings → Privacy where this window cannot report the telemetry choice',
         factory: () => ({ usageAnalytics: { enabled: null } }),
         aliases: ['analytics', 'telemetry', 'consent'],
         noAutoReplay: true,
@@ -1194,6 +1200,198 @@ export const DEV_SCENARIO_PRESET_GROUPS: readonly DevScenarioPresetGroup[] = [
     id: 'annotation-assembly-pileup',
     heading: 'Assembly tracks',
     presets: [
+      {
+        id: 'native-aligned-genomes',
+        label: 'Aligned genomes · native synteny',
+        description:
+          'Exact E. coli and Shigella genome alignment with CIGAR gaps, reverse blocks and unaligned joins in the existing indexed canvas.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes',
+        nativeComparisonProjection: true,
+        noAutoReplay: true,
+      },
+      {
+        id: 'native-contact-matrix',
+        label: 'Chromosome contacts · native matrix',
+        description:
+          'Measured chromosome contacts on exact U00096.2 genomic axes in the normal indexed viewer. Pan both axes, zoom, and select a measured bin pair.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes/U00096.2-contacts',
+        nativeContactProjection: true,
+        noAutoReplay: true,
+      },
+      {
+        id: 'native-expression-tracks',
+        label: 'Expression samples · native tracks',
+        description:
+          'Real PRECISE expression conditions in the existing indexed track rows and settings.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes',
+        nativeExpressionTracks: true,
+        noAutoReplay: true,
+      },
+      {
+        id: 'genome-markup-indexed',
+        label: 'Shared genome markup · indexed reference',
+        description: 'Real expression measurements in the native indexed track owner.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes',
+        nativeExpressionTracks: true,
+        noAutoReplay: true,
+      },
+      {
+        id: 'genome-markup-ordinary',
+        label: 'Shared genome markup · ordinary sequence',
+        description:
+          'The same measurements on a real 17 kb MG1655 locus in the normal sequence viewer.',
+        factory: () => ({ laneContract: {} }),
+        nativeOrdinaryExpression: true,
+        noAutoReplay: true,
+      },
+      {
+        id: 'native-crispri-guides',
+        label: 'CRISPRi · guide growth effects',
+        description:
+          '820 exact guide-sequence placements on NC_000913.3 with measured growth effects and a signed color scale.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes',
+        nativeDataLayerExample: 'crispri',
+        noAutoReplay: true,
+      },
+      {
+        id: 'native-regulatory-sites',
+        label: 'RegulonDB · binding sites',
+        description:
+          '176 sequence-verified regulatory sites in native interval lanes. Site widths describe genomic extent.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes',
+        nativeDataLayerExample: 'regulondb',
+        noAutoReplay: true,
+      },
+      ...(['araAB', 'arcA', 'groSL', 'aphA'] as const).map((gene) => ({
+        id: `native-regseq-${gene}`,
+        label: `RegSeq · ${gene} promoter footprint`,
+        description:
+          'Two measured conditions on the supplied 160-base promoter fragment, using a shared signed scale and the normal sequence viewer.',
+        factory: () => ({ laneContract: {} }),
+        nativeDataLayerExample: `regseq-${gene}` as const,
+        noAutoReplay: true,
+      })),
+      {
+        id: 'native-rna-reactivity',
+        label: 'RNA · SHAPE and paired bases',
+        description:
+          'Measured reactivity and supplied base-pair arcs on the same 432-base RNA sequence. Missing measurements remain missing.',
+        factory: () => ({ laneContract: {} }),
+        nativeDataLayerExample: 'shape-rpsT_5',
+        noAutoReplay: true,
+      },
+      ...(
+        [
+          [
+            '01-tradis',
+            'Transposon · gene insertion indices',
+            'BW25113 gene-level insertion indices transferred by exact gene identity to MG1655 annotations. Unmatched and repeated source genes remain excluded. These are gene summaries.',
+          ],
+          [
+            '02-chemical-genetics',
+            'Mutant fitness · condition matrix',
+            'Published growth scores across 21 conditions, mapped by exact ECK aliases to MG1655 genes. Missing scores remain missing.',
+          ],
+          [
+            '06-proteome',
+            'Proteome · condition matrix',
+            'BW25113 protein abundance across 22 conditions, transferred by verified protein-to-gene identities onto MG1655 annotations.',
+          ],
+          [
+            '17-conservation',
+            'Gene states · matched subset',
+            'Published states across 21 strains for the uniquely matched subset of a pseudogene-enriched source table. Foreign-reference coordinates are excluded.',
+          ],
+        ] as const
+      ).map(([id, label, description]) => ({
+        id: `native-${id}`,
+        label,
+        description,
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes',
+        nativeDataLayerExample: id,
+        noAutoReplay: true,
+      })),
+      ...(
+        [
+          [
+            '07-rna-decay',
+            'RNA decay · matched single-gene transcripts',
+            'Published lifetime means in two phases for 631 exact single-gene transcript matches on NC_000913.2. The remaining 198 source transcripts are retained without inferred TU boundaries.',
+          ],
+          [
+            '05-ribosome-profiling',
+            'Ribosome profiling · exact source genome',
+            'Two conditions on NC_000913.2. Empty source bins remain missing; density is the reported read contribution divided by bin width.',
+          ],
+          [
+            '08-tss-coverage',
+            'RNA starts · coverage and TSS points',
+            'Strand coverage and published expression step heights on exact NC_000913.2, with independently verified TSS sequence anchors.',
+          ],
+          [
+            '11-hns-fis',
+            'Nucleoid binding · Fis and H-NS intervals',
+            '195 published mid-exponential binding intervals with NC_000913.2 coordinate compatibility checked against primary signal bounds and validation primers. No binding strength is invented.',
+          ],
+          [
+            '14-supercoiling',
+            'Chromosome topology · condition matrix',
+            'Stationary and exponential psoralen crosslinking signals on NC_000913.2. Values describe published signal ratios.',
+          ],
+          [
+            '15-methylation',
+            'Methylation · fractions and read support',
+            'Three baseline biological replicates from Cohen et al.2016 on exact NC_000913.2. Measured site fractions and read coverage remain separate; below-threshold fractions stay missing. The original motif census is retained separately.',
+          ],
+        ] as const
+      ).map(([id, label, description]) => ({
+        id: `native-${id}`,
+        label,
+        description,
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes/native-references/NC_000913.2',
+        nativeDataLayerExample: id,
+        noAutoReplay: true,
+      })),
+      {
+        id: 'native-09-termseq',
+        label: 'RNA ends · three measured replicates',
+        description:
+          '118 sequence-anchored positions and three read-count replicates on exact CP009273.1. Original endpoint conventions and their limitations are retained with the source.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath: 'test-fixtures/genome-view-prototypes/native-references/CP009273.1',
+        nativeDataLayerExample: '09-termseq',
+        noAutoReplay: true,
+      },
+      {
+        id: 'native-13-gyrase',
+        label: 'Gyrase cleavage · three treatments',
+        description:
+          'Three published trusted-site call sets on the exact author W3110-Mu reference. Point heights preserve normalized cleavage signal; unreported treatment calls remain absent.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath:
+          'test-fixtures/genome-view-prototypes/native-references/reference-author-w3110-Mu',
+        nativeDataLayerExample: '13-gyrase',
+        noAutoReplay: true,
+      },
+      {
+        id: 'native-19-evolution',
+        label: 'Evolution · published SNP clone counts',
+        description:
+          '14,572 unique SNPs on the exact deposited REL606 reference. Heights count sequenced clones carrying each reported SNP; complex mutations remain excluded with their source records.',
+        factory: () => ({ laneContract: {} }),
+        referenceSourcePath:
+          'test-fixtures/genome-view-prototypes/native-references/reference-author-REL606',
+        nativeDataLayerExample: '19-evolution',
+        noAutoReplay: true,
+      },
       {
         id: 'indexed-mg1655-reference',
         label: 'Indexed MG1655 reference',

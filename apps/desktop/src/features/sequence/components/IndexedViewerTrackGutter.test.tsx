@@ -1,3 +1,6 @@
+import { SCIENTIFIC_COLOR_PALETTES } from '@waypoint/sequence-utils';
+import type { SequenceDataLayerPresentation } from '../../../shared/sequence-data-layer';
+import type { SequenceDataLayerTrackControls } from '../data-layers/useSequenceDataLayers';
 import { userMessage } from '@waypoint/user-messages';
 import {
   act,
@@ -270,7 +273,8 @@ function renderGutter(
   onRetryPileupTrack = vi.fn(),
   onRepairPileupTrack = vi.fn(),
   recentRemoteEndpoints: readonly RemoteEndpointProfileV1[] = [],
-  refreshRemoteEndpoints = vi.fn(async () => undefined)
+  refreshRemoteEndpoints = vi.fn(async () => undefined),
+  dataLayerControls?: SequenceDataLayerTrackControls
 ) {
   const onOpenMutationNavigator = vi.fn();
   const onAddVariantTrackRequest = vi.fn(async () => undefined);
@@ -304,6 +308,7 @@ function renderGutter(
   } as IndexedGenomeTileNativeMapHandle;
   const renderAtEpoch = (rendererReadyEpoch: number) => (
     <IndexedViewerTrackGutter
+      dataLayerControls={dataLayerControls}
       laneOwnerId={ASSEMBLY_ID}
       assemblyId={ASSEMBLY_ID}
       assemblyDisplayName="GRCh38"
@@ -418,6 +423,192 @@ afterEach(() => {
 });
 
 describe('IndexedViewerTrackGutter', () => {
+  function savedLayerControls(unavailable: string | null = null): SequenceDataLayerTrackControls {
+    const presentation: SequenceDataLayerPresentation = {
+      sampleId: 'glucose',
+      annotationColors: true,
+      signalVisible: true,
+      style: {
+        geometry: 'bars',
+        colorScale: {
+          kind: 'continuous',
+          domain: [0, 16],
+          colors: [...SCIENTIFIC_COLOR_PALETTES.viridis.colors],
+          missingColor: '#cbd5e1',
+          transform: 'linear',
+        },
+      },
+    };
+    return {
+      rows: [
+        {
+          id: 'expression',
+          label: 'Expression',
+          visible: true,
+          samples: [
+            { id: 'glucose', label: 'Glucose' },
+            { id: 'acetate', label: 'Acetate' },
+          ],
+          presentation,
+          unavailable,
+        },
+      ],
+      errors: [],
+      onVisibilityChange: vi.fn(),
+      onPresentationChange: vi.fn(),
+    };
+  }
+
+  function renderSavedLayers(controls: SequenceDataLayerTrackControls) {
+    laneBands.current.dataBounds['sequence-data-expression'] = { topPx: 274, heightPx: 190 };
+    return renderGutter(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      controls
+    );
+  }
+
+  it('places saved layers in the native gutter and changes their visibility through the layer owner', () => {
+    const controls = savedLayerControls();
+    renderSavedLayers(controls);
+    const row = screen.getByTestId(
+      'track-gutter-row-sequence-data-layers:sequence-data-expression'
+    );
+    expect(row.style.top).toBe('274px');
+    expect(screen.queryByLabelText('Sample for Expression')).toBeNull();
+    expect(within(row).queryByLabelText('Remove Expression')).toBeNull();
+    fireEvent.click(within(row).getByLabelText('Show Expression'));
+    expect(controls.onVisibilityChange).toHaveBeenCalledWith('expression', false);
+    expect(
+      useLaneContractStore
+        .getState()
+        .lanesForOwner(ASSEMBLY_ID)
+        .map((lane) => lane.dataset.trackId)
+    ).toEqual(['bam-a', 'bam-b']);
+  });
+
+  it('uses the native gear for retained samples, drawing styles and shared palette changes', () => {
+    const controls = savedLayerControls();
+    renderSavedLayers(controls);
+    fireEvent.click(screen.getByLabelText('Open settings for Expression'));
+    const original = controls.rows[0].presentation;
+    fireEvent.change(screen.getByLabelText('Sample for Expression'), {
+      target: { value: 'acetate' },
+    });
+    expect(controls.onPresentationChange).toHaveBeenLastCalledWith('expression', {
+      ...original,
+      sampleId: 'acetate',
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Heatmap for Expression' }));
+    expect(controls.onPresentationChange).toHaveBeenLastCalledWith('expression', {
+      ...original,
+      style: { ...original.style, geometry: 'band' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Points for Expression' }));
+    expect(controls.onPresentationChange).toHaveBeenLastCalledWith('expression', {
+      ...original,
+      style: { ...original.style, geometry: 'points' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Arcs for Expression' }));
+    expect(controls.onPresentationChange).toHaveBeenLastCalledWith('expression', {
+      ...original,
+      style: { ...original.style, geometry: 'arcs' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Cividis palette for Expression' }));
+    expect(controls.onPresentationChange).toHaveBeenLastCalledWith('expression', {
+      ...original,
+      style: {
+        ...original.style,
+        colorScale: {
+          ...original.style.colorScale,
+          colors: [...SCIENTIFIC_COLOR_PALETTES.cividis.colors],
+        },
+      },
+    });
+    fireEvent.click(screen.getByLabelText('Color annotations from Expression'));
+    expect(controls.onPresentationChange).toHaveBeenLastCalledWith('expression', {
+      ...original,
+      annotationColors: false,
+    });
+    fireEvent.click(screen.getByLabelText('Show signal for Expression'));
+    expect(controls.onPresentationChange).toHaveBeenLastCalledWith('expression', {
+      ...original,
+      signalVisible: false,
+    });
+  });
+
+  it('shows all matrix samples in the existing gear without exposing a misleading single-sample filter', () => {
+    const controls = savedLayerControls();
+    controls.rows[0].presentation.style.geometry = 'matrix';
+    renderSavedLayers(controls);
+    fireEvent.click(screen.getByLabelText('Open settings for Expression'));
+    expect(screen.queryByLabelText('Sample for Expression')).toBeNull();
+    expect(screen.getByText('All 2 source samples')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Matrix for Expression' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Bars for Expression' }));
+    expect(controls.onPresentationChange).toHaveBeenLastCalledWith('expression', {
+      ...controls.rows[0].presentation,
+      sampleId: 'glucose',
+      style: { ...controls.rows[0].presentation.style, geometry: 'bars' },
+    });
+  });
+
+  it('hides matrix annotation recoloring without clearing the retained preference', () => {
+    const controls = savedLayerControls();
+    controls.rows[0].presentation.style.geometry = 'matrix';
+    renderSavedLayers(controls);
+    fireEvent.click(screen.getByLabelText('Open settings for Expression'));
+    expect(screen.queryByLabelText('Color annotations from Expression')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Bars for Expression' }));
+    expect(controls.onPresentationChange).toHaveBeenLastCalledWith('expression', {
+      ...controls.rows[0].presentation,
+      sampleId: 'glucose',
+      annotationColors: true,
+      style: { ...controls.rows[0].presentation.style, geometry: 'bars' },
+    });
+  });
+
+  it('hides unsupported annotation recoloring while keeping native signal controls available', () => {
+    const controls = { ...savedLayerControls(), annotationColorsSupported: false };
+    renderSavedLayers(controls);
+    fireEvent.click(screen.getByLabelText('Open settings for Expression'));
+    expect(screen.queryByLabelText('Color annotations from Expression')).toBeNull();
+    expect(screen.getByLabelText('Sample for Expression')).toBeVisible();
+    expect(screen.getByLabelText('Show signal for Expression')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Heatmap for Expression' }));
+    expect(controls.onPresentationChange).toHaveBeenLastCalledWith(
+      'expression',
+      expect.objectContaining({ style: expect.objectContaining({ geometry: 'band' }) })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cividis palette for Expression' }));
+    expect(controls.onPresentationChange).toHaveBeenLastCalledWith(
+      'expression',
+      expect.objectContaining({
+        style: expect.objectContaining({
+          colorScale: expect.objectContaining({
+            colors: [...SCIENTIFIC_COLOR_PALETTES.cividis.colors],
+          }),
+        }),
+      })
+    );
+  });
+
+  it('keeps an unavailable saved layer discoverable with its actual mapping status', () => {
+    const controls = savedLayerControls('The displayed annotations have changed.');
+    renderSavedLayers(controls);
+    expect(screen.getByRole('status')).toHaveTextContent('The displayed annotations have changed.');
+    expect(screen.getByLabelText('Open settings for Expression')).toBeVisible();
+    expect(controls.onPresentationChange).not.toHaveBeenCalled();
+  });
+
   it('refreshes shared recent connections after renaming from an attached track', async () => {
     useLaneContractStore.getState().clearOwner(ASSEMBLY_ID);
     const alignment = sourcedPileup('bam-a', 'Tumor BAM', 75);
@@ -1126,6 +1317,17 @@ describe('IndexedViewerTrackGutter', () => {
 
     fireEvent.click(screen.getByLabelText('Open settings for RNA signal'));
     expect(screen.getByTestId(`track-settings-form-signal-settings`)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Arcs for RNA signal' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Heatmap for RNA signal' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cividis palette for RNA signal' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(
+      useLaneContractStore
+        .getState()
+        .lanesForOwner(ASSEMBLY_ID)
+        .find((lane) => lane.dataset.trackId === 'signal-settings')?.dataset
+        .quantitativePresentation
+    ).toMatchObject({ graph: 'band', palette: 'cividis' });
     expect(screen.queryByTestId('quantitative-range-summary-signal-settings')).toBeNull();
     expect(screen.queryByText(/Values outside the chosen range/)).toBeNull();
     fireEvent.change(screen.getByTestId('quantitative-scale-mode-signal-settings'), {

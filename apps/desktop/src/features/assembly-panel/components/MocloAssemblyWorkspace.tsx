@@ -2,8 +2,17 @@
 
 import { toUserMessage } from '@waypoint/user-messages';
 import { complementBase } from '@waypoint/sequence-utils';
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
-import { SearchIcon } from '../../../components/icons';
+import { MenuSearchInput, MenuSurface } from '@waypoint/ui-components';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type KeyboardEvent,
+} from 'react';
 import {
   deriveGoldenGateSlotEnds,
   isGoldenGateSchemaStructureLocked,
@@ -433,7 +442,7 @@ export function MocloAssemblyWorkspace({
             <button
               type="button"
               onClick={addPosition}
-              className="ml-1 h-7 flex-none px-2 text-[11px] text-fg-muted hover:text-fg-default"
+              className="ml-1 h-7 flex-none px-2 text-[11px] text-fg-muted wp-interactive"
             >
               + Position
             </button>
@@ -520,33 +529,20 @@ export function MocloPartPicker(props: {
     else if (item.bottom > bounds.bottom) list.scrollTop += item.bottom - bounds.bottom;
   }, [activeIndex, props.candidates]);
 
-  return (
-    <div
-      data-testid="moclo-part-picker-popover"
-      onKeyDown={(event) => {
-        if (event.key === 'Escape' && !event.nativeEvent.isComposing) {
-          event.preventDefault();
-          event.stopPropagation();
-          props.onClose();
-        }
-      }}
-      className={`${
-        props.layout === 'portal'
-          ? 'relative min-h-0 max-h-[min(430px,60vh)] w-full'
-          : props.layout === 'drawer'
-            ? 'relative mt-1 max-h-[360px] w-full'
-            : 'absolute left-3 top-full max-h-[min(430px,60vh)] w-[520px]'
-      } z-50 flex flex-col overflow-hidden ${
-        props.layout === 'portal'
-          ? 'bg-transparent'
-          : 'rounded-md border border-border bg-bg shadow-xl'
-      }`}
-    >
+  const closeOnEscape = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape' && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      event.stopPropagation();
+      props.onClose();
+    }
+  };
+  const content = (
+    <>
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">Search parts for {props.slotLabel}</span>
-          <SearchIcon className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-fg-subtle" />
-          <input
+          <MenuSearchInput
+            density="form"
             autoFocus
             type="search"
             value={props.query}
@@ -584,7 +580,6 @@ export function MocloPartPicker(props: {
             aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
             aria-label={`Search parts for ${props.slotLabel}`}
             placeholder="Search parts…"
-            className="h-9 w-full rounded bg-transparent pl-7 pr-2 text-[13px] text-fg-default outline-none focus-visible:ring-1 focus-visible:ring-accent"
           />
         </label>
         <label className="flex shrink-0 items-center gap-1.5 text-xs text-fg-muted">
@@ -602,7 +597,7 @@ export function MocloPartPicker(props: {
           type="button"
           onClick={props.onClose}
           aria-label="Close part picker"
-          className="h-8 w-8 rounded text-fg-muted hover:bg-bg-muted hover:text-fg-default"
+          className="h-8 w-8 rounded text-fg-muted wp-interactive "
         >
           ×
         </button>
@@ -643,8 +638,42 @@ export function MocloPartPicker(props: {
           />
         ))}
       </div>
-    </div>
+    </>
   );
+  if (props.layout === 'portal') {
+    return (
+      <div
+        data-testid="moclo-part-picker-popover"
+        onKeyDown={closeOnEscape}
+        className="relative z-50 flex min-h-0 max-h-[min(430px,60vh)] w-full flex-col overflow-hidden"
+      >
+        {content}
+      </div>
+    );
+  }
+  const surface = (
+    <MenuSurface
+      data-testid="moclo-part-picker-popover"
+      onKeyDown={closeOnEscape}
+      density="form"
+      content="panel"
+      selection={false}
+      layout={{
+        position: props.layout === 'drawer' ? 'relative' : 'absolute',
+        left: props.layout === 'drawer' ? undefined : 12,
+        top: props.layout === 'drawer' ? undefined : '100%',
+        width: props.layout === 'drawer' ? '100%' : 520,
+        maxHeight: props.layout === 'drawer' ? 360 : 'min(430px,60vh)',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        zIndex: 50,
+      }}
+    >
+      {content}
+    </MenuSurface>
+  );
+  return props.layout === 'drawer' ? <div className="mt-1">{surface}</div> : surface;
 }
 
 function CandidateRow(props: {
@@ -678,7 +707,8 @@ function CandidateRow(props: {
       onPointerMove={props.onPointerMove}
       onMouseDown={(event) => event.preventDefault()}
       onClick={() => props.onChoose(props.candidate)}
-      className={`flex w-full items-center gap-3 rounded px-2.5 py-2 text-left transition-colors duration-100 hover:bg-bg-muted focus-visible:bg-bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${props.active ? 'bg-bg-muted ring-1 ring-inset ring-accent/40' : ''}`}
+      data-active={props.active}
+      className="flex w-full items-center gap-3 rounded px-2.5 py-2 text-left wp-interactive"
     >
       <span className="min-w-0 flex-1">
         <span

@@ -1,3 +1,11 @@
+import { comparisonColumnX, comparisonPlot, type ComparisonHit } from '@waypoint/genome-renderer';
+import {
+  comparisonCameraForTargetViewport,
+  comparisonTargetViewport,
+} from '../comparison-projection-navigation';
+import type { ComparisonProjectionProps } from './comparison-projection-props';
+import type { ContactProjectionProps } from './contact-projection-props';
+import { contactCellRect, contactPlotRect, type ContactHit } from '@waypoint/genome-renderer';
 import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import {
   toUserMessage,
@@ -29,6 +37,7 @@ import {
   type AnnotationFlatPresentationSnapshot,
   type AnnotationResidentPagePublication,
   genomeFeatures,
+  resolveAnnotationDataColors,
   IndexedPixiLinearRenderer,
   readHitIdentityKey,
   type Feature,
@@ -68,6 +77,13 @@ export type IndexedGenomeSelectionChangeHandler = NonNullable<
 >;
 
 export interface IndexedGenomeTileNativeMapHandle {
+  getComparisonCamera: PixiMapHandle['getComparisonCamera'];
+  setComparisonCamera: PixiMapHandle['setComparisonCamera'];
+  getComparisonSelection: () => ComparisonHit | null;
+  getContactCamera: PixiMapHandle['getContactCamera'];
+  setContactCamera: PixiMapHandle['setContactCamera'];
+  getContactSelection: () => ContactHit | null;
+
   setViewport: (range: { start: number; end: number }) => { start: number; end: number } | null;
 
   requestRender: PixiMapHandle['requestRender'];
@@ -100,7 +116,11 @@ export interface IndexedGenomeTileNativeMapHandle {
   ) => boolean;
 }
 
-export interface IndexedGenomeTileNativeMapProps {
+export interface IndexedGenomeTileNativeMapProps
+  extends ContactProjectionProps, ComparisonProjectionProps {
+  annotationColorsByIdentity?: ReadonlyMap<string, string>;
+  annotationSourceBindings?: readonly import('@waypoint/genome-renderer/pure').SourceAnnotationAliasBindingV1[];
+  missingAnnotationColor?: string;
   genome: Genome;
 
   themeMode: NonNullable<UseIndexedPixiMapOptions['themeMode']>;
@@ -177,6 +197,13 @@ export const IndexedGenomeTileNativeMap = memo(
       const presentationEvents = usePresentationListener();
 
       const {
+        comparisonProjection,
+        comparisonCamera,
+        onComparisonCameraChange,
+        contactProjection,
+        contactCamera,
+        contactUnit,
+        onContactCameraChange,
         genome,
         themeMode,
         compiledBroadSurfaceRequirement,
@@ -187,6 +214,9 @@ export const IndexedGenomeTileNativeMap = memo(
         sequenceWindow,
         annotationChangeDecorations,
         sequencePresentation,
+        annotationColorsByIdentity,
+        annotationSourceBindings,
+        missingAnnotationColor,
         showResidueNumbers,
         hoveredCodon,
         selectedCodons,
@@ -228,6 +258,43 @@ export const IndexedGenomeTileNativeMap = memo(
         return genomeFeatures(genome);
       }, [annotationPresentationSnapshot, genome]);
       const featureById = useMemo(() => new Map(features.map((f) => [f.id, f])), [features]);
+      const dataSequencePresentation = useMemo(
+        () =>
+          annotationColorsByIdentity
+            ? {
+                ...sequencePresentation,
+                annotationDataColors: {
+                  sourceBindings: annotationSourceBindings,
+                  colors: new Map(
+                    [...annotationColorsByIdentity].map(([id, color]) => [
+                      id,
+                      Number.parseInt(color.slice(1), 16),
+                    ])
+                  ),
+                  missingColor: missingAnnotationColor
+                    ? Number.parseInt(missingAnnotationColor.slice(1), 16)
+                    : undefined,
+                },
+                annotationColors: resolveAnnotationDataColors(
+                  annotationResidentPagePublication?.pages.flatMap((page) => page.features) ??
+                    features,
+                  annotationColorsByIdentity,
+                  missingAnnotationColor
+                ),
+                annotationUnchangedColor: missingAnnotationColor
+                  ? Number.parseInt(missingAnnotationColor.slice(1), 16)
+                  : undefined,
+              }
+            : sequencePresentation,
+        [
+          sequencePresentation,
+          features,
+          annotationResidentPagePublication,
+          annotationColorsByIdentity,
+          annotationSourceBindings,
+          missingAnnotationColor,
+        ]
+      );
       const [canvasDrawingHeight, setCanvasDrawingHeight] = useState(height);
       const canvasContentHeightRef = useRef<number | null>(null);
       const genomeIdentity = genome.sourceIdentity ?? genome.name;
@@ -281,6 +348,18 @@ export const IndexedGenomeTileNativeMap = memo(
       const highlightRange = useMemo<[number, number] | null>(() => null, []);
 
       const [hover, setHover] = useState<HoverFeatureInfo | null>(null);
+      const [comparisonHover, setComparisonHover] = useState<ComparisonHit | null>(null);
+      const [comparisonSelection, setComparisonSelection] = useState<ComparisonHit | null>(null);
+      useEffect(() => {
+        setComparisonHover(null);
+        setComparisonSelection(null);
+      }, [comparisonProjection?.id]);
+      const [contactHover, setContactHover] = useState<ContactHit | null>(null);
+      const [contactSelection, setContactSelection] = useState<ContactHit | null>(null);
+      useEffect(() => {
+        setContactHover(null);
+        setContactSelection(null);
+      }, [contactProjection?.id]);
       const [hoveredMutation, setHoveredMutation] = useState<CodonMutationInfo | undefined>();
       const handleCodonHover = useCallback<NonNullable<UseIndexedPixiMapOptions['onCodonHover']>>(
         (codon) => {
@@ -465,6 +544,14 @@ export const IndexedGenomeTileNativeMap = memo(
 
       const pixelRatio = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
       const { containerRef, handle } = useIndexedPixiMap({
+        comparisonProjection,
+        onComparisonHover: setComparisonHover,
+        onComparisonClick: setComparisonSelection,
+        onComparisonCameraChange: interactionEnabled ? onComparisonCameraChange : undefined,
+        contactProjection,
+        onContactHover: setContactHover,
+        onContactClick: setContactSelection,
+        onContactCameraChange: interactionEnabled ? onContactCameraChange : undefined,
         genome,
         antialias: hasQuantitativeTracks,
         resolution: hasQuantitativeTracks ? pixelRatio : Math.min(1.5, pixelRatio),
@@ -480,7 +567,7 @@ export const IndexedGenomeTileNativeMap = memo(
         annotationSearchFocusFeature,
         sequenceWindow,
         annotationChangeDecorations,
-        sequencePresentation,
+        sequencePresentation: dataSequencePresentation,
         showResidueNumbers,
         hoveredCodon,
         selectedCodons,
@@ -514,6 +601,30 @@ export const IndexedGenomeTileNativeMap = memo(
         syncViewportRangeOnCameraScroll,
       });
 
+      useLayoutEffect(() => {
+        if (
+          !comparisonProjection ||
+          !comparisonCamera ||
+          comparisonCamera.projectionId !== comparisonProjection.id
+        )
+          return;
+        const current = handle.getComparisonCamera();
+        if (JSON.stringify(current) !== JSON.stringify(comparisonCamera))
+          handle.setComparisonCamera(comparisonCamera);
+      }, [comparisonCamera, comparisonProjection, handle]);
+
+      useLayoutEffect(() => {
+        if (
+          !contactProjection ||
+          !contactCamera ||
+          contactCamera.projectionId !== contactProjection.id
+        )
+          return;
+        const current = handle.getContactCamera();
+        if (JSON.stringify(current) !== JSON.stringify(contactCamera))
+          handle.setContactCamera(contactCamera);
+      }, [contactCamera, contactProjection, handle]);
+
       useEffect(
         () =>
           handle.subscribeToPresentedFrames(() => {
@@ -530,7 +641,7 @@ export const IndexedGenomeTileNativeMap = memo(
 
       const handleReadOverlayPointerUp = useCallback(
         (event: ReactPointerEvent<HTMLDivElement>) => {
-          if (event.button > 0) return;
+          if (contactProjection || comparisonProjection || event.button > 0) return;
           if (
             event.target instanceof Element &&
             event.target.closest('[data-testid="indexed-read-details"]')
@@ -578,7 +689,7 @@ export const IndexedGenomeTileNativeMap = memo(
 
           handleReadClick(hit);
         },
-        [containerRef, handle, handleReadClick, readHover]
+        [comparisonProjection, contactProjection, containerRef, handle, handleReadClick, readHover]
       );
 
       const pinnedReadIdentity = pinnedRead ? readHitIdentityKey(pinnedRead.hit) : null;
@@ -724,6 +835,12 @@ export const IndexedGenomeTileNativeMap = memo(
       useImperativeHandle(
         ref,
         () => ({
+          getComparisonCamera: () => handle.getComparisonCamera(),
+          setComparisonCamera: (camera) => handle.setComparisonCamera(camera),
+          getComparisonSelection: () => handle.getState()?.selectedComparison ?? null,
+          getContactCamera: () => handle.getContactCamera(),
+          setContactCamera: (camera) => handle.setContactCamera(camera),
+          getContactSelection: () => handle.getState()?.selectedContact ?? null,
           requestRender: () => handle.requestRender(),
           subscribeToPresentedFrames: (listener) => handle.subscribeToPresentedFrames(listener),
           subscribeToCurrentGenomeFrames: (listener) =>
@@ -733,22 +850,69 @@ export const IndexedGenomeTileNativeMap = memo(
           schedulePostPresentWork: (work) => handle.schedulePostPresentWork(work),
           setViewport: (range) => {
             if (!interactionEnabledRef.current) return null;
+            if (contactProjection) {
+              const current = handle.getContactCamera();
+              if (
+                current &&
+                Math.floor(current.xStart) === Math.floor(range.start) &&
+                Math.ceil(current.xEnd) === Math.ceil(range.end)
+              )
+                return { start: current.xStart, end: current.xEnd };
+            }
+            if (comparisonProjection) {
+              const current = handle.getComparisonCamera();
+              const currentRange =
+                current && comparisonTargetViewport(comparisonProjection, current);
+              if (
+                currentRange &&
+                Math.abs(currentRange.start - range.start) < 1 &&
+                Math.abs(currentRange.end - range.end) < 1
+              )
+                return currentRange;
+              const camera = comparisonCameraForTargetViewport(comparisonProjection, range);
+              if (!camera) return null;
+              const committed = handle.setComparisonCamera(camera);
+              return committed ? comparisonTargetViewport(comparisonProjection, committed) : null;
+            }
             return handle.setCameraViewport(range.start, range.end);
           },
-          getViewCenter: () => handle.getViewCenter(),
-          getViewportRange: () => handle.getViewportRange(),
+          getViewCenter: () => {
+            if (!comparisonProjection) return handle.getViewCenter();
+            const camera = handle.getComparisonCamera();
+            if (!camera) return null;
+            const range = comparisonTargetViewport(comparisonProjection, camera);
+            return range ? (range.start + range.end) / 2 : null;
+          },
+          getViewportRange: () => {
+            if (!comparisonProjection) return handle.getViewportRange();
+            const camera = handle.getComparisonCamera();
+            return camera ? comparisonTargetViewport(comparisonProjection, camera) : null;
+          },
           setViewCenter: (centerBp: number) => {
             if (!interactionEnabledRef.current) return;
+            if (comparisonProjection) {
+              const current = handle.getComparisonCamera();
+              const range = current && comparisonTargetViewport(comparisonProjection, current);
+              const span = range ? range.end - range.start : 1;
+              const camera = comparisonCameraForTargetViewport(comparisonProjection, {
+                start: centerBp - span / 2,
+                end: centerBp + span / 2,
+              });
+              if (camera) handle.setComparisonCamera(camera);
+              return;
+            }
             handle.setViewCenter(centerBp);
           },
           setSelection: (startPos: number | null, endPos: number | null) => {
             const state = handle.getState();
-            if (!state) return;
+            if (!state || state.contactProjection || state.comparisonProjection) return;
             state.highlightRange = startPos != null && endPos != null ? [startPos, endPos] : null;
             if (state.highlightRange) state.cursorPosition = null;
             handle.requestRender();
           },
           getSelection: () => {
+            if (handle.getState()?.contactProjection || handle.getState()?.comparisonProjection)
+              return null;
             const range = handle.getState()?.highlightRange;
             return range ? ([range[0], range[1]] as const) : null;
           },
@@ -791,7 +955,7 @@ export const IndexedGenomeTileNativeMap = memo(
             return true;
           },
         }),
-        [handle]
+        [comparisonProjection, handle]
       );
 
       return (
@@ -802,6 +966,13 @@ export const IndexedGenomeTileNativeMap = memo(
             .join(' ')}
           data-testid="indexed-genome-webgl-map"
           data-renderer-mode="tile-native-pixi"
+          data-projection={
+            comparisonProjection
+              ? 'aligned-comparison'
+              : contactProjection
+                ? 'contact-matrix'
+                : 'linear'
+          }
           data-feature-count={features.length}
           onPointerUp={handleReadOverlayPointerUp}
           style={{
@@ -816,7 +987,26 @@ export const IndexedGenomeTileNativeMap = memo(
             maxHeight: '100%',
           }}
         >
-          {hover && hoveredFeature && (
+          {comparisonProjection && (comparisonHover ?? comparisonSelection) && (
+            <ComparisonTooltip
+              projection={comparisonProjection}
+              hit={(comparisonHover ?? comparisonSelection)!}
+              camera={handle.getComparisonCamera()}
+              width={width}
+              height={height}
+            />
+          )}
+          {contactProjection && (contactHover ?? contactSelection) && (
+            <ContactTooltip
+              projection={contactProjection}
+              hit={(contactHover ?? contactSelection)!}
+              camera={handle.getContactCamera()}
+              unit={contactUnit ?? 'contacts'}
+              width={width}
+              height={height}
+            />
+          )}
+          {!contactProjection && !comparisonProjection && hover && hoveredFeature && (
             <FeatureTooltip
               mutationLine={
                 hoveredMutation
@@ -863,6 +1053,100 @@ export const IndexedGenomeTileNativeMap = memo(
     }
   )
 );
+
+function comparisonLocusLabel(locus: ComparisonHit['target']): string {
+  if (locus.kind === 'base') return `${locus.referenceId}:${(locus.position + 1).toLocaleString()}`;
+  if (locus.kind === 'gap')
+    return `${locus.referenceId} · ${locus.boundary === 0 ? 'gap before base 1' : `gap after base ${locus.boundary.toLocaleString()}`}`;
+  const interval = locus.interval
+    ? ` · ${(locus.interval.start + 1).toLocaleString()}–${locus.interval.end.toLocaleString()}`
+    : '';
+  return `${locus.referenceId} · ${locus.reason}${interval}`;
+}
+
+function ComparisonTooltip({
+  projection,
+  hit,
+  camera,
+  width,
+  height,
+}: {
+  projection: NonNullable<ComparisonProjectionProps['comparisonProjection']>;
+  hit: ComparisonHit;
+  camera: ReturnType<PixiMapHandle['getComparisonCamera']>;
+  width: number;
+  height: number;
+}) {
+  if (!camera || hit.projectionId !== projection.id) return null;
+  const plot = comparisonPlot(width, height);
+  const x = comparisonColumnX(hit.column, camera, plot);
+  const y =
+    hit.side === 'target'
+      ? plot.targetY
+      : hit.side === 'query'
+        ? plot.queryY
+        : (plot.targetY + plot.queryY) / 2;
+  return (
+    <div
+      data-testid="indexed-comparison-tooltip"
+      style={{
+        ...TOOLTIP_STYLE,
+        left: Math.max(4, Math.min(width - 310, x + 12)),
+        top: Math.max(4, Math.min(height - 90, y + 12)),
+      }}
+    >
+      <div>{comparisonLocusLabel(hit.target)}</div>
+      <div>{comparisonLocusLabel(hit.query)}</div>
+      {hit.blockId && (
+        <div>
+          {hit.strand === '-' ? 'Reverse orientation' : 'Forward orientation'} · mapping quality{' '}
+          {hit.mappingQuality}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ContactTooltip({
+  projection,
+  hit,
+  camera,
+  unit,
+  width,
+  height,
+}: {
+  projection: NonNullable<ContactProjectionProps['contactProjection']>;
+  hit: ContactHit;
+  camera: ReturnType<PixiMapHandle['getContactCamera']>;
+  unit: string;
+  width: number;
+  height: number;
+}) {
+  if (!camera || hit.projectionId !== projection.id) return null;
+  const cell = projection.cells.find((cell) => cell.id === hit.cellId);
+  const rect = cell && contactCellRect(cell, camera, contactPlotRect(width, height));
+  if (!rect) return null;
+  return (
+    <div
+      data-testid="indexed-contact-tooltip"
+      style={{
+        ...TOOLTIP_STYLE,
+        left: Math.max(4, Math.min(width - 244, rect.x + rect.width / 2 + 12)),
+        top: Math.max(4, Math.min(height - 85, rect.y + rect.height / 2 + 12)),
+      }}
+    >
+      <div style={{ fontWeight: 600 }}>
+        {hit.value.toLocaleString()} {unit}
+      </div>
+      <div>
+        X · {hit.x.chrom}:{(hit.x.start + 1).toLocaleString()}–{hit.x.end.toLocaleString()}
+      </div>
+      <div>
+        Y · {hit.y.chrom}:{(hit.y.start + 1).toLocaleString()}–{hit.y.end.toLocaleString()}
+      </div>
+    </div>
+  );
+}
 
 const TOOLTIP_STYLE: CSSProperties = {
   position: 'absolute',
@@ -1060,7 +1344,7 @@ function ReadDetailsCard(props: {
             aria-label="Close read details"
             title="Close"
             onClick={props.onClose}
-            className="rounded text-fg-muted hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+            className="rounded text-fg-muted wp-interactive "
             style={READ_DETAILS_ICON_BUTTON_STYLE}
           >
             <XIcon size={12} />
@@ -1196,8 +1480,8 @@ function ReadDetailsCopyButton({ details }: { details: AlignmentReadDetails }) {
       data-copy-state={copyState}
       data-testid="indexed-read-copy-button"
       onClick={() => void copyDetails()}
-      className={`rounded hover:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-        copyState === 'error' ? 'text-error' : 'text-fg-muted hover:text-fg'
+      className={`rounded wp-interactive ${
+        copyState === 'error' ? 'text-error' : 'text-fg-muted wp-interactive'
       }`}
       style={READ_DETAILS_ICON_BUTTON_STYLE}
     >

@@ -18,6 +18,7 @@ import {
 import { encodeBroadRasterCellsInShardsV1 } from './compiled-broad-raster-shards';
 import {
   compileAndCommitExpandedAnnotationSceneWorkerJob,
+  compileRetainedSourceAnnotationAliasesV1,
   compileAndPublishBroadRasterArtifactForPackedScene,
   compileAndCommitExpandedAnnotationSceneWorkerSetJob,
   createAuthorizedExpandedAnnotationSourcePathGuard,
@@ -34,6 +35,8 @@ import {
   writeAssemblyOverviewFeaturesCacheFromFragmentsV1,
 } from './assembly-overview-features-cache';
 import { referencePreparationTiming } from '../reference-assets/reference-prep-timing';
+import { readRetainedAnnotationSourceSummaryV1 } from '../reference-assets/reference-source-summary';
+import { readAssemblyOverviewCaches } from './assembly-overview-cache';
 
 preferCurrentThread('userInitiated');
 
@@ -73,6 +76,7 @@ async function handleRequest(request: ExpandedAnnotationSceneWorkerRequest): Pro
   try {
     if (
       request?.type !== 'compile' &&
+      request?.type !== 'source-aliases' &&
       request?.type !== 'compile-set' &&
       request?.type !== 'inventory' &&
       request?.type !== 'compile-search' &&
@@ -81,7 +85,25 @@ async function handleRequest(request: ExpandedAnnotationSceneWorkerRequest): Pro
     ) {
       throw new Error('Expanded annotation scene worker received an invalid request.');
     }
-    if (request.type === 'compile-set') {
+    if (request.type === 'source-aliases') {
+      const assertSafePath = createAuthorizedExpandedAnnotationSourcePathGuard(
+        request.job.authorizedSourceRealPaths,
+        realpath
+      );
+      const result = await compileRetainedSourceAnnotationAliasesV1(
+        request.job,
+        request.expectedPayloadSha256,
+        {
+          assertSafePath,
+          readOverviewCaches: (input, deps) =>
+            readAssemblyOverviewCaches(input, {
+              ...deps,
+              readCachedOverview: readRetainedAnnotationSourceSummaryV1,
+            }),
+        }
+      );
+      post({ type: 'source-aliases-result', result });
+    } else if (request.type === 'compile-set') {
       const first = request.job.jobs[0];
       if (!first) throw new Error('Expanded annotation scene worker received an empty set.');
       const assertSafePath = createAuthorizedExpandedAnnotationSourcePathGuard(

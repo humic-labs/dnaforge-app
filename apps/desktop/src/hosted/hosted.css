@@ -153,8 +153,8 @@
 
 .hosted-icon-button:hover,
 .hosted-text-button:hover {
-  color: hsl(var(--color-accent));
-  background: hsl(var(--color-bg-muted));
+  color: var(--interaction-hover-foreground);
+  background: var(--interaction-hover);
 }
 
 .hosted-text-button {
@@ -213,7 +213,7 @@
 }
 
 .hosted-share-heading > button:hover {
-  color: hsl(var(--color-fg));
+  color: var(--interaction-hover-foreground);
 }
 
 .hosted-share-eyebrow {
@@ -291,7 +291,7 @@
 }
 
 .hosted-project:hover {
-  background: hsl(var(--color-bg-muted) / 0.72);
+  background: var(--interaction-hover);
 }
 
 .hosted-project-active {
@@ -401,7 +401,7 @@
 }
 
 .hosted-history-toggle:hover {
-  color: hsl(var(--color-fg));
+  color: var(--interaction-hover-foreground);
 }
 
 .hosted-history {

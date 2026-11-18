@@ -1,0 +1,23 @@
+{
+  "reference": {
+    "accession": "NC_004741.1",
+    "assembly": "GCF_000007405.1",
+    "length": 4599354,
+    "normalizedSequenceSha256": "b292b31343621c23cf20d33891c0127919a5e083a7672f2d5e17394e3b515e9f"
+  },
+  "sources": [
+    {
+      "file": "NC_004741.1.fasta",
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=NC_004741.1&rettype=fasta&retmode=text",
+      "sha256": "0278a6e4f2be29536c236b99944a9aa835fd9697980aca1bc5520a62c3b3ac14",
+      "originalSha256": "0a149698da24b4f9bf8ec60dcb9fa9fa6706ba4e4513d3ede0f64254dcd918b8",
+      "normalization": "Remove trailing empty lines; sequence and header unchanged."
+    },
+    {
+      "file": "NC_004741.1.gff3.gz",
+      "url": "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/007/405/GCF_000007405.1_ASM740v1/GCF_000007405.1_ASM740v1_genomic.gff.gz",
+      "sha256": "dfd9c3a8dcc2c47d3bb84ad9b9c79cbb803992736ede81a7d52e59fb12919f14"
+    }
+  ],
+  "coordinateSystem": "GFF3 one-based inclusive; sequence positions zero-based in the native source reader"
+}

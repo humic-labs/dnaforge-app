@@ -7,7 +7,7 @@ import { MolecularViewLibrary } from './MolecularViewLibrary';
 import { useMolecularViewWorkspace } from './MolecularViewWorkspace';
 
 const actionClass =
-  'flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-muted hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-30';
+  'flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-muted wp-interactive disabled:opacity-30';
 
 export type MolecularViewNavigationProps = {
   scene: string;
@@ -111,7 +111,7 @@ export function MolecularViewNavigation({
               aria-expanded={open}
               title={steps[activeIndex]?.title}
               onClick={() => (open ? close() : setLibraryOpen?.(true))}
-              className="flex h-6 min-w-0 flex-1 items-center gap-1 rounded px-1 text-right text-xs text-fg-muted hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+              className="flex h-6 min-w-0 flex-1 items-center gap-1 rounded px-1 text-right text-xs text-fg-muted wp-interactive "
             >
               <span data-testid="molecular-view-key-title" className="min-w-0 flex-1 truncate">
                 {steps[activeIndex]?.title}

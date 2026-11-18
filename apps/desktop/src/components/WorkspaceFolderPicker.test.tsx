@@ -257,7 +257,7 @@ describe('WorkspaceFolderPicker (shared folder chooser)', () => {
     const { rerender } = render(<WorkspaceFolderPicker {...props} />);
 
     const destination = await screen.findByText('destination');
-    expect(destination.closest('[data-entry-path]')).toHaveClass('bg-accent/15');
+    expect(destination.closest('[data-entry-path]')).toHaveAttribute('data-selected', 'true');
     expect(screen.queryByText('other-project-child')).toBeNull();
     expect(screen.queryByText('unrelated-child')).toBeNull();
     expect(props.onSelectFolder).not.toHaveBeenCalled();
@@ -300,8 +300,9 @@ describe('WorkspaceFolderPicker (shared folder chooser)', () => {
       selectRoot('/w/fixtures');
       expect(await screen.findByText('fixtures-child')).toBeInTheDocument();
       expect(screen.queryByText('project-child')).toBeNull();
-      expect(screen.getByTestId('workspace-folder-picker-folder-/w/fixtures')).toHaveClass(
-        'bg-accent/15'
+      expect(screen.getByTestId('workspace-folder-picker-folder-/w/fixtures')).toHaveAttribute(
+        'data-selected',
+        'true'
       );
       selectRoot('/w/proj');
       expect(await screen.findByText('project-child')).toBeInTheDocument();
@@ -330,8 +331,9 @@ describe('WorkspaceFolderPicker (shared folder chooser)', () => {
       />
     );
     expect(await screen.findByText('destination')).toBeInTheDocument();
-    expect(screen.getByText('destination').closest('[data-entry-path]')).toHaveClass(
-      'bg-accent/15'
+    expect(screen.getByText('destination').closest('[data-entry-path]')).toHaveAttribute(
+      'data-selected',
+      'true'
     );
     expect(screen.queryByText('project-child')).toBeNull();
   });
@@ -389,8 +391,9 @@ describe('WorkspaceFolderPicker (shared folder chooser)', () => {
 
   it('applies the selected highlight to the selected root', () => {
     render(<WorkspaceFolderPicker {...base} selectedDir="/w/proj" />);
-    expect(screen.getByTestId('workspace-folder-picker-folder-/w/proj').className).toContain(
-      'text-accent'
+    expect(screen.getByTestId('workspace-folder-picker-folder-/w/proj')).toHaveAttribute(
+      'data-selected',
+      'true'
     );
   });
 

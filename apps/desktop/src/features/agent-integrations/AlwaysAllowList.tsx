@@ -62,7 +62,7 @@ export function AlwaysAllowList() {
               />
               <button
                 type="button"
-                className="text-[11px] text-fg-muted hover:text-fg"
+                className="text-[11px] text-fg-muted wp-interactive"
                 onClick={() =>
                   void apply(() => platform().agentSession.removeAlwaysAllowRule(rule.key))
                 }

@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent } from 'react';
 import type {
   MountedCatalogEntitySearchResult,
@@ -265,7 +266,7 @@ function ResultSection({ title, itemLabel, entities, onSelect }: ResultSectionPr
           type="button"
           aria-label={`Open ${entity.name} (${itemLabel})`}
           onClick={() => onSelect(entity)}
-          className="w-full px-4 py-2 text-left hover:bg-bg-muted transition-colors flex items-center gap-2"
+          className={`${INTERACTION_CLASS} w-full px-4 py-2 text-left flex items-center gap-2`}
         >
           <span className="text-base" aria-hidden="true">
             {referenceIconFor(entity.entityType, 'w-4 h-4', entity.iconContext)}

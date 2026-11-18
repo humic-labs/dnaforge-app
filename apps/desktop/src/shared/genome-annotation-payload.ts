@@ -114,6 +114,14 @@ function compactFeature(feature: GenomeFeature): GenomeFeature {
     strand: feature.strand,
     phase: feature.phase,
     attributes: pickOverviewAttributes(feature.attributes),
+    sourceAnnotationAliases: [
+      ...new Set([
+        ...(feature.sourceAnnotationAliases ?? []),
+        ...['ID', 'locus_tag', 'gene_id', 'transcript_id'].flatMap(
+          (key) => feature.attributes[key] ?? []
+        ),
+      ]),
+    ].sort(),
     raw: '',
   };
 }

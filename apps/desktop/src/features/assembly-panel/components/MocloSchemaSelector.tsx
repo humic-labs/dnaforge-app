@@ -1,5 +1,7 @@
 'use client';
 
+import { MenuNativeSelect } from '@waypoint/ui-components';
+
 import {
   toUserMessage,
   userMessage,
@@ -180,8 +182,6 @@ export function MocloSchemaSelector({ design, projectRoot }: MocloSchemaSelector
   }, [definition, inventory.definitions, selectedKit]);
 
   const disabled = !projectRoot || inventory.status === 'loading';
-  const selectClass =
-    'h-8 min-w-0 flex-1 rounded border border-border bg-bg px-2 text-xs text-fg outline-none focus:border-accent';
 
   return (
     <div data-testid="moclo-drawer-schema-selector" className="mb-3">
@@ -202,7 +202,7 @@ export function MocloSchemaSelector({ design, projectRoot }: MocloSchemaSelector
         />
         <button
           type="button"
-          className="h-8 shrink-0 rounded border border-border px-2 text-[11px] text-fg hover:bg-bg-muted disabled:opacity-60"
+          className="h-8 shrink-0 rounded border border-border px-2 text-[11px] text-fg wp-interactive disabled:opacity-60"
           disabled={!projectRoot}
           onClick={() => setBuilderKit({ kit: null })}
         >
@@ -211,7 +211,7 @@ export function MocloSchemaSelector({ design, projectRoot }: MocloSchemaSelector
         {definition ? (
           <button
             type="button"
-            className="h-8 shrink-0 rounded border border-border px-2 text-[11px] text-fg hover:bg-bg-muted"
+            className="h-8 shrink-0 rounded border border-border px-2 text-[11px] text-fg wp-interactive"
             onClick={() => setBuilderKit({ kit: definition })}
           >
             Edit
@@ -221,30 +221,32 @@ export function MocloSchemaSelector({ design, projectRoot }: MocloSchemaSelector
       {selectedKit ? (
         <label className="flex items-center gap-2 text-xs">
           <span className="w-12 shrink-0 font-medium text-fg-muted">Schema</span>
-          <select
-            aria-label="Assembly schema"
-            value={selectedId}
-            disabled={disabled}
-            onChange={(event) => {
-              const schema = options.find(
-                (option) => option.schema.id === event.target.value
-              )?.schema;
-              void changeSelection(schema, selectedKit);
-            }}
-            className={selectClass}
-          >
-            <option value="">
-              {options.length === 0 ? 'No schemas defined' : 'Choose a schema…'}
-            </option>
-            {selectedId && !selectedIsListed ? (
-              <option value={selectedId}>{design.goldenGateSchema?.name}</option>
-            ) : null}
-            {options.map((option) => (
-              <option key={option.schema.id} value={option.schema.id}>
-                {option.schema.name}
+          <span className="inline-block min-w-0 flex-1">
+            <MenuNativeSelect
+              density="form"
+              aria-label="Assembly schema"
+              value={selectedId}
+              disabled={disabled}
+              onChange={(event) => {
+                const schema = options.find(
+                  (option) => option.schema.id === event.target.value
+                )?.schema;
+                void changeSelection(schema, selectedKit);
+              }}
+            >
+              <option value="">
+                {options.length === 0 ? 'No schemas defined' : 'Choose a schema…'}
               </option>
-            ))}
-          </select>
+              {selectedId && !selectedIsListed ? (
+                <option value={selectedId}>{design.goldenGateSchema?.name}</option>
+              ) : null}
+              {options.map((option) => (
+                <option key={option.schema.id} value={option.schema.id}>
+                  {option.schema.name}
+                </option>
+              ))}
+            </MenuNativeSelect>
+          </span>
         </label>
       ) : null}
       {selectionError ? (

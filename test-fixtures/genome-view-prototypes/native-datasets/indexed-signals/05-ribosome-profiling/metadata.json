@@ -1,0 +1,154 @@
+{
+  "schema": "dnaforge.sequence-data-layer-fixture.v1",
+  "dataset": {
+    "number": 5,
+    "id": "05-ribosome-profiling",
+    "title": "Ribosome footprint landscape",
+    "study": "Li et al., 2014 · GSE53767",
+    "sourceReference": "K-12 MG1655, NC_000913.2"
+  },
+  "createdAt": "2026-11-17T03:57:33.835242+00:00",
+  "snapshot": {
+    "file": "snapshot.json",
+    "sha256": "f05309cc78963b0e4be3e6d075108ded8d72fb9b9205d2bbe8ab1f9d74cd96be",
+    "originalPreparedSnapshotSha256": "f8511ca6d0fa53592e31b94750f5eb438799498916dc18088dae08fb9ef619cc",
+    "omittedPresentationFields": [
+      "suggestedViews"
+    ]
+  },
+  "sourceFiles": [
+    {
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE53nnn/GSE53767/suppl/GSE53767_fp_rdm_pooled_f.wig.gz",
+      "file": "raw/genes/GSE53767_fp_rdm_pooled_f.wig.gz",
+      "sha256": "51e393830f094b5b2d7ba9b4de9611d239bd8269578833580c6238097b3c2400",
+      "citation": "https://doi.org/10.1016/j.cell.2014.02.033"
+    },
+    {
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE53nnn/GSE53767/suppl/GSE53767_fp_min_pooled_f.wig.gz",
+      "file": "raw/genes/GSE53767_fp_min_pooled_f.wig.gz",
+      "sha256": "4feb0850e9390c00f3d65625151b37cd997f9b3cf055a1ab954804b802dab968",
+      "citation": "https://doi.org/10.1016/j.cell.2014.02.033"
+    }
+  ],
+  "targetReference": {
+    "accession": "NC_000913.2",
+    "organism": "Escherichia coli K-12 MG1655",
+    "length": 4639675,
+    "normalizedSequenceSha256": "b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+    "normalizedSequenceFingerprint": "sha256:b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+    "directory": "reference-NC_000913.2",
+    "fastaFile": "NC_000913.2.fa.gz",
+    "fastaSha256": "57e309beca15cf4edef112fec10ecc2daf77539eb9b34df39206331dc4d1454e",
+    "gffFile": "NC_000913.2.gff3.gz",
+    "gffSha256": "59fc29e2046e3bf324d987808f5cc2193593a9b8004411376d843a648fc41db6",
+    "coordinateSystem": "one-based-inclusive",
+    "referenceSubstitutionApplied": false
+  },
+  "mapping": {
+    "kind": "positions",
+    "startColumn": "start1",
+    "endColumn": "end1",
+    "coordinateSystem": "one-based-inclusive"
+  },
+  "aggregation": "none",
+  "unresolvedPolicy": "reject",
+  "coordinateSystem": "one-based-inclusive",
+  "files": {
+    "csv": "data.csv",
+    "snapshot": "snapshot.json",
+    "sourceRecords": "source-records.json"
+  },
+  "valueColumns": [
+    "rich_reported_contribution_per_bin_base",
+    "minimal_reported_contribution_per_bin_base"
+  ],
+  "unit": "reported weighted-read contribution / genomic bin bp",
+  "sourceCounts": {
+    "rich": {
+      "sourceFile": "raw/genes/GSE53767_fp_rdm_pooled_f.wig.gz",
+      "sha256": "51e393830f094b5b2d7ba9b4de9611d239bd8269578833580c6238097b3c2400",
+      "fullReportedPositions": 1570635,
+      "minimumReportedPosition": 43,
+      "maximumReportedPosition": 4639662,
+      "explicitZeroValues": 0,
+      "negativeValues": 0,
+      "selectedReportedPositions": 49664,
+      "selectedUnreportedPositions": 50336,
+      "selectedBins": 400,
+      "binsWithReportedPositions": 294,
+      "binsWithoutReportedPositions": 106,
+      "fullProfileContributionSum": 46843386.00001824,
+      "snapshotProfileTotal": 46843386.00001824
+    },
+    "minimal": {
+      "sourceFile": "raw/genes/GSE53767_fp_min_pooled_f.wig.gz",
+      "sha256": "4feb0850e9390c00f3d65625151b37cd997f9b3cf055a1ab954804b802dab968",
+      "fullReportedPositions": 1715692,
+      "minimumReportedPosition": 37,
+      "maximumReportedPosition": 4639662,
+      "explicitZeroValues": 0,
+      "negativeValues": 0,
+      "selectedReportedPositions": 50101,
+      "selectedUnreportedPositions": 49899,
+      "selectedBins": 400,
+      "binsWithReportedPositions": 311,
+      "binsWithoutReportedPositions": 89,
+      "fullProfileContributionSum": 49214160.88891584,
+      "snapshotProfileTotal": 49214160.88891584
+    }
+  },
+  "counts": {
+    "csvRows": 400,
+    "primarySamples": 2,
+    "nonNullPrimaryValues": 605,
+    "nullPrimaryValues": 195,
+    "sourceSnapshotRows": 400,
+    "expectedNative": {
+      "total": 400,
+      "mapped": 400,
+      "unmapped": 0,
+      "ambiguous": 0,
+      "rejected": 0
+    }
+  },
+  "measurementMeaning": "For each nonempty250bp interval: sum of the published weighted contributions at reported positions divided by the genomic bin width250. This is a derived density of reported contributions, not a measured zero-filled mean or an absolute protein synthesis rate.",
+  "coordinateEvidence": {
+    "sourceMetadataUrl": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE53nnn/GSE53767/soft/GSE53767_family.soft.gz",
+    "sourceMetadataSha256": "022b6b1013c180aa1e481dfd1cc3c6c2c52831adb0fa02be8ef2e97aaa21e92b",
+    "sourceBuildText": "NC000913.2",
+    "sourceFormatDeclaration": "wiggle files; first column chromosome positions, second column read-alignment contribution",
+    "formatSpecification": "https://genome.ucsc.edu/goldenpath/help/wiggle.html",
+    "basis": "The source declares WIG format; its coordinate system is1-start/fully-closed by that format. The downloaded bodies omit a variableStep/chrom header. No sequence anchors are supplied.",
+    "confidence": "format-derived; not independently sequence-anchored",
+    "embeddedChromosomeDeclarationPresent": false,
+    "sourceAccessionFormattingNote": "The GEO build text omits the underscore. No additional reference alias is registered or substituted."
+  },
+  "sourceProcessingFacts": {
+    "geoSamples": [
+      "GSM1300279",
+      "GSM1300280",
+      "GSM1300281"
+    ],
+    "alignmentReference": "E. coli MG1655 as declared byGEO",
+    "readScoring": "GEO describes distributing each alignment over central footprint residues with length weighting; the processed values are attributed alignment contributions.",
+    "normalization": "No cross-library depth normalization is added.",
+    "primarySourceUrls": [
+      "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE53767",
+      "https://pmc.ncbi.nlm.nih.gov/articles/PMC4006352/"
+    ]
+  },
+  "missingness": {
+    "unreportedPositions": "missing/unreported, not invented observed zeros",
+    "nativeEmptyBins": "null",
+    "snapshotEmptyBins": "original0 retained only in audit snapshot/columns",
+    "explicitSourceZeros": "retained if present; full files contain none"
+  },
+  "limits": [
+    "Forward strand only; reverse-strand footprint data are not included.",
+    "Raw weighted footprint contributions are not normalized for library depth; direct fold-change claims are not justified.",
+    "These profiles measure ribosome occupancy, not absolute protein synthesis rates.",
+    "250-bp averaging hides individual codon-scale pauses.",
+    "No annotation intervals from NC_000913.3 or another build are overlaid.",
+    "The coordinate basis is declared WIG format, not direct sequence anchors; the headerless body does not independently prove its numeric origin."
+  ]
+}

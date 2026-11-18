@@ -1,4 +1,9 @@
-import { TRACK_COLOR_PRESETS, TRACK_DEFAULT_COLORS } from '@waypoint/sequence-utils';
+import { MenuNativeSelect, MenuSearchInput, MenuTrigger } from '@waypoint/ui-components';
+import {
+  SCIENTIFIC_COLOR_PALETTES,
+  TRACK_COLOR_PRESETS,
+  TRACK_DEFAULT_COLORS,
+} from '@waypoint/sequence-utils';
 import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import {
   toUserMessage,
@@ -88,6 +93,11 @@ import {
   IndexedQuantitativeTrackAxes,
   isQuantitativeDataset,
 } from './IndexedQuantitativeTrackAxes';
+import type { SequenceDataLayerPresentation } from '../../../shared/sequence-data-layer';
+import type {
+  SequenceDataLayerTrackControls,
+  SequenceDataLayerTrackRow,
+} from '../data-layers/useSequenceDataLayers';
 import type { LaneLimit } from './indexed-genome-legacy-adapter';
 import type { TranscriptDisplayMode } from './isoform-collapse';
 import { ReferenceTrackControls } from './ReferenceTrackControls';
@@ -120,6 +130,7 @@ import {
   createSignalReadPileupViewState,
 } from '../experimental-hybrid-pileup';
 
+const DATA_LAYER_BUCKET = 'sequence-data-layers';
 const EMPTY_LANES: ReadonlyArray<Lane> = [];
 const TRACK_TYPE_REGISTRY = defaultBuiltinRegistry();
 
@@ -150,14 +161,11 @@ function TrackStreamErrorDetails({ message, trackLabel }: { message: string; tra
         id={detailsId}
         open={open}
         anchorRef={trigger}
-        onRequestClose={() => {
-          setOpen(false);
-          safeFocus(trigger.current, { preventScroll: true });
-        }}
+        onRequestClose={() => setOpen(false)}
         role="dialog"
         horizontalAlign="start"
         aria-label={`Load failure details for ${trackLabel}`}
-        className="w-max p-2 text-xs text-fg"
+        layout={{ width: 'max-content' }}
       >
         <p
           ref={focusDetails}
@@ -187,6 +195,7 @@ export function remoteEndpointDisplayLabel(
   return endpoint?.displayName.trim() || locator.target.trim() || 'Remote source';
 }
 interface IndexedViewerTrackGutterProps {
+  dataLayerControls?: SequenceDataLayerTrackControls;
   laneOwnerId: string;
   assemblyId: string;
   assemblyDisplayName?: string;
@@ -226,6 +235,7 @@ interface IndexedViewerTrackGutterProps {
 }
 
 export function IndexedViewerTrackGutter({
+  dataLayerControls,
   laneOwnerId,
   assemblyId,
   assemblyDisplayName = assemblyId,
@@ -482,14 +492,31 @@ export function IndexedViewerTrackGutter({
         referenceLabel: assemblyDisplayName,
         cytobandVisible,
         annotationVisibleCount: visibleTypes.size,
-        dataLanes: dataLanes.map((lane) => ({
-          dataset: lane.dataset,
-          visible: lane.visible,
-          bucket: lane.bucket,
-          reorderable: lane.bucket === laneOwnerId,
-        })),
+        dataLanes: [
+          ...dataLanes.map((lane) => ({
+            dataset: lane.dataset,
+            visible: lane.visible,
+            bucket: lane.bucket,
+            reorderable: lane.bucket === laneOwnerId,
+          })),
+          ...(dataLayerControls?.rows.map((layer) => ({
+            dataset: { trackId: `sequence-data-${layer.id}`, label: layer.label },
+            visible: layer.visible,
+            bucket: DATA_LAYER_BUCKET,
+            removable: false,
+            reorderable: false,
+          })) ?? []),
+        ],
       }),
-    [assemblyDisplayName, bands, cytobandVisible, dataLanes, laneOwnerId, visibleTypes.size]
+    [
+      assemblyDisplayName,
+      bands,
+      cytobandVisible,
+      dataLanes,
+      dataLayerControls,
+      laneOwnerId,
+      visibleTypes.size,
+    ]
   );
   const trackStackEndReservePx = useMemo(
     () =>
@@ -514,7 +541,12 @@ export function IndexedViewerTrackGutter({
 
   const handleToggleVisible = useCallback(
     (row: GutterRow) => {
-      if (row.kind === 'reference') {
+      if (row.bucket === DATA_LAYER_BUCKET) {
+        const layer = dataLayerControls?.rows.find(
+          (entry) => row.trackId === `sequence-data-${entry.id}`
+        );
+        if (layer) dataLayerControls?.onVisibilityChange(layer.id, !layer.visible);
+      } else if (row.kind === 'reference') {
         onToggleAnnotationLane();
       } else if (row.kind === 'cytoband') {
         setCytobandVisible(!row.visible);
@@ -522,7 +554,7 @@ export function IndexedViewerTrackGutter({
         setLaneVisible(row.bucket, row.trackId, !row.visible);
       }
     },
-    [onToggleAnnotationLane, setCytobandVisible, setLaneVisible]
+    [dataLayerControls, onToggleAnnotationLane, setCytobandVisible, setLaneVisible]
   );
 
   const handleRemove = useCallback(
@@ -652,6 +684,24 @@ export function IndexedViewerTrackGutter({
 
   const renderDataControls = useCallback(
     (row: GutterRow, settingsExpanded: boolean) => {
+      if (row.bucket === DATA_LAYER_BUCKET) {
+        const layer = dataLayerControls?.rows.find(
+          (entry) => row.trackId === `sequence-data-${entry.id}`
+        );
+        if (!layer || !dataLayerControls) return null;
+        return (
+          <>
+            {settingsExpanded ? (
+              <DataLayerTrackSettings row={layer} controls={dataLayerControls} />
+            ) : null}
+            {layer.unavailable ? (
+              <div role="status" className="text-[10px] text-fg-muted">
+                {layer.unavailable}
+              </div>
+            ) : null}
+          </>
+        );
+      }
       const lane = dataLanes.find(
         (candidate) => candidate.bucket === row.bucket && candidate.dataset.trackId === row.trackId
       );
@@ -740,7 +790,7 @@ export function IndexedViewerTrackGutter({
                   bamImport.clearNotice();
                   setRemoteDetailsTrackId(trackId);
                 }}
-                className="shrink-0 rounded px-1 py-0.5 font-semibold hover:bg-bg-muted"
+                className="shrink-0 rounded px-1 py-0.5 font-semibold wp-interactive"
               >
                 Details
               </button>
@@ -772,7 +822,7 @@ export function IndexedViewerTrackGutter({
                     setRemoteDetailsTrackId(pileupStatusTrackId);
                   }}
                   aria-label={`Connection details for ${lane.dataset.label}`}
-                  className="shrink-0 rounded px-1 py-0.5 font-semibold hover:bg-bg-muted"
+                  className="shrink-0 rounded px-1 py-0.5 font-semibold wp-interactive"
                 >
                   Details
                 </button>
@@ -846,6 +896,7 @@ export function IndexedViewerTrackGutter({
       bamImport,
       bamImport.repairTrack,
       bamImport.recentRemoteEndpoints,
+      dataLayerControls,
       dataLanes,
       laneOwnerId,
       assemblyReferences,
@@ -1297,7 +1348,7 @@ function TrackSettingsPanel({
         value={dataset.label}
         onCommit={(label) => commit({ label })}
       />
-      {canSetColor ? (
+      {canSetColor && dataset.quantitativePresentation?.graph !== 'band' ? (
         <TrackColorControl
           trackId={dataset.trackId}
           label={dataset.label}
@@ -1360,7 +1411,8 @@ function TrackSettingsPanel({
           disabled={resetDisabled}
           aria-label="Reset to defaults"
           title="Restore the default appearance and scale; keeps the track name and data"
-          className="flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-border bg-bg text-[10px] font-medium text-fg-muted shadow-sm outline-none transition-colors hover:border-fg-subtle/60 hover:bg-bg-subtle hover:text-fg focus-visible:border-fg-subtle focus-visible:ring-1 focus-visible:ring-fg-subtle/20 disabled:cursor-default disabled:opacity-40"
+          data-interaction-border="true"
+          className="flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-border bg-bg text-[10px] font-medium text-fg-muted shadow-sm outline-none transition-colors wp-interactive focus-visible:border-fg-subtle disabled:cursor-default disabled:opacity-40"
         >
           <RefreshIcon size={12} />
           Reset to defaults
@@ -1382,7 +1434,7 @@ function TrackLabelControl({
   return (
     <label className={TRACK_SETTING_ROW_CLASS}>
       <span className="font-medium">Name</span>
-      <input
+      <MenuSearchInput
         key={value}
         type="text"
         defaultValue={value}
@@ -1395,7 +1447,6 @@ function TrackLabelControl({
         onKeyDown={(event) => {
           if (event.key === 'Enter') event.currentTarget.blur();
         }}
-        className={TRACK_SETTING_CONTROL_CLASS}
       />
     </label>
   );
@@ -1505,7 +1556,7 @@ function NumberStepButton({
       disabled={disabled}
       onPointerDown={(event) => event.preventDefault()}
       onClick={onStep}
-      className={`flex min-h-0 flex-1 items-center justify-center text-fg-subtle outline-none transition-colors hover:bg-bg-muted hover:text-fg focus-visible:bg-bg-muted focus-visible:text-fg disabled:pointer-events-none disabled:opacity-25 ${
+      className={`flex min-h-0 flex-1 items-center justify-center text-fg-subtle outline-none transition-colors wp-interactive disabled:pointer-events-none disabled:opacity-25 ${
         direction === 'up' ? 'border-b border-border/60' : ''
       }`}
     >
@@ -1551,35 +1602,216 @@ function SelectSetting<T extends string>({
     <label className={TRACK_SETTING_ROW_CLASS}>
       <span className="font-medium">{label}</span>
       <span className="relative min-w-0">
-        <select
+        <MenuNativeSelect
           value={value}
           onChange={(event) => onChange(event.target.value as T)}
           aria-label={ariaLabel}
           data-testid={testId}
-          className={`${TRACK_SETTING_CONTROL_CLASS} cursor-pointer appearance-none py-0 pl-2 pr-8`}
         >
           {options.map((option) => (
             <option key={option.value} value={option.value} disabled={option.disabled}>
               {option.label}
             </option>
           ))}
-        </select>
-        <svg
-          aria-hidden
-          viewBox="0 0 12 12"
-          className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-fg-subtle"
-          fill="none"
-        >
-          <path
-            d="m3 4.5 3 3 3-3"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        </MenuNativeSelect>
       </span>
     </label>
+  );
+}
+
+function SignalGeometryControl<
+  Geometry extends SequenceDataLayerPresentation['style']['geometry'],
+>({
+  label,
+  geometries,
+  geometry,
+  onChange,
+}: {
+  label: string;
+  geometries: readonly Geometry[];
+  geometry: Geometry;
+  onChange: (geometry: Geometry) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="font-medium">Draw as</span>
+      <div
+        role="group"
+        aria-label={`Drawing style for ${label}`}
+        className="flex overflow-hidden rounded-md border border-border"
+      >
+        {geometries.map((value) => {
+          const name = {
+            bars: 'Bars',
+            band: 'Heatmap',
+            points: 'Points',
+            arcs: 'Arcs',
+            matrix: 'Matrix',
+          }[value];
+          return (
+            <button
+              key={value}
+              type="button"
+              aria-label={`${name} for ${label}`}
+              title={name}
+              aria-pressed={geometry === value}
+              onClick={() => onChange(value)}
+              className="flex h-7 w-9 items-center justify-center border-l border-border text-fg-muted first:border-l-0 wp-interactive"
+            >
+              <svg aria-hidden viewBox="0 0 20 16" className="h-4 w-5" fill="currentColor">
+                {value === 'bars' ? (
+                  <path d="M2 9h3v5H2zm6-6h3v11H8zm6 3h3v8h-3z" />
+                ) : value === 'band' ? (
+                  <>
+                    <path opacity=".3" d="M1 3h5v10H1z" />
+                    <path opacity=".6" d="M7 3h5v10H7z" />
+                    <path d="M13 3h6v10h-6z" />
+                  </>
+                ) : value === 'matrix' ? (
+                  <>
+                    <path opacity=".3" d="M1 1h5v4H1zm6 5h5v4H7zm6 5h6v4h-6z" />
+                    <path opacity=".6" d="M7 1h5v4H7zm6 5h6v4h-6zM1 11h5v4H1z" />
+                    <path d="M13 1h6v4h-6zM1 6h5v4H1zm6 5h5v4H7z" />
+                  </>
+                ) : value === 'arcs' ? (
+                  <path
+                    d="M2 13Q10-9 18 13M6 13Q10 2 14 13"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                ) : (
+                  <>
+                    <circle cx="4" cy="11" r="2" />
+                    <circle cx="10" cy="4" r="2" />
+                    <circle cx="16" cy="8" r="2" />
+                  </>
+                )}
+              </svg>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ScientificPaletteControl({
+  label,
+  selected,
+  onChange,
+}: {
+  label: string;
+  selected?: string;
+  onChange: (palette: keyof typeof SCIENTIFIC_COLOR_PALETTES) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="font-medium">Palette</span>
+      <div className="flex gap-1.5">
+        {(Object.keys(SCIENTIFIC_COLOR_PALETTES) as (keyof typeof SCIENTIFIC_COLOR_PALETTES)[]).map(
+          (key) => {
+            const palette = SCIENTIFIC_COLOR_PALETTES[key];
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-label={`${palette.name} palette for ${label}`}
+                title={palette.name}
+                aria-pressed={selected === key}
+                onClick={() => onChange(key)}
+                className="h-5 w-7 rounded border border-border outline-none ring-offset-1 ring-offset-bg aria-pressed:ring-1 aria-pressed:ring-fg focus-visible:ring-1 focus-visible:ring-fg"
+                style={{ background: `linear-gradient(to right, ${palette.colors.join(', ')})` }}
+              />
+            );
+          }
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DataLayerTrackSettings({
+  row,
+  controls,
+}: {
+  row: SequenceDataLayerTrackRow;
+  controls: SequenceDataLayerTrackControls;
+}) {
+  const { presentation } = row;
+  const selectedPalette = Object.entries(SCIENTIFIC_COLOR_PALETTES).find(
+    ([, palette]) =>
+      JSON.stringify(palette.colors) === JSON.stringify(presentation.style.colorScale.colors)
+  )?.[0];
+  const update = (next: SequenceDataLayerPresentation) =>
+    controls.onPresentationChange(row.id, next);
+  return (
+    <div className="flex min-w-0 flex-col gap-2.5 text-[10px] text-fg-muted">
+      {presentation.style.geometry === 'matrix' ? (
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-medium">Samples</span>
+          <span>All {row.samples.length} source samples</span>
+        </div>
+      ) : (
+        <SelectSetting
+          label="Sample"
+          value={presentation.sampleId}
+          ariaLabel={`Sample for ${row.label}`}
+          testId={`data-layer-sample-${row.id}`}
+          options={row.samples.map((sample) => ({ value: sample.id, label: sample.label }))}
+          onChange={(sampleId) => update({ ...presentation, sampleId })}
+        />
+      )}
+      <SignalGeometryControl
+        label={row.label}
+        geometries={['bars', 'band', 'points', 'arcs', 'matrix']}
+        geometry={presentation.style.geometry}
+        onChange={(geometry) =>
+          update({ ...presentation, style: { ...presentation.style, geometry } })
+        }
+      />
+      <ScientificPaletteControl
+        label={row.label}
+        selected={selectedPalette}
+        onChange={(palette) =>
+          update({
+            ...presentation,
+            style: {
+              ...presentation.style,
+              colorScale: {
+                ...presentation.style.colorScale,
+                colors: [...SCIENTIFIC_COLOR_PALETTES[palette].colors],
+              },
+            },
+          })
+        }
+      />
+      {presentation.style.geometry !== 'matrix' &&
+      controls.annotationColorsSupported !== false &&
+      row.annotationColorsSupported !== false ? (
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={presentation.annotationColors}
+            aria-label={`Color annotations from ${row.label}`}
+            onChange={(event) =>
+              update({ ...presentation, annotationColors: event.target.checked })
+            }
+          />
+          Annotation colors
+        </label>
+      ) : null}
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={presentation.signalVisible}
+          aria-label={`Show signal for ${row.label}`}
+          onChange={(event) => update({ ...presentation, signalVisible: event.target.checked })}
+        />
+        Signal
+      </label>
+    </div>
   );
 }
 
@@ -1636,7 +1868,22 @@ function QuantitativeTrackSettings({
 
   return (
     <fieldset className="flex min-w-0 flex-col gap-2 border-t border-border/60 pt-2.5">
-      <legend className="mb-0.5 font-semibold text-fg">Signal scale</legend>
+      <legend className="mb-0.5 font-semibold text-fg">Signal</legend>
+      <SignalGeometryControl
+        label={dataset.label}
+        geometries={['bars', 'band', 'points'] as const}
+        geometry={presentation.graph === 'bar' ? 'bars' : presentation.graph}
+        onChange={(geometry) =>
+          update({ ...presentation, graph: geometry === 'bars' ? 'bar' : geometry })
+        }
+      />
+      {presentation.graph === 'band' ? (
+        <ScientificPaletteControl
+          label={dataset.label}
+          selected={presentation.palette ?? 'viridis'}
+          onChange={(palette) => update({ ...presentation, palette })}
+        />
+      ) : null}
       <SelectSetting
         label="Range"
         value={presentation.scale.mode}
@@ -1722,13 +1969,15 @@ function QuantitativeTrackSettings({
         </div>
       ) : null}
       <label className="flex h-7 cursor-pointer items-center justify-between rounded-md px-0.5 outline-none">
-        <span className="font-medium">Show y-axis</span>
+        <span className="font-medium">
+          {presentation.graph === 'band' ? 'Show color scale' : 'Show y-axis'}
+        </span>
         <span className="relative inline-flex h-4 w-7 shrink-0">
           <input
             type="checkbox"
             checked={presentation.showRange}
             onChange={(event) => update({ ...presentation, showRange: event.target.checked })}
-            aria-label={`Show y-axis for ${dataset.label}`}
+            aria-label={`Show ${presentation.graph === 'band' ? 'color scale' : 'y-axis'} for ${dataset.label}`}
             className="peer sr-only"
           />
           <span className="absolute inset-0 rounded-full border border-border bg-bg-muted transition-colors peer-checked:border-blue-500/70 peer-checked:bg-blue-500 peer-focus-visible:ring-1 peer-focus-visible:ring-fg-subtle/30" />
@@ -1818,29 +2067,29 @@ function TrackColorControl({
   return (
     <div ref={rootRef} className={TRACK_SETTING_ROW_CLASS}>
       <span className="font-medium">{controlLabel}</span>
-      <button
+      <MenuTrigger
         ref={controlRef}
-        type="button"
         onClick={() => {
           setDraft(color);
           setOpen((current) => !current);
         }}
         aria-label={colorLabel}
-        aria-expanded={open}
+        open={open}
         aria-controls={open ? pickerId : undefined}
         data-color={color}
         data-testid={`track-color-control-${trackId}`}
-        className="relative flex h-7 min-w-0 items-center gap-2 overflow-hidden rounded-md border border-border bg-bg px-2 text-left shadow-sm outline-none transition-[border-color,box-shadow,background-color] hover:border-fg-subtle/60 focus-visible:border-fg-subtle focus-visible:ring-1 focus-visible:ring-fg-subtle/20"
+        icon={
+          <span
+            aria-hidden
+            className="h-3.5 w-6 shrink-0 rounded-sm border border-black/10 shadow-inner"
+            style={{ backgroundColor: color }}
+          />
+        }
       >
-        <span
-          aria-hidden
-          className="h-3.5 w-6 shrink-0 rounded-sm border border-black/10 shadow-inner"
-          style={{ backgroundColor: color }}
-        />
         <span aria-hidden className="truncate font-mono text-[10px] uppercase text-fg-muted">
           {color}
         </span>
-      </button>
+      </MenuTrigger>
       {open ? (
         <div
           id={pickerId}
@@ -1863,7 +2112,7 @@ function TrackColorControl({
           </div>
           <label className="mt-2 flex items-center gap-2">
             <span className="shrink-0 font-medium">Hex</span>
-            <input
+            <MenuSearchInput
               autoFocus
               type="text"
               value={draft}
@@ -1877,7 +2126,6 @@ function TrackColorControl({
                 event.preventDefault();
                 commit(normalizedDraft);
               }}
-              className={`${TRACK_SETTING_CONTROL_CLASS} flex-1 font-mono uppercase aria-[invalid=true]:border-danger aria-[invalid=true]:ring-1 aria-[invalid=true]:ring-danger/20`}
             />
           </label>
         </div>

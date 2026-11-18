@@ -1,5 +1,7 @@
+'use client';
+
 import { usePresentationListener } from '../../../presentation/PresentationSurface';
-('use client');
+
 import { toUserMessage } from '@waypoint/user-messages';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import type { Annotation as ExistingAnnotation } from '@waypoint/sequence-utils';
@@ -449,28 +451,28 @@ export function AnnotationReviewPanel({
         </span>
         <span />
         <button
-          className="text-left px-1 py-0.5 rounded hover:bg-bg-muted font-medium cursor-pointer truncate"
+          className="text-left px-1 py-0.5 rounded wp-interactive font-medium cursor-pointer truncate"
           onClick={() => handleSort('name')}
         >
           Name
           <SortIndicator column="name" />
         </button>
         <button
-          className="text-left px-1 py-0.5 rounded hover:bg-bg-muted font-medium cursor-pointer truncate"
+          className="text-left px-1 py-0.5 rounded wp-interactive font-medium cursor-pointer truncate"
           onClick={() => handleSort('type')}
         >
           Type
           <SortIndicator column="type" />
         </button>
         <button
-          className="text-left px-1 py-0.5 rounded hover:bg-bg-muted font-medium cursor-pointer"
+          className="text-left px-1 py-0.5 rounded wp-interactive font-medium cursor-pointer"
           onClick={() => handleSort('position')}
         >
           Pos
           <SortIndicator column="position" />
         </button>
         <button
-          className="text-left px-1 py-0.5 rounded hover:bg-bg-muted font-medium cursor-pointer"
+          className="text-left px-1 py-0.5 rounded wp-interactive font-medium cursor-pointer"
           onClick={() => handleSort('identity')}
           title="Sequence identity"
         >
@@ -478,7 +480,7 @@ export function AnnotationReviewPanel({
           <SortIndicator column="identity" />
         </button>
         <button
-          className="text-left px-1 py-0.5 rounded hover:bg-bg-muted font-medium cursor-pointer"
+          className="text-left px-1 py-0.5 rounded wp-interactive font-medium cursor-pointer"
           onClick={() => handleSort('coverage')}
           title="Coverage of reference feature"
         >
@@ -486,7 +488,7 @@ export function AnnotationReviewPanel({
           <SortIndicator column="coverage" />
         </button>
         <button
-          className="text-center px-1 py-0.5 rounded hover:bg-bg-muted font-medium cursor-pointer"
+          className="text-center px-1 py-0.5 rounded wp-interactive font-medium cursor-pointer"
           onClick={() => handleSort('confidence')}
           title="Confidence (identity × coverage)"
         >
@@ -494,7 +496,7 @@ export function AnnotationReviewPanel({
           <SortIndicator column="confidence" />
         </button>
         <button
-          className="text-center px-0.5 py-0.5 rounded hover:bg-bg-muted font-medium cursor-pointer"
+          className="text-center px-0.5 py-0.5 rounded wp-interactive font-medium cursor-pointer"
           onClick={() => handleSort('duplicate')}
           title="New annotation (not already on sequence)"
         >
@@ -520,7 +522,7 @@ export function AnnotationReviewPanel({
               data-selected={isSelected}
               onClick={(e) => handleRowClick(draft, e)}
               className={`relative grid items-center pr-1 text-xs cursor-pointer scroll-mt-10 ${
-                isMultiSelected || isSelected ? 'bg-green-500/15' : 'hover:bg-bg-subtle'
+                isMultiSelected || isSelected ? 'bg-green-500/15' : 'wp-interactive'
               }`}
               style={{
                 gridTemplateColumns: REVIEW_GRID,
@@ -694,7 +696,7 @@ export function AnnotationReviewPanel({
           <button
             onClick={onCancel}
             disabled={isApplying}
-            className="shrink-0 whitespace-nowrap px-3 py-1.5 text-xs rounded border border-border hover:bg-bg-tertiary"
+            className="shrink-0 whitespace-nowrap px-3 py-1.5 text-xs rounded border border-border wp-interactive"
           >
             Discard
           </button>

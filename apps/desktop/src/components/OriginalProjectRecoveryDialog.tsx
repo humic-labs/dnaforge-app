@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import {
   usePresentationOverlay,
   PresentationScopeContext,
@@ -127,33 +128,35 @@ function OriginalProjectChoice({ onClose }: { onClose(): void }) {
           </p>
           <label className="mt-4 block text-sm">
             Original project
-            <select
-              aria-label="Original project"
-              value={selected}
-              disabled={loading || busy}
-              onChange={(event) => setSelected(event.target.value)}
-              className="mt-2 w-full rounded border border-border bg-bg px-2 py-2 text-sm"
-            >
-              <option value="">
-                {loading ? 'Loading projects…' : 'Choose the original project…'}
-              </option>
-              {projects.map((project) => {
-                const state =
-                  project.trashed_at != null
-                    ? 'In Trash'
-                    : project.archived_at != null
-                      ? 'Archived'
-                      : project.access_mode !== 'writable'
-                        ? 'Read only'
-                        : '';
-                return (
-                  <option key={project.repo_uuid} value={project.id} disabled={Boolean(state)}>
-                    {project.name} — {project.path}
-                    {state ? ` (${state})` : ''}
-                  </option>
-                );
-              })}
-            </select>
+            <span className="block min-w-0 mt-2 w-full">
+              <MenuNativeSelect
+                density="form"
+                aria-label="Original project"
+                value={selected}
+                disabled={loading || busy}
+                onChange={(event) => setSelected(event.target.value)}
+              >
+                <option value="">
+                  {loading ? 'Loading projects…' : 'Choose the original project…'}
+                </option>
+                {projects.map((project) => {
+                  const state =
+                    project.trashed_at != null
+                      ? 'In Trash'
+                      : project.archived_at != null
+                        ? 'Archived'
+                        : project.access_mode !== 'writable'
+                          ? 'Read only'
+                          : '';
+                  return (
+                    <option key={project.repo_uuid} value={project.id} disabled={Boolean(state)}>
+                      {project.name} — {project.path}
+                      {state ? ` (${state})` : ''}
+                    </option>
+                  );
+                })}
+              </MenuNativeSelect>
+            </span>
           </label>
           <p className="mt-2 text-xs text-fg-muted">
             Restore an archived or trashed original from Projects before choosing it here.

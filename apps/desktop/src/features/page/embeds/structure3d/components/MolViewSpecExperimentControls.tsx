@@ -124,7 +124,7 @@ export function MolViewSpecExperimentControls({
           data-testid="mvs-original-view"
           disabled={!plugin || !originalScene || applying}
           onClick={() => void restoreOriginal()}
-          className="rounded border border-border px-2 py-1 hover:bg-bg-muted disabled:opacity-50"
+          className="rounded border border-border px-2 py-1 wp-interactive disabled:opacity-50"
         >
           Original view
         </button>
@@ -133,7 +133,7 @@ export function MolViewSpecExperimentControls({
           data-testid="mvs-fit-view"
           disabled={!plugin || applying}
           onClick={onFit}
-          className="rounded border border-border px-2 py-1 hover:bg-bg-muted disabled:opacity-50"
+          className="rounded border border-border px-2 py-1 wp-interactive disabled:opacity-50"
         >
           Fit view
         </button>
@@ -142,7 +142,7 @@ export function MolViewSpecExperimentControls({
           data-testid="mvs-edit-scene"
           disabled={!plugin || applying || saving}
           onClick={toggleEditor}
-          className="rounded border border-border px-2 py-1 hover:bg-bg-muted disabled:opacity-50"
+          className="rounded border border-border px-2 py-1 wp-interactive disabled:opacity-50"
         >
           {editing ? 'Close scene lab' : 'Edit scene'}
         </button>
@@ -152,7 +152,7 @@ export function MolViewSpecExperimentControls({
             data-testid="mvs-open-pin-view"
             disabled={!plugin || applying || saving}
             onClick={() => setPinning(!pinning)}
-            className="rounded border border-border px-2 py-1 hover:bg-bg-muted disabled:opacity-50"
+            className="rounded border border-border px-2 py-1 wp-interactive disabled:opacity-50"
           >
             {pinning ? 'Close pin form' : 'Pin view'}
           </button>
@@ -177,7 +177,7 @@ export function MolViewSpecExperimentControls({
               data-testid="mvs-apply-scene"
               disabled={!sceneText.trim() || applying || saving}
               onClick={() => void applyDraft()}
-              className="rounded border border-border px-2 py-1 hover:bg-bg-muted disabled:opacity-50"
+              className="rounded border border-border px-2 py-1 wp-interactive disabled:opacity-50"
             >
               Apply scene
             </button>
@@ -225,7 +225,7 @@ export function MolViewSpecExperimentControls({
             data-testid="mvs-pin-view"
             disabled={!title.trim() || applying || saving}
             onClick={() => void pinView()}
-            className="w-fit rounded border border-border px-2 py-1 hover:bg-bg-muted disabled:opacity-50"
+            className="w-fit rounded border border-border px-2 py-1 wp-interactive disabled:opacity-50"
           >
             {saving ? 'Pinning…' : 'Pin reviewed view'}
           </button>

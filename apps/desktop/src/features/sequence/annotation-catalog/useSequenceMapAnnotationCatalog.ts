@@ -16,6 +16,7 @@ import {
   type AnnotationCatalogTrackData,
   type Chromosome,
   type PixiLinearRenderer,
+  type SupplementalLinearTrack,
   type Track,
 } from '@waypoint/genome-renderer';
 
@@ -63,6 +64,7 @@ export interface SequenceMapAnnotationCatalog {
 
 const MAX_RENDERER_WAIT_FRAMES = 120;
 const TRACK_SIZING = { kind: 'fitContent', minHeight: 28, maxHeight: 160 } as const;
+const EMPTY_SUPPLEMENTAL_TRACKS: readonly SupplementalLinearTrack[] = [];
 
 interface PublishedTrack {
   readonly data: AnnotationCatalogTrackData;
@@ -129,9 +131,11 @@ export function useSequenceMapAnnotationCatalog(options: {
   readonly rendererReadyEpoch: number;
   readonly mapCircular: boolean;
   readonly layout: AnnotationTrackLayout | undefined;
+  readonly supplementalTracks?: readonly SupplementalLinearTrack[];
 }): SequenceMapAnnotationCatalog | null {
   const { entityId, document, viewTransformed, mapRef, rendererReadyEpoch, mapCircular, layout } =
     options;
+  const supplementalTracks = options.supplementalTracks ?? EMPTY_SUPPLEMENTAL_TRACKS;
 
   const ownerTabId = useCanvasStore((state) => {
     for (const panel of Object.values(state.panels)) {
@@ -194,11 +198,53 @@ export function useSequenceMapAnnotationCatalog(options: {
       mapRef.current?.requestRender?.();
     };
 
+    const publishTracks = (
+      renderer: AnnotationCatalogLinearRenderer,
+      catalogTracks: readonly Track[],
+      payloads: readonly (readonly [string, unknown])[]
+    ) => {
+      for (const supplemental of supplementalTracks) {
+        try {
+          renderer.registerTrack(supplemental.renderer);
+        } catch (error) {
+          if (!String(error).includes('already registered')) throw error;
+        }
+      }
+      const instances = [
+        ...catalogTracks,
+        ...supplementalTracks.map(({ track }, index) => ({
+          ...track,
+          order: catalogTracks.length + index,
+        })),
+      ];
+      renderer.setTrackInstances(instances);
+      if (instances.length > 0) wiredRenderers.add(renderer);
+      else wiredRenderers.delete(renderer);
+      for (const [trackId, data] of payloads) renderer.setTrackData(trackId, data);
+      for (const { track, data } of supplementalTracks) renderer.setTrackData(track.id, data);
+      mapRef.current?.requestRender?.();
+    };
+
+    const publishSupplementalTracks = (renderer: AnnotationCatalogLinearRenderer | null) => {
+      if (!renderer) return;
+      if (supplementalTracks.length === 0) {
+        clearTracks(renderer);
+        return;
+      }
+      renderer.setChromosome({
+        id: supplementalTracks[0].track.assemblyId,
+        displayName: document.name,
+        length: document.length,
+        cytobands: [],
+      });
+      publishTracks(renderer, [], []);
+    };
+
     const wire = (renderer: AnnotationCatalogLinearRenderer, ctx: DocumentCatalogContext) => {
       const activeLayout = wiringLayout;
       const visible = activeLayout?.tracks.filter((track) => track.visible) ?? [];
       if (!activeLayout || visible.length === 0) {
-        clearTracks(renderer);
+        publishSupplementalTracks(renderer);
         publish({ phase: 'idle' });
         return;
       }
@@ -215,7 +261,7 @@ export function useSequenceMapAnnotationCatalog(options: {
       try {
         registeredTypes = registerCatalogTrackRenderers(renderer);
       } catch (error) {
-        clearTracks(renderer);
+        publishSupplementalTracks(renderer);
         publish({
           phase: 'error',
           message: "Couldn't load the track drawings.",
@@ -314,11 +360,7 @@ export function useSequenceMapAnnotationCatalog(options: {
             });
           }
 
-          renderer.setTrackInstances(instances);
-          if (instances.length > 0) wiredRenderers.add(renderer);
-          else wiredRenderers.delete(renderer);
-          for (const [trackId, data] of payloads) renderer.setTrackData(trackId, data);
-          mapRef.current?.requestRender?.();
+          publishTracks(renderer, instances, payloads);
           publish({ phase: 'active' }, states, hoverTracks);
         })
         .catch((error: unknown) => {
@@ -335,7 +377,7 @@ export function useSequenceMapAnnotationCatalog(options: {
       rafId = 0;
       if (cancelled) return;
       const renderer = mapRef.current?.getLinearRenderer?.() ?? null;
-      if (!context) {
+      if (!context && supplementalTracks.length === 0) {
         clearTracks(renderer);
         if (ownerTabId) clearAnnotationCatalogWiring(ownerTabId);
         return;
@@ -359,6 +401,11 @@ export function useSequenceMapAnnotationCatalog(options: {
         }
         return;
       }
+      if (!context) {
+        publishSupplementalTracks(renderer);
+        if (ownerTabId) clearAnnotationCatalogWiring(ownerTabId);
+        return;
+      }
       wire(renderer, context);
     };
 
@@ -367,7 +414,18 @@ export function useSequenceMapAnnotationCatalog(options: {
       cancelled = true;
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [context, layoutKey, mapCircular, mapRef, ownerTabId, rendererReadyEpoch, viewTransformed]);
+  }, [
+    context,
+    document.name,
+    document.length,
+    layoutKey,
+    mapCircular,
+    mapRef,
+    ownerTabId,
+    rendererReadyEpoch,
+    supplementalTracks,
+    viewTransformed,
+  ]);
 
   useEffect(() => {
     if (!ownerTabId) return;

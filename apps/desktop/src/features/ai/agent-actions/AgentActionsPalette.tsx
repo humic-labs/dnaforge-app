@@ -265,7 +265,7 @@ export function AgentActionsPalette({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-transparent px-2.5 py-1.5 text-xs text-fg-muted hover:border-border hover:bg-bg hover:text-fg"
+                className="rounded-lg border border-transparent px-2.5 py-1.5 text-xs text-fg-muted wp-interactive "
                 aria-label="Close agent actions"
               >
                 Close
@@ -311,7 +311,7 @@ export function AgentActionsPalette({
                     className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
                       selected
                         ? 'border-accent/40 bg-accent/10 text-accent'
-                        : 'border-border bg-bg text-fg-muted hover:bg-bg-muted hover:text-fg'
+                        : 'border-border bg-bg text-fg-muted wp-interactive '
                     }`}
                   >
                     <span>{filter.label}</span>
@@ -379,7 +379,7 @@ export function AgentActionsPalette({
                             type="button"
                             disabled={!enabled || resolvingId !== null}
                             onClick={() => void select(control)}
-                            className={`group flex w-full items-center justify-between gap-3 border-l-2 px-3 py-2 text-left transition-colors hover:bg-bg-muted disabled:cursor-default disabled:opacity-55 ${
+                            className={`group flex w-full items-center justify-between gap-3 border-l-2 px-3 py-2 text-left transition-colors wp-interactive disabled:cursor-default disabled:opacity-55 ${
                               activeControlId === control.id
                                 ? 'border-l-accent bg-accent/[0.06]'
                                 : 'border-l-transparent bg-bg'
@@ -431,7 +431,8 @@ export function AgentActionsPalette({
                   onClose();
                   onManage();
                 }}
-                className="shrink-0 rounded-lg border border-border bg-bg px-3 py-1.5 font-medium text-fg shadow-sm hover:border-accent/30 hover:bg-bg-muted"
+                data-interaction-border="true"
+                className="shrink-0 rounded-lg border border-border bg-bg px-3 py-1.5 font-medium text-fg shadow-sm wp-interactive"
                 aria-label="Manage agent extensions"
               >
                 Manage extensions

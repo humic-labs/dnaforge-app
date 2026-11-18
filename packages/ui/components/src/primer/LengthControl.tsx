@@ -1,5 +1,7 @@
 'use client';
 
+import { INTERACTION_CLASS } from '../menu/appearance';
+
 import React from 'react';
 import { StepperTriangle } from './StepperTriangle';
 
@@ -119,7 +121,7 @@ export function LengthControl({
               increment();
             }}
             disabled={value >= max}
-            className="flex-1 px-0.5 flex items-center justify-center text-fg-muted hover:text-fg disabled:opacity-20"
+            className={`${INTERACTION_CLASS} flex-1 px-0.5 flex items-center justify-center text-fg-muted disabled:opacity-20`}
             tabIndex={-1}
           >
             <StepperTriangle direction="up" className="w-2 h-1.5" />
@@ -131,7 +133,7 @@ export function LengthControl({
               decrement();
             }}
             disabled={value <= min}
-            className="flex-1 px-0.5 flex items-center justify-center text-fg-muted hover:text-fg disabled:opacity-20"
+            className={`${INTERACTION_CLASS} flex-1 px-0.5 flex items-center justify-center text-fg-muted disabled:opacity-20`}
             tabIndex={-1}
           >
             <StepperTriangle direction="down" className="w-2 h-1.5" />

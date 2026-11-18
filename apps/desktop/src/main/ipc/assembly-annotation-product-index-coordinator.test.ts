@@ -121,6 +121,51 @@ function hit(input = request()): AssemblyAnnotationSceneCacheIndexHit {
 }
 
 describe('assembly annotation product index coordinator', () => {
+  it('coalesces exact source aliases while separating artifact and generation and evicting completed entries', async () => {
+    const prepare = vi.fn(async () => [{ featureIndex: 0, aliases: ['glcF.gene.1', 'b1007'] }]);
+    const coordinator = new AssemblyAnnotationProductIndexCoordinatorV1({
+      readScene: async (input) => hit(input),
+      prepareScene: vi.fn(),
+      prepareBroadCompanion: async () => BROAD_RESULT,
+      prepareSourceAnnotationAliases: prepare,
+    });
+    const source = (input = request()) => {
+      const scene = hit(input);
+      return {
+        request: input,
+        sourceFingerprint: scene.fingerprint,
+        scenePath: scene.scenePath,
+        sceneManifest: scene.manifest,
+        payloadSha256: scene.payloadSha256,
+      };
+    };
+    const first = source();
+    const pending = coordinator.prepareSourceAnnotationAliases(first);
+    expect(coordinator.prepareSourceAnnotationAliases(first)).toBe(pending);
+    expect(await pending).toMatchObject({
+      payloadSha256: first.payloadSha256,
+      contractSha256: first.sceneManifest.integrity.contractSha256,
+    });
+    await coordinator.prepareSourceAnnotationAliases(source(request('dark')));
+    await coordinator.prepareSourceAnnotationAliases(
+      source({
+        ...request(),
+        expectedAssetGeneration: {
+          contract: 'assembly-reference-asset-generation.v1',
+          sourceFingerprint: 'b'.repeat(24),
+          inventoryFingerprint: 'a'.repeat(64),
+          themeMode: 'light',
+        },
+      })
+    );
+    expect(prepare).toHaveBeenCalledTimes(3);
+    for (let index = 0; index < 16; index++)
+      await coordinator.prepareSourceAnnotationAliases(source(request('light', `track-${index}`)));
+    expect(coordinator.readSourceAnnotationAliases(first)).toBeUndefined();
+    await coordinator.prepareSourceAnnotationAliases(first);
+    expect(prepare).toHaveBeenCalledTimes(20);
+  });
+
   it('prepares every enumerated track serially and commits one complete inventory last', async () => {
     const requests = [
       request('light', 'mRNA'),

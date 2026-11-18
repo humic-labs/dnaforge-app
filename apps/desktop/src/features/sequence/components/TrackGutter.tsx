@@ -403,7 +403,7 @@ function TrackDragHandle({
           onMoveDown();
         }
       }}
-      className="flex h-6 w-5 shrink-0 cursor-grab items-center justify-center rounded text-fg-subtle outline-none hover:bg-bg-muted hover:text-fg focus-visible:ring-1 focus-visible:ring-fg-subtle/30 active:cursor-grabbing"
+      className="flex h-6 w-5 shrink-0 cursor-grab items-center justify-center rounded text-fg-subtle outline-none wp-interactive active:cursor-grabbing"
     >
       <svg
         aria-hidden
@@ -536,7 +536,7 @@ function RowBody({
         aria-label={`${dataSettingsExpanded ? 'Close' : 'Open'} settings for ${row.label}`}
         aria-expanded={dataSettingsExpanded === true}
         aria-controls={dataSettingsExpanded ? `track-gutter-settings-panel-${row.id}` : undefined}
-        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-subtle outline-none transition-colors hover:bg-bg-muted hover:text-fg focus-visible:bg-bg-muted focus-visible:text-fg ${
+        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-subtle outline-none transition-colors wp-interactive ${
           dataSettingsExpanded ? 'bg-bg-muted text-fg' : ''
         }`}
       >
@@ -778,7 +778,7 @@ export function TrackGutterHeader({
           onClick={onToggleCollapsed}
           aria-label="Expand track gutter"
           title="Expand tracks"
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-muted hover:bg-bg-muted hover:text-fg"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-muted wp-interactive "
         >
           <ChevronRightIcon className="h-3.5 w-3.5" />
         </button>
@@ -795,7 +795,7 @@ export function TrackGutterHeader({
           onClick={onToggleCollapsed}
           aria-label="Collapse track gutter"
           title="Collapse tracks"
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-muted hover:bg-bg-muted hover:text-fg"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-muted wp-interactive "
         >
           <ChevronLeftIcon className="h-3.5 w-3.5" />
         </button>
@@ -851,7 +851,7 @@ function AddTrackRow({
         onClick={onAddTrack}
         aria-label="Add track"
         title="Add track"
-        className="flex h-7 min-w-0 items-center gap-1.5 rounded px-2.5 text-sm font-medium text-fg-muted hover:bg-bg-muted hover:text-fg"
+        className="flex h-7 min-w-0 items-center gap-1.5 rounded px-2.5 text-sm font-medium text-fg-muted wp-interactive "
       >
         <span aria-hidden className="text-lg leading-none">
           +
@@ -865,7 +865,7 @@ function AddTrackRow({
           onClick={onOpenMutationNavigator}
           aria-label="Open mutations"
           title="Open mutations"
-          className="ml-auto flex h-6 min-w-0 items-center rounded px-1.5 text-[11px] font-medium text-fg-muted hover:bg-bg-muted hover:text-fg"
+          className="ml-auto flex h-6 min-w-0 items-center rounded px-1.5 text-[11px] font-medium text-fg-muted wp-interactive "
         >
           Mutations
         </button>
@@ -1332,7 +1332,7 @@ export function TrackGutter({
               className={cn(
                 aligned
                   ? 'group flex items-start gap-1.5 overflow-hidden px-2'
-                  : 'group relative flex items-center gap-1.5 overflow-visible px-2 py-1.5 hover:bg-bg-subtle',
+                  : 'group relative flex items-center gap-1.5 overflow-visible px-2 py-1.5 wp-interactive',
                 draggingTrackId === row.trackId && 'z-30 bg-bg shadow-lg ring-1 ring-fg-subtle/30'
               )}
             >

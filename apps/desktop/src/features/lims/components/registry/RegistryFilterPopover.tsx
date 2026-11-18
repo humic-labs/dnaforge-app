@@ -88,7 +88,7 @@ export function RegistryFilterPopover({
             className={`flex-1 rounded border px-1 py-0.5 capitalize ${
               registryUpdatedFilter?.mode === mode
                 ? 'border-accent bg-accent/10 text-accent'
-                : 'border-border text-fg-muted hover:text-fg'
+                : 'border-border text-fg-muted wp-interactive'
             }`}
           >
             {mode}

@@ -9,6 +9,7 @@ import React, {
   useImperativeHandle,
 } from 'react';
 import type { RestrictionEnzyme } from '@waypoint/sequence-utils';
+import { INTERACTION_CLASS } from '../menu/appearance';
 
 const ROW_HEIGHT = 42;
 const OVERSCAN = 15;
@@ -201,6 +202,9 @@ const EnzymeRow = memo(function EnzymeRow({
     <div
       data-testid="enzyme-row"
       data-enzyme-name={enzyme.name}
+      className={INTERACTION_CLASS}
+      data-active={isHighlighted}
+      data-selected={isActive}
       onClick={() => onSelect(enzyme)}
       onMouseEnter={() => {
         onHighlightChange(index);
@@ -209,8 +213,6 @@ const EnzymeRow = memo(function EnzymeRow({
       onMouseLeave={() => onEnzymeHover?.(null)}
       style={{
         ...styles.item,
-        ...(isHighlighted ? styles.itemHighlighted : {}),
-        ...(isActive ? styles.itemActive : {}),
         position: 'absolute',
         top,
         left: 0,
@@ -397,12 +399,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: '1px solid hsl(var(--color-border))',
     transition: 'background-color 0.1s',
   },
-  itemHighlighted: {
-    backgroundColor: 'hsl(var(--color-bg-muted))',
-  },
-  itemActive: {
-    backgroundColor: 'hsl(var(--color-accent-subtle))',
-  },
   enzymeName: {
     fontWeight: 500,
     fontSize: '13px',
@@ -412,7 +408,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '6px',
   },
   activeIndicator: {
-    color: '#10b981',
+    color: 'var(--interaction-selected)',
     fontSize: '12px',
   },
   cutCount: {

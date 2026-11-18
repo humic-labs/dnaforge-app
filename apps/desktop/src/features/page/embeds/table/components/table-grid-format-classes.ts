@@ -1,6 +1,6 @@
 const BUTTON_BASE = 'w-6 h-6 flex items-center justify-center rounded text-xs transition-colors';
 const BUTTON_DISABLED = 'opacity-40 cursor-not-allowed text-fg-muted';
-const BUTTON_IDLE = 'text-fg-muted hover:bg-bg-muted hover:text-fg';
+const BUTTON_IDLE = 'text-fg-muted wp-interactive ';
 
 export function tableGridFormatControlsDisabled(
   effectiveSelection: unknown,
@@ -26,11 +26,6 @@ export function tableGridAlignButtonClass(disabled: boolean, active: boolean): s
   if (disabled) return `${base} ${BUTTON_DISABLED}`;
   if (active) return `${base} bg-accent text-white`;
   return `${base} ${BUTTON_IDLE}`;
-}
-
-export function tableGridColorButtonClass(disabled: boolean, extraBase = ''): string {
-  const base = `${BUTTON_BASE}${extraBase}`;
-  return disabled ? `${base} ${BUTTON_DISABLED}` : `${base} ${BUTTON_IDLE}`;
 }
 
 export function tableGridSwatchColor(value: string | null | 'mixed', fallback: string): string {

@@ -14,17 +14,6 @@ const cdsAnnotation: Annotation = {
   direction: 1,
 };
 
-function buttonLabels(): string[] {
-  return screen.getAllByRole('button').map((button) => {
-    const shortcut = button.querySelector('[data-testid="sequence-context-menu-shortcut"]');
-    const shortcutText = shortcut?.textContent ?? '';
-    const full = button.textContent ?? '';
-    return shortcutText && full.endsWith(shortcutText)
-      ? full.slice(0, full.length - shortcutText.length)
-      : full;
-  });
-}
-
 describe('SequenceContextMenu — action ordering', () => {
   it('orders copy/translation, structure, annotation, primer, then view-orientation actions', () => {
     render(
@@ -60,7 +49,7 @@ describe('SequenceContextMenu — action ordering', () => {
       />
     );
 
-    expect(buttonLabels()).toEqual([
+    const expectedLabels = [
       'Copy Sequence',
       'Copy Sequence (Reverse Complement)',
       'Copy Translation',
@@ -78,10 +67,14 @@ describe('SequenceContextMenu — action ordering', () => {
       'Reverse complement viewing direction',
       'Reset sequence view',
       'Edit Sequence',
-    ]);
-    expect(screen.getByRole('button', { name: 'Attach Primers' })).toHaveStyle({
-      color: 'hsl(var(--color-fg))',
-    });
+    ];
+    const items = screen.getAllByRole('menuitem');
+    expect(items).toHaveLength(expectedLabels.length);
+    expectedLabels.forEach((label, index) => expect(items[index]).toHaveAccessibleName(label));
+    expect(screen.getByRole('menuitem', { name: 'Attach Primers' })).toHaveAttribute(
+      'data-tone',
+      'default'
+    );
     for (const label of [
       'Create Forward Primer →',
       'Create Reverse Primer ←',
@@ -89,30 +82,25 @@ describe('SequenceContextMenu — action ordering', () => {
       'Edit Annotation',
       'Edit Sequence',
     ]) {
-      expect(screen.getByRole('button', { name: label })).toHaveStyle({
-        color: 'hsl(var(--color-success))',
-        fontWeight: '600',
-      });
+      expect(screen.getByText(label, { exact: true })).toHaveClass('text-success', 'font-semibold');
     }
-    expect(screen.getByRole('button', { name: 'Delete Annotation' })).toHaveStyle({
-      color: 'hsl(var(--color-error))',
-    });
-    const addButton = screen.getByRole('button', { name: 'Add Annotation' });
+    expect(screen.getByRole('menuitem', { name: 'Delete Annotation' })).toHaveAttribute(
+      'data-tone',
+      'danger'
+    );
+    const addButton = screen.getByRole('menuitem', { name: 'Add Annotation' });
     expect(addButton.previousElementSibling).toHaveAttribute(
       'data-testid',
       'sequence-context-menu-divider'
     );
     expect(addButton.nextElementSibling).toHaveTextContent('Edit Annotation');
     expect(
-      screen.getByRole('button', { name: 'Edit Annotation' }).nextElementSibling
+      screen.getByRole('menuitem', { name: 'Edit Annotation' }).nextElementSibling
     ).toHaveTextContent('Delete Annotation');
     const targetLabels = screen.getAllByTestId('sequence-context-menu-target');
     expect(targetLabels.map((target) => target.textContent?.trim())).toEqual(['(thrL)', '(thrL)']);
-    expect(targetLabels[0]).toHaveStyle({
-      color: 'hsl(var(--color-success))',
-      fontSize: '12px',
-      maxWidth: 'none',
-    });
+    expect(targetLabels[0]).toHaveClass('text-success', 'text-xs', 'font-medium');
+    expect(targetLabels[0].style.maxWidth).toBe('');
   });
 
   it('invokes the assembly-part mutation only from its explicit context-menu item', () => {
@@ -128,7 +116,7 @@ describe('SequenceContextMenu — action ordering', () => {
     );
 
     fireEvent.mouseDown(
-      screen.getByRole('button', {
+      screen.getByRole('menuitem', {
         name: 'Flip assembly part (reverse complement)',
       })
     );
@@ -153,7 +141,7 @@ describe('SequenceContextMenu — action ordering', () => {
       />
     );
 
-    fireEvent.mouseDown(screen.getByRole('button', { name: 'Copy Translation' }));
+    fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'Copy Translation' }));
     expect(onCopyTranslation).toHaveBeenCalledTimes(1);
   });
 });

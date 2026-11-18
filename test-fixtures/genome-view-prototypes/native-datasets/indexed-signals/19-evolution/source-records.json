@@ -1,0 +1,45 @@
+{
+  "schema": "dnaforge.source-records.v1",
+  "rawMutationTable": {
+    "sha256": "26613553b65b46374d8b96f1238b63f79f47fd148169032a03040853b672e84a",
+    "bytes": 13763296,
+    "rows": 61274,
+    "header": false,
+    "depositedFile": "oli.LTEE.final_masked.no_IS_adjacent.tab",
+    "url": "https://zenodo.org/api/records/5004468/files/oli.LTEE.final_masked.no_IS_adjacent.tab/content"
+  },
+  "columnContract": {
+    "1": "population",
+    "2": "generation",
+    "3": "clone name",
+    "4": "author mutation ID",
+    "5": "one-based reference position",
+    "6": "event type",
+    "7": "mutation description; SNP uses forward-reference REF->ALT",
+    "8": "author gene/intergenic classification",
+    "9to13": "preserved raw auxiliary placeholders",
+    "14onward": "clone names carrying the author mutation ID"
+  },
+  "invariants": {
+    "uniqueMutationIds": 17242,
+    "uniqueSnpIds": 14572,
+    "snpClonePresences": 52655,
+    "uniqueComplexIds": 2670,
+    "complexCloneRows": 8619,
+    "clones": 264,
+    "populations": 12,
+    "membershipListsEqualRows": true,
+    "duplicateCloneEventRows": 0,
+    "conflictingMutationSignatures": 0,
+    "allSnpReferenceAllelesMatch": true,
+    "all264LegacyCloneCountsReproduced": true,
+    "all132LegacyMeansReproduced": true
+  },
+  "legacyCloneLabelAlias": {
+    "rule": "Replace + with p and - with m anywhere, only to join legacy summary labels. Native packet keeps exact author clone labels.",
+    "genomicRemappingApplied": false
+  },
+  "clonesFile": "clones.json",
+  "snpEventsFile": "snp-events.jsonl",
+  "excludedComplexEventsFile": "excluded-complex-events.jsonl"
+}

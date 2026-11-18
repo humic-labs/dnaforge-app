@@ -21,6 +21,7 @@ import {
   runExpandedAnnotationSceneSetWorker,
   runExpandedAnnotationSceneInventoryWorker,
   runExpandedAnnotationSceneWorker,
+  runRetainedSourceAnnotationAliasesWorkerV1,
   runAssemblyAnnotationSearchWorker,
   runAssemblyProteinSearchWorker,
   runAssemblySearchesWorker,
@@ -51,6 +52,17 @@ export function compileExpandedAnnotationSceneInDedicatedWorker(
 ): Promise<ExpandedAnnotationSceneWorkerResult> {
   return runExpandedAnnotationSceneWorker(job, {
     createWorker: () => createExpandedAnnotationSceneWorker({}),
+    ...(options?.signal ? { signal: options.signal } : {}),
+  });
+}
+
+export function compileRetainedSourceAnnotationAliasesInDedicatedWorkerV1(
+  job: ExpandedAnnotationSceneWorkerJob,
+  expectedPayloadSha256: string,
+  options?: { signal?: AbortSignal }
+) {
+  return runRetainedSourceAnnotationAliasesWorkerV1(job, expectedPayloadSha256, {
+    createWorker: createJobProcess,
     ...(options?.signal ? { signal: options.signal } : {}),
   });
 }

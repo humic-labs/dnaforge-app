@@ -213,7 +213,14 @@ export function usePresentationOverlay(capture: Exclude<PresentationCapture, 'no
   const visible = useSyncExternalStore(parent.owner.subscribe, () =>
     parent.owner.allows(id, 'presentation')
   );
-  return { ...scope, scope, bindRef, visible, setReturnFocus: binding.setReturnFocus };
+  return {
+    ...scope,
+    scope,
+    bindRef,
+    visible,
+    setReturnFocus: binding.setReturnFocus,
+    setReturnFocusPolicy: binding.setReturnFocusPolicy,
+  };
 }
 
 export function usePresentationListener(scope?: PresentationScope) {

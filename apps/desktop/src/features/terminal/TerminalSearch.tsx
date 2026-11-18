@@ -130,6 +130,7 @@ export function TerminalSearch({
         }}
       />
       <button
+        className="wp-interactive"
         aria-label="Match case"
         aria-pressed={caseSensitive}
         onClick={() => setCaseSensitive((value) => !value)}
@@ -137,6 +138,7 @@ export function TerminalSearch({
         Aa
       </button>
       <button
+        className="wp-interactive"
         aria-label="Match whole word"
         aria-pressed={wholeWord}
         onClick={() => setWholeWord((value) => !value)}
@@ -144,6 +146,7 @@ export function TerminalSearch({
         Word
       </button>
       <button
+        className="wp-interactive"
         aria-label="Use regular expression"
         aria-pressed={regex}
         onClick={() => setRegex((value) => !value)}
@@ -164,6 +167,7 @@ export function TerminalSearch({
                 })}
       </span>
       <button
+        className="wp-interactive"
         aria-label="Previous terminal match"
         disabled={!query || Boolean(error)}
         onClick={() => find(true)}
@@ -171,13 +175,14 @@ export function TerminalSearch({
         ↑
       </button>
       <button
+        className="wp-interactive"
         aria-label="Next terminal match"
         disabled={!query || Boolean(error)}
         onClick={() => find()}
       >
         ↓
       </button>
-      <button aria-label="Close terminal search" onClick={close}>
+      <button className="wp-interactive" aria-label="Close terminal search" onClick={close}>
         ×
       </button>
     </div>

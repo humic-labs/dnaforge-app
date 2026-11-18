@@ -405,7 +405,7 @@ export function ExportSection({ design, primers, projectRoot }: ExportSectionPro
                   {primerRows.map((row, idx) => (
                     <tr
                       key={idx}
-                      className="hover:bg-bg-subtle/50"
+                      className="wp-interactive"
                       data-testid={assemblyPrimerRowTestId(tablePrimers[idx])}
                     >
                       <td className="px-2 py-1.5 font-medium whitespace-nowrap">{row.name}</td>

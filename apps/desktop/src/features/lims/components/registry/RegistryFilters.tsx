@@ -60,7 +60,7 @@ export function RegistryFilterChoices({ facet }: { facet: RegistryFilterFacet })
           <button
             type="button"
             onClick={() => facet.onChange([])}
-            className="mb-1 flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs text-fg-muted hover:bg-bg-muted hover:text-fg"
+            className="mb-1 flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs text-fg-muted wp-interactive "
           >
             <span>Any {facet.label.toLocaleLowerCase()}</span>
             {facet.selected.length === 0 ? <span aria-hidden>✓</span> : null}
@@ -69,7 +69,7 @@ export function RegistryFilterChoices({ facet }: { facet: RegistryFilterFacet })
         {options.map((option) => (
           <label
             key={option.value}
-            className={`flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs hover:bg-bg-muted ${facet.selected.includes(option.value) ? 'bg-accent/5 text-fg' : 'text-fg-muted'}`}
+            className={`flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs wp-interactive ${facet.selected.includes(option.value) ? 'bg-accent/5 text-fg' : 'text-fg-muted'}`}
           >
             <input
               type={facet.single ? 'radio' : 'checkbox'}
@@ -251,7 +251,7 @@ export function RegistryFilters({
             type="button"
             onClick={chip.edit}
             title={chip.label}
-            className="min-w-0 truncate px-2 py-1.5 text-left hover:text-fg"
+            className="min-w-0 truncate px-2 py-1.5 text-left wp-interactive"
           >
             {chip.label}
           </button>
@@ -260,7 +260,7 @@ export function RegistryFilters({
               type="button"
               aria-label={`Remove ${chip.label}`}
               onClick={chip.remove}
-              className="shrink-0 rounded-r-md py-1.5 pl-0.5 pr-2 hover:bg-bg-muted hover:text-fg"
+              className="shrink-0 rounded-r-md py-1.5 pl-0.5 pr-2 wp-interactive "
             >
               ×
             </button>
@@ -273,7 +273,7 @@ export function RegistryFilters({
           aria-label="Clear filters"
           data-testid="lims-registry-clear-filters"
           onClick={onClearAll}
-          className="px-1 py-1 text-[11px] text-fg-subtle hover:text-fg"
+          className="px-1 py-1 text-[11px] text-fg-subtle wp-interactive"
         >
           Clear all
         </button>
@@ -289,7 +289,7 @@ export function RegistryFilters({
         surfaceVariant="settings"
         preferredSide="bottom"
         horizontalAlign="start"
-        className="w-[29rem]"
+        layout={{ width: '29rem' }}
       >
         <div
           onKeyDown={(event) => {
@@ -306,7 +306,7 @@ export function RegistryFilters({
               type="button"
               aria-label="Close filters"
               onClick={close}
-              className="rounded px-2 py-1 text-fg-subtle hover:bg-bg-muted hover:text-fg"
+              className="rounded px-2 py-1 text-fg-subtle wp-interactive "
             >
               ×
             </button>
@@ -331,7 +331,7 @@ export function RegistryFilters({
                   aria-label={category.label}
                   aria-pressed={activeKey === category.key}
                   onClick={() => setActiveKey(category.key)}
-                  className={`flex w-full items-center justify-between gap-1 rounded-md px-2 py-2 text-left text-xs ${activeKey === category.key ? 'bg-accent/10 font-medium text-accent' : 'text-fg-muted hover:bg-bg-muted hover:text-fg'}`}
+                  className={`flex w-full items-center justify-between gap-1 rounded-md px-2 py-2 text-left text-xs ${activeKey === category.key ? 'bg-accent/10 font-medium text-accent' : 'text-fg-muted wp-interactive '}`}
                 >
                   {category.label}
                   {category.count ? <span className="text-[10px]">{category.count}</span> : null}
@@ -403,7 +403,7 @@ export function RegistryFilters({
               type="button"
               disabled={count === 0}
               onClick={onClearAll}
-              className="text-xs text-fg-muted hover:text-fg disabled:opacity-40"
+              className="text-xs text-fg-muted wp-interactive disabled:opacity-40"
             >
               Clear all
             </button>
