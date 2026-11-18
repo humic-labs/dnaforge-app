@@ -557,6 +557,7 @@ interface ContainerState {
   rowsMeshCollapsedPileupField: CollapsedPileupField | null;
   rowsMeshBuildJob: ReadRowsMeshBuildJob | null;
   rowsAssignmentBuildJob: ReadRowsAssignmentBuildJob | null;
+  rowsAssignmentIdleHandle: number | null;
   rowsAssignmentBuildChunkCount: number;
   rowsAssignmentBuildRecordsLastFrame: number;
   rowsRetainBuildJob: ReadRowsRetainBuildJob | null;
@@ -1913,6 +1914,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       rowsMeshCollapsedPileupField: null,
       rowsMeshBuildJob: null,
       rowsAssignmentBuildJob: null,
+      rowsAssignmentIdleHandle: null,
       rowsAssignmentBuildChunkCount: 0,
       rowsAssignmentBuildRecordsLastFrame: 0,
       rowsRetainBuildJob: null,
@@ -2086,6 +2088,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
   paint(args: TrackPaintArgs<PileupTrackData>): void {
     const state = this.containerState.get(args.container);
     if (!state) return;
+    this.cancelIdleReadAssignment(state);
     const paintStartedAt = nowMs();
     const data = args.data;
     this.lastRowsAssignmentBuildRecordsThisFrame = 0;
@@ -2990,6 +2993,20 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       this.rowsAssignmentBuildChunkCount += 1;
       state.rowsAssignmentBuildChunkCount += 1;
     }
+    if (
+      assignmentJob &&
+      !assignmentJob.job.complete &&
+      tileEngineAuthority &&
+      urgentReadRowsWork &&
+      state.incomingReadInput?.records === assignmentJob.records &&
+      this.incomingReadBandCoversViewport(state)
+    ) {
+      this.scheduleIdleReadAssignment(
+        state,
+        assignmentJob,
+        this.readRowsUrgentAssignRecordsPerFrame - work.assignRecordsProcessed
+      );
+    }
     if (assignmentJob?.job.complete) {
       if (assignmentJob.assignment === null) {
         const finishStartedAt = nowMs();
@@ -3043,6 +3060,37 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
       return;
     }
     this.finishExactReadDerivedAssignment(state, records, input, rowBudget, work);
+  }
+
+  private scheduleIdleReadAssignment(
+    state: ContainerState,
+    assignment: ReadRowsAssignmentBuildJob,
+    remainingRecords: number
+  ): void {
+    if (remainingRecords <= 0 || typeof globalThis.requestIdleCallback !== 'function') return;
+    const handle = globalThis.requestIdleCallback((deadline) => {
+      if (state.rowsAssignmentIdleHandle !== handle) return;
+      state.rowsAssignmentIdleHandle = null;
+      if (state.rowsAssignmentBuildJob !== assignment) return;
+      const availableMs = Math.min(deadline.timeRemaining(), this.readRowsUrgentAssignWorkBudgetMs);
+      if (availableMs <= 0) return;
+      const processed = assignment.layout.advanceAssignmentWithinBudget(
+        assignment.job,
+        remainingRecords,
+        availableMs
+      );
+      if (processed > 0) {
+        this.rowsAssignmentBuildChunkCount++;
+        state.rowsAssignmentBuildChunkCount++;
+      }
+    });
+    state.rowsAssignmentIdleHandle = handle;
+  }
+
+  private cancelIdleReadAssignment(state: ContainerState): void {
+    if (state.rowsAssignmentIdleHandle === null) return;
+    globalThis.cancelIdleCallback?.(state.rowsAssignmentIdleHandle);
+    state.rowsAssignmentIdleHandle = null;
   }
 
   private finishExactReadDerivedAssignment(
@@ -4305,6 +4353,7 @@ export class PixiPileupTrackRenderer implements PixiLinearTrackRenderer<PileupTr
   unmount(container: Container): void {
     const state = this.containerState.get(container);
     if (state) {
+      this.cancelIdleReadAssignment(state);
       this.disposeBar(state, 'rows');
       this.disposeDensityRows(state);
       this.disposeOverflowRows(state);
