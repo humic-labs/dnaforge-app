@@ -715,6 +715,7 @@ export const USER_MESSAGES = {
   'import.label.non-dna-content': 'Not a DNA sequence',
   'import.label.lossless-conversion-blocked': 'Conversion would discard data',
   'import.label.source-too-large': 'File exceeds the import limit',
+  'import.label.automatic-split-required': 'Review before splitting',
   'import.label.record-name-conflict': 'Duplicate record names',
   'import.label.multipleRecords': 'Multiple sequences — use DNA import',
   'import.nothing': 'Nothing to import',
@@ -733,6 +734,8 @@ export const USER_MESSAGES = {
   'import.notDna': 'This source contains protein or RNA rather than DNA.',
   'import.losslessBlocked': 'This file cannot be converted without losing sequence data.',
   'import.tooLarge': 'This file exceeds the import limit. Export smaller sequence files.',
+  'import.automaticSplitRequired':
+    'Review this file before splitting its records into separate sequences.',
   'import.recordNames': 'The records have duplicate names. Give each record a distinct name.',
   'importResult.nothingImported': "Couldn't import these files",
   'import.multipleRecords':
@@ -2311,6 +2314,7 @@ export const USER_MESSAGES = {
 export type UserMessageKey = keyof typeof USER_MESSAGES;
 
 export const USER_MESSAGE_TEMPLATES = {
+  'project.entityMigrationSummary': '{count} project files need attention. {target}: {detail}',
   'alignment.selectMutationFrom': 'Select a mutation from {clone}.',
   'alignment.waitingForAlignment': 'Waiting for the alignment of {clone}.',
   'alignment.multiReadInput':

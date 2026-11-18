@@ -112,7 +112,8 @@ declare global {
   interface Window {
     electronAPI: PlatformBridge & {
       notebook: ClientOf<typeof notebookContract>;
-      workspace: ClientOf<typeof workspaceNativeDocumentsContract>;
+      workspace: ClientOf<typeof workspaceNativeDocumentsContract> &
+        ClientOf<typeof workspaceContract>;
       hostedAi: HostedAiBridge;
       fs: ClientOf<typeof fsContract> & ClientOf<typeof fsInlineReferenceTargetContract>;
     };

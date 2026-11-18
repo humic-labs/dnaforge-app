@@ -64,6 +64,7 @@ import type { FileAssociationFamilyId } from '../../shared/file-associations';
 import { findEnclosingSequencePackageRoot } from '../../db/sequence-package-io';
 import { resolveSequencePackageProductPath } from './sequence-package-product';
 import { isSequencePackageFileKind } from '../../db/sequence-package';
+import { MANAGED_DNA_FILE_EXTENSIONS } from '@waypoint/sequence-utils/sequence-file-types';
 
 export interface QuickLookSequencePresentation {
   readonly kind: 'quick-look';
@@ -221,7 +222,99 @@ async function openSequenceFileWithTelemetry(
       );
     }
   }
+  if (
+    !isHostedBrowserRuntime() &&
+    !opts.readOnly &&
+    !opts.presentation &&
+    !isDeveloperImportSourcePath(opts.filePath) &&
+    MANAGED_DNA_FILE_EXTENSIONS.includes(extensionForPath(opts.filePath))
+  ) {
+    const folders = mergeProjectEditFolders(
+      await listProjectEditFolders({ includeSharedAccess: false }),
+      useWorkspaceStore.getState().folders
+    );
+    const root = findWorkspaceRootForPath(folders, opts.filePath);
+    if (
+      root &&
+      !projectPathIsReadOnly(opts.filePath, folders) &&
+      typeof fs.exists === 'function' &&
+      (await fs.exists(opts.filePath))
+    ) {
+      try {
+        const packageRoot = await automaticallyPackageSequence(root, opts.filePath);
+        if (opts.signal?.aborted) return cancelledDocumentOpen();
+        if (packageRoot) {
+          const managed = await managedSequenceRepository.openPackage(packageRoot);
+          return openResolvedSequenceFile(
+            { ...opts, filePath: managed.productPath, label: managed.document.name || opts.label },
+            managed.ref,
+            requestedTelemetry
+          );
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const { reportEntityMigrationIssues } =
+          await import('../../services/workspace-reconcile-report');
+        reportEntityMigrationIssues(root, {
+          migrationIssues: [{ path: opts.filePath, reason: message, kind: 'failed' }],
+        });
+        if (!/DIRTY_(FILE_DRAFT|NOTEBOOK|SEQUENCE)/u.test(message))
+          return { status: 'failed', message };
+        const existingEntity = await getCatalogEntityForFilePath(opts.filePath);
+        if (!existingEntity || !useCanvasStore.getState().findTab('sequence', existingEntity.id))
+          opts = { ...opts, readOnly: true };
+      }
+    }
+  }
   return openResolvedSequenceFile(opts, undefined, requestedTelemetry);
+}
+
+const automaticPackageOpens = new Map<string, Promise<string | null>>();
+
+async function automaticallyPackageSequence(
+  workspaceRoot: string,
+  sourcePath: string
+): Promise<string | null> {
+  const existing = automaticPackageOpens.get(sourcePath);
+  if (existing) return existing;
+  const operation = (async () => {
+    const owner = platform().looseSequenceFiles;
+    if (!owner) return null;
+    const inspection = await owner.inspect({ workspaceRoot, sourcePath });
+    if (inspection?.state !== 'convertible') return null;
+    const conversion = await owner.convert({ workspaceRoot, sourcePath, automatic: true });
+    if (!conversion.converted || conversion.packageRoots.length === 0) {
+      if (conversion.reason) {
+        const { reportEntityMigrationIssues } =
+          await import('../../services/workspace-reconcile-report');
+        reportEntityMigrationIssues(workspaceRoot, {
+          migrationIssues: [{ path: sourcePath, reason: conversion.reason, kind: 'refused' }],
+        });
+      }
+      if (conversion.disposition !== 'source-only' && conversion.disposition !== 'owned')
+        throw new Error(
+          conversion.reason ??
+            'The sequence could not be converted. Its original file was preserved.'
+        );
+      return null;
+    }
+    const { reconcileWorkspaceAfterFilesChanged } =
+      await import('../../services/workspace-operations');
+    await reconcileWorkspaceAfterFilesChanged({
+      workspaceRoot,
+      revealPath: conversion.packageRoots[0],
+      strict: true,
+      healManagedHead: false,
+    });
+    return conversion.packageRoots[0];
+  })();
+  automaticPackageOpens.set(sourcePath, operation);
+  try {
+    return await operation;
+  } finally {
+    if (automaticPackageOpens.get(sourcePath) === operation)
+      automaticPackageOpens.delete(sourcePath);
+  }
 }
 
 export async function openManagedSequenceDocumentResult(

@@ -25,6 +25,11 @@ const {
   mockReadNamespace,
   mockPrepareQuickLookPackage,
   mockCurrentSequenceFile,
+  mockExists,
+  mockInspectLoose,
+  mockConvertLoose,
+  mockOpenPackage,
+  mockReconcileAfterFilesChanged,
 } = vi.hoisted(() => ({
   mockStat: vi.fn(),
   mockReveal: vi.fn(),
@@ -43,6 +48,11 @@ const {
   mockReadNamespace: vi.fn(),
   mockPrepareQuickLookPackage: vi.fn(),
   mockCurrentSequenceFile: vi.fn(),
+  mockExists: vi.fn(),
+  mockInspectLoose: vi.fn(),
+  mockConvertLoose: vi.fn(),
+  mockOpenPackage: vi.fn(),
+  mockReconcileAfterFilesChanged: vi.fn(),
 }));
 
 vi.mock('../workspace-loader/project-edit-folders', async (importOriginal) => ({
@@ -57,9 +67,9 @@ vi.mock('../../platform', () => ({
       canonicalPath: mockCanonicalPath,
       beginWorkspaceMutation: mockBeginWorkspaceMutation,
       endWorkspaceMutation: mockEndWorkspaceMutation,
-      ...(sourceFs.supportsPackages
-        ? { exists: async (path: string) => sourceFs.files.has(path) || sourceFs.dirs.has(path) }
-        : {}),
+      exists: sourceFs.supportsPackages
+        ? async (path: string) => sourceFs.files.has(path) || sourceFs.dirs.has(path)
+        : mockExists,
       readTextFile: async (path: string) => {
         const value = sourceFs.files.get(path);
         if (value === undefined) throw new Error(`ENOENT: ${path}`);
@@ -77,9 +87,30 @@ vi.mock('../../platform', () => ({
         sourceFs.files.set(path, content);
       },
     },
+    looseSequenceFiles: { inspect: mockInspectLoose, convert: mockConvertLoose },
     shell: { revealItemInDir: mockReveal },
     fileAssociations: { prepareQuickLookPackage: mockPrepareQuickLookPackage },
   }),
+}));
+
+vi.mock('./managed-sequence-repository', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./managed-sequence-repository')>();
+  return {
+    ...actual,
+    managedSequenceRepository: {
+      ...actual.managedSequenceRepository,
+      findByMemberPath: (
+        ...args: Parameters<typeof actual.managedSequenceRepository.findByMemberPath>
+      ) =>
+        sourceFs.supportsPackages
+          ? actual.managedSequenceRepository.findByMemberPath(...args)
+          : Promise.resolve(null),
+    },
+  };
+});
+
+vi.mock('../../services/workspace-operations', () => ({
+  reconcileWorkspaceAfterFilesChanged: mockReconcileAfterFilesChanged,
 }));
 
 vi.mock('../../shared/developer-import-sources', async (importOriginal) => {
@@ -170,6 +201,11 @@ describe('openSequenceFile  Layer A)', () => {
     __resetFileOpenTelemetryForTests();
     mockStat.mockReset();
     mockCanonicalPath.mockReset().mockImplementation(async (path: string) => path);
+    mockExists.mockReset().mockResolvedValue(false);
+    mockInspectLoose.mockReset().mockResolvedValue({ state: 'not-sequence', reason: null });
+    mockConvertLoose.mockReset();
+    mockOpenPackage.mockReset();
+    mockReconcileAfterFilesChanged.mockReset().mockResolvedValue(undefined);
     mockReveal.mockReset();
     mockRegisterWorkspaceFile.mockReset();
     mockTrackRendererEvent.mockReset();
@@ -379,6 +415,122 @@ describe('openSequenceFile  Layer A)', () => {
       reopened.find((tab) => tab.entityId === previews[1].entityId)?.sequenceDocument
     ).toMatchObject({ kind: 'import-source-sequence', sourcePath: secondPath });
     expect([...sourceFs.files]).toEqual(before);
+  });
+
+  it('automatically packages a convertible writable project source before presenting its sequence', async () => {
+    const root = '/projects/migration';
+    const source = `${root}/incoming.gb`;
+    const packageRoot = `${root}/incoming`;
+    const ref = { kind: 'managed-sequence', packageId: 'existing-sequence-id', packageRoot };
+    setMockSize(100);
+    mockExists.mockImplementation(async (path: string) => path === `${root}/incoming.gb`);
+    mockListProjectFolders.mockResolvedValue([
+      { path: root, name: 'Migration', pinned: false, lifecycle: 'active' },
+    ]);
+    useWorkspaceStore.setState({ folders: [{ path: root, name: 'Migration', addedAt: 1 }] });
+    mockInspectLoose.mockResolvedValue({ state: 'convertible', reason: null });
+    mockConvertLoose.mockResolvedValue({
+      converted: true,
+      packageRoots: [packageRoot],
+      reason: null,
+    });
+    vi.spyOn(managedSequenceRepository, 'openPackage').mockImplementationOnce(mockOpenPackage);
+    mockOpenPackage.mockResolvedValue({
+      ref,
+      productPath: `${packageRoot}/incoming.gb`,
+      document: { id: ref.packageId, name: 'Incoming' },
+    });
+
+    const opened = await openSequenceFileResult({ filePath: source, label: 'Incoming' });
+
+    expect(mockInspectLoose).toHaveBeenCalledWith({ workspaceRoot: root, sourcePath: source });
+    expect(mockConvertLoose).toHaveBeenCalledWith({
+      workspaceRoot: root,
+      sourcePath: source,
+      automatic: true,
+    });
+    expect(opened.status, JSON.stringify(opened)).toBe('presented');
+    expect(mockReconcileAfterFilesChanged).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceRoot: root, strict: true, healManagedHead: false })
+    );
+    expect(mockReconcileAfterFilesChanged.mock.invocationCallOrder[0]).toBeLessThan(
+      mockOpenPackage.mock.invocationCallOrder[0]
+    );
+    const tabs = Object.values(useCanvasStore.getState().panels).flatMap((panel) => panel.tabs);
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0].sequenceDocument).toEqual(ref);
+    expect(tabs[0].entityId).toBe(ref.packageId);
+    expect(mockRegisterWorkspaceFile).not.toHaveBeenCalledWith(
+      expect.objectContaining({ path: source })
+    );
+  });
+
+  it('does not present an editable loose source after an automatic conversion is blocked', async () => {
+    const root = '/projects/migration';
+    const source = `${root}/incoming.gb`;
+    setMockSize(100);
+    mockExists.mockImplementation(async (path: string) => path === `${root}/incoming.gb`);
+    mockListProjectFolders.mockResolvedValue([
+      { path: root, name: 'Migration', pinned: false, lifecycle: 'active' },
+    ]);
+    useWorkspaceStore.setState({ folders: [{ path: root, name: 'Migration', addedAt: 1 }] });
+    mockInspectLoose.mockResolvedValue({ state: 'convertible', reason: null });
+    mockConvertLoose.mockResolvedValue({
+      converted: false,
+      packageRoots: [],
+      reason: 'The source changed during conversion.',
+    });
+
+    await expect(openSequenceFileResult({ filePath: source, label: 'Incoming' })).resolves.toMatchObject({
+      status: 'failed',
+      message: expect.stringContaining('source changed'),
+    });
+    expect(mockRegisterWorkspaceFile).not.toHaveBeenCalled();
+    expect(totalTabCount()).toBe(0);
+  });
+
+  it('preserves access to a draft-protected loose source without granting new editing authority', async () => {
+    const root = '/projects/migration';
+    const source = `${root}/incoming.gb`;
+    setMockSize(100);
+    mockExists.mockImplementation(async (path: string) => path === `${root}/incoming.gb`);
+    mockListProjectFolders.mockResolvedValue([
+      { path: root, name: 'Migration', pinned: false, lifecycle: 'active' },
+    ]);
+    useWorkspaceStore.setState({ folders: [{ path: root, name: 'Migration', addedAt: 1 }] });
+    mockInspectLoose.mockResolvedValue({ state: 'convertible', reason: null });
+    mockConvertLoose.mockRejectedValue(new Error('DIRTY_SEQUENCE_DRAFT: A retained draft protects this source.'));
+
+    const opened = await openSequenceFileResult({ filePath: source, label: 'Incoming' });
+
+    expect(opened.status).toBe('presented');
+    const tabs = Object.values(useCanvasStore.getState().panels).flatMap((panel) => panel.tabs);
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0].readOnly).toBe(true);
+  });
+
+  it('keeps an explicitly read-only project source out of automatic conversion', async () => {
+    const root = '/projects/migration';
+    setMockSize(100);
+    mockExists.mockImplementation(async (path: string) => path === `${root}/incoming.gb`);
+    mockListProjectFolders.mockResolvedValue([
+      { path: root, name: 'Migration', pinned: true, lifecycle: 'active' },
+    ]);
+    useWorkspaceStore.setState({
+      folders: [{ path: root, name: 'Migration', addedAt: 1, pinned: true }],
+    });
+    mockInspectLoose.mockResolvedValue({ state: 'convertible', reason: null });
+
+    const opened = await openSequenceFileResult({
+      filePath: `${root}/incoming.gb`,
+      label: 'Incoming',
+      readOnly: true,
+    });
+
+    expect(opened.status).toBe('presented');
+    expect(mockConvertLoose).not.toHaveBeenCalled();
+    const tabs = Object.values(useCanvasStore.getState().panels).flatMap((panel) => panel.tabs);
+    expect(tabs[0].readOnly).toBe(true);
   });
 
   afterEach(() => {

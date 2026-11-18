@@ -1,4 +1,10 @@
-import { userMessage, toUserMessage, type UserMessage } from '@waypoint/user-messages';
+import {
+  userMessage,
+  userMessageWithValues,
+  userMessageValue,
+  toUserMessage,
+  type UserMessage,
+} from '@waypoint/user-messages';
 import {
   DESKTOP_ANALYTICS_OPT_IN_MESSAGE,
   DESKTOP_ANALYTICS_TOAST_MESSAGE,
@@ -373,6 +379,17 @@ export const TOAST_DEFINITIONS = {
     message: userMessage(
       'notice.primer-file-example-primer-json-could-not-be-added-to-your-primer-regi'
     ),
+  }),
+  'entity-migration-needs-attention': defineToast({
+    category: 'workspace reconcile report',
+    source: 'services/workspace-reconcile-report.ts',
+    type: 'warning',
+    message: userMessageWithValues('project.entityMigrationSummary', {
+      count: userMessageValue(1),
+      target: userMessageValue('sequence.fa'),
+      detail: userMessageValue('The sequence could not be converted.'),
+    }),
+    timing: 'persistent',
   }),
   'primer-library-file-recovery': defineToast({
     category: 'workspace reconcile report',
