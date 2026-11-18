@@ -72,10 +72,10 @@ describe('notebook overlay surfaces', () => {
     );
   });
 
-  it('the actual empty mention menu has a compiled theme background', async () => {
-    const { container } = render(<MentionMenu items={[]} query="" command={vi.fn()} />);
-    expect(await backgroundDeclarations(container.firstElementChild as HTMLElement)).toContain(
-      'hsl(var(--color-bg) / var(--tw-bg-opacity, 1))'
+  it('paints the empty mention menu with the opaque Files panel surface', async () => {
+    render(<MentionMenu items={[]} query="" command={vi.fn()} />);
+    expect(await backgroundDeclarations(screen.getByTestId('mention-menu'))).toContain(
+      'hsl(var(--color-bg-subtle) / var(--tw-bg-opacity, 1))'
     );
   });
 });
