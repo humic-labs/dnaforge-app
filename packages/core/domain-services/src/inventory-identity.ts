@@ -19,6 +19,8 @@ const recordMaps = [
   'arrivalAllocations',
   'reorderRules',
   'scientificWorks',
+  'scientificCitations',
+  'scientificCitationWithdrawals',
 ] as const;
 
 export type InventoryIdentityState = Pick<InventoryState, (typeof recordMaps)[number]>;

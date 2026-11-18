@@ -1,3 +1,8 @@
+import type {
+  InventoryScientificCitation,
+  InventoryScientificCitationWithdrawal,
+} from './inventory-scientific-citation-types';
+export type * from './inventory-scientific-citation-types';
 import type { InventoryScientificWork } from './inventory-scientific-types';
 export type * from './inventory-scientific-types';
 import type {
@@ -78,7 +83,8 @@ export type {
   InventoryRational,
 } from './inventory-concentration';
 
-export const INVENTORY_SCHEMA = 'dnaforge.inventory.v24' as const;
+export const INVENTORY_SCHEMA = 'dnaforge.inventory.v25' as const;
+export const INVENTORY_RUN_CONTEXT_SCHEMA = 'dnaforge.inventory.v24' as const;
 export const INVENTORY_NOTEBOOK_CONTEXT_SCHEMA = 'dnaforge.inventory.v23' as const;
 export const INVENTORY_STOCKROOM_SCHEMA = 'dnaforge.inventory.v22' as const;
 export const INVENTORY_ARRIVAL_SCHEMA = 'dnaforge.inventory.v21' as const;
@@ -318,6 +324,10 @@ export interface InventoryStock {
 }
 
 export interface InventoryState {
+  readonly scientificCitations: Readonly<Record<string, InventoryScientificCitation>>;
+  readonly scientificCitationWithdrawals: Readonly<
+    Record<string, InventoryScientificCitationWithdrawal>
+  >;
   readonly scientificWorks: Readonly<Record<string, InventoryScientificWork>>;
   readonly expectedDeliveries: Readonly<Record<string, InventoryExpectedDelivery>>;
   readonly arrivalAllocations: Readonly<Record<string, InventoryArrivalAllocation>>;
@@ -882,6 +892,10 @@ export type InventoryErrorCode =
   | 'ARRIVAL_ALLOCATION_NOT_ACTIVE'
   | 'REORDER_RULE_NOT_FOUND'
   | 'REORDER_RULE_NOT_ACTIVE'
+  | 'SCIENTIFIC_CITATION_CONFLICT'
+  | 'SCIENTIFIC_CITATION_WITHDRAWAL_CONFLICT'
+  | 'SCIENTIFIC_CITATION_TARGET_MISMATCH'
+  | 'SCIENTIFIC_CITATION_PREDECESSOR_MISMATCH'
   | 'SCIENTIFIC_WORK_CONFLICT'
   | 'SCIENTIFIC_CONTEXT_MISMATCH';
 
@@ -896,6 +910,11 @@ export type InventoryTransition =
 export function createInventoryState(): InventoryState {
   return {
     schema: INVENTORY_SCHEMA,
+    scientificCitations: Object.create(null) as Record<string, InventoryScientificCitation>,
+    scientificCitationWithdrawals: Object.create(null) as Record<
+      string,
+      InventoryScientificCitationWithdrawal
+    >,
     scientificWorks: Object.create(null) as Record<string, InventoryScientificWork>,
     expectedDeliveries: Object.create(null) as Record<string, InventoryExpectedDelivery>,
     arrivalAllocations: Object.create(null) as Record<string, InventoryArrivalAllocation>,

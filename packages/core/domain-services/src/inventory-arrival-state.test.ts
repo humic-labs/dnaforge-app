@@ -141,6 +141,8 @@ describe('immutable arrival state', () => {
     const { state } = received(),
       {
         scientificWorks: _scientificWorks,
+        scientificCitations: _scientificCitations,
+        scientificCitationWithdrawals: _scientificCitationWithdrawals,
         expectedDeliveries: _expected,
         arrivalAllocations: _allocations,
         reorderRules: _rules,
@@ -152,6 +154,8 @@ describe('immutable arrival state', () => {
     const parsed = parseInventoryState(previous),
       {
         scientificWorks,
+        scientificCitations,
+        scientificCitationWithdrawals,
         expectedDeliveries,
         arrivalAllocations,
         reorderRules,

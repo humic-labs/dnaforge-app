@@ -14,6 +14,8 @@ import {
   inventoryHierarchyPreview,
   inventorySourceRevisionPreview,
   inventoryTablePreview,
+  inventoryTableCanonicalJson,
+  inventoryTableSha256,
   createInventoryState,
   inventoryAvailability,
   inventoryResolveItemCode,
@@ -237,7 +239,7 @@ function fixture(empty = false) {
       revision: state.revision,
       actor: 'synthetic-actor',
       recordedAt: 1,
-      requestDigest: `sha256:${'0'.repeat(64)}`,
+      requestDigest: inventoryTableSha256(inventoryTableCanonicalJson(request)),
     };
     entries.push({ request: structuredClone(request), receipt });
     emit(state.revision, receipt.operationId);
@@ -875,8 +877,10 @@ describe('inventory interaction controller', () => {
       code: 'STOCK_QUARANTINED',
       message: 'Release this stock before use.',
     }));
+    const persist = vi.mocked(f.storage.write).getMockImplementation()!;
     vi.mocked(f.storage.write).mockImplementation((attempts) => {
       if (attempts.length === 0) throw new Error('Storage unavailable');
+      persist(attempts);
     });
     await f.controller.submit(useOne, 'Use stock');
     expect(f.controller.getSnapshot().status).toMatchObject({
@@ -890,6 +894,54 @@ describe('inventory interaction controller', () => {
     expect(f.state().revision).toBe(1);
     f.controller.dispose();
   });
+
+  it('keeps a rejection for another operation unknown without clearing the retained request', async () => {
+    const f = fixture();
+    await f.controller.initialize();
+    vi.mocked(f.client.execute).mockImplementationOnce(async (request) => ({
+      status: 'rejected',
+      inventoryId: request.inventoryId,
+      operationId: 'another-operation',
+      code: 'STOCK_QUARANTINED',
+      message: 'Another result',
+    }));
+    await f.controller.submit(useOne, 'Use stock');
+    expect(f.controller.getSnapshot().status.kind).toBe('outcome-unknown');
+    expect(f.saved()).toHaveLength(1);
+    expect(f.saved()[0]!.request.operationId).toBe('operation-1');
+    expect(f.client.operation).not.toHaveBeenCalled();
+    f.controller.dispose();
+  });
+
+  it.each(['digest', 'revision', 'operation'] as const)(
+    'keeps a malformed %s acknowledgement unknown and confirms only the exact retained request',
+    async (field) => {
+      const f = fixture();
+      await f.controller.initialize();
+      vi.mocked(f.client.execute).mockImplementationOnce(async (request) => {
+        const receipt = await f.commit(request);
+        return {
+          ...receipt,
+          ...(field === 'digest'
+            ? { requestDigest: `sha256:${'f'.repeat(64)}` }
+            : field === 'revision'
+              ? { revision: request.expectedRevision }
+              : { operationId: 'another-operation' }),
+        };
+      });
+      await f.controller.submit(useOne, 'Use stock');
+      expect(f.controller.getSnapshot().status.kind).toBe('outcome-unknown');
+      expect(f.saved()).toHaveLength(1);
+      const requestJson = JSON.stringify(f.saved()[0]!.request);
+      expect(f.saved()[0]!.receipt).toBeUndefined();
+      await f.controller.checkPending();
+      expect(f.controller.getSnapshot().status.kind).toBe('ready');
+      expect(f.saved()).toEqual([]);
+      expect(JSON.stringify(f.entries[0]!.request)).toBe(requestJson);
+      expect(f.client.execute).toHaveBeenCalledTimes(1);
+      f.controller.dispose();
+    }
+  );
 
   it('fences a pending operation from a newly selected project and retains its original scope', async () => {
     const f = fixture();

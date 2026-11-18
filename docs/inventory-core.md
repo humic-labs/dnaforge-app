@@ -28,7 +28,7 @@ push and pop commands enforce capacity and removal from the top.
 `removal: 'top-only'` governs retrieval order; recording quantity does not prove
 physical access to a buried plate.
 
-Canonical state is v24. v1/v2/v3 composition facts upcast to explicit unknown
+Canonical state is v25. v1/v2/v3 composition facts upcast to explicit unknown
 values. v1–v4 snapshots gain an empty reservation map and recorded clock floor
 without a revision change. Reading v1 upcasts named layouts and movable vessels;
 v1/v2 stocks receive distinct unattributed roots and unknown container limits.
@@ -600,6 +600,62 @@ through the existing retained-source reader; current Run navigation resolves its
 canonical identity independently. This read path does not write stock, Run
 files, inventory revisions or receipts. It does not reinterpret the observation
 as a declared Run input, produced material or scientific success.
+
+## Saved citations and correction history
+
+An additional citation links existing physical work to one exact saved Notebook
+page or Protocol Run. It records supporting context separately from the original
+primary context. Adding, withdrawing or adding a citation again changes metadata
+and history. It does not transfer stock, rewrite the original work or save the
+source document.
+
+Canonical v25 adds immutable `scientificCitations` and
+`scientificCitationWithdrawals` maps. Earlier snapshots gain empty maps in
+memory without a write. Earlier raw schemas cannot supply these maps. A
+withdrawal identifies the exact assertion and work intent, retains its own
+reason and native attribution, and leaves the original assertion and source
+readable.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Active: admit exact saved source and save
+    Active --> Withdrawn: append withdrawal with reason
+    Withdrawn --> Withdrawn: retry original identity or equivalent base
+    Withdrawn --> SuccessorDraft: explicitly add citation again
+    SuccessorDraft --> ActiveSuccessor: new identity and exact predecessor pins
+    ActiveSuccessor --> WithdrawnSuccessor: append its own withdrawal
+```
+
+Each successor pins the predecessor citation, withdrawal and both intent hashes.
+There is one base assertion per work/source version and one successor per
+withdrawal. Generations cannot fork or cycle. Semantic duplicate lookup covers
+all history, including withdrawn generations. A duplicate preserves the original
+reason and attribution; it creates no alias, revision or receipt. An intentional
+successor still requires current saved-source admission at the original pin. A
+changed source version is a separate citation choice.
+
+`previewScientificCitation` and `applyScientificCitation` admit the saved source
+through its native owner. Callers provide exact choices and source pins, never
+source bodies or recorded actors. Withdrawal uses the separate preview/apply
+pair and requires no current source-file access. Receipt context version 8
+retains a source witness for citation creation or the existing scientific
+transfer requests. Withdrawal and unrelated requests omit it. Earlier receipt
+versions cannot adopt a v25 archive. Adoption preserves citation identities,
+intents, source provenance and imported attribution.
+
+`scientificCitations` reads bounded replacement pages for an exact work and
+intent. It includes active assertions and withdrawn history. Its cursor binds
+project, inventory, work and revision. `scientificCitationSource` lazily reads
+the original retained source, including after withdrawal or archive adoption.
+The existing `scientificWorksForContext` remains primary-context-only, and
+`scientificSource(workId)` continues to return the original primary source.
+
+The Run view keeps its citation dialog outside replaced work rows. The dialog
+and Inventory workspace share one pending-operation coordinator. It retains the
+exact request before sending, verifies receipt identity, revision and request
+digest, and preserves an unknown result for status inspection or exact retry.
+Refreshing a page or changing Runs cannot discard that durable attempt.
 
 ## Protocol and Run creation
 

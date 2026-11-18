@@ -14,6 +14,14 @@ import { notebookDocumentSchema } from '../shared/notebook-document';
 import type { NativeNotebookWorkingCopyOwner } from './notebook-document-owner';
 import type { NativeProtocolPackages } from './native-protocol-packages';
 import type { NativeProtocolClient } from '../shared/protocol-packages';
+import {
+  inventoryPreviewScientificCitationRequestSchema,
+  inventoryApplyScientificCitationRequestSchema,
+  inventoryPreviewScientificCitationWithdrawalRequestSchema,
+  inventoryApplyScientificCitationWithdrawalRequestSchema,
+  inventoryScientificCitationsRequestSchema,
+  inventoryScientificCitationSourceRequestSchema,
+} from '../shared/inventory-scientific-citations';
 import { inventoryScientificWorksForContextRequestSchema } from '../shared/inventory-scientific-read';
 import {
   protocolDocumentAgentRequestSchema,
@@ -103,6 +111,61 @@ const selection = target
   })
   .strict();
 const commandSchema = z.discriminatedUnion('command', [
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-scientific-citation'),
+      request: inventoryPreviewScientificCitationRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.apply-scientific-citation'),
+      request: inventoryApplyScientificCitationRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.preview-scientific-citation-withdrawal'),
+      request: inventoryPreviewScientificCitationWithdrawalRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.apply-scientific-citation-withdrawal'),
+      request: inventoryApplyScientificCitationWithdrawalRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.scientific-citations'),
+      request: inventoryScientificCitationsRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
+      command: z.literal('inventory.scientific-citation-source'),
+      request: inventoryScientificCitationSourceRequestSchema,
+      agent: agentAuthoritySchema.optional(),
+    })
+    .strict(),
+
   z
     .object({
       ownerInstanceId: identity,
@@ -583,6 +646,12 @@ export async function startNativeDocumentCommandServer(options: {
   inventory?: Pick<
     ReturnType<typeof createNativeInventoryOwner>,
     | 'execute'
+    | 'previewScientificCitation'
+    | 'applyScientificCitation'
+    | 'previewScientificCitationWithdrawal'
+    | 'applyScientificCitationWithdrawal'
+    | 'scientificCitations'
+    | 'scientificCitationSource'
     | 'scientificContexts'
     | 'scientificWorksForContext'
     | 'scientificContextsV2'
@@ -781,6 +850,12 @@ export async function startNativeDocumentCommandServer(options: {
           body.command === 'project-history.execute' ||
           body.command === 'import-review.execute' ||
           body.command === 'administration.execute' ||
+          body.command === 'inventory.preview-scientific-citation' ||
+          body.command === 'inventory.apply-scientific-citation' ||
+          body.command === 'inventory.preview-scientific-citation-withdrawal' ||
+          body.command === 'inventory.apply-scientific-citation-withdrawal' ||
+          body.command === 'inventory.scientific-citations' ||
+          body.command === 'inventory.scientific-citation-source' ||
           body.command === 'inventory.scientific-contexts' ||
           body.command === 'inventory.scientific-works-for-context' ||
           body.command === 'inventory.scientific-contexts-v2' ||
@@ -830,6 +905,8 @@ export async function startNativeDocumentCommandServer(options: {
               body.agent
             ) {
               const required =
+                body.command === 'inventory.apply-scientific-citation' ||
+                body.command === 'inventory.apply-scientific-citation-withdrawal' ||
                 body.command === 'inventory.apply-scientific-transfer' ||
                 body.command === 'inventory.apply-scientific-transfer-v2' ||
                 body.command === 'inventory.apply-arrival' ||
@@ -873,6 +950,71 @@ export async function startNativeDocumentCommandServer(options: {
           const run = (() => {
             if (options.inventory) {
               const receiver = options.inventory;
+              if (body.command === 'inventory.scientific-citations')
+                return () => ({
+                  kind: 'scientific-citations',
+                  result: receiver.scientificCitations(body.request),
+                });
+              if (body.command === 'inventory.scientific-citation-source')
+                return () => ({
+                  kind: 'scientific-citation-source',
+                  result: receiver.scientificCitationSource(body.request),
+                });
+              if (
+                body.command === 'inventory.preview-scientific-citation' ||
+                body.command === 'inventory.preview-scientific-citation-withdrawal'
+              ) {
+                const invocation = body.agent
+                  ? { principal: { kind: 'agent' as const, identityId: body.agent.identityId } }
+                  : undefined;
+                return async () => {
+                  const preview =
+                    body.command === 'inventory.preview-scientific-citation'
+                      ? await receiver.previewScientificCitation(body.request, invocation)
+                      : await receiver.previewScientificCitationWithdrawal(
+                          body.request,
+                          invocation
+                        );
+                  await authorizeInventoryRequest();
+                  assertCurrent();
+                  return {
+                    kind:
+                      body.command === 'inventory.preview-scientific-citation'
+                        ? 'scientific-citation-preview'
+                        : 'scientific-citation-withdrawal-preview',
+                    preview,
+                  };
+                };
+              }
+              if (
+                body.command === 'inventory.apply-scientific-citation' ||
+                body.command === 'inventory.apply-scientific-citation-withdrawal'
+              ) {
+                const invocation = {
+                  ...(body.agent
+                    ? {
+                        actor: `agent:${body.agent.identityId}`,
+                        principal: { kind: 'agent' as const, identityId: body.agent.identityId },
+                      }
+                    : {}),
+                  beforeScientificCommit: authorizeInventoryRequest,
+                };
+                return async () => ({
+                  kind: 'execution',
+                  execution:
+                    body.command === 'inventory.apply-scientific-citation'
+                      ? await receiver.applyScientificCitation(
+                          body.request,
+                          assertCurrent,
+                          invocation
+                        )
+                      : await receiver.applyScientificCitationWithdrawal(
+                          body.request,
+                          assertCurrent,
+                          invocation
+                        ),
+                });
+              }
               if (body.command === 'inventory.scientific-works-for-context')
                 return () => ({
                   kind: 'scientific-works-for-context',
@@ -1281,6 +1423,10 @@ export async function startNativeDocumentCommandServer(options: {
             body.command !== 'inventory.operation' &&
             body.command !== 'inventory.history';
           if (
+            body.command === 'inventory.preview-scientific-citation' ||
+            body.command === 'inventory.preview-scientific-citation-withdrawal' ||
+            body.command === 'inventory.scientific-citations' ||
+            body.command === 'inventory.scientific-citation-source' ||
             body.command === 'inventory.scientific-contexts' ||
             body.command === 'inventory.scientific-works-for-context' ||
             body.command === 'inventory.scientific-contexts-v2' ||

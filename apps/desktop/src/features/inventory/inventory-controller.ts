@@ -1,3 +1,13 @@
+import {
+  InventoryPendingCoordinator,
+  coordinatorForStorage,
+  executeInventoryAcceptedRequest,
+  assertInventoryReceiptForAttempt,
+  type InventoryAttempt,
+  type InventoryAttemptStorage,
+} from './inventory-pending-coordinator';
+export { inventoryAttemptStorage } from './inventory-pending-coordinator';
+export type { InventoryAttempt, InventoryAttemptStorage } from './inventory-pending-coordinator';
 import { InventoryScientificSession } from './inventory-scientific-session';
 import { InventoryArrivalSession } from './inventory-arrival-session';
 import {
@@ -21,7 +31,6 @@ import {
 } from '@waypoint/domain-services';
 import {
   inventoryExecuteRequestSchema,
-  inventoryAcceptedRequestSchema,
   inventoryApplyImportRequestSchema,
   inventoryApplyTableRequestSchema,
   inventoryApplyStocktakeRequestSchema,
@@ -32,7 +41,6 @@ import {
   inventoryApplyArrivalRequestSchema,
   inventoryApplyScientificTransferRequestSchema,
   inventoryApplyScientificTransferV2RequestSchema,
-  inventoryReceiptSchema,
   type InventoryAcceptedRequest,
   type NativeInventoryHistoryEntry,
   type NativeInventoryReceipt,
@@ -59,12 +67,6 @@ export interface InventoryData {
   availability: InventoryAvailabilitySnapshot | null;
   stockroom?: InventoryStockroomSnapshot | null;
   storageConditions: InventoryStorageConditionsSnapshot;
-}
-
-export interface InventoryAttempt {
-  request: InventoryAcceptedRequest;
-  summary: string;
-  receipt?: NativeInventoryReceipt;
 }
 
 export type InventoryControllerState =
@@ -129,41 +131,6 @@ export type InventoryCatalogState =
   | { kind: 'ready'; projectId: string; entries: readonly InventoryEquipmentCatalogEntry[] }
   | { kind: 'failed'; projectId: string; message: string };
 
-export interface InventoryAttemptStorage {
-  read(): readonly InventoryAttempt[];
-  write(attempts: readonly InventoryAttempt[]): void;
-}
-
-const STORAGE_KEY = 'dnaforge.inventory.pending.v1';
-
-export function inventoryAttemptStorage(
-  storage: Pick<Storage, 'getItem' | 'setItem'>
-): InventoryAttemptStorage {
-  return {
-    read() {
-      const raw = storage.getItem(STORAGE_KEY);
-      if (!raw) return [];
-      const value: unknown = JSON.parse(raw);
-      if (!Array.isArray(value)) throw new Error('Saved inventory changes could not be read.');
-      return value.map((entry: unknown) => {
-        if (
-          !entry ||
-          typeof entry !== 'object' ||
-          typeof Reflect.get(entry, 'summary') !== 'string'
-        )
-          throw new Error('Saved inventory changes could not be read.');
-        const receipt = Reflect.get(entry, 'receipt');
-        return {
-          request: inventoryAcceptedRequestSchema.parse(Reflect.get(entry, 'request')),
-          summary: Reflect.get(entry, 'summary') as string,
-          ...(receipt ? { receipt: inventoryReceiptSchema.parse(receipt) } : {}),
-        };
-      });
-    },
-    write: (attempts) => storage.setItem(STORAGE_KEY, JSON.stringify(attempts)),
-  };
-}
-
 function scopeKey(project: string, inventoryId: string): string {
   return JSON.stringify([project, inventoryId]);
 }
@@ -193,7 +160,7 @@ export class InventoryController {
     itemCodeLookup: { kind: 'idle' },
   };
   private readonly listeners = new Set<() => void>();
-  private readonly pending = new Map<string, InventoryAttempt>();
+  private readonly pending: InventoryPendingCoordinator;
   private readonly observedRevision = new Map<string, number>();
   private generation = 0;
   private projectsGeneration = 0;
@@ -211,9 +178,12 @@ export class InventoryController {
 
   constructor(
     private readonly client: InventoryClient,
-    private readonly storage: InventoryAttemptStorage,
+    storage: InventoryAttemptStorage | InventoryPendingCoordinator,
     private readonly operationId: () => string = () => crypto.randomUUID()
-  ) {}
+  ) {
+    this.pending =
+      storage instanceof InventoryPendingCoordinator ? storage : coordinatorForStorage(storage);
+  }
 
   getSnapshot = (): InventoryControllerSnapshot => this.snapshot;
 
@@ -307,13 +277,12 @@ export class InventoryController {
   }
 
   private save(attempt: InventoryAttempt, remove = false): void {
-    const next = new Map(this.pending);
-    const key = scopeKey(attempt.request.project, attempt.request.inventoryId);
-    if (remove) next.delete(key);
-    else next.set(key, attempt);
-    this.storage.write([...next.values()]);
-    this.pending.clear();
-    for (const [id, value] of next) this.pending.set(id, value);
+    const existing = this.pending.peek(attempt.request);
+    if (remove) {
+      if (existing) this.pending.clear(this.pending.retain(attempt));
+    } else if (attempt.receipt) {
+      if (existing) this.pending.confirm(this.pending.retain(attempt), attempt.receipt);
+    } else this.pending.retain(attempt);
   }
 
   open(): Promise<void> {
@@ -358,13 +327,7 @@ export class InventoryController {
     this.itemCodeGeneration += 1;
     try {
       this.unsubscribe?.();
-      this.pending.clear();
-      for (const attempt of this.storage.read()) {
-        const key = scopeKey(attempt.request.project, attempt.request.inventoryId);
-        if (this.pending.has(key))
-          throw new Error('More than one unfinished change was saved for this inventory.');
-        this.pending.set(key, attempt);
-      }
+      this.pending.refresh();
       const projects = await this.client.projects();
       if (generation !== this.generation) return;
       this.initialized = true;
@@ -507,7 +470,10 @@ export class InventoryController {
     try {
       const data = await this.read(project);
       if (generation !== this.generation) return;
-      const attempt = this.pending.get(scopeKey(project.projectId, project.defaultInventoryId));
+      const attempt = this.pending.peek({
+        project: project.projectId,
+        inventoryId: project.defaultInventoryId,
+      });
       if (attempt?.receipt) {
         this.set({
           kind: 'committed-refresh-failed',
@@ -685,8 +651,6 @@ export class InventoryController {
     const status = this.snapshot.status;
     const data = inventoryData(status);
     if (!data || !inventoryCanEdit(status)) return null;
-    const key = scopeKey(data.project.projectId, data.project.defaultInventoryId);
-    if (this.pending.has(key)) return null;
     let attempt: InventoryAttempt;
     try {
       attempt = {
@@ -938,12 +902,7 @@ export class InventoryController {
   ): Promise<NativeInventoryReceipt | null> {
     const status = this.snapshot.status;
     const data = inventoryData(status);
-    if (
-      !data ||
-      !inventoryCanEdit(status) ||
-      this.pending.has(scopeKey(data.project.projectId, data.project.defaultInventoryId))
-    )
-      return null;
+    if (!data || !inventoryCanEdit(status)) return null;
     let attempt: InventoryAttempt;
     try {
       attempt = { request: request(data), summary };
@@ -995,7 +954,6 @@ export class InventoryController {
       this.save(confirmed, true);
       if (generation === this.generation) this.ready(latest);
     } catch (error) {
-      this.pending.set(scopeKey(attempt.request.project, attempt.request.inventoryId), confirmed);
       if (generation === this.generation)
         this.set({
           kind: 'committed-refresh-failed',
@@ -1008,41 +966,30 @@ export class InventoryController {
     return receipt;
   }
 
-  private executeRequest(request: InventoryAcceptedRequest): Promise<NativeInventoryExecution> {
-    if (!('kind' in request)) return this.client.execute(request);
-    switch (request.kind) {
-      case 'adopt-archive':
-        return this.client.applyImport(request);
-      case 'receive-table':
-        return this.client.applyTable(request);
-      case 'apply-stocktake':
-        return this.client.applyStocktake(request);
-      case 'acknowledge-table-source':
-        return this.client.acknowledgeSource(request);
-      case 'import-hierarchy':
-        return this.client.applyHierarchy(request);
-      case 'receive-mapped-table':
-        return this.client.applyMappedTable(request);
-      case 'import-benchling-capture':
-        return this.client.applyBenchlingCapture(request);
-      case 'receive-arrival':
-        return this.client.applyArrival(request);
-      case 'record-scientific-transfer':
-        return this.client.applyScientificTransfer(request);
-      case 'record-scientific-transfer-v2':
-        return this.client.applyScientificTransferV2(request);
-    }
-  }
-
   private async execute(
     data: InventoryData,
     attempt: InventoryAttempt
   ): Promise<NativeInventoryReceipt | null> {
     const generation = this.generation;
     this.set({ kind: 'submitting', stage: 'sending', data, attempt });
+    let release: (() => void) | undefined;
     try {
-      const result = await this.executeRequest(attempt.request);
-      if (result.status === 'committed') return this.committed(data, attempt, result, generation);
+      const retained = this.pending.peek(attempt.request);
+      if (retained?.receipt) return this.committed(data, retained, retained.receipt, generation);
+      release = this.pending.acquire(this.pending.retain(attempt), 'send');
+      const result = await executeInventoryAcceptedRequest(this.client, attempt.request);
+      if (result.status === 'committed') {
+        assertInventoryReceiptForAttempt(attempt, result);
+        return this.committed(data, attempt, result, generation);
+      }
+      if (
+        result.status !== 'rejected' ||
+        result.inventoryId !== attempt.request.inventoryId ||
+        result.operationId !== attempt.request.operationId ||
+        typeof result.code !== 'string' ||
+        typeof result.message !== 'string'
+      )
+        throw Error('The inventory result could not be confirmed.');
       let recoveryError: string | undefined;
       try {
         this.save(attempt, true);
@@ -1094,6 +1041,8 @@ export class InventoryController {
           message:
             'The result of this change could not be confirmed. Check its status before making another change.',
         });
+    } finally {
+      release?.();
     }
     return null;
   }
@@ -1102,14 +1051,18 @@ export class InventoryController {
     const status = this.snapshot.status;
     if (status.kind !== 'outcome-unknown') return;
     const generation = this.generation;
+    let release: (() => void) | undefined;
     try {
+      release = this.pending.acquire(this.pending.retain(status.attempt), 'inspect');
       const receipt = await this.client.operation({
         project: status.attempt.request.project,
         inventoryId: status.attempt.request.inventoryId,
         operationId: status.attempt.request.operationId,
       });
-      if (receipt) await this.committed(status.data, status.attempt, receipt, generation);
-      else if (generation === this.generation)
+      if (receipt) {
+        assertInventoryReceiptForAttempt(status.attempt, receipt);
+        await this.committed(status.data, status.attempt, receipt, generation);
+      } else if (generation === this.generation)
         this.set({
           ...status,
           message: 'No completed change was found. You can safely retry this same change.',
@@ -1121,6 +1074,8 @@ export class InventoryController {
           message:
             'The change still needs confirmation. Check its status again when the desktop connection is available.',
         });
+    } finally {
+      release?.();
     }
   }
 

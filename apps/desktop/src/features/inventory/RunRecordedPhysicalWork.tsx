@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { InventoryScientificWork } from '@waypoint/domain-services';
 import { parseProtocolPackage } from '@waypoint/domain-services/protocol-package';
 import { Button, Notice } from '../../components/ui';
@@ -11,6 +11,11 @@ import {
   type InventoryRunResource,
 } from './inventory-scientific-work-read-session';
 import { inventoryAmountLabel, inventoryPrincipalLabel } from './inventory-view';
+import {
+  InventoryScientificCitations,
+  InventoryCitationHost,
+  type CitationSelection,
+} from './InventoryScientificCitations';
 
 export function RunRecordedPhysicalWork({ resource }: { resource: InventoryRunResource | null }) {
   const client = platform().inventory;
@@ -19,6 +24,10 @@ export function RunRecordedPhysicalWork({ resource }: { resource: InventoryRunRe
     [client, resource?.projectId, resource?.workspaceScope, resource?.entityId]
   );
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot);
+  const [citationSelection, setCitationSelection] = useState<CitationSelection | null>(null);
+  useEffect(() => {
+    setCitationSelection(null);
+  }, [resource?.projectId, resource?.workspaceScope, resource?.entityId]);
   useEffect(() => {
     void session.open();
     return () => session.dispose();
@@ -90,6 +99,15 @@ export function RunRecordedPhysicalWork({ resource }: { resource: InventoryRunRe
                   <SavedRunContext source={snapshot.source.read.source} />
                 ) : null
               ) : null}
+              <InventoryScientificCitations
+                target={{
+                  project: status.scope.projectId,
+                  inventoryId: status.scope.inventoryId,
+                  workId: work.id,
+                  workIntentSha256: work.intentSha256,
+                }}
+                onSelect={setCitationSelection}
+              />
             </article>
           ))}
           <div className="flex gap-2">
@@ -103,6 +121,11 @@ export function RunRecordedPhysicalWork({ resource }: { resource: InventoryRunRe
         </>
       )}
       {snapshot.navigationError ? <Notice tone="error">{snapshot.navigationError}</Notice> : null}
+      <InventoryCitationHost
+        projectId={resource?.projectId ?? null}
+        selection={citationSelection}
+        onSelect={setCitationSelection}
+      />
     </section>
   );
 }

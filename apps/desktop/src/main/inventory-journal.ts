@@ -28,6 +28,11 @@ import {
 import { protocolRunSavedSourceSchema } from '../shared/protocol-packages';
 import { notebookSavedSourceSchema } from '../shared/notebook-saved-source';
 import { applyNativeInventoryScientificTransfer } from './inventory-scientific';
+import {
+  applyNativeInventoryScientificCitation,
+  applyNativeInventoryScientificCitationWithdrawal,
+  verifyNativeInventoryScientificCitationSource,
+} from './inventory-scientific-citations';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
 
 export interface NativeInventoryJournalRow {
@@ -52,7 +57,8 @@ export function parseNativeInventoryJournalEntry(
   const scientific =
     'kind' in request &&
     (request.kind === 'record-scientific-transfer' ||
-      request.kind === 'record-scientific-transfer-v2');
+      request.kind === 'record-scientific-transfer-v2' ||
+      request.kind === 'record-scientific-citation');
   if (scientific) {
     const version = receipt.context?.version;
     const retained = receipt.context?.scientificSource;
@@ -60,11 +66,14 @@ export function parseNativeInventoryJournalEntry(
       !retained ||
       !version ||
       version < 6 ||
-      (request.kind === 'record-scientific-transfer-v2' && version < 7)
+      (request.kind === 'record-scientific-transfer-v2' && version < 7) ||
+      (request.kind === 'record-scientific-citation' && version < 8)
     )
       throw new Error(
         'INVENTORY_DATA_INVALID: Scientific work requires its matching native source witness.'
       );
+    if (request.kind === 'record-scientific-citation')
+      verifyNativeInventoryScientificCitationSource(request, retained);
     const selection =
       request.kind === 'record-scientific-transfer'
         ? {
@@ -96,6 +105,12 @@ export function parseNativeInventoryJournalEntry(
   } else if (receipt.context?.scientificSource)
     throw new Error('INVENTORY_DATA_INVALID: Only scientific work may retain a source witness.');
   if (
+    'kind' in request &&
+    request.kind === 'withdraw-scientific-citation' &&
+    (receipt.context?.version ?? 1) < 8
+  )
+    throw Error('INVENTORY_DATA_INVALID: Citation withdrawal requires V8 semantics.');
+  if (
     request.project !== project ||
     request.inventoryId !== row.inventory_id ||
     request.operationId !== row.operation_id ||
@@ -115,7 +130,7 @@ export function replayNativeInventoryEntries(
     target: InventoryState | null,
     request: InventoryApplyImportRequest,
     context: InventoryExecutionContext,
-    receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | undefined
+    receiptContextVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | undefined
   ) => InventoryTransition,
   table: (
     target: InventoryState | null,
@@ -214,6 +229,22 @@ export function replayNativeInventoryEntries(
       throw new Error('INVENTORY_DATA_INVALID: The saved inventory journal is not contiguous.');
     let result: InventoryTransition;
     if (
+      'kind' in request &&
+      (request.kind === 'record-scientific-citation' ||
+        request.kind === 'withdraw-scientific-citation')
+    ) {
+      if (contextVersion < 8 || !context)
+        throw Error('INVENTORY_DATA_INVALID: Saved citations require V8 semantics.');
+      result =
+        request.kind === 'record-scientific-citation'
+          ? applyNativeInventoryScientificCitation(
+              state,
+              request,
+              context,
+              entry.receipt.context?.scientificSource
+            )
+          : applyNativeInventoryScientificCitationWithdrawal(state, request, context);
+    } else if (
       'kind' in request &&
       (request.kind === 'record-scientific-transfer' ||
         request.kind === 'record-scientific-transfer-v2')

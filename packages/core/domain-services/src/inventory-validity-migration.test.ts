@@ -105,6 +105,8 @@ describe('opening and expiry snapshot integrity', () => {
     const state = base();
     const {
       scientificWorks: _scientificWorks,
+      scientificCitations: _scientificCitations,
+      scientificCitationWithdrawals: _scientificCitationWithdrawals,
       expectedDeliveries: _expected,
       arrivalAllocations: _allocations,
       reorderRules: _rules,

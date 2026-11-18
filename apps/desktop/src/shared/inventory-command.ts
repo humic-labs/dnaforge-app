@@ -1,4 +1,14 @@
 import { z } from 'zod';
+import {
+  inventoryApplyScientificCitationRequestSchema,
+  inventoryApplyScientificCitationWithdrawalRequestSchema,
+  type InventoryApplyScientificCitationRequest,
+  type InventoryApplyScientificCitationWithdrawalRequest,
+} from './inventory-scientific-citations';
+export type {
+  InventoryApplyScientificCitationRequest,
+  InventoryApplyScientificCitationWithdrawalRequest,
+} from './inventory-scientific-citations';
 import { notebookSavedSourceSchema } from './notebook-saved-source';
 import { protocolRunSavedSourceSchema } from './protocol-packages';
 import { INVENTORY_LABEL_MEDIA_PROFILE_IDS } from '@waypoint/domain-services/inventory-label-types';
@@ -49,6 +59,7 @@ export const inventoryReceiptContextSchema = z
       z.literal(5),
       z.literal(6),
       z.literal(7),
+      z.literal(8),
     ]),
     principal: inventoryPrincipalSchema,
     authority: z.object({ kind: z.literal('local-profile'), profileKey }).strict(),
@@ -913,6 +924,8 @@ export const inventoryExecuteRequestSchema = inventoryReadRequestSchema
   }));
 
 export const inventoryAcceptedRequestSchema = z.union([
+  inventoryApplyScientificCitationRequestSchema,
+  inventoryApplyScientificCitationWithdrawalRequestSchema,
   inventoryApplyScientificTransferRequestSchema,
   inventoryApplyScientificTransferV2RequestSchema,
   inventoryExecuteRequestSchema,
@@ -1069,6 +1082,8 @@ export type InventoryAcknowledgeSourceRequest = InventoryReadRequest & {
   readonly expectedPlanDigest: `sha256:${string}`;
 };
 export type InventoryAcceptedRequest =
+  | InventoryApplyScientificCitationRequest
+  | InventoryApplyScientificCitationWithdrawalRequest
   | InventoryApplyScientificTransferRequest
   | InventoryApplyScientificTransferV2Request
   | InventoryExecuteRequest

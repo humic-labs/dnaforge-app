@@ -1,5 +1,13 @@
 import { asSchema, zodSchema } from 'ai';
 import { z } from 'zod';
+import {
+  inventoryPreviewScientificCitationRequestSchema,
+  inventoryApplyScientificCitationRequestSchema,
+  inventoryPreviewScientificCitationWithdrawalRequestSchema,
+  inventoryApplyScientificCitationWithdrawalRequestSchema,
+  inventoryScientificCitationsRequestSchema,
+  inventoryScientificCitationSourceRequestSchema,
+} from '../../../shared/inventory-scientific-citations';
 import { inventoryScientificWorksForContextRequestSchema } from '../../../shared/inventory-scientific-read';
 import {
   MAX_INVENTORY_BATCH_COMMANDS,
@@ -47,6 +55,25 @@ const identity = z.string().min(1).max(256);
 const revision = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const scope = { project, inventoryId: identity };
 const plainInput = z.discriminatedUnion('kind', [
+  inventoryPreviewScientificCitationRequestSchema
+    .extend({ kind: z.literal('preview-scientific-citation') })
+    .strict(),
+  inventoryApplyScientificCitationRequestSchema
+    .extend({ kind: z.literal('apply-scientific-citation') })
+    .strict(),
+  inventoryPreviewScientificCitationWithdrawalRequestSchema
+    .extend({ kind: z.literal('preview-scientific-citation-withdrawal') })
+    .strict(),
+  inventoryApplyScientificCitationWithdrawalRequestSchema
+    .extend({ kind: z.literal('apply-scientific-citation-withdrawal') })
+    .strict(),
+  inventoryScientificCitationsRequestSchema
+    .extend({ kind: z.literal('scientific-citations') })
+    .strict(),
+  inventoryScientificCitationSourceRequestSchema
+    .extend({ kind: z.literal('scientific-citation-source') })
+    .strict(),
+
   inventoryScientificWorksForContextRequestSchema
     .extend({ kind: z.literal('scientific-works-for-context') })
     .strict(),
@@ -63,15 +90,25 @@ const plainInput = z.discriminatedUnion('kind', [
   inventoryApplyScientificTransferV2RequestSchema
     .extend({ kind: z.literal('apply-scientific-transfer-v2') })
     .strict(),
-  inventoryScientificContextsRequestSchema.extend({ kind: z.literal('scientific-contexts') }).strict(),
-  inventoryPreviewScientificTransferRequestSchema.extend({ kind: z.literal('preview-scientific-transfer') }).strict(),
-  inventoryApplyScientificTransferRequestSchema.extend({ kind: z.literal('apply-scientific-transfer') }).strict(),
+  inventoryScientificContextsRequestSchema
+    .extend({ kind: z.literal('scientific-contexts') })
+    .strict(),
+  inventoryPreviewScientificTransferRequestSchema
+    .extend({ kind: z.literal('preview-scientific-transfer') })
+    .strict(),
+  inventoryApplyScientificTransferRequestSchema
+    .extend({ kind: z.literal('apply-scientific-transfer') })
+    .strict(),
   inventoryScientificSourceRequestSchema.extend({ kind: z.literal('scientific-source') }).strict(),
   inventoryPreviewArrivalRequestSchema.extend({ kind: z.literal('preview-arrival') }).strict(),
   inventoryApplyArrivalRequestSchema.extend({ kind: z.literal('apply-arrival') }).strict(),
   inventoryArrivalDocumentRequestSchema.extend({ kind: z.literal('arrival-document') }).strict(),
-  inventoryPreviewBenchlingCaptureRequestSchema.extend({ kind: z.literal('preview-benchling-capture') }).strict(),
-  inventoryApplyBenchlingCaptureRequestSchema.extend({ kind: z.literal('apply-benchling-capture') }).strict(),
+  inventoryPreviewBenchlingCaptureRequestSchema
+    .extend({ kind: z.literal('preview-benchling-capture') })
+    .strict(),
+  inventoryApplyBenchlingCaptureRequestSchema
+    .extend({ kind: z.literal('apply-benchling-capture') })
+    .strict(),
   inventoryInspectBenchlingCaptureRequestSchema
     .extend({ kind: z.literal('inspect-benchling-capture') })
     .strict(),
@@ -178,12 +215,31 @@ const material = z
   .strict();
 export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
   z
+    .object({ ...ok, kind: z.literal('scientific-citation-preview'), preview: jsonObjectSchema })
+    .strict(),
+  z
+    .object({
+      ...ok,
+      kind: z.literal('scientific-citation-withdrawal-preview'),
+      preview: jsonObjectSchema,
+    })
+    .strict(),
+  z.object({ ...ok, kind: z.literal('scientific-citations'), result: jsonObjectSchema }).strict(),
+  z
+    .object({ ...ok, kind: z.literal('scientific-citation-source'), result: jsonObjectSchema })
+    .strict(),
+
+  z
     .object({ ...ok, kind: z.literal('scientific-works-for-context'), result: jsonObjectSchema })
     .strict(),
-  z.object({ ...ok, kind: z.literal('stockroom'), stockroom: jsonObjectSchema.nullable() }).strict(),
+  z
+    .object({ ...ok, kind: z.literal('stockroom'), stockroom: jsonObjectSchema.nullable() })
+    .strict(),
   z.object({ ...ok, kind: z.literal('arrival-preview'), preview: jsonObjectSchema }).strict(),
   z.object({ ...ok, kind: z.literal('arrival-document'), result: jsonObjectSchema }).strict(),
-  z.object({ ...ok, kind: z.literal('benchling-capture-preview'), preview: jsonObjectSchema }).strict(),
+  z
+    .object({ ...ok, kind: z.literal('benchling-capture-preview'), preview: jsonObjectSchema })
+    .strict(),
   z
     .object({ ...ok, kind: z.literal('benchling-capture-inspection'), result: jsonObjectSchema })
     .strict(),
@@ -249,6 +305,7 @@ export const inventoryAgentOutputSchema = z.discriminatedUnion('kind', [
 export const INVENTORY_DESCRIPTION =
   'Read scientific-works-for-context with explicit project, inventoryId and context {kind,entityId} for immutable completed manual transfers recorded with that exact Notebook or Run. Pages are bounded, ordered by recorded time and work ID, and pinned to one inventory revision; pass the native nextCursor unchanged and restart first page on revision change. Ready zero rows, inventory-absent and unavailable are distinct. These are historical stock effects and saved source pins, not declared Run inputs, produced material or current stock availability. Current source edits or removal do not erase recorded work. Use scientific-source lazily by returned workId for its retained source; listing and source viewing never write inventory or a Run. ' +
   'Read stockroom for expected delivery progress, original received-component allocation remainders and reorder reports at one native projectId/inventoryId/revision/principal/asOf. Use generic execute for record-expected-delivery, allocate-arrival, withdraw-arrival-allocation, close-expected-delivery-remainder, reopen-expected-delivery, record-reorder-rule and retire-reorder-rule. Expectations record explicit scientific material, positive amount, supplier or null, optional externalReference and reason; they never place an order or create on-hand stock. Allocate only original identified known received component amounts by arrivalId+componentKey, never current remaining quantity or package labels. Active allocations are capped across all lines by the original receipt and each line expectation; same scientific material and dimension are required. Use, movement, disposal and eligibility changes never unfulfill an allocation. Close only positive unmatched remainder; reopen explicitly before further matching or withdrawing an allocation on that line. Withdrawn allocations are immutable history and corrections get new IDs. Reorder rules declare positive exact threshold, actionBasis reserve or withdraw, and validityBasis current-recorded-rules or confirmed-current-validity without defaults. Known eligible unreserved stock is a lower bound; reaching threshold proves adequate even with unknown amounts, otherwise relevant eligible unknowns require measurement. Other dimensions and excluded physical stock remain explicit; expected quantities never enter the subtotal. Current-recorded-rules can include disclosed untracked validity and does not prove unexpired material; confirmed-current-validity requires coverage and the selected reserve/withdraw admission. Read nextBoundaryAt and request a new native snapshot at boundaries; never store low/expired flags or use renderer time as business authority. Recording expected deliveries, matching and reports send no vendor messages, purchases or spending. ' +
+  'Cite an existing saved Notebook or Protocol Run on immutable recorded physical work using preview-scientific-citation and apply-scientific-citation. Select native saved context kind/entity/source pin and exact work intent; send no source body, actor or time. Additional citations never change the original work, stock, primary context or source files. Read scientific-citations by exact workId and workIntentSha256 with bounded revision-bound replacement pages; withdrawn assertions remain history. Read their retained sources separately through scientific-citation-source, including after withdrawal. Correct with preview-scientific-citation-withdrawal and apply-scientific-citation-withdrawal using exact citation/work pins and a new withdrawal reason; correction requires no current source file. Historical duplicates, including withdrawn assertions, never create aliases or restore a link. Explicit reattachment requires a fresh citation identity plus reinstates pins for the exact predecessor and withdrawal, and current saved source must still match that pin. A changed source pin is a separate base citation. No-change creates no receipt. Recover unknown outcomes with the identical retained request and operation ID. Primary-only scientific-works-for-context and scientific-source retain their original meaning. ' +
   'Link a completed manual transfer into an existing permanent well to an explicit notebook-page or protocol-run context. Use scientific-contexts-v2 with contextKind, then preview-scientific-transfer-v2 and apply-scientific-transfer-v2 with choices.context {kind,entityId,sourceSha256}. Notebook selections retain the original intent meaning, so expressing prior work through this API cannot debit again. Legacy Notebook routes remain supported. Create and start genuine saved Protocol Runs through protocol_document first; inventory does not create them. The selected saved source is native observed evidence, not an accepted scientific revision. Preview creates no physical effect. Apply atomically records one transfer and stable namespace/workId observation with its retained source. Preserve that work identity on retries and duplicates; a fresh operationId cannot repeat the same work. Read the verified original source through scientific-source by canonical workId, separately from current navigation. A Run source retains its complete saved JSON and frozen protocol. This is operator-reported manual work, not hardware verification or biological success. ' +
   'Record actual deliveries with preview-arrival and apply-arrival using exact application-owned dnaforge.inventory-arrival-source.v1 sourceText. Retain original inline supplier documents, explicit full/excerpt scope, package grouping and one reasoned component disposition: identified, unidentified-physical, unobserved-physical, observed-missing or evidence-only. A package batch is distinct from a component lot, product and delivery identity. Bind each identified component to a current admitted scientific material, explicit existing or new managed-unassessed lot, new movable vessel and explicit placement. Known amount needs a separate measurement or exact supported supplier quantity claim; unsupported activity units remain raw evidence and cannot become mass/volume/count. Supplier QC never releases local stock or lot assessment. Preview is read-only. Apply only ready resolved options, original sourceText, planDigest, revision and stable operationId in one atomic transaction, including metadata-only arrivals. Stable namespace plus arrivalId prevents re-receiving after use, movement, disposal or adoption; changed source or original choices need reconciliation. An unchanged delivery is no-change and writes no new receipt or event. A deliberately renamed physical delivery cannot be detected as a duplicate. Recover an uncertain result with the original operation receipt or identical saved request. Read arrival-document by arrivalId, documentKey and expectedSha256 for exact retained bytes through original or nested adopted history; no fetch, OCR or supplier format compatibility is implied. The existing encoded native request limit applies; never split a delivery silently. ' +
   'Opening and validity belong to explicit stock/material episodes. Use record-stock-opening with an observed timestamp or null; correct-stock-opening names the current observation and records opened or unobserved, never a silent reseal/reset. Use record-validity-decision for an independent stock/lot rule family and correct-validity-decision for its exact current head. Preserve sourceText and sourcePrecision separately from an explicit absolute cutoff or positive elapsed milliseconds after the original stock opening. A printed month/year is not a UTC instant or fixed duration. Unresolved and not-required are explicit reasoned decisions; no receipt, movement, quality release or new aliquot invents opening or clears another family. Derived material retains applicable source families and earliest physical derivation bounds, including known-zero destinations; late opening contradictions block rather than extend life. Read native availability.actions.reserve and actions.withdraw instead of filtering blocker codes: a consistently observed sealed stock with an applicable relative rule may reserve, while use requires recording opening first, optionally in the same batch. At native asOf equal to deadline, material is expired; nextBoundaryAt tells clients when to request a fresh native observation. No applicable opening-dependent rule means unobserved opening alone adds no use gate. Imported positive validity requires explicit local reassessment without manufacturing an opening observation; restrictive evidence remains blocking. Recover uncertain operations through their original saved receipt even after later expiry. ' +

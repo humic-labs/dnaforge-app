@@ -1,5 +1,18 @@
 import { defineGroup, event, invoke } from './contract';
 import type {
+  InventoryPreviewScientificCitationRequest,
+  InventoryApplyScientificCitationRequest,
+  InventoryPreviewScientificCitationWithdrawalRequest,
+  InventoryApplyScientificCitationWithdrawalRequest,
+  InventoryScientificCitationsRequest,
+  InventoryScientificCitationSourceRequest,
+  InventoryScientificCitationPreviewSnapshot,
+  InventoryScientificCitationWithdrawalPreviewSnapshot,
+  InventoryScientificCitationsRead,
+  InventoryScientificCitationSourceRead,
+} from '../inventory-scientific-citations';
+
+import type {
   InventoryScientificWorksForContextRequest,
   InventoryScientificWorksForContextRead,
 } from '../inventory-scientific-read';
@@ -75,6 +88,30 @@ import type {
 } from '../inventory-client';
 
 export const inventoryContract = defineGroup('inventory', {
+  previewScientificCitation: invoke<
+    [request: InventoryPreviewScientificCitationRequest],
+    InventoryScientificCitationPreviewSnapshot
+  >(),
+  applyScientificCitation: invoke<
+    [request: InventoryApplyScientificCitationRequest],
+    NativeInventoryExecution
+  >(),
+  previewScientificCitationWithdrawal: invoke<
+    [request: InventoryPreviewScientificCitationWithdrawalRequest],
+    InventoryScientificCitationWithdrawalPreviewSnapshot
+  >(),
+  applyScientificCitationWithdrawal: invoke<
+    [request: InventoryApplyScientificCitationWithdrawalRequest],
+    NativeInventoryExecution
+  >(),
+  scientificCitations: invoke<
+    [request: InventoryScientificCitationsRequest],
+    InventoryScientificCitationsRead
+  >(),
+  scientificCitationSource: invoke<
+    [request: InventoryScientificCitationSourceRequest],
+    InventoryScientificCitationSourceRead
+  >(),
   scientificWorksForContext: invoke<
     [request: InventoryScientificWorksForContextRequest],
     InventoryScientificWorksForContextRead

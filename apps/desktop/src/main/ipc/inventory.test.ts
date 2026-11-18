@@ -714,3 +714,85 @@ it.each([
   });
   expect(() => call()).toThrow(error);
 });
+
+it('routes citation reads and fences asynchronous previews against owner replacement', async () => {
+  let finish: (value: unknown) => void = () => {};
+  const previewScientificCitation = vi.fn(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+  );
+  const scientificCitations = vi.fn(() => ({ kind: 'ready', entries: [] }));
+  const scientificCitationSource = vi.fn(() => ({ kind: 'unavailable' }));
+  owner = {
+    ...owner,
+    previewScientificCitation,
+    scientificCitations,
+    scientificCitationSource,
+  } as unknown as NativeInventoryOwner;
+  const source = { project: 'project', inventoryId: 'inventory', citationId: 'citation' };
+  const query = {
+    project: 'project',
+    inventoryId: 'inventory',
+    workId: 'work',
+    workIntentSha256: `sha256:${'a'.repeat(64)}`,
+  };
+  const read = captured.handlers.scientificCitations as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => unknown;
+  const saved = captured.handlers.scientificCitationSource as typeof read;
+  expect(read(event, query)).toEqual({ kind: 'ready', entries: [] });
+  expect(saved(event, source)).toEqual({ kind: 'unavailable' });
+  expect(scientificCitations).toHaveBeenCalledExactlyOnceWith(query);
+  expect(scientificCitationSource).toHaveBeenCalledExactlyOnceWith(source);
+  const preview = captured.handlers.previewScientificCitation as typeof read;
+  const pending = preview(event, query);
+  owner = null;
+  finish({ kind: 'ready' });
+  await expect(pending).rejects.toMatchObject({
+    code: 'INVENTORY_OWNER_UNAVAILABLE',
+    stateChanged: false,
+  });
+});
+
+it('routes source-free citation withdrawal with a current desktop caller guard', async () => {
+  const applyScientificCitationWithdrawal = vi.fn(
+    async (_request: unknown, _guard: () => void, _invocation: unknown) => ({ status: 'committed' })
+  );
+  owner = { ...owner, applyScientificCitationWithdrawal } as unknown as NativeInventoryOwner;
+  const input = {
+    project: 'project',
+    inventoryId: 'inventory',
+    operationId: 'withdraw-once',
+    expectedRevision: 94,
+    kind: 'withdraw-scientific-citation',
+    expectedPlanDigest: `sha256:${'a'.repeat(64)}`,
+    choices: {
+      identity: { namespace: 'citations', withdrawalId: 'withdraw-once' },
+      citationId: `scientific-citation:${'b'.repeat(64)}`,
+      citationIntentSha256: `sha256:${'a'.repeat(64)}`,
+      workId: `scientific-work:${'c'.repeat(64)}`,
+      workIntentSha256: `sha256:${'a'.repeat(64)}`,
+      reason: 'Correct supporting context',
+    },
+  };
+  const apply = captured.handlers.applyScientificCitationWithdrawal as (
+    event: IpcMainInvokeEvent,
+    input: unknown
+  ) => unknown;
+  await apply(event, input);
+  expect(applyScientificCitationWithdrawal).toHaveBeenCalledExactlyOnceWith(
+    input,
+    expect.any(Function),
+    { actor: 'human:desktop:7' }
+  );
+  const guard = applyScientificCitationWithdrawal.mock.calls[0][1] as () => void;
+  owner = null;
+  expect(guard).toThrow('owner changed');
+  await expect(
+    apply(event, { ...input, scientificSource: { content: 'caller body' } })
+  ).rejects.toThrow();
+  expect(applyScientificCitationWithdrawal).toHaveBeenCalledTimes(1);
+});

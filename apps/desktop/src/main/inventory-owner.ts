@@ -2,6 +2,11 @@ import { createHash } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import {
   applyInventoryCommandBatch,
+  inventoryScientificCitationExisting,
+  inventoryScientificCitationWithdrawalExisting,
+  inventoryScientificCitationPreview,
+  inventoryScientificCitationWithdrawalPreview,
+  inventoryScientificCitationsForWork,
   inventoryScientificTransferPreview,
   inventoryScientificWorksForContext,
   inventoryScientificTransferPreviewV2,
@@ -119,6 +124,23 @@ import {
   findNativeInventoryScientificSource,
 } from './inventory-scientific';
 import { canonicalNativeMutationRequest } from './native-mutation-request';
+import {
+  applyNativeInventoryScientificCitation,
+  applyNativeInventoryScientificCitationWithdrawal,
+  findNativeInventoryScientificCitationSource,
+} from './inventory-scientific-citations';
+import {
+  inventoryPreviewScientificCitationRequestSchema,
+  inventoryApplyScientificCitationRequestSchema,
+  inventoryPreviewScientificCitationWithdrawalRequestSchema,
+  inventoryApplyScientificCitationWithdrawalRequestSchema,
+  inventoryScientificCitationsRequestSchema,
+  inventoryScientificCitationSourceRequestSchema,
+  type InventoryScientificCitationPreviewSnapshot,
+  type InventoryScientificCitationWithdrawalPreviewSnapshot,
+  type InventoryScientificCitationsRead,
+  type InventoryScientificCitationSourceRead,
+} from '../shared/inventory-scientific-citations';
 import {
   inventoryScientificWorksForContextRequestSchema,
   type InventoryScientificWorksForContextRead,
@@ -518,12 +540,13 @@ export function createNativeInventoryOwner(options: {
         const previous = row ? stateFromRow(row) : createInventoryState();
         const recordedAt = observationTime(previous);
         const context = inventoryReceiptContextSchema.parse({
-          version: 7,
+          version: 8,
           principal: principal(invocation),
           authority,
           ...('kind' in request &&
           (request.kind === 'record-scientific-transfer' ||
-            request.kind === 'record-scientific-transfer-v2') &&
+            request.kind === 'record-scientific-transfer-v2' ||
+            request.kind === 'record-scientific-citation') &&
           scientificCapture
             ? { scientificSource: scientificCapture.source }
             : {}),
@@ -539,6 +562,49 @@ export function createNativeInventoryOwner(options: {
         let result: InventoryTransition;
         let assertStockroomMaterials = () => {};
         if (
+          'kind' in request &&
+          (request.kind === 'record-scientific-citation' ||
+            request.kind === 'withdraw-scientific-citation')
+        ) {
+          const existingCitation =
+            request.kind === 'record-scientific-citation'
+              ? inventoryScientificCitationExisting(previous, request.choices)
+              : inventoryScientificCitationWithdrawalExisting(previous, request.choices);
+          if (existingCitation.kind === 'no-change')
+            return reject(
+              request.kind === 'record-scientific-citation'
+                ? 'INVENTORY_SCIENTIFIC_CITATION_NO_CHANGES'
+                : 'INVENTORY_SCIENTIFIC_CITATION_WITHDRAWAL_NO_CHANGES',
+              'This exact citation history is already recorded. Read its original assertion and correction.'
+            );
+          if (existingCitation.kind === 'blocked')
+            return reject(existingCitation.issue.code, existingCitation.issue.message);
+          if (request.expectedRevision !== previous.revision)
+            return reject(
+              'REVISION_CONFLICT',
+              'Inventory changed after the citation was previewed.'
+            );
+          if (request.kind === 'record-scientific-citation') {
+            if (!scientificCapture)
+              return reject(
+                'SCIENTIFIC_CONTEXT_MISMATCH',
+                'A checked native saved source is required for a new citation.'
+              );
+            scientificCapture.assertCurrent();
+            result = applyNativeInventoryScientificCitation(
+              previous,
+              request,
+              { at: recordedAt, principal: context.principal, authority },
+              scientificCapture.source
+            );
+          } else {
+            result = applyNativeInventoryScientificCitationWithdrawal(previous, request, {
+              at: recordedAt,
+              principal: context.principal,
+              authority,
+            });
+          }
+        } else if (
           'kind' in request &&
           (request.kind === 'record-scientific-transfer' ||
             request.kind === 'record-scientific-transfer-v2')
@@ -1043,7 +1109,9 @@ export function createNativeInventoryOwner(options: {
         if (
           'kind' in request &&
           (request.kind === 'record-scientific-transfer' ||
-            request.kind === 'record-scientific-transfer-v2') &&
+            request.kind === 'record-scientific-transfer-v2' ||
+            request.kind === 'record-scientific-citation' ||
+            request.kind === 'withdraw-scientific-citation') &&
           Buffer.byteLength(canonicalNativeMutationRequest({ request, receipt }), 'utf8') >
             NATIVE_DOCUMENT_MAX_BODY_BYTES
         )
@@ -1097,7 +1165,325 @@ export function createNativeInventoryOwner(options: {
     return execution;
   };
 
+  const citationRead = <T>(
+    scope: { project: string; inventoryId: string },
+    mutating: boolean,
+    action: (db: Database.Database, project: RegisteredProject, state: InventoryState | null) => T
+  ): T => {
+    const project = resolveProject(scope.project, mutating),
+      assertProject = options.projectAuthority.capture(project.projectId, mutating),
+      db = options.db();
+    const snapshot = () => {
+      const row = db
+        .prepare(
+          'SELECT id,path,repo_uuid,access_mode,archived_at,trashed_at FROM workspaces WHERE id=?'
+        )
+        .get(project.id) as WorkspaceIdentity | undefined;
+      return {
+        row,
+        access: row?.repo_uuid ? readWorkspaceSyncAccessBinding(db, row.repo_uuid) : null,
+      };
+    };
+    const captured = canonicalNativeMutationRequest(snapshot());
+    const assertCaptured = () => {
+      if (canonicalNativeMutationRequest(snapshot()) !== captured)
+        throw new NativeDocumentCommandError(
+          'PROJECT_ACCESS_CHANGED',
+          'The citation project authority changed.',
+          false
+        );
+      if (mutating) assertAcceptingSharedProjectContentWritable(db, project.path);
+    };
+    const result = db
+      .transaction(() => {
+        assertCaptured();
+        try {
+          const row = inventory(db, scope.inventoryId, project.projectId);
+          return action(db, project, row ? stateFromRow(row) : null);
+        } finally {
+          assertCaptured();
+        }
+      })
+      .deferred();
+    assertProject();
+    return structuredClone(result);
+  };
   return {
+    async previewScientificCitation(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<InventoryScientificCitationPreviewSnapshot> {
+      const request = inventoryPreviewScientificCitationRequestSchema.parse(input);
+      const observe = (capture: NotebookSavedSourceCapture | ProtocolSavedSourceCapture | null) => {
+        capture?.assertCurrent();
+        const result = citationRead(request, true, (_db, project, saved) => {
+          const state = saved ?? createInventoryState(),
+            asOf = observationTime(state),
+            caller = principal(invocation);
+          try {
+            return {
+              ...inventoryScientificCitationPreview(state, {
+                ...request.choices,
+                target: {
+                  projectId: project.projectId,
+                  inventoryId: request.inventoryId,
+                  present: Boolean(saved),
+                  revision: request.expectedRevision,
+                },
+                source: capture?.source ?? null,
+                asOf,
+                principal: caller,
+                authority,
+              }),
+              projectId: project.projectId,
+              inventoryId: request.inventoryId,
+              revision: state.revision,
+              asOf,
+              principal: caller,
+            };
+          } finally {
+            capture?.assertCurrent();
+          }
+        });
+        return result;
+      };
+      const current = read({ project: request.project, inventoryId: request.inventoryId }),
+        state = current.row ? stateFromRow(current.row) : createInventoryState();
+      if (inventoryScientificCitationExisting(state, request.choices).kind !== 'new')
+        return observe(null);
+      try {
+        if (request.choices.context.kind === 'notebook-page' && options.notebookSources)
+          return await options.notebookSources.withSavedSource(
+            current.project.projectId,
+            request.choices.context.entityId,
+            observe
+          );
+        if (request.choices.context.kind === 'protocol-run' && options.protocolSources)
+          return await options.protocolSources.withSavedRunSource(
+            current.project.projectId,
+            request.choices.context.entityId,
+            observe
+          );
+      } catch (error) {
+        if (error instanceof NativeDocumentCommandError) throw error;
+      }
+      return observe(null);
+    },
+    async applyScientificCitation(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<NativeInventoryExecution> {
+      const request = inventoryApplyScientificCitationRequestSchema.parse(input),
+        project = resolveProject(request.project, true),
+        row = inventory(options.db(), request.inventoryId, project.projectId),
+        state = row ? stateFromRow(row) : createInventoryState();
+      const known = options
+        .db()
+        .prepare('SELECT 1 FROM inventory_journal WHERE inventory_id=? AND operation_id=?')
+        .get(request.inventoryId, request.operationId);
+      if (known || inventoryScientificCitationExisting(state, request.choices).kind !== 'new')
+        return commit(request, assertCurrent, invocation);
+      const accept = async (capture: NotebookSavedSourceCapture | ProtocolSavedSourceCapture) => {
+        await invocation.beforeScientificCommit?.();
+        return commit(request, assertCurrent, invocation, capture);
+      };
+      try {
+        if (request.choices.context.kind === 'notebook-page' && options.notebookSources)
+          return await options.notebookSources.withSavedSource(
+            project.projectId,
+            request.choices.context.entityId,
+            accept
+          );
+        if (request.choices.context.kind === 'protocol-run' && options.protocolSources)
+          return await options.protocolSources.withSavedRunSource(
+            project.projectId,
+            request.choices.context.entityId,
+            accept
+          );
+        throw Error('The saved citation source owner is unavailable.');
+      } catch (error) {
+        if (error instanceof NativeDocumentCommandError) throw error;
+        throw new NativeDocumentCommandError(
+          'INVENTORY_SCIENTIFIC_SOURCE_CHANGED',
+          error instanceof Error ? error.message : String(error),
+          false
+        );
+      }
+    },
+    previewScientificCitationWithdrawal(
+      input: unknown,
+      invocation: NativeInventoryInvocation = {}
+    ): InventoryScientificCitationWithdrawalPreviewSnapshot {
+      const request = inventoryPreviewScientificCitationWithdrawalRequestSchema.parse(input);
+      return citationRead(request, true, (_db, project, saved) => {
+        const state = saved ?? createInventoryState(),
+          asOf = observationTime(state),
+          caller = principal(invocation);
+        return {
+          ...inventoryScientificCitationWithdrawalPreview(state, {
+            ...request.choices,
+            target: {
+              projectId: project.projectId,
+              inventoryId: request.inventoryId,
+              present: Boolean(saved),
+              revision: request.expectedRevision,
+            },
+            asOf,
+            principal: caller,
+            authority,
+          }),
+          projectId: project.projectId,
+          inventoryId: request.inventoryId,
+          revision: state.revision,
+          asOf,
+          principal: caller,
+        };
+      });
+    },
+    async applyScientificCitationWithdrawal(
+      input: unknown,
+      assertCurrent: () => void = () => {},
+      invocation: NativeInventoryInvocation = {}
+    ): Promise<NativeInventoryExecution> {
+      const request = inventoryApplyScientificCitationWithdrawalRequestSchema.parse(input),
+        project = resolveProject(request.project, true),
+        row = inventory(options.db(), request.inventoryId, project.projectId),
+        state = row ? stateFromRow(row) : createInventoryState();
+      const known = options
+        .db()
+        .prepare('SELECT 1 FROM inventory_journal WHERE inventory_id=? AND operation_id=?')
+        .get(request.inventoryId, request.operationId);
+      if (
+        !known &&
+        inventoryScientificCitationWithdrawalExisting(state, request.choices).kind === 'new'
+      )
+        await invocation.beforeScientificCommit?.();
+      return commit(request, assertCurrent, invocation);
+    },
+    scientificCitations(input: unknown): InventoryScientificCitationsRead {
+      const request = inventoryScientificCitationsRequestSchema.parse(input);
+      const result = citationRead(
+        request,
+        false,
+        (_db, project, state): InventoryScientificCitationsRead => {
+          const work = state?.scientificWorks[request.workId];
+          const unavailable = (
+            code: string,
+            message: string,
+            retryable = false
+          ): InventoryScientificCitationsRead => ({
+            kind: 'unavailable',
+            code,
+            message,
+            retryable,
+          });
+          if (!state || !work || work.intentSha256 !== request.workIntentSha256)
+            return unavailable(
+              'INVENTORY_SCIENTIFIC_WORK_NOT_FOUND',
+              'The exact physical-work observation is unavailable.'
+            );
+          const entries = inventoryScientificCitationsForWork(state, work.id),
+            querySha256 = nativeInventorySha256(
+              canonicalNativeMutationRequest([
+                'dnaforge.inventory-scientific-citations-query.v1',
+                project.projectId,
+                request.inventoryId,
+                work.id,
+                work.intentSha256,
+              ])
+            );
+          let start = 0;
+          if (request.cursor) {
+            if (request.cursor.querySha256 !== querySha256)
+              return unavailable(
+                'INVENTORY_QUERY_CURSOR_INVALID',
+                'This cursor belongs to another citation query.'
+              );
+            if (request.cursor.revision !== state.revision)
+              return unavailable(
+                'INVENTORY_QUERY_REVISION_CHANGED',
+                'Inventory changed. Read the first citation page again.',
+                true
+              );
+            const index = entries.findIndex(
+              (row) =>
+                row.citation.id === request.cursor!.after.citationId &&
+                row.citation.at === request.cursor!.after.at
+            );
+            if (index < 0)
+              return unavailable(
+                'INVENTORY_QUERY_CURSOR_INVALID',
+                'The cursor does not identify a citation in this query.'
+              );
+            start = index + 1;
+          }
+          const page = entries.slice(start, start + (request.limit ?? 20)),
+            last = page.at(-1)?.citation;
+          return {
+            kind: 'ready',
+            projectId: project.projectId,
+            inventoryId: request.inventoryId,
+            revision: state.revision,
+            workId: work.id,
+            workIntentSha256: work.intentSha256,
+            entries: page,
+            nextCursor:
+              last && start + page.length < entries.length
+                ? {
+                    querySha256,
+                    revision: state.revision,
+                    after: { at: last.at, citationId: last.id },
+                  }
+                : null,
+          };
+        }
+      );
+      return Buffer.byteLength(canonicalNativeMutationRequest(result), 'utf8') <=
+        NATIVE_DOCUMENT_MAX_BODY_BYTES - 2048
+        ? result
+        : {
+            kind: 'unavailable',
+            code: 'INVENTORY_QUERY_TOO_LARGE',
+            message: 'The citation page exceeds the inline read limit. Choose a smaller page.',
+            retryable: false,
+          };
+    },
+    scientificCitationSource(input: unknown): InventoryScientificCitationSourceRead {
+      const request = inventoryScientificCitationSourceRequestSchema.parse(input);
+      const result = citationRead(
+        request,
+        false,
+        (db, project, state): InventoryScientificCitationSourceRead => {
+          const citation = state?.scientificCitations[request.citationId];
+          if (!state || !citation)
+            return {
+              kind: 'unavailable',
+              code: 'INVENTORY_SCIENTIFIC_CITATION_SOURCE_UNAVAILABLE',
+              message: 'The saved citation is unavailable.',
+            };
+          const entries = (
+            db
+              .prepare('SELECT * FROM inventory_journal WHERE inventory_id=? ORDER BY revision ASC')
+              .all(request.inventoryId) as JournalRow[]
+          ).map((row) => entryFromRow(row, project.projectId));
+          if (
+            canonicalNativeMutationRequest(replayNativeInventoryJournal(entries)) !==
+            canonicalNativeMutationRequest(state)
+          )
+            return dataError();
+          return findNativeInventoryScientificCitationSource(citation, entries);
+        }
+      );
+      return Buffer.byteLength(canonicalNativeMutationRequest(result), 'utf8') <=
+        NATIVE_DOCUMENT_MAX_BODY_BYTES - 2048
+        ? result
+        : {
+            kind: 'unavailable',
+            code: 'INVENTORY_QUERY_TOO_LARGE',
+            message: 'The retained citation source exceeds the inline read limit.',
+          };
+    },
     scientificWorksForContext(input: unknown): InventoryScientificWorksForContextRead {
       const request = inventoryScientificWorksForContextRequestSchema.parse(input),
         project = resolveProject(request.project, false),

@@ -92,6 +92,8 @@ def _required(name: str, args: dict[str, Any]) -> list[str]:
             "apply-hierarchy",
             "apply-mapped-table",
             "apply-benchling-capture",
+            "apply-scientific-citation",
+            "apply-scientific-citation-withdrawal",
             "apply-scientific-transfer",
             "apply-scientific-transfer-v2",
             "apply-arrival",
@@ -218,6 +220,12 @@ async def execute_native_workflow(
             "inspect-benchling-capture",
             "preview-benchling-capture",
             "apply-benchling-capture",
+            "preview-scientific-citation",
+            "apply-scientific-citation",
+            "preview-scientific-citation-withdrawal",
+            "apply-scientific-citation-withdrawal",
+            "scientific-citations",
+            "scientific-citation-source",
             "scientific-contexts",
             "scientific-works-for-context",
             "scientific-contexts-v2",
@@ -244,6 +252,10 @@ async def execute_native_workflow(
         request = {key: value for key, value in operation.items() if key != "kind"}
         if operation["kind"] == "scientific-contexts-v2":
             request["kind"] = request.pop("contextKind", None)
+        elif operation["kind"] == "apply-scientific-citation":
+            request["kind"] = "record-scientific-citation"
+        elif operation["kind"] == "apply-scientific-citation-withdrawal":
+            request["kind"] = "withdraw-scientific-citation"
         elif operation["kind"] == "apply-scientific-transfer":
             request["kind"] = "record-scientific-transfer"
         elif operation["kind"] == "apply-scientific-transfer-v2":

@@ -1,3 +1,8 @@
+import type {
+  InventoryScientificCitation,
+  InventoryScientificCitationWithdrawal,
+} from './inventory-scientific-citation-types';
+import { validateInventoryScientificCitations } from './inventory-scientific-citation-validation';
 import type { InventoryScientificWork } from './inventory-scientific-types';
 import { validateInventoryScientificState } from './inventory-scientific-validation';
 import { validateInventoryStockroomState } from './inventory-stockroom-validation';
@@ -83,6 +88,7 @@ import type {
 } from './inventory-configuration-types';
 import {
   INVENTORY_SCHEMA,
+  INVENTORY_RUN_CONTEXT_SCHEMA,
   INVENTORY_NOTEBOOK_CONTEXT_SCHEMA,
   INVENTORY_STOCKROOM_SCHEMA,
   INVENTORY_ARRIVAL_SCHEMA,
@@ -2314,6 +2320,72 @@ const scientificWorkRecord: Codec<InventoryScientificWork> = fields('Scientific 
   by: recordedPrincipal,
   reason,
 });
+const scientificCitationContext = fields('Saved scientific citation context', {
+  kind: union('Scientific citation source kind', [
+    literal('notebook-page'),
+    literal('protocol-run'),
+  ]),
+  projectId: id,
+  workspaceScope: id,
+  entityId: id,
+  source: fields('Native observed saved citation source', {
+    kind: literal('native-observed-saved-source'),
+    sha256,
+    fileObjectUuid: id,
+    title: text('Saved citation source title', 17 * 1024 * 1024),
+  }),
+});
+const scientificCitationRecord: Codec<InventoryScientificCitation> = fields('Scientific citation', {
+  id,
+  identity: fields('Stable scientific citation identity', {
+    namespace: arrivalKey,
+    citationId: arrivalKey,
+  }),
+  intentSha256: sha256,
+  workId: id,
+  workIntentSha256: sha256,
+  reinstates: union('Scientific citation predecessor', [
+    nullValue,
+    fields('Withdrawn citation predecessor', {
+      citationId: id,
+      citationIntentSha256: sha256,
+      withdrawalId: id,
+      withdrawalIntentSha256: sha256,
+    }),
+  ]),
+  context: scientificCitationContext,
+  at: timestamp,
+  by: recordedPrincipal,
+  reason,
+});
+const scientificCitationWithdrawalRecord: Codec<InventoryScientificCitationWithdrawal> = fields(
+  'Scientific citation withdrawal',
+  {
+    id,
+    identity: fields('Stable citation withdrawal identity', {
+      namespace: arrivalKey,
+      withdrawalId: arrivalKey,
+    }),
+    intentSha256: sha256,
+    citationId: id,
+    citationIntentSha256: sha256,
+    workId: id,
+    workIntentSha256: sha256,
+    at: timestamp,
+    by: recordedPrincipal,
+    reason,
+  }
+);
+
+export function parseInventoryScientificCitation(value: unknown): InventoryScientificCitation {
+  return scientificCitationRecord.parse(value);
+}
+export function parseInventoryScientificCitationWithdrawal(
+  value: unknown
+): InventoryScientificCitationWithdrawal {
+  return scientificCitationWithdrawalRecord.parse(value);
+}
+
 const reservationVolume = checked(volume, (value) => {
   const normalized = normalizeInventoryVolume(value);
   if (normalized.value !== value.value || normalized.unit !== value.unit)
@@ -2991,7 +3063,8 @@ export function parseInventoryScientificWork(value: unknown): InventoryScientifi
 export function parseInventoryState(value: unknown): InventoryState {
   const row = object(value, 'Inventory state');
   const current = row.schema === INVENTORY_SCHEMA;
-  const scientificRecords = current || row.schema === INVENTORY_NOTEBOOK_CONTEXT_SCHEMA;
+  const runContextRecords = current || row.schema === INVENTORY_RUN_CONTEXT_SCHEMA;
+  const scientificRecords = runContextRecords || row.schema === INVENTORY_NOTEBOOK_CONTEXT_SCHEMA;
   const stockroomRecords = scientificRecords || row.schema === INVENTORY_STOCKROOM_SCHEMA;
   const arrivalRecords = stockroomRecords || row.schema === INVENTORY_ARRIVAL_SCHEMA;
   const validityRecords = arrivalRecords || row.schema === INVENTORY_VALIDITY_SCHEMA;
@@ -3015,6 +3088,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   const shape = fields('Inventory state', {
     schema: union('Inventory schema', [
       literal(INVENTORY_SCHEMA),
+      literal(INVENTORY_RUN_CONTEXT_SCHEMA),
       literal(INVENTORY_NOTEBOOK_CONTEXT_SCHEMA),
       literal(INVENTORY_STOCKROOM_SCHEMA),
       literal(INVENTORY_ARRIVAL_SCHEMA),
@@ -3040,6 +3114,15 @@ export function parseInventoryState(value: unknown): InventoryState {
       literal(LEGACY_INVENTORY_SCHEMA),
     ]),
     revision,
+    ...(current
+      ? {
+          scientificCitations: { schema: { type: 'object' }, parse: (input: unknown) => input },
+          scientificCitationWithdrawals: {
+            schema: { type: 'object' },
+            parse: (input: unknown) => input,
+          },
+        }
+      : {}),
     ...(scientificRecords
       ? { scientificWorks: { schema: { type: 'object' }, parse: (input: unknown) => input } }
       : {}),
@@ -3164,10 +3247,18 @@ export function parseInventoryState(value: unknown): InventoryState {
   });
   let state: InventoryState = {
     schema: INVENTORY_SCHEMA,
+    scientificCitations: current
+      ? records(shape.scientificCitations, (raw) => scientificCitationRecord.parse(raw))
+      : Object.create(null),
+    scientificCitationWithdrawals: current
+      ? records(shape.scientificCitationWithdrawals, (raw) =>
+          scientificCitationWithdrawalRecord.parse(raw)
+        )
+      : Object.create(null),
     scientificWorks: scientificRecords
       ? records(shape.scientificWorks, (raw) => {
           const work = scientificWorkRecord.parse(raw);
-          if (!current && work.context.kind !== 'notebook-page')
+          if (!runContextRecords && work.context.kind !== 'notebook-page')
             invalid('Inventory v23 scientific work supports notebook context only.');
           return work;
         })
@@ -3443,6 +3534,7 @@ export function parseInventoryState(value: unknown): InventoryState {
   validateState(state);
   try {
     validateInventoryScientificState(state);
+    validateInventoryScientificCitations(state);
     validateInventoryStockroomState(state);
     validateInventoryArrivalState(state);
     validateInventoryValidityState(state);

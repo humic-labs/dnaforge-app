@@ -1,4 +1,11 @@
 import {
+  runInventoryScientificCitations,
+  runInventoryScientificCitationsResume,
+  runInventoryScientificCitationsReopen,
+  runInventoryScientificCitationsReattach,
+  runInventoryScientificCitationsReattachResume,
+} from './journeys/inventory-scientific-citations.mjs';
+import {
   runInventoryRunRecordedWork,
   runInventoryRunRecordedWorkReopen,
 } from './journeys/inventory-run-recorded-work.mjs';
@@ -129,6 +136,13 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const args = process.argv.slice(2);
 const option = (name) => args[args.indexOf(name) + 1];
 const stage = args.includes('--stage') ? option('--stage') : 'doctor';
+const citationStages = {
+  'scientific-citations': runInventoryScientificCitations,
+  'scientific-citations-resume': runInventoryScientificCitationsResume,
+  'scientific-citations-reopen': runInventoryScientificCitationsReopen,
+  'scientific-citations-reattach': runInventoryScientificCitationsReattach,
+  'scientific-citations-reattach-resume': runInventoryScientificCitationsReattachResume,
+};
 const recordedWorkStages = {
   'run-recorded-work': runInventoryRunRecordedWork,
   'run-recorded-work-reopen': runInventoryRunRecordedWorkReopen,
@@ -136,6 +150,7 @@ const recordedWorkStages = {
 assert.ok(
   [
     ...Object.keys(recordedWorkStages),
+    ...Object.keys(citationStages),
     'doctor',
     'before',
     'journey',
@@ -899,6 +914,24 @@ try {
           ? runInventoryStockroomCorrectionsResume
           : runInventoryStockroomCorrectionsReopen
     )({ page, expect, choose, inventoryRead, capture, fixture, evidenceDirectory: out });
+  }
+  if (Object.hasOwn(citationStages, stage)) {
+    assert.ok(
+      args.includes('--fixture'),
+      'Pass the exact existing Run work fixture or citation checkpoint.'
+    );
+    const fixture = JSON.parse(readFileSync(path.resolve(option('--fixture')), 'utf8'));
+    assert.ok(fixture.project.path.startsWith(`${runtime.provenance.userDataPath}/`));
+    recording = await startRecording();
+    receipt.expected = await citationStages[stage]({
+      page,
+      expect,
+      choose,
+      inventoryRead,
+      capture,
+      fixture,
+      evidenceDirectory: out,
+    });
   }
   if (Object.hasOwn(recordedWorkStages, stage)) {
     assert.ok(

@@ -83,6 +83,31 @@ export type {
   InventoryScientificWorksForContextRead,
 } from './inventory-scientific-read';
 
+import type {
+  InventoryPreviewScientificCitationRequest,
+  InventoryApplyScientificCitationRequest,
+  InventoryPreviewScientificCitationWithdrawalRequest,
+  InventoryApplyScientificCitationWithdrawalRequest,
+  InventoryScientificCitationsRequest,
+  InventoryScientificCitationSourceRequest,
+  InventoryScientificCitationPreviewSnapshot,
+  InventoryScientificCitationWithdrawalPreviewSnapshot,
+  InventoryScientificCitationsRead,
+  InventoryScientificCitationSourceRead,
+} from './inventory-scientific-citations';
+export type {
+  InventoryPreviewScientificCitationRequest,
+  InventoryApplyScientificCitationRequest,
+  InventoryPreviewScientificCitationWithdrawalRequest,
+  InventoryApplyScientificCitationWithdrawalRequest,
+  InventoryScientificCitationsRequest,
+  InventoryScientificCitationSourceRequest,
+  InventoryScientificCitationPreviewSnapshot,
+  InventoryScientificCitationWithdrawalPreviewSnapshot,
+  InventoryScientificCitationsRead,
+  InventoryScientificCitationSourceRead,
+} from './inventory-scientific-citations';
+
 export interface InventoryScientificContextsSnapshot {
   readonly projectId: string;
   readonly inventoryId: string;
@@ -282,6 +307,24 @@ export type InventoryArrivalPreviewSnapshot = InventoryArrivalPreview & {
 export type { InventoryArrivalDocumentRead };
 
 export interface InventoryClient {
+  previewScientificCitation(
+    input: InventoryPreviewScientificCitationRequest
+  ): Promise<InventoryScientificCitationPreviewSnapshot>;
+  applyScientificCitation(
+    input: InventoryApplyScientificCitationRequest
+  ): Promise<NativeInventoryExecution>;
+  previewScientificCitationWithdrawal(
+    input: InventoryPreviewScientificCitationWithdrawalRequest
+  ): Promise<InventoryScientificCitationWithdrawalPreviewSnapshot>;
+  applyScientificCitationWithdrawal(
+    input: InventoryApplyScientificCitationWithdrawalRequest
+  ): Promise<NativeInventoryExecution>;
+  scientificCitations(
+    input: InventoryScientificCitationsRequest
+  ): Promise<InventoryScientificCitationsRead>;
+  scientificCitationSource(
+    input: InventoryScientificCitationSourceRequest
+  ): Promise<InventoryScientificCitationSourceRead>;
   scientificWorksForContext(
     input: InventoryScientificWorksForContextRequest
   ): Promise<InventoryScientificWorksForContextRead>;
@@ -371,6 +414,12 @@ export function unavailableInventoryClient(): InventoryClient {
     message: 'Inventory requires the connected desktop owner.',
   });
   return {
+    previewScientificCitation: unavailable,
+    applyScientificCitation: unavailableMutation,
+    previewScientificCitationWithdrawal: unavailable,
+    applyScientificCitationWithdrawal: unavailableMutation,
+    scientificCitations: unavailable,
+    scientificCitationSource: unavailable,
     scientificWorksForContext: unavailable,
     scientificContextsV2: unavailable,
     previewScientificTransferV2: unavailable,

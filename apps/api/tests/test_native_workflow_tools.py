@@ -1172,3 +1172,84 @@ async def test_inventory_arrival_preserves_original_evidence_and_requires_curren
         await execute_native_workflow("inventory", {"operation": document}, context)
     assert revoked.value.code == "GRANT_REVOKED"
     assert len(state["calls"]) == 3
+
+
+@pytest.mark.asyncio
+async def test_inventory_citation_routes_preserve_pins_and_use_current_write_grants(native):
+    state, context = native
+    state["scope"] = ["read-workspace"]
+    digest = "sha256:" + "a" * 64
+    scope = {"project": "project", "inventoryId": "inventory"}
+    choices = {
+        "identity": {"namespace": "citations", "citationId": "same-citation"},
+        "workId": "scientific-work:" + "b" * 64,
+        "workIntentSha256": digest,
+        "context": {"kind": "notebook-page", "entityId": "project::page", "sourceSha256": digest},
+        "reinstates": None,
+        "reason": "Saved supporting observation",
+    }
+    withdrawal = {
+        "identity": {"namespace": "citations", "withdrawalId": "same-withdrawal"},
+        "citationId": "scientific-citation:" + "c" * 64,
+        "citationIntentSha256": digest,
+        "workId": choices["workId"],
+        "workIntentSha256": digest,
+        "reason": "Correct supporting observation",
+    }
+    operations = [
+        {
+            "kind": "preview-scientific-citation",
+            **scope,
+            "expectedRevision": 93,
+            "choices": choices,
+        },
+        {
+            "kind": "preview-scientific-citation-withdrawal",
+            **scope,
+            "expectedRevision": 94,
+            "choices": withdrawal,
+        },
+        {
+            "kind": "scientific-citations",
+            **scope,
+            "workId": choices["workId"],
+            "workIntentSha256": digest,
+            "limit": 20,
+        },
+        {"kind": "scientific-citation-source", **scope, "citationId": withdrawal["citationId"]},
+    ]
+    for operation in operations:
+        await execute_native_workflow("inventory", {"operation": operation}, context)
+        assert state["calls"][-1]["command"] == "inventory." + operation["kind"]
+        assert state["calls"][-1]["request"] == {
+            key: value for key, value in operation.items() if key != "kind"
+        }
+        assert state["calls"][-1]["agent"]["capabilities"] == ["read-workspace"]
+    for kind, accepted, selected in [
+        ("apply-scientific-citation", "record-scientific-citation", choices),
+        ("apply-scientific-citation-withdrawal", "withdraw-scientific-citation", withdrawal),
+    ]:
+        operation = {
+            "kind": kind,
+            **scope,
+            "expectedRevision": 93,
+            "operationId": "same-attempt-" + kind,
+            "choices": selected,
+            "expectedPlanDigest": digest,
+        }
+        with pytest.raises(ToolExecutionFailure) as denied:
+            await execute_native_workflow("inventory", {"operation": operation}, context)
+        assert denied.value.code == "INSUFFICIENT_SCOPE"
+        assert len(state["calls"]) == 4
+        state["scope"] = ["read-workspace", "write-workspace"]
+        await execute_native_workflow("inventory", {"operation": operation}, context)
+        assert state["calls"][-1]["command"] == "inventory." + kind
+        assert state["calls"][-1]["request"] == {**operation, "kind": accepted}
+        assert state["calls"][-1]["request"]["choices"] == selected
+        state["calls"].pop()
+        state["scope"] = ["read-workspace"]
+    state["revoked"] = True
+    with pytest.raises(ToolExecutionFailure) as revoked:
+        await execute_native_workflow("inventory", {"operation": operations[2]}, context)
+    assert revoked.value.code == "GRANT_REVOKED"
+    assert len(state["calls"]) == 4

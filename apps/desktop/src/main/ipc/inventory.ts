@@ -18,6 +18,10 @@ import {
   inventoryOperationRequestSchema,
   type NativeInventoryRejection,
 } from '../../shared/inventory-command';
+import {
+  inventoryApplyScientificCitationRequestSchema,
+  inventoryApplyScientificCitationWithdrawalRequestSchema,
+} from '../../shared/inventory-scientific-citations';
 import { NativeDocumentCommandError } from '../../shared/native-document-error';
 import type { NativeInventoryOwner } from '../inventory-owner';
 
@@ -155,13 +159,19 @@ export function registerInventoryHandlers(options: {
   const mutateScientific = async (
     event: IpcMainInvokeEvent,
     input: unknown,
-    method: 'applyScientificTransfer' | 'applyScientificTransferV2'
+    method:
+      | 'applyScientificTransfer'
+      | 'applyScientificTransferV2'
+      | 'applyScientificCitation'
+      | 'applyScientificCitationWithdrawal'
   ) => {
     assertCaller(event);
-    const schema =
-      method === 'applyScientificTransferV2'
-        ? inventoryApplyScientificTransferV2RequestSchema
-        : inventoryApplyScientificTransferRequestSchema;
+    const schema = {
+      applyScientificTransfer: inventoryApplyScientificTransferRequestSchema,
+      applyScientificTransferV2: inventoryApplyScientificTransferV2RequestSchema,
+      applyScientificCitation: inventoryApplyScientificCitationRequestSchema,
+      applyScientificCitationWithdrawal: inventoryApplyScientificCitationWithdrawalRequestSchema,
+    }[method];
     const request = schema.parse(input);
     const owner = currentOwner();
     const assertCurrent = () => {
@@ -189,7 +199,39 @@ export function registerInventoryHandlers(options: {
       throw error;
     }
   };
+  const previewCitation = async <T>(
+    event: IpcMainInvokeEvent,
+    read: (owner: NativeInventoryOwner) => T | Promise<T>
+  ): Promise<T> => {
+    assertCaller(event);
+    const owner = currentOwner();
+    const result = await read(owner);
+    assertCaller(event);
+    if (currentOwner() !== owner)
+      throw new NativeDocumentCommandError(
+        'INVENTORY_OWNER_UNAVAILABLE',
+        'The desktop inventory owner changed.',
+        false
+      );
+    return result;
+  };
   return handleGroup(inventoryContract, {
+    previewScientificCitation: (event, request) =>
+      previewCitation(event, (owner) => owner.previewScientificCitation(request)),
+    applyScientificCitation: (event, request) =>
+      mutateScientific(event, request, 'applyScientificCitation'),
+    previewScientificCitationWithdrawal: (event, request) =>
+      previewCitation(event, (owner) => owner.previewScientificCitationWithdrawal(request)),
+    applyScientificCitationWithdrawal: (event, request) =>
+      mutateScientific(event, request, 'applyScientificCitationWithdrawal'),
+    scientificCitations: (event, request) => {
+      assertCaller(event);
+      return currentOwner().scientificCitations(request);
+    },
+    scientificCitationSource: (event, request) => {
+      assertCaller(event);
+      return currentOwner().scientificCitationSource(request);
+    },
     scientificWorksForContext: (event, request) => {
       assertCaller(event);
       return currentOwner().scientificWorksForContext(request);

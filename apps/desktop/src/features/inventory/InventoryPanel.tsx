@@ -1,3 +1,4 @@
+import { sharedInventoryPendingCoordinator } from './inventory-pending-coordinator';
 import { InventoryScientificForm } from './InventoryScientificForm';
 import { InventoryStockroomForm } from './InventoryStockroomForm';
 import { InventoryArrivalForm } from './InventoryArrivalForm';
@@ -24,12 +25,7 @@ import { Button, Notice, Select, TextField, TextArea } from '../../components/ui
 import { platform } from '../../platform';
 import { safeFocus } from '../../shared/utils/safeFocus';
 import type { NativeInventoryHistoryEntry } from '../../shared/inventory-command';
-import {
-  InventoryController,
-  inventoryAttemptStorage,
-  inventoryData,
-  inventoryCanEdit,
-} from './inventory-controller';
+import { InventoryController, inventoryData, inventoryCanEdit } from './inventory-controller';
 import { InventoryMaterialForm, isInventoryMaterialDialog } from './InventoryMaterialForm';
 import { InventoryLotControlsForm, InventoryStockLotControls } from './InventoryLotControlsForm';
 import { InventoryOpeningForm, InventoryValidityForm } from './InventoryValidityForms';
@@ -86,10 +82,7 @@ function sharedController(): InventoryController {
   if (!activeController) {
     activeController = new InventoryController(
       platform().inventory,
-      inventoryAttemptStorage({
-        getItem: (key) => localStorage.getItem(key),
-        setItem: (key, value) => localStorage.setItem(key, value),
-      })
+      sharedInventoryPendingCoordinator()
     );
   }
   return activeController;
@@ -104,7 +97,10 @@ type Drawer =
 
 type InventorySourceKind = Exclude<
   Extract<NativeInventoryHistoryEntry['request'], { kind: string }>['kind'],
-  'record-scientific-transfer' | 'record-scientific-transfer-v2'
+  | 'record-scientific-transfer'
+  | 'record-scientific-transfer-v2'
+  | 'record-scientific-citation'
+  | 'withdraw-scientific-citation'
 >;
 const sourceHistoryCopy: Readonly<
   Record<
@@ -541,10 +537,14 @@ export function InventoryPanel() {
             >
               <p className="font-medium text-fg">
                 {'kind' in entry.request
-                  ? entry.request.kind === 'record-scientific-transfer' ||
-                    entry.request.kind === 'record-scientific-transfer-v2'
-                    ? 'Recorded observed scientific transfer'
-                    : sourceHistoryCopy[entry.request.kind].title
+                  ? entry.request.kind === 'record-scientific-citation'
+                    ? 'Added saved scientific citation'
+                    : entry.request.kind === 'withdraw-scientific-citation'
+                      ? 'Withdrew scientific citation'
+                      : entry.request.kind === 'record-scientific-transfer' ||
+                          entry.request.kind === 'record-scientific-transfer-v2'
+                        ? 'Recorded observed scientific transfer'
+                        : sourceHistoryCopy[entry.request.kind].title
                   : entry.request.commands
                       .map((command) => (state ? historyLabel(command, state) : ''))
                       .join(' · ')}
@@ -571,6 +571,22 @@ export function InventoryPanel() {
                   <p>
                     Retained structured context and exact before/after stocks are available in
                     Recorded scientific work.
+                  </p>
+                </div>
+              ) : 'kind' in entry.request &&
+                (entry.request.kind === 'record-scientific-citation' ||
+                  entry.request.kind === 'withdraw-scientific-citation') ? (
+                <div className="space-y-1 text-xs">
+                  <p>{entry.request.choices.reason}</p>
+                  <p className="break-all">Recorded work: {entry.request.choices.workId}</p>
+                  <p className="break-all">
+                    {entry.request.kind === 'record-scientific-citation'
+                      ? `Saved source: ${entry.request.choices.context.entityId} · ${entry.request.choices.context.sourceSha256}`
+                      : `Withdrawn citation: ${entry.request.choices.citationId}`}
+                  </p>
+                  <p>
+                    Original citation details and saved context remain in the recorded work's
+                    citation history.
                   </p>
                 </div>
               ) : 'kind' in entry.request ? (

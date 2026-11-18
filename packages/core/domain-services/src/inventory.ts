@@ -1,3 +1,10 @@
+export * from './inventory-scientific-citation-types';
+export * from './inventory-scientific-citation-identity';
+export * from './inventory-scientific-citations';
+export {
+  parseInventoryScientificCitation,
+  parseInventoryScientificCitationWithdrawal,
+} from './inventory-validation';
 export * from './inventory-scientific-types';
 export * from './inventory-scientific-read';
 export { parseInventoryScientificWork } from './inventory-validation';
