@@ -39,6 +39,7 @@ export function SequenceTabWorkspaceCanvas({
   editingPending = false,
   savePending = false,
   displaySequence,
+  dataLayerSourceSequence,
   parsedPlasmid,
   allPrimerDisplays,
   onCopy,
@@ -117,6 +118,7 @@ export function SequenceTabWorkspaceCanvas({
   editingPending?: boolean;
   savePending?: boolean;
   displaySequence: AnnotatedSequence;
+  dataLayerSourceSequence?: AnnotatedSequence;
   parsedPlasmid: ParsedPlasmid;
   allPrimerDisplays: PrimerDisplay[];
   onCopy: ComponentProps<typeof WorkspaceViewer> extends { onCopy?: infer T } ? T : never;
@@ -280,6 +282,7 @@ export function SequenceTabWorkspaceCanvas({
       editingPending={editingPending}
       savePending={savePending}
       sequence={viewedSequence}
+      dataLayerSourceSequence={historicalSequence ?? dataLayerSourceSequence}
       plasmid={viewedPlasmid}
       backboneSegments={
         showingHistoricalSequence

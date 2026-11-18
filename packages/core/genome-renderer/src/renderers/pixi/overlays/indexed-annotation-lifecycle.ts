@@ -86,7 +86,8 @@ export function setRenderer(host: OverlayLifecycleHost, renderer: Renderer | nul
     typeof (renderer as { shader?: { bind?: unknown } }).shader?.bind === 'function'
   ) {
     PartitionedInstancedTranscriptLayer.prepareGpuPrograms(
-      renderer as Parameters<typeof PartitionedInstancedTranscriptLayer.prepareGpuPrograms>[0]
+      renderer as Parameters<typeof PartitionedInstancedTranscriptLayer.prepareGpuPrograms>[0],
+      true
     );
   }
   if (host.prepackedAnnotationSceneResidents.size > 0 && renderer?.type !== RendererType.WEBGL) {

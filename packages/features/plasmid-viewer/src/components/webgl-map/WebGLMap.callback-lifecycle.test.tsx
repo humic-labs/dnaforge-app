@@ -1,6 +1,6 @@
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import type { Genome, PrimerHandleHitPayload } from '@waypoint/genome-renderer';
+import type { Genome, PrimerHandleHitPayload, TrackHitResult } from '@waypoint/genome-renderer';
 import type { ParsedPlasmid } from '../../types';
 import { WebGLMap } from './WebGLMap';
 import { primerRenderId } from './plasmid-to-genome';
@@ -8,8 +8,18 @@ import { primerRenderId } from './plasmid-to-genome';
 const capture = vi.hoisted(() => ({
   options: null as null | {
     genome: Genome;
+    circular?: boolean;
+    onRendererReady?: () => void;
     onPrimerHandleDragCommit?: (handle: PrimerHandleHitPayload, targetBp: number) => void;
   },
+  transitionLifecycle: false,
+  renderer: null as Record<string, unknown> | null,
+  finishRendererInit: null as (() => void) | null,
+  setTrackHitHandler: vi.fn(),
+  state: { highlightRange: null as [number, number] | null },
+  requestRender: vi.fn(),
+  setViewCenter: vi.fn(),
+  setCameraViewport: vi.fn(),
 }));
 
 vi.mock('@waypoint/genome-renderer', async () => ({
@@ -27,23 +37,47 @@ vi.mock('@waypoint/genome-renderer/react', () => ({
   WEBGL_PERFORMANCE_PREFERENCES: ['auto'],
 }));
 
-vi.mock('./use-pixi-map', () => ({
-  useHiddenMapIdlePolicy: (fallback: string) => fallback,
-  usePixiMap: (options: NonNullable<typeof capture.options>) => {
-    capture.options = options;
-    return {
-      containerRef: { current: null },
-      handle: {
-        subscribeToPresentedFrames: vi.fn(() => () => {}),
-        requestRender: vi.fn(),
-      },
-    };
-  },
-}));
+vi.mock('./use-pixi-map', async () => {
+  const { useEffect } = await import('react');
+  return {
+    useHiddenMapIdlePolicy: (fallback: string) => fallback,
+    usePixiMap: (options: NonNullable<typeof capture.options>) => {
+      capture.options = options;
+      useEffect(() => {
+        if (!capture.transitionLifecycle) return;
+        capture.renderer = options.circular ? {} : null;
+        capture.finishRendererInit = () => {
+          capture.renderer = { setTrackHitHandler: capture.setTrackHitHandler };
+          options.onRendererReady?.();
+        };
+        return () => {
+          capture.renderer = null;
+          capture.finishRendererInit = null;
+        };
+      }, [options.circular]);
+      return {
+        containerRef: { current: null },
+        handle: {
+          getLinearRenderer: () => (capture.options?.circular ? null : capture.renderer),
+          getState: () => capture.state,
+          subscribeToPresentedFrames: vi.fn(() => () => {}),
+          requestRender: capture.requestRender,
+          setViewCenter: capture.setViewCenter,
+          setCameraViewport: capture.setCameraViewport,
+        },
+      };
+    },
+  };
+});
 
 afterEach(() => {
   cleanup();
   capture.options = null;
+  capture.transitionLifecycle = false;
+  capture.renderer = null;
+  capture.finishRendererInit = null;
+  capture.state.highlightRange = null;
+  vi.clearAllMocks();
 });
 
 function fixture(): ParsedPlasmid {
@@ -79,6 +113,33 @@ function fixture(): ParsedPlasmid {
     ],
   };
 }
+
+it('waits for the linear renderer before attaching track hits after a circular topology change', () => {
+  capture.transitionLifecycle = true;
+  const plasmid = fixture();
+  const onSelectionChange = vi.fn();
+  const { rerender, unmount } = render(
+    <WebGLMap plasmid={plasmid} circular onSelectionChange={onSelectionChange} />
+  );
+  expect(capture.renderer).toEqual({});
+  expect(capture.setTrackHitHandler).not.toHaveBeenCalled();
+  rerender(<WebGLMap plasmid={plasmid} circular={false} onSelectionChange={onSelectionChange} />);
+  expect(capture.renderer).toBeNull();
+  expect(capture.setTrackHitHandler).not.toHaveBeenCalled();
+  act(() => capture.finishRendererInit?.());
+  expect(capture.setTrackHitHandler).toHaveBeenCalledTimes(1);
+  const hit = capture.setTrackHitHandler.mock.calls[0][0] as (result: TrackHitResult) => void;
+  act(() => hit({ kind: 'select-bp-range', startBp: 12, endBp: 18, chromosomeId: 'fixture' }));
+  expect(capture.state.highlightRange).toEqual([12, 17]);
+  expect(onSelectionChange).toHaveBeenCalledExactlyOnceWith(12, 17, false);
+  expect(capture.requestRender).toHaveBeenCalled();
+  act(() => hit({ kind: 'jump-to-bp', bp: 35 }));
+  expect(capture.setViewCenter).toHaveBeenCalledExactlyOnceWith(35);
+  act(() => hit({ kind: 'frame-bp-range', startBp: 30, endBp: 50, chromosomeId: 'fixture' }));
+  expect(capture.setCameraViewport).toHaveBeenCalledExactlyOnceWith(30, 50);
+  unmount();
+  expect(capture.setTrackHitHandler).toHaveBeenLastCalledWith(null);
+});
 
 it('keeps installed circular assembly data when an editing callback is replaced', () => {
   const plasmid = fixture();

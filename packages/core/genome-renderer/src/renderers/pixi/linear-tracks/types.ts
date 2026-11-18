@@ -2,7 +2,12 @@ import type { Container, Renderer } from 'pixi.js';
 
 import type { Assembly } from '../../../assembly';
 import type { Chromosome } from '../../../chromosome';
-import type { TrackLayoutEntry, TrackPresentationMetadata, TrackType } from '../../../tracks/types';
+import type {
+  Track,
+  TrackLayoutEntry,
+  TrackPresentationMetadata,
+  TrackType,
+} from '../../../tracks/types';
 import type { PathMapper } from '../shared/path-types';
 import type { WebGLRenderTheme } from '../shared/theme';
 import type { Genome, RenderState } from '../../../types';
@@ -113,4 +118,10 @@ export interface PixiLinearTrackRenderer<TData = unknown> {
   getCoverageDepthSnapshot?(container: Container): TrackCoverageDepthSnapshot | null;
   getReadPresentationSnapshot?(container: Container): TrackReadPresentationSnapshot | null;
   unmount(container: Container): void;
+}
+
+export interface SupplementalLinearTrack {
+  readonly track: Track;
+  readonly renderer: PixiLinearTrackRenderer;
+  readonly data: unknown;
 }

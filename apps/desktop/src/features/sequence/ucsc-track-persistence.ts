@@ -321,6 +321,7 @@ function sameQuantitativePresentation(
   return (
     a.version === b.version &&
     a.graph === b.graph &&
+    a.palette === b.palette &&
     a.showRange === b.showRange &&
     (a.smoothingSigmaBins ?? 0) === (b.smoothingSigmaBins ?? 0) &&
     a.scale.mode === b.scale.mode &&

@@ -1,0 +1,266 @@
+{
+  "schema": "dnaforge.sequence-data-layer-fixture.v1",
+  "dataset": {
+    "number": 17,
+    "id": "17-conservation",
+    "title": "Gene conservation and loss",
+    "study": "Touchon et al. 2009 · Supplementary Table S1, K12 sheet",
+    "sourceReference": "21 strains as named in the published Table S1"
+  },
+  "files": {
+    "csv": "data.csv",
+    "snapshot": "snapshot.json",
+    "sourceRecords": "source-records.json",
+    "crosswalk": "crosswalk.json"
+  },
+  "snapshot": {
+    "file": "snapshot.json",
+    "sha256": "7041daac65a7d945789035ccdc68ac76d505518e2973d9d780259a915026b64e",
+    "originalSnapshotSha256": "a8f2e19f14683af4cf8adf3c77473c0755e2dbbfbc3c8e95254efa7141c1f1aa",
+    "omittedPresentationFields": [
+      "suggestedViews"
+    ]
+  },
+  "sourceFiles": [
+    {
+      "url": "https://journals.plos.org/plosgenetics/article/file?type=supplementary&id=10.1371/journal.pgen.1000344.s010",
+      "file": "raw/comparison/touchon-s1.xls",
+      "sha256": "5c7a9cc5f5d1a91dea6a08e1416547da58b18f7f29d868d5fb59bfc9594e57bc",
+      "citation": "https://doi.org/10.1371/journal.pgen.1000344"
+    }
+  ],
+  "targetReference": {
+    "accession": "NC_000913.3",
+    "organism": "Escherichia coli K-12 MG1655",
+    "length": 4641652,
+    "normalizedSequenceSha256": "e999dceccb76562d40e49a10d9e6d4cf1c05d184f4f80b92bb32d4a2420c11d0",
+    "fasta": {
+      "file": "MG1655-NC_000913.3.fasta",
+      "sha256": "03c41475639fe8de50f23f2b9456402668411ccaf488d39d8f99cafea6552ced"
+    },
+    "annotation": {
+      "file": "MG1655-NC_000913.3.gff3",
+      "sha256": "8654e5413df05d47649deb8cd86eb09a91012dfd0d2c9979f39ea2a60f137326",
+      "targetFeatureTypes": [
+        "gene",
+        "pseudogene"
+      ],
+      "targetIdentifier": "original GFF ID",
+      "coordinateSystem": "GFF 1-based inclusive; runtime derives target intervals"
+    }
+  },
+  "transferStatement": "Source-strain gene properties transferred to exact matching MG1655 annotations. This does not assert original-strain coordinates or measurements of MG1655 physiology.",
+  "coordinateSystem": "annotation-based",
+  "mapping": {
+    "kind": "annotation",
+    "identifierColumn": "target_annotation_id",
+    "identifierField": "ID"
+  },
+  "valueColumns": [
+    "K12",
+    "O157:H7 EDL",
+    "O157:H7",
+    "CFT073",
+    "O42",
+    "UTI89",
+    "S88",
+    "536",
+    "APECO1",
+    "fergussoni",
+    "UMN026",
+    "IAI39",
+    "ED1a",
+    "55989",
+    "2348-69",
+    "IAI1",
+    "S.flexeneri 2a 301",
+    "S.flexeneri 2a 2457T",
+    "S.Sonnei",
+    "S.Boydii",
+    "S.dysenteria"
+  ],
+  "unit": "functional-state code: 1 functional, 0 absent, -1 pseudogene",
+  "aggregation": "none",
+  "unresolvedPolicy": "exclude",
+  "measurements": [
+    {
+      "column": "K12",
+      "originalSourceStrain": "K12",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "O157:H7 EDL",
+      "originalSourceStrain": "O157:H7 EDL",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "O157:H7",
+      "originalSourceStrain": "O157:H7",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "CFT073",
+      "originalSourceStrain": "CFT073",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "O42",
+      "originalSourceStrain": "O42",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "UTI89",
+      "originalSourceStrain": "UTI89",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "S88",
+      "originalSourceStrain": "S88",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "536",
+      "originalSourceStrain": "536",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "APECO1",
+      "originalSourceStrain": "APECO1",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "fergussoni",
+      "originalSourceStrain": "fergussoni",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "UMN026",
+      "originalSourceStrain": "UMN026",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "IAI39",
+      "originalSourceStrain": "IAI39",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "ED1a",
+      "originalSourceStrain": "ED1a",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "55989",
+      "originalSourceStrain": "55989",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "2348-69",
+      "originalSourceStrain": "2348-69",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "IAI1",
+      "originalSourceStrain": "IAI1",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "S.flexeneri 2a 301",
+      "originalSourceStrain": "S.flexeneri 2a 301",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "S.flexeneri 2a 2457T",
+      "originalSourceStrain": "S.flexeneri 2a 2457T",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "S.Sonnei",
+      "originalSourceStrain": "S.Sonnei",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "S.Boydii",
+      "originalSourceStrain": "S.Boydii",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    },
+    {
+      "column": "S.dysenteria",
+      "originalSourceStrain": "S.dysenteria",
+      "unit": "state code",
+      "quantity": "published 2009 functional/absent/pseudogene state"
+    }
+  ],
+  "stateLegend": {
+    "1": "functional",
+    "0": "absent",
+    "-1": "pseudogene"
+  },
+  "additionalMeasurementGroups": [
+    {
+      "columns": [
+        "functional_genome_count",
+        "pseudogene_genome_count",
+        "absent_genome_count"
+      ],
+      "unit": "genomes",
+      "quantity": "derived count of each published state across 21 strains"
+    }
+  ],
+  "counts": {
+    "rows": 81,
+    "primarySamples": 21,
+    "primaryMeasuredValues": 1701,
+    "primaryMissingValues": 0,
+    "mappedRows": 17,
+    "unmappedRows": 64,
+    "sourceAmbiguousRows": 0,
+    "targetAmbiguousRows": 0,
+    "expectedNative": {
+      "total": 81,
+      "mapped": 17,
+      "unmapped": 64,
+      "ambiguous": 0,
+      "rejected": 0
+    },
+    "methods": {
+      "exact-source-gene-qualifier": 15,
+      "no-unique-exact-gene-or-synonym-match": 64,
+      "exact-source-gene-synonym-token": 2
+    },
+    "directSourceReferenceBLocustagMatches": 0
+  },
+  "sourceTable": {
+    "worksheet": "K12",
+    "geneRows": 81,
+    "strainColumns": 21,
+    "footerDefinition": "Reference identifies a functional CDS in one of 21 analysed genomes; begin/end belong to that CDS. Source TOTAL is a signed sum of states, not the number of functional genes."
+  },
+  "limits": [
+    "This subset is enriched for genes disrupted in K-12; do not infer genome-wide conservation frequencies.",
+    "Strain spelling is preserved from the source.",
+    "Published 2009 gene annotations may differ from current annotations.",
+    "All source K12 calls describe the published 2009 pseudogene subset; they do not supersede the current MG1655 annotation.",
+    "The target has exact root annotations for 17 source gene names. All 64 unresolved rows and all 1701 source state values are retained.",
+    "Foreign-source begin/end columns are audit fields and are never used for target positions."
+  ]
+}

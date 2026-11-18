@@ -21,8 +21,15 @@ import {
   type FeatureKind,
 } from '@waypoint/genome-data/annotation-catalog';
 import { CompactFilterSelect } from '@waypoint/ui-components';
+import { SCIENTIFIC_COLOR_PALETTES } from '@waypoint/sequence-utils';
 
 import { Button } from '../../../shared/components/Button';
+import { SettingsIcon } from '../../../components/icons';
+import type { SequenceDataLayerPresentation } from '../../../shared/sequence-data-layer';
+import type {
+  SequenceDataLayerTrackControls,
+  SequenceDataLayerTrackRow,
+} from '../data-layers/useSequenceDataLayers';
 import {
   inspectSequenceAnnotationTracks,
   subscribeSequenceAnnotationTracks,
@@ -255,12 +262,182 @@ function TrackRow({
   );
 }
 
+function DataLayerTrackRow({
+  row,
+  controls,
+}: {
+  row: SequenceDataLayerTrackRow;
+  controls: SequenceDataLayerTrackControls;
+}) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { presentation } = row;
+  const palette =
+    Object.entries(SCIENTIFIC_COLOR_PALETTES).find(
+      ([, candidate]) =>
+        JSON.stringify(candidate.colors) === JSON.stringify(presentation.style.colorScale.colors)
+    )?.[0] ?? 'custom';
+  const setPresentation = (next: SequenceDataLayerPresentation) =>
+    controls.onPresentationChange(row.id, next);
+  return (
+    <li
+      className="flex flex-col gap-1.5 border-b border-border px-3 py-2 last:border-b-0"
+      data-testid="sequence-data-layer-track-row"
+      data-track-id={row.id}
+    >
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={row.visible}
+          aria-label={`Show ${row.label}`}
+          onChange={(event) => controls.onVisibilityChange(row.id, event.target.checked)}
+        />
+        <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-fg">
+          {row.label}
+        </span>
+        <button
+          type="button"
+          aria-label={`${settingsOpen ? 'Close' : 'Open'} settings for ${row.label}`}
+          aria-expanded={settingsOpen}
+          aria-controls={settingsOpen ? `sequence-data-layer-settings-${row.id}` : undefined}
+          onClick={() => setSettingsOpen((open) => !open)}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-fg-subtle hover:bg-bg-muted hover:text-fg"
+        >
+          <SettingsIcon size={14} />
+        </button>
+      </div>
+      {row.unavailable ? (
+        <div role="status" className="text-[11px] text-fg-muted">
+          {row.unavailable}
+        </div>
+      ) : null}
+      {settingsOpen ? (
+        <div
+          id={`sequence-data-layer-settings-${row.id}`}
+          className="grid grid-cols-[72px_1fr] items-center gap-x-2 gap-y-2 text-[11px] text-fg-muted"
+        >
+          {presentation.style.geometry === 'matrix' ? (
+            <>
+              <span>Samples</span>
+              <span>All {row.samples.length} source samples</span>
+            </>
+          ) : (
+            <>
+              <span>Sample</span>
+              <CompactFilterSelect
+                value={presentation.sampleId}
+                ariaLabel={`Sample for ${row.label}`}
+                options={row.samples.map((sample) => ({ value: sample.id, label: sample.label }))}
+                onChange={(sampleId) => setPresentation({ ...presentation, sampleId })}
+              />
+            </>
+          )}
+          <span>Drawn as</span>
+          <CompactFilterSelect
+            value={presentation.style.geometry}
+            ariaLabel={`Drawing style for ${row.label}`}
+            options={[
+              { value: 'bars', label: 'Bars' },
+              { value: 'band', label: 'Color band' },
+              { value: 'points', label: 'Points' },
+              { value: 'arcs', label: 'Arcs' },
+              { value: 'matrix', label: 'Matrix' },
+            ]}
+            onChange={(geometry) => {
+              if (
+                geometry === 'bars' ||
+                geometry === 'band' ||
+                geometry === 'points' ||
+                geometry === 'arcs' ||
+                geometry === 'matrix'
+              )
+                setPresentation({ ...presentation, style: { ...presentation.style, geometry } });
+            }}
+          />
+          <span>Palette</span>
+          <CompactFilterSelect
+            value={palette}
+            ariaLabel={`Color palette for ${row.label}`}
+            options={[
+              ...Object.entries(SCIENTIFIC_COLOR_PALETTES).map(([value, entry]) => ({
+                value,
+                label: entry.name,
+              })),
+              ...(palette === 'custom' ? [{ value: 'custom', label: 'Custom' }] : []),
+            ]}
+            onChange={(value) => {
+              const colors = Object.entries(SCIENTIFIC_COLOR_PALETTES).find(
+                ([key]) => key === value
+              )?.[1].colors;
+              if (colors)
+                setPresentation({
+                  ...presentation,
+                  style: {
+                    ...presentation.style,
+                    colorScale: { ...presentation.style.colorScale, colors: [...colors] },
+                  },
+                });
+            }}
+          />
+          {presentation.style.geometry !== 'matrix' &&
+          controls.annotationColorsSupported !== false &&
+          row.annotationColorsSupported !== false ? (
+            <label className="col-span-2 flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={presentation.annotationColors}
+                aria-label={`Color annotations from ${row.label}`}
+                onChange={(event) =>
+                  setPresentation({ ...presentation, annotationColors: event.target.checked })
+                }
+              />
+              Annotation colors
+            </label>
+          ) : null}
+          <label className="col-span-2 flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={presentation.signalVisible}
+              aria-label={`Show signal for ${row.label}`}
+              onChange={(event) =>
+                setPresentation({ ...presentation, signalVisible: event.target.checked })
+              }
+            />
+            Signal
+          </label>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+function DataLayerTrackRows({ controls }: { controls?: SequenceDataLayerTrackControls }) {
+  if (!controls) return null;
+  return (
+    <>
+      {controls.errors.map((error, index) => (
+        <div key={index} role="alert" className="px-3 py-2 text-[11px] text-error">
+          {error}
+        </div>
+      ))}
+      {controls.rows.length > 0 ? (
+        <ul className="flex flex-col">
+          {controls.rows.map((row) => (
+            <DataLayerTrackRow key={row.id} row={row} controls={controls} />
+          ))}
+        </ul>
+      ) : null}
+    </>
+  );
+}
+
 export function SequenceAnnotationTracksPanel({
   ownerTabId,
   mapCircular,
+  dataLayers,
 }: {
   ownerTabId: string;
   mapCircular: boolean;
+  dataLayers?: SequenceDataLayerTrackControls;
 }) {
   const inspection = useTracksInspection(ownerTabId);
   const [problem, setProblem] = useState<string | null>(null);
@@ -279,6 +456,18 @@ export function SequenceAnnotationTracksPanel({
   );
 
   if (inspection.status === 'missing' || !inspection.assembly) {
+    if (dataLayers && (dataLayers.rows.length > 0 || dataLayers.errors.length > 0)) {
+      return (
+        <div data-testid="annotation-tracks-panel">
+          {mapCircular ? (
+            <div className="border-b border-border px-3 py-2 text-[11px] text-fg-muted">
+              {CIRCULAR_NOTICE}
+            </div>
+          ) : null}
+          <DataLayerTrackRows controls={dataLayers} />
+        </div>
+      );
+    }
     return (
       <div className="p-3 text-[12px] text-fg-muted">No annotation tracks for this sequence.</div>
     );
@@ -383,6 +572,7 @@ export function SequenceAnnotationTracksPanel({
       ) : (
         <div className="px-3 py-2 text-[11px] text-fg-muted">No tracks yet.</div>
       )}
+      <DataLayerTrackRows controls={dataLayers} />
       <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2">
         <CompactFilterSelect
           value={selectedTrack?.key ?? ''}
@@ -430,9 +620,11 @@ export function SequenceAnnotationTracksPanel({
 export function SequenceAnnotationTracksControl({
   ownerTabId,
   mapCircular,
+  dataLayers,
 }: {
   ownerTabId: string;
   mapCircular: boolean;
+  dataLayers?: SequenceDataLayerTrackControls;
 }) {
   const presentationEvents = usePresentationListener();
 
@@ -471,7 +663,7 @@ export function SequenceAnnotationTracksControl({
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={() => setOpen((value) => !value)}
-        title="Choose where promoters, terminators, and transcription units come from"
+        title="Choose tracks and their appearance"
       >
         <span className="webgl-sync-lock-toggle-label">Tracks</span>
       </button>
@@ -482,7 +674,11 @@ export function SequenceAnnotationTracksControl({
           className="absolute left-0 top-[calc(100%+6px)] z-30 w-[360px] max-w-[calc(100vw-32px)] overflow-y-auto rounded-md border border-border bg-bg shadow-lg"
           style={{ maxHeight: 'min(70vh, 560px)' }}
         >
-          <SequenceAnnotationTracksPanel ownerTabId={ownerTabId} mapCircular={mapCircular} />
+          <SequenceAnnotationTracksPanel
+            ownerTabId={ownerTabId}
+            mapCircular={mapCircular}
+            dataLayers={dataLayers}
+          />
         </div>
       ) : null}
     </div>
