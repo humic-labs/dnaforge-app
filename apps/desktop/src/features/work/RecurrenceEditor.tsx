@@ -7,17 +7,27 @@ export function RecurrenceEditor({
   change,
   start,
   saved,
+  future = false,
 }: {
   value: RecurrenceDraft;
   change(value: RecurrenceDraft): void;
   start: DateDraft;
   saved: WorkRecurrence | null;
+  future?: boolean;
 }) {
   const patch = (changes: Partial<RecurrenceDraft>) => change({ ...value, ...changes });
   const ended = saved?.state === 'ended';
   return (
     <fieldset className="space-y-2 rounded border border-border px-3 pb-3" disabled={ended}>
-      <legend className="px-1 text-xs font-medium">Repeat</legend>
+      <legend className="px-1 text-xs font-medium">
+        {future ? 'Future repeat rule' : 'Repeat'}
+      </legend>
+      {saved && !future && (
+        <p className="text-xs text-fg-muted">
+          Edits here change the whole series. Choose Change future occurrences to start a new rule
+          on a particular occurrence.
+        </p>
+      )}
       <select
         aria-label="Repeat frequency"
         className={fieldClass}
@@ -32,7 +42,7 @@ export function RecurrenceEditor({
           });
         }}
       >
-        {!saved && <option value="">Does not repeat</option>}
+        {!saved && !future && <option value="">Does not repeat</option>}
         <option value="daily">Daily</option>
         <option value="weekly">Weekly</option>
         <option value="monthly">Monthly</option>
@@ -55,11 +65,29 @@ export function RecurrenceEditor({
                 {{ daily: 'days', weekly: 'weeks', monthly: 'months' }[value.frequency]}
               </span>
             </label>
-            <DateField
-              label="First occurrence"
-              value={value.anchor}
-              change={(anchor) => patch({ anchor, ...(anchor.fold ? { fold: anchor.fold } : {}) })}
-            />
+            {future ? (
+              <label className="block text-xs">
+                First date of new series
+                <input
+                  type="date"
+                  className={fieldClass}
+                  value={value.anchor.date}
+                  onChange={(e) => patch({ anchor: { ...value.anchor, date: e.target.value } })}
+                />
+                <span className="text-fg-muted">
+                  {value.anchor.time ? value.anchor.time + ' · ' : ''}
+                  {value.anchor.zone}
+                </span>
+              </label>
+            ) : (
+              <DateField
+                label="First occurrence"
+                value={value.anchor}
+                change={(anchor) =>
+                  patch({ anchor, ...(anchor.fold ? { fold: anchor.fold } : {}) })
+                }
+              />
+            )}
           </div>
           {value.anchor.time && (
             <label className="block text-xs">
@@ -124,7 +152,7 @@ export function RecurrenceEditor({
               />
             </label>
           </div>
-          {saved && (
+          {saved && !future && (
             <label className="block text-xs">
               Series status
               <select
