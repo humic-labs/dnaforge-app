@@ -18,8 +18,9 @@ import type { RetainedOverviewAnnotationStyle } from '../overlays/annotation-lod
 const RETAINED_OVERVIEW_VERTEX_SHADER = `
 precision highp float;
 
-attribute float aBp;
-attribute float aNormalOffset;
+attribute vec2 aCorner;
+attribute vec2 aBp;
+attribute vec2 aNormalOffset;
 attribute vec4 aColor;
 
 uniform float uGenomeLength;
@@ -83,10 +84,10 @@ vec3 stadiumPoint(float bp) {
 }
 
 void main() {
-  vec3 point = stadiumPoint(aBp);
+  vec3 point = stadiumPoint(aCorner.x == 0.0 ? aBp.x : aBp.y);
   vec2 screen = (uOrigin + point.xy) * uZoom + uStagePos;
   vec2 normal = vec2(-sin(point.z), cos(point.z));
-  screen += normal * aNormalOffset * uOffsetScale;
+  screen += normal * (aCorner.y == 0.0 ? aNormalOffset.x : aNormalOffset.y) * uOffsetScale;
 
   vec2 viewport = max(uViewportSize, vec2(1.0, 1.0));
   vec2 clip = vec2((screen.x / viewport.x) * 2.0 - 1.0, 1.0 - (screen.y / viewport.y) * 2.0);
@@ -128,43 +129,47 @@ export interface RetainedOverviewVertexBuffers {
   readonly colors: Float32Array;
 }
 
+const QUAD_CORNERS = new Float32Array([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1]);
+
+export function buildRetainedOverviewInstanceBuffers(
+  bins: readonly OverviewBin[],
+  style: RetainedOverviewAnnotationStyle,
+  themeMode: WebGLThemeMode | undefined
+): RetainedOverviewVertexBuffers {
+  const bps = new Float32Array(bins.length * 2);
+  const normalOffsets = new Float32Array(bins.length * 2);
+  const colors = new Float32Array(bins.length * 4);
+  for (let i = 0; i < bins.length; i++) {
+    const bin = bins[i];
+    const color = webglAnnotationColorForMode(bin.color, themeMode);
+    bps[i * 2] = bin.startBp;
+    bps[i * 2 + 1] = bin.endBp;
+    normalOffsets[i * 2] = bin.offset - bin.halfHeight;
+    normalOffsets[i * 2 + 1] = bin.offset + bin.halfHeight;
+    colors[i * 4] = ((color >> 16) & 0xff) / 255;
+    colors[i * 4 + 1] = ((color >> 8) & 0xff) / 255;
+    colors[i * 4 + 2] = (color & 0xff) / 255;
+    colors[i * 4 + 3] = overviewAlphaForStyle(bin, style);
+  }
+  return { bps, normalOffsets, colors };
+}
+
 export function buildRetainedOverviewVertexBuffers(
   bins: readonly OverviewBin[],
   style: RetainedOverviewAnnotationStyle,
   themeMode: WebGLThemeMode | undefined
 ): RetainedOverviewVertexBuffers {
-  const vertexCount = bins.length * 6;
-  const bps = new Float32Array(vertexCount);
-  const normalOffsets = new Float32Array(vertexCount);
-  const colors = new Float32Array(vertexCount * 4);
-  let vertex = 0;
-  let colorIndex = 0;
-  for (const bin of bins) {
-    const color = webglAnnotationColorForMode(bin.color, themeMode);
-    const r = ((color >> 16) & 0xff) / 255;
-    const g = ((color >> 8) & 0xff) / 255;
-    const b = (color & 0xff) / 255;
-    const a = overviewAlphaForStyle(bin, style);
-    const outerOffset = bin.offset - bin.halfHeight;
-    const innerOffset = bin.offset + bin.halfHeight;
-    const { startBp, endBp } = bin;
-    bps[vertex] = startBp;
-    normalOffsets[vertex++] = outerOffset;
-    bps[vertex] = endBp;
-    normalOffsets[vertex++] = outerOffset;
-    bps[vertex] = endBp;
-    normalOffsets[vertex++] = innerOffset;
-    bps[vertex] = startBp;
-    normalOffsets[vertex++] = outerOffset;
-    bps[vertex] = endBp;
-    normalOffsets[vertex++] = innerOffset;
-    bps[vertex] = startBp;
-    normalOffsets[vertex++] = innerOffset;
+  const instances = buildRetainedOverviewInstanceBuffers(bins, style, themeMode);
+  const bps = new Float32Array(bins.length * 6);
+  const normalOffsets = new Float32Array(bins.length * 6);
+  const colors = new Float32Array(bins.length * 24);
+  for (let i = 0; i < bins.length; i++) {
+    const color = instances.colors.subarray(i * 4, i * 4 + 4);
     for (let corner = 0; corner < 6; corner++) {
-      colors[colorIndex++] = r;
-      colors[colorIndex++] = g;
-      colors[colorIndex++] = b;
-      colors[colorIndex++] = a;
+      const vertex = i * 6 + corner;
+      bps[vertex] = instances.bps[i * 2 + QUAD_CORNERS[corner * 2]];
+      normalOffsets[vertex] = instances.normalOffsets[i * 2 + QUAD_CORNERS[corner * 2 + 1]];
+      colors.set(color, vertex * 4);
     }
   }
   return { bps, normalOffsets, colors };
@@ -176,6 +181,11 @@ export class RetainedOverviewAnnotationLayer {
   readonly container = new Container();
   private readonly builtBuffers = new Map<string, RetainedOverviewVertexBuffers>();
 
+  private readonly cornerBuffer = new PixiBuffer({
+    data: QUAD_CORNERS,
+    usage: BufferUsage.VERTEX,
+    label: 'retained-overview-annotation-corners',
+  });
   private readonly bpBuffer = new PixiBuffer({
     data: new Float32Array(0),
     usage: BufferUsage.VERTEX | BufferUsage.COPY_DST,
@@ -201,9 +211,10 @@ export class RetainedOverviewAnnotationLayer {
   private readonly viewportUniform = new Float32Array(2);
   private readonly geometry = new Geometry({
     attributes: {
-      aBp: { buffer: this.bpBuffer, format: 'float32' },
-      aNormalOffset: { buffer: this.normalOffsetBuffer, format: 'float32' },
-      aColor: { buffer: this.colorBuffer, format: 'float32x4' },
+      aCorner: { buffer: this.cornerBuffer, format: 'float32x2' },
+      aBp: { buffer: this.bpBuffer, format: 'float32x2', instance: true },
+      aNormalOffset: { buffer: this.normalOffsetBuffer, format: 'float32x2', instance: true },
+      aColor: { buffer: this.colorBuffer, format: 'float32x4', instance: true },
     },
     topology: 'triangle-list',
   });
@@ -252,7 +263,7 @@ export class RetainedOverviewAnnotationLayer {
 
     let built = this.builtBuffers.get(key);
     if (!built) {
-      built = buildRetainedOverviewVertexBuffers(bins, style, themeMode);
+      built = buildRetainedOverviewInstanceBuffers(bins, style, themeMode);
       this.builtBuffers.set(key, built);
       while (this.builtBuffers.size > RETAINED_OVERVIEW_BUILT_BUFFER_KEEP) {
         const oldest = this.builtBuffers.keys().next().value;
@@ -267,6 +278,7 @@ export class RetainedOverviewAnnotationLayer {
 
     this.dataKey = key;
     this.retainedInstanceCount = bins.length;
+    this.geometry.instanceCount = bins.length;
     this.bpBuffer.data = bps;
     this.normalOffsetBuffer.data = normalOffsets;
     this.colorBuffer.data = colors;
@@ -307,6 +319,7 @@ export class RetainedOverviewAnnotationLayer {
     this.builtBuffers.clear();
     this.dataKey = '';
     this.retainedInstanceCount = 0;
+    this.geometry.instanceCount = 0;
     this.bpBuffer.data = new Float32Array(0);
     this.normalOffsetBuffer.data = new Float32Array(0);
     this.colorBuffer.data = new Float32Array(0);

@@ -390,6 +390,7 @@ export class FloatingAnnotationLabelPresenter {
     { readonly text: string; readonly width: number } | null
   >();
   private _frame: FloatingAnnotationLabelFrameReceipt = emptyFloatingLabelFrame();
+  private visibleLeaderSegments: ReturnType<typeof floatingAnnotationVisibleLeaderSegments> = [];
   private leadersVisibleForTests = true;
   private columnGutter = 0;
 
@@ -454,7 +455,7 @@ export class FloatingAnnotationLabelPresenter {
   }
 
   leaderSegmentsFor(featureId: number): ReturnType<typeof floatingAnnotationVisibleLeaderSegments> {
-    return floatingAnnotationVisibleLeaderSegments(this._frame.decisions, undefined, featureId);
+    return this.visibleLeaderSegments.filter((segment) => segment.featureId === featureId);
   }
 
   hoveredLeaderSegments(
@@ -496,6 +497,7 @@ export class FloatingAnnotationLabelPresenter {
     this.leaderGraphics.visible = false;
     this.hoverLeaderGraphics.clear();
     this.hoverLeaderGraphics.visible = false;
+    this.visibleLeaderSegments = [];
     this._frame = emptyFloatingLabelFrame();
     this.labelsUsedThisFrame.clear();
     for (const label of this.bitmapLabelsByFeature.values()) label.visible = false;
@@ -1369,6 +1371,7 @@ export class FloatingAnnotationLabelPresenter {
       : [];
     if (candidates.length === 0) {
       this.hideUnusedLabels();
+      this.visibleLeaderSegments = [];
       this._frame = this.buildFrame(path, state, preloadMargin, assignmentCache);
       return;
     }
@@ -1402,6 +1405,7 @@ export class FloatingAnnotationLabelPresenter {
       state.themeMode === 'dark' ? FLOATING_LABEL_LEADER_DARK : FLOATING_LABEL_LEADER_LIGHT;
     ptime('annotation.floating-label-leaders', () => {
       const leaderSegments = floatingAnnotationVisibleLeaderSegments(plan.decisions);
+      this.visibleLeaderSegments = leaderSegments;
       this.leaderGraphics.visible = this.leadersVisibleForTests && leaderSegments.length > 0;
       for (const segment of leaderSegments) {
         this.leaderGraphics
