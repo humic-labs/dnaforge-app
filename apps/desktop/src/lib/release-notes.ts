@@ -10,6 +10,12 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_NOTES: Record<string, ReleaseNote> = {
+  '0.10.1': {
+    date: '2026-11-18',
+    highlights: ['Create standalone tables directly in project folders.'],
+    added: ['Duplicate a saved table from Files to make an independent copy.'],
+    fixed: ['Native AI processes on Mac have explicit permission to look up service addresses.'],
+  },
   '0.10.0': {
     date: '2026-11-13',
     highlights: [
