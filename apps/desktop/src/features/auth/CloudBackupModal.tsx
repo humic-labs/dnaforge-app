@@ -39,7 +39,7 @@ export function CloudBackupModal({
             <h2 className="text-base font-semibold text-fg">{title}</h2>
             <button
               type="button"
-              className="rounded px-2 py-1 text-sm text-fg-muted hover:bg-bg-muted hover:text-fg"
+              className="rounded px-2 py-1 text-sm text-fg-muted wp-interactive "
               onClick={onClose}
               data-testid={`${testId}-close`}
             >

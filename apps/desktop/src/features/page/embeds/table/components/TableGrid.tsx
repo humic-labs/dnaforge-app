@@ -1451,7 +1451,7 @@ export function TableGrid({
                             ? 'cursor-default text-fg-muted/30'
                             : columnSelected
                               ? 'cursor-pointer text-accent'
-                              : 'cursor-pointer text-fg-muted hover:bg-bg-muted hover:text-fg'
+                              : 'cursor-pointer text-fg-muted wp-interactive '
                         }`}
                         title={`Select column ${columnLabel}`}
                         aria-label={`Select column ${columnLabel}`}
@@ -1611,7 +1611,7 @@ export function TableGrid({
                                   : labelSelected
                                     ? 'cursor-pointer text-accent'
                                     : canEditColumnLabels
-                                      ? 'cursor-pointer text-fg hover:bg-bg-muted'
+                                      ? 'cursor-pointer text-fg wp-interactive'
                                       : 'cursor-pointer text-fg'
                               }`}
                               title={
@@ -1698,7 +1698,7 @@ export function TableGrid({
                             ? 'text-fg-muted/30'
                             : rowSelected
                               ? 'cursor-pointer text-accent'
-                              : 'cursor-pointer text-fg-muted hover:text-fg'
+                              : 'cursor-pointer text-fg-muted wp-interactive'
                         }`}
                         title={isGhostRow ? undefined : `Select row ${displayRowNum}`}
                       >

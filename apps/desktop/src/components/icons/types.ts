@@ -1,4 +1,7 @@
+import type { EntityColorFamily } from '../../shared/entity-color-family';
+
 export interface IconProps {
+  colorFamily?: EntityColorFamily;
   size?: number;
   className?: string;
 }

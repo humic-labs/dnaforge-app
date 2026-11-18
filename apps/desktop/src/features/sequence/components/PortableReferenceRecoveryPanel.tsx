@@ -95,7 +95,7 @@ export function PortableReferenceRecoveryPanel({
           data-testid="portable-reference-recovery-cancel"
           disabled={busy}
           onClick={onCancel}
-          className="h-8 rounded border border-border px-3 text-xs font-medium text-fg hover:bg-bg-subtle disabled:opacity-50"
+          className="h-8 rounded border border-border px-3 text-xs font-medium text-fg wp-interactive disabled:opacity-50"
         >
           Cancel
         </button>

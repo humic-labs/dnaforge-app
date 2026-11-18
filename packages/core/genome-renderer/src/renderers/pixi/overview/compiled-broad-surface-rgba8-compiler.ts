@@ -1,4 +1,10 @@
 import {
+  annotationDataColorsByFeatureV1,
+  compileAnnotationDataAppearanceV1,
+  type AnnotationDataAppearanceV1,
+} from '../../../annotation-data-appearance';
+import { indexedAnnotationColorForRuntimeTheme } from '../shared/annotation-runtime-theme';
+import {
   BROAD_SURFACE_LANE_SLAB_ROW_COUNT_V2,
   BROAD_SURFACE_TILE_CONTENT_WIDTH_PX_V2,
   BROAD_SURFACE_X_FILTER_GUARD_PX_V2,
@@ -90,6 +96,7 @@ export interface CompiledBroadSurfaceRgba8CellV1 {
 
 export interface CompilePackedTranscriptBroadSurfaceRgba8V1Input {
   readonly packedScene: PackedPartitionedTranscriptSceneBinaryV4;
+  readonly appearance?: AnnotationDataAppearanceV1;
   readonly surfaceManifest: CompiledBroadSurfaceManifestV2;
   readonly onCell: (cell: CompiledBroadSurfaceRgba8CellV1) => void | Promise<void>;
   readonly signal?: AbortSignal;
@@ -138,9 +145,25 @@ export async function compilePackedTranscriptBroadSurfaceRgba8V1(
     RGBA_CHANNEL_COUNT,
     'pixel bytes'
   );
+  const rasterPayload = input.appearance
+    ? await compilePackedTranscriptAppearancePayloadV1(
+        input.packedScene,
+        input.surfaceManifest.trackId,
+        input.appearance
+      )
+    : input.packedScene.payload;
+  if (
+    input.appearance &&
+    (!input.surfaceManifest.artifactKey.endsWith(
+      `:annotation-data-display-rgb.v1:${input.appearance.fingerprint}`
+    ) ||
+      input.roleWeights)
+  ) {
+    throw new Error('Annotation appearance does not match the broad surface identity.');
+  }
   const wasm =
     input.rasterizer === 'wasm'
-      ? new WasmBroadRasterizerV1(input.packedScene.payload, widthPx, heightPx)
+      ? new WasmBroadRasterizerV1(rasterPayload, widthPx, heightPx)
       : null;
   const typescriptPixels = wasm ? null : new Uint8Array(byteLength);
   const roleWeights = input.roleWeights;
@@ -159,9 +182,9 @@ export async function compilePackedTranscriptBroadSurfaceRgba8V1(
   const accumulator = roleWeights && !wasm ? new Float64Array(widthPx * heightPx * 4) : null;
   const glyphScratch = createDecodedGlyph();
   const dataView = new DataView(
-    input.packedScene.payload.buffer,
-    input.packedScene.payload.byteOffset,
-    input.packedScene.payload.byteLength
+    rasterPayload.buffer,
+    rasterPayload.byteOffset,
+    rasterPayload.byteLength
   );
   let emittedCellCount = 0;
   let transparentCellCount = 0;
@@ -1023,4 +1046,47 @@ function checkedMultiply(left: number, right: number, label: string): number {
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
+}
+
+export async function compilePackedTranscriptAppearancePayloadV1(
+  packed: Pick<PackedPartitionedTranscriptSceneBinaryV4, 'manifest' | 'payload'>,
+  trackType: string,
+  appearance: AnnotationDataAppearanceV1
+): Promise<Uint8Array> {
+  const validated = await compileAnnotationDataAppearanceV1(appearance);
+  if (
+    validated.fingerprint !== appearance.fingerprint ||
+    !packed.manifest.sourceAnnotationAliases
+  ) {
+    throw new Error('Annotation appearance requires the exact compiled source aliases.');
+  }
+  const colors = annotationDataColorsByFeatureV1(packed.manifest.sourceAnnotationAliases, {
+    colors: new Map(validated.colors),
+    missingColor: validated.missingColor,
+  });
+  const payload = packed.payload.slice();
+  for (const mode of ['expanded', 'canonical'] as const) {
+    const glyphs = packed.manifest.sections[`${mode}Glyphs`];
+    const features = packed.manifest.sections[`${mode}FeatureIndices`];
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+    for (let instance = 0; instance < glyphs.count; instance++) {
+      const featureIndex = view.getUint32(features.byteOffset + instance * 4, true);
+      const offset =
+        glyphs.byteOffset +
+        instance * TRANSCRIPT_GLYPH_INSTANCE_LAYOUT.strideBytes +
+        TRANSCRIPT_GLYPH_INSTANCE_LAYOUT.color * 4;
+      const sourceColor =
+        (Math.round(view.getFloat32(offset, true) * 255) << 16) |
+        (Math.round(view.getFloat32(offset + 4, true) * 255) << 8) |
+        Math.round(view.getFloat32(offset + 8, true) * 255);
+      const color =
+        colors.get(featureIndex) ??
+        validated.missingColor ??
+        indexedAnnotationColorForRuntimeTheme(sourceColor, trackType, validated.themeMode);
+      view.setFloat32(offset, ((color >>> 16) & 255) / 255, true);
+      view.setFloat32(offset + 4, ((color >>> 8) & 255) / 255, true);
+      view.setFloat32(offset + 8, (color & 255) / 255, true);
+    }
+  }
+  return payload;
 }

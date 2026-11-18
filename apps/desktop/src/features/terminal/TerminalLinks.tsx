@@ -65,7 +65,9 @@ export function TerminalLinks({
       >
         <div className="dnaforge-terminal-toolbar">
           <h2>Open detected link</h2>
-          <button onClick={close}>Close</button>
+          <button className="wp-interactive" onClick={close}>
+            Close
+          </button>
         </div>
         <input
           autoFocus
@@ -135,11 +137,15 @@ export function TerminalLinks({
                 : 'Visible links'}
           </span>
           {!all && (
-            <button disabled={loading} onClick={onExpand}>
+            <button className="wp-interactive" disabled={loading} onClick={onExpand}>
               Search scrollback
             </button>
           )}
-          <button disabled={!matches.length} onClick={() => open(matches[index])}>
+          <button
+            className="wp-interactive"
+            disabled={!matches.length}
+            onClick={() => open(matches[index])}
+          >
             Open link
           </button>
         </div>

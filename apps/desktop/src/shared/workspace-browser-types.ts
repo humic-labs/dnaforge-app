@@ -1,4 +1,5 @@
 import type { CatalogRecordPresentationKind } from './catalog-entity';
+import type { EntityColorContext } from './entity-color-family';
 
 export type NativeCatalogRecordReconcileRequest = Readonly<{
   workspaceRoot: string;
@@ -13,6 +14,7 @@ export type WorkspaceBrowserFilesystemEntry = Readonly<{
   path: string;
   isDirectory: boolean;
   isFile: boolean;
+  iconContext?: EntityColorContext;
 }>;
 
 export type WorkspaceBrowserCatalogEntry = Readonly<{
@@ -24,6 +26,7 @@ export type WorkspaceBrowserCatalogEntry = Readonly<{
   name: string;
   parentRelativePath: string;
   presentationKind: CatalogRecordPresentationKind;
+  iconContext?: EntityColorContext;
 }>;
 
 export type WorkspaceBrowserEntry = WorkspaceBrowserFilesystemEntry | WorkspaceBrowserCatalogEntry;

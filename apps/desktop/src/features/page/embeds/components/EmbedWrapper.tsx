@@ -42,7 +42,7 @@ export function EmbedWrapper({
                 e.stopPropagation();
                 onExpand();
               }}
-              className="p-1 text-fg-muted hover:text-fg rounded hover:bg-bg-muted transition-colors"
+              className="p-1 text-fg-muted wp-interactive rounded transition-colors"
               title="Open in panel"
               aria-label="Open in panel"
             >
@@ -54,7 +54,8 @@ export function EmbedWrapper({
               e.stopPropagation();
               onRemove();
             }}
-            className="p-1 text-fg-muted hover:text-error rounded hover:bg-bg-muted transition-colors"
+            data-tone="danger"
+            className="p-1 text-fg-muted  rounded wp-interactive transition-colors"
             title="Remove"
             aria-label="Remove embed"
           >

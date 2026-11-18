@@ -1,0 +1,3868 @@
+{
+  "number": 16,
+  "title": "RNA structure at nucleotide resolution",
+  "study": "Mustoe et al., 2018 \u00b7 rpsT \u00b7 in-cell SHAPE",
+  "description": "The 432-nucleotide rpsT transcript with 341 measured reactivities and its accompanying secondary-structure model. Original-study data are redistributed in the ShaKer repository; missing reactivities remain missing.",
+  "organism": "E. coli",
+  "reference": "rpsT_5 transcript from Mustoe 194-transcript collection",
+  "coordinateSystem": "1-based transcript index; no chromosome mapping asserted",
+  "unit": "normalized SHAPE reactivity",
+  "sources": [
+    {
+      "file": "raw/comparison/mustoe-incell.dbn",
+      "url": "https://raw.githubusercontent.com/BackofenLab/ShaKer/6f29547d70a2b72ceccf28218c790c45406946e8/data/weeks194_orig/incell.dbn",
+      "sha256": "cb13b2092f594facf49ef11ca4c8c9d25c8232fcbd806d0f8ca3f06d2c0136fa",
+      "citation": "https://doi.org/10.1016/j.cell.2018.02.034"
+    },
+    {
+      "file": "raw/comparison/mustoe-incell.react",
+      "url": "https://raw.githubusercontent.com/BackofenLab/ShaKer/6f29547d70a2b72ceccf28218c790c45406946e8/data/weeks194_orig/incell.react",
+      "sha256": "1be61b44ea242621f33f7e6c050b469ee05d2b66120b3e441a8e9241d3381aa6",
+      "citation": "https://doi.org/10.1016/j.cell.2018.02.034"
+    }
+  ],
+  "processing": "Select rpsT_5 by exact transcript ID. Preserve normalized in-cell reactivity values; omit NA measurements. Parse parentheses in accompanying incell.dbn to pair partners. Pairing is a supplied model, not experimentally proven individual base pairs. No new folding calculation.",
+  "dimensions": [
+    {
+      "key": "value",
+      "label": "In-cell reactivity",
+      "unit": "normalized SHAPE"
+    }
+  ],
+  "records": [
+    {
+      "id": "rpsT_5:17",
+      "label": "rpsT_5 \u00b7 U17",
+      "position": 17,
+      "x": 17,
+      "base": "U",
+      "value": 0.0,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:18",
+      "label": "rpsT_5 \u00b7 G18",
+      "position": 18,
+      "x": 18,
+      "base": "G",
+      "value": -0.22,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:20",
+      "label": "rpsT_5 \u00b7 C20",
+      "position": 20,
+      "x": 20,
+      "base": "C",
+      "value": 0.5,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:21",
+      "label": "rpsT_5 \u00b7 G21",
+      "position": 21,
+      "x": 21,
+      "base": "G",
+      "value": 1.56,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:22",
+      "label": "rpsT_5 \u00b7 G22",
+      "position": 22,
+      "x": 22,
+      "base": "G",
+      "value": 0.68,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:23",
+      "label": "rpsT_5 \u00b7 C23",
+      "position": 23,
+      "x": 23,
+      "base": "C",
+      "value": 3.13,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:24",
+      "label": "rpsT_5 \u00b7 A24",
+      "position": 24,
+      "x": 24,
+      "base": "A",
+      "value": 1.23,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:25",
+      "label": "rpsT_5 \u00b7 C25",
+      "position": 25,
+      "x": 25,
+      "base": "C",
+      "value": 0.5,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:27",
+      "label": "rpsT_5 \u00b7 U27",
+      "position": 27,
+      "x": 27,
+      "base": "U",
+      "value": 1.12,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:28",
+      "label": "rpsT_5 \u00b7 U28",
+      "position": 28,
+      "x": 28,
+      "base": "U",
+      "value": 2.1,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:30",
+      "label": "rpsT_5 \u00b7 A30",
+      "position": 30,
+      "x": 30,
+      "base": "A",
+      "value": 1.31,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:31",
+      "label": "rpsT_5 \u00b7 C31",
+      "position": 31,
+      "x": 31,
+      "base": "C",
+      "value": 0.58,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:32",
+      "label": "rpsT_5 \u00b7 G32",
+      "position": 32,
+      "x": 32,
+      "base": "G",
+      "value": -0.12,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:33",
+      "label": "rpsT_5 \u00b7 G33",
+      "position": 33,
+      "x": 33,
+      "base": "G",
+      "value": -0.2,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:34",
+      "label": "rpsT_5 \u00b7 C34",
+      "position": 34,
+      "x": 34,
+      "base": "C",
+      "value": 0.16,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:36",
+      "label": "rpsT_5 \u00b7 C36",
+      "position": 36,
+      "x": 36,
+      "base": "C",
+      "value": 0.18,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:37",
+      "label": "rpsT_5 \u00b7 U37",
+      "position": 37,
+      "x": 37,
+      "base": "U",
+      "value": 0.28,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:38",
+      "label": "rpsT_5 \u00b7 U38",
+      "position": 38,
+      "x": 38,
+      "base": "U",
+      "value": -0.04,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:39",
+      "label": "rpsT_5 \u00b7 A39",
+      "position": 39,
+      "x": 39,
+      "base": "A",
+      "value": 2.23,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:40",
+      "label": "rpsT_5 \u00b7 U40",
+      "position": 40,
+      "x": 40,
+      "base": "U",
+      "value": 0.17,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:41",
+      "label": "rpsT_5 \u00b7 U41",
+      "position": 41,
+      "x": 41,
+      "base": "U",
+      "value": 1.43,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:42",
+      "label": "rpsT_5 \u00b7 U42",
+      "position": 42,
+      "x": 42,
+      "base": "U",
+      "value": 2.21,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:43",
+      "label": "rpsT_5 \u00b7 G43",
+      "position": 43,
+      "x": 43,
+      "base": "G",
+      "value": 1.99,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:44",
+      "label": "rpsT_5 \u00b7 C44",
+      "position": 44,
+      "x": 44,
+      "base": "C",
+      "value": 0.09,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:45",
+      "label": "rpsT_5 \u00b7 A45",
+      "position": 45,
+      "x": 45,
+      "base": "A",
+      "value": 0.62,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:46",
+      "label": "rpsT_5 \u00b7 C46",
+      "position": 46,
+      "x": 46,
+      "base": "C",
+      "value": 1.39,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:47",
+      "label": "rpsT_5 \u00b7 A47",
+      "position": 47,
+      "x": 47,
+      "base": "A",
+      "value": 0.57,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:48",
+      "label": "rpsT_5 \u00b7 A48",
+      "position": 48,
+      "x": 48,
+      "base": "A",
+      "value": 1.56,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:49",
+      "label": "rpsT_5 \u00b7 A49",
+      "position": 49,
+      "x": 49,
+      "base": "A",
+      "value": 0.26,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:51",
+      "label": "rpsT_5 \u00b7 C51",
+      "position": 51,
+      "x": 51,
+      "base": "C",
+      "value": 0.55,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:52",
+      "label": "rpsT_5 \u00b7 C52",
+      "position": 52,
+      "x": 52,
+      "base": "C",
+      "value": 1.29,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:53",
+      "label": "rpsT_5 \u00b7 A53",
+      "position": 53,
+      "x": 53,
+      "base": "A",
+      "value": 3.65,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:54",
+      "label": "rpsT_5 \u00b7 U54",
+      "position": 54,
+      "x": 54,
+      "base": "U",
+      "value": 0.87,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:55",
+      "label": "rpsT_5 \u00b7 U55",
+      "position": 55,
+      "x": 55,
+      "base": "U",
+      "value": 2.28,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:56",
+      "label": "rpsT_5 \u00b7 G56",
+      "position": 56,
+      "x": 56,
+      "base": "G",
+      "value": 0.43,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:57",
+      "label": "rpsT_5 \u00b7 A57",
+      "position": 57,
+      "x": 57,
+      "base": "A",
+      "value": 0.28,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:58",
+      "label": "rpsT_5 \u00b7 C58",
+      "position": 58,
+      "x": 58,
+      "base": "C",
+      "value": -0.08,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:59",
+      "label": "rpsT_5 \u00b7 A59",
+      "position": 59,
+      "x": 59,
+      "base": "A",
+      "value": -0.03,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:60",
+      "label": "rpsT_5 \u00b7 A60",
+      "position": 60,
+      "x": 60,
+      "base": "A",
+      "value": -0.15,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:61",
+      "label": "rpsT_5 \u00b7 A61",
+      "position": 61,
+      "x": 61,
+      "base": "A",
+      "value": -0.02,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:62",
+      "label": "rpsT_5 \u00b7 A62",
+      "position": 62,
+      "x": 62,
+      "base": "A",
+      "value": 1.08,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:64",
+      "label": "rpsT_5 \u00b7 A64",
+      "position": 64,
+      "x": 64,
+      "base": "A",
+      "value": 0.5,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:65",
+      "label": "rpsT_5 \u00b7 A65",
+      "position": 65,
+      "x": 65,
+      "base": "A",
+      "value": -0.05,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:66",
+      "label": "rpsT_5 \u00b7 G66",
+      "position": 66,
+      "x": 66,
+      "base": "G",
+      "value": 0.19,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:67",
+      "label": "rpsT_5 \u00b7 G67",
+      "position": 67,
+      "x": 67,
+      "base": "G",
+      "value": 0.46,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:68",
+      "label": "rpsT_5 \u00b7 C68",
+      "position": 68,
+      "x": 68,
+      "base": "C",
+      "value": 0.7,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:69",
+      "label": "rpsT_5 \u00b7 U69",
+      "position": 69,
+      "x": 69,
+      "base": "U",
+      "value": 3.72,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:70",
+      "label": "rpsT_5 \u00b7 A70",
+      "position": 70,
+      "x": 70,
+      "base": "A",
+      "value": -0.02,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:71",
+      "label": "rpsT_5 \u00b7 A71",
+      "position": 71,
+      "x": 71,
+      "base": "A",
+      "value": 0.7,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:72",
+      "label": "rpsT_5 \u00b7 A72",
+      "position": 72,
+      "x": 72,
+      "base": "A",
+      "value": 0.64,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:73",
+      "label": "rpsT_5 \u00b7 A73",
+      "position": 73,
+      "x": 73,
+      "base": "A",
+      "value": 0.71,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:75",
+      "label": "rpsT_5 \u00b7 G75",
+      "position": 75,
+      "x": 75,
+      "base": "G",
+      "value": 0.27,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:77",
+      "label": "rpsT_5 \u00b7 C77",
+      "position": 77,
+      "x": 77,
+      "base": "C",
+      "value": 1.32,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:78",
+      "label": "rpsT_5 \u00b7 A78",
+      "position": 78,
+      "x": 78,
+      "base": "A",
+      "value": 2.08,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:79",
+      "label": "rpsT_5 \u00b7 U79",
+      "position": 79,
+      "x": 79,
+      "base": "U",
+      "value": 0.49,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:80",
+      "label": "rpsT_5 \u00b7 A80",
+      "position": 80,
+      "x": 80,
+      "base": "A",
+      "value": 5.88,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:81",
+      "label": "rpsT_5 \u00b7 U81",
+      "position": 81,
+      "x": 81,
+      "base": "U",
+      "value": 1.12,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:82",
+      "label": "rpsT_5 \u00b7 U82",
+      "position": 82,
+      "x": 82,
+      "base": "U",
+      "value": 2.17,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:83",
+      "label": "rpsT_5 \u00b7 C83",
+      "position": 83,
+      "x": 83,
+      "base": "C",
+      "value": -0.12,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:84",
+      "label": "rpsT_5 \u00b7 C84",
+      "position": 84,
+      "x": 84,
+      "base": "C",
+      "value": 0.23,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:85",
+      "label": "rpsT_5 \u00b7 U85",
+      "position": 85,
+      "x": 85,
+      "base": "U",
+      "value": 1.18,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:86",
+      "label": "rpsT_5 \u00b7 C86",
+      "position": 86,
+      "x": 86,
+      "base": "C",
+      "value": 0.97,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:87",
+      "label": "rpsT_5 \u00b7 G87",
+      "position": 87,
+      "x": 87,
+      "base": "G",
+      "value": 0.47,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:88",
+      "label": "rpsT_5 \u00b7 G88",
+      "position": 88,
+      "x": 88,
+      "base": "G",
+      "value": -0.01,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:89",
+      "label": "rpsT_5 \u00b7 C89",
+      "position": 89,
+      "x": 89,
+      "base": "C",
+      "value": -0.04,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:91",
+      "label": "rpsT_5 \u00b7 U91",
+      "position": 91,
+      "x": 91,
+      "base": "U",
+      "value": 0.4,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:93",
+      "label": "rpsT_5 \u00b7 U93",
+      "position": 93,
+      "x": 93,
+      "base": "U",
+      "value": 0.36,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:95",
+      "label": "rpsT_5 \u00b7 A95",
+      "position": 95,
+      "x": 95,
+      "base": "A",
+      "value": 0.35,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:96",
+      "label": "rpsT_5 \u00b7 A96",
+      "position": 96,
+      "x": 96,
+      "base": "A",
+      "value": 1.17,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:97",
+      "label": "rpsT_5 \u00b7 U97",
+      "position": 97,
+      "x": 97,
+      "base": "U",
+      "value": 0.48,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:98",
+      "label": "rpsT_5 \u00b7 U98",
+      "position": 98,
+      "x": 98,
+      "base": "U",
+      "value": 0.18,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:99",
+      "label": "rpsT_5 \u00b7 G99",
+      "position": 99,
+      "x": 99,
+      "base": "G",
+      "value": 0.41,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:100",
+      "label": "rpsT_5 \u00b7 U100",
+      "position": 100,
+      "x": 100,
+      "base": "U",
+      "value": -0.81,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:101",
+      "label": "rpsT_5 \u00b7 C101",
+      "position": 101,
+      "x": 101,
+      "base": "C",
+      "value": 0.47,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:102",
+      "label": "rpsT_5 \u00b7 C102",
+      "position": 102,
+      "x": 102,
+      "base": "C",
+      "value": 1.5,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:103",
+      "label": "rpsT_5 \u00b7 A103",
+      "position": 103,
+      "x": 103,
+      "base": "A",
+      "value": 1.78,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:104",
+      "label": "rpsT_5 \u00b7 U104",
+      "position": 104,
+      "x": 104,
+      "base": "U",
+      "value": 4.07,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:105",
+      "label": "rpsT_5 \u00b7 A105",
+      "position": 105,
+      "x": 105,
+      "base": "A",
+      "value": 0.74,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:106",
+      "label": "rpsT_5 \u00b7 U106",
+      "position": 106,
+      "x": 106,
+      "base": "U",
+      "value": 1.31,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:107",
+      "label": "rpsT_5 \u00b7 A107",
+      "position": 107,
+      "x": 107,
+      "base": "A",
+      "value": 2.28,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:108",
+      "label": "rpsT_5 \u00b7 G108",
+      "position": 108,
+      "x": 108,
+      "base": "G",
+      "value": 7.41,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:109",
+      "label": "rpsT_5 \u00b7 A109",
+      "position": 109,
+      "x": 109,
+      "base": "A",
+      "value": 2.34,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:110",
+      "label": "rpsT_5 \u00b7 A110",
+      "position": 110,
+      "x": 110,
+      "base": "A",
+      "value": 0.82,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:111",
+      "label": "rpsT_5 \u00b7 C111",
+      "position": 111,
+      "x": 111,
+      "base": "C",
+      "value": 0.93,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:112",
+      "label": "rpsT_5 \u00b7 A112",
+      "position": 112,
+      "x": 112,
+      "base": "A",
+      "value": 0.22,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:113",
+      "label": "rpsT_5 \u00b7 C113",
+      "position": 113,
+      "x": 113,
+      "base": "C",
+      "value": 1.5,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:114",
+      "label": "rpsT_5 \u00b7 A114",
+      "position": 114,
+      "x": 114,
+      "base": "A",
+      "value": 1.7,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:115",
+      "label": "rpsT_5 \u00b7 U115",
+      "position": 115,
+      "x": 115,
+      "base": "U",
+      "value": 0.8,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:116",
+      "label": "rpsT_5 \u00b7 U116",
+      "position": 116,
+      "x": 116,
+      "base": "U",
+      "value": 0.43,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:117",
+      "label": "rpsT_5 \u00b7 U117",
+      "position": 117,
+      "x": 117,
+      "base": "U",
+      "value": 0.27,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:118",
+      "label": "rpsT_5 \u00b7 G118",
+      "position": 118,
+      "x": 118,
+      "base": "G",
+      "value": 2.05,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:119",
+      "label": "rpsT_5 \u00b7 G119",
+      "position": 119,
+      "x": 119,
+      "base": "G",
+      "value": 0.37,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:120",
+      "label": "rpsT_5 \u00b7 G120",
+      "position": 120,
+      "x": 120,
+      "base": "G",
+      "value": 0.4,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:121",
+      "label": "rpsT_5 \u00b7 A121",
+      "position": 121,
+      "x": 121,
+      "base": "A",
+      "value": 3.24,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:122",
+      "label": "rpsT_5 \u00b7 G122",
+      "position": 122,
+      "x": 122,
+      "base": "G",
+      "value": 2.04,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:123",
+      "label": "rpsT_5 \u00b7 U123",
+      "position": 123,
+      "x": 123,
+      "base": "U",
+      "value": 1.25,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:124",
+      "label": "rpsT_5 \u00b7 U124",
+      "position": 124,
+      "x": 124,
+      "base": "U",
+      "value": 0.8,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:125",
+      "label": "rpsT_5 \u00b7 G125",
+      "position": 125,
+      "x": 125,
+      "base": "G",
+      "value": 1.07,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:126",
+      "label": "rpsT_5 \u00b7 G126",
+      "position": 126,
+      "x": 126,
+      "base": "G",
+      "value": 0.28,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:127",
+      "label": "rpsT_5 \u00b7 A127",
+      "position": 127,
+      "x": 127,
+      "base": "A",
+      "value": 0.51,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:128",
+      "label": "rpsT_5 \u00b7 C128",
+      "position": 128,
+      "x": 128,
+      "base": "C",
+      "value": 0.29,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:129",
+      "label": "rpsT_5 \u00b7 C129",
+      "position": 129,
+      "x": 129,
+      "base": "C",
+      "value": 0.24,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:130",
+      "label": "rpsT_5 \u00b7 U130",
+      "position": 130,
+      "x": 130,
+      "base": "U",
+      "value": 0.33,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:131",
+      "label": "rpsT_5 \u00b7 U131",
+      "position": 131,
+      "x": 131,
+      "base": "U",
+      "value": 0.16,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:132",
+      "label": "rpsT_5 \u00b7 G132",
+      "position": 132,
+      "x": 132,
+      "base": "G",
+      "value": -0.27,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:133",
+      "label": "rpsT_5 \u00b7 G133",
+      "position": 133,
+      "x": 133,
+      "base": "G",
+      "value": -0.08,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:134",
+      "label": "rpsT_5 \u00b7 C134",
+      "position": 134,
+      "x": 134,
+      "base": "C",
+      "value": 0.47,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:135",
+      "label": "rpsT_5 \u00b7 U135",
+      "position": 135,
+      "x": 135,
+      "base": "U",
+      "value": 1.97,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:136",
+      "label": "rpsT_5 \u00b7 A136",
+      "position": 136,
+      "x": 136,
+      "base": "A",
+      "value": 0.66,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:137",
+      "label": "rpsT_5 \u00b7 A137",
+      "position": 137,
+      "x": 137,
+      "base": "A",
+      "value": 0.13,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:138",
+      "label": "rpsT_5 \u00b7 U138",
+      "position": 138,
+      "x": 138,
+      "base": "U",
+      "value": 0.37,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:139",
+      "label": "rpsT_5 \u00b7 A139",
+      "position": 139,
+      "x": 139,
+      "base": "A",
+      "value": 1.72,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:140",
+      "label": "rpsT_5 \u00b7 U140",
+      "position": 140,
+      "x": 140,
+      "base": "U",
+      "value": 2.08,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:141",
+      "label": "rpsT_5 \u00b7 C141",
+      "position": 141,
+      "x": 141,
+      "base": "C",
+      "value": 1.03,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:142",
+      "label": "rpsT_5 \u00b7 A142",
+      "position": 142,
+      "x": 142,
+      "base": "A",
+      "value": 0.4,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:143",
+      "label": "rpsT_5 \u00b7 A143",
+      "position": 143,
+      "x": 143,
+      "base": "A",
+      "value": 2.71,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:144",
+      "label": "rpsT_5 \u00b7 A144",
+      "position": 144,
+      "x": 144,
+      "base": "A",
+      "value": 0.89,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:145",
+      "label": "rpsT_5 \u00b7 U145",
+      "position": 145,
+      "x": 145,
+      "base": "U",
+      "value": 0.6,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:146",
+      "label": "rpsT_5 \u00b7 C146",
+      "position": 146,
+      "x": 146,
+      "base": "C",
+      "value": 1.12,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:147",
+      "label": "rpsT_5 \u00b7 A147",
+      "position": 147,
+      "x": 147,
+      "base": "A",
+      "value": 0.47,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:148",
+      "label": "rpsT_5 \u00b7 G148",
+      "position": 148,
+      "x": 148,
+      "base": "G",
+      "value": 1.31,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:149",
+      "label": "rpsT_5 \u00b7 C149",
+      "position": 149,
+      "x": 149,
+      "base": "C",
+      "value": 0.14,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:151",
+      "label": "rpsT_5 \u00b7 A151",
+      "position": 151,
+      "x": 151,
+      "base": "A",
+      "value": 1.34,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:152",
+      "label": "rpsT_5 \u00b7 A152",
+      "position": 152,
+      "x": 152,
+      "base": "A",
+      "value": 0.27,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:153",
+      "label": "rpsT_5 \u00b7 G153",
+      "position": 153,
+      "x": 153,
+      "base": "G",
+      "value": 1.14,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:155",
+      "label": "rpsT_5 \u00b7 A155",
+      "position": 155,
+      "x": 155,
+      "base": "A",
+      "value": 0.62,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:156",
+      "label": "rpsT_5 \u00b7 G156",
+      "position": 156,
+      "x": 156,
+      "base": "G",
+      "value": 1.68,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:157",
+      "label": "rpsT_5 \u00b7 C157",
+      "position": 157,
+      "x": 157,
+      "base": "C",
+      "value": 1.15,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:158",
+      "label": "rpsT_5 \u00b7 G158",
+      "position": 158,
+      "x": 158,
+      "base": "G",
+      "value": 0.4,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:159",
+      "label": "rpsT_5 \u00b7 C159",
+      "position": 159,
+      "x": 159,
+      "base": "C",
+      "value": 0.46,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:160",
+      "label": "rpsT_5 \u00b7 G160",
+      "position": 160,
+      "x": 160,
+      "base": "G",
+      "value": 0.43,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:161",
+      "label": "rpsT_5 \u00b7 C161",
+      "position": 161,
+      "x": 161,
+      "base": "C",
+      "value": 0.01,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:162",
+      "label": "rpsT_5 \u00b7 C162",
+      "position": 162,
+      "x": 162,
+      "base": "C",
+      "value": 0.29,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:163",
+      "label": "rpsT_5 \u00b7 A163",
+      "position": 163,
+      "x": 163,
+      "base": "A",
+      "value": 0.89,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:164",
+      "label": "rpsT_5 \u00b7 U164",
+      "position": 164,
+      "x": 164,
+      "base": "U",
+      "value": 0.76,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:165",
+      "label": "rpsT_5 \u00b7 U165",
+      "position": 165,
+      "x": 165,
+      "base": "U",
+      "value": 0.68,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:166",
+      "label": "rpsT_5 \u00b7 C166",
+      "position": 166,
+      "x": 166,
+      "base": "C",
+      "value": 0.35,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:185",
+      "label": "rpsT_5 \u00b7 A185",
+      "position": 185,
+      "x": 185,
+      "base": "A",
+      "value": 1.01,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:186",
+      "label": "rpsT_5 \u00b7 G186",
+      "position": 186,
+      "x": 186,
+      "base": "G",
+      "value": 1.17,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:187",
+      "label": "rpsT_5 \u00b7 C187",
+      "position": 187,
+      "x": 187,
+      "base": "C",
+      "value": 0.34,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:188",
+      "label": "rpsT_5 \u00b7 A188",
+      "position": 188,
+      "x": 188,
+      "base": "A",
+      "value": 0.45,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:189",
+      "label": "rpsT_5 \u00b7 C189",
+      "position": 189,
+      "x": 189,
+      "base": "C",
+      "value": 0.92,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:190",
+      "label": "rpsT_5 \u00b7 A190",
+      "position": 190,
+      "x": 190,
+      "base": "A",
+      "value": 0.26,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:191",
+      "label": "rpsT_5 \u00b7 A191",
+      "position": 191,
+      "x": 191,
+      "base": "A",
+      "value": 1.19,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:192",
+      "label": "rpsT_5 \u00b7 C192",
+      "position": 192,
+      "x": 192,
+      "base": "C",
+      "value": 1.63,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:193",
+      "label": "rpsT_5 \u00b7 G193",
+      "position": 193,
+      "x": 193,
+      "base": "G",
+      "value": 0.95,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:194",
+      "label": "rpsT_5 \u00b7 C194",
+      "position": 194,
+      "x": 194,
+      "base": "C",
+      "value": 0.36,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:195",
+      "label": "rpsT_5 \u00b7 A195",
+      "position": 195,
+      "x": 195,
+      "base": "A",
+      "value": 0.72,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:196",
+      "label": "rpsT_5 \u00b7 A196",
+      "position": 196,
+      "x": 196,
+      "base": "A",
+      "value": 1.2,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:197",
+      "label": "rpsT_5 \u00b7 G197",
+      "position": 197,
+      "x": 197,
+      "base": "G",
+      "value": 0.75,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:198",
+      "label": "rpsT_5 \u00b7 C198",
+      "position": 198,
+      "x": 198,
+      "base": "C",
+      "value": 0.27,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:199",
+      "label": "rpsT_5 \u00b7 C199",
+      "position": 199,
+      "x": 199,
+      "base": "C",
+      "value": 0.74,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:200",
+      "label": "rpsT_5 \u00b7 G200",
+      "position": 200,
+      "x": 200,
+      "base": "G",
+      "value": 2.05,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:201",
+      "label": "rpsT_5 \u00b7 U201",
+      "position": 201,
+      "x": 201,
+      "base": "U",
+      "value": 0.75,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:202",
+      "label": "rpsT_5 \u00b7 C202",
+      "position": 202,
+      "x": 202,
+      "base": "C",
+      "value": 0.31,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:203",
+      "label": "rpsT_5 \u00b7 G203",
+      "position": 203,
+      "x": 203,
+      "base": "G",
+      "value": 0.41,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:204",
+      "label": "rpsT_5 \u00b7 C204",
+      "position": 204,
+      "x": 204,
+      "base": "C",
+      "value": 0.15,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:205",
+      "label": "rpsT_5 \u00b7 U205",
+      "position": 205,
+      "x": 205,
+      "base": "U",
+      "value": 0.3,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:206",
+      "label": "rpsT_5 \u00b7 C206",
+      "position": 206,
+      "x": 206,
+      "base": "C",
+      "value": 0.24,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:207",
+      "label": "rpsT_5 \u00b7 U207",
+      "position": 207,
+      "x": 207,
+      "base": "U",
+      "value": 0.69,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:208",
+      "label": "rpsT_5 \u00b7 A208",
+      "position": 208,
+      "x": 208,
+      "base": "A",
+      "value": 3.81,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:209",
+      "label": "rpsT_5 \u00b7 U209",
+      "position": 209,
+      "x": 209,
+      "base": "U",
+      "value": 1.26,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:210",
+      "label": "rpsT_5 \u00b7 G210",
+      "position": 210,
+      "x": 210,
+      "base": "G",
+      "value": 3.54,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:211",
+      "label": "rpsT_5 \u00b7 A211",
+      "position": 211,
+      "x": 211,
+      "base": "A",
+      "value": 0.12,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:212",
+      "label": "rpsT_5 \u00b7 U212",
+      "position": 212,
+      "x": 212,
+      "base": "U",
+      "value": 0.96,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:213",
+      "label": "rpsT_5 \u00b7 G213",
+      "position": 213,
+      "x": 213,
+      "base": "G",
+      "value": 0.36,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:214",
+      "label": "rpsT_5 \u00b7 C214",
+      "position": 214,
+      "x": 214,
+      "base": "C",
+      "value": 0.09,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:215",
+      "label": "rpsT_5 \u00b7 G215",
+      "position": 215,
+      "x": 215,
+      "base": "G",
+      "value": 0.6,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:216",
+      "label": "rpsT_5 \u00b7 U216",
+      "position": 216,
+      "x": 216,
+      "base": "U",
+      "value": 0.12,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:217",
+      "label": "rpsT_5 \u00b7 A217",
+      "position": 217,
+      "x": 217,
+      "base": "A",
+      "value": 0.31,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:233",
+      "label": "rpsT_5 \u00b7 U233",
+      "position": 233,
+      "x": 233,
+      "base": "U",
+      "value": 0.43,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:234",
+      "label": "rpsT_5 \u00b7 A234",
+      "position": 234,
+      "x": 234,
+      "base": "A",
+      "value": 0.38,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:236",
+      "label": "rpsT_5 \u00b7 A236",
+      "position": 236,
+      "x": 236,
+      "base": "A",
+      "value": 0.15,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:237",
+      "label": "rpsT_5 \u00b7 C237",
+      "position": 237,
+      "x": 237,
+      "base": "C",
+      "value": 0.49,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:238",
+      "label": "rpsT_5 \u00b7 G238",
+      "position": 238,
+      "x": 238,
+      "base": "G",
+      "value": 0.18,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:239",
+      "label": "rpsT_5 \u00b7 C239",
+      "position": 239,
+      "x": 239,
+      "base": "C",
+      "value": -0.04,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:240",
+      "label": "rpsT_5 \u00b7 A240",
+      "position": 240,
+      "x": 240,
+      "base": "A",
+      "value": 0.88,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:242",
+      "label": "rpsT_5 \u00b7 C242",
+      "position": 242,
+      "x": 242,
+      "base": "C",
+      "value": 0.38,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:243",
+      "label": "rpsT_5 \u00b7 U243",
+      "position": 243,
+      "x": 243,
+      "base": "U",
+      "value": 1.24,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:245",
+      "label": "rpsT_5 \u00b7 U245",
+      "position": 245,
+      "x": 245,
+      "base": "U",
+      "value": 2.34,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:246",
+      "label": "rpsT_5 \u00b7 C246",
+      "position": 246,
+      "x": 246,
+      "base": "C",
+      "value": 0.3,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:247",
+      "label": "rpsT_5 \u00b7 G247",
+      "position": 247,
+      "x": 247,
+      "base": "G",
+      "value": 0.87,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:248",
+      "label": "rpsT_5 \u00b7 A248",
+      "position": 248,
+      "x": 248,
+      "base": "A",
+      "value": 0.22,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:249",
+      "label": "rpsT_5 \u00b7 A249",
+      "position": 249,
+      "x": 249,
+      "base": "A",
+      "value": 0.73,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:250",
+      "label": "rpsT_5 \u00b7 G250",
+      "position": 250,
+      "x": 250,
+      "base": "G",
+      "value": 1.49,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:251",
+      "label": "rpsT_5 \u00b7 C251",
+      "position": 251,
+      "x": 251,
+      "base": "C",
+      "value": 1.48,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:252",
+      "label": "rpsT_5 \u00b7 U252",
+      "position": 252,
+      "x": 252,
+      "base": "U",
+      "value": 0.69,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:253",
+      "label": "rpsT_5 \u00b7 G253",
+      "position": 253,
+      "x": 253,
+      "base": "G",
+      "value": 0.94,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:254",
+      "label": "rpsT_5 \u00b7 G254",
+      "position": 254,
+      "x": 254,
+      "base": "G",
+      "value": 0.26,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:255",
+      "label": "rpsT_5 \u00b7 C255",
+      "position": 255,
+      "x": 255,
+      "base": "C",
+      "value": 0.03,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:256",
+      "label": "rpsT_5 \u00b7 G256",
+      "position": 256,
+      "x": 256,
+      "base": "G",
+      "value": 1.22,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:257",
+      "label": "rpsT_5 \u00b7 A257",
+      "position": 257,
+      "x": 257,
+      "base": "A",
+      "value": 0.57,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:258",
+      "label": "rpsT_5 \u00b7 C258",
+      "position": 258,
+      "x": 258,
+      "base": "C",
+      "value": 0.63,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:259",
+      "label": "rpsT_5 \u00b7 A259",
+      "position": 259,
+      "x": 259,
+      "base": "A",
+      "value": 0.74,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:260",
+      "label": "rpsT_5 \u00b7 A260",
+      "position": 260,
+      "x": 260,
+      "base": "A",
+      "value": 2.64,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:261",
+      "label": "rpsT_5 \u00b7 A261",
+      "position": 261,
+      "x": 261,
+      "base": "A",
+      "value": 0.55,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:262",
+      "label": "rpsT_5 \u00b7 G262",
+      "position": 262,
+      "x": 262,
+      "base": "G",
+      "value": 0.7,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:263",
+      "label": "rpsT_5 \u00b7 C263",
+      "position": 263,
+      "x": 263,
+      "base": "C",
+      "value": 0.06,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:264",
+      "label": "rpsT_5 \u00b7 U264",
+      "position": 264,
+      "x": 264,
+      "base": "U",
+      "value": 2.23,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:265",
+      "label": "rpsT_5 \u00b7 G265",
+      "position": 265,
+      "x": 265,
+      "base": "G",
+      "value": 0.49,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:266",
+      "label": "rpsT_5 \u00b7 C266",
+      "position": 266,
+      "x": 266,
+      "base": "C",
+      "value": 0.1,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:267",
+      "label": "rpsT_5 \u00b7 U267",
+      "position": 267,
+      "x": 267,
+      "base": "U",
+      "value": 2.13,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:268",
+      "label": "rpsT_5 \u00b7 G268",
+      "position": 268,
+      "x": 268,
+      "base": "G",
+      "value": 1.07,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:269",
+      "label": "rpsT_5 \u00b7 C269",
+      "position": 269,
+      "x": 269,
+      "base": "C",
+      "value": 0.18,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:270",
+      "label": "rpsT_5 \u00b7 A270",
+      "position": 270,
+      "x": 270,
+      "base": "A",
+      "value": 0.99,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:271",
+      "label": "rpsT_5 \u00b7 C271",
+      "position": 271,
+      "x": 271,
+      "base": "C",
+      "value": 0.69,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:272",
+      "label": "rpsT_5 \u00b7 A272",
+      "position": 272,
+      "x": 272,
+      "base": "A",
+      "value": 1.87,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:273",
+      "label": "rpsT_5 \u00b7 G273",
+      "position": 273,
+      "x": 273,
+      "base": "G",
+      "value": 6.85,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:274",
+      "label": "rpsT_5 \u00b7 A274",
+      "position": 274,
+      "x": 274,
+      "base": "A",
+      "value": 1.53,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:275",
+      "label": "rpsT_5 \u00b7 A275",
+      "position": 275,
+      "x": 275,
+      "base": "A",
+      "value": 3.19,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:276",
+      "label": "rpsT_5 \u00b7 A276",
+      "position": 276,
+      "x": 276,
+      "base": "A",
+      "value": 0.55,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:277",
+      "label": "rpsT_5 \u00b7 G277",
+      "position": 277,
+      "x": 277,
+      "base": "G",
+      "value": 0.33,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:278",
+      "label": "rpsT_5 \u00b7 C278",
+      "position": 278,
+      "x": 278,
+      "base": "C",
+      "value": 0.71,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:279",
+      "label": "rpsT_5 \u00b7 A279",
+      "position": 279,
+      "x": 279,
+      "base": "A",
+      "value": 0.52,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:280",
+      "label": "rpsT_5 \u00b7 U280",
+      "position": 280,
+      "x": 280,
+      "base": "U",
+      "value": 1.04,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:281",
+      "label": "rpsT_5 \u00b7 U281",
+      "position": 281,
+      "x": 281,
+      "base": "U",
+      "value": 0.11,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:282",
+      "label": "rpsT_5 \u00b7 U282",
+      "position": 282,
+      "x": 282,
+      "base": "U",
+      "value": 0.64,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:284",
+      "label": "rpsT_5 \u00b7 A284",
+      "position": 284,
+      "x": 284,
+      "base": "A",
+      "value": 1.28,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:285",
+      "label": "rpsT_5 \u00b7 C285",
+      "position": 285,
+      "x": 285,
+      "base": "C",
+      "value": 3.23,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:286",
+      "label": "rpsT_5 \u00b7 G286",
+      "position": 286,
+      "x": 286,
+      "base": "G",
+      "value": 2.07,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:287",
+      "label": "rpsT_5 \u00b7 A287",
+      "position": 287,
+      "x": 287,
+      "base": "A",
+      "value": 0.22,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:288",
+      "label": "rpsT_5 \u00b7 A288",
+      "position": 288,
+      "x": 288,
+      "base": "A",
+      "value": 0.12,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:289",
+      "label": "rpsT_5 \u00b7 A289",
+      "position": 289,
+      "x": 289,
+      "base": "A",
+      "value": 0.13,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:290",
+      "label": "rpsT_5 \u00b7 U290",
+      "position": 290,
+      "x": 290,
+      "base": "U",
+      "value": 1.11,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:291",
+      "label": "rpsT_5 \u00b7 G291",
+      "position": 291,
+      "x": 291,
+      "base": "G",
+      "value": 0.31,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:292",
+      "label": "rpsT_5 \u00b7 C292",
+      "position": 292,
+      "x": 292,
+      "base": "C",
+      "value": 0.28,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:294",
+      "label": "rpsT_5 \u00b7 A294",
+      "position": 294,
+      "x": 294,
+      "base": "A",
+      "value": 0.95,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:295",
+      "label": "rpsT_5 \u00b7 C295",
+      "position": 295,
+      "x": 295,
+      "base": "C",
+      "value": 0.8,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:296",
+      "label": "rpsT_5 \u00b7 C296",
+      "position": 296,
+      "x": 296,
+      "base": "C",
+      "value": 1.14,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:297",
+      "label": "rpsT_5 \u00b7 G297",
+      "position": 297,
+      "x": 297,
+      "base": "G",
+      "value": 3.54,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:298",
+      "label": "rpsT_5 \u00b7 A298",
+      "position": 298,
+      "x": 298,
+      "base": "A",
+      "value": 0.22,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:299",
+      "label": "rpsT_5 \u00b7 U299",
+      "position": 299,
+      "x": 299,
+      "base": "U",
+      "value": 4.63,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:300",
+      "label": "rpsT_5 \u00b7 C300",
+      "position": 300,
+      "x": 300,
+      "base": "C",
+      "value": 1.94,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:301",
+      "label": "rpsT_5 \u00b7 G301",
+      "position": 301,
+      "x": 301,
+      "base": "G",
+      "value": 0.33,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:302",
+      "label": "rpsT_5 \u00b7 U302",
+      "position": 302,
+      "x": 302,
+      "base": "U",
+      "value": 0.86,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:303",
+      "label": "rpsT_5 \u00b7 G303",
+      "position": 303,
+      "x": 303,
+      "base": "G",
+      "value": 0.45,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:304",
+      "label": "rpsT_5 \u00b7 G304",
+      "position": 304,
+      "x": 304,
+      "base": "G",
+      "value": 0.41,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:305",
+      "label": "rpsT_5 \u00b7 A305",
+      "position": 305,
+      "x": 305,
+      "base": "A",
+      "value": 0.66,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:306",
+      "label": "rpsT_5 \u00b7 C306",
+      "position": 306,
+      "x": 306,
+      "base": "C",
+      "value": 0.74,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:307",
+      "label": "rpsT_5 \u00b7 C307",
+      "position": 307,
+      "x": 307,
+      "base": "C",
+      "value": 0.07,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:308",
+      "label": "rpsT_5 \u00b7 G308",
+      "position": 308,
+      "x": 308,
+      "base": "G",
+      "value": 1.08,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:309",
+      "label": "rpsT_5 \u00b7 U309",
+      "position": 309,
+      "x": 309,
+      "base": "U",
+      "value": 0.56,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:310",
+      "label": "rpsT_5 \u00b7 C310",
+      "position": 310,
+      "x": 310,
+      "base": "C",
+      "value": 0.11,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:311",
+      "label": "rpsT_5 \u00b7 A311",
+      "position": 311,
+      "x": 311,
+      "base": "A",
+      "value": 0.26,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:312",
+      "label": "rpsT_5 \u00b7 G312",
+      "position": 312,
+      "x": 312,
+      "base": "G",
+      "value": 0.16,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:313",
+      "label": "rpsT_5 \u00b7 G313",
+      "position": 313,
+      "x": 313,
+      "base": "G",
+      "value": -0.19,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:314",
+      "label": "rpsT_5 \u00b7 C314",
+      "position": 314,
+      "x": 314,
+      "base": "C",
+      "value": -0.4,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:315",
+      "label": "rpsT_5 \u00b7 U315",
+      "position": 315,
+      "x": 315,
+      "base": "U",
+      "value": 0.86,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:316",
+      "label": "rpsT_5 \u00b7 G316",
+      "position": 316,
+      "x": 316,
+      "base": "G",
+      "value": 1.01,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:317",
+      "label": "rpsT_5 \u00b7 C317",
+      "position": 317,
+      "x": 317,
+      "base": "C",
+      "value": 0.91,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:318",
+      "label": "rpsT_5 \u00b7 U318",
+      "position": 318,
+      "x": 318,
+      "base": "U",
+      "value": 3.89,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:319",
+      "label": "rpsT_5 \u00b7 A319",
+      "position": 319,
+      "x": 319,
+      "base": "A",
+      "value": 0.5,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:320",
+      "label": "rpsT_5 \u00b7 A320",
+      "position": 320,
+      "x": 320,
+      "base": "A",
+      "value": 0.33,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:321",
+      "label": "rpsT_5 \u00b7 A321",
+      "position": 321,
+      "x": 321,
+      "base": "A",
+      "value": 0.75,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:322",
+      "label": "rpsT_5 \u00b7 G322",
+      "position": 322,
+      "x": 322,
+      "base": "G",
+      "value": 0.37,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:323",
+      "label": "rpsT_5 \u00b7 G323",
+      "position": 323,
+      "x": 323,
+      "base": "G",
+      "value": 0.07,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:324",
+      "label": "rpsT_5 \u00b7 U324",
+      "position": 324,
+      "x": 324,
+      "base": "U",
+      "value": 0.11,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:325",
+      "label": "rpsT_5 \u00b7 C325",
+      "position": 325,
+      "x": 325,
+      "base": "C",
+      "value": 0.36,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:326",
+      "label": "rpsT_5 \u00b7 U326",
+      "position": 326,
+      "x": 326,
+      "base": "U",
+      "value": 0.19,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:327",
+      "label": "rpsT_5 \u00b7 G327",
+      "position": 327,
+      "x": 327,
+      "base": "G",
+      "value": 0.22,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:328",
+      "label": "rpsT_5 \u00b7 A328",
+      "position": 328,
+      "x": 328,
+      "base": "A",
+      "value": 0.09,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:329",
+      "label": "rpsT_5 \u00b7 U329",
+      "position": 329,
+      "x": 329,
+      "base": "U",
+      "value": 0.46,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:330",
+      "label": "rpsT_5 \u00b7 C330",
+      "position": 330,
+      "x": 330,
+      "base": "C",
+      "value": 0.18,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:331",
+      "label": "rpsT_5 \u00b7 C331",
+      "position": 331,
+      "x": 331,
+      "base": "C",
+      "value": 0.12,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:332",
+      "label": "rpsT_5 \u00b7 A332",
+      "position": 332,
+      "x": 332,
+      "base": "A",
+      "value": 0.48,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:333",
+      "label": "rpsT_5 \u00b7 C333",
+      "position": 333,
+      "x": 333,
+      "base": "C",
+      "value": 1.08,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:334",
+      "label": "rpsT_5 \u00b7 A334",
+      "position": 334,
+      "x": 334,
+      "base": "A",
+      "value": 0.14,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:335",
+      "label": "rpsT_5 \u00b7 A335",
+      "position": 335,
+      "x": 335,
+      "base": "A",
+      "value": 1.12,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:336",
+      "label": "rpsT_5 \u00b7 A336",
+      "position": 336,
+      "x": 336,
+      "base": "A",
+      "value": 0.86,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:337",
+      "label": "rpsT_5 \u00b7 A337",
+      "position": 337,
+      "x": 337,
+      "base": "A",
+      "value": 0.11,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:338",
+      "label": "rpsT_5 \u00b7 A338",
+      "position": 338,
+      "x": 338,
+      "base": "A",
+      "value": -0.04,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:339",
+      "label": "rpsT_5 \u00b7 C339",
+      "position": 339,
+      "x": 339,
+      "base": "C",
+      "value": 1.64,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:340",
+      "label": "rpsT_5 \u00b7 A340",
+      "position": 340,
+      "x": 340,
+      "base": "A",
+      "value": 0.04,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:341",
+      "label": "rpsT_5 \u00b7 A341",
+      "position": 341,
+      "x": 341,
+      "base": "A",
+      "value": 0.63,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:342",
+      "label": "rpsT_5 \u00b7 A342",
+      "position": 342,
+      "x": 342,
+      "base": "A",
+      "value": 0.18,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:343",
+      "label": "rpsT_5 \u00b7 G343",
+      "position": 343,
+      "x": 343,
+      "base": "G",
+      "value": 1.47,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:344",
+      "label": "rpsT_5 \u00b7 C344",
+      "position": 344,
+      "x": 344,
+      "base": "C",
+      "value": 0.29,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:345",
+      "label": "rpsT_5 \u00b7 U345",
+      "position": 345,
+      "x": 345,
+      "base": "U",
+      "value": 1.19,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:346",
+      "label": "rpsT_5 \u00b7 G346",
+      "position": 346,
+      "x": 346,
+      "base": "G",
+      "value": 0.34,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:347",
+      "label": "rpsT_5 \u00b7 C347",
+      "position": 347,
+      "x": 347,
+      "base": "C",
+      "value": 0.09,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:348",
+      "label": "rpsT_5 \u00b7 A348",
+      "position": 348,
+      "x": 348,
+      "base": "A",
+      "value": 0.42,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:349",
+      "label": "rpsT_5 \u00b7 C349",
+      "position": 349,
+      "x": 349,
+      "base": "C",
+      "value": 0.14,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:350",
+      "label": "rpsT_5 \u00b7 G350",
+      "position": 350,
+      "x": 350,
+      "base": "G",
+      "value": 0.7,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:351",
+      "label": "rpsT_5 \u00b7 U351",
+      "position": 351,
+      "x": 351,
+      "base": "U",
+      "value": 0.09,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:352",
+      "label": "rpsT_5 \u00b7 C352",
+      "position": 352,
+      "x": 352,
+      "base": "C",
+      "value": 1.05,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:353",
+      "label": "rpsT_5 \u00b7 A353",
+      "position": 353,
+      "x": 353,
+      "base": "A",
+      "value": 0.83,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:354",
+      "label": "rpsT_5 \u00b7 U354",
+      "position": 354,
+      "x": 354,
+      "base": "U",
+      "value": 2.68,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:355",
+      "label": "rpsT_5 \u00b7 A355",
+      "position": 355,
+      "x": 355,
+      "base": "A",
+      "value": 0.59,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:356",
+      "label": "rpsT_5 \u00b7 A356",
+      "position": 356,
+      "x": 356,
+      "base": "A",
+      "value": 0.7,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:357",
+      "label": "rpsT_5 \u00b7 G357",
+      "position": 357,
+      "x": 357,
+      "base": "G",
+      "value": 0.81,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:358",
+      "label": "rpsT_5 \u00b7 G358",
+      "position": 358,
+      "x": 358,
+      "base": "G",
+      "value": 0.25,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:359",
+      "label": "rpsT_5 \u00b7 C359",
+      "position": 359,
+      "x": 359,
+      "base": "C",
+      "value": 0.2,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:360",
+      "label": "rpsT_5 \u00b7 U360",
+      "position": 360,
+      "x": 360,
+      "base": "U",
+      "value": 0.88,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:361",
+      "label": "rpsT_5 \u00b7 A361",
+      "position": 361,
+      "x": 361,
+      "base": "A",
+      "value": 0.2,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:362",
+      "label": "rpsT_5 \u00b7 A362",
+      "position": 362,
+      "x": 362,
+      "base": "A",
+      "value": 0.38,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:363",
+      "label": "rpsT_5 \u00b7 C363",
+      "position": 363,
+      "x": 363,
+      "base": "C",
+      "value": 0.51,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:364",
+      "label": "rpsT_5 \u00b7 C364",
+      "position": 364,
+      "x": 364,
+      "base": "C",
+      "value": 0.29,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:365",
+      "label": "rpsT_5 \u00b7 U365",
+      "position": 365,
+      "x": 365,
+      "base": "U",
+      "value": 1.47,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:366",
+      "label": "rpsT_5 \u00b7 G366",
+      "position": 366,
+      "x": 366,
+      "base": "G",
+      "value": 0.54,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:367",
+      "label": "rpsT_5 \u00b7 A367",
+      "position": 367,
+      "x": 367,
+      "base": "A",
+      "value": 0.04,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:368",
+      "label": "rpsT_5 \u00b7 C368",
+      "position": 368,
+      "x": 368,
+      "base": "C",
+      "value": 0.19,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:369",
+      "label": "rpsT_5 \u00b7 U369",
+      "position": 369,
+      "x": 369,
+      "base": "U",
+      "value": 0.11,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:370",
+      "label": "rpsT_5 \u00b7 G370",
+      "position": 370,
+      "x": 370,
+      "base": "G",
+      "value": 0.49,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:371",
+      "label": "rpsT_5 \u00b7 C371",
+      "position": 371,
+      "x": 371,
+      "base": "C",
+      "value": 0.23,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:372",
+      "label": "rpsT_5 \u00b7 A372",
+      "position": 372,
+      "x": 372,
+      "base": "A",
+      "value": 0.12,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:373",
+      "label": "rpsT_5 \u00b7 C373",
+      "position": 373,
+      "x": 373,
+      "base": "C",
+      "value": 0.36,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:374",
+      "label": "rpsT_5 \u00b7 A374",
+      "position": 374,
+      "x": 374,
+      "base": "A",
+      "value": 0.97,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:375",
+      "label": "rpsT_5 \u00b7 G375",
+      "position": 375,
+      "x": 375,
+      "base": "G",
+      "value": 4.97,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:376",
+      "label": "rpsT_5 \u00b7 A376",
+      "position": 376,
+      "x": 376,
+      "base": "A",
+      "value": 2.91,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:377",
+      "label": "rpsT_5 \u00b7 U377",
+      "position": 377,
+      "x": 377,
+      "base": "U",
+      "value": 0.91,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:378",
+      "label": "rpsT_5 \u00b7 C378",
+      "position": 378,
+      "x": 378,
+      "base": "C",
+      "value": -0.1,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:379",
+      "label": "rpsT_5 \u00b7 A379",
+      "position": 379,
+      "x": 379,
+      "base": "A",
+      "value": 0.1,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:381",
+      "label": "rpsT_5 \u00b7 C381",
+      "position": 381,
+      "x": 381,
+      "base": "C",
+      "value": 0.01,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:382",
+      "label": "rpsT_5 \u00b7 A382",
+      "position": 382,
+      "x": 382,
+      "base": "A",
+      "value": -0.18,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:383",
+      "label": "rpsT_5 \u00b7 A383",
+      "position": 383,
+      "x": 383,
+      "base": "A",
+      "value": 0.06,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:384",
+      "label": "rpsT_5 \u00b7 A384",
+      "position": 384,
+      "x": 384,
+      "base": "A",
+      "value": -0.01,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:386",
+      "label": "rpsT_5 \u00b7 U386",
+      "position": 386,
+      "x": 386,
+      "base": "U",
+      "value": 0.0,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:387",
+      "label": "rpsT_5 \u00b7 G387",
+      "position": 387,
+      "x": 387,
+      "base": "G",
+      "value": 0.12,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:388",
+      "label": "rpsT_5 \u00b7 G388",
+      "position": 388,
+      "x": 388,
+      "base": "G",
+      "value": 0.34,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:389",
+      "label": "rpsT_5 \u00b7 C389",
+      "position": 389,
+      "x": 389,
+      "base": "C",
+      "value": -0.53,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:390",
+      "label": "rpsT_5 \u00b7 U390",
+      "position": 390,
+      "x": 390,
+      "base": "U",
+      "value": 0.82,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:391",
+      "label": "rpsT_5 \u00b7 U391",
+      "position": 391,
+      "x": 391,
+      "base": "U",
+      "value": 1.58,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:392",
+      "label": "rpsT_5 \u00b7 A392",
+      "position": 392,
+      "x": 392,
+      "base": "A",
+      "value": 0.96,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:393",
+      "label": "rpsT_5 \u00b7 A393",
+      "position": 393,
+      "x": 393,
+      "base": "A",
+      "value": 0.18,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:395",
+      "label": "rpsT_5 \u00b7 C395",
+      "position": 395,
+      "x": 395,
+      "base": "C",
+      "value": 0.31,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:396",
+      "label": "rpsT_5 \u00b7 G396",
+      "position": 396,
+      "x": 396,
+      "base": "G",
+      "value": 0.31,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:397",
+      "label": "rpsT_5 \u00b7 C397",
+      "position": 397,
+      "x": 397,
+      "base": "C",
+      "value": -0.57,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:398",
+      "label": "rpsT_5 \u00b7 C398",
+      "position": 398,
+      "x": 398,
+      "base": "C",
+      "value": -0.12,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:399",
+      "label": "rpsT_5 \u00b7 A399",
+      "position": 399,
+      "x": 399,
+      "base": "A",
+      "value": 0.11,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:401",
+      "label": "rpsT_5 \u00b7 U401",
+      "position": 401,
+      "x": 401,
+      "base": "U",
+      "value": -0.31,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:402",
+      "label": "rpsT_5 \u00b7 U402",
+      "position": 402,
+      "x": 402,
+      "base": "U",
+      "value": 0.08,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:403",
+      "label": "rpsT_5 \u00b7 U403",
+      "position": 403,
+      "x": 403,
+      "base": "U",
+      "value": 0.02,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:404",
+      "label": "rpsT_5 \u00b7 G404",
+      "position": 404,
+      "x": 404,
+      "base": "G",
+      "value": 0.12,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:406",
+      "label": "rpsT_5 \u00b7 U406",
+      "position": 406,
+      "x": 406,
+      "base": "U",
+      "value": 0.51,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:407",
+      "label": "rpsT_5 \u00b7 G407",
+      "position": 407,
+      "x": 407,
+      "base": "G",
+      "value": -0.02,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:408",
+      "label": "rpsT_5 \u00b7 A408",
+      "position": 408,
+      "x": 408,
+      "base": "A",
+      "value": 0.15,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:409",
+      "label": "rpsT_5 \u00b7 A409",
+      "position": 409,
+      "x": 409,
+      "base": "A",
+      "value": -0.0,
+      "category": "in-cell SHAPE",
+      "modelPaired": false
+    },
+    {
+      "id": "rpsT_5:410",
+      "label": "rpsT_5 \u00b7 G410",
+      "position": 410,
+      "x": 410,
+      "base": "G",
+      "value": -0.32,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:411",
+      "label": "rpsT_5 \u00b7 C411",
+      "position": 411,
+      "x": 411,
+      "base": "C",
+      "value": -1.29,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:412",
+      "label": "rpsT_5 \u00b7 U412",
+      "position": 412,
+      "x": 412,
+      "base": "U",
+      "value": -0.85,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    },
+    {
+      "id": "rpsT_5:414",
+      "label": "rpsT_5 \u00b7 U414",
+      "position": 414,
+      "x": 414,
+      "base": "U",
+      "value": 0.11,
+      "category": "in-cell SHAPE",
+      "modelPaired": true
+    }
+  ],
+  "pairs": [
+    {
+      "start": 21,
+      "end": 31
+    },
+    {
+      "start": 20,
+      "end": 32
+    },
+    {
+      "start": 19,
+      "end": 33
+    },
+    {
+      "start": 18,
+      "end": 34
+    },
+    {
+      "start": 17,
+      "end": 35
+    },
+    {
+      "start": 16,
+      "end": 36
+    },
+    {
+      "start": 15,
+      "end": 37
+    },
+    {
+      "start": 14,
+      "end": 38
+    },
+    {
+      "start": 75,
+      "end": 83
+    },
+    {
+      "start": 74,
+      "end": 84
+    },
+    {
+      "start": 73,
+      "end": 85
+    },
+    {
+      "start": 68,
+      "end": 88
+    },
+    {
+      "start": 67,
+      "end": 89
+    },
+    {
+      "start": 66,
+      "end": 90
+    },
+    {
+      "start": 65,
+      "end": 91
+    },
+    {
+      "start": 64,
+      "end": 92
+    },
+    {
+      "start": 63,
+      "end": 93
+    },
+    {
+      "start": 60,
+      "end": 97
+    },
+    {
+      "start": 59,
+      "end": 98
+    },
+    {
+      "start": 58,
+      "end": 99
+    },
+    {
+      "start": 57,
+      "end": 100
+    },
+    {
+      "start": 56,
+      "end": 101
+    },
+    {
+      "start": 134,
+      "end": 148
+    },
+    {
+      "start": 133,
+      "end": 149
+    },
+    {
+      "start": 132,
+      "end": 150
+    },
+    {
+      "start": 131,
+      "end": 151
+    },
+    {
+      "start": 130,
+      "end": 152
+    },
+    {
+      "start": 129,
+      "end": 153
+    },
+    {
+      "start": 171,
+      "end": 176
+    },
+    {
+      "start": 170,
+      "end": 177
+    },
+    {
+      "start": 169,
+      "end": 178
+    },
+    {
+      "start": 168,
+      "end": 179
+    },
+    {
+      "start": 167,
+      "end": 180
+    },
+    {
+      "start": 187,
+      "end": 193
+    },
+    {
+      "start": 186,
+      "end": 194
+    },
+    {
+      "start": 222,
+      "end": 228
+    },
+    {
+      "start": 221,
+      "end": 229
+    },
+    {
+      "start": 220,
+      "end": 230
+    },
+    {
+      "start": 219,
+      "end": 231
+    },
+    {
+      "start": 218,
+      "end": 232
+    },
+    {
+      "start": 217,
+      "end": 235
+    },
+    {
+      "start": 216,
+      "end": 236
+    },
+    {
+      "start": 215,
+      "end": 237
+    },
+    {
+      "start": 214,
+      "end": 238
+    },
+    {
+      "start": 213,
+      "end": 239
+    },
+    {
+      "start": 212,
+      "end": 240
+    },
+    {
+      "start": 206,
+      "end": 247
+    },
+    {
+      "start": 205,
+      "end": 248
+    },
+    {
+      "start": 204,
+      "end": 250
+    },
+    {
+      "start": 203,
+      "end": 251
+    },
+    {
+      "start": 199,
+      "end": 253
+    },
+    {
+      "start": 198,
+      "end": 254
+    },
+    {
+      "start": 197,
+      "end": 255
+    },
+    {
+      "start": 263,
+      "end": 268
+    },
+    {
+      "start": 262,
+      "end": 269
+    },
+    {
+      "start": 282,
+      "end": 287
+    },
+    {
+      "start": 281,
+      "end": 288
+    },
+    {
+      "start": 280,
+      "end": 289
+    },
+    {
+      "start": 279,
+      "end": 290
+    },
+    {
+      "start": 278,
+      "end": 291
+    },
+    {
+      "start": 277,
+      "end": 292
+    },
+    {
+      "start": 315,
+      "end": 322
+    },
+    {
+      "start": 314,
+      "end": 323
+    },
+    {
+      "start": 313,
+      "end": 324
+    },
+    {
+      "start": 312,
+      "end": 325
+    },
+    {
+      "start": 311,
+      "end": 326
+    },
+    {
+      "start": 310,
+      "end": 327
+    },
+    {
+      "start": 309,
+      "end": 328
+    },
+    {
+      "start": 305,
+      "end": 329
+    },
+    {
+      "start": 304,
+      "end": 330
+    },
+    {
+      "start": 303,
+      "end": 331
+    },
+    {
+      "start": 302,
+      "end": 332
+    },
+    {
+      "start": 301,
+      "end": 333
+    },
+    {
+      "start": 358,
+      "end": 363
+    },
+    {
+      "start": 357,
+      "end": 364
+    },
+    {
+      "start": 356,
+      "end": 365
+    },
+    {
+      "start": 352,
+      "end": 366
+    },
+    {
+      "start": 351,
+      "end": 367
+    },
+    {
+      "start": 350,
+      "end": 368
+    },
+    {
+      "start": 348,
+      "end": 369
+    },
+    {
+      "start": 347,
+      "end": 370
+    },
+    {
+      "start": 346,
+      "end": 371
+    },
+    {
+      "start": 345,
+      "end": 372
+    },
+    {
+      "start": 389,
+      "end": 396
+    },
+    {
+      "start": 388,
+      "end": 397
+    },
+    {
+      "start": 387,
+      "end": 398
+    },
+    {
+      "start": 386,
+      "end": 399
+    },
+    {
+      "start": 384,
+      "end": 401
+    },
+    {
+      "start": 383,
+      "end": 402
+    },
+    {
+      "start": 382,
+      "end": 403
+    },
+    {
+      "start": 381,
+      "end": 404
+    },
+    {
+      "start": 379,
+      "end": 406
+    },
+    {
+      "start": 378,
+      "end": 407
+    },
+    {
+      "start": 377,
+      "end": 408
+    },
+    {
+      "start": 414,
+      "end": 420
+    },
+    {
+      "start": 413,
+      "end": 421
+    },
+    {
+      "start": 412,
+      "end": 422
+    },
+    {
+      "start": 411,
+      "end": 423
+    },
+    {
+      "start": 410,
+      "end": 424
+    },
+    {
+      "start": 161,
+      "end": 427
+    },
+    {
+      "start": 160,
+      "end": 428
+    },
+    {
+      "start": 159,
+      "end": 429
+    },
+    {
+      "start": 158,
+      "end": 430
+    }
+  ],
+  "sequence": "AUCACUACGUAACGAGUGCCGGCACAUUAACGGCGCUUAUUUGCACAAAUCCAUUGACAAAAGAAGGCUAAAAGGGCAUAUUCCUCGGCCUUUGAAUUGUCCAUAUAGAACACAUUUGGGAGUUGGACCUUGGCUAAUAUCAAAUCAGCUAAGAAGCGCGCCAUUCAGUCUGAAAAGGCUCGUAAGCACAACGCAAGCCGUCGCUCUAUGAUGCGUACUUUCAUCAAGAAAGUAUACGCAGCUAUCGAAGCUGGCGACAAAGCUGCUGCACAGAAAGCAUUUAACGAAAUGCAACCGAUCGUGGACCGUCAGGCUGCUAAAGGUCUGAUCCACAAAAACAAAGCUGCACGUCAUAAGGCUAACCUGACUGCACAGAUCAACAAACUGGCUUAAUCGCCAAUUUGCUGAAGCUUUGUGAAAAAGCCCGCGCAA",
+  "model": ".............((((((((.........)))))))).................(((((..((((((....(((.......)))..))))))...)))))...........................((((((.............))))))....((((.....(((((....))))).....((.....))..(((...((((.....(((((((((((.....)))))..))))))......)).)).)))......((....)).......((((((....))))))........(((((...(((((((......))))))))))))...........((((.(((...(((....))))))))))....(((.((((.((((......)))).)))).))).(((((.....)))))..))))..",
+  "transcriptLength": 432,
+  "limits": [
+    "Structure arcs are the redistributed supplied model, not direct measurements of each base pair.",
+    "SHAPE reactivity describes local chemical accessibility; it is not base-pair probability.",
+    "Missing measurements are excluded, not replaced with zero.",
+    "This is one transcript from the published 194-transcript dataset."
+  ],
+  "id": "16-rna-structure"
+}

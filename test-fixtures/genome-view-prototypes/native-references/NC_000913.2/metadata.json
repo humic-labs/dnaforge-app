@@ -1,0 +1,70 @@
+{
+  "schema": "dnaforge.exact-reference-source-bundle.v1",
+  "accession": "NC_000913.2",
+  "organism": "Escherichia coli K-12 MG1655",
+  "topology": "circular",
+  "length": 4639675,
+  "normalizedSequenceSha256": "b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+  "referenceAliasOrSubstitutionUsed": false,
+  "retrievedAt": "2026-11-17T03:57:33.835242+00:00",
+  "authoritativeSources": [
+    {
+      "file": "NC_000913.2.gbff",
+      "sha256": "8eef83796ea371e09b6f689a478398c4040a23a8d5525c518ccc01cec80aa841",
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=NC_000913.2&rettype=gbwithparts&retmode=text",
+      "recordVersion": "NC_000913.2"
+    },
+    {
+      "file": "NC_000913.2.authoritative.fasta",
+      "sha256": "2a8e2f78bc145fa82fa325acf7d34dc944612795cee74f793045dc64d782176c",
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=NC_000913.2&rettype=fasta&retmode=text",
+      "headerAccession": "NC_000913.2"
+    }
+  ],
+  "conversion": {
+    "program": "dna-indexer",
+    "version": "0.1.0",
+    "schema": 2,
+    "binarySha256": "373ab9fc654d2afc9e622463b3b98f8848df2fcce1139eade10533e0dcf44667",
+    "arguments": [
+      "index",
+      "--in",
+      "NC_000913.2.gbff",
+      "--out-dir",
+      ".",
+      "--name",
+      "NC_000913.2"
+    ],
+    "sourceFeatures": 9913,
+    "outputGffRows": 9973,
+    "sourceCoordinateVerification": "Every output feature type/start/end/strand matches the source GenBank locations after emitting each compound CDS part separately and retaining bounding root intervals for compound genes. No genomic positions are inferred.",
+    "compoundSourceGenes": 17,
+    "compoundSourceCDS": 55,
+    "extraRowsFromCDSParts": 60
+  },
+  "nativeIndexedManifestRelativePaths": {
+    "fastaPath": "NC_000913.2.fa.gz",
+    "faiPath": "NC_000913.2.fa.gz.fai",
+    "gffPath": "NC_000913.2.gff3.gz",
+    "tbiPath": "NC_000913.2.gff3.gz.tbi",
+    "chrom": "NC_000913.2",
+    "length": 4639675
+  },
+  "gziFile": "NC_000913.2.fa.gz.gzi",
+  "gffUncompressedSha256": "ab242acce5f71c388242727a3d2fd543913335bfeca0aeb4a3bde604daeecb50",
+  "gffFeatureTypeCounts": {
+    "source": 1,
+    "gene": 4497,
+    "CDS": 4381,
+    "repeat_region": 355,
+    "mat_peptide": 504,
+    "mobile_element": 47,
+    "ncRNA": 63,
+    "rRNA": 22,
+    "tRNA": 89,
+    "misc_feature": 11,
+    "tmRNA": 2,
+    "rep_origin": 1
+  },
+  "admissionStatus": "Indexed source files prepared by the existing native converter; application admission and view preparation remain separate."
+}

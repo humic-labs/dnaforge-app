@@ -36,7 +36,7 @@ export function ORFDetectionNotice({ detection }: { detection: UseORFsResult }) 
         <button
           type="button"
           onClick={detection.retry}
-          className="shrink-0 rounded border border-border px-2 py-1 font-medium text-fg hover:bg-bg-muted"
+          className="shrink-0 rounded border border-border px-2 py-1 font-medium text-fg wp-interactive"
         >
           Retry ORF detection
         </button>

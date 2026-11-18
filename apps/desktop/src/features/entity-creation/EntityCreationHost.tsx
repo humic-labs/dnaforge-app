@@ -258,7 +258,7 @@ export function EntityCreationHost({ onOpenRegistryEntity }: EntityCreationHostP
                     type="button"
                     data-testid={`schema-entity-type-${schema.entityKind}`}
                     onClick={() => setSelectedSchemaId(schema.schemaId)}
-                    className={`${UI_CARD_CLASS} text-left hover:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40`}
+                    className={`${UI_CARD_CLASS} text-left wp-interactive `}
                   >
                     <span className="flex items-center gap-2 text-sm font-medium text-fg">
                       <span>{schema.displayName}</span>

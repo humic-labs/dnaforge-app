@@ -37,7 +37,7 @@ export function ComparisonColorControls({
         type="button"
         aria-expanded={open}
         aria-label="Comparison colors"
-        className="rounded px-2 py-0.5 text-fg-muted hover:bg-bg-hover hover:text-fg"
+        className="rounded px-2 py-0.5 text-fg-muted wp-interactive "
         onClick={() => setOpen((value) => !value)}
       >
         DNA colors
@@ -67,7 +67,7 @@ export function ComparisonColorControls({
           ))}
           <button
             type="button"
-            className="mt-1 rounded border border-border px-2 py-1 hover:bg-bg-hover"
+            className="mt-1 rounded border border-border px-2 py-1 wp-interactive"
             onClick={() => onChange({})}
           >
             Reset colors

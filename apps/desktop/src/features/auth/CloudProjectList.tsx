@@ -52,7 +52,7 @@ export function CloudProjectList({
                 disabled={commandInFlight || !hasBackup}
                 onClick={() => onOpenProject(project)}
                 data-testid="account-open-synced-project"
-                className="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm text-fg-muted hover:bg-bg-muted hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                className="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm text-fg-muted wp-interactive disabled:cursor-not-allowed disabled:opacity-50 "
               >
                 <span className="min-w-0 truncate">
                   {project.displayName}

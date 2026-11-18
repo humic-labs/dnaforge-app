@@ -1034,6 +1034,9 @@ importers:
 
   packages/core/genome-data:
     dependencies:
+      '@waypoint/platform':
+        specifier: workspace:*
+        version: link:../platform
       '@gmod/indexedfasta':
         specifier: ^5.0.5
         version: 5.0.5

@@ -277,6 +277,17 @@ beforeEach(() => {
 });
 
 describe('saved record explicit Save', () => {
+  it('restores the actual entity kind on an existing record tab from its loaded owner', async () => {
+    const loaded = fixture();
+    loaded.artifact.kind = 'protein';
+    mocks.load.mockResolvedValue(loaded);
+    render(<Harness />);
+    await waitFor(() =>
+      expect(mocks.updateTab).toHaveBeenCalledWith('main', 'tab-record', { entityKind: 'protein' })
+    );
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
   it('preserves an entity search across an unchanged index refresh and blocks editing during explicit discard and reload', async () => {
     const initial = fixture();
     initial.artifact.schemaSnapshot.fields.push({
@@ -337,7 +348,7 @@ describe('saved record explicit Save', () => {
     const choose = await screen.findByRole('button', { name: 'Choose Parent entity' });
     await waitFor(() => expect(choose).toBeEnabled());
     fireEvent.click(choose);
-    fireEvent.click(await screen.findByRole('button', { name: /Parent strain/ }));
+    fireEvent.click(await screen.findByRole('option', { name: /Parent strain/ }));
     await waitFor(() => expect(saveControl()).toBeEnabled());
     expect(mocks.update).not.toHaveBeenCalled();
     const saved = fixture();

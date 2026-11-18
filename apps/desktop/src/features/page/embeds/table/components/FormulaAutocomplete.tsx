@@ -55,7 +55,7 @@ export function FormulaAutocomplete({
             key={option.name}
             type="button"
             className={`w-full px-3 py-2 text-left text-sm transition-colors ${
-              index === selectedIndex ? 'bg-accent/10 text-fg' : 'hover:bg-bg-muted text-fg'
+              index === selectedIndex ? 'bg-accent/10 text-fg' : 'wp-interactive text-fg'
             }`}
             onClick={() => onSelect(`=${option.name}(`)}
             onMouseEnter={() => onSelectionChange(index)}

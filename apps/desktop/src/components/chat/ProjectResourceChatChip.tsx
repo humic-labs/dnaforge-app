@@ -53,6 +53,7 @@ export function ProjectResourceChatChip({
   return (
     <ChatEntityReferenceChip
       entityType={directory ? 'folder' : (resource?.entityType ?? 'file')}
+      iconContext={resource?.iconContext ?? { path: resource?.path, isDirectory: directory }}
       label={label}
       detail={resource?.path}
       busy={busy || loading}

@@ -1,3 +1,4 @@
+import { Select } from '../../../components/ui/controls';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { sequenceRestoreItemCatalog } from '../../../db/sequence-package-restore';
@@ -222,7 +223,6 @@ export function SequencePackageHistoryPanel({
     [history.index]
   );
   const [sourceChoices, setSourceChoices] = useState<Record<string, string>>({});
-  const [openItemId, setOpenItemId] = useState<string | null>(null);
   const [preview, setPreview] = useState<SequenceRestorePreviewResult | null>(null);
   const [operationId, setOperationId] = useState<string | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
@@ -254,7 +254,6 @@ export function SequencePackageHistoryPanel({
   const chooseSource = (itemId: string, revisionId: string) => {
     previewSerial.current += 1;
     setSourceChoices((current) => ({ ...current, [itemId]: revisionId }));
-    setOpenItemId(null);
     setPreview(null);
     setOperationId(null);
     setRestoreError(null);
@@ -378,7 +377,7 @@ export function SequencePackageHistoryPanel({
             className={`w-full rounded-md border px-3 py-2 text-left ${
               history.selectedRevisionId === null
                 ? 'border-accent bg-accent/10 text-fg'
-                : 'border-transparent text-fg hover:bg-bg-elevated'
+                : 'border-transparent text-fg wp-interactive'
             }`}
             onClick={() => history.selectRevision(null)}
           >
@@ -394,7 +393,7 @@ export function SequencePackageHistoryPanel({
                 className={`w-full rounded-md border px-3 py-2 text-left ${
                   history.selectedRevisionId === event.id
                     ? 'border-accent bg-accent/10 text-fg'
-                    : 'border-transparent text-fg hover:bg-bg-elevated'
+                    : 'border-transparent text-fg wp-interactive'
                 }`}
                 onClick={() => {
                   setRequestedEvidenceRunId(null);
@@ -419,7 +418,7 @@ export function SequencePackageHistoryPanel({
                     ? !requestedEvidenceStateId
                     : requestedEvidenceStateId === event.id)
                     ? 'border-accent bg-accent/10 text-fg'
-                    : 'border-transparent text-fg hover:bg-bg-elevated'
+                    : 'border-transparent text-fg wp-interactive'
                 }`}
                 onClick={() => {
                   history.selectRevision(null);
@@ -568,7 +567,7 @@ export function SequencePackageHistoryPanel({
               <button
                 type="button"
                 disabled={busy}
-                className="mt-2 rounded border border-border px-2 py-1 text-xs hover:bg-bg-elevated"
+                className="mt-2 rounded border border-border px-2 py-1 text-xs wp-interactive"
                 onClick={() => {
                   previewSerial.current += 1;
                   setSourceChoices(
@@ -589,7 +588,6 @@ export function SequencePackageHistoryPanel({
             <div className="mt-3 space-y-2">
               {items.map((item) => {
                 const choice = sourceChoices[item.id] ?? '';
-                const revision = revisions.find((entry) => entry.id === choice);
                 return (
                   <div
                     key={item.id}
@@ -598,46 +596,24 @@ export function SequencePackageHistoryPanel({
                     <span className="min-w-0 flex-1 truncate" title={item.label}>
                       {item.label}
                     </span>
-                    <button
-                      type="button"
+                    <Select
+                      value={choice}
                       disabled={busy}
-                      aria-label={`Choose source for ${item.label}`}
-                      aria-expanded={openItemId === item.id}
-                      className="max-w-[11rem] truncate rounded border border-border bg-bg-muted px-2 py-1 text-left hover:bg-bg-elevated"
-                      onClick={() => setOpenItemId(openItemId === item.id ? null : item.id)}
-                    >
-                      {revision
-                        ? `${KIND_LABELS[revision.kind]} · ${new Date(revision.createdAt).toLocaleString()}`
-                        : 'Keep current'}
-                    </button>
-                    {openItemId === item.id && (
-                      <div
-                        data-testid={`restore-source-options-${item.id}`}
-                        className="absolute right-0 top-full z-20 mt-1 max-h-48 w-60 overflow-y-auto rounded border border-border bg-bg shadow-lg"
-                      >
-                        <button
-                          type="button"
-                          className="block w-full px-2 py-1 text-left hover:bg-bg-elevated"
-                          onClick={() => chooseSource(item.id, '')}
-                        >
-                          Keep current
-                        </button>
-                        {[...revisions]
+                      ariaLabel={`Choose source for ${item.label}`}
+                      menuAttributes={{ 'data-testid': `restore-source-options-${item.id}` }}
+                      containerClassName="max-w-[11rem]"
+                      onValueChange={(revisionId) => chooseSource(item.id, revisionId)}
+                      options={[
+                        { value: '', label: 'Keep current' },
+                        ...[...revisions]
                           .reverse()
                           .filter((entry) => item.sourceRevisionIds.includes(entry.id))
-                          .map((entry) => (
-                            <button
-                              type="button"
-                              key={entry.id}
-                              className="block w-full px-2 py-1 text-left hover:bg-bg-elevated"
-                              onClick={() => chooseSource(item.id, entry.id)}
-                            >
-                              {KIND_LABELS[entry.kind]} ·{' '}
-                              {new Date(entry.createdAt).toLocaleString()}
-                            </button>
-                          ))}
-                      </div>
-                    )}
+                          .map((entry) => ({
+                            value: entry.id,
+                            label: `${KIND_LABELS[entry.kind]} · ${new Date(entry.createdAt).toLocaleString()}`,
+                          })),
+                      ]}
+                    />
                   </div>
                 );
               })}

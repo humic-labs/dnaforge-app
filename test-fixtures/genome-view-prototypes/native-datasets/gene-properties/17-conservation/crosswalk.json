@@ -1,0 +1,1657 @@
+{
+  "schema": "dnaforge.annotation-crosswalk.v1",
+  "sourceSnapshotSha256": "a8f2e19f14683af4cf8adf3c77473c0755e2dbbfbc3c8e95254efa7141c1f1aa",
+  "targetGffSha256": "8654e5413df05d47649deb8cd86eb09a91012dfd0d2c9979f39ea2a60f137326",
+  "method": "Match the source gene name against exact gene or decoded comma-separated gene_synonym tokens on gene/pseudogene target roots only. Retain the original root GFF ID. Do not use the foreign Reference ID as a b-locus tag or transfer foreign coordinates.",
+  "rows": [
+    {
+      "sourceId": "Z5279",
+      "sourceName": "ilvG",
+      "snapshotLabel": "ilvG",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 2
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "ilvG.pseudogene.1",
+      "method": "exact-source-gene-qualifier",
+      "qualifierEvidence": {
+        "sourceGene": "ilvG",
+        "targetQualifier": "gene",
+        "exactToken": "ilvG"
+      },
+      "candidates": [
+        {
+          "id": "ilvG.pseudogene.1",
+          "type": "pseudogene",
+          "chrom": "NC_000913.3",
+          "start1": 3950560,
+          "end1": 3952204,
+          "strand": "+",
+          "gene": "ilvG",
+          "locusTag": "b4488",
+          "gffLine": 8147
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "Z3982",
+      "sourceName": "",
+      "snapshotLabel": "Z3982",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 3
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0002:Z3982",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z4486",
+      "sourceName": "",
+      "snapshotLabel": "Z4486",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 4
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0003:Z4486",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "ECs2893",
+      "sourceName": "gatR",
+      "snapshotLabel": "gatR",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 5
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "gatR.pseudogene.1",
+      "method": "exact-source-gene-qualifier",
+      "qualifierEvidence": {
+        "sourceGene": "gatR",
+        "targetQualifier": "gene",
+        "exactToken": "gatR"
+      },
+      "candidates": [
+        {
+          "id": "gatR.pseudogene.1",
+          "type": "pseudogene",
+          "chrom": "NC_000913.3",
+          "start1": 2169693,
+          "end1": 2171727,
+          "strand": "-",
+          "gene": "gatR",
+          "locusTag": "b4498",
+          "gffLine": 4561
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "Z5706",
+      "sourceName": "phnE",
+      "snapshotLabel": "phnE",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 6
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0005:Z5706",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z1210",
+      "sourceName": "",
+      "snapshotLabel": "Z1210",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 7
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0006:Z1210",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z3600",
+      "sourceName": "",
+      "snapshotLabel": "Z3600",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 8
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0007:Z3600",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z1519",
+      "sourceName": "efeU",
+      "snapshotLabel": "efeU",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 9
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "efeU.pseudogene.1",
+      "method": "exact-source-gene-qualifier",
+      "qualifierEvidence": {
+        "sourceGene": "efeU",
+        "targetQualifier": "gene",
+        "exactToken": "efeU"
+      },
+      "candidates": [
+        {
+          "id": "efeU.pseudogene.1",
+          "type": "pseudogene",
+          "chrom": "NC_000913.3",
+          "start1": 1081356,
+          "end1": 1082185,
+          "strand": "+",
+          "gene": "efeU",
+          "locusTag": "b4490",
+          "gffLine": 2195
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "Z4489",
+      "sourceName": "agaA",
+      "snapshotLabel": "agaA",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 10
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "agaA.pseudogene.1",
+      "method": "exact-source-gene-qualifier",
+      "qualifierEvidence": {
+        "sourceGene": "agaA",
+        "targetQualifier": "gene",
+        "exactToken": "agaA"
+      },
+      "candidates": [
+        {
+          "id": "agaA.pseudogene.1",
+          "type": "pseudogene",
+          "chrom": "NC_000913.3",
+          "start1": 3281122,
+          "end1": 3281625,
+          "strand": "+",
+          "gene": "agaA",
+          "locusTag": "b3135",
+          "gffLine": 6754
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "Z1435",
+      "sourceName": "",
+      "snapshotLabel": "Z1435",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 11
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0010:Z1435",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "c0633",
+      "sourceName": "ylbE",
+      "snapshotLabel": "ylbE",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 12
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "ylbE.gene.1",
+      "method": "exact-source-gene-qualifier",
+      "qualifierEvidence": {
+        "sourceGene": "ylbE",
+        "targetQualifier": "gene",
+        "exactToken": "ylbE"
+      },
+      "candidates": [
+        {
+          "id": "ylbE.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 548357,
+          "end1": 549616,
+          "strand": "+",
+          "gene": "ylbE",
+          "locusTag": "b4572",
+          "gffLine": 1125
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "Z4904",
+      "sourceName": "arsB",
+      "snapshotLabel": "arsB",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 13
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "arsB.gene.1",
+      "method": "exact-source-gene-qualifier",
+      "qualifierEvidence": {
+        "sourceGene": "arsB",
+        "targetQualifier": "gene",
+        "exactToken": "arsB"
+      },
+      "candidates": [
+        {
+          "id": "arsB.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 3648935,
+          "end1": 3650224,
+          "strand": "+",
+          "gene": "arsB",
+          "locusTag": "b3502",
+          "gffLine": 7538
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "Z2304",
+      "sourceName": "gapC",
+      "snapshotLabel": "gapC",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 14
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "gapC.pseudogene.1",
+      "method": "exact-source-gene-qualifier",
+      "qualifierEvidence": {
+        "sourceGene": "gapC",
+        "targetQualifier": "gene",
+        "exactToken": "gapC"
+      },
+      "candidates": [
+        {
+          "id": "gapC.pseudogene.1",
+          "type": "pseudogene",
+          "chrom": "NC_000913.3",
+          "start1": 1489713,
+          "end1": 1490713,
+          "strand": "-",
+          "gene": "gapC",
+          "locusTag": "b4493",
+          "gffLine": 3096
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "c5420",
+      "sourceName": "",
+      "snapshotLabel": "c5420",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 15
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0014:c5420",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "EC42_0406",
+      "sourceName": "yaiX",
+      "snapshotLabel": "yaiX",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 16
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "yaiX.pseudogene.1",
+      "method": "exact-source-gene-qualifier",
+      "qualifierEvidence": {
+        "sourceGene": "yaiX",
+        "targetQualifier": "gene",
+        "exactToken": "yaiX"
+      },
+      "candidates": [
+        {
+          "id": "yaiX.pseudogene.1",
+          "type": "pseudogene",
+          "chrom": "NC_000913.3",
+          "start1": 380844,
+          "end1": 382872,
+          "strand": "-",
+          "gene": "yaiX",
+          "locusTag": "b4579",
+          "gffLine": 796
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "Z4955",
+      "sourceName": "ldrD",
+      "snapshotLabel": "ldrD",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 17
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "ldrD.gene.1",
+      "method": "exact-source-gene-qualifier",
+      "qualifierEvidence": {
+        "sourceGene": "ldrD",
+        "targetQualifier": "gene",
+        "exactToken": "ldrD"
+      },
+      "candidates": [
+        {
+          "id": "ldrD.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 3699980,
+          "end1": 3700087,
+          "strand": "-",
+          "gene": "ldrD",
+          "locusTag": "b4453",
+          "gffLine": 7624
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "Z3481",
+      "sourceName": "yfaS",
+      "snapshotLabel": "yfaS",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 18
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "yfaS.pseudogene.1",
+      "method": "exact-source-gene-qualifier",
+      "qualifierEvidence": {
+        "sourceGene": "yfaS",
+        "targetQualifier": "gene",
+        "exactToken": "yfaS"
+      },
+      "candidates": [
+        {
+          "id": "yfaS.pseudogene.1",
+          "type": "pseudogene",
+          "chrom": "NC_000913.3",
+          "start1": 2329798,
+          "end1": 2334402,
+          "strand": "-",
+          "gene": "yfaS",
+          "locusTag": "b4500",
+          "gffLine": 4850
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "Z1869",
+      "sourceName": "",
+      "snapshotLabel": "Z1869",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 19
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0018:Z1869",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z4353",
+      "sourceName": "",
+      "snapshotLabel": "Z4353",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 20
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0019:Z4353",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "c0381",
+      "sourceName": "",
+      "snapshotLabel": "c0381",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 21
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0020:c0381",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z0469",
+      "sourceName": "",
+      "snapshotLabel": "Z0469",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 22
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0021:Z0469",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z1381",
+      "sourceName": "",
+      "snapshotLabel": "Z1381",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 23
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0022:Z1381",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z5178",
+      "sourceName": "",
+      "snapshotLabel": "Z5178",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 24
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0023:Z5178",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z3159",
+      "sourceName": "",
+      "snapshotLabel": "Z3159",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 25
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0024:Z3159",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z1192",
+      "sourceName": "insB",
+      "snapshotLabel": "insB",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 26
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0025:Z1192",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z6080",
+      "sourceName": "",
+      "snapshotLabel": "Z6080",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 27
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0026:Z6080",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "c3192",
+      "sourceName": "",
+      "snapshotLabel": "c3192",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 28
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0027:c3192",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "UTI89_C5102",
+      "sourceName": "",
+      "snapshotLabel": "UTI89_C5102",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 29
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0028:UTI89_C5102",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "ECs0664",
+      "sourceName": "",
+      "snapshotLabel": "ECs0664",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 30
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0029:ECs0664",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "c2643",
+      "sourceName": "",
+      "snapshotLabel": "c2643",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 31
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0030:c2643",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "EC42_0843",
+      "sourceName": "",
+      "snapshotLabel": "EC42_0843",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 32
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0031:EC42_0843",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z5287",
+      "sourceName": "",
+      "snapshotLabel": "Z5287",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 33
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0032:Z5287",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z0065",
+      "sourceName": "",
+      "snapshotLabel": "Z0065",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 34
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0033:Z0065",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z3137",
+      "sourceName": "",
+      "snapshotLabel": "Z3137",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 35
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0034:Z3137",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "c3559",
+      "sourceName": "",
+      "snapshotLabel": "c3559",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 36
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0035:c3559",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z4888",
+      "sourceName": "",
+      "snapshotLabel": "Z4888",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 37
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0036:Z4888",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z5089",
+      "sourceName": "",
+      "snapshotLabel": "Z5089",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 38
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0037:Z5089",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z0459",
+      "sourceName": "fbpB",
+      "snapshotLabel": "fbpB",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 39
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "afuB.pseudogene.1",
+      "method": "exact-source-gene-synonym-token",
+      "qualifierEvidence": {
+        "sourceGene": "fbpB",
+        "targetQualifier": "gene_synonym",
+        "exactToken": "fbpB"
+      },
+      "candidates": [
+        {
+          "id": "afuB.pseudogene.1",
+          "type": "pseudogene",
+          "chrom": "NC_000913.3",
+          "start1": 278814,
+          "end1": 279162,
+          "strand": "-",
+          "gene": "afuB",
+          "locusTag": "b0263",
+          "gffLine": 588
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "Z2242",
+      "sourceName": "",
+      "snapshotLabel": "Z2242",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 40
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0039:Z2242",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z3023",
+      "sourceName": "",
+      "snapshotLabel": "Z3023",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 41
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0040:Z3023",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "UTI89_C3003",
+      "sourceName": "ymfT",
+      "snapshotLabel": "ymfT",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 42
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "ymfT.gene.1",
+      "method": "exact-source-gene-qualifier",
+      "qualifierEvidence": {
+        "sourceGene": "ymfT",
+        "targetQualifier": "gene",
+        "exactToken": "ymfT"
+      },
+      "candidates": [
+        {
+          "id": "ymfT.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 1203024,
+          "end1": 1203224,
+          "strand": "+",
+          "gene": "ymfT",
+          "locusTag": "b1146",
+          "gffLine": 2464
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "ECOS88_2186",
+      "sourceName": "GpD",
+      "snapshotLabel": "GpD",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 43
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0042:ECOS88_2186",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "EC42_3192",
+      "sourceName": "",
+      "snapshotLabel": "EC42_3192",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 44
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0043:EC42_3192",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "EC42_1520",
+      "sourceName": "",
+      "snapshotLabel": "EC42_1520",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 45
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0044:EC42_1520",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "EFER3086",
+      "sourceName": "",
+      "snapshotLabel": "EFER3086",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 46
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0045:EFER3086",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "c5304",
+      "sourceName": "ytfA",
+      "snapshotLabel": "ytfA",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 47
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "ytfA.pseudogene.1",
+      "method": "exact-source-gene-qualifier",
+      "qualifierEvidence": {
+        "sourceGene": "ytfA",
+        "targetQualifier": "gene",
+        "exactToken": "ytfA"
+      },
+      "candidates": [
+        {
+          "id": "ytfA.pseudogene.1",
+          "type": "pseudogene",
+          "chrom": "NC_000913.3",
+          "start1": 4427694,
+          "end1": 4428095,
+          "strand": "+",
+          "gene": "ytfA",
+          "locusTag": "b4205",
+          "gffLine": 9095
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "EC42_1537",
+      "sourceName": "",
+      "snapshotLabel": "EC42_1537",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 48
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0047:EC42_1537",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z5177",
+      "sourceName": "",
+      "snapshotLabel": "Z5177",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 49
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0048:Z5177",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "ECOS88_0532",
+      "sourceName": "",
+      "snapshotLabel": "ECOS88_0532",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 50
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0049:ECOS88_0532",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z3954",
+      "sourceName": "",
+      "snapshotLabel": "Z3954",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 51
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0050:Z3954",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "ECO572681",
+      "sourceName": "",
+      "snapshotLabel": "ECO572681",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 52
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0051:ECO572681",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "ECs3712",
+      "sourceName": "",
+      "snapshotLabel": "ECs3712",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 53
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0052:ECs3712",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "EC42_1757",
+      "sourceName": "",
+      "snapshotLabel": "EC42_1757",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 54
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0053:EC42_1757",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "EIAI39_1900",
+      "sourceName": "",
+      "snapshotLabel": "EIAI39_1900",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 55
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0054:EIAI39_1900",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "EC55_0217",
+      "sourceName": "",
+      "snapshotLabel": "EC55_0217",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 56
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0055:EC55_0217",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "ECO573353",
+      "sourceName": "",
+      "snapshotLabel": "ECO573353",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 57
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0056:ECO573353",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "EI14056",
+      "sourceName": "",
+      "snapshotLabel": "EI14056",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 58
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0057:EI14056",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z3950",
+      "sourceName": "",
+      "snapshotLabel": "Z3950",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 59
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0058:Z3950",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z0275",
+      "sourceName": "",
+      "snapshotLabel": "Z0275",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 60
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0059:Z0275",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "EC42_3171",
+      "sourceName": "",
+      "snapshotLabel": "EC42_3171",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 61
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0060:EC42_3171",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "ESCUM1778",
+      "sourceName": "",
+      "snapshotLabel": "ESCUM1778",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 62
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0061:ESCUM1778",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "EIAI39_0648",
+      "sourceName": "",
+      "snapshotLabel": "EIAI39_0648",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 63
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0062:EIAI39_0648",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "EC42_2433",
+      "sourceName": "",
+      "snapshotLabel": "EC42_2433",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 64
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0063:EC42_2433",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z0342",
+      "sourceName": "",
+      "snapshotLabel": "Z0342",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 65
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0064:Z0342",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "c1675",
+      "sourceName": "",
+      "snapshotLabel": "c1675",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 66
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0065:c1675",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z3955",
+      "sourceName": "",
+      "snapshotLabel": "Z3955",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 67
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0066:Z3955",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z3495",
+      "sourceName": "",
+      "snapshotLabel": "Z3495",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 68
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0067:Z3495",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "EC42_2970",
+      "sourceName": "",
+      "snapshotLabel": "EC42_2970",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 69
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0068:EC42_2970",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z5646",
+      "sourceName": "",
+      "snapshotLabel": "Z5646",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 70
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0069:Z5646",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "ESCUM1856",
+      "sourceName": "",
+      "snapshotLabel": "ESCUM1856",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 71
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0070:ESCUM1856",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "UTI89_C1627",
+      "sourceName": "ydbA",
+      "snapshotLabel": "ydbA",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 72
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "ydbA.pseudogene.1",
+      "method": "exact-source-gene-qualifier",
+      "qualifierEvidence": {
+        "sourceGene": "ydbA",
+        "targetQualifier": "gene",
+        "exactToken": "ydbA"
+      },
+      "candidates": [
+        {
+          "id": "ydbA.pseudogene.1",
+          "type": "pseudogene",
+          "chrom": "NC_000913.3",
+          "start1": 1465392,
+          "end1": 1474013,
+          "strand": "+",
+          "gene": "ydbA",
+          "locusTag": "b4492",
+          "gffLine": 3063
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "c0784",
+      "sourceName": "kdpF",
+      "snapshotLabel": "kdpF",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 73
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "kdpF.gene.1",
+      "method": "exact-source-gene-qualifier",
+      "qualifierEvidence": {
+        "sourceGene": "kdpF",
+        "targetQualifier": "gene",
+        "exactToken": "kdpF"
+      },
+      "candidates": [
+        {
+          "id": "kdpF.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 728732,
+          "end1": 728821,
+          "strand": "-",
+          "gene": "kdpF",
+          "locusTag": "b4513",
+          "gffLine": 1519
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "Z3502",
+      "sourceName": "yfaD",
+      "snapshotLabel": "yfaD",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 74
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "rpnE.gene.1",
+      "method": "exact-source-gene-synonym-token",
+      "qualifierEvidence": {
+        "sourceGene": "yfaD",
+        "targetQualifier": "gene_synonym",
+        "exactToken": "yfaD"
+      },
+      "candidates": [
+        {
+          "id": "rpnE.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 2356904,
+          "end1": 2357803,
+          "strand": "+",
+          "gene": "rpnE",
+          "locusTag": "b2244",
+          "gffLine": 4884
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "ESCUM3256",
+      "sourceName": "",
+      "snapshotLabel": "ESCUM3256",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 75
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0074:ESCUM3256",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "ESCUM1857",
+      "sourceName": "",
+      "snapshotLabel": "ESCUM1857",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 76
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0075:ESCUM1857",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "EC42_0505",
+      "sourceName": "hha",
+      "snapshotLabel": "hha",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 77
+      },
+      "sourceStatus": "mapped",
+      "expectedNativeStatus": "mapped",
+      "targetAnnotationId": "hha.gene.1",
+      "method": "exact-source-gene-qualifier",
+      "qualifierEvidence": {
+        "sourceGene": "hha",
+        "targetQualifier": "gene",
+        "exactToken": "hha"
+      },
+      "candidates": [
+        {
+          "id": "hha.gene.1",
+          "type": "gene",
+          "chrom": "NC_000913.3",
+          "start1": 480090,
+          "end1": 480308,
+          "strand": "-",
+          "gene": "hha",
+          "locusTag": "b0460",
+          "gffLine": 1002
+        }
+      ],
+      "excludedReason": null
+    },
+    {
+      "sourceId": "Z2749",
+      "sourceName": "",
+      "snapshotLabel": "Z2749",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 78
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0077:Z2749",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "EFER1785",
+      "sourceName": "",
+      "snapshotLabel": "EFER1785",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 79
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0078:EFER1785",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "Z5988",
+      "sourceName": "",
+      "snapshotLabel": "Z5988",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 80
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0079:Z5988",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "SF1080",
+      "sourceName": "",
+      "snapshotLabel": "SF1080",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 81
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0080:SF1080",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    },
+    {
+      "sourceId": "SBO0463",
+      "sourceName": "",
+      "snapshotLabel": "SBO0463",
+      "sourceRow": {
+        "file": "raw/comparison/touchon-s1.xls",
+        "worksheet": "K12",
+        "excelRow": 82
+      },
+      "sourceStatus": "unmapped",
+      "expectedNativeStatus": "unmapped",
+      "targetAnnotationId": "unmapped:17-conservation:0081:SBO0463",
+      "method": "no-unique-exact-gene-or-synonym-match",
+      "qualifierEvidence": null,
+      "candidates": [],
+      "excludedReason": "The foreign-strain Reference ID is not a target GFF ID or b-locus tag, and its gene name has no unique exact target gene/synonym match."
+    }
+  ]
+}

@@ -1,0 +1,2959 @@
+{
+  "schema": "dnaforge.strand-specific-sequence-anchors.v1",
+  "referenceAccession": "CP009273.1",
+  "normalizedSequenceSha256": "3761072f8884add5e9facdafc583de5d81a4cf5dbc7e51023ba966f3cf4887ce",
+  "coordinateSystem": "zero-based-half-open",
+  "anchorSearch": "Exhaustive full-reference exact upstream search, then exact strand-specific downstream check. Every paired context has exactly one match.",
+  "records": [
+    {
+      "originalSourceId": "BW25113_0001",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 13,
+      "reportedPosition": 308,
+      "strand": "+",
+      "start0": 307,
+      "end0": 308,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        247,
+        307
+      ],
+      "downstreamGenomicInterval0": [
+        308,
+        348
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        307
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0004",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 14,
+      "reportedPosition": 5076,
+      "strand": "+",
+      "start0": 5075,
+      "end0": 5076,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        5015,
+        5075
+      ],
+      "downstreamGenomicInterval0": [
+        5076,
+        5116
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        5075
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0008",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 15,
+      "reportedPosition": 9230,
+      "strand": "+",
+      "start0": 9229,
+      "end0": 9230,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        9169,
+        9229
+      ],
+      "downstreamGenomicInterval0": [
+        9230,
+        9270
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        9229
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0009",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 16,
+      "reportedPosition": 9920,
+      "strand": "+",
+      "start0": 9919,
+      "end0": 9920,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        9859,
+        9919
+      ],
+      "downstreamGenomicInterval0": [
+        9920,
+        9960
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        9919
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0014",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 17,
+      "reportedPosition": 14144,
+      "strand": "+",
+      "start0": 14143,
+      "end0": 14144,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        14083,
+        14143
+      ],
+      "downstreamGenomicInterval0": [
+        14144,
+        14184
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        14143
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0019",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 18,
+      "reportedPosition": 18696,
+      "strand": "+",
+      "start0": 18695,
+      "end0": 18696,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        18635,
+        18695
+      ],
+      "downstreamGenomicInterval0": [
+        18696,
+        18736
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        18695
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0023",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 19,
+      "reportedPosition": 20763,
+      "strand": "-",
+      "start0": 20762,
+      "end0": 20763,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        20762,
+        20822
+      ],
+      "downstreamGenomicInterval0": [
+        20722,
+        20762
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        20762
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0026",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 20,
+      "reportedPosition": 25325,
+      "strand": "+",
+      "start0": 25324,
+      "end0": 25325,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        25264,
+        25324
+      ],
+      "downstreamGenomicInterval0": [
+        25325,
+        25365
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        25324
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0027",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 21,
+      "reportedPosition": 25800,
+      "strand": "+",
+      "start0": 25799,
+      "end0": 25800,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        25739,
+        25799
+      ],
+      "downstreamGenomicInterval0": [
+        25800,
+        25840
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        25799
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0029",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 22,
+      "reportedPosition": 27282,
+      "strand": "+",
+      "start0": 27281,
+      "end0": 27282,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        27221,
+        27281
+      ],
+      "downstreamGenomicInterval0": [
+        27282,
+        27322
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        27281
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0030",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 23,
+      "reportedPosition": 28256,
+      "strand": "+",
+      "start0": 28255,
+      "end0": 28256,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        28195,
+        28255
+      ],
+      "downstreamGenomicInterval0": [
+        28256,
+        28296
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        28255
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0031",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 24,
+      "reportedPosition": 29276,
+      "strand": "+",
+      "start0": 29275,
+      "end0": 29276,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        29215,
+        29275
+      ],
+      "downstreamGenomicInterval0": [
+        29276,
+        29316
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        29275
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0034",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 25,
+      "reportedPosition": 34831,
+      "strand": "+",
+      "start0": 34830,
+      "end0": 34831,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        34770,
+        34830
+      ],
+      "downstreamGenomicInterval0": [
+        34831,
+        34871
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        34830
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0053",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 26,
+      "reportedPosition": 53259,
+      "strand": "-",
+      "start0": 53258,
+      "end0": 53259,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        53258,
+        53318
+      ],
+      "downstreamGenomicInterval0": [
+        53218,
+        53258
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        53258
+      ],
+      "pointReferenceBaseForwardStrand": "G"
+    },
+    {
+      "originalSourceId": "BW25113_0055",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 27,
+      "reportedPosition": 58242,
+      "strand": "+",
+      "start0": 58241,
+      "end0": 58242,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        58181,
+        58241
+      ],
+      "downstreamGenomicInterval0": [
+        58242,
+        58282
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        58241
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0060",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 28,
+      "reportedPosition": 63298,
+      "strand": "-",
+      "start0": 63297,
+      "end0": 63298,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        63297,
+        63357
+      ],
+      "downstreamGenomicInterval0": [
+        63257,
+        63297
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        63297
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0075",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 29,
+      "reportedPosition": 80060,
+      "strand": "-",
+      "start0": 80059,
+      "end0": 80060,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        80059,
+        80119
+      ],
+      "downstreamGenomicInterval0": [
+        80019,
+        80059
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        80059
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0080",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 30,
+      "reportedPosition": 85567,
+      "strand": "+",
+      "start0": 85566,
+      "end0": 85567,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        85506,
+        85566
+      ],
+      "downstreamGenomicInterval0": [
+        85567,
+        85607
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        85566
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0083",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 31,
+      "reportedPosition": 87971,
+      "strand": "+",
+      "start0": 87970,
+      "end0": 87971,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        87910,
+        87970
+      ],
+      "downstreamGenomicInterval0": [
+        87971,
+        88011
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        87970
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0096",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 32,
+      "reportedPosition": 104038,
+      "strand": "+",
+      "start0": 104037,
+      "end0": 104038,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        103977,
+        104037
+      ],
+      "downstreamGenomicInterval0": [
+        104038,
+        104078
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        104037
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0097",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 33,
+      "reportedPosition": 104760,
+      "strand": "+",
+      "start0": 104759,
+      "end0": 104760,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        104699,
+        104759
+      ],
+      "downstreamGenomicInterval0": [
+        104760,
+        104800
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        104759
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0098",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 34,
+      "reportedPosition": 107518,
+      "strand": "+",
+      "start0": 107517,
+      "end0": 107518,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        107457,
+        107517
+      ],
+      "downstreamGenomicInterval0": [
+        107518,
+        107558
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        107517
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0104",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 35,
+      "reportedPosition": 111013,
+      "strand": "+",
+      "start0": 111012,
+      "end0": 111013,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        110952,
+        111012
+      ],
+      "downstreamGenomicInterval0": [
+        111013,
+        111053
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        111012
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0109",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 36,
+      "reportedPosition": 114197,
+      "strand": "-",
+      "start0": 114196,
+      "end0": 114197,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        114196,
+        114256
+      ],
+      "downstreamGenomicInterval0": [
+        114156,
+        114196
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        114196
+      ],
+      "pointReferenceBaseForwardStrand": "G"
+    },
+    {
+      "originalSourceId": "BW25113_0111",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 37,
+      "reportedPosition": 116660,
+      "strand": "+",
+      "start0": 116659,
+      "end0": 116660,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        116599,
+        116659
+      ],
+      "downstreamGenomicInterval0": [
+        116660,
+        116700
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        116659
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0113",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 38,
+      "reportedPosition": 119427,
+      "strand": "+",
+      "start0": 119426,
+      "end0": 119427,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        119366,
+        119426
+      ],
+      "downstreamGenomicInterval0": [
+        119427,
+        119467
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        119426
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0115",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 39,
+      "reportedPosition": 124107,
+      "strand": "+",
+      "start0": 124106,
+      "end0": 124107,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        124046,
+        124106
+      ],
+      "downstreamGenomicInterval0": [
+        124107,
+        124147
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        124106
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0116",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 40,
+      "reportedPosition": 125884,
+      "strand": "+",
+      "start0": 125883,
+      "end0": 125884,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        125823,
+        125883
+      ],
+      "downstreamGenomicInterval0": [
+        125884,
+        125924
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        125883
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0118",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 41,
+      "reportedPosition": 130765,
+      "strand": "+",
+      "start0": 130764,
+      "end0": 130765,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        130704,
+        130764
+      ],
+      "downstreamGenomicInterval0": [
+        130765,
+        130805
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        130764
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0119",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 42,
+      "reportedPosition": 131273,
+      "strand": "+",
+      "start0": 131272,
+      "end0": 131273,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        131212,
+        131272
+      ],
+      "downstreamGenomicInterval0": [
+        131273,
+        131313
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        131272
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0120",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 43,
+      "reportedPosition": 131238,
+      "strand": "-",
+      "start0": 131237,
+      "end0": 131238,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        131237,
+        131297
+      ],
+      "downstreamGenomicInterval0": [
+        131197,
+        131237
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        131237
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0125",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 44,
+      "reportedPosition": 138490,
+      "strand": "+",
+      "start0": 138489,
+      "end0": 138490,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        138429,
+        138489
+      ],
+      "downstreamGenomicInterval0": [
+        138490,
+        138530
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        138489
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0126",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 45,
+      "reportedPosition": 138461,
+      "strand": "-",
+      "start0": 138460,
+      "end0": 138461,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        138460,
+        138520
+      ],
+      "downstreamGenomicInterval0": [
+        138420,
+        138460
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        138460
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0131",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 46,
+      "reportedPosition": 142763,
+      "strand": "-",
+      "start0": 142762,
+      "end0": 142763,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        142762,
+        142822
+      ],
+      "downstreamGenomicInterval0": [
+        142722,
+        142762
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        142762
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0133",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 47,
+      "reportedPosition": 144393,
+      "strand": "-",
+      "start0": 144392,
+      "end0": 144393,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        144392,
+        144452
+      ],
+      "downstreamGenomicInterval0": [
+        144352,
+        144392
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        144392
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0145",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 48,
+      "reportedPosition": 156584,
+      "strand": "-",
+      "start0": 156583,
+      "end0": 156584,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        156583,
+        156643
+      ],
+      "downstreamGenomicInterval0": [
+        156543,
+        156583
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        156583
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0149",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 49,
+      "reportedPosition": 163796,
+      "strand": "+",
+      "start0": 163795,
+      "end0": 163796,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        163735,
+        163795
+      ],
+      "downstreamGenomicInterval0": [
+        163796,
+        163836
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        163795
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0154",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 50,
+      "reportedPosition": 169915,
+      "strand": "-",
+      "start0": 169914,
+      "end0": 169915,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        169914,
+        169974
+      ],
+      "downstreamGenomicInterval0": [
+        169874,
+        169914
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        169914
+      ],
+      "pointReferenceBaseForwardStrand": "G"
+    },
+    {
+      "originalSourceId": "BW25113_0156",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 51,
+      "reportedPosition": 173481,
+      "strand": "+",
+      "start0": 173480,
+      "end0": 173481,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        173420,
+        173480
+      ],
+      "downstreamGenomicInterval0": [
+        173481,
+        173521
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        173480
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0157",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 52,
+      "reportedPosition": 173448,
+      "strand": "-",
+      "start0": 173447,
+      "end0": 173448,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        173447,
+        173507
+      ],
+      "downstreamGenomicInterval0": [
+        173407,
+        173447
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        173447
+      ],
+      "pointReferenceBaseForwardStrand": "G"
+    },
+    {
+      "originalSourceId": "BW25113_0159",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 53,
+      "reportedPosition": 174910,
+      "strand": "-",
+      "start0": 174909,
+      "end0": 174910,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        174909,
+        174969
+      ],
+      "downstreamGenomicInterval0": [
+        174869,
+        174909
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        174909
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0161",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 54,
+      "reportedPosition": 178834,
+      "strand": "+",
+      "start0": 178833,
+      "end0": 178834,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        178773,
+        178833
+      ],
+      "downstreamGenomicInterval0": [
+        178834,
+        178874
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        178833
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0163",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 55,
+      "reportedPosition": 180136,
+      "strand": "-",
+      "start0": 180135,
+      "end0": 180136,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        180135,
+        180195
+      ],
+      "downstreamGenomicInterval0": [
+        180095,
+        180135
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        180135
+      ],
+      "pointReferenceBaseForwardStrand": "G"
+    },
+    {
+      "originalSourceId": "BW25113_0166",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 56,
+      "reportedPosition": 181574,
+      "strand": "-",
+      "start0": 181573,
+      "end0": 181574,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        181573,
+        181633
+      ],
+      "downstreamGenomicInterval0": [
+        181533,
+        181573
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        181573
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0168",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 57,
+      "reportedPosition": 185170,
+      "strand": "-",
+      "start0": 185169,
+      "end0": 185170,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        185169,
+        185229
+      ],
+      "downstreamGenomicInterval0": [
+        185129,
+        185169
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        185169
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0169",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 58,
+      "reportedPosition": 187282,
+      "strand": "+",
+      "start0": 187281,
+      "end0": 187282,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        187221,
+        187281
+      ],
+      "downstreamGenomicInterval0": [
+        187282,
+        187322
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        187281
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0170",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 59,
+      "reportedPosition": 188232,
+      "strand": "+",
+      "start0": 188231,
+      "end0": 188232,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        188171,
+        188231
+      ],
+      "downstreamGenomicInterval0": [
+        188232,
+        188272
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        188231
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0172",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 60,
+      "reportedPosition": 189977,
+      "strand": "+",
+      "start0": 189976,
+      "end0": 189977,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        189916,
+        189976
+      ],
+      "downstreamGenomicInterval0": [
+        189977,
+        190017
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        189976
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0178",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 61,
+      "reportedPosition": 197540,
+      "strand": "+",
+      "start0": 197539,
+      "end0": 197540,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        197479,
+        197539
+      ],
+      "downstreamGenomicInterval0": [
+        197540,
+        197580
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        197539
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0179",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 62,
+      "reportedPosition": 198550,
+      "strand": "+",
+      "start0": 198549,
+      "end0": 198550,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        198489,
+        198549
+      ],
+      "downstreamGenomicInterval0": [
+        198550,
+        198590
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        198549
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0181",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 63,
+      "reportedPosition": 199895,
+      "strand": "+",
+      "start0": 199894,
+      "end0": 199895,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        199834,
+        199894
+      ],
+      "downstreamGenomicInterval0": [
+        199895,
+        199935
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        199894
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0185",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 64,
+      "reportedPosition": 206113,
+      "strand": "+",
+      "start0": 206112,
+      "end0": 206113,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        206052,
+        206112
+      ],
+      "downstreamGenomicInterval0": [
+        206113,
+        206153
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        206112
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0189",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 65,
+      "reportedPosition": 210118,
+      "strand": "-",
+      "start0": 210117,
+      "end0": 210118,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        210117,
+        210177
+      ],
+      "downstreamGenomicInterval0": [
+        210077,
+        210117
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        210117
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0194",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 66,
+      "reportedPosition": 213507,
+      "strand": "-",
+      "start0": 213506,
+      "end0": 213507,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        213506,
+        213566
+      ],
+      "downstreamGenomicInterval0": [
+        213466,
+        213506
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        213506
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0196",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 67,
+      "reportedPosition": 215924,
+      "strand": "-",
+      "start0": 215923,
+      "end0": 215924,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        215923,
+        215983
+      ],
+      "downstreamGenomicInterval0": [
+        215883,
+        215923
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        215923
+      ],
+      "pointReferenceBaseForwardStrand": "G"
+    },
+    {
+      "originalSourceId": "BW25113_0197",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 68,
+      "reportedPosition": 216540,
+      "strand": "-",
+      "start0": 216539,
+      "end0": 216540,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        216539,
+        216599
+      ],
+      "downstreamGenomicInterval0": [
+        216499,
+        216539
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        216539
+      ],
+      "pointReferenceBaseForwardStrand": "G"
+    },
+    {
+      "originalSourceId": "BW25113_0210",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 69,
+      "reportedPosition": 229073,
+      "strand": "+",
+      "start0": 229072,
+      "end0": 229073,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        229012,
+        229072
+      ],
+      "downstreamGenomicInterval0": [
+        229073,
+        229113
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        229072
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0211",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 70,
+      "reportedPosition": 229037,
+      "strand": "-",
+      "start0": 229036,
+      "end0": 229037,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        229036,
+        229096
+      ],
+      "downstreamGenomicInterval0": [
+        228996,
+        229036
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        229036
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0220",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 71,
+      "reportedPosition": 237342,
+      "strand": "+",
+      "start0": 237341,
+      "end0": 237342,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        237281,
+        237341
+      ],
+      "downstreamGenomicInterval0": [
+        237342,
+        237382
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        237341
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0221",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 72,
+      "reportedPosition": 237314,
+      "strand": "-",
+      "start0": 237313,
+      "end0": 237314,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        237313,
+        237373
+      ],
+      "downstreamGenomicInterval0": [
+        237273,
+        237313
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        237313
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0222",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 73,
+      "reportedPosition": 240800,
+      "strand": "+",
+      "start0": 240799,
+      "end0": 240800,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        240739,
+        240799
+      ],
+      "downstreamGenomicInterval0": [
+        240800,
+        240840
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        240799
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0237",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 74,
+      "reportedPosition": 250697,
+      "strand": "-",
+      "start0": 250696,
+      "end0": 250697,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        250696,
+        250756
+      ],
+      "downstreamGenomicInterval0": [
+        250656,
+        250696
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        250696
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0238",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 75,
+      "reportedPosition": 252957,
+      "strand": "+",
+      "start0": 252956,
+      "end0": 252957,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        252896,
+        252956
+      ],
+      "downstreamGenomicInterval0": [
+        252957,
+        252997
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        252956
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0240",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 76,
+      "reportedPosition": 254752,
+      "strand": "+",
+      "start0": 254751,
+      "end0": 254752,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        254691,
+        254751
+      ],
+      "downstreamGenomicInterval0": [
+        254752,
+        254792
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        254751
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0243",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 77,
+      "reportedPosition": 258533,
+      "strand": "+",
+      "start0": 258532,
+      "end0": 258533,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        258472,
+        258532
+      ],
+      "downstreamGenomicInterval0": [
+        258533,
+        258573
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        258532
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0250",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 78,
+      "reportedPosition": 261274,
+      "strand": "-",
+      "start0": 261273,
+      "end0": 261274,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        261273,
+        261333
+      ],
+      "downstreamGenomicInterval0": [
+        261233,
+        261273
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        261273
+      ],
+      "pointReferenceBaseForwardStrand": "G"
+    },
+    {
+      "originalSourceId": "BW25113_0269",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 79,
+      "reportedPosition": 280931,
+      "strand": "+",
+      "start0": 280930,
+      "end0": 280931,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        280870,
+        280930
+      ],
+      "downstreamGenomicInterval0": [
+        280931,
+        280971
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        280930
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0276",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 80,
+      "reportedPosition": 288029,
+      "strand": "+",
+      "start0": 288028,
+      "end0": 288029,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        287968,
+        288028
+      ],
+      "downstreamGenomicInterval0": [
+        288029,
+        288069
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        288028
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0287",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 81,
+      "reportedPosition": 299360,
+      "strand": "+",
+      "start0": 299359,
+      "end0": 299360,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        299299,
+        299359
+      ],
+      "downstreamGenomicInterval0": [
+        299360,
+        299400
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        299359
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0325",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 82,
+      "reportedPosition": 339722,
+      "strand": "+",
+      "start0": 339721,
+      "end0": 339722,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        339661,
+        339721
+      ],
+      "downstreamGenomicInterval0": [
+        339722,
+        339762
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        339721
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0329",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 83,
+      "reportedPosition": 342569,
+      "strand": "+",
+      "start0": 342568,
+      "end0": 342569,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        342508,
+        342568
+      ],
+      "downstreamGenomicInterval0": [
+        342569,
+        342609
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        342568
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0337",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 84,
+      "reportedPosition": 353306,
+      "strand": "+",
+      "start0": 353305,
+      "end0": 353306,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        353245,
+        353305
+      ],
+      "downstreamGenomicInterval0": [
+        353306,
+        353346
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        353305
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0355",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 85,
+      "reportedPosition": 372786,
+      "strand": "-",
+      "start0": 372785,
+      "end0": 372786,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        372785,
+        372845
+      ],
+      "downstreamGenomicInterval0": [
+        372745,
+        372785
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        372785
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0356",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 86,
+      "reportedPosition": 373844,
+      "strand": "-",
+      "start0": 373843,
+      "end0": 373844,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        373843,
+        373903
+      ],
+      "downstreamGenomicInterval0": [
+        373803,
+        373843
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        373843
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0369",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 87,
+      "reportedPosition": 384147,
+      "strand": "-",
+      "start0": 384146,
+      "end0": 384147,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        384146,
+        384206
+      ],
+      "downstreamGenomicInterval0": [
+        384106,
+        384146
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        384146
+      ],
+      "pointReferenceBaseForwardStrand": "G"
+    },
+    {
+      "originalSourceId": "BW25113_0381",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 88,
+      "reportedPosition": 395246,
+      "strand": "-",
+      "start0": 395245,
+      "end0": 395246,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        395245,
+        395305
+      ],
+      "downstreamGenomicInterval0": [
+        395205,
+        395245
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        395245
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0384",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 89,
+      "reportedPosition": 399105,
+      "strand": "+",
+      "start0": 399104,
+      "end0": 399105,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        399044,
+        399104
+      ],
+      "downstreamGenomicInterval0": [
+        399105,
+        399145
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        399104
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0386",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 90,
+      "reportedPosition": 400237,
+      "strand": "-",
+      "start0": 400236,
+      "end0": 400237,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        400236,
+        400296
+      ],
+      "downstreamGenomicInterval0": [
+        400196,
+        400236
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        400236
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0389",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 91,
+      "reportedPosition": 402661,
+      "strand": "+",
+      "start0": 402660,
+      "end0": 402661,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        402600,
+        402660
+      ],
+      "downstreamGenomicInterval0": [
+        402661,
+        402701
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        402660
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0391",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 92,
+      "reportedPosition": 403951,
+      "strand": "+",
+      "start0": 403950,
+      "end0": 403951,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        403890,
+        403950
+      ],
+      "downstreamGenomicInterval0": [
+        403951,
+        403991
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        403950
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0393",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 93,
+      "reportedPosition": 404507,
+      "strand": "-",
+      "start0": 404506,
+      "end0": 404507,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        404506,
+        404566
+      ],
+      "downstreamGenomicInterval0": [
+        404466,
+        404506
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        404506
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0401",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 94,
+      "reportedPosition": 416419,
+      "strand": "+",
+      "start0": 416418,
+      "end0": 416419,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        416358,
+        416418
+      ],
+      "downstreamGenomicInterval0": [
+        416419,
+        416459
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        416418
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0402",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 95,
+      "reportedPosition": 417865,
+      "strand": "+",
+      "start0": 417864,
+      "end0": 417865,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        417804,
+        417864
+      ],
+      "downstreamGenomicInterval0": [
+        417865,
+        417905
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        417864
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0407",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 96,
+      "reportedPosition": 423245,
+      "strand": "+",
+      "start0": 423244,
+      "end0": 423245,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        423184,
+        423244
+      ],
+      "downstreamGenomicInterval0": [
+        423245,
+        423285
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        423244
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0409",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 97,
+      "reportedPosition": 425983,
+      "strand": "+",
+      "start0": 425982,
+      "end0": 425983,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        425922,
+        425982
+      ],
+      "downstreamGenomicInterval0": [
+        425983,
+        426023
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        425982
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0410",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 98,
+      "reportedPosition": 426582,
+      "strand": "+",
+      "start0": 426581,
+      "end0": 426582,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        426521,
+        426581
+      ],
+      "downstreamGenomicInterval0": [
+        426582,
+        426622
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        426581
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0411",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 99,
+      "reportedPosition": 426488,
+      "strand": "-",
+      "start0": 426487,
+      "end0": 426488,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        426487,
+        426547
+      ],
+      "downstreamGenomicInterval0": [
+        426447,
+        426487
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        426487
+      ],
+      "pointReferenceBaseForwardStrand": "G"
+    },
+    {
+      "originalSourceId": "BW25113_0416",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 100,
+      "reportedPosition": 431064,
+      "strand": "+",
+      "start0": 431063,
+      "end0": 431064,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        431003,
+        431063
+      ],
+      "downstreamGenomicInterval0": [
+        431064,
+        431104
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        431063
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0419",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 101,
+      "reportedPosition": 432571,
+      "strand": "-",
+      "start0": 432570,
+      "end0": 432571,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        432570,
+        432630
+      ],
+      "downstreamGenomicInterval0": [
+        432530,
+        432570
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        432570
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0420",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 102,
+      "reportedPosition": 433643,
+      "strand": "-",
+      "start0": 433642,
+      "end0": 433643,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        433642,
+        433702
+      ],
+      "downstreamGenomicInterval0": [
+        433602,
+        433642
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        433642
+      ],
+      "pointReferenceBaseForwardStrand": "G"
+    },
+    {
+      "originalSourceId": "BW25113_0423",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 103,
+      "reportedPosition": 438495,
+      "strand": "+",
+      "start0": 438494,
+      "end0": 438495,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        438434,
+        438494
+      ],
+      "downstreamGenomicInterval0": [
+        438495,
+        438535
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        438494
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0424",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 104,
+      "reportedPosition": 438462,
+      "strand": "-",
+      "start0": 438461,
+      "end0": 438462,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        438461,
+        438521
+      ],
+      "downstreamGenomicInterval0": [
+        438421,
+        438461
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        438461
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0426",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 105,
+      "reportedPosition": 440783,
+      "strand": "+",
+      "start0": 440782,
+      "end0": 440783,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        440722,
+        440782
+      ],
+      "downstreamGenomicInterval0": [
+        440783,
+        440823
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        440782
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0428",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 106,
+      "reportedPosition": 442229,
+      "strand": "-",
+      "start0": 442228,
+      "end0": 442229,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        442228,
+        442288
+      ],
+      "downstreamGenomicInterval0": [
+        442188,
+        442228
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        442228
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0434",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 107,
+      "reportedPosition": 449008,
+      "strand": "-",
+      "start0": 449007,
+      "end0": 449008,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        449007,
+        449067
+      ],
+      "downstreamGenomicInterval0": [
+        448967,
+        449007
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        449007
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0435",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 108,
+      "reportedPosition": 450324,
+      "strand": "+",
+      "start0": 450323,
+      "end0": 450324,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        450263,
+        450323
+      ],
+      "downstreamGenomicInterval0": [
+        450324,
+        450364
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        450323
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0436",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 109,
+      "reportedPosition": 451952,
+      "strand": "+",
+      "start0": 451951,
+      "end0": 451952,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        451891,
+        451951
+      ],
+      "downstreamGenomicInterval0": [
+        451952,
+        451992
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        451951
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0438",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 110,
+      "reportedPosition": 454214,
+      "strand": "+",
+      "start0": 454213,
+      "end0": 454214,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        454153,
+        454213
+      ],
+      "downstreamGenomicInterval0": [
+        454214,
+        454254
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        454213
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0439",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 111,
+      "reportedPosition": 456766,
+      "strand": "+",
+      "start0": 456765,
+      "end0": 456766,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        456705,
+        456765
+      ],
+      "downstreamGenomicInterval0": [
+        456766,
+        456806
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        456765
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0440",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 112,
+      "reportedPosition": 457240,
+      "strand": "+",
+      "start0": 457239,
+      "end0": 457240,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        457179,
+        457239
+      ],
+      "downstreamGenomicInterval0": [
+        457240,
+        457280
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        457239
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0441",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 113,
+      "reportedPosition": 459314,
+      "strand": "+",
+      "start0": 459313,
+      "end0": 459314,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        459253,
+        459313
+      ],
+      "downstreamGenomicInterval0": [
+        459314,
+        459354
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        459313
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0446",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 114,
+      "reportedPosition": 463727,
+      "strand": "+",
+      "start0": 463726,
+      "end0": 463727,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        463666,
+        463726
+      ],
+      "downstreamGenomicInterval0": [
+        463727,
+        463767
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        463726
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0452",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 115,
+      "reportedPosition": 469717,
+      "strand": "-",
+      "start0": 469716,
+      "end0": 469717,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        469716,
+        469776
+      ],
+      "downstreamGenomicInterval0": [
+        469676,
+        469716
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        469716
+      ],
+      "pointReferenceBaseForwardStrand": "G"
+    },
+    {
+      "originalSourceId": "BW25113_0453",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 116,
+      "reportedPosition": 471443,
+      "strand": "+",
+      "start0": 471442,
+      "end0": 471443,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        471382,
+        471442
+      ],
+      "downstreamGenomicInterval0": [
+        471443,
+        471483
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        471442
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0455",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 117,
+      "reportedPosition": 472018,
+      "strand": "+",
+      "start0": 472017,
+      "end0": 472018,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        471957,
+        472017
+      ],
+      "downstreamGenomicInterval0": [
+        472018,
+        472058
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        472017
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0457",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 118,
+      "reportedPosition": 472488,
+      "strand": "-",
+      "start0": 472487,
+      "end0": 472488,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        472487,
+        472547
+      ],
+      "downstreamGenomicInterval0": [
+        472447,
+        472487
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        472487
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0462",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 119,
+      "reportedPosition": 476669,
+      "strand": "-",
+      "start0": 476668,
+      "end0": 476669,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        476668,
+        476728
+      ],
+      "downstreamGenomicInterval0": [
+        476628,
+        476668
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        476668
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0469",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 120,
+      "reportedPosition": 487498,
+      "strand": "+",
+      "start0": 487497,
+      "end0": 487498,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        487437,
+        487497
+      ],
+      "downstreamGenomicInterval0": [
+        487498,
+        487538
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        487497
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0471",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 121,
+      "reportedPosition": 489982,
+      "strand": "+",
+      "start0": 489981,
+      "end0": 489982,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        489921,
+        489981
+      ],
+      "downstreamGenomicInterval0": [
+        489982,
+        490022
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        489981
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_0472",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 122,
+      "reportedPosition": 490499,
+      "strand": "+",
+      "start0": 490498,
+      "end0": 490499,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        490438,
+        490498
+      ],
+      "downstreamGenomicInterval0": [
+        490499,
+        490539
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        490498
+      ],
+      "pointReferenceBaseForwardStrand": "G"
+    },
+    {
+      "originalSourceId": "BW25113_0473",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 123,
+      "reportedPosition": 492489,
+      "strand": "+",
+      "start0": 492488,
+      "end0": 492489,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        492428,
+        492488
+      ],
+      "downstreamGenomicInterval0": [
+        492489,
+        492529
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        492488
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_0474",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 124,
+      "reportedPosition": 493395,
+      "strand": "+",
+      "start0": 493394,
+      "end0": 493395,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        493334,
+        493394
+      ],
+      "downstreamGenomicInterval0": [
+        493395,
+        493435
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        493394
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_0477",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 125,
+      "reportedPosition": 496986,
+      "strand": "+",
+      "start0": 496985,
+      "end0": 496986,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        496925,
+        496985
+      ],
+      "downstreamGenomicInterval0": [
+        496986,
+        497026
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        496985
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_4413",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 1036,
+      "reportedPosition": 17007,
+      "strand": "+",
+      "start0": 17006,
+      "end0": 17007,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        16946,
+        17006
+      ],
+      "downstreamGenomicInterval0": [
+        17007,
+        17047
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        17006
+      ],
+      "pointReferenceBaseForwardStrand": "C"
+    },
+    {
+      "originalSourceId": "BW25113_4414",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 1037,
+      "reportedPosition": 186346,
+      "strand": "+",
+      "start0": 186345,
+      "end0": 186346,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        186285,
+        186345
+      ],
+      "downstreamGenomicInterval0": [
+        186346,
+        186386
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        186345
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_4577",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 1079,
+      "reportedPosition": 74081,
+      "strand": "+",
+      "start0": 74080,
+      "end0": 74081,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        74020,
+        74080
+      ],
+      "downstreamGenomicInterval0": [
+        74081,
+        74121
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        74080
+      ],
+      "pointReferenceBaseForwardStrand": "A"
+    },
+    {
+      "originalSourceId": "BW25113_4662",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 1095,
+      "reportedPosition": 74080,
+      "strand": "+",
+      "start0": 74079,
+      "end0": 74080,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        74019,
+        74079
+      ],
+      "downstreamGenomicInterval0": [
+        74080,
+        74120
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        74079
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    },
+    {
+      "originalSourceId": "BW25113_4671",
+      "sourceWorksheet": "Table S1",
+      "sourceRow": 1096,
+      "reportedPosition": 308758,
+      "strand": "-",
+      "start0": 308757,
+      "end0": 308758,
+      "upstreamSequenceLength": 60,
+      "downstreamSequenceLength": 40,
+      "upstreamGenomicInterval0": [
+        308757,
+        308817
+      ],
+      "downstreamGenomicInterval0": [
+        308717,
+        308757
+      ],
+      "upstreamMatches": true,
+      "downstreamMatches": true,
+      "wholeReferenceMatchingStart0": [
+        308757
+      ],
+      "pointReferenceBaseForwardStrand": "T"
+    }
+  ]
+}

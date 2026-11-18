@@ -15,7 +15,7 @@ export function SharedProjectShareButton() {
       data-testid="shared-project-share"
       title="Invite people to this project"
       onClick={() => openProjectSharing()}
-      className="ml-1 inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-fg-muted hover:bg-bg-muted hover:text-fg"
+      className="ml-1 inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-fg-muted wp-interactive "
       style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
     >
       Share

@@ -178,7 +178,7 @@ export function RegistryOverlayTable({
                       }
                       title={filterValueLabel || undefined}
                       className={`flex min-w-0 items-center gap-1 truncate uppercase tracking-wider transition-colors ${
-                        direction ? 'font-bold text-accent' : 'text-fg-subtle hover:text-fg'
+                        direction ? 'font-bold text-accent' : 'text-fg-subtle wp-interactive'
                       }`}
                       onClick={() =>
                         setRegistrySort(registrySortForColumn(column.sort!, registrySort))
@@ -222,7 +222,7 @@ export function RegistryOverlayTable({
                         aria-label={`Filter ${column.label}`}
                         title={`Filter ${column.label}`}
                         className={`flex h-4 w-4 items-center justify-center rounded transition-colors ${
-                          columnFiltered ? 'text-accent' : 'text-fg-subtle hover:text-fg'
+                          columnFiltered ? 'text-accent' : 'text-fg-subtle wp-interactive'
                         }`}
                         onClick={(event) => {
                           event.stopPropagation();
@@ -297,7 +297,7 @@ export function RegistryOverlayTable({
                 `h-9 w-full border-b border-border text-left text-xs outline-none ${
                   summary.id === selectedEntityId
                     ? 'bg-accent/15 hover:bg-accent/20 focus:bg-accent/20'
-                    : 'hover:bg-bg-muted focus:bg-bg-muted'
+                    : 'wp-interactive '
                 } ${summary.archived ? 'opacity-50' : ''}`
               )}
               onClick={() => void selectRegistrySummary(summary)}
@@ -360,7 +360,7 @@ function RegistryTableCell({
   if (column.key === 'name') {
     return (
       <span className="flex min-w-0 items-center gap-2.5 font-medium text-fg">
-        <span className="flex-shrink-0 text-fg-subtle">{iconForLimsKind(summary.kind)}</span>
+        <span className="flex-shrink-0">{iconForLimsKind(summary.kind)}</span>
         <span
           className="min-w-0 flex-1 truncate"
           title={

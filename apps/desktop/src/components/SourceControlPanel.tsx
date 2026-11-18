@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { toUserMessage } from '@waypoint/user-messages';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -405,7 +406,7 @@ export function SourceControlPanel() {
                 <button
                   onClick={stageAll}
                   disabled={isCommitting}
-                  className="text-xs text-fg-muted hover:text-fg transition-colors"
+                  className={`${INTERACTION_CLASS} text-xs text-fg-muted transition-colors`}
                   title="Stage all"
                 >
                   + All
@@ -413,7 +414,7 @@ export function SourceControlPanel() {
                 <button
                   onClick={unstageAll}
                   disabled={isCommitting}
-                  className="text-xs text-fg-muted hover:text-fg transition-colors"
+                  className={`${INTERACTION_CLASS} text-xs text-fg-muted transition-colors`}
                   title="Unstage all"
                 >
                   - All
@@ -433,7 +434,7 @@ export function SourceControlPanel() {
                   data-testid="source-control-entry"
                   data-entry-path={path}
                   aria-pressed={isStaged}
-                  className={`w-full flex items-center gap-2 px-4 py-1.5 text-left hover:bg-bg-muted transition-colors ${
+                  className={`${INTERACTION_CLASS} w-full flex items-center gap-2 px-4 py-1.5 text-left ${
                     isStaged ? 'bg-accent/5' : ''
                   }`}
                   title={path}
@@ -470,7 +471,7 @@ export function SourceControlPanel() {
         <button
           onClick={() => void refresh()}
           disabled={isCommitting}
-          className="text-xs text-fg-muted hover:text-fg transition-colors disabled:opacity-50"
+          className={`${INTERACTION_CLASS} text-xs text-fg-muted transition-colors disabled:opacity-50`}
         >
           Refresh
         </button>

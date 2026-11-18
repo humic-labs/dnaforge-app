@@ -11,6 +11,7 @@ import {
 } from '../../../db/entity-references';
 import { getConnection } from '../../../db';
 import { platform } from '../../../platform';
+import { parseSequenceDataLayerPath } from '../../../shared/sequence-data-layer-path';
 import type { ChatMessage } from './chat-types';
 import {
   claimsCompletedBiologyArtifact,
@@ -30,13 +31,24 @@ function appendUnverifiedArtifactMessage(content: string): string {
     : [original, UNVERIFIED_ARTIFACT_MESSAGE].filter(Boolean).join('\n\n');
 }
 
-export interface CreatedArtifactClaim {
+interface CatalogArtifactClaim {
   kind: 'design' | 'sequence' | 'notebook';
   id: string;
   label: string;
   workspaceRoot?: string;
   revision?: string;
 }
+
+export type CreatedArtifactClaim =
+  | CatalogArtifactClaim
+  | {
+      kind: 'sequence-data-layer';
+      id: string;
+      label: string;
+      workspaceRoot: string;
+      path: string;
+      revision: string;
+    };
 
 interface SavedArtifact {
   path: string;
@@ -84,6 +96,34 @@ function claimFromTool(
 ): CreatedArtifactClaim | null {
   const result = completedToolResult(output);
   if (!result) return null;
+  if (name === 'sequence_data_layers') {
+    const data = result.data;
+    if (
+      result.ok !== true ||
+      result.status !== 'published' ||
+      !isRecord(data) ||
+      typeof data.id !== 'string' ||
+      typeof data.path !== 'string' ||
+      typeof data.revision !== 'string' ||
+      !/^[a-f0-9]{64}$/u.test(data.revision) ||
+      !isRecord(data.availability) ||
+      data.availability.status !== 'current'
+    )
+      return null;
+    const parsed = parseSequenceDataLayerPath(data.path);
+    if (!parsed || parsed.id !== data.id) return null;
+    return {
+      kind: 'sequence-data-layer',
+      id: data.id,
+      label:
+        typeof data.label === 'string' && data.label.trim()
+          ? data.label.trim()
+          : 'Sequence data layer',
+      workspaceRoot: parsed.workspaceRoot,
+      path: data.path,
+      revision: data.revision,
+    };
+  }
   if (name === 'create_notebook' || name === 'update_notebook' || name === 'notebook_document') {
     const native = name === 'notebook_document';
     if (native) {
@@ -187,6 +227,22 @@ export function collectCreatedArtifactClaims(
 }
 
 async function resolveSavedArtifact(claim: CreatedArtifactClaim): Promise<SavedArtifact | null> {
+  if (claim.kind === 'sequence-data-layer') {
+    const saved = await platform().sequenceDataLayers.run({
+      operation: 'inspect',
+      project: claim.workspaceRoot,
+      id: claim.id,
+    });
+    if (
+      saved.status !== 'published' ||
+      saved.document.id !== claim.id ||
+      saved.path !== claim.path ||
+      saved.revision !== claim.revision ||
+      saved.availability.status !== 'current'
+    )
+      return null;
+    return { path: saved.path, workspaceRoot: claim.workspaceRoot };
+  }
   const file = await getCurrentCatalogFileForEntity(claim.id);
   if (!file || !(await platform().fs.exists(file.path))) return null;
   if (claim.kind === 'design' && file.file_kind !== 'waypoint-design') return null;
@@ -224,6 +280,7 @@ async function resolveSavedArtifact(claim: CreatedArtifactClaim): Promise<SavedA
 }
 
 function artifactLocator(claim: CreatedArtifactClaim): string {
+  if (claim.kind === 'sequence-data-layer') return `git://${claim.path}`;
   return `entity://${claim.kind === 'design' ? 'assembly' : claim.kind === 'notebook' ? 'page' : 'sequence'}/${claim.id}`;
 }
 
@@ -243,7 +300,13 @@ export async function prepareAgentArtifactDelivery(
         continue;
       }
       const entityType =
-        claim.kind === 'design' ? 'assembly' : claim.kind === 'notebook' ? 'notebook' : 'sequence';
+        claim.kind === 'sequence-data-layer'
+          ? 'file'
+          : claim.kind === 'design'
+            ? 'assembly'
+            : claim.kind === 'notebook'
+              ? 'notebook'
+              : 'sequence';
       references.push(
         prepareEntityReferenceRow({
           entityType,

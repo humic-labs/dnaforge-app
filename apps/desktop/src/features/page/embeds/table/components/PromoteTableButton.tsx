@@ -81,7 +81,7 @@ export function PromoteTableButton({
     <>
       <button
         type="button"
-        className="rounded border border-border px-2 py-1 text-xs text-fg-muted hover:text-fg"
+        className="rounded border border-border px-2 py-1 text-xs text-fg-muted wp-interactive"
         onClick={() => {
           setError(null);
           setOpen(true);

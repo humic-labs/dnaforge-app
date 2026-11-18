@@ -144,7 +144,7 @@ export function ProteinCorpusTrajectory({
       <button
         type="button"
         onClick={onExport}
-        className="mt-2 rounded border border-border px-2 py-1 text-accent hover:bg-bg-muted"
+        className="mt-2 rounded border border-border px-2 py-1 text-accent wp-interactive"
       >
         Download trial records JSON
       </button>

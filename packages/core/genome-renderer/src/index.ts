@@ -706,9 +706,13 @@ export type {
   TrackHitResult,
   PixiLinearTrackRenderer,
   TrackReadPresentationSnapshot,
+  SupplementalLinearTrack,
 } from './renderers/pixi/linear-tracks';
 
 export { PixiCytobandTrackRenderer } from './renderers/pixi/linear-tracks';
+
+export { resolveAnnotationDataColors } from './annotation-data-colors';
+export { PixiGenomicSignalTrackRenderer } from './renderers/pixi/linear-tracks/genomic-signal-track-renderer';
 
 export {
   PixiAnnotationTrackRenderer,
@@ -787,3 +791,5 @@ export {
   type AnnotationCatalogRendererDiagnostics,
   type AnnotationCatalogRowLayout,
 } from './renderers/pixi/linear-tracks/annotation-catalog';
+export * from './contact-projection';
+export * from './comparison-projection';

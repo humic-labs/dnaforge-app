@@ -5,6 +5,8 @@ import type { SqliteIpcValue } from '../shared/sqlite-ipc';
 import { catalogNameSearch } from './catalog-name-search';
 import { SEQUENCE_PACKAGE_FILE_KIND_ALIASES } from './sequence-package-contract';
 import { workspaceScopeKey } from '../shared/workspace-scoped-identity';
+import { catalogIconContext } from '../shared/catalog-icon-context';
+import type { EntityColorContext } from '../shared/entity-color-family';
 
 export const PROJECT_REFERENCE_ENTITY_TYPES = [
   'design',
@@ -36,6 +38,7 @@ export interface ProjectReferenceCandidate {
   projectId: string | null;
   projectRoot: string;
   projectName: string;
+  iconContext?: EntityColorContext;
 }
 
 export interface ProjectReferenceSearchResult {
@@ -56,6 +59,8 @@ interface ProjectReferenceRow {
   project_repo_uuid: string | null;
   project_root: string;
   project_name: string;
+  metadata: string | null;
+  icon_kind: string | null;
 }
 
 const MAX_LIMIT = 200;
@@ -95,6 +100,8 @@ export async function searchProjectReferencesByName({
     SELECT e.id AS entity_id,
            e.type AS entity_type,
            e.name AS name,
+           e.metadata AS metadata,
+           l.kind AS icon_kind,
            f.path AS path,
            f.relative_path AS relative_path,
            f.content_hash AS content_hash,
@@ -107,6 +114,7 @@ export async function searchProjectReferencesByName({
     FROM catalog_entities e${search?.indexSql ?? ''}
     JOIN catalog_entity_files f ON f.entity_id = e.id AND f.workspace_id = e.workspace_id
     JOIN workspaces w ON w.id = f.workspace_id
+    LEFT JOIN lims_entity l ON l.id = e.id
     WHERE ${typeClause}
       AND e.status = 'active'
       AND f.status = 'current'
@@ -151,6 +159,11 @@ export async function searchProjectReferencesByName({
         projectId: workspaceScopeKey(row.project_repo_uuid, row.project_workspace_id),
         projectRoot,
         projectName: row.project_name,
+        iconContext: catalogIconContext({
+          kind: row.icon_kind ?? entityType,
+          path: relative,
+          metadata: row.metadata,
+        }),
       },
     ];
   });

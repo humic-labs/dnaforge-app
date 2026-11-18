@@ -185,7 +185,7 @@ describe('PrimerCreationForm', () => {
 
     expect(screen.getByTestId('primer-save-location-trigger')).toHaveTextContent('sequences');
     const selectedFolder = await screen.findByTestId('primer-picker-folder-/other/sequences');
-    expect(selectedFolder).toHaveClass('text-accent');
+    expect(selectedFolder).toHaveAttribute('data-selected', 'true');
   });
 
   it('keeps exact matches quiet and navigates using the current binding coordinates', () => {
@@ -606,7 +606,7 @@ describe('PrimerCreationForm', () => {
     fireEvent.change(input, {
       target: { value: `/pho${'A'.repeat(20)}`, selectionStart: 4, selectionEnd: 4 },
     });
-    fireEvent.mouseDown(screen.getByRole('option', { name: /5′ phosphorylation.*5Phos/i }));
+    fireEvent.click(screen.getByRole('option', { name: /5′ phosphorylation.*5Phos/i }));
     expect(input).toHaveAttribute('data-oligo-notation', `/5Phos/${'A'.repeat(20)}`);
     expect(input.value).toBe(`*${'A'.repeat(20)}`);
     expect(screen.getByTestId('primer-length-input')).toHaveValue('20');

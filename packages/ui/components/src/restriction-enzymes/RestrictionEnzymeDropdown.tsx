@@ -12,6 +12,7 @@ import { VendorSelector } from './VendorSelector';
 import { CutterFilter } from './CutterFilter';
 import { EnzymeList, EnzymeListHandle } from './EnzymeList';
 import { ActiveEnzymeList } from './ActiveEnzymeList';
+import { MenuSurface } from '../menu/presentation';
 
 type CutSiteScanPhase = 'idle' | 'scanning' | 'partial' | 'complete';
 export interface EnzymeCutCountSummary {
@@ -307,9 +308,12 @@ export function RestrictionEnzymeDropdown({
   );
   useEffect(() => () => cancelAnimationFrame(hoverRafRef.current), []);
 
+  const Container = layout === 'embedded' ? 'div' : MenuSurface;
+
   return (
-    <div
+    <Container
       ref={containerRef}
+      {...(layout === 'popover' ? { content: 'panel' as const, selection: false } : {})}
       style={
         layout === 'embedded'
           ? { ...styles.container, ...styles.embeddedContainer }
@@ -401,7 +405,7 @@ export function RestrictionEnzymeDropdown({
           />
         </div>
       )}
-    </div>
+    </Container>
   );
 }
 
@@ -413,10 +417,6 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: '4px',
     width: '320px',
     height: '100%',
-    backgroundColor: 'hsl(var(--color-bg))',
-    borderRadius: '8px',
-    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
-    border: '1px solid hsl(var(--color-border))',
     zIndex: 100,
     overflow: 'hidden',
     display: 'flex',
@@ -431,9 +431,7 @@ const styles: Record<string, React.CSSProperties> = {
     height: 'auto',
     flex: '1 1 auto',
     minHeight: 0,
-    borderRadius: 0,
-    boxShadow: 'none',
-    border: 'none',
+    backgroundColor: 'hsl(var(--color-bg))',
     zIndex: 'auto',
   },
   content: {

@@ -1,10 +1,11 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import {
   usePresentationOverlay,
   PresentationScopeContext,
 } from '../../../presentation/PresentationSurface';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, UI_FIELD_CLASS } from '../../../components/ui';
+import { Button } from '../../../components/ui';
 import {
   backtranslate,
   BACKTRANSLATE_HOST_LABELS,
@@ -79,20 +80,22 @@ export function BacktranslateResultDialog({ sequence, onClose }: BacktranslateRe
           >
             Host
           </label>
-          <select
-            ref={hostSelectRef}
-            id="backtranslate-host"
-            data-testid="backtranslate-host-select"
-            value={host}
-            onChange={(e) => setHost(e.target.value as SupportedBacktranslateHost)}
-            className={`${UI_FIELD_CLASS} mt-1`}
-          >
-            {SUPPORTED_BACKTRANSLATE_HOSTS.map((h) => (
-              <option key={h} value={h}>
-                {BACKTRANSLATE_HOST_LABELS[h]}
-              </option>
-            ))}
-          </select>
+          <span className="block min-w-0 w-full mt-1">
+            <MenuNativeSelect
+              density="form"
+              ref={hostSelectRef}
+              id="backtranslate-host"
+              data-testid="backtranslate-host-select"
+              value={host}
+              onChange={(e) => setHost(e.target.value as SupportedBacktranslateHost)}
+            >
+              {SUPPORTED_BACKTRANSLATE_HOSTS.map((h) => (
+                <option key={h} value={h}>
+                  {BACKTRANSLATE_HOST_LABELS[h]}
+                </option>
+              ))}
+            </MenuNativeSelect>
+          </span>
 
           <div className="mt-3 text-xs font-medium text-fg-muted">
             {result?.status === 'ok' ? `Codon-optimized DNA (${result.dna.length} bp)` : 'Result'}

@@ -2,6 +2,9 @@ import { recoverComputeResult } from '../workspace-git/compute-result-recovery';
 import { configContract } from '../../shared/ipc/config.contract';
 import { registerGoogleSheetsHandlers } from './google-sheets';
 import { registerTrackViewIpcHandlers } from './track-views';
+import { registerSequenceDataLayerIpcHandlers } from './sequence-data-layers';
+import { registerContactSourceIpcHandlers } from './contact-sources';
+import { registerComparisonSourceIpcHandlers } from './comparison-sources';
 import { registerMolecularDocumentIpcHandlers } from './molecular-documents';
 import { handleGroup, mainIpc } from '../../shared/ipc-contract';
 import { app } from 'electron';
@@ -291,5 +294,8 @@ export function registerAllIpcHandlers(deps: RegisterAllIpcHandlersDeps = {}): v
     appVersion: app.getVersion(),
   });
   registerTrackViewIpcHandlers();
+  registerSequenceDataLayerIpcHandlers();
+  registerContactSourceIpcHandlers();
+  registerComparisonSourceIpcHandlers();
   registerMolecularDocumentIpcHandlers();
 }

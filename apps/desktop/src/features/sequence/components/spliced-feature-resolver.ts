@@ -327,6 +327,12 @@ function emitRealParentTranscripts(args: {
         cdsParts,
         cdsTranslations: cdsTranslationsOf(cdsByTxId.get(id) ?? []),
         attributes: { ...f.attributes },
+        sourceAnnotationAliases: sourceAnnotationAliasesForFeatures([
+          f,
+          ...(exonsByTxId.get(id) ?? []),
+          ...(exonFallbackByTxId.get(id) ?? []),
+          ...(cdsByTxId.get(id) ?? []),
+        ]),
         raw: f.raw,
         score: f.score,
         phase: f.phase,
@@ -399,6 +405,7 @@ function emitLegacyMultipartTranscripts(
         cdsParts: cdsRows.map((c) => ({ start: c.start + 1, end: c.end })),
         cdsTranslations: cdsTranslationsOf(cdsRows),
         attributes: { ...first.attributes, _legacyMultipart: ['true'] },
+        sourceAnnotationAliases: sourceAnnotationAliasesForFeatures([...parts, ...cdsRows]),
         raw: '',
         score: first.score,
         phase: first.phase,
@@ -422,6 +429,7 @@ function emitLegacyMultipartTranscripts(
         cdsParts: intervals,
         cdsTranslations: cdsTranslationsOf(cdsRows),
         attributes: { ...first.attributes, _legacyMultipart: ['true'] },
+        sourceAnnotationAliases: sourceAnnotationAliasesForFeatures(cdsRows),
         raw: '',
         score: first.score,
         phase: first.phase,
@@ -495,6 +503,7 @@ function recoverBareCds(
       cdsParts: [...current.cds, featureInterval(f)],
       cdsTranslations: f.attributes.translation,
       attributes: { ...current.attributes },
+      sourceAnnotationAliases: current.sourceAnnotationAliases,
       raw: current.raw,
       score: current.score,
       phase: current.phase,
@@ -574,6 +583,7 @@ function promoteGeneParentedBacterialCds(
           score: first.score,
           phase: first.phase,
           compositeKind: 'compound-cds',
+          sourceAnnotationAliases: sourceAnnotationAliasesForFeatures(cdsRows),
         })
       );
       for (const row of cdsRows) consumed.add(row);
@@ -611,6 +621,7 @@ function aggregateResolvedGenes(
       strand: f.strand,
       phase: f.phase,
       attributes: { ...f.attributes },
+      sourceAnnotationAliases: f.sourceAnnotationAliases,
       raw: f.raw,
       transcripts,
       geneId: id,
@@ -656,6 +667,7 @@ export function resolveTranscripts(
     geneTypes?: ReadonlySet<string>;
   }
 ): ResolvedAnnotation[] {
+  features = withSourceAnnotationAncestryAliases(features);
   const transcriptTypes = options?.transcriptTypes ?? TRANSCRIPT_CLASS_TYPES;
   const geneTypes = options?.geneTypes ?? GENE_CLASS_TYPES;
   const canCarryTranscriptParts = (type: string): boolean =>
@@ -703,6 +715,51 @@ export function resolveTranscripts(
     out.push(f);
   }
   return out;
+}
+
+function sourceAnnotationAliasesForFeatures(features: readonly GenomeFeature[]): string[] {
+  return [
+    ...new Set(
+      features.flatMap((feature) => [
+        ...(feature.sourceAnnotationAliases ?? []),
+        ...['ID', 'locus_tag', 'gene_id', 'transcript_id'].flatMap(
+          (key) => feature.attributes[key] ?? []
+        ),
+      ])
+    ),
+  ].sort();
+}
+
+function withSourceAnnotationAncestryAliases(features: readonly GenomeFeature[]): GenomeFeature[] {
+  const byChrom = new Map<string, Map<string, GenomeFeature[]>>();
+  for (const feature of features) {
+    let byId = byChrom.get(feature.chrom);
+    if (!byId) byChrom.set(feature.chrom, (byId = new Map()));
+    for (const id of feature.attributes.ID ?? []) pushByKey(byId, id, feature);
+  }
+  const cached = new Map<GenomeFeature, readonly string[]>();
+  return features.map((feature) => {
+    const ancestors: GenomeFeature[] = [];
+    const pending = [feature];
+    const seen = new Set<GenomeFeature>();
+    while (pending.length) {
+      const current = pending.pop()!;
+      if (seen.has(current)) continue;
+      seen.add(current);
+      const aliases = cached.get(current);
+      if (aliases) {
+        ancestors.push({ ...current, sourceAnnotationAliases: aliases });
+        continue;
+      }
+      ancestors.push(current);
+      for (const parentId of current.attributes.Parent ?? []) {
+        pending.push(...(byChrom.get(current.chrom)?.get(parentId) ?? []));
+      }
+    }
+    const sourceAnnotationAliases = sourceAnnotationAliasesForFeatures(ancestors);
+    cached.set(feature, sourceAnnotationAliases);
+    return { ...feature, sourceAnnotationAliases };
+  });
 }
 
 function featureInterval(f: GenomeFeature): { start: number; end: number } {

@@ -1,6 +1,11 @@
 import { asSchema } from 'ai';
 import { describe, expect, it } from 'vitest';
-import { trackViewCommandSchema, trackViewToolRequestSchema } from './track-view-commands';
+import { sequenceDataLayerIndexedTargetId } from './sequence-data-layer-indexed-target';
+import {
+  trackViewCommandResultSchema,
+  trackViewCommandSchema,
+  trackViewToolRequestSchema,
+} from './track-view-commands';
 
 const create = {
   operation: 'create',
@@ -54,5 +59,49 @@ describe('Track View provider input contract', () => {
       expect(trackViewCommandSchema.safeParse(input).success).toBe(false);
       expect((await projected.validate!(input)).success).toBe(false);
     }
+  });
+});
+
+describe('Track View reference discovery contract', () => {
+  const target = {
+    chrom: 'NC_000913.3',
+    targetDocumentId: sequenceDataLayerIndexedTargetId({
+      referenceId: 'MG1655',
+      chrom: 'NC_000913.3',
+      sequenceIdentity: 'a'.repeat(64),
+      annotationIdentity: 'b'.repeat(64),
+    }),
+  };
+  const result = {
+    ok: true,
+    operation: 'references',
+    references: [
+      {
+        id: 'MG1655',
+        name: 'E. coli',
+        organism: 'E. coli',
+        chromosomes: [{ chrom: target.chrom, length: 4_641_652 }],
+        sequenceDataLayerTargets: [target],
+      },
+    ],
+  };
+  it('preserves exact prepared source target IDs and accepts hosted stubs without them', () => {
+    expect(trackViewCommandResultSchema.parse(result)).toEqual(result);
+    const { sequenceDataLayerTargets: _, ...stub } = result.references[0];
+    expect(trackViewCommandResultSchema.parse({ ...result, references: [stub] })).toEqual({
+      ...result,
+      references: [stub],
+    });
+  });
+  it.each([
+    { ...target, targetDocumentId: 'invented-id' },
+    { ...target, chrom: 'another-chromosome' },
+  ])('refuses invalid or mismatched indexed targets: %j', (invalid) => {
+    expect(
+      trackViewCommandResultSchema.safeParse({
+        ...result,
+        references: [{ ...result.references[0], sequenceDataLayerTargets: [invalid] }],
+      }).success
+    ).toBe(false);
   });
 });

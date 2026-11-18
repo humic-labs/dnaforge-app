@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useState } from 'react';
 import { Button, TextField } from '../../components/ui';
@@ -89,7 +90,7 @@ export function SharedProjectPeoplePanel({
         <button
           type="button"
           data-testid="shared-project-manage-orgs"
-          className="shrink-0 text-sm text-fg-muted hover:text-fg"
+          className="shrink-0 text-sm text-fg-muted wp-interactive"
           onClick={() => openOrganizationsSettings()}
         >
           Organization
@@ -143,33 +144,35 @@ export function SharedProjectPeoplePanel({
                   </span>
                   {listing.canManage && grant.accountId ? (
                     <span className="flex shrink-0 items-center gap-1">
-                      <select
-                        aria-label={`Access for ${grant.email ?? grant.accountId}`}
-                        value={grant.role}
-                        disabled={commandInFlight}
-                        onChange={(event) =>
-                          onChangeRole(
-                            grant.accountId ?? '',
-                            event.target.value as WorkspaceSyncGrantRole
-                          )
-                        }
-                        className="rounded-md border border-border bg-bg px-1.5 py-1 text-sm text-fg"
-                      >
-                        {(Object.keys(GRANT_ROLE_LABEL) as WorkspaceSyncGrantRole[]).map(
-                          (option) => (
-                            <option key={option} value={option}>
-                              {GRANT_ROLE_LABEL[option]}
-                            </option>
-                          )
-                        )}
-                      </select>
+                      <span className="inline-block min-w-0">
+                        <MenuNativeSelect
+                          density="form"
+                          aria-label={`Access for ${grant.email ?? grant.accountId}`}
+                          value={grant.role}
+                          disabled={commandInFlight}
+                          onChange={(event) =>
+                            onChangeRole(
+                              grant.accountId ?? '',
+                              event.target.value as WorkspaceSyncGrantRole
+                            )
+                          }
+                        >
+                          {(Object.keys(GRANT_ROLE_LABEL) as WorkspaceSyncGrantRole[]).map(
+                            (option) => (
+                              <option key={option} value={option}>
+                                {GRANT_ROLE_LABEL[option]}
+                              </option>
+                            )
+                          )}
+                        </MenuNativeSelect>
+                      </span>
                       <button
                         type="button"
                         disabled={commandInFlight}
                         onClick={() => onRemove(grant.accountId ?? '')}
                         title="Remove access"
                         aria-label={`Remove ${grant.email ?? grant.accountId}`}
-                        className="text-sm text-fg-muted hover:text-fg disabled:opacity-50"
+                        className="text-sm text-fg-muted wp-interactive disabled:opacity-50"
                       >
                         Remove
                       </button>
@@ -188,24 +191,26 @@ export function SharedProjectPeoplePanel({
             >
               <span className="min-w-0 truncate text-fg-muted">Everyone in {audienceOrg.name}</span>
               {listing.canManage ? (
-                <select
-                  aria-label={`Access for everyone in ${audienceOrg.name}`}
-                  value={audienceGrant?.role ?? 'none'}
-                  disabled={commandInFlight}
-                  onChange={(event) =>
-                    onSetOrgAudience(
-                      audienceOrg.orgId,
-                      event.target.value === 'none'
-                        ? null
-                        : (event.target.value as WorkspaceSyncGrantRole)
-                    )
-                  }
-                  className="rounded-md border border-border bg-bg px-1.5 py-1 text-sm text-fg"
-                >
-                  <option value="none">No access</option>
-                  <option value="viewer">Viewer</option>
-                  <option value="editor">Editor</option>
-                </select>
+                <span className="inline-block min-w-0">
+                  <MenuNativeSelect
+                    density="form"
+                    aria-label={`Access for everyone in ${audienceOrg.name}`}
+                    value={audienceGrant?.role ?? 'none'}
+                    disabled={commandInFlight}
+                    onChange={(event) =>
+                      onSetOrgAudience(
+                        audienceOrg.orgId,
+                        event.target.value === 'none'
+                          ? null
+                          : (event.target.value as WorkspaceSyncGrantRole)
+                      )
+                    }
+                  >
+                    <option value="none">No access</option>
+                    <option value="viewer">Viewer</option>
+                    <option value="editor">Editor</option>
+                  </MenuNativeSelect>
+                </span>
               ) : (
                 <span className="shrink-0 text-fg-muted">
                   {audienceGrant ? GRANT_ROLE_LABEL[audienceGrant.role] : 'No access'}
@@ -235,7 +240,7 @@ export function SharedProjectPeoplePanel({
                       disabled={commandInFlight}
                       data-testid="shared-project-invite-resend"
                       onClick={() => onResendInvite(invite.id)}
-                      className="text-sm text-fg-muted hover:text-fg disabled:opacity-50"
+                      className="text-sm text-fg-muted wp-interactive disabled:opacity-50"
                     >
                       Resend
                     </button>
@@ -243,7 +248,7 @@ export function SharedProjectPeoplePanel({
                       type="button"
                       disabled={commandInFlight}
                       onClick={() => onRevokeInvite(invite.id)}
-                      className="text-sm text-fg-muted hover:text-fg disabled:opacity-50"
+                      className="text-sm text-fg-muted wp-interactive disabled:opacity-50"
                     >
                       Revoke
                     </button>

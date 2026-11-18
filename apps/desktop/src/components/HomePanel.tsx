@@ -1,4 +1,5 @@
 import { APP_BUILD } from '../lib/app-build';
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { userEntityLabel, toUserMessage, userMessage } from '@waypoint/user-messages';
 import { installedReleaseVersion } from '../shared/app-build-identity';
 import { useEffect, useMemo, useRef, useState, useCallback, type KeyboardEvent } from 'react';
@@ -12,6 +13,8 @@ import type { AssistantHostId } from '../features/ai/assistant-hosts';
 import { useCanvasStore } from '../features/canvas/store';
 import { getTabIcon, getTabIconForTab } from '../features/canvas/components/Tab';
 import { projectTabStripTab } from '../features/canvas/tab-menu-presentation';
+import { useSequenceStore } from '../features/sequence/public/store';
+import { sequenceDocumentKey } from '../shared/managed-sequence-document';
 import { EmptyStateChatComposer } from './chat/EmptyStateChatComposer';
 import { getReleaseNote } from '../lib/release-notes';
 import { stripDisplayExtension } from '../utils/fileTypes';
@@ -59,6 +62,15 @@ export function HomePanel({
         panel.tabs.map((tab) => ({ panelId: panel.id, tab }))
       ),
     [panels]
+  );
+  useSequenceStore((state) =>
+    openTabs
+      .map(({ tab }) =>
+        tab.sequenceDocument
+          ? (state.sequences[sequenceDocumentKey(tab.sequenceDocument)]?.molecule ?? '')
+          : ''
+      )
+      .join('|')
   );
   const handleOpenTab = useCallback(
     (panelId: string, tabId: string) => {
@@ -212,7 +224,7 @@ export function HomePanel({
                 type="button"
                 onClick={onMigrateFromBenchling}
                 data-testid="home-migrate-benchling"
-                className="flex-shrink-0 rounded border border-border px-3 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-bg-muted"
+                className={`${INTERACTION_CLASS} flex-shrink-0 rounded border border-border px-3 py-1.5 text-xs font-medium text-fg`}
               >
                 Migrate from Benchling…
               </button>
@@ -235,7 +247,7 @@ export function HomePanel({
                         key={tab.id}
                         type="button"
                         onClick={() => handleOpenTab(panelId, tab.id)}
-                        className="flex min-w-0 items-center gap-3 rounded px-3 py-2 text-left text-sm hover:bg-bg-muted"
+                        className={`${INTERACTION_CLASS} flex min-w-0 items-center gap-3 rounded px-3 py-2 text-left text-sm`}
                         data-testid={`home-open-tab-${tab.id}`}
                       >
                         {getTabIconForTab(projectTabStripTab(tab))}
@@ -266,13 +278,19 @@ export function HomePanel({
                           onClick={() => void handleRecentlyEditedOpen(item)}
                           disabled={openingRecentlyEditedId !== null}
                           aria-busy={isOpening}
-                          className="flex min-w-0 items-center gap-3 rounded px-3 py-2 text-left text-sm hover:bg-bg-muted disabled:cursor-wait disabled:opacity-70"
+                          className={`${INTERACTION_CLASS} flex min-w-0 items-center gap-3 rounded px-3 py-2 text-left text-sm disabled:cursor-wait`}
                           data-testid={`home-recently-edited-${item.id}`}
                         >
                           {isOpening ? (
                             <SpinnerIcon className="w-4 h-4 flex-shrink-0" />
                           ) : (
-                            getTabIcon(item.open.tabType, 'w-4 h-4 flex-shrink-0 text-fg-subtle')
+                            getTabIcon(
+                              item.open.tabType,
+                              'w-4 h-4 flex-shrink-0',
+                              item.iconContext ?? {
+                                path: item.open.kind === 'file' ? item.open.path : undefined,
+                              }
+                            )
                           )}
                           <span className="min-w-0 flex-1 truncate font-medium text-fg">
                             {userEntityLabel(

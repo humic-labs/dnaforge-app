@@ -1,5 +1,9 @@
 import { referencePreparationTiming } from '../reference-assets/reference-prep-timing';
 import type {
+  SourceAnnotationAliasBindingV1,
+  SourceAnnotationAliasesV1,
+} from '@waypoint/genome-renderer/pure';
+import type {
   AssemblyAnnotationProductIndexResultV1,
   AssemblyAnnotationSceneReadRequest,
 } from '../../shared/indexed-genome';
@@ -16,6 +20,9 @@ type AssemblyAnnotationProductIndexScheduleResultV1 =
   | Readonly<{ status: 'rejected'; reason: 'queue-full' }>;
 
 export interface AssemblyAnnotationProductIndexCoordinatorDepsV1 {
+  readonly prepareSourceAnnotationAliases?: (
+    hit: AssemblyCompiledBroadRasterSceneHitV1
+  ) => Promise<readonly SourceAnnotationAliasesV1[]>;
   readonly readScene: (
     request: AssemblyAnnotationSceneReadRequest
   ) => Promise<AssemblyAnnotationSceneCacheIndexReadResult | null>;
@@ -89,9 +96,64 @@ export class AssemblyAnnotationProductIndexCoordinatorV1 {
   private readonly deps: AssemblyAnnotationProductIndexCoordinatorDepsV1;
   private readonly inFlight = new Map<string, Promise<AssemblyAnnotationProductIndexReadyV1>>();
   private queueTail: Promise<void> = Promise.resolve();
+  private readonly sourceAliases = new Map<string, Promise<SourceAnnotationAliasBindingV1>>();
+  private readonly sourceAliasesPending = new Set<string>();
 
   constructor(deps: AssemblyAnnotationProductIndexCoordinatorDepsV1) {
     this.deps = deps;
+  }
+
+  prepareSourceAnnotationAliases(
+    hit: AssemblyCompiledBroadRasterSceneHitV1
+  ): Promise<SourceAnnotationAliasBindingV1> {
+    const key = sourceAliasesIdentity(hit);
+    const incumbent = this.sourceAliases.get(key);
+    if (incumbent) {
+      this.sourceAliases.delete(key);
+      this.sourceAliases.set(key, incumbent);
+      return incumbent;
+    }
+    if (
+      !this.deps.prepareSourceAnnotationAliases ||
+      this.sourceAliasesPending.size >= MAX_QUEUED_PRODUCT_IDENTITIES
+    )
+      return Promise.reject(new Error('Retained annotation source preparation is unavailable.'));
+    if (this.sourceAliases.size >= MAX_QUEUED_PRODUCT_IDENTITIES) {
+      const oldest = [...this.sourceAliases.keys()].find(
+        (candidate) => !this.sourceAliasesPending.has(candidate)
+      );
+      if (oldest) this.sourceAliases.delete(oldest);
+    }
+    const prepare = this.deps.prepareSourceAnnotationAliases;
+    const task = this.queueTail
+      .catch(() => undefined)
+      .then(async () =>
+        Object.freeze({
+          payloadSha256: hit.payloadSha256,
+          contractSha256: hit.sceneManifest.integrity.contractSha256,
+          aliases: Object.freeze(structuredClone(await prepare(hit))),
+        })
+      );
+    this.sourceAliases.set(key, task);
+    this.sourceAliasesPending.add(key);
+    this.queueTail = task.then(
+      () => undefined,
+      () => undefined
+    );
+    void task.then(
+      () => this.sourceAliasesPending.delete(key),
+      () => {
+        this.sourceAliasesPending.delete(key);
+        if (this.sourceAliases.get(key) === task) this.sourceAliases.delete(key);
+      }
+    );
+    return task;
+  }
+
+  readSourceAnnotationAliases(
+    hit: AssemblyCompiledBroadRasterSceneHitV1
+  ): Promise<SourceAnnotationAliasBindingV1> | undefined {
+    return this.sourceAliases.get(sourceAliasesIdentity(hit));
   }
 
   schedule(
@@ -376,6 +438,18 @@ export class AssemblyAnnotationProductIndexCoordinatorV1 {
       }
     }
   }
+}
+
+function sourceAliasesIdentity(hit: AssemblyCompiledBroadRasterSceneHitV1): string {
+  return JSON.stringify([
+    hit.request.workspaceRoot,
+    hit.request.datasetContract,
+    hit.request.scope,
+    hit.request.artifact,
+    hit.request.expectedAssetGeneration ?? null,
+    hit.payloadSha256,
+    hit.sceneManifest.integrity.contractSha256,
+  ]);
 }
 
 type AssemblyAnnotationProductIndexReadyV1 = Extract<

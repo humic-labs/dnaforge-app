@@ -25,7 +25,7 @@ export function PrimerRow({ primer, isSelected, onClick, onDetach }: PrimerRowPr
   const row = (
     <div
       data-testid={`primer-row-${primer.binding.id}`}
-      className={`group w-full px-3 py-2 cursor-pointer border-b border-border hover:bg-bg-muted transition-colors ${
+      className={`group w-full px-3 py-2 cursor-pointer border-b border-border wp-interactive transition-colors ${
         isSelected ? 'bg-accent/10 border-l-2 border-l-accent' : ''
       }`}
       onClick={onClick}

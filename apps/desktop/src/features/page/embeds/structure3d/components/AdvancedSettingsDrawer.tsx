@@ -1,5 +1,8 @@
+'use client';
+
+import { MenuNativeSelect } from '@waypoint/ui-components';
+
 import { usePresentationListener } from '../../../../../presentation/PresentationSurface';
-('use client');
 
 import { toUserMessage } from '@waypoint/user-messages';
 import {
@@ -149,7 +152,7 @@ export const AdvancedSettingsDrawer = memo(function AdvancedSettingsDrawer({
               type="button"
               aria-label="Close advanced settings"
               onClick={onClose}
-              className="p-1 hover:bg-bg-muted rounded text-fg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="p-1 wp-interactive rounded text-fg-muted "
             >
               <CloseIcon />
             </button>
@@ -197,7 +200,7 @@ export const AdvancedSettingsDrawer = memo(function AdvancedSettingsDrawer({
               />
             </SettingsSection>
             <details className="group space-y-4">
-              <summary className="cursor-pointer select-none font-medium text-fg-muted hover:text-fg">
+              <summary className="cursor-pointer select-none font-medium text-fg-muted wp-interactive">
                 More settings
               </summary>
               <SettingsSection title="New scenes">
@@ -357,7 +360,7 @@ export const AdvancedSettingsDrawer = memo(function AdvancedSettingsDrawer({
           <div className="px-4 py-2 border-t border-border">
             <button
               onClick={handleReset}
-              className="w-full px-2 py-1.5 rounded border border-border hover:bg-bg-muted text-fg-muted hover:text-fg"
+              className="w-full px-2 py-1.5 rounded border border-border wp-interactive text-fg-muted "
               style={{ fontSize: '11px' }}
             >
               Reset to Defaults
@@ -473,19 +476,20 @@ function SelectRow({
       <span className="text-fg" style={{ fontSize: '12px' }}>
         {label}
       </span>
-      <select
-        aria-label={label}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="px-1.5 py-0.5 rounded border border-border bg-bg text-fg cursor-pointer focus:outline-none focus:ring-1 focus:ring-accent"
-        style={{ fontSize: '12px' }}
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+      <span className="inline-block min-w-0">
+        <MenuNativeSelect
+          density="compact"
+          aria-label={label}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </MenuNativeSelect>
+      </span>
     </div>
   );
 }

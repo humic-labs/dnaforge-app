@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { useMemo, useRef, useState } from 'react';
 import { platform } from '../../../../../platform';
 import { reportSaveFailure } from '../../../../../lib/report-save-failure';
@@ -80,7 +81,7 @@ export function InsertTableReferenceButton({
     <>
       <button
         type="button"
-        className="rounded border border-border px-2 py-1 text-xs hover:text-fg"
+        className="rounded border border-border px-2 py-1 text-xs wp-interactive"
         onClick={() => {
           requestId.current = crypto.randomUUID();
           setNotebookId(notebooks[0]?.id ?? '');
@@ -102,48 +103,56 @@ export function InsertTableReferenceButton({
           >
             <label className="flex flex-col gap-1 text-sm">
               Notebook
-              <select
-                aria-label="Notebook"
-                className="rounded border border-border bg-bg px-2 py-1"
-                disabled={busy}
-                value={notebookId}
-                onChange={(event) => setNotebookId(event.target.value)}
-              >
-                {notebooks.length === 0 && (
-                  <option value="">Open or create a notebook first</option>
-                )}
-                {notebooks.map((page) => (
-                  <option key={page.id} value={page.id}>
-                    {page.title}
-                  </option>
-                ))}
-              </select>
+              <span className="inline-block min-w-0">
+                <MenuNativeSelect
+                  density="compact"
+                  aria-label="Notebook"
+                  disabled={busy}
+                  value={notebookId}
+                  onChange={(event) => setNotebookId(event.target.value)}
+                >
+                  {notebooks.length === 0 && (
+                    <option value="">Open or create a notebook first</option>
+                  )}
+                  {notebooks.map((page) => (
+                    <option key={page.id} value={page.id}>
+                      {page.title}
+                    </option>
+                  ))}
+                </MenuNativeSelect>
+              </span>
             </label>
             <label className="flex flex-col gap-1 text-sm">
               Reference
-              <select
-                aria-label="Reference"
-                className="rounded border border-border bg-bg px-2 py-1"
-                disabled={busy || reference.binding.kind === 'saved-version'}
-                value={binding}
-                onChange={(event) => setBinding(event.target.value as 'current' | 'saved-version')}
-              >
-                <option value="current">Live table</option>
-                <option value="saved-version">Saved version</option>
-              </select>
+              <span className="inline-block min-w-0">
+                <MenuNativeSelect
+                  density="compact"
+                  aria-label="Reference"
+                  disabled={busy || reference.binding.kind === 'saved-version'}
+                  value={binding}
+                  onChange={(event) =>
+                    setBinding(event.target.value as 'current' | 'saved-version')
+                  }
+                >
+                  <option value="current">Live table</option>
+                  <option value="saved-version">Saved version</option>
+                </MenuNativeSelect>
+              </span>
             </label>
             <label className="flex flex-col gap-1 text-sm">
               Display
-              <select
-                aria-label="Display"
-                className="rounded border border-border bg-bg px-2 py-1"
-                disabled={busy}
-                value={presentation}
-                onChange={(event) => setPresentation(event.target.value as 'embed' | 'link')}
-              >
-                <option value="embed">Embed</option>
-                <option value="link">Link</option>
-              </select>
+              <span className="inline-block min-w-0">
+                <MenuNativeSelect
+                  density="compact"
+                  aria-label="Display"
+                  disabled={busy}
+                  value={presentation}
+                  onChange={(event) => setPresentation(event.target.value as 'embed' | 'link')}
+                >
+                  <option value="embed">Embed</option>
+                  <option value="link">Link</option>
+                </MenuNativeSelect>
+              </span>
             </label>
             <p className="text-xs text-fg-muted">
               Save the notebook after insertion. A saved version keeps the table’s currently saved

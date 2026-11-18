@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import {
   usePresentationOverlay,
   PresentationScopeContext,
@@ -714,7 +715,7 @@ export function AddTrackDialog({
               onClick={onClose}
               disabled={closeBlocked}
               aria-label="Close data picker"
-              className="rounded p-1 text-fg-muted hover:bg-bg-muted hover:text-fg disabled:opacity-40"
+              className="rounded p-1 text-fg-muted wp-interactive disabled:opacity-40"
             >
               <CloseIcon size={16} />
             </button>
@@ -831,51 +832,59 @@ export function AddTrackDialog({
                   <div className="grid grid-cols-2 gap-3">
                     <label className="block text-xs font-medium text-fg">
                       Source protocol
-                      <select
-                        value={urlProtocol}
-                        onChange={(event) => {
-                          const protocol = event.target.value as NetworkSourceProtocol;
-                          setUrlProtocol(protocol);
-                          setCredentialMode('none');
-                          setUrlIndex('');
-                          if (protocol === 'htsget' && !isHtsgetFormat(urlFormat)) {
-                            setUrlFormat('bam');
-                          } else if (
-                            (protocol === 's3' || protocol === 'gcs') &&
-                            urlFormat === 'auto'
-                          ) {
-                            setUrlFormat('bigwig');
-                          }
-                        }}
-                        className={`${UI_FIELD_CLASS} mt-1`}
-                      >
-                        <option value="http">Indexed file URL</option>
-                        <option value="s3">Amazon S3 object</option>
-                        <option value="gcs">Google Cloud Storage object</option>
-                        <option value="htsget">htsget service</option>
-                      </select>
+                      <span className="block min-w-0 w-full mt-1">
+                        <MenuNativeSelect
+                          density="form"
+                          value={urlProtocol}
+                          onChange={(event) => {
+                            const protocol = event.target.value as NetworkSourceProtocol;
+                            setUrlProtocol(protocol);
+                            setCredentialMode('none');
+                            setUrlIndex('');
+                            if (protocol === 'htsget' && !isHtsgetFormat(urlFormat)) {
+                              setUrlFormat('bam');
+                            } else if (
+                              (protocol === 's3' || protocol === 'gcs') &&
+                              urlFormat === 'auto'
+                            ) {
+                              setUrlFormat('bigwig');
+                            }
+                          }}
+                        >
+                          <option value="http">Indexed file URL</option>
+                          <option value="s3">Amazon S3 object</option>
+                          <option value="gcs">Google Cloud Storage object</option>
+                          <option value="htsget">htsget service</option>
+                        </MenuNativeSelect>
+                      </span>
                     </label>
                     <label className="block text-xs font-medium text-fg">
                       Indexed format
-                      <select
-                        value={urlFormat}
-                        onChange={(event) => setUrlFormat(event.target.value as IndexedUrlFormat)}
-                        className={`${UI_FIELD_CLASS} mt-1`}
-                      >
-                        {urlProtocol === 'http' ? (
-                          <option value="auto">Detect from URL</option>
-                        ) : null}
-                        {urlProtocol !== 'htsget' ? (
-                          <option value="bigwig">BigWig signal</option>
-                        ) : null}
-                        {urlProtocol !== 'htsget' ? (
-                          <option value="bigbed">BigBed annotations</option>
-                        ) : null}
-                        <option value="bam">BAM reads</option>
-                        <option value="cram">CRAM reads</option>
-                        {remoteVariantsAvailable ? <option value="vcf">VCF variants</option> : null}
-                        {remoteVariantsAvailable ? <option value="bcf">BCF variants</option> : null}
-                      </select>
+                      <span className="block min-w-0 w-full mt-1">
+                        <MenuNativeSelect
+                          density="form"
+                          value={urlFormat}
+                          onChange={(event) => setUrlFormat(event.target.value as IndexedUrlFormat)}
+                        >
+                          {urlProtocol === 'http' ? (
+                            <option value="auto">Detect from URL</option>
+                          ) : null}
+                          {urlProtocol !== 'htsget' ? (
+                            <option value="bigwig">BigWig signal</option>
+                          ) : null}
+                          {urlProtocol !== 'htsget' ? (
+                            <option value="bigbed">BigBed annotations</option>
+                          ) : null}
+                          <option value="bam">BAM reads</option>
+                          <option value="cram">CRAM reads</option>
+                          {remoteVariantsAvailable ? (
+                            <option value="vcf">VCF variants</option>
+                          ) : null}
+                          {remoteVariantsAvailable ? (
+                            <option value="bcf">BCF variants</option>
+                          ) : null}
+                        </MenuNativeSelect>
+                      </span>
                     </label>
                   </div>
                   {urlProtocol === 's3' || urlProtocol === 'gcs' ? (
@@ -933,18 +942,20 @@ export function AddTrackDialog({
                   {urlProtocol !== 'htsget' && urlFormat === 'bigbed' ? (
                     <label className="block text-xs font-medium text-fg">
                       BigBed content
-                      <select
-                        value={bigBedScientificKind}
-                        onChange={(event) =>
-                          setBigBedScientificKind(event.target.value as BigBedScientificKind)
-                        }
-                        className={`${UI_FIELD_CLASS} mt-1`}
-                      >
-                        <option value="interval">Intervals</option>
-                        <option value="transcript">Transcript models</option>
-                        <option value="peak">Peaks</option>
-                        <option value="repeat">Repeats</option>
-                      </select>
+                      <span className="block min-w-0 w-full mt-1">
+                        <MenuNativeSelect
+                          density="form"
+                          value={bigBedScientificKind}
+                          onChange={(event) =>
+                            setBigBedScientificKind(event.target.value as BigBedScientificKind)
+                          }
+                        >
+                          <option value="interval">Intervals</option>
+                          <option value="transcript">Transcript models</option>
+                          <option value="peak">Peaks</option>
+                          <option value="repeat">Repeats</option>
+                        </MenuNativeSelect>
+                      </span>
                     </label>
                   ) : null}
                   <label className="block text-xs font-medium text-fg" htmlFor="indexed-track-url">
@@ -1161,42 +1172,46 @@ export function AddTrackDialog({
                       htmlFor="combined-read-track"
                     >
                       Read pileup
-                      <select
-                        id="combined-read-track"
-                        value={composeReadsTrackId}
-                        onChange={(event) => {
-                          setComposeReadsTrackId(event.target.value);
-                          setComposeNotice(null);
-                        }}
-                        className="mt-1 block w-full rounded border border-border bg-bg px-2.5 py-2 text-xs text-fg outline-none focus:border-emerald-500"
-                      >
-                        {composableReadTracks.map((track) => (
-                          <option key={track.trackId} value={track.trackId}>
-                            {track.label}
-                          </option>
-                        ))}
-                      </select>
+                      <span className="block min-w-0 mt-1 w-full">
+                        <MenuNativeSelect
+                          density="form"
+                          id="combined-read-track"
+                          value={composeReadsTrackId}
+                          onChange={(event) => {
+                            setComposeReadsTrackId(event.target.value);
+                            setComposeNotice(null);
+                          }}
+                        >
+                          {composableReadTracks.map((track) => (
+                            <option key={track.trackId} value={track.trackId}>
+                              {track.label}
+                            </option>
+                          ))}
+                        </MenuNativeSelect>
+                      </span>
                     </label>
                     <label
                       className="block text-xs font-medium text-fg"
                       htmlFor="combined-signal-track"
                     >
                       BigWig signal
-                      <select
-                        id="combined-signal-track"
-                        value={composeSignalTrackId}
-                        onChange={(event) => {
-                          setComposeSignalTrackId(event.target.value);
-                          setComposeNotice(null);
-                        }}
-                        className="mt-1 block w-full rounded border border-border bg-bg px-2.5 py-2 text-xs text-fg outline-none focus:border-emerald-500"
-                      >
-                        {composableSignalTracks.map((track) => (
-                          <option key={track.trackId} value={track.trackId}>
-                            {track.label}
-                          </option>
-                        ))}
-                      </select>
+                      <span className="block min-w-0 mt-1 w-full">
+                        <MenuNativeSelect
+                          density="form"
+                          id="combined-signal-track"
+                          value={composeSignalTrackId}
+                          onChange={(event) => {
+                            setComposeSignalTrackId(event.target.value);
+                            setComposeNotice(null);
+                          }}
+                        >
+                          {composableSignalTracks.map((track) => (
+                            <option key={track.trackId} value={track.trackId}>
+                              {track.label}
+                            </option>
+                          ))}
+                        </MenuNativeSelect>
+                      </span>
                     </label>
                     <label
                       className="block text-xs font-medium text-fg"
@@ -1314,7 +1329,7 @@ export function AddTrackDialog({
                               type="button"
                               data-testid="ucsc-catalog-facets-clear-all"
                               onClick={() => setFacetSelection({})}
-                              className="px-1 text-[11px] text-fg-muted hover:text-fg"
+                              className="px-1 text-[11px] text-fg-muted wp-interactive"
                             >
                               Clear all
                             </button>
@@ -1445,26 +1460,28 @@ function HubConnectionPanel({
       {ucscTarget || connectedHubs.length > 0 ? (
         <label className="block text-xs font-medium text-fg" htmlFor="catalog-source">
           Catalog source
-          <select
-            id="catalog-source"
-            value={catalogHubUrl ?? ''}
-            disabled={disabled}
-            onChange={(event) => onSelectCatalog(event.target.value || null)}
-            className={`${UI_FIELD_CLASS} mt-1`}
-          >
-            {ucscTarget ? (
-              <option value="">
-                {ucscTarget.hubUrl
-                  ? `${hubDisplayLabel(ucscTarget.hubUrl)} (${ucscTarget.genomeId})`
-                  : `UCSC ${ucscTarget.genomeId}`}
-              </option>
-            ) : null}
-            {connectedHubs.map((hub) => (
-              <option key={hub.hubUrl} value={hub.hubUrl}>
-                {hub.label} ({hub.genome})
-              </option>
-            ))}
-          </select>
+          <span className="block min-w-0 w-full mt-1">
+            <MenuNativeSelect
+              density="form"
+              id="catalog-source"
+              value={catalogHubUrl ?? ''}
+              disabled={disabled}
+              onChange={(event) => onSelectCatalog(event.target.value || null)}
+            >
+              {ucscTarget ? (
+                <option value="">
+                  {ucscTarget.hubUrl
+                    ? `${hubDisplayLabel(ucscTarget.hubUrl)} (${ucscTarget.genomeId})`
+                    : `UCSC ${ucscTarget.genomeId}`}
+                </option>
+              ) : null}
+              {connectedHubs.map((hub) => (
+                <option key={hub.hubUrl} value={hub.hubUrl}>
+                  {hub.label} ({hub.genome})
+                </option>
+              ))}
+            </MenuNativeSelect>
+          </span>
         </label>
       ) : null}
       {connectedHubs.length > 0 ? (
@@ -1481,7 +1498,8 @@ function HubConnectionPanel({
                 type="button"
                 disabled={disabled}
                 onClick={() => onDisconnect(hub.hubUrl)}
-                className="shrink-0 rounded border border-border px-2 py-0.5 text-[11px] text-fg-muted hover:border-accent hover:text-fg disabled:opacity-50"
+                data-interaction-border="true"
+                className="shrink-0 rounded border border-border px-2 py-0.5 text-[11px] text-fg-muted wp-interactive disabled:opacity-50"
               >
                 Disconnect {hub.label}
               </button>
@@ -1532,20 +1550,22 @@ function HubConnectionPanel({
           </p>
           <label className="block text-xs font-medium text-fg" htmlFor="pending-hub-genome">
             Hub assembly
-            <select
-              id="pending-hub-genome"
-              value={pendingHubGenome}
-              onChange={(event) => onPendingHubGenomeChange(event.target.value)}
-              className={`${UI_FIELD_CLASS} mt-1`}
-            >
-              {pendingHub.genomes.map((genome) => (
-                <option key={genome.name} value={genome.name}>
-                  {genome.name}
-                  {genome.organism ? ` · ${genome.organism}` : ''}
-                  {genome.assemblyHub ? ' · assembly hub' : ''}
-                </option>
-              ))}
-            </select>
+            <span className="block min-w-0 w-full mt-1">
+              <MenuNativeSelect
+                density="form"
+                id="pending-hub-genome"
+                value={pendingHubGenome}
+                onChange={(event) => onPendingHubGenomeChange(event.target.value)}
+              >
+                {pendingHub.genomes.map((genome) => (
+                  <option key={genome.name} value={genome.name}>
+                    {genome.name}
+                    {genome.organism ? ` · ${genome.organism}` : ''}
+                    {genome.assemblyHub ? ' · assembly hub' : ''}
+                  </option>
+                ))}
+              </MenuNativeSelect>
+            </span>
           </label>
           <div className="flex gap-2">
             <Button
@@ -1633,7 +1653,7 @@ function AddDataTabButton({
       {...(testId ? { 'data-testid': testId } : {})}
       onClick={() => onSelect(id)}
       className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium ${
-        active ? 'border-accent text-fg' : 'border-transparent text-fg-muted hover:text-fg'
+        active ? 'border-accent text-fg' : 'border-transparent text-fg-muted wp-interactive'
       }`}
     >
       <span className="max-w-[16rem] truncate">{label}</span>
@@ -1754,9 +1774,7 @@ function SourceChoiceRow({
       data-testid={testId}
       onClick={onClick}
       className={`flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs ${
-        active
-          ? 'bg-accent/15 font-medium text-accent'
-          : 'text-fg-muted hover:bg-bg-muted hover:text-fg'
+        active ? 'bg-accent/15 font-medium text-accent' : 'text-fg-muted wp-interactive '
       }`}
     >
       <span className="truncate" title={label}>
@@ -1798,7 +1816,7 @@ function CatalogFacetGroupRows({
         aria-label={`${group.label} filter`}
         aria-expanded={sectionOpen}
         onClick={() => setSectionOpen((current) => !current)}
-        className="flex w-full items-center justify-between gap-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-fg-muted hover:text-fg"
+        className="flex w-full items-center justify-between gap-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-fg-muted wp-interactive"
       >
         <span>{group.label}</span>
         <span className="flex items-center gap-2 text-[10px] font-normal normal-case tracking-normal text-fg-subtle">
@@ -1830,9 +1848,7 @@ function CatalogFacetGroupRows({
                   data-testid={`ucsc-facet-${group.key}-${entry.value}`}
                   onClick={() => onToggle(group.key, entry.value)}
                   className={`flex w-full items-center justify-between gap-2 rounded px-1.5 py-1 text-left text-xs ${
-                    active
-                      ? 'bg-accent/15 text-accent'
-                      : 'text-fg-muted hover:bg-bg-muted hover:text-fg'
+                    active ? 'bg-accent/15 text-accent' : 'text-fg-muted wp-interactive '
                   }`}
                 >
                   <span className="truncate" title={entry.label}>
@@ -1853,7 +1869,7 @@ function CatalogFacetGroupRows({
               type="button"
               aria-label={`Show all ${group.label} choices`}
               onClick={() => setExpanded(true)}
-              className="mt-0.5 px-1.5 text-[10px] text-fg-subtle hover:text-fg"
+              className="mt-0.5 px-1.5 text-[10px] text-fg-subtle wp-interactive"
             >
               Show all {group.values.length.toLocaleString()} ({withheld} more)
             </button>
@@ -1862,7 +1878,7 @@ function CatalogFacetGroupRows({
               type="button"
               aria-label={`Show fewer ${group.label} choices`}
               onClick={() => setExpanded(false)}
-              className="mt-0.5 px-1.5 text-[10px] text-fg-subtle hover:text-fg"
+              className="mt-0.5 px-1.5 text-[10px] text-fg-subtle wp-interactive"
             >
               Show fewer
             </button>
@@ -2085,24 +2101,26 @@ function CredentialFields({
       <legend className="px-1 text-xs font-medium text-fg">Authentication</legend>
       <label className="block text-xs font-medium text-fg" htmlFor="source-credential-mode">
         Credential
-        <select
-          id="source-credential-mode"
-          value={mode}
-          onChange={(event) => onModeChange(event.target.value as CredentialMode)}
-          className={`${UI_FIELD_CLASS} mt-1`}
-        >
-          <option value="none">No credential (public source)</option>
-          <option value="saved">Use a saved credential</option>
-          {protocol === 'http' || protocol === 'htsget' ? (
-            <>
-              <option value="http-bearer">Save a bearer token</option>
-              <option value="http-basic">Save a username and password</option>
-              <option value="http-header">Save a custom request header</option>
-            </>
-          ) : null}
-          {protocol === 's3' ? <option value="aws-sigv4">Save AWS access keys</option> : null}
-          {protocol === 'gcs' ? <option value="gcs-oauth">Save a GCS access token</option> : null}
-        </select>
+        <span className="block min-w-0 w-full mt-1">
+          <MenuNativeSelect
+            density="form"
+            id="source-credential-mode"
+            value={mode}
+            onChange={(event) => onModeChange(event.target.value as CredentialMode)}
+          >
+            <option value="none">No credential (public source)</option>
+            <option value="saved">Use a saved credential</option>
+            {protocol === 'http' || protocol === 'htsget' ? (
+              <>
+                <option value="http-bearer">Save a bearer token</option>
+                <option value="http-basic">Save a username and password</option>
+                <option value="http-header">Save a custom request header</option>
+              </>
+            ) : null}
+            {protocol === 's3' ? <option value="aws-sigv4">Save AWS access keys</option> : null}
+            {protocol === 'gcs' ? <option value="gcs-oauth">Save a GCS access token</option> : null}
+          </MenuNativeSelect>
+        </span>
       </label>
       {mode !== 'none' ? (
         <label className="block text-xs font-medium text-fg" htmlFor="source-auth-ref">

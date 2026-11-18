@@ -91,7 +91,7 @@ export function OriginalProviderSourceDialog({
               type="button"
               aria-label="Close original source"
               onClick={onClose}
-              className="rounded px-2 py-1 text-sm text-fg-muted hover:bg-bg-muted hover:text-fg"
+              className="rounded px-2 py-1 text-sm text-fg-muted wp-interactive "
             >
               Close
             </button>

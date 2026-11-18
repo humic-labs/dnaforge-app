@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import {
   type UserMessage,
   userMessageWithValues,
@@ -180,16 +181,18 @@ export function PrimerSearchPanel({
     >
       {scopeControl ?? (
         <div className="flex items-center gap-2">
-          <select
-            data-testid="region-mode-select"
-            className="text-xs px-2 py-1 rounded border border-border bg-bg text-fg"
-            value={regionMode}
-            onChange={(e) => setRegionMode(e.target.value as RegionMode)}
-          >
-            <option value="entire">Entire sequence</option>
-            <option value="custom">Custom region</option>
-            {selectionRange && <option value="selection">Use selection</option>}
-          </select>
+          <span className="inline-block min-w-0">
+            <MenuNativeSelect
+              density="compact"
+              data-testid="region-mode-select"
+              value={regionMode}
+              onChange={(e) => setRegionMode(e.target.value as RegionMode)}
+            >
+              <option value="entire">Entire sequence</option>
+              <option value="custom">Custom region</option>
+              {selectionRange && <option value="selection">Use selection</option>}
+            </MenuNativeSelect>
+          </span>
 
           {regionMode === 'custom' && (
             <>
@@ -272,16 +275,18 @@ export function PrimerSearchPanel({
           value={textFilter}
           onChange={(e) => setTextFilter(e.target.value)}
         />
-        <select
-          data-testid="direction-filter"
-          className="text-xs px-2 py-1 rounded border border-border bg-bg text-fg"
-          value={directionFilter}
-          onChange={(e) => setDirectionFilter(e.target.value as 'all' | 'forward' | 'reverse')}
-        >
-          <option value="all">Both</option>
-          <option value="forward">Forward</option>
-          <option value="reverse">Reverse</option>
-        </select>
+        <span className="inline-block min-w-0">
+          <MenuNativeSelect
+            density="compact"
+            data-testid="direction-filter"
+            value={directionFilter}
+            onChange={(e) => setDirectionFilter(e.target.value as 'all' | 'forward' | 'reverse')}
+          >
+            <option value="all">Both</option>
+            <option value="forward">Forward</option>
+            <option value="reverse">Reverse</option>
+          </MenuNativeSelect>
+        </span>
         <button
           data-testid="primer-search-button"
           className="text-xs px-3 py-1 rounded bg-accent text-white hover:bg-accent/90 disabled:opacity-50"
@@ -311,7 +316,7 @@ export function PrimerSearchPanel({
           <div className="text-fg-muted/70 mb-2">{toUserMessage(searchError, 'primer.failed')}</div>
           <button
             data-testid="primer-search-retry"
-            className="text-xs px-3 py-1 rounded border border-border text-fg-muted hover:bg-bg-muted hover:text-fg"
+            className="text-xs px-3 py-1 rounded border border-border text-fg-muted wp-interactive "
             onClick={handleSearch}
           >
             Retry
@@ -324,7 +329,7 @@ export function PrimerSearchPanel({
           <div className="mb-2 text-fg">{renderUserMessage(signUpLabel)}</div>
           <button
             data-testid="primer-search-sign-up-open"
-            className="text-xs px-3 py-1 rounded border border-border text-fg-muted hover:bg-bg-muted hover:text-fg"
+            className="text-xs px-3 py-1 rounded border border-border text-fg-muted wp-interactive "
             onClick={() => requestHostedKeepWork(signUpLabel)}
           >
             Sign up
@@ -355,7 +360,7 @@ export function PrimerSearchPanel({
           {filteredResults.map((result) => (
             <div
               key={result.primer.id}
-              className="flex items-center gap-2 px-3 py-1.5 border-b border-border last:border-b-0 cursor-pointer hover:bg-bg-muted"
+              className="flex items-center gap-2 px-3 py-1.5 border-b border-border last:border-b-0 cursor-pointer wp-interactive"
               onClick={() => {
                 if (result.bestHit) {
                   onResultClick?.(result.bestHit);

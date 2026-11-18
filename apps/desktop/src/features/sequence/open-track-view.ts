@@ -163,6 +163,9 @@ export async function openSavedTrackView(
     validateReference: (state) => assertTrackViewReference(document, state),
     restoreView: {
       scope: document.scope,
+      sequenceDataLayers: document.sequenceDataLayers,
+      contactProjection: document.contactProjection,
+      comparisonProjection: document.comparisonProjection,
       dataTracks: document.dataTracks,
       bamTracks: document.bamTracks,
       signalReadPileupViews: document.signalReadPileupViews ?? [],

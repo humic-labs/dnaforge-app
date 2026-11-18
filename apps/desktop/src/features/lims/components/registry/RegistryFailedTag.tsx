@@ -33,7 +33,7 @@ export function UnconnectedFilterButton({
       className={`h-9 flex-shrink-0 rounded border px-2.5 text-xs font-medium ${
         active
           ? 'border-error/40 bg-error/15 text-error'
-          : 'border-border text-fg-muted hover:bg-bg-muted hover:text-fg'
+          : 'border-border text-fg-muted wp-interactive '
       }`}
     >
       Unresolved links ({count})

@@ -394,7 +394,7 @@ export function RemoteClusterPanel({
                     type="button"
                     disabled={disabled || listingBusy}
                     onClick={() => void browse(session, listing.parentPath!)}
-                    className="block w-full rounded px-2 py-1 text-left font-mono text-xs text-fg hover:bg-bg-muted"
+                    className="block w-full rounded px-2 py-1 text-left font-mono text-xs text-fg wp-interactive"
                   >
                     ../ Up one folder
                   </button>
@@ -405,7 +405,7 @@ export function RemoteClusterPanel({
                     type="button"
                     disabled={disabled || listingBusy}
                     onClick={() => selectEntry(entry)}
-                    className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs text-fg hover:bg-bg-muted"
+                    className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs text-fg wp-interactive"
                     aria-label={`${entry.kind === 'directory' ? 'Open folder' : `Use ${entry.kind}`} ${entry.name}`}
                   >
                     <span className="w-16 shrink-0 text-fg-muted">{entry.kind}</span>

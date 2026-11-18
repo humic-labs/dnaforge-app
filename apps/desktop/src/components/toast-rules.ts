@@ -42,7 +42,7 @@ export const TOAST_TYPE_RULES: Record<ToastType, ToastTypeRule> = {
   info: {
     className: 'border-border-hover bg-bg-subtle/95 text-fg',
     actionClassName:
-      'pointer-events-auto rounded border border-border-hover px-2 py-1 text-[11px] font-medium text-accent/70 hover:bg-bg-muted hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+      'pointer-events-auto rounded border border-border-hover px-2 py-1 text-[11px] font-medium text-accent/70 wp-interactive hover:text-accent ',
     role: 'status',
   },
   success: {

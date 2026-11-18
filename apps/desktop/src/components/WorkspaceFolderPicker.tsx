@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { toUserMessage, userMessageWithValues, userMessageValue } from '@waypoint/user-messages';
 import {
   forwardRef,
@@ -211,9 +212,8 @@ function WorkspaceTree({
           }
         }}
         style={{ paddingLeft: 8 }}
-        className={`flex w-full cursor-pointer select-none items-center gap-1.5 py-1 pr-2 text-left text-sm outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/45 ${
-          rootSelected ? 'bg-accent/15 text-accent' : 'text-fg hover:bg-accent/10'
-        }`}
+        data-selected={rootSelected}
+        className={`${INTERACTION_CLASS} flex w-full cursor-pointer select-none items-center gap-1.5 py-1 pr-2 text-left text-sm`}
       >
         <span className="flex w-3 flex-shrink-0 items-center">
           <ChevronRotatableIcon expanded={rootOpen} />

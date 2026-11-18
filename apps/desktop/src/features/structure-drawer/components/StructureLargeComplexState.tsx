@@ -32,7 +32,7 @@ export function StructureLargeComplexState({
             type="button"
             data-testid="structure-large-complex-lighter"
             onClick={onUseLighterSource}
-            className="rounded border border-border bg-bg-subtle px-3 py-1 text-xs hover:bg-bg-muted"
+            className="rounded border border-border bg-bg-subtle px-3 py-1 text-xs wp-interactive"
           >
             Use a lighter model
           </button>
@@ -41,7 +41,7 @@ export function StructureLargeComplexState({
           type="button"
           data-testid="structure-large-complex-picker"
           onClick={onOpenCandidatePicker}
-          className="rounded border border-border bg-bg-subtle px-3 py-1 text-xs hover:bg-bg-muted"
+          className="rounded border border-border bg-bg-subtle px-3 py-1 text-xs wp-interactive"
         >
           Choose a different source
         </button>

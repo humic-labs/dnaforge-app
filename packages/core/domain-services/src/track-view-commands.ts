@@ -31,6 +31,7 @@ export type TrackViewCommandResult =
         name: string;
         organism: string;
         chromosomes: Array<{ chrom: string; length: number }>;
+        sequenceDataLayerTargets?: Array<{ chrom: string; targetDocumentId: string }>;
       }>;
     }
   | {

@@ -1,7 +1,4 @@
-import { usePresentationListener } from '../../../presentation/PresentationSurface';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { clampFixedMenuPosition } from '@waypoint/ui-components';
+import { ActionMenu, type ActionMenuEntry } from '../../../components/ActionMenu';
 
 export interface ProteinSequenceContextMenuProps {
   x: number;
@@ -30,119 +27,51 @@ export function ProteinSequenceContextMenu({
   onViewStructure,
   onPredictStructure,
 }: ProteinSequenceContextMenuProps) {
-  const presentationEvents = usePresentationListener();
-
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [adjustedPosition, setAdjustedPosition] = useState({ x, y });
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose();
-    };
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        e.preventDefault();
-        onClose();
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside, true);
-    presentationEvents.add(document, 'keydown', handleEscape, true);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside, true);
-      presentationEvents.remove(document, 'keydown', handleEscape, true);
-    };
-  }, [isOpen, onClose, presentationEvents]);
-
-  useLayoutEffect(() => {
-    if (!isOpen) return;
-    const rect = menuRef.current?.getBoundingClientRect();
-    setAdjustedPosition(
-      clampFixedMenuPosition({
-        x,
-        y,
-        menuWidth: rect?.width ?? 200,
-        menuHeight: rect?.height ?? 180,
-        viewportWidth: window.innerWidth,
-        viewportHeight: window.innerHeight,
-        padding: 10,
-      })
-    );
-  }, [x, y, isOpen]);
-
-  const handleItemClick = useCallback(
-    (action: () => void) => {
-      action();
-      onClose();
+  const entries: ActionMenuEntry[] = [
+    {
+      id: 'copy-sequence',
+      label: hasSelection ? 'Copy Selection' : 'Copy Sequence',
+      testId: 'protein-menu-copy-sequence',
+      closeReason: 'selection',
+      onSelect: onCopySequence,
     },
-    [onClose]
+  ];
+  if (!readOnly)
+    entries.push(
+      {
+        id: 'backtranslate',
+        label: hasSelection ? 'Backtranslate selection…' : 'Backtranslate …',
+        testId: 'protein-menu-backtranslate',
+        onSelect: onBacktranslate,
+      },
+      {
+        id: 'view-structure',
+        label: 'View Structure',
+        testId: 'protein-menu-view-structure',
+        onSelect: onViewStructure,
+      },
+      {
+        id: 'predict-structure',
+        label: 'Predict Structure…',
+        testId: 'protein-menu-predict-structure',
+        onSelect: onPredictStructure,
+      },
+      { id: 'ai-separator', separator: true },
+      {
+        id: 'ask-ai',
+        label: 'Ask AI about this protein',
+        testId: 'protein-menu-ask-ai',
+        onSelect: onAskAI,
+      }
+    );
+  return (
+    <ActionMenu
+      open={isOpen}
+      label="Protein actions"
+      entries={entries}
+      anchorPoint={{ x, y }}
+      onClose={onClose}
+      testId="protein-sequence-context-menu"
+    />
   );
-
-  if (!isOpen) return null;
-  const menuHost = typeof document === 'undefined' ? null : document.body;
-
-  const scopeLabel = hasSelection ? 'selection' : 'sequence';
-
-  const menu = (
-    <div
-      ref={menuRef}
-      data-testid="protein-sequence-context-menu"
-      style={{
-        position: 'fixed',
-        left: adjustedPosition.x,
-        top: adjustedPosition.y,
-        zIndex: 10000,
-      }}
-      className="min-w-[200px] rounded-md border border-border bg-bg-subtle py-1 shadow-xl"
-    >
-      <button
-        type="button"
-        data-testid="protein-menu-copy-sequence"
-        onClick={() => handleItemClick(onCopySequence)}
-        className="flex w-full items-center px-3 py-1.5 text-left text-sm text-fg hover:bg-bg-muted"
-      >
-        Copy {scopeLabel === 'selection' ? 'Selection' : 'Sequence'}
-      </button>
-      {!readOnly && (
-        <>
-          <button
-            type="button"
-            data-testid="protein-menu-backtranslate"
-            onClick={() => handleItemClick(onBacktranslate)}
-            className="flex w-full items-center px-3 py-1.5 text-left text-sm text-fg hover:bg-bg-muted"
-          >
-            Backtranslate {scopeLabel === 'selection' ? 'selection' : ''}…
-          </button>
-          <button
-            type="button"
-            data-testid="protein-menu-view-structure"
-            onClick={() => handleItemClick(onViewStructure)}
-            className="flex w-full items-center px-3 py-1.5 text-left text-sm text-fg hover:bg-bg-muted"
-          >
-            View Structure
-          </button>
-          <button
-            type="button"
-            data-testid="protein-menu-predict-structure"
-            onClick={() => handleItemClick(onPredictStructure)}
-            className="flex w-full items-center px-3 py-1.5 text-left text-sm text-fg hover:bg-bg-muted"
-          >
-            Predict Structure…
-          </button>
-          <div className="my-1 h-px bg-border" />
-          <button
-            type="button"
-            data-testid="protein-menu-ask-ai"
-            onClick={() => handleItemClick(onAskAI)}
-            className="flex w-full items-center px-3 py-1.5 text-left text-sm font-medium text-[hsl(38,92%,48%)] hover:bg-bg-muted"
-          >
-            Ask AI about this protein
-          </button>
-        </>
-      )}
-    </div>
-  );
-
-  return menuHost ? createPortal(menu, menuHost) : menu;
 }

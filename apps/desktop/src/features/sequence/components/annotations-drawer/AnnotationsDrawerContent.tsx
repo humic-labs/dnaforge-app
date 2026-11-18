@@ -381,7 +381,7 @@ export function AnnotationsDrawerContent({
           className={`flex-1 px-3 pt-2.5 pb-2 text-sm font-medium transition-colors border-b-2 ${
             tab === 'annotations'
               ? 'text-accent border-accent'
-              : 'text-fg-muted hover:text-fg border-transparent'
+              : 'text-fg-muted wp-interactive border-transparent'
           }`}
         >
           Annotations
@@ -395,7 +395,7 @@ export function AnnotationsDrawerContent({
               ? 'text-accent border-accent'
               : hasReviewSession
                 ? 'text-yellow-500/70 dark:text-yellow-400/70 hover:text-yellow-500 dark:hover:text-yellow-400 border-transparent'
-                : 'text-fg-muted hover:text-fg border-transparent'
+                : 'text-fg-muted wp-interactive border-transparent'
           }`}
         >
           {importedOutputName ? 'Import review' : 'pLannotate'}
@@ -439,7 +439,7 @@ export function AnnotationsDrawerContent({
                 data-testid="import-annotation-output"
                 onClick={onImportAnnotationOutput}
                 disabled={isImportingAnnotationOutput}
-                className="flex-shrink-0 px-2 py-1 text-sm rounded border border-border hover:bg-bg-subtle disabled:opacity-50"
+                className="flex-shrink-0 px-2 py-1 text-sm rounded border border-border wp-interactive disabled:opacity-50"
                 title="Review an existing JSON or GFF3 result without running an analysis"
               >
                 {isImportingAnnotationOutput ? 'Reading…' : 'Import results'}
@@ -455,7 +455,7 @@ export function AnnotationsDrawerContent({
             <span />
             <button
               data-testid="sort-by-name"
-              className="text-left px-1 py-0.5 rounded hover:bg-accent/15 hover:text-fg font-medium cursor-pointer truncate"
+              className="text-left px-1 py-0.5 rounded wp-interactive font-medium cursor-pointer truncate"
               onClick={() => handleSort('name')}
             >
               Name
@@ -474,7 +474,7 @@ export function AnnotationsDrawerContent({
                 <button
                   data-testid="sort-by-type"
                   onClick={() => handleSort('type')}
-                  className="hover:bg-accent/15 hover:text-fg rounded px-0.5 font-medium cursor-pointer truncate"
+                  className="wp-interactive rounded px-0.5 font-medium cursor-pointer truncate"
                 >
                   Type
                   {sortKey === 'type' ? (
@@ -491,7 +491,7 @@ export function AnnotationsDrawerContent({
                 <button
                   data-testid="type-filter-button"
                   onClick={() => setShowTypeFilter((v) => !v)}
-                  className="hover:bg-accent/15 rounded p-0.5 cursor-pointer flex-shrink-0"
+                  className="wp-interactive rounded p-0.5 cursor-pointer flex-shrink-0"
                 >
                   <svg
                     width="10"
@@ -506,7 +506,7 @@ export function AnnotationsDrawerContent({
                 {typeFilter && (
                   <button
                     onClick={() => setTypeFilter(null)}
-                    className="text-accent hover:text-fg hover:bg-accent/15 rounded p-0.5 cursor-pointer flex-shrink-0"
+                    className="text-accent wp-interactive rounded p-0.5 cursor-pointer flex-shrink-0"
                     title="Clear filter"
                   >
                     <svg
@@ -530,7 +530,7 @@ export function AnnotationsDrawerContent({
                       setTypeFilter(null);
                       setShowTypeFilter(false);
                     }}
-                    className="w-full text-left px-2 py-1 text-xs hover:bg-bg-subtle text-fg-muted font-medium border-b border-border"
+                    className="w-full text-left px-2 py-1 text-xs wp-interactive text-fg-muted font-medium border-b border-border"
                   >
                     Show all
                   </button>
@@ -539,7 +539,7 @@ export function AnnotationsDrawerContent({
                       key={type}
                       data-testid={`type-filter-${type}`}
                       onClick={() => toggleTypeFilter(type)}
-                      className="w-full text-left px-2 py-1 text-xs hover:bg-bg-subtle flex items-center gap-1.5"
+                      className="w-full text-left px-2 py-1 text-xs wp-interactive flex items-center gap-1.5"
                     >
                       <span
                         className={`w-3 h-3 rounded-sm border ${
@@ -556,7 +556,7 @@ export function AnnotationsDrawerContent({
             </div>
             <button
               data-testid="sort-by-position"
-              className="text-left px-1 py-0.5 rounded hover:bg-accent/15 hover:text-fg font-medium cursor-pointer"
+              className="text-left px-1 py-0.5 rounded wp-interactive font-medium cursor-pointer"
               onClick={() => handleSort('position')}
             >
               Pos

@@ -1,0 +1,220 @@
+{
+  "schema": "dnaforge.sequence-data-layer-fixture.v1",
+  "dataset": {
+    "number": 8,
+    "id": "08-tss",
+    "title": "Strand-specific transcription / TSS mapping",
+    "study": "Thomason et al. 2015",
+    "sourceReference": "E. coli MG1655, NC_000913.2"
+  },
+  "createdAt": "2026-11-17T03:57:33.835242+00:00",
+  "snapshot": {
+    "file": "snapshot.json",
+    "sha256": "8863fb174d8121aab6899ecbe0ecb524097f3876960e185583248f985334c14d",
+    "originalPreparedSnapshotSha256": "c2788634e4759d5978d3bcb0859f46d314f98760b028a3b9c0854a54453a31e7",
+    "omittedPresentationFields": [
+      "suggestedViews"
+    ]
+  },
+  "sourceFiles": [
+    {
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM1331nnn/GSM1331413/suppl/GSM1331413_LB_0.4_B2_TEX_pos_L1_HS1_forward.wig.gz",
+      "file": "raw/regulation/GSM1331413_forward.wig.gz",
+      "sha256": "9653b32e4c57817894a970ead6e5aed7d0f2b8021cdeebb8fcb075c6f16c2e60",
+      "bytes": 6437666,
+      "citation": "https://doi.org/10.1128/JB.02096-14"
+    },
+    {
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM1331nnn/GSM1331413/suppl/GSM1331413_LB_0.4_B2_TEX_pos_L1_HS1_reverse.wig.gz",
+      "file": "raw/regulation/GSM1331413_reverse.wig.gz",
+      "sha256": "b57348d418c160231bc019f8704c88efc4ef02079948d4616b3c95515db00bec",
+      "bytes": 6559831,
+      "citation": "https://doi.org/10.1128/JB.02096-14"
+    },
+    {
+      "url": "https://www.ebi.ac.uk/biostudies/files/S-EPMC4288677/JB.02096-14_zjb999093409sd1.xlsx",
+      "file": "raw/regulation/Thomason_TSS.xlsx",
+      "sha256": "1401e1b612a39bff7b9c70ac5929f62e6680110c7a1e792484a288e2544aecca",
+      "bytes": 6194914,
+      "citation": "https://doi.org/10.1128/JB.02096-14"
+    },
+    {
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM1331413&targ=self&form=text&view=full",
+      "file": "raw/regulation/GSM1331413.soft",
+      "sha256": "403e12d12340f9b73b186460d740c6a1ad74a932c98f95fc371177cc80fb62c2",
+      "bytes": 4093,
+      "citation": "https://doi.org/10.1128/JB.02096-14"
+    }
+  ],
+  "targetReference": {
+    "accession": "NC_000913.2",
+    "organism": "Escherichia coli K-12 MG1655",
+    "length": 4639675,
+    "normalizedSequenceSha256": "b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+    "normalizedSequenceFingerprint": "sha256:b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+    "directory": "reference-NC_000913.2",
+    "fastaFile": "NC_000913.2.fa.gz",
+    "fastaSha256": "57e309beca15cf4edef112fec10ecc2daf77539eb9b34df39206331dc4d1454e",
+    "gffFile": "NC_000913.2.gff3.gz",
+    "gffSha256": "59fc29e2046e3bf324d987808f5cc2193593a9b8004411376d843a648fc41db6",
+    "coordinateSystem": "one-based-inclusive",
+    "referenceSubstitutionApplied": false
+  },
+  "mapping": {
+    "kind": "positions",
+    "startColumn": "start1",
+    "endColumn": "end1",
+    "coordinateSystem": "one-based-inclusive"
+  },
+  "aggregation": "none",
+  "unresolvedPolicy": "reject",
+  "coordinateSystem": "one-based-inclusive",
+  "files": {
+    "coverageCsv": "coverage.csv",
+    "tssPointsCsv": "tss-points.csv",
+    "snapshot": "snapshot.json",
+    "sourceRecords": "source-records.json"
+  },
+  "counts": {
+    "sourceSnapshotCoverageRows": 466,
+    "coverageGridRows": 300,
+    "coverageSamples": 2,
+    "coverageNonNullValues": 466,
+    "coverageNullValues": 134,
+    "coverageBothStrandsMissingBins": 15,
+    "tssAssignmentRows": 134,
+    "uniqueTssStrandPositions": 111,
+    "tssMeasuredStepHeights": 134,
+    "tssMissingStepHeights": 0,
+    "verifiedTssSequenceAnchors": 134
+  },
+  "sourceCounts": {
+    "forward": {
+      "sourceFile": "raw/regulation/GSM1331413_forward.wig.gz",
+      "sha256": "9653b32e4c57817894a970ead6e5aed7d0f2b8021cdeebb8fcb075c6f16c2e60",
+      "wigHeader": [
+        "track type=wiggle_0 name=\"LB_0.4_B2_TEX_pos_L1_HS1_forward\"",
+        "variableStep chrom=NC_000913.2 span=1"
+      ],
+      "fullReportedPositions": 2013103,
+      "minimumReportedPosition": 38,
+      "maximumReportedPosition": 4639405,
+      "explicitZeroValues": 0,
+      "negativeValues": 0,
+      "selectedReportedPositions": 32811,
+      "selectedUnreportedPositions": 27189,
+      "binsWithReportedPositions": 259,
+      "binsWithoutReportedPositions": 41
+    },
+    "reverse": {
+      "sourceFile": "raw/regulation/GSM1331413_reverse.wig.gz",
+      "sha256": "b57348d418c160231bc019f8704c88efc4ef02079948d4616b3c95515db00bec",
+      "wigHeader": [
+        "track type=wiggle_0 name=\"LB_0.4_B2_TEX_pos_L1_HS1_reverse\"",
+        "variableStep chrom=NC_000913.2 span=1"
+      ],
+      "fullReportedPositions": 2035735,
+      "minimumReportedPosition": 8,
+      "maximumReportedPosition": 4639530,
+      "explicitZeroValues": 0,
+      "negativeValues": 2035735,
+      "selectedReportedPositions": 22296,
+      "selectedUnreportedPositions": 37704,
+      "binsWithReportedPositions": 207,
+      "binsWithoutReportedPositions": 93
+    }
+  },
+  "layers": [
+    {
+      "id": "coverage",
+      "file": "coverage.csv",
+      "label": "GSM1331413 strand coverage, reported-position mean",
+      "unit": "mean TRAPL-normalized RNA coverage over reported positions",
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start1",
+        "endColumn": "end1",
+        "coordinateSystem": "one-based-inclusive"
+      },
+      "valueColumns": [
+        "forward_mean_reported_absolute_coverage",
+        "reverse_mean_reported_absolute_coverage"
+      ],
+      "aggregation": "none",
+      "unresolvedPolicy": "reject",
+      "expectedNative": {
+        "total": 300,
+        "mapped": 300,
+        "unmapped": 0,
+        "ambiguous": 0,
+        "rejected": 0
+      },
+      "sampleProvenance": {
+        "geoAccession": "GSM1331413",
+        "condition": "LB, OD6000.4",
+        "biologicalReplicate": "B2",
+        "TEXTreatment": "TEX+"
+      }
+    },
+    {
+      "id": "tss-step-height",
+      "file": "tss-points.csv",
+      "label": "Published LB0.4 TSS expression step height",
+      "unit": "published expression step height (source units)",
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start1",
+        "endColumn": "end1",
+        "coordinateSystem": "one-based-inclusive"
+      },
+      "valueColumns": [
+        "published_step_height"
+      ],
+      "aggregation": "none",
+      "unresolvedPolicy": "reject",
+      "expectedNative": {
+        "total": 134,
+        "mapped": 134,
+        "unmapped": 0,
+        "ambiguous": 0,
+        "rejected": 0
+      },
+      "sampleProvenance": {
+        "sourceWorksheet": "TSS Map MasterTable",
+        "condition": "LB_0.4",
+        "detected": 1,
+        "biologicalReplicate": "Not asserted to be sampleB2; source calls are condition-level."
+      }
+    }
+  ],
+  "coordinateEvidence": {
+    "coverage": "Raw variableStep headers explicitly declare NC_000913.2 span1; GEO Genome_build also declares NC_000913.2. WIG format is1-start/fullyclosed.",
+    "tss": "All134 supplied51nt upstream+TSS sequences match the exact reference at the stated1-based start site and strand; all require offset0 only within±3bp.",
+    "formatSpecification": "https://genome.ucsc.edu/goldenpath/help/wiggle.html",
+    "exactReferenceSequenceSha256": "b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+    "sequenceAnchorsVerified": 134,
+    "sourceMetadata": "GSM1331413.soft"
+  },
+  "unitsEvidence": {
+    "coverage": "GEO declares TRAPL coverage calculation and normalization. No TPM, RPM, absolute-count, or copy-number unit is inferred.",
+    "tss": "The workbook defines stepHeight as expression-height change at the start site, related to reads starting there. The numeric source unit is not stated more precisely; stepHeight is preserved as published, separately from coverage and binarydetected.",
+    "primarySourceUrls": [
+      "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM1331413",
+      "https://doi.org/10.1128/JB.02096-14",
+      "https://www.ebi.ac.uk/biostudies/files/S-EPMC4288677/JB.02096-14_zjb999093409sd1.xlsx"
+    ]
+  },
+  "missingness": {
+    "coverage": "Means use only actually reported WIG positions. Unreported bins or strand cells are null; no absent bases become observed zero. Signed reverse coverage remains in audit CSV columns.",
+    "tss": "All134 selected assignments have a published numeric stepHeight. Multiple class/gene assignments at one locus remain separate rows; they are not independent TSS detections.",
+    "gridRepresentation": "All300 exact200bp intervals are represented so the two strand columns align;15 intervals with no reports on either strand have two null cells."
+  },
+  "limits": [
+    "One growth condition, one TEX+ biological sample, a 60 kb subset.",
+    "Coverage records and the separate study-predicted TSS annotations are different data types; prediction does not imply functional validation.",
+    "Coverage is the mean over positions reported in the WIG, not a full-window zero-filled average.",
+    "Opposite-strand coverage does not by itself establish functional antisense regulation.",
+    "TSS expression step height is a different source quantity from WIG coverage. Source calls are condition-level and are not labeled as sampleB2 measurements.",
+    "Native data-layer mapping preserves all positional rows; current map admission and renderer behavior have not been exercised by this preparation."
+  ]
+}

@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { toUserMessage } from '@waypoint/user-messages';
 import type { MolecularComparison } from '../../page/public/embeds/structure3d/molecularView';
 import { useState } from 'react';
@@ -93,33 +94,35 @@ export function InspectionProteinProducts({
         <div className="mt-2">
           <label>
             Saved structure for this protein
-            <select
-              aria-label="Saved structure for this protein"
-              value=""
-              disabled={busy}
-              className="ml-2 max-w-full rounded border border-border bg-bg p-1"
-              onChange={(event) => {
-                const id = event.target.value;
-                if (!id) return;
-                setBusy(true);
-                setError(null);
-                void attachSavedInspectionStructure(reference.entityId!, id)
-                  .then(() => setSavedChoices(null))
-                  .catch((cause) => setError(toUserMessage(cause, 'structure.failed')))
-                  .finally(() => setBusy(false));
-              }}
-            >
-              <option value="">
-                {savedChoices.length
-                  ? 'Choose a saved view'
-                  : 'No saved structures in this workspace'}
-              </option>
-              {savedChoices.map((view) => (
-                <option key={view.id} value={view.id}>
-                  {view.display_label}
+            <span className="inline-block min-w-0 ml-2 max-w-full">
+              <MenuNativeSelect
+                density="compact"
+                aria-label="Saved structure for this protein"
+                value=""
+                disabled={busy}
+                onChange={(event) => {
+                  const id = event.target.value;
+                  if (!id) return;
+                  setBusy(true);
+                  setError(null);
+                  void attachSavedInspectionStructure(reference.entityId!, id)
+                    .then(() => setSavedChoices(null))
+                    .catch((cause) => setError(toUserMessage(cause, 'structure.failed')))
+                    .finally(() => setBusy(false));
+                }}
+              >
+                <option value="">
+                  {savedChoices.length
+                    ? 'Choose a saved view'
+                    : 'No saved structures in this workspace'}
                 </option>
-              ))}
-            </select>
+                {savedChoices.map((view) => (
+                  <option key={view.id} value={view.id}>
+                    {view.display_label}
+                  </option>
+                ))}
+              </MenuNativeSelect>
+            </span>
           </label>
           <p className="mt-1 text-fg-muted">
             The structure must match this protein sequence. Open and save a structure to add it

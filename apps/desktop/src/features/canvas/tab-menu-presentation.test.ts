@@ -7,6 +7,18 @@ import {
 } from './tab-menu-presentation';
 
 describe('tab menu projection', () => {
+  it('preserves a protein entity color when its editor is a record', () => {
+    const tab = projectTabStripTab({
+      id: 'protein-record-tab',
+      type: 'record',
+      entityKind: 'protein',
+      entityId: 'protein-record-id',
+      label: 'Saved protein',
+    });
+    expect(tab.type).toBe('record');
+    expect(tab.iconContext?.kind).toBe('protein');
+  });
+
   it('identifies the active package assembly editor rather than its sequence storage kind', () => {
     const tab = projectTabStripTab({
       id: 'package-tab',
@@ -40,7 +52,7 @@ describe('tab menu projection', () => {
     expect(tab).toMatchObject({ isMolecularDocument: true });
     expect(tab).not.toHaveProperty('initialStructureAttrs');
   });
-  it('projects the tab header without a source descriptor or entity path', () => {
+  it('projects tab identity and color context without source authority', () => {
     expect(
       projectTabStripTab({
         id: 'sequence-tab',
@@ -57,6 +69,7 @@ describe('tab menu projection', () => {
     ).toEqual({
       id: 'sequence-tab',
       type: 'sequence',
+      iconContext: { kind: 'sequence', molecule: undefined, path: 'raw-product.gb' },
       label: 'pUC19.v2',
       isDirty: false,
       isIndexedSequence: false,

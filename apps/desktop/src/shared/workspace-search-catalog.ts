@@ -4,6 +4,8 @@ import type { SqliteIpcValue } from './sqlite-ipc';
 import { isPortableNativeEntityId } from './native-entity-reference';
 import { stripTrailingSep } from './path-boundary';
 import { sequenceDisplayName } from './sequence-presentation';
+import type { EntityColorContext } from './entity-color-family';
+import { catalogIconContext } from './catalog-icon-context';
 
 export type SidebarSearchableCatalogEntityType = Exclude<CatalogEntityType, 'selection' | 'folder'>;
 
@@ -37,6 +39,7 @@ export interface MountedCatalogEntitySearchResult {
   name: string;
   workspaceRoot: string;
   workspaceName: string;
+  iconContext?: EntityColorContext;
 }
 
 export interface SearchMountedCatalogEntitiesInput {
@@ -70,6 +73,8 @@ export interface MountedCatalogEntitySearchRow {
   workspace_root: string;
   workspace_name: string;
   updated_at: number;
+  icon_kind?: string | null;
+  icon_path?: string | null;
 }
 
 const sidebarSearchableCatalogEntityTypeSet = new Set<string>(
@@ -186,6 +191,10 @@ export function createMountedCatalogSearch(
            e.name AS name,
            e.storage_type AS storage_type,
            e.metadata AS metadata,
+           (SELECT kind FROM lims_entity l WHERE l.id = e.id) AS icon_kind,
+           (SELECT path FROM catalog_entity_files f
+             WHERE f.entity_id = e.id AND f.workspace_id = e.workspace_id
+               AND f.status = 'current' ORDER BY f.id LIMIT 1) AS icon_path,
            w.path AS workspace_root,
            w.name AS workspace_name,
            COALESCE(e.updated_at, 0) AS updated_at
@@ -285,6 +294,11 @@ export function createMountedCatalogSearch(
       )
         return [];
 
+      const iconContext = catalogIconContext({
+        kind: row.icon_kind,
+        path: row.icon_path,
+        metadata: row.metadata,
+      });
       return [
         {
           entityId: row.entity_id,
@@ -292,6 +306,7 @@ export function createMountedCatalogSearch(
           name: row.entity_type === 'sequence' ? sequenceDisplayName(row.name) : row.name,
           workspaceRoot: row.workspace_root,
           workspaceName: row.workspace_name,
+          ...(iconContext ? { iconContext } : {}),
         },
       ];
     });

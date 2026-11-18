@@ -5,6 +5,9 @@ import { resolve } from 'node:path';
 import { createListFilesTool, listFilesSchema } from './list-files';
 import { execTool as executeTool } from './test-helpers';
 import type { WorkspaceFolder } from '../../../stores/workspaceStore';
+import { createElement } from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { ToolResultDisplay } from '../../../components/chat/ToolResultDisplay';
 
 const { mockPlatform } = vi.hoisted(() => ({
   mockPlatform: {
@@ -15,11 +18,12 @@ const { mockPlatform } = vi.hoisted(() => ({
   },
 }));
 
-const { mockOpenPackage, mockFindByMemberPath, mockGetCatalogEntityForFilePath } = vi.hoisted(
+const { mockOpenPackage, mockFindByMemberPath, mockGetCatalogEntityForFilePath, mockGetCatalogIconContextsForPaths } = vi.hoisted(
   () => ({
     mockOpenPackage: vi.fn().mockResolvedValue(null),
     mockFindByMemberPath: vi.fn().mockResolvedValue(null),
     mockGetCatalogEntityForFilePath: vi.fn().mockResolvedValue(null),
+    mockGetCatalogIconContextsForPaths: vi.fn().mockResolvedValue(new Map()),
   })
 );
 
@@ -38,6 +42,7 @@ vi.mock('../../sequence/managed-sequence-repository', () => ({
 vi.mock('../../../db/workspace-catalog', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../db/workspace-catalog')>()),
   getCatalogEntityForFilePath: mockGetCatalogEntityForFilePath,
+  getCatalogIconContextsForPaths: mockGetCatalogIconContextsForPaths,
 }));
 
 const WORKSPACE = '/home/user/lab';
@@ -49,10 +54,28 @@ beforeEach(() => {
   mockOpenPackage.mockResolvedValue(null);
   mockFindByMemberPath.mockResolvedValue(null);
   mockGetCatalogEntityForFilePath.mockResolvedValue(null);
+  mockGetCatalogIconContextsForPaths.mockResolvedValue(new Map());
   mockPlatform.fs.readTextFileSlice.mockResolvedValue({ text: '', bytesRead: 0 });
 });
 
 describe('list_files tool (single folder)', () => {
+  it('preserves declared managed RNA identity through the expanded extensionless result', async () => {
+    mockPlatform.fs.readDir.mockResolvedValueOnce([{ name: 'transcript', isDirectory: true }]);
+    mockOpenPackage.mockResolvedValueOnce({
+      document: { id: 'rna-document', name: 'transcript', entity: { schema: { name: 'rna_sequence' } } },
+      productPath: `${WORKSPACE}/transcript/product.gb`,
+    });
+    const output = await execTool<{ entries: unknown[] }>(createListFilesTool(singleFolder), {});
+    render(createElement(ToolResultDisplay, {
+      toolName: 'list_files',
+      content: JSON.stringify({ input: {}, output }),
+    }));
+    fireEvent.click(screen.getByRole('button'));
+    expect(screen.getByText('transcript').parentElement?.querySelector('svg')).toHaveAttribute(
+      'data-entity-color-family', 'rna'
+    );
+  });
+
   it('publishes optional-filter guidance without accepting empty filters', () => {
     expect(listFilesSchema.shape.nameQuery.description).toContain('Omit');
     expect(listFilesSchema.shape.biologyQuery.description).toContain('Omit');

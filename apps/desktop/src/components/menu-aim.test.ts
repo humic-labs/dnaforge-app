@@ -156,3 +156,55 @@ describe('submenu pointer grace', () => {
     unmount();
   });
 });
+
+describe('submenu intent lifetime', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it.each(['session', 'closed', 'unmounted', 'candidate'] as const)(
+    'does not activate obsolete intent after its %s changes',
+    (change) => {
+      vi.useFakeTimers();
+      const activate = vi.fn();
+      const submenu = document.createElement('div');
+      document.body.append(submenu);
+      vi.spyOn(submenu, 'getBoundingClientRect').mockReturnValue({
+        ...submenuOnRight,
+        x: submenuOnRight.left,
+        y: submenuOnRight.top,
+        width: submenuOnRight.right - submenuOnRight.left,
+        height: submenuOnRight.bottom - submenuOnRight.top,
+        toJSON: () => ({}),
+      });
+      let candidateCurrent = true;
+      const { result, rerender, unmount } = renderHook(
+        ({ session, enabled }) => useMenuAim({ session, enabled }),
+        { initialProps: { session: 1, enabled: true } }
+      );
+      act(() => {
+        document.dispatchEvent(
+          new MouseEvent('pointermove', { bubbles: true, clientX: 120, clientY: 70 })
+        );
+        result.current.requestActivation({
+          pointer: { clientX: 260, clientY: 110 },
+          submenuElement: submenu,
+          activate,
+          isCurrent: () => candidateCurrent,
+        });
+      });
+      expect(activate).not.toHaveBeenCalled();
+      if (change === 'session') rerender({ session: 2, enabled: true });
+      if (change === 'closed') {
+        rerender({ session: 1, enabled: false });
+        rerender({ session: 1, enabled: true });
+      }
+      if (change === 'unmounted') unmount();
+      if (change === 'candidate') candidateCurrent = false;
+      act(() => vi.advanceTimersByTime(300));
+      expect(activate).not.toHaveBeenCalled();
+      if (change !== 'unmounted') unmount();
+      submenu.remove();
+    }
+  );
+});

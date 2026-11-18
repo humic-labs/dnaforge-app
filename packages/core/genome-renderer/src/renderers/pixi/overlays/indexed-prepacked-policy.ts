@@ -1,3 +1,4 @@
+import type { AnnotationDataColorsV1 } from '../../../annotation-data-appearance';
 import {
   ANNOTATION_LANE_TOTAL,
   resolveAnnotationTrackContract,
@@ -58,6 +59,7 @@ export type PrepackedPolicyPresentationCamera = {
   viewportCssWidthPx: number;
   viewportCssHeightPx: number;
   themeMode: 'light' | 'dark';
+  annotationDataColors?: AnnotationDataColorsV1;
   rolePalette?: AnnotationRolePaletteOverridesV1;
 };
 
@@ -76,6 +78,7 @@ export type PrepackedPolicyLastPresentation = {
   viewportHeight: number;
   cdsDetail: number;
   themeMode: 'light' | 'dark';
+  annotationDataColors?: AnnotationDataColorsV1;
   rolePalette?: AnnotationRolePaletteOverridesV1;
 };
 
@@ -379,7 +382,8 @@ function applyVectorFallbackPresentation<TResident extends PrepackedPolicyReside
       lastPresentation.cdsDetail,
       host.annotationTrackBaseOffset - laneStart * laneRowCssHeightPx,
       lastPresentation.themeMode,
-      lastPresentation.rolePalette
+      lastPresentation.rolePalette,
+      lastPresentation.annotationDataColors
     );
     resident.visiblePartitionCount = submissions.length;
     resident.visibleInstanceCount = submissions.reduce(
