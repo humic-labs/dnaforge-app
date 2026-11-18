@@ -89,6 +89,7 @@
 
 :root {
   --color-bg: 40 20% 99%;
+  --color-document-bg: 0 0% 100%;
   --color-bg-subtle: 40 15% 97%;
   --color-bg-muted: 40 10% 94%;
 
@@ -190,13 +191,14 @@
 .dark {
   color-scheme: dark;
 
-  --color-bg: 30 8% 8%;
-  --color-bg-subtle: 30 6% 11%;
-  --color-bg-muted: 30 5% 14%;
+  --color-bg: 220 8% 9%;
+  --color-document-bg: 220 7% 12%;
+  --color-bg-subtle: 220 6% 17%;
+  --color-bg-muted: 220 5% 22%;
 
-  --color-fg: 40 15% 92%;
-  --color-fg-muted: 40 8% 60%;
-  --color-fg-subtle: 40 5% 45%;
+  --color-fg: 210 10% 93%;
+  --color-fg-muted: 215 7% 74%;
+  --color-fg-subtle: 215 6% 68%;
 
   --entity-icon-dna: #80c79c;
   --entity-icon-rna: #c2a0e7;
@@ -205,8 +207,8 @@
   --entity-icon-code: #e2b270;
   --entity-icon-neutral: #a4aa9b;
 
-  --color-border: 30 5% 18%;
-  --color-border-hover: 30 5% 25%;
+  --color-border: 220 6% 25%;
+  --color-border-hover: 220 6% 34%;
 
   --color-accent-subtle: 152 30% 15%;
 
@@ -227,13 +229,13 @@
   --color-code-literal: 32 72% 67%;
   --color-code-variable: 330 52% 70%;
 
-  --color-tooltip-bg: 30 5% 22%;
+  --color-tooltip-bg: var(--color-bg-muted);
 
   --color-selection-fill: rgba(180, 160, 50, 0.3);
   --color-selection-stroke: rgba(180, 160, 50, 0.6);
 
-  --color-viewer-bg: 30 6% 11%;
-  --color-viewer-chrome: 30 5% 14%;
+  --color-viewer-bg: var(--color-document-bg);
+  --color-viewer-chrome: var(--color-bg-muted);
   --color-viewer-stroke: 220 9% 55%;
   --color-viewer-stroke-light: 220 9% 30%;
 }
@@ -243,11 +245,7 @@
 }
 
 .notebook-editor-body {
-  background-color: #fff;
-}
-
-.dark .notebook-editor-body {
-  background-color: hsl(var(--color-bg-subtle));
+  background-color: hsl(var(--color-document-bg));
 }
 
 :root:not(.dark) [data-molecular-view-viewport] {

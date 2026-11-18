@@ -17,10 +17,11 @@ describe('notebook chrome surfaces ', () => {
     expect(toolbar).toMatch(/className="tab-chrome-surface /);
   });
 
-  it('lifts the notebook text body off the tab with --color-bg-subtle', () => {
+  it('paints the notebook with the shared document surface in both appearances', () => {
     expect(stylesheet).toMatch(
-      /\.notebook-editor-body\s*\{[^}]*background-color:\s*hsl\(var\(--color-bg-subtle\)\);/s
+      /\.notebook-editor-body\s*\{[^}]*background-color:\s*hsl\(var\(--color-document-bg\)\);/s
     );
+    expect(stylesheet).not.toMatch(/\.dark\s+\.notebook-editor-body\s*\{/);
     expect(editor).toMatch(/data-testid="notebook-editor-body"/);
     expect(editor).toMatch(/className="notebook-editor-body /);
   });
