@@ -18,7 +18,9 @@ export function terminalAdditionalQuickFixes(
   if (
     git &&
     command.exitCode === 0 &&
-    lines.slice(-8).some((line) => /and can be fast-forwarded/.test(line))
+    lines.some((line) =>
+      /^Your branch is behind '.+' by \d+ commits?, and can be fast-forwarded\.$/.test(line)
+    )
   )
     fixes.push({ kind: 'command', command: 'git pull --ff-only' });
   if (git && /^\s*git\s+push(?:\s|$)/.test(command.command)) {
