@@ -1,3 +1,6 @@
+import { temporalFieldValue } from '../../../shared/registry-temporal-input';
+import { assertLimsTemporalEdits } from '@waypoint/scientific-artifacts/shared/lims-temporal';
+import { RegistryTemporalInput } from '../../../shared/components/RegistryTemporalInput';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { Button, TextField, TextArea, UI_FIELD_CLASS } from '../../../components/ui';
 import { useEffect, useMemo, useState } from 'react';
@@ -42,6 +45,7 @@ function fieldTestId(field: LimsFieldDefinition): string {
 }
 
 function parseFieldValue(field: LimsFieldDefinition, value: string | boolean): unknown {
+  if (field.type === 'datetime') return temporalFieldValue('datetime', String(value)) ?? undefined;
   if (field.type === 'boolean') return value === true;
   const text = String(value).trim();
   if (!text) return undefined;
@@ -86,6 +90,23 @@ function SchemaField({
       {field.required && <span className="ml-1 text-error">*</span>}
     </label>
   );
+  if (field.type === 'date' || field.type === 'datetime')
+    return (
+      <>
+        {label}
+        <RegistryTemporalInput
+          type={field.type}
+          label={field.label}
+          id={id}
+          testId={fieldTestId(field)}
+          text={String(value)}
+          change={onChange}
+          min={field.minDate}
+          max={field.maxDate}
+          required={field.required}
+        />
+      </>
+    );
   if (field.type === 'long_text') {
     return (
       <div className="space-y-2">
@@ -129,7 +150,7 @@ function SchemaField({
       <TextField
         id={id}
         data-testid={fieldTestId(field)}
-        type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+        type={field.type === 'number' ? 'number' : 'text'}
         required={field.required}
         value={String(value)}
         onChange={(event) => onChange(event.target.value)}
@@ -198,6 +219,7 @@ export function StrainCreationForm({
     setSaving(true);
     setError(null);
     try {
+      assertLimsTemporalEdits(fields, schema.fields);
       await onSave({
         id: creationId,
         kind: 'strain',

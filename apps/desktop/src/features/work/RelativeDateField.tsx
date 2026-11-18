@@ -1,9 +1,6 @@
+import { parseLimsTemporalField } from '@waypoint/scientific-artifacts/shared/lims-temporal';
 import { useEffect, useState } from 'react';
-import {
-  classifyLegacyWorkDate,
-  type WorkResolvedDate,
-  type WorkSource,
-} from '@waypoint/domain-services';
+import { type WorkResolvedDate, type WorkSource } from '@waypoint/domain-services';
 import type { WorkProject } from '../../shared/work-tasks-ipc';
 import { Button } from '../../shared/components/Button';
 import { platform } from '../../platform';
@@ -64,8 +61,8 @@ function SourcePicker({
           for (const record of records.value.summaries) {
             if (record.archived) continue;
             for (const field of record.schemaSnapshot.fields) {
-              if (field.type !== 'date') continue;
-              const parsed = classifyLegacyWorkDate(record.fieldValues[field.key], 'UTC');
+              if (field.type !== 'date' && field.type !== 'datetime') continue;
+              const parsed = parseLimsTemporalField(field.type, record.fieldValues[field.key]);
               choices.push({
                 ...(parsed.kind === 'exact'
                   ? {}

@@ -1,3 +1,7 @@
+import { assertLimsTemporalEdits } from '@waypoint/scientific-artifacts/shared/lims-temporal';
+import { requireSupportedLimsFieldDefinitions } from '../../../../shared/lims';
+import { RegistryTemporalInput } from '../../../../shared/components/RegistryTemporalInput';
+import { temporalFieldValue, temporalFieldDraft } from '../../../../shared/registry-temporal-input';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
@@ -134,6 +138,13 @@ export function RegistryRecordEditor({
         expectedEventSeq: draft.eventSeq,
         operationId: draft.operationId,
       };
+      assertLimsTemporalEdits(
+        input.fields ?? {},
+        requireSupportedLimsFieldDefinitions(
+          schema.fields.filter((f) => f.type === 'date' || f.type === 'datetime')
+        ),
+        draft.savedFields
+      );
       if (draft.scientificAuthority) await onSave(input, draft.scientificAuthority);
       else await onSave(input);
       setDraft(null);
@@ -314,16 +325,27 @@ function RecordFieldInput({
   if (field.readOnly) return <RegistryRecordValue type={field.type} value={value} />;
   const text = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
   switch (field.type) {
-    case 'text':
     case 'date':
+    case 'datetime':
+      return (
+        <RegistryTemporalInput
+          type={field.type}
+          label={field.label}
+          text={temporalFieldDraft(value)}
+          change={(text) =>
+            onChange(temporalFieldValue(field.type === 'datetime' ? 'datetime' : 'date', text))
+          }
+          min={field.minDate}
+          max={field.maxDate}
+          required={field.required}
+        />
+      );
+    case 'text':
       return (
         <TextField
           aria-label={field.label}
           value={text}
-          placeholder={field.type === 'date' ? 'YYYY-MM-DD' : undefined}
-          onChange={(event) =>
-            onChange(field.type === 'date' && !event.target.value ? null : event.target.value)
-          }
+          onChange={(event) => onChange(event.target.value)}
         />
       );
     case 'long_text':

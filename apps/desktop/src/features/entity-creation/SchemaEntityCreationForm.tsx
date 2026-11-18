@@ -1,3 +1,6 @@
+import { temporalFieldValue } from '../../shared/registry-temporal-input';
+import { assertLimsTemporalEdits } from '@waypoint/scientific-artifacts/shared/lims-temporal';
+import { RegistryTemporalInput } from '../../shared/components/RegistryTemporalInput';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { Button, TextField, TextArea, UI_FIELD_CLASS } from '../../components/ui';
 import { useMemo, useState } from 'react';
@@ -24,6 +27,7 @@ const SIMPLE_FIELD_TYPES = new Set<LimsFieldDefinition['type']>([
   'boolean',
   'enum',
   'date',
+  'datetime',
   'string_array',
   'record_relationship',
 ]);
@@ -39,6 +43,7 @@ export function supportsGenericEntityCreation(schema: LimsSchemaDefinitionView):
 
 function parseFieldValue(field: LimsFieldDefinition, value: unknown): unknown {
   if (field.type === 'record_relationship') return value || undefined;
+  if (field.type === 'datetime') return temporalFieldValue('datetime', String(value)) ?? undefined;
   if (field.type === 'boolean') return value === true;
   const text = String(value).trim();
   if (!text) return undefined;
@@ -99,6 +104,23 @@ function SchemaField({
       {field.required && <span className="ml-1 text-error">*</span>}
     </label>
   );
+  if (field.type === 'date' || field.type === 'datetime')
+    return (
+      <>
+        {label}
+        <RegistryTemporalInput
+          type={field.type}
+          label={field.label}
+          id={id}
+          testId={testId}
+          text={String(value)}
+          change={onChange}
+          min={field.minDate}
+          max={field.maxDate}
+          required={field.required}
+        />
+      </>
+    );
   if (field.type === 'long_text') {
     return (
       <div className="space-y-2">
@@ -142,7 +164,7 @@ function SchemaField({
       <TextField
         id={id}
         data-testid={testId}
-        type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+        type={field.type === 'number' ? 'number' : 'text'}
         required={field.required}
         value={String(value)}
         onChange={(event) => onChange(event.target.value)}
@@ -201,6 +223,7 @@ export function SchemaEntityCreationForm({
     setSaving(true);
     setError(null);
     try {
+      assertLimsTemporalEdits(fields, schema.fields);
       await onSave({
         kind: schema.entityKind,
         schemaId: schema.schemaId,
