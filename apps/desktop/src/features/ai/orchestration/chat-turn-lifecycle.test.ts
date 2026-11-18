@@ -309,6 +309,60 @@ describe('createChatTurnLifecycle', () => {
     });
   });
 
+  it('attaches a verified published data layer without appending an unsupported completion warning', async () => {
+    const id = `layer-${'a'.repeat(64)}`;
+    const path = `/project/.dnaforge/sequence-data-layers/${id}.dnalayer.json`;
+    const commit = vi.fn().mockResolvedValue({ committed: true });
+    const resolveSavedArtifact = vi.fn(async () => ({ path, workspaceRoot: '/project' }));
+    const lifecycle = createChatTurnLifecycle({
+      set: storeHarness().set,
+      conversationId: CONVERSATION_ID,
+      turnId: TURN_ID,
+      commitTerminalState: commit,
+      artifactDeliveryDependencies: { resolveSavedArtifact },
+    });
+    lifecycle.queueTerminalMessage({
+      id: 'published-layer',
+      turnId: TURN_ID,
+      role: 'tool',
+      toolName: 'sequence_data_layers',
+      content: JSON.stringify({
+        input: { operation: 'create', project: 'Engineering' },
+        output: {
+          ok: true,
+          status: 'published',
+          data: {
+            id,
+            path,
+            revision: 'b'.repeat(64),
+            label: 'Measured expression',
+            availability: { status: 'current' },
+          },
+        },
+      }),
+      createdAt: 31,
+    });
+    const content =
+      'I saved the sequence data layer. Three rows mapped; one unmatched row remains in the report.';
+    lifecycle.queueTerminalMessage({
+      id: 'layer-answer',
+      turnId: TURN_ID,
+      role: 'assistant',
+      content,
+      createdAt: 32,
+    });
+
+    await lifecycle.finishTurn('completed', 'completed');
+
+    const request = commit.mock.calls[0][0];
+    expect(resolveSavedArtifact).toHaveBeenCalledOnce();
+    expect(request.proposed_entity_references).toEqual([
+      expect.objectContaining({ entity_type: 'file', locator: `git://${path}` }),
+    ]);
+    expect(request.messages[1].reference_ids).toEqual([request.proposed_entity_references[0].id]);
+    expect(request.messages[1].message.content).toBe(content);
+  });
+
   it('preserves the explanation and clarification when one imported artifact is unavailable', async () => {
     const designId = 'e8dd4c82-1d86-4149-9946-487c41d00ad7';
     const documentId = '8a55ac70-b2a8-46d9-b19a-782974fcd2d2';

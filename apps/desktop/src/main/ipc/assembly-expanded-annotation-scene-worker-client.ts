@@ -1,4 +1,5 @@
 import type { DedicatedWorkerLikeV1 } from './process-worker';
+import type { SourceAnnotationAliasesV1 } from '@waypoint/genome-renderer/pure';
 import type { SearchJobPairV1 } from './assembly-search-chromosome-pool';
 
 import type {
@@ -21,6 +22,7 @@ import type {
 export type ExpandedAnnotationSceneWorkerRequest =
   | { type: 'compile'; job: ExpandedAnnotationSceneWorkerJob }
   | { type: 'inventory'; job: ExpandedAnnotationSceneWorkerJob }
+  | { type: 'source-aliases'; job: ExpandedAnnotationSceneWorkerJob; expectedPayloadSha256: string }
   | { type: 'compile-set'; job: ExpandedAnnotationSceneWorkerSetJob }
   | { type: 'compile-search'; job: AssemblyAnnotationSearchWorkerJob }
   | { type: 'compile-protein-search'; job: AssemblyProteinSearchWorkerJob }
@@ -29,6 +31,7 @@ export type ExpandedAnnotationSceneWorkerRequest =
 export type ExpandedAnnotationSceneWorkerResponse =
   | { type: 'result'; result: ExpandedAnnotationSceneWorkerResult }
   | { type: 'inventory-result'; result: ExpandedAnnotationSceneInventoryWorkerResult }
+  | { type: 'source-aliases-result'; result: readonly SourceAnnotationAliasesV1[] }
   | { type: 'set-result'; result: ExpandedAnnotationSceneWorkerSetResult }
   | { type: 'search-progress'; progress: AssemblyAnnotationSearchWorkerProgress }
   | { type: 'search-result'; result: AssemblyAnnotationSearchWorkerResult }
@@ -59,6 +62,57 @@ function structuredWorkerError(error: { name: string; message: string }): Error 
   const reconstructed = new Error(error.message);
   reconstructed.name = error.name;
   return reconstructed;
+}
+
+export function runRetainedSourceAnnotationAliasesWorkerV1(
+  job: ExpandedAnnotationSceneWorkerJob,
+  expectedPayloadSha256: string,
+  options: ExpandedAnnotationSceneWorkerClientOptions
+): Promise<readonly SourceAnnotationAliasesV1[]> {
+  const worker = options.createWorker();
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (result: { value: readonly SourceAnnotationAliasesV1[] } | { error: Error }) => {
+      if (settled) return;
+      settled = true;
+      worker.removeListener('message', onMessage);
+      worker.removeListener('error', onError);
+      worker.removeListener('exit', onExit);
+      options.signal?.removeEventListener('abort', onAbort);
+      void worker
+        .terminate()
+        .catch(() => undefined)
+        .then(() => {
+          if ('error' in result) reject(result.error);
+          else resolve(result.value);
+        });
+    };
+    const onMessage = (message: ExpandedAnnotationSceneWorkerResponse) => {
+      if (message?.type === 'source-aliases-result') finish({ value: message.result });
+      else if (message?.type === 'error') finish({ error: structuredWorkerError(message.error) });
+      else
+        finish({ error: new Error('Retained annotation source worker sent an invalid response.') });
+    };
+    const onError = (error: Error) => finish({ error });
+    const onExit = (code: number) =>
+      finish({
+        error: new Error(
+          `Retained annotation source worker exited before completion (code ${code}).`
+        ),
+      });
+    const onAbort = () => finish({ error: abortError() });
+    worker.on('message', onMessage);
+    worker.on('error', onError);
+    worker.on('exit', onExit);
+    options.signal?.addEventListener('abort', onAbort, { once: true });
+    if (options.signal?.aborted) onAbort();
+    else
+      worker.postMessage({
+        type: 'source-aliases',
+        job,
+        expectedPayloadSha256,
+      } satisfies ExpandedAnnotationSceneWorkerRequest);
+  });
 }
 
 export function runExpandedAnnotationSceneWorker(

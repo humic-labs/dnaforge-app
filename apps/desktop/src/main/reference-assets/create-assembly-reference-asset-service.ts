@@ -70,6 +70,7 @@ import { referencePreparationTiming } from './reference-prep-timing';
 import type { IndexedSourceQuartet } from './portable-source-quartet-verification';
 
 export interface AssemblyReferenceAssetRuntimeV1 {
+  readonly prepareSourceAnnotationAliases?: import('../ipc/assembly-annotation-product-index-coordinator').AssemblyAnnotationProductIndexCoordinatorDepsV1['prepareSourceAnnotationAliases'];
   readonly assertSafePath: (path: string) => Promise<void>;
   readonly sourceBuildFingerprint: string;
   readonly verifyPublishedSourceQuartet?: (
@@ -139,6 +140,9 @@ export function createAssemblyReferenceAssetAuthoritiesV1(
   });
 
   const productIndex = new AssemblyAnnotationProductIndexCoordinatorV1({
+    ...(runtime.prepareSourceAnnotationAliases
+      ? { prepareSourceAnnotationAliases: runtime.prepareSourceAnnotationAliases }
+      : {}),
     readScene: (request) => readAssemblyAnnotationSceneCacheIndex(request, cacheDeps),
     prepareScene: (request, miss) =>
       prepareAssemblyAnnotationSceneOnMiss(request, miss, {

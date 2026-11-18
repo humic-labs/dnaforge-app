@@ -69,6 +69,65 @@ export function attachPixiInteractionAdapter(params: {
   const { canvasEl, stateRef, optionsRef, renderer, activeGenome, circular, invalidateRender } =
     params;
   const interaction = setupInteraction(canvasEl, stateRef.current);
+  if (renderer instanceof PixiLinearRenderer) {
+    interaction.hitTestComparison = (x, y) => {
+      const local = canvasLocalPoint(canvasEl, stateRef.current, x, y);
+      return renderer.hitTestComparison(local.x, local.y, stateRef.current);
+    };
+    interaction.panComparison = (deltaX) => {
+      const rect = canvasEl.getBoundingClientRect();
+      const state = stateRef.current;
+      const camera = renderer.panComparison(
+        deltaX * (rect.width > 0 ? state.width / rect.width : 1),
+        state
+      );
+      if (camera) optionsRef.current.onComparisonCameraChange?.(camera, 'scroll');
+      invalidateRender?.();
+    };
+    interaction.zoomComparison = (factor, x, y) => {
+      const local = canvasLocalPoint(canvasEl, stateRef.current, x, y);
+      const camera = renderer.zoomComparison(factor, local.x, stateRef.current);
+      if (camera) optionsRef.current.onComparisonCameraChange?.(camera, 'zoom');
+      invalidateRender?.();
+    };
+    interaction.onComparisonHover = (hit) => {
+      optionsRef.current.onComparisonHover?.(hit);
+      invalidateRender?.();
+    };
+    interaction.onComparisonClick = (hit) => {
+      optionsRef.current.onComparisonClick?.(hit);
+      invalidateRender?.();
+    };
+    interaction.hitTestContact = (x, y) => {
+      const local = canvasLocalPoint(canvasEl, stateRef.current, x, y);
+      return renderer.hitTestContact(local.x, local.y, stateRef.current);
+    };
+    interaction.panContact = (deltaX, deltaY) => {
+      const rect = canvasEl.getBoundingClientRect();
+      const state = stateRef.current;
+      const camera = renderer.panContact(
+        deltaX * (rect.width > 0 ? state.width / rect.width : 1),
+        deltaY * (rect.height > 0 ? state.height / rect.height : 1),
+        state
+      );
+      if (camera) optionsRef.current.onContactCameraChange?.(camera, 'scroll');
+      invalidateRender?.();
+    };
+    interaction.zoomContact = (factor, x, y) => {
+      const local = canvasLocalPoint(canvasEl, stateRef.current, x, y);
+      const camera = renderer.zoomContact(factor, local.x, local.y, stateRef.current);
+      if (camera) optionsRef.current.onContactCameraChange?.(camera, 'zoom');
+      invalidateRender?.();
+    };
+    interaction.onContactHover = (hit) => {
+      optionsRef.current.onContactHover?.(hit);
+      invalidateRender?.();
+    };
+    interaction.onContactClick = (hit) => {
+      optionsRef.current.onContactClick?.(hit);
+      invalidateRender?.();
+    };
+  }
   interaction.isInputEnabled = () =>
     !(renderer as { isTrackPresentationDragging?: () => boolean }).isTrackPresentationDragging?.();
   const detectFrustration = createCanvasFrustrationDetector();

@@ -1,0 +1,1586 @@
+[
+  {
+    "clone": "Ara+1_500gen_768A",
+    "population": "Ara+1",
+    "generation": 500,
+    "legacySnapshotClone": "Arap1_500gen_768A"
+  },
+  {
+    "clone": "Ara+1_500gen_768B",
+    "population": "Ara+1",
+    "generation": 500,
+    "legacySnapshotClone": "Arap1_500gen_768B"
+  },
+  {
+    "clone": "Ara+1_1000gen_958A",
+    "population": "Ara+1",
+    "generation": 1000,
+    "legacySnapshotClone": "Arap1_1000gen_958A"
+  },
+  {
+    "clone": "Ara+1_1000gen_958B",
+    "population": "Ara+1",
+    "generation": 1000,
+    "legacySnapshotClone": "Arap1_1000gen_958B"
+  },
+  {
+    "clone": "Ara+1_1500gen_1062A",
+    "population": "Ara+1",
+    "generation": 1500,
+    "legacySnapshotClone": "Arap1_1500gen_1062A"
+  },
+  {
+    "clone": "Ara+1_1500gen_1062B",
+    "population": "Ara+1",
+    "generation": 1500,
+    "legacySnapshotClone": "Arap1_1500gen_1062B"
+  },
+  {
+    "clone": "Ara+1_2000gen_1158A",
+    "population": "Ara+1",
+    "generation": 2000,
+    "legacySnapshotClone": "Arap1_2000gen_1158A"
+  },
+  {
+    "clone": "Ara+1_2000gen_1158C",
+    "population": "Ara+1",
+    "generation": 2000,
+    "legacySnapshotClone": "Arap1_2000gen_1158C"
+  },
+  {
+    "clone": "Ara+1_5000gen_2173A",
+    "population": "Ara+1",
+    "generation": 5000,
+    "legacySnapshotClone": "Arap1_5000gen_2173A"
+  },
+  {
+    "clone": "Ara+1_5000gen_2173B",
+    "population": "Ara+1",
+    "generation": 5000,
+    "legacySnapshotClone": "Arap1_5000gen_2173B"
+  },
+  {
+    "clone": "Ara+1_10000gen_4530A",
+    "population": "Ara+1",
+    "generation": 10000,
+    "legacySnapshotClone": "Arap1_10000gen_4530A"
+  },
+  {
+    "clone": "Ara+1_10000gen_4530B",
+    "population": "Ara+1",
+    "generation": 10000,
+    "legacySnapshotClone": "Arap1_10000gen_4530B"
+  },
+  {
+    "clone": "Ara+1_15000gen_7183A",
+    "population": "Ara+1",
+    "generation": 15000,
+    "legacySnapshotClone": "Arap1_15000gen_7183A"
+  },
+  {
+    "clone": "Ara+1_15000gen_7183B",
+    "population": "Ara+1",
+    "generation": 15000,
+    "legacySnapshotClone": "Arap1_15000gen_7183B"
+  },
+  {
+    "clone": "Ara+1_20000gen_9282A",
+    "population": "Ara+1",
+    "generation": 20000,
+    "legacySnapshotClone": "Arap1_20000gen_9282A"
+  },
+  {
+    "clone": "Ara+1_20000gen_9282B",
+    "population": "Ara+1",
+    "generation": 20000,
+    "legacySnapshotClone": "Arap1_20000gen_9282B"
+  },
+  {
+    "clone": "Ara+1_30000gen_10450",
+    "population": "Ara+1",
+    "generation": 30000,
+    "legacySnapshotClone": "Arap1_30000gen_10450"
+  },
+  {
+    "clone": "Ara+1_30000gen_10451",
+    "population": "Ara+1",
+    "generation": 30000,
+    "legacySnapshotClone": "Arap1_30000gen_10451"
+  },
+  {
+    "clone": "Ara+1_40000gen_11008",
+    "population": "Ara+1",
+    "generation": 40000,
+    "legacySnapshotClone": "Arap1_40000gen_11008"
+  },
+  {
+    "clone": "Ara+1_40000gen_11009",
+    "population": "Ara+1",
+    "generation": 40000,
+    "legacySnapshotClone": "Arap1_40000gen_11009"
+  },
+  {
+    "clone": "Ara+1_50000gen_11392",
+    "population": "Ara+1",
+    "generation": 50000,
+    "legacySnapshotClone": "Arap1_50000gen_11392"
+  },
+  {
+    "clone": "Ara+1_50000gen_11393",
+    "population": "Ara+1",
+    "generation": 50000,
+    "legacySnapshotClone": "Arap1_50000gen_11393"
+  },
+  {
+    "clone": "Ara+2_500gen_769A",
+    "population": "Ara+2",
+    "generation": 500,
+    "legacySnapshotClone": "Arap2_500gen_769A"
+  },
+  {
+    "clone": "Ara+2_500gen_769B",
+    "population": "Ara+2",
+    "generation": 500,
+    "legacySnapshotClone": "Arap2_500gen_769B"
+  },
+  {
+    "clone": "Ara+2_1000gen_959A",
+    "population": "Ara+2",
+    "generation": 1000,
+    "legacySnapshotClone": "Arap2_1000gen_959A"
+  },
+  {
+    "clone": "Ara+2_1000gen_959B",
+    "population": "Ara+2",
+    "generation": 1000,
+    "legacySnapshotClone": "Arap2_1000gen_959B"
+  },
+  {
+    "clone": "Ara+2_1500gen_1063A",
+    "population": "Ara+2",
+    "generation": 1500,
+    "legacySnapshotClone": "Arap2_1500gen_1063A"
+  },
+  {
+    "clone": "Ara+2_1500gen_1063B",
+    "population": "Ara+2",
+    "generation": 1500,
+    "legacySnapshotClone": "Arap2_1500gen_1063B"
+  },
+  {
+    "clone": "Ara+2_2000gen_1159A",
+    "population": "Ara+2",
+    "generation": 2000,
+    "legacySnapshotClone": "Arap2_2000gen_1159A"
+  },
+  {
+    "clone": "Ara+2_2000gen_1159B",
+    "population": "Ara+2",
+    "generation": 2000,
+    "legacySnapshotClone": "Arap2_2000gen_1159B"
+  },
+  {
+    "clone": "Ara+2_5000gen_2174A",
+    "population": "Ara+2",
+    "generation": 5000,
+    "legacySnapshotClone": "Arap2_5000gen_2174A"
+  },
+  {
+    "clone": "Ara+2_5000gen_2174B",
+    "population": "Ara+2",
+    "generation": 5000,
+    "legacySnapshotClone": "Arap2_5000gen_2174B"
+  },
+  {
+    "clone": "Ara+2_10000gen_4531A",
+    "population": "Ara+2",
+    "generation": 10000,
+    "legacySnapshotClone": "Arap2_10000gen_4531A"
+  },
+  {
+    "clone": "Ara+2_10000gen_4531B",
+    "population": "Ara+2",
+    "generation": 10000,
+    "legacySnapshotClone": "Arap2_10000gen_4531B"
+  },
+  {
+    "clone": "Ara+2_15000gen_7184A",
+    "population": "Ara+2",
+    "generation": 15000,
+    "legacySnapshotClone": "Arap2_15000gen_7184A"
+  },
+  {
+    "clone": "Ara+2_15000gen_7184B",
+    "population": "Ara+2",
+    "generation": 15000,
+    "legacySnapshotClone": "Arap2_15000gen_7184B"
+  },
+  {
+    "clone": "Ara+2_20000gen_8601A",
+    "population": "Ara+2",
+    "generation": 20000,
+    "legacySnapshotClone": "Arap2_20000gen_8601A"
+  },
+  {
+    "clone": "Ara+2_20000gen_8601B",
+    "population": "Ara+2",
+    "generation": 20000,
+    "legacySnapshotClone": "Arap2_20000gen_8601B"
+  },
+  {
+    "clone": "Ara+2_30000gen_10407",
+    "population": "Ara+2",
+    "generation": 30000,
+    "legacySnapshotClone": "Arap2_30000gen_10407"
+  },
+  {
+    "clone": "Ara+2_30000gen_10408",
+    "population": "Ara+2",
+    "generation": 30000,
+    "legacySnapshotClone": "Arap2_30000gen_10408"
+  },
+  {
+    "clone": "Ara+2_40000gen_10950",
+    "population": "Ara+2",
+    "generation": 40000,
+    "legacySnapshotClone": "Arap2_40000gen_10950"
+  },
+  {
+    "clone": "Ara+2_40000gen_10951",
+    "population": "Ara+2",
+    "generation": 40000,
+    "legacySnapshotClone": "Arap2_40000gen_10951"
+  },
+  {
+    "clone": "Ara+2_50000gen_11342",
+    "population": "Ara+2",
+    "generation": 50000,
+    "legacySnapshotClone": "Arap2_50000gen_11342"
+  },
+  {
+    "clone": "Ara+2_50000gen_11343",
+    "population": "Ara+2",
+    "generation": 50000,
+    "legacySnapshotClone": "Arap2_50000gen_11343"
+  },
+  {
+    "clone": "Ara+3_500gen_770A",
+    "population": "Ara+3",
+    "generation": 500,
+    "legacySnapshotClone": "Arap3_500gen_770A"
+  },
+  {
+    "clone": "Ara+3_500gen_770B",
+    "population": "Ara+3",
+    "generation": 500,
+    "legacySnapshotClone": "Arap3_500gen_770B"
+  },
+  {
+    "clone": "Ara+3_1000gen_960A",
+    "population": "Ara+3",
+    "generation": 1000,
+    "legacySnapshotClone": "Arap3_1000gen_960A"
+  },
+  {
+    "clone": "Ara+3_1000gen_960B",
+    "population": "Ara+3",
+    "generation": 1000,
+    "legacySnapshotClone": "Arap3_1000gen_960B"
+  },
+  {
+    "clone": "Ara+3_1500gen_1064A",
+    "population": "Ara+3",
+    "generation": 1500,
+    "legacySnapshotClone": "Arap3_1500gen_1064A"
+  },
+  {
+    "clone": "Ara+3_1500gen_1064B",
+    "population": "Ara+3",
+    "generation": 1500,
+    "legacySnapshotClone": "Arap3_1500gen_1064B"
+  },
+  {
+    "clone": "Ara+3_2000gen_1160A",
+    "population": "Ara+3",
+    "generation": 2000,
+    "legacySnapshotClone": "Arap3_2000gen_1160A"
+  },
+  {
+    "clone": "Ara+3_2000gen_1160B",
+    "population": "Ara+3",
+    "generation": 2000,
+    "legacySnapshotClone": "Arap3_2000gen_1160B"
+  },
+  {
+    "clone": "Ara+3_5000gen_2175A",
+    "population": "Ara+3",
+    "generation": 5000,
+    "legacySnapshotClone": "Arap3_5000gen_2175A"
+  },
+  {
+    "clone": "Ara+3_5000gen_2175B",
+    "population": "Ara+3",
+    "generation": 5000,
+    "legacySnapshotClone": "Arap3_5000gen_2175B"
+  },
+  {
+    "clone": "Ara+3_10000gen_4532A",
+    "population": "Ara+3",
+    "generation": 10000,
+    "legacySnapshotClone": "Arap3_10000gen_4532A"
+  },
+  {
+    "clone": "Ara+3_10000gen_4532B",
+    "population": "Ara+3",
+    "generation": 10000,
+    "legacySnapshotClone": "Arap3_10000gen_4532B"
+  },
+  {
+    "clone": "Ara+3_15000gen_7185A",
+    "population": "Ara+3",
+    "generation": 15000,
+    "legacySnapshotClone": "Arap3_15000gen_7185A"
+  },
+  {
+    "clone": "Ara+3_15000gen_7185B",
+    "population": "Ara+3",
+    "generation": 15000,
+    "legacySnapshotClone": "Arap3_15000gen_7185B"
+  },
+  {
+    "clone": "Ara+3_20000gen_8602A",
+    "population": "Ara+3",
+    "generation": 20000,
+    "legacySnapshotClone": "Arap3_20000gen_8602A"
+  },
+  {
+    "clone": "Ara+3_20000gen_8602B",
+    "population": "Ara+3",
+    "generation": 20000,
+    "legacySnapshotClone": "Arap3_20000gen_8602B"
+  },
+  {
+    "clone": "Ara+3_30000gen_10410",
+    "population": "Ara+3",
+    "generation": 30000,
+    "legacySnapshotClone": "Arap3_30000gen_10410"
+  },
+  {
+    "clone": "Ara+3_30000gen_10411",
+    "population": "Ara+3",
+    "generation": 30000,
+    "legacySnapshotClone": "Arap3_30000gen_10411"
+  },
+  {
+    "clone": "Ara+3_40000gen_10953",
+    "population": "Ara+3",
+    "generation": 40000,
+    "legacySnapshotClone": "Arap3_40000gen_10953"
+  },
+  {
+    "clone": "Ara+3_40000gen_10954",
+    "population": "Ara+3",
+    "generation": 40000,
+    "legacySnapshotClone": "Arap3_40000gen_10954"
+  },
+  {
+    "clone": "Ara+3_50000gen_11345",
+    "population": "Ara+3",
+    "generation": 50000,
+    "legacySnapshotClone": "Arap3_50000gen_11345"
+  },
+  {
+    "clone": "Ara+3_50000gen_11346",
+    "population": "Ara+3",
+    "generation": 50000,
+    "legacySnapshotClone": "Arap3_50000gen_11346"
+  },
+  {
+    "clone": "Ara+4_500gen_771A",
+    "population": "Ara+4",
+    "generation": 500,
+    "legacySnapshotClone": "Arap4_500gen_771A"
+  },
+  {
+    "clone": "Ara+4_500gen_771B",
+    "population": "Ara+4",
+    "generation": 500,
+    "legacySnapshotClone": "Arap4_500gen_771B"
+  },
+  {
+    "clone": "Ara+4_1000gen_961A",
+    "population": "Ara+4",
+    "generation": 1000,
+    "legacySnapshotClone": "Arap4_1000gen_961A"
+  },
+  {
+    "clone": "Ara+4_1000gen_961B",
+    "population": "Ara+4",
+    "generation": 1000,
+    "legacySnapshotClone": "Arap4_1000gen_961B"
+  },
+  {
+    "clone": "Ara+4_1500gen_1065A",
+    "population": "Ara+4",
+    "generation": 1500,
+    "legacySnapshotClone": "Arap4_1500gen_1065A"
+  },
+  {
+    "clone": "Ara+4_1500gen_1065B",
+    "population": "Ara+4",
+    "generation": 1500,
+    "legacySnapshotClone": "Arap4_1500gen_1065B"
+  },
+  {
+    "clone": "Ara+4_2000gen_1161A",
+    "population": "Ara+4",
+    "generation": 2000,
+    "legacySnapshotClone": "Arap4_2000gen_1161A"
+  },
+  {
+    "clone": "Ara+4_2000gen_1161B",
+    "population": "Ara+4",
+    "generation": 2000,
+    "legacySnapshotClone": "Arap4_2000gen_1161B"
+  },
+  {
+    "clone": "Ara+4_5000gen_2176A",
+    "population": "Ara+4",
+    "generation": 5000,
+    "legacySnapshotClone": "Arap4_5000gen_2176A"
+  },
+  {
+    "clone": "Ara+4_5000gen_2176B",
+    "population": "Ara+4",
+    "generation": 5000,
+    "legacySnapshotClone": "Arap4_5000gen_2176B"
+  },
+  {
+    "clone": "Ara+4_10000gen_4533A",
+    "population": "Ara+4",
+    "generation": 10000,
+    "legacySnapshotClone": "Arap4_10000gen_4533A"
+  },
+  {
+    "clone": "Ara+4_10000gen_4533B",
+    "population": "Ara+4",
+    "generation": 10000,
+    "legacySnapshotClone": "Arap4_10000gen_4533B"
+  },
+  {
+    "clone": "Ara+4_15000gen_7186A",
+    "population": "Ara+4",
+    "generation": 15000,
+    "legacySnapshotClone": "Arap4_15000gen_7186A"
+  },
+  {
+    "clone": "Ara+4_15000gen_7186B",
+    "population": "Ara+4",
+    "generation": 15000,
+    "legacySnapshotClone": "Arap4_15000gen_7186B"
+  },
+  {
+    "clone": "Ara+4_20000gen_8603A",
+    "population": "Ara+4",
+    "generation": 20000,
+    "legacySnapshotClone": "Arap4_20000gen_8603A"
+  },
+  {
+    "clone": "Ara+4_20000gen_8603B",
+    "population": "Ara+4",
+    "generation": 20000,
+    "legacySnapshotClone": "Arap4_20000gen_8603B"
+  },
+  {
+    "clone": "Ara+4_30000gen_10414",
+    "population": "Ara+4",
+    "generation": 30000,
+    "legacySnapshotClone": "Arap4_30000gen_10414"
+  },
+  {
+    "clone": "Ara+4_30000gen_10415",
+    "population": "Ara+4",
+    "generation": 30000,
+    "legacySnapshotClone": "Arap4_30000gen_10415"
+  },
+  {
+    "clone": "Ara+4_40000gen_10956",
+    "population": "Ara+4",
+    "generation": 40000,
+    "legacySnapshotClone": "Arap4_40000gen_10956"
+  },
+  {
+    "clone": "Ara+4_40000gen_10957",
+    "population": "Ara+4",
+    "generation": 40000,
+    "legacySnapshotClone": "Arap4_40000gen_10957"
+  },
+  {
+    "clone": "Ara+4_50000gen_11348",
+    "population": "Ara+4",
+    "generation": 50000,
+    "legacySnapshotClone": "Arap4_50000gen_11348"
+  },
+  {
+    "clone": "Ara+4_50000gen_11349",
+    "population": "Ara+4",
+    "generation": 50000,
+    "legacySnapshotClone": "Arap4_50000gen_11349"
+  },
+  {
+    "clone": "Ara+5_500gen_772A",
+    "population": "Ara+5",
+    "generation": 500,
+    "legacySnapshotClone": "Arap5_500gen_772A"
+  },
+  {
+    "clone": "Ara+5_500gen_772B",
+    "population": "Ara+5",
+    "generation": 500,
+    "legacySnapshotClone": "Arap5_500gen_772B"
+  },
+  {
+    "clone": "Ara+5_1000gen_962A",
+    "population": "Ara+5",
+    "generation": 1000,
+    "legacySnapshotClone": "Arap5_1000gen_962A"
+  },
+  {
+    "clone": "Ara+5_1000gen_962B",
+    "population": "Ara+5",
+    "generation": 1000,
+    "legacySnapshotClone": "Arap5_1000gen_962B"
+  },
+  {
+    "clone": "Ara+5_1500gen_1066A",
+    "population": "Ara+5",
+    "generation": 1500,
+    "legacySnapshotClone": "Arap5_1500gen_1066A"
+  },
+  {
+    "clone": "Ara+5_1500gen_1066B",
+    "population": "Ara+5",
+    "generation": 1500,
+    "legacySnapshotClone": "Arap5_1500gen_1066B"
+  },
+  {
+    "clone": "Ara+5_2000gen_1162A",
+    "population": "Ara+5",
+    "generation": 2000,
+    "legacySnapshotClone": "Arap5_2000gen_1162A"
+  },
+  {
+    "clone": "Ara+5_2000gen_1162B",
+    "population": "Ara+5",
+    "generation": 2000,
+    "legacySnapshotClone": "Arap5_2000gen_1162B"
+  },
+  {
+    "clone": "Ara+5_5000gen_2177A",
+    "population": "Ara+5",
+    "generation": 5000,
+    "legacySnapshotClone": "Arap5_5000gen_2177A"
+  },
+  {
+    "clone": "Ara+5_5000gen_2177B",
+    "population": "Ara+5",
+    "generation": 5000,
+    "legacySnapshotClone": "Arap5_5000gen_2177B"
+  },
+  {
+    "clone": "Ara+5_10000gen_4534A",
+    "population": "Ara+5",
+    "generation": 10000,
+    "legacySnapshotClone": "Arap5_10000gen_4534A"
+  },
+  {
+    "clone": "Ara+5_10000gen_4534B",
+    "population": "Ara+5",
+    "generation": 10000,
+    "legacySnapshotClone": "Arap5_10000gen_4534B"
+  },
+  {
+    "clone": "Ara+5_15000gen_7187A",
+    "population": "Ara+5",
+    "generation": 15000,
+    "legacySnapshotClone": "Arap5_15000gen_7187A"
+  },
+  {
+    "clone": "Ara+5_15000gen_7187B",
+    "population": "Ara+5",
+    "generation": 15000,
+    "legacySnapshotClone": "Arap5_15000gen_7187B"
+  },
+  {
+    "clone": "Ara+5_20000gen_8604A",
+    "population": "Ara+5",
+    "generation": 20000,
+    "legacySnapshotClone": "Arap5_20000gen_8604A"
+  },
+  {
+    "clone": "Ara+5_20000gen_8604B",
+    "population": "Ara+5",
+    "generation": 20000,
+    "legacySnapshotClone": "Arap5_20000gen_8604B"
+  },
+  {
+    "clone": "Ara+5_30000gen_10432",
+    "population": "Ara+5",
+    "generation": 30000,
+    "legacySnapshotClone": "Arap5_30000gen_10432"
+  },
+  {
+    "clone": "Ara+5_30000gen_10433",
+    "population": "Ara+5",
+    "generation": 30000,
+    "legacySnapshotClone": "Arap5_30000gen_10433"
+  },
+  {
+    "clone": "Ara+5_40000gen_10982",
+    "population": "Ara+5",
+    "generation": 40000,
+    "legacySnapshotClone": "Arap5_40000gen_10982"
+  },
+  {
+    "clone": "Ara+5_40000gen_10983",
+    "population": "Ara+5",
+    "generation": 40000,
+    "legacySnapshotClone": "Arap5_40000gen_10983"
+  },
+  {
+    "clone": "Ara+5_50000gen_11367",
+    "population": "Ara+5",
+    "generation": 50000,
+    "legacySnapshotClone": "Arap5_50000gen_11367"
+  },
+  {
+    "clone": "Ara+5_50000gen_11368",
+    "population": "Ara+5",
+    "generation": 50000,
+    "legacySnapshotClone": "Arap5_50000gen_11368"
+  },
+  {
+    "clone": "Ara+6_500gen_773A",
+    "population": "Ara+6",
+    "generation": 500,
+    "legacySnapshotClone": "Arap6_500gen_773A"
+  },
+  {
+    "clone": "Ara+6_500gen_773B",
+    "population": "Ara+6",
+    "generation": 500,
+    "legacySnapshotClone": "Arap6_500gen_773B"
+  },
+  {
+    "clone": "Ara+6_1000gen_963A",
+    "population": "Ara+6",
+    "generation": 1000,
+    "legacySnapshotClone": "Arap6_1000gen_963A"
+  },
+  {
+    "clone": "Ara+6_1000gen_963B",
+    "population": "Ara+6",
+    "generation": 1000,
+    "legacySnapshotClone": "Arap6_1000gen_963B"
+  },
+  {
+    "clone": "Ara+6_1500gen_1067A",
+    "population": "Ara+6",
+    "generation": 1500,
+    "legacySnapshotClone": "Arap6_1500gen_1067A"
+  },
+  {
+    "clone": "Ara+6_1500gen_1067B",
+    "population": "Ara+6",
+    "generation": 1500,
+    "legacySnapshotClone": "Arap6_1500gen_1067B"
+  },
+  {
+    "clone": "Ara+6_2000gen_1163A",
+    "population": "Ara+6",
+    "generation": 2000,
+    "legacySnapshotClone": "Arap6_2000gen_1163A"
+  },
+  {
+    "clone": "Ara+6_2000gen_1163B",
+    "population": "Ara+6",
+    "generation": 2000,
+    "legacySnapshotClone": "Arap6_2000gen_1163B"
+  },
+  {
+    "clone": "Ara+6_5000gen_2178A",
+    "population": "Ara+6",
+    "generation": 5000,
+    "legacySnapshotClone": "Arap6_5000gen_2178A"
+  },
+  {
+    "clone": "Ara+6_5000gen_2178B",
+    "population": "Ara+6",
+    "generation": 5000,
+    "legacySnapshotClone": "Arap6_5000gen_2178B"
+  },
+  {
+    "clone": "Ara+6_10000gen_4535A",
+    "population": "Ara+6",
+    "generation": 10000,
+    "legacySnapshotClone": "Arap6_10000gen_4535A"
+  },
+  {
+    "clone": "Ara+6_10000gen_4535B",
+    "population": "Ara+6",
+    "generation": 10000,
+    "legacySnapshotClone": "Arap6_10000gen_4535B"
+  },
+  {
+    "clone": "Ara+6_15000gen_7188A",
+    "population": "Ara+6",
+    "generation": 15000,
+    "legacySnapshotClone": "Arap6_15000gen_7188A"
+  },
+  {
+    "clone": "Ara+6_15000gen_7188B",
+    "population": "Ara+6",
+    "generation": 15000,
+    "legacySnapshotClone": "Arap6_15000gen_7188B"
+  },
+  {
+    "clone": "Ara+6_20000gen_8605A",
+    "population": "Ara+6",
+    "generation": 20000,
+    "legacySnapshotClone": "Arap6_20000gen_8605A"
+  },
+  {
+    "clone": "Ara+6_20000gen_8605B",
+    "population": "Ara+6",
+    "generation": 20000,
+    "legacySnapshotClone": "Arap6_20000gen_8605B"
+  },
+  {
+    "clone": "Ara+6_30000gen_10417",
+    "population": "Ara+6",
+    "generation": 30000,
+    "legacySnapshotClone": "Arap6_30000gen_10417"
+  },
+  {
+    "clone": "Ara+6_30000gen_10418",
+    "population": "Ara+6",
+    "generation": 30000,
+    "legacySnapshotClone": "Arap6_30000gen_10418"
+  },
+  {
+    "clone": "Ara+6_40000gen_10985",
+    "population": "Ara+6",
+    "generation": 40000,
+    "legacySnapshotClone": "Arap6_40000gen_10985"
+  },
+  {
+    "clone": "Ara+6_40000gen_10986",
+    "population": "Ara+6",
+    "generation": 40000,
+    "legacySnapshotClone": "Arap6_40000gen_10986"
+  },
+  {
+    "clone": "Ara+6_50000gen_11370",
+    "population": "Ara+6",
+    "generation": 50000,
+    "legacySnapshotClone": "Arap6_50000gen_11370"
+  },
+  {
+    "clone": "Ara+6_50000gen_11371",
+    "population": "Ara+6",
+    "generation": 50000,
+    "legacySnapshotClone": "Arap6_50000gen_11371"
+  },
+  {
+    "clone": "Ara-1_500gen_762B",
+    "population": "Ara-1",
+    "generation": 500,
+    "legacySnapshotClone": "Aram1_500gen_762B"
+  },
+  {
+    "clone": "Ara-1_500gen_762C",
+    "population": "Ara-1",
+    "generation": 500,
+    "legacySnapshotClone": "Aram1_500gen_762C"
+  },
+  {
+    "clone": "Ara-1_1000gen_964B",
+    "population": "Ara-1",
+    "generation": 1000,
+    "legacySnapshotClone": "Aram1_1000gen_964B"
+  },
+  {
+    "clone": "Ara-1_1000gen_964C",
+    "population": "Ara-1",
+    "generation": 1000,
+    "legacySnapshotClone": "Aram1_1000gen_964C"
+  },
+  {
+    "clone": "Ara-1_1500gen_1068B",
+    "population": "Ara-1",
+    "generation": 1500,
+    "legacySnapshotClone": "Aram1_1500gen_1068B"
+  },
+  {
+    "clone": "Ara-1_1500gen_1068C",
+    "population": "Ara-1",
+    "generation": 1500,
+    "legacySnapshotClone": "Aram1_1500gen_1068C"
+  },
+  {
+    "clone": "Ara-1_2000gen_1164A",
+    "population": "Ara-1",
+    "generation": 2000,
+    "legacySnapshotClone": "Aram1_2000gen_1164A"
+  },
+  {
+    "clone": "Ara-1_2000gen_1164B",
+    "population": "Ara-1",
+    "generation": 2000,
+    "legacySnapshotClone": "Aram1_2000gen_1164B"
+  },
+  {
+    "clone": "Ara-1_5000gen_2179A",
+    "population": "Ara-1",
+    "generation": 5000,
+    "legacySnapshotClone": "Aram1_5000gen_2179A"
+  },
+  {
+    "clone": "Ara-1_5000gen_2179B",
+    "population": "Ara-1",
+    "generation": 5000,
+    "legacySnapshotClone": "Aram1_5000gen_2179B"
+  },
+  {
+    "clone": "Ara-1_10000gen_4536A",
+    "population": "Ara-1",
+    "generation": 10000,
+    "legacySnapshotClone": "Aram1_10000gen_4536A"
+  },
+  {
+    "clone": "Ara-1_10000gen_4536B",
+    "population": "Ara-1",
+    "generation": 10000,
+    "legacySnapshotClone": "Aram1_10000gen_4536B"
+  },
+  {
+    "clone": "Ara-1_15000gen_7177A",
+    "population": "Ara-1",
+    "generation": 15000,
+    "legacySnapshotClone": "Aram1_15000gen_7177A"
+  },
+  {
+    "clone": "Ara-1_15000gen_7177B",
+    "population": "Ara-1",
+    "generation": 15000,
+    "legacySnapshotClone": "Aram1_15000gen_7177B"
+  },
+  {
+    "clone": "Ara-1_20000gen_8593A",
+    "population": "Ara-1",
+    "generation": 20000,
+    "legacySnapshotClone": "Aram1_20000gen_8593A"
+  },
+  {
+    "clone": "Ara-1_20000gen_8593B",
+    "population": "Ara-1",
+    "generation": 20000,
+    "legacySnapshotClone": "Aram1_20000gen_8593B"
+  },
+  {
+    "clone": "Ara-1_30000gen_10391",
+    "population": "Ara-1",
+    "generation": 30000,
+    "legacySnapshotClone": "Aram1_30000gen_10391"
+  },
+  {
+    "clone": "Ara-1_30000gen_10392",
+    "population": "Ara-1",
+    "generation": 30000,
+    "legacySnapshotClone": "Aram1_30000gen_10392"
+  },
+  {
+    "clone": "Ara-1_40000gen_10938",
+    "population": "Ara-1",
+    "generation": 40000,
+    "legacySnapshotClone": "Aram1_40000gen_10938"
+  },
+  {
+    "clone": "Ara-1_40000gen_10939",
+    "population": "Ara-1",
+    "generation": 40000,
+    "legacySnapshotClone": "Aram1_40000gen_10939"
+  },
+  {
+    "clone": "Ara-1_50000gen_11330",
+    "population": "Ara-1",
+    "generation": 50000,
+    "legacySnapshotClone": "Aram1_50000gen_11330"
+  },
+  {
+    "clone": "Ara-1_50000gen_11331",
+    "population": "Ara-1",
+    "generation": 50000,
+    "legacySnapshotClone": "Aram1_50000gen_11331"
+  },
+  {
+    "clone": "Ara-2_500gen_763A",
+    "population": "Ara-2",
+    "generation": 500,
+    "legacySnapshotClone": "Aram2_500gen_763A"
+  },
+  {
+    "clone": "Ara-2_500gen_763B",
+    "population": "Ara-2",
+    "generation": 500,
+    "legacySnapshotClone": "Aram2_500gen_763B"
+  },
+  {
+    "clone": "Ara-2_1000gen_965A",
+    "population": "Ara-2",
+    "generation": 1000,
+    "legacySnapshotClone": "Aram2_1000gen_965A"
+  },
+  {
+    "clone": "Ara-2_1000gen_965B",
+    "population": "Ara-2",
+    "generation": 1000,
+    "legacySnapshotClone": "Aram2_1000gen_965B"
+  },
+  {
+    "clone": "Ara-2_1500gen_1069A",
+    "population": "Ara-2",
+    "generation": 1500,
+    "legacySnapshotClone": "Aram2_1500gen_1069A"
+  },
+  {
+    "clone": "Ara-2_1500gen_1069B",
+    "population": "Ara-2",
+    "generation": 1500,
+    "legacySnapshotClone": "Aram2_1500gen_1069B"
+  },
+  {
+    "clone": "Ara-2_2000gen_1165A",
+    "population": "Ara-2",
+    "generation": 2000,
+    "legacySnapshotClone": "Aram2_2000gen_1165A"
+  },
+  {
+    "clone": "Ara-2_2000gen_2000",
+    "population": "Ara-2",
+    "generation": 2000,
+    "legacySnapshotClone": "Aram2_2000gen_2000"
+  },
+  {
+    "clone": "Ara-2_5000gen_2180A",
+    "population": "Ara-2",
+    "generation": 5000,
+    "legacySnapshotClone": "Aram2_5000gen_2180A"
+  },
+  {
+    "clone": "Ara-2_5000gen_2180B",
+    "population": "Ara-2",
+    "generation": 5000,
+    "legacySnapshotClone": "Aram2_5000gen_2180B"
+  },
+  {
+    "clone": "Ara-2_10000gen_4537A",
+    "population": "Ara-2",
+    "generation": 10000,
+    "legacySnapshotClone": "Aram2_10000gen_4537A"
+  },
+  {
+    "clone": "Ara-2_10000gen_4537B",
+    "population": "Ara-2",
+    "generation": 10000,
+    "legacySnapshotClone": "Aram2_10000gen_4537B"
+  },
+  {
+    "clone": "Ara-2_15000gen_7178A",
+    "population": "Ara-2",
+    "generation": 15000,
+    "legacySnapshotClone": "Aram2_15000gen_7178A"
+  },
+  {
+    "clone": "Ara-2_15000gen_7178B",
+    "population": "Ara-2",
+    "generation": 15000,
+    "legacySnapshotClone": "Aram2_15000gen_7178B"
+  },
+  {
+    "clone": "Ara-2_20000gen_20K-LA",
+    "population": "Ara-2",
+    "generation": 20000,
+    "legacySnapshotClone": "Aram2_20000gen_20KmLA"
+  },
+  {
+    "clone": "Ara-2_20000gen_20K-S1",
+    "population": "Ara-2",
+    "generation": 20000,
+    "legacySnapshotClone": "Aram2_20000gen_20KmS1"
+  },
+  {
+    "clone": "Ara-2_30000gen_30K-L1",
+    "population": "Ara-2",
+    "generation": 30000,
+    "legacySnapshotClone": "Aram2_30000gen_30KmL1"
+  },
+  {
+    "clone": "Ara-2_30000gen_30K-S1",
+    "population": "Ara-2",
+    "generation": 30000,
+    "legacySnapshotClone": "Aram2_30000gen_30KmS1"
+  },
+  {
+    "clone": "Ara-2_40000gen_11035",
+    "population": "Ara-2",
+    "generation": 40000,
+    "legacySnapshotClone": "Aram2_40000gen_11035"
+  },
+  {
+    "clone": "Ara-2_40000gen_11036",
+    "population": "Ara-2",
+    "generation": 40000,
+    "legacySnapshotClone": "Aram2_40000gen_11036"
+  },
+  {
+    "clone": "Ara-2_50000gen_11333",
+    "population": "Ara-2",
+    "generation": 50000,
+    "legacySnapshotClone": "Aram2_50000gen_11333"
+  },
+  {
+    "clone": "Ara-2_50000gen_11335",
+    "population": "Ara-2",
+    "generation": 50000,
+    "legacySnapshotClone": "Aram2_50000gen_11335"
+  },
+  {
+    "clone": "Ara-3_500gen_764A",
+    "population": "Ara-3",
+    "generation": 500,
+    "legacySnapshotClone": "Aram3_500gen_764A"
+  },
+  {
+    "clone": "Ara-3_500gen_764B",
+    "population": "Ara-3",
+    "generation": 500,
+    "legacySnapshotClone": "Aram3_500gen_764B"
+  },
+  {
+    "clone": "Ara-3_1000gen_966A",
+    "population": "Ara-3",
+    "generation": 1000,
+    "legacySnapshotClone": "Aram3_1000gen_966A"
+  },
+  {
+    "clone": "Ara-3_1000gen_966B",
+    "population": "Ara-3",
+    "generation": 1000,
+    "legacySnapshotClone": "Aram3_1000gen_966B"
+  },
+  {
+    "clone": "Ara-3_1500gen_1070A",
+    "population": "Ara-3",
+    "generation": 1500,
+    "legacySnapshotClone": "Aram3_1500gen_1070A"
+  },
+  {
+    "clone": "Ara-3_1500gen_1070B",
+    "population": "Ara-3",
+    "generation": 1500,
+    "legacySnapshotClone": "Aram3_1500gen_1070B"
+  },
+  {
+    "clone": "Ara-3_2000gen_1166A",
+    "population": "Ara-3",
+    "generation": 2000,
+    "legacySnapshotClone": "Aram3_2000gen_1166A"
+  },
+  {
+    "clone": "Ara-3_2000gen_1166B",
+    "population": "Ara-3",
+    "generation": 2000,
+    "legacySnapshotClone": "Aram3_2000gen_1166B"
+  },
+  {
+    "clone": "Ara-3_5000gen_2181A",
+    "population": "Ara-3",
+    "generation": 5000,
+    "legacySnapshotClone": "Aram3_5000gen_2181A"
+  },
+  {
+    "clone": "Ara-3_5000gen_ZDB409",
+    "population": "Ara-3",
+    "generation": 5000,
+    "legacySnapshotClone": "Aram3_5000gen_ZDB409"
+  },
+  {
+    "clone": "Ara-3_10000gen_4538A",
+    "population": "Ara-3",
+    "generation": 10000,
+    "legacySnapshotClone": "Aram3_10000gen_4538A"
+  },
+  {
+    "clone": "Ara-3_10000gen_ZDB429",
+    "population": "Ara-3",
+    "generation": 10000,
+    "legacySnapshotClone": "Aram3_10000gen_ZDB429"
+  },
+  {
+    "clone": "Ara-3_15000gen_7179B",
+    "population": "Ara-3",
+    "generation": 15000,
+    "legacySnapshotClone": "Aram3_15000gen_7179B"
+  },
+  {
+    "clone": "Ara-3_15000gen_ZDB446",
+    "population": "Ara-3",
+    "generation": 15000,
+    "legacySnapshotClone": "Aram3_15000gen_ZDB446"
+  },
+  {
+    "clone": "Ara-3_20000gen_ZDB458",
+    "population": "Ara-3",
+    "generation": 20000,
+    "legacySnapshotClone": "Aram3_20000gen_ZDB458"
+  },
+  {
+    "clone": "Ara-3_20000gen_ZDB464",
+    "population": "Ara-3",
+    "generation": 20000,
+    "legacySnapshotClone": "Aram3_20000gen_ZDB464"
+  },
+  {
+    "clone": "Ara-3_30000gen_ZDB16",
+    "population": "Ara-3",
+    "generation": 30000,
+    "legacySnapshotClone": "Aram3_30000gen_ZDB16"
+  },
+  {
+    "clone": "Ara-3_30000gen_ZDB357",
+    "population": "Ara-3",
+    "generation": 30000,
+    "legacySnapshotClone": "Aram3_30000gen_ZDB357"
+  },
+  {
+    "clone": "Ara-3_40000gen_10979",
+    "population": "Ara-3",
+    "generation": 40000,
+    "legacySnapshotClone": "Aram3_40000gen_10979"
+  },
+  {
+    "clone": "Ara-3_40000gen_10988",
+    "population": "Ara-3",
+    "generation": 40000,
+    "legacySnapshotClone": "Aram3_40000gen_10988"
+  },
+  {
+    "clone": "Ara-3_50000gen_11364",
+    "population": "Ara-3",
+    "generation": 50000,
+    "legacySnapshotClone": "Aram3_50000gen_11364"
+  },
+  {
+    "clone": "Ara-3_50000gen_11365",
+    "population": "Ara-3",
+    "generation": 50000,
+    "legacySnapshotClone": "Aram3_50000gen_11365"
+  },
+  {
+    "clone": "Ara-4_500gen_765A",
+    "population": "Ara-4",
+    "generation": 500,
+    "legacySnapshotClone": "Aram4_500gen_765A"
+  },
+  {
+    "clone": "Ara-4_500gen_765B",
+    "population": "Ara-4",
+    "generation": 500,
+    "legacySnapshotClone": "Aram4_500gen_765B"
+  },
+  {
+    "clone": "Ara-4_1000gen_967A",
+    "population": "Ara-4",
+    "generation": 1000,
+    "legacySnapshotClone": "Aram4_1000gen_967A"
+  },
+  {
+    "clone": "Ara-4_1000gen_967B",
+    "population": "Ara-4",
+    "generation": 1000,
+    "legacySnapshotClone": "Aram4_1000gen_967B"
+  },
+  {
+    "clone": "Ara-4_1500gen_1071A",
+    "population": "Ara-4",
+    "generation": 1500,
+    "legacySnapshotClone": "Aram4_1500gen_1071A"
+  },
+  {
+    "clone": "Ara-4_1500gen_1071B",
+    "population": "Ara-4",
+    "generation": 1500,
+    "legacySnapshotClone": "Aram4_1500gen_1071B"
+  },
+  {
+    "clone": "Ara-4_2000gen_1167A",
+    "population": "Ara-4",
+    "generation": 2000,
+    "legacySnapshotClone": "Aram4_2000gen_1167A"
+  },
+  {
+    "clone": "Ara-4_2000gen_1167B",
+    "population": "Ara-4",
+    "generation": 2000,
+    "legacySnapshotClone": "Aram4_2000gen_1167B"
+  },
+  {
+    "clone": "Ara-4_5000gen_2182A",
+    "population": "Ara-4",
+    "generation": 5000,
+    "legacySnapshotClone": "Aram4_5000gen_2182A"
+  },
+  {
+    "clone": "Ara-4_5000gen_2182B",
+    "population": "Ara-4",
+    "generation": 5000,
+    "legacySnapshotClone": "Aram4_5000gen_2182B"
+  },
+  {
+    "clone": "Ara-4_10000gen_4539A",
+    "population": "Ara-4",
+    "generation": 10000,
+    "legacySnapshotClone": "Aram4_10000gen_4539A"
+  },
+  {
+    "clone": "Ara-4_10000gen_4539B",
+    "population": "Ara-4",
+    "generation": 10000,
+    "legacySnapshotClone": "Aram4_10000gen_4539B"
+  },
+  {
+    "clone": "Ara-4_15000gen_7180A",
+    "population": "Ara-4",
+    "generation": 15000,
+    "legacySnapshotClone": "Aram4_15000gen_7180A"
+  },
+  {
+    "clone": "Ara-4_15000gen_7180B",
+    "population": "Ara-4",
+    "generation": 15000,
+    "legacySnapshotClone": "Aram4_15000gen_7180B"
+  },
+  {
+    "clone": "Ara-4_20000gen_8596A",
+    "population": "Ara-4",
+    "generation": 20000,
+    "legacySnapshotClone": "Aram4_20000gen_8596A"
+  },
+  {
+    "clone": "Ara-4_20000gen_8596B",
+    "population": "Ara-4",
+    "generation": 20000,
+    "legacySnapshotClone": "Aram4_20000gen_8596B"
+  },
+  {
+    "clone": "Ara-4_30000gen_10401",
+    "population": "Ara-4",
+    "generation": 30000,
+    "legacySnapshotClone": "Aram4_30000gen_10401"
+  },
+  {
+    "clone": "Ara-4_30000gen_10402",
+    "population": "Ara-4",
+    "generation": 30000,
+    "legacySnapshotClone": "Aram4_30000gen_10402"
+  },
+  {
+    "clone": "Ara-4_40000gen_10944",
+    "population": "Ara-4",
+    "generation": 40000,
+    "legacySnapshotClone": "Aram4_40000gen_10944"
+  },
+  {
+    "clone": "Ara-4_40000gen_10945",
+    "population": "Ara-4",
+    "generation": 40000,
+    "legacySnapshotClone": "Aram4_40000gen_10945"
+  },
+  {
+    "clone": "Ara-4_50000gen_11336",
+    "population": "Ara-4",
+    "generation": 50000,
+    "legacySnapshotClone": "Aram4_50000gen_11336"
+  },
+  {
+    "clone": "Ara-4_50000gen_11337",
+    "population": "Ara-4",
+    "generation": 50000,
+    "legacySnapshotClone": "Aram4_50000gen_11337"
+  },
+  {
+    "clone": "Ara-5_500gen_766A",
+    "population": "Ara-5",
+    "generation": 500,
+    "legacySnapshotClone": "Aram5_500gen_766A"
+  },
+  {
+    "clone": "Ara-5_500gen_766B",
+    "population": "Ara-5",
+    "generation": 500,
+    "legacySnapshotClone": "Aram5_500gen_766B"
+  },
+  {
+    "clone": "Ara-5_1000gen_968A",
+    "population": "Ara-5",
+    "generation": 1000,
+    "legacySnapshotClone": "Aram5_1000gen_968A"
+  },
+  {
+    "clone": "Ara-5_1000gen_968B",
+    "population": "Ara-5",
+    "generation": 1000,
+    "legacySnapshotClone": "Aram5_1000gen_968B"
+  },
+  {
+    "clone": "Ara-5_1500gen_1072A",
+    "population": "Ara-5",
+    "generation": 1500,
+    "legacySnapshotClone": "Aram5_1500gen_1072A"
+  },
+  {
+    "clone": "Ara-5_1500gen_1072B",
+    "population": "Ara-5",
+    "generation": 1500,
+    "legacySnapshotClone": "Aram5_1500gen_1072B"
+  },
+  {
+    "clone": "Ara-5_2000gen_1168A",
+    "population": "Ara-5",
+    "generation": 2000,
+    "legacySnapshotClone": "Aram5_2000gen_1168A"
+  },
+  {
+    "clone": "Ara-5_2000gen_1168B",
+    "population": "Ara-5",
+    "generation": 2000,
+    "legacySnapshotClone": "Aram5_2000gen_1168B"
+  },
+  {
+    "clone": "Ara-5_5000gen_2183A",
+    "population": "Ara-5",
+    "generation": 5000,
+    "legacySnapshotClone": "Aram5_5000gen_2183A"
+  },
+  {
+    "clone": "Ara-5_5000gen_2183B",
+    "population": "Ara-5",
+    "generation": 5000,
+    "legacySnapshotClone": "Aram5_5000gen_2183B"
+  },
+  {
+    "clone": "Ara-5_10000gen_4540A",
+    "population": "Ara-5",
+    "generation": 10000,
+    "legacySnapshotClone": "Aram5_10000gen_4540A"
+  },
+  {
+    "clone": "Ara-5_10000gen_4540B",
+    "population": "Ara-5",
+    "generation": 10000,
+    "legacySnapshotClone": "Aram5_10000gen_4540B"
+  },
+  {
+    "clone": "Ara-5_15000gen_7181A",
+    "population": "Ara-5",
+    "generation": 15000,
+    "legacySnapshotClone": "Aram5_15000gen_7181A"
+  },
+  {
+    "clone": "Ara-5_15000gen_7181B",
+    "population": "Ara-5",
+    "generation": 15000,
+    "legacySnapshotClone": "Aram5_15000gen_7181B"
+  },
+  {
+    "clone": "Ara-5_20000gen_8597A",
+    "population": "Ara-5",
+    "generation": 20000,
+    "legacySnapshotClone": "Aram5_20000gen_8597A"
+  },
+  {
+    "clone": "Ara-5_20000gen_8597B",
+    "population": "Ara-5",
+    "generation": 20000,
+    "legacySnapshotClone": "Aram5_20000gen_8597B"
+  },
+  {
+    "clone": "Ara-5_30000gen_10404",
+    "population": "Ara-5",
+    "generation": 30000,
+    "legacySnapshotClone": "Aram5_30000gen_10404"
+  },
+  {
+    "clone": "Ara-5_30000gen_10405",
+    "population": "Ara-5",
+    "generation": 30000,
+    "legacySnapshotClone": "Aram5_30000gen_10405"
+  },
+  {
+    "clone": "Ara-5_40000gen_10947",
+    "population": "Ara-5",
+    "generation": 40000,
+    "legacySnapshotClone": "Aram5_40000gen_10947"
+  },
+  {
+    "clone": "Ara-5_40000gen_10948",
+    "population": "Ara-5",
+    "generation": 40000,
+    "legacySnapshotClone": "Aram5_40000gen_10948"
+  },
+  {
+    "clone": "Ara-5_50000gen_11339",
+    "population": "Ara-5",
+    "generation": 50000,
+    "legacySnapshotClone": "Aram5_50000gen_11339"
+  },
+  {
+    "clone": "Ara-5_50000gen_11340",
+    "population": "Ara-5",
+    "generation": 50000,
+    "legacySnapshotClone": "Aram5_50000gen_11340"
+  },
+  {
+    "clone": "Ara-6_500gen_767A",
+    "population": "Ara-6",
+    "generation": 500,
+    "legacySnapshotClone": "Aram6_500gen_767A"
+  },
+  {
+    "clone": "Ara-6_500gen_767B",
+    "population": "Ara-6",
+    "generation": 500,
+    "legacySnapshotClone": "Aram6_500gen_767B"
+  },
+  {
+    "clone": "Ara-6_1000gen_969A",
+    "population": "Ara-6",
+    "generation": 1000,
+    "legacySnapshotClone": "Aram6_1000gen_969A"
+  },
+  {
+    "clone": "Ara-6_1000gen_969B",
+    "population": "Ara-6",
+    "generation": 1000,
+    "legacySnapshotClone": "Aram6_1000gen_969B"
+  },
+  {
+    "clone": "Ara-6_1500gen_1073A",
+    "population": "Ara-6",
+    "generation": 1500,
+    "legacySnapshotClone": "Aram6_1500gen_1073A"
+  },
+  {
+    "clone": "Ara-6_1500gen_1073B",
+    "population": "Ara-6",
+    "generation": 1500,
+    "legacySnapshotClone": "Aram6_1500gen_1073B"
+  },
+  {
+    "clone": "Ara-6_2000gen_1169A",
+    "population": "Ara-6",
+    "generation": 2000,
+    "legacySnapshotClone": "Aram6_2000gen_1169A"
+  },
+  {
+    "clone": "Ara-6_2000gen_1169B",
+    "population": "Ara-6",
+    "generation": 2000,
+    "legacySnapshotClone": "Aram6_2000gen_1169B"
+  },
+  {
+    "clone": "Ara-6_5000gen_2184A",
+    "population": "Ara-6",
+    "generation": 5000,
+    "legacySnapshotClone": "Aram6_5000gen_2184A"
+  },
+  {
+    "clone": "Ara-6_5000gen_2184B",
+    "population": "Ara-6",
+    "generation": 5000,
+    "legacySnapshotClone": "Aram6_5000gen_2184B"
+  },
+  {
+    "clone": "Ara-6_10000gen_4541A",
+    "population": "Ara-6",
+    "generation": 10000,
+    "legacySnapshotClone": "Aram6_10000gen_4541A"
+  },
+  {
+    "clone": "Ara-6_10000gen_4541B",
+    "population": "Ara-6",
+    "generation": 10000,
+    "legacySnapshotClone": "Aram6_10000gen_4541B"
+  },
+  {
+    "clone": "Ara-6_15000gen_7182A",
+    "population": "Ara-6",
+    "generation": 15000,
+    "legacySnapshotClone": "Aram6_15000gen_7182A"
+  },
+  {
+    "clone": "Ara-6_15000gen_7182B",
+    "population": "Ara-6",
+    "generation": 15000,
+    "legacySnapshotClone": "Aram6_15000gen_7182B"
+  },
+  {
+    "clone": "Ara-6_20000gen_8598A",
+    "population": "Ara-6",
+    "generation": 20000,
+    "legacySnapshotClone": "Aram6_20000gen_8598A"
+  },
+  {
+    "clone": "Ara-6_20000gen_8598B",
+    "population": "Ara-6",
+    "generation": 20000,
+    "legacySnapshotClone": "Aram6_20000gen_8598B"
+  },
+  {
+    "clone": "Ara-6_30000gen_10447",
+    "population": "Ara-6",
+    "generation": 30000,
+    "legacySnapshotClone": "Aram6_30000gen_10447"
+  },
+  {
+    "clone": "Ara-6_30000gen_10448",
+    "population": "Ara-6",
+    "generation": 30000,
+    "legacySnapshotClone": "Aram6_30000gen_10448"
+  },
+  {
+    "clone": "Ara-6_40000gen_11005",
+    "population": "Ara-6",
+    "generation": 40000,
+    "legacySnapshotClone": "Aram6_40000gen_11005"
+  },
+  {
+    "clone": "Ara-6_40000gen_11006",
+    "population": "Ara-6",
+    "generation": 40000,
+    "legacySnapshotClone": "Aram6_40000gen_11006"
+  },
+  {
+    "clone": "Ara-6_50000gen_11389",
+    "population": "Ara-6",
+    "generation": 50000,
+    "legacySnapshotClone": "Aram6_50000gen_11389"
+  },
+  {
+    "clone": "Ara-6_50000gen_11390",
+    "population": "Ara-6",
+    "generation": 50000,
+    "legacySnapshotClone": "Aram6_50000gen_11390"
+  }
+]

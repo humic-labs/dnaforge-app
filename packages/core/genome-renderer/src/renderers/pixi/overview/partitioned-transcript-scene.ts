@@ -14,6 +14,8 @@ export interface TranscriptInstancePartition {
 }
 
 export interface GpuReadyPartitionedTranscriptScene {
+  readonly sourceAnnotationIdentity?: Readonly<{ payloadSha256: string; contractSha256: string }>;
+  readonly sourceAnnotationAliases?: readonly import('../../../annotation-data-appearance').SourceAnnotationAliasesV1[];
   partitionSpanBp: number;
   maxPrimitiveSpanBp: number;
   packedInstanceData: Float32Array;

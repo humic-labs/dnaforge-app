@@ -67,6 +67,8 @@ export interface UnifiedLayoutInputs {
 
   topOffsetMin?: number;
 
+  annotationTopReservePx?: number;
+
   bottomReserve?: number;
 
   trackScrollTop?: number;
@@ -891,7 +893,7 @@ export function computeUnifiedLayout(inputs: UnifiedLayoutInputs): UnifiedLayout
   });
   const belowHeights = below.map((o) => o.computeHeight(genome, state, pixelsPerBp) * compactScale);
 
-  let y = 0;
+  let y = Math.max(0, inputs.annotationTopReservePx ?? 0);
 
   const abovePlaced = placeUnifiedLayoutAboveSlots({
     y,

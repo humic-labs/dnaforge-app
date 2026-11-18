@@ -25,6 +25,105 @@ import {
 } from './sequence-view-state';
 
 describe('SequenceViewState model', () => {
+  it('round trips a data-layer reference through the existing tab and per-document view memory', () => {
+    const selection = { project: '/project', layerId: `layer-${'a'.repeat(64)}` };
+    const patch = { dataLayerSelection: selection };
+    expect(modelPatchToTabViewState(patch)).toEqual({ sequenceDataLayerSelection: selection });
+    expect(tabViewStateToModelPatch({ sequenceDataLayerSelection: selection })).toEqual(patch);
+    writeSequenceViewMemory('layer-sequence', patch);
+    expect(
+      resolveSeededViewState({ memory: readSequenceViewMemory('layer-sequence') })
+        .dataLayerSelection
+    ).toEqual(selection);
+  });
+
+  it('persists an explicit hidden layer without duplicating a visibility flag', () => {
+    const hidden = { project: '/project', layerId: null };
+    expect(normalizeSequenceViewStatePatch({ dataLayerSelection: hidden })).toEqual({
+      dataLayerSelection: hidden,
+    });
+    expect(
+      resolveSeededViewState({
+        memory: { dataLayerSelection: { project: '/project', layerId: `layer-${'a'.repeat(64)}` } },
+        tab: { dataLayerSelection: hidden },
+      }).dataLayerSelection
+    ).toEqual(hidden);
+  });
+
+  it('round trips per-layer appearance independently of saved dataset bytes', () => {
+    const id = `layer-${'a'.repeat(64)}`;
+    const presentation = {
+      sampleId: 'measurement',
+      signalVisible: true,
+      annotationColors: false,
+      style: {
+        geometry: 'band' as const,
+        colorScale: {
+          kind: 'continuous' as const,
+          domain: [-2, 2] as [number, number],
+          colors: ['#000000', '#ffffff'],
+          missingColor: '#cccccc',
+          transform: 'linear' as const,
+        },
+      },
+    };
+    const selection = {
+      project: '/project',
+      layerId: null,
+      presentationByLayerId: { [id]: presentation },
+    };
+    const patch = { dataLayerSelection: selection };
+    expect(tabViewStateToModelPatch(modelPatchToTabViewState(patch))).toEqual(patch);
+    writeSequenceViewMemory('styled-sequence', patch);
+    expect(readSequenceViewMemory('styled-sequence').dataLayerSelection).toEqual(selection);
+    expect(
+      normalizeSequenceViewStatePatch({
+        dataLayerSelection: { ...selection, presentationByLayerId: { invalid: presentation } },
+      })
+    ).toEqual({});
+  });
+
+  it('persists independent layer visibility and rejects invalid or duplicated entries', () => {
+    const first = `layer-${'a'.repeat(64)}`;
+    const second = `layer-${'b'.repeat(64)}`;
+    const selection = { project: '/project', layerId: second, visibleLayerIds: [first, second] };
+    const patch = { dataLayerSelection: selection };
+    expect(tabViewStateToModelPatch(modelPatchToTabViewState(patch))).toEqual(patch);
+    writeSequenceViewMemory('multi-layer-sequence', patch);
+    expect(readSequenceViewMemory('multi-layer-sequence').dataLayerSelection).toEqual(selection);
+    for (const visibleLayerIds of [[first, 'invalid'], [first, first], Array(65).fill(first)])
+      expect(
+        normalizeSequenceViewStatePatch({ dataLayerSelection: { ...selection, visibleLayerIds } })
+      ).toEqual({});
+    expect(
+      normalizeSequenceViewStatePatch({
+        dataLayerSelection: { ...selection, layerId: null, visibleLayerIds: [] },
+      })
+    ).toEqual({ dataLayerSelection: { ...selection, layerId: null, visibleLayerIds: [] } });
+  });
+
+  it('retains only a layer reference in view memory and rejects malformed identities', () => {
+    const selection = {
+      project: '/project',
+      layerId: `layer-${'a'.repeat(64)}`,
+      dataset: { csv: 'scientific-data' },
+    };
+    expect(normalizeSequenceViewStatePatch({ dataLayerSelection: selection })).toEqual({
+      dataLayerSelection: { project: selection.project, layerId: selection.layerId },
+    });
+    expect(
+      normalizeSequenceViewStatePatch({
+        dataLayerSelection: { project: '/project', layerId: 'wrong-id' },
+      })
+    ).toEqual({});
+    expect(
+      resolveSeededViewState({
+        memory: { dataLayerSelection: selection },
+        tab: { dataLayerSelection: null },
+      }).dataLayerSelection
+    ).toBeUndefined();
+  });
+
   it('defaults to Sequence+Map, Wrap sequence format, and WebGL map renderer', () => {
     expect(DEFAULT_SEQUENCE_VIEW_STATE).toEqual({
       rendererVisibility: 'both',

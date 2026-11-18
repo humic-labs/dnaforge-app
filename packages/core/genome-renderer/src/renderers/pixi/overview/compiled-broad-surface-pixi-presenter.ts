@@ -1,3 +1,4 @@
+import { isAnnotationDataAppearanceArtifactV1 } from '../../../annotation-data-appearance';
 import {
   packAnnotationRolePaletteMat4V1,
   type AnnotationColorRoleKeyV1,
@@ -1548,7 +1549,9 @@ export class CompiledBroadSurfacePixiPresenterV2 {
       quad.uniforms.uLodMix = prepared.coarserWeight;
       const runtimeTheme = indexedAnnotationRuntimeThemeUniforms(
         this.#manifest.trackId,
-        prepared.camera.themeMode
+        isAnnotationDataAppearanceArtifactV1(this.#manifest.artifactKey)
+          ? 'light'
+          : prepared.camera.themeMode
       );
       quad.uniforms.uAnnotationThemeDark = runtimeTheme.themeDark;
       quad.uniforms.uAnnotationRnaPalette = runtimeTheme.rnaPalette;
@@ -1613,7 +1616,9 @@ export class CompiledBroadSurfacePixiPresenterV2 {
       quad.uniforms.uLodMix = coarserWeight;
       const runtimeTheme = indexedAnnotationRuntimeThemeUniforms(
         this.#manifest.trackId,
-        camera.themeMode
+        isAnnotationDataAppearanceArtifactV1(this.#manifest.artifactKey)
+          ? 'light'
+          : camera.themeMode
       );
       quad.uniforms.uAnnotationThemeDark = runtimeTheme.themeDark;
       quad.uniforms.uAnnotationRnaPalette = runtimeTheme.rnaPalette;

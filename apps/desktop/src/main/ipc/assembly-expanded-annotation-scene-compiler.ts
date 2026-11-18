@@ -1,5 +1,7 @@
+import type { AnnotationDataAppearanceV1 } from '@waypoint/genome-renderer/pure';
 import {
   assignFeatureLanesByType,
+  sourceAnnotationAliasesV1,
   buildAnnotationPolicyProjectionTableV1,
   compilePackedTranscriptBroadSurfaceRgba8V1,
   COMPILED_BROAD_SURFACE_MAX_WEIGHTED_ROLES_V1,
@@ -666,6 +668,9 @@ function mapExpandedFeaturesForRenderer(
   );
   for (let featureIndex = 0; featureIndex < mapped.length; featureIndex += 1) {
     mapped[featureIndex].feature.id = featureIndex;
+    const source = filtered[mapped[featureIndex].sourceIndex].feature;
+    mapped[featureIndex].feature.sourceAnnotationAliases =
+      source.sourceAnnotationAliases ?? sourceAnnotationAliasesV1(source.qualifiers);
   }
   return {
     features: mapped.map(({ feature }) => feature),
@@ -790,6 +795,28 @@ export async function compileExpandedAnnotationSceneEnvelope(
   validateExpandedJob(job);
   const parsed = parseValidatedFeatureEnvelope(job, cache);
   return compileAnnotationSceneFeatures(job, parsed);
+}
+
+export async function compileRetainedSourceAnnotationAliasesV1(
+  job: ExpandedAnnotationSceneWorkerJob,
+  expectedPayloadSha256: string,
+  deps: Pick<ExpandedCompilerDeps, 'assertSafePath' | 'readOverviewCaches'>
+): Promise<
+  NonNullable<CompiledExpandedAnnotationScene['packed']['manifest']['sourceAnnotationAliases']>
+> {
+  validateExpandedJob(job);
+  const graph = await buildFeatureGraphFromPerChromCaches(job, deps);
+  if (!graph) throw new Error('Retained annotation source graph is unavailable.');
+  const compiled = await compileAnnotationSceneFeatureGraph(job, graph);
+  if (
+    compiled.packed.manifest.integrity.payloadSha256 !== expectedPayloadSha256 ||
+    !compiled.packed.manifest.sourceAnnotationAliases
+  ) {
+    throw new Error(
+      'Retained source compilation does not reproduce the admitted annotation scene.'
+    );
+  }
+  return compiled.packed.manifest.sourceAnnotationAliases;
 }
 
 async function compileAnnotationSceneFeatureGraph(
@@ -1004,6 +1031,8 @@ export async function compileAndPublishBroadRasterArtifactForPackedScene(
     readonly request: AssemblyAnnotationSceneReadRequest;
     readonly sourceFingerprint: string;
     readonly packed: PackedPartitionedTranscriptSceneBinaryV4;
+    readonly appearance?: AnnotationDataAppearanceV1;
+    readonly artifactDirectory?: string;
     readonly publishWhen?: Promise<boolean>;
   },
   deps: BroadRasterCompilerDeps = {}
@@ -1017,16 +1046,21 @@ export async function compileAndPublishBroadRasterArtifactForPackedScene(
   const surfaceManifest = await buildSurfaceManifest({
     sceneManifest: input.packed.manifest,
     artifact: input.request.artifact,
+    appearance: input.appearance,
   });
-  const artifactDirectory = resolveArtifactDirectory({
-    request: input.request,
-    sourceFingerprint: input.sourceFingerprint,
-    surfaceManifestFingerprint: surfaceManifest.manifestFingerprint,
-  });
+  const artifactDirectory =
+    input.artifactDirectory ??
+    resolveArtifactDirectory({
+      request: input.request,
+      sourceFingerprint: input.sourceFingerprint,
+      surfaceManifestFingerprint: surfaceManifest.manifestFingerprint,
+    });
   if (!artifactDirectory) fail('invalid broad raster artifact directory');
   const roles = input.packed.roleSidecar;
   const roleWeights =
-    roles && roles.roleTable.length <= COMPILED_BROAD_SURFACE_MAX_WEIGHTED_ROLES_V1
+    !input.appearance &&
+    roles &&
+    roles.roleTable.length <= COMPILED_BROAD_SURFACE_MAX_WEIGHTED_ROLES_V1
       ? {
           weights: {
             expanded: roles.expandedRoleIndices,
@@ -1036,7 +1070,7 @@ export async function compileAndPublishBroadRasterArtifactForPackedScene(
         }
       : null;
 
-  if (deps.encodeBroadRasterCells) {
+  if (deps.encodeBroadRasterCells && !input.appearance) {
     const cells = await deps.encodeBroadRasterCells({
       packed: input.packed,
       surfaceManifest,
@@ -1064,6 +1098,7 @@ export async function compileAndPublishBroadRasterArtifactForPackedScene(
     try {
       const result = await compileBroadRaster({
         packedScene: input.packed,
+        appearance: input.appearance,
         surfaceManifest,
         rasterizer: 'wasm',
         ...(roleWeights ? { roleWeights: roleWeights.weights } : {}),

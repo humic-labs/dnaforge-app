@@ -1196,6 +1196,9 @@ export function ReferenceGenomePicker({
               bamTracks: [...restoredTracks.bamTracks],
               ...(managedTracks
                 ? {
+                    sequenceDataLayers: managedTracks.sequenceDataLayers,
+                    contactProjection: managedTracks.contactProjection,
+                    comparisonProjection: managedTracks.comparisonProjection,
                     signalReadPileupViews: managedTracks.signalReadPileupViews,
                     primerBindings: managedTracks.primerBindings,
                     userAnnotations: managedTracks.userAnnotations,

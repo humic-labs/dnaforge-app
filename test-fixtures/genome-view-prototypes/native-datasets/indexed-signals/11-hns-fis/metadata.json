@@ -1,0 +1,163 @@
+{
+  "schema": "dnaforge.sequence-data-layer-fixture.v1",
+  "dataset": {
+    "number": 11,
+    "id": "11-nucleoid-binding",
+    "title": "H-NS / Fis binding domains",
+    "study": "Kahramanoglou et al. 2011",
+    "sourceReference": "E. coli MG1655; original study genomic bounds, exact accession not stated in interval table"
+  },
+  "snapshot": {
+    "file": "snapshot.json",
+    "originalSha256": "27261fdf0682bc95e7b83859e275b5c14cc7f54535f9137cd0ea3a309ef54035",
+    "sha256": "9032219c91cf590abf3d266bab9f61ecd0a31d211aa1a4cc13d399eaae88b179",
+    "scientificRecordsPreserved": true,
+    "presentationFieldsRemoved": true,
+    "coordinateStatement": "Historical source-coordinate warnings are retained in the snapshot. coordinate-evidence.json records the primary-data inference supporting this conversion."
+  },
+  "sourceFiles": [
+    {
+      "url": "https://www.ebi.ac.uk/biostudies/files/S-EPMC3064808/supp_gkq934_Fis_EE_bindingregions.txt",
+      "file": "raw/regulation/Kahramanoglou_Fis_EE.txt",
+      "sha256": "a65491ce359d3e258ab510aa62b60e3ddbfae3e7bc859745214ac8c9d69049dc",
+      "bytes": 19363,
+      "citation": "https://doi.org/10.1093/nar/gkq934"
+    },
+    {
+      "url": "https://www.ebi.ac.uk/biostudies/files/S-EPMC3064808/supp_gkq934_Fis_ME_bindingregions.txt",
+      "file": "raw/regulation/Kahramanoglou_Fis_ME.txt",
+      "sha256": "ac7eb8fa3ac2604004f93fa0123f44aca40e859ca32aa419c179d06b64926f81",
+      "bytes": 22745,
+      "citation": "https://doi.org/10.1093/nar/gkq934"
+    },
+    {
+      "url": "https://www.ebi.ac.uk/biostudies/files/S-EPMC3064808/supp_gkq934_H-NS_EE_bindingregions.txt",
+      "file": "raw/regulation/Kahramanoglou_H-NS_EE.txt",
+      "sha256": "379861d29424ce541569ed42eeabd5afbd357c5c0c954be06763cdacff3b9584",
+      "bytes": 6974,
+      "citation": "https://doi.org/10.1093/nar/gkq934"
+    },
+    {
+      "url": "https://www.ebi.ac.uk/biostudies/files/S-EPMC3064808/supp_gkq934_H-NS_ME_bindingregions.txt",
+      "file": "raw/regulation/Kahramanoglou_H-NS_ME.txt",
+      "sha256": "0e16cf580b38ac7eacdc8165202b58cc49976013cd5cd30f16544bec971cb3d0",
+      "bytes": 7188,
+      "citation": "https://doi.org/10.1093/nar/gkq934"
+    },
+    {
+      "url": "https://www.ebi.ac.uk/biostudies/files/S-EPMC3064808/supp_gkq934_H-NS_TS_bindingregions.txt",
+      "file": "raw/regulation/Kahramanoglou_H-NS_TS.txt",
+      "sha256": "8e5789f4bdbd2d9dea3358f88c141d26849632eced71f1098390b7b4e22ff14c",
+      "bytes": 8616,
+      "citation": "https://doi.org/10.1093/nar/gkq934"
+    },
+    {
+      "url": "https://www.ebi.ac.uk/biostudies/files/S-EPMC3064808/supp_gkq934_H-NS_S_bindingregions.txt",
+      "file": "raw/regulation/Kahramanoglou_H-NS_S.txt",
+      "sha256": "05e93deacabb386c30fbc59edaff2154c14696e7fc5b82dff154fd9b5f434172",
+      "bytes": 8454,
+      "citation": "https://doi.org/10.1093/nar/gkq934"
+    }
+  ],
+  "targetReference": {
+    "accession": "NC_000913.2",
+    "organism": "Escherichia coli K-12 MG1655",
+    "length": 4639675,
+    "normalizedSequenceSha256": "b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+    "normalizedSequenceFingerprint": "sha256:b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+    "directory": "reference-NC_000913.2",
+    "fastaFile": "NC_000913.2.fa.gz",
+    "fastaSha256": "57e309beca15cf4edef112fec10ecc2daf77539eb9b34df39206331dc4d1454e",
+    "gffFile": "NC_000913.2.gff3.gz",
+    "gffSha256": "59fc29e2046e3bf324d987808f5cc2193593a9b8004411376d843a648fc41db6",
+    "bindingAuthority": "Empirical primary signal domain and publisher primer-coordinate anchors; original accession is not stated.",
+    "referenceSubstitutionApplied": false
+  },
+  "mapping": {
+    "kind": "positions",
+    "startColumn": "start0",
+    "endColumn": "end0",
+    "coordinateSystem": "zero-based-half-open"
+  },
+  "coordinateSystem": "zero-based-half-open",
+  "unit": "reported interval extent (bp)",
+  "valueColumns": [
+    "extent_bp"
+  ],
+  "aggregation": "none",
+  "unresolvedPolicy": "reject",
+  "files": {
+    "bed": "data.bed",
+    "csv": "data.csv",
+    "snapshot": "snapshot.json",
+    "sourceRecords": "source-records.json",
+    "coordinateEvidence": "coordinate-evidence.json",
+    "proteinBeds": [
+      "fis-me.bed",
+      "hns-me.bed"
+    ]
+  },
+  "layers": [
+    {
+      "id": "fis-me",
+      "file": "fis-me.bed",
+      "label": "Fis, mid-exponential",
+      "recordCount": 157,
+      "featureMeaning": "Published binding interval; no score or strand is supplied."
+    },
+    {
+      "id": "hns-me",
+      "file": "hns-me.bed",
+      "label": "H-NS, mid-exponential",
+      "recordCount": 38,
+      "featureMeaning": "Published binding interval; no score or strand is supplied."
+    }
+  ],
+  "counts": {
+    "primarySelectedIntervals": 195,
+    "nativeBedIntervals": 195,
+    "primaryFisIntervals": 157,
+    "primaryHnsIntervals": 38,
+    "phaseComparisonRecordsRetained": 466,
+    "phaseComparisonNativeLayers": 0,
+    "selectedIntervalsDropped": 0,
+    "measuredBindingStrengthCells": 0,
+    "inventedBindingStrengthCells": 0,
+    "extentCells": 195,
+    "missingExtentCells": 0,
+    "explicitZeroExtentCells": 0,
+    "minimumStart0": 2651,
+    "maximumEnd0": 499516,
+    "sampledThresholdBoundaries": 27
+  },
+  "coordinateEvidence": {
+    "origin": "Processed tracks enumerate positions from 1 through 4639675, matching the exact NC_000913.2 reference length. This establishes a one-based position domain empirically.",
+    "endMeaning": "Across all 27 complete source intervals in the four valid head probes, start is the first threshold-passing position and end is the first threshold-failing position after the interval. All six full interval tables reproduce the published Table 1 total bases using end-start.",
+    "conversion": "start0 = sourceStart - 1; end0 = sourceEnd - 1. Source end is exclusive in the one-based processed-signal coordinate domain.",
+    "referenceBinding": "Five publisher validation primer pairs lie within their reported peak intervals on NC_000913.2. Four of those five no longer lie within those intervals on NC_000913.3; its shifts range from 776 to 1978 bases. Every valid signal tail ends at the NC_000913.2 length. The version binding is an empirical coordinate inference, not an author-declared accession.",
+    "confidence": {
+      "selectedIntervalCoordinateConversion": "high",
+      "coordinateCompatibilityWithNC_000913.2": "high",
+      "originalAuthorAccessionAttribution": "moderate; neither accession nor original KEGG FASTA bytes were supplied"
+    }
+  },
+  "measurementMeaning": "The tables supply protein-binding interval boundaries only. extent_bp is their reported end-start separation and equals the displayed interval width. It is not a binding signal, strength, affinity, coverage or probability. BED4 has no score field.",
+  "missingness": "No strength measurements or per-interval strand values are supplied. They remain absent. Unreported genomic regions are not added as zeros. All selected interval extents are present positive integers.",
+  "selection": "Retain the original 195 mid-exponential records with reported source start below 500000. Do not clip intervals crossing 500000. The original 466 phase-comparison records remain in snapshot and source records; no additional native phase layers are emitted.",
+  "limits": [
+    "Only the selected first-500-kb mid-exponential subset is converted for native placement.",
+    "The original accession and original KEGG FASTA bytes were not published in the retrieved interval tables. Exact NC_000913.2 coordinate compatibility is inferred from primary signal and publisher primer anchors.",
+    "The signal endpoint check covers 27 intervals across four primary tracks, rather than every selected interval.",
+    "Transition and stationary processed-signal probes were unavailable or truncated and were excluded from validation. Their original comparison records are preserved without emitting native layers.",
+    "Binding interval extent is not binding strength. No numeric BED score, strand, replicate signal, normalization or zero-filled region is invented."
+  ],
+  "fileSha256": {
+    "coordinate-evidence.json": "ead4010c5649e61435c00b3089408f1cd878673e419002229721bef0b7b3e3d3",
+    "data.bed": "de76b10633700f5f27f12f113353a680ab5d13e21125e179f67b00bfd9670085",
+    "data.csv": "a9f02ced7109c85e704a0b97fd592f1f07a2bbe2c16aace5bda8dc5b634dfa57",
+    "fis-me.bed": "21287b623cd3232e06bcb55746bd00a1b2eaa9482337b8c8886b53a99492afdd",
+    "hns-me.bed": "671d7a3e17fa3945f2a7dc2677bb33eb709ec318547f3b47f62c653fe2c132aa",
+    "snapshot.json": "9032219c91cf590abf3d266bab9f61ecd0a31d211aa1a4cc13d399eaae88b179",
+    "source-records.json": "dffe82b17bd5dd0a03aff7869cd1de9be771e4e89d4b3c55f385d40136483d53"
+  }
+}
