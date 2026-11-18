@@ -773,7 +773,12 @@ describe('workspace sync list/open projects', () => {
             nextCursor: null,
           };
         }
-        if (path.endsWith('/storage-policy')) return RESTORE_STORAGE_POLICY;
+        if (path.endsWith('/storage-policy?fileSelectionVersion=1'))
+          return {
+            schema: 'dnaforge.workspace-sync-publication-policy/v1',
+            policy: RESTORE_STORAGE_POLICY,
+            fileSelection: { supportedVersion: 1, requiredVersion: 0 },
+          };
         if (path.endsWith('/latest')) throw manifestRestoreRequired();
         if (path.endsWith('/latest/manifest')) return latest;
         throw new Error(`Unexpected projects request: ${path}`);

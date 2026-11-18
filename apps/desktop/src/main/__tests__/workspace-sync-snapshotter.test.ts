@@ -430,8 +430,11 @@ describe('workspace sync snapshotter', () => {
     expect(snapshot.bundle.workspace).toEqual({ id: 'workspace-a', name: 'Project A' });
     expect(snapshot.bundle.files.map((file) => file.relativePath)).toEqual([
       '.dnaforge/native-workspace.json',
+      'dist/hidden.gb',
+      'node_modules/pkg/hidden.gb',
       'sequences/chrIV.gbff',
       'sequences/pUC19.gb',
+      'tmp/hidden.gb',
     ]);
     expect(snapshot.bundle.files.map((file) => file.relativePath)).not.toContain(
       '.dnaforge/hosted-resource-bindings.json'
@@ -460,6 +463,7 @@ describe('workspace sync snapshotter', () => {
       'bundle-too-large': { count: 0 },
     });
     expect(snapshot.statusExcludedSummary).toEqual({
+      ignoredCount: 0,
       unsupportedCount: 2,
       privateRawDataCount: 1,
       referencePointerCount: 1,
@@ -851,6 +855,7 @@ describe('workspace sync snapshotter', () => {
     expect(bundleBytes).not.toContain('Global secret primer');
     expect(bundleBytes).not.toContain('GGGGAAAACCCCTTTTG');
     expect(snapshot.statusExcludedSummary).toEqual({
+      ignoredCount: 0,
       unsupportedCount: 0,
       privateRawDataCount: 0,
       referencePointerCount: 0,
@@ -937,6 +942,7 @@ describe('workspace sync snapshotter', () => {
     });
 
     expect(snapshot.statusExcludedSummary).toEqual({
+      ignoredCount: 0,
       unsupportedCount: 0,
       privateRawDataCount: 0,
       referencePointerCount: 0,
@@ -2094,6 +2100,7 @@ describe('workspace sync snapshotter', () => {
   async function tempRoot(): Promise<string> {
     const root = await mkdtemp(join(tmpdir(), 'workspace-sync-snapshot-'));
     rootsForCleanup.push(root);
+    await initManagedRepo(root);
     return root;
   }
 });

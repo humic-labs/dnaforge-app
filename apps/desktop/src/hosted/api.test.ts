@@ -1,6 +1,7 @@
 // @vitest-environment node
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { WorkspaceSyncPublicationPolicy } from '@waypoint/share-bundle';
 import {
   createHostedWorkspaceShare,
   createHostedWorkspace,
@@ -19,6 +20,20 @@ import {
   hostedUploadFingerprint,
   signOutHostedWorkspace,
 } from './api';
+
+const TEST_PUBLICATION_POLICY: WorkspaceSyncPublicationPolicy = {
+  schema: 'dnaforge.workspace-sync-publication-policy/v1',
+  policy: {
+    schemaVersion: 1,
+    policyKey: 'test-expanded',
+    revision: 1,
+    maxFileBytes: 12 * 1024 ** 3,
+    maxProjectBytes: 120 * 1024 ** 3,
+    maxFiles: 2000,
+    storageQuotaBytes: 240 * 1024 ** 3,
+  },
+  fileSelection: { supportedVersion: 1, requiredVersion: 0 },
+};
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -345,6 +360,8 @@ describe('hosted immutable history', () => {
       vi.stubGlobal(
         'fetch',
         vi.fn(async (url: string, init?: RequestInit) => {
+          if (url.endsWith('/storage-policy?fileSelectionVersion=1'))
+            return Response.json(TEST_PUBLICATION_POLICY);
           if (url.endsWith('/blobs/reserve')) return Response.json({ status: 'ready' });
           requests.push(init!);
           return requests.length === 1
@@ -403,6 +420,8 @@ describe('hosted immutable history', () => {
   });
   it('publishes rename identity outside the immutable manifest and retains unchanged identities', async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/storage-policy?fileSelectionVersion=1'))
+        return Response.json(TEST_PUBLICATION_POLICY);
       if (url.endsWith('/blobs/reserve')) {
         return Response.json({ status: 'ready' });
       }
@@ -454,11 +473,13 @@ describe('hosted immutable history', () => {
       ],
       removePaths: ['sequences/one.gbk'],
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it('does not borrow an existing identity for a new copy with identical contents', async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/storage-policy?fileSelectionVersion=1'))
+        return Response.json(TEST_PUBLICATION_POLICY);
       if (url.endsWith('/blobs/reserve')) return Response.json({ status: 'ready' });
       const body = JSON.parse(String(init?.body));
       expect(body.resourceIdentities).toEqual([
@@ -544,6 +565,7 @@ describe('hosted immutable history', () => {
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
       )
+      .mockResolvedValueOnce(Response.json(TEST_PUBLICATION_POLICY))
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
@@ -568,7 +590,13 @@ describe('hosted immutable history', () => {
       })
     ).resolves.toMatchObject({ id: 'version-3', versionNumber: 3, files: [file] });
 
-    const publishCall = fetchMock.mock.calls[1];
+    const publishCall = fetchMock.mock.calls[2];
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      '/api/hosted-workspaces/workspace-1/storage-policy?fileSelectionVersion=1'
+    );
+    expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get('X-DNAForge-Account-ID')).toBe(
+      'account-1'
+    );
     expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get('X-DNAForge-Account-ID')).toBe(
       'account-1'
     );
@@ -576,6 +604,7 @@ describe('hosted immutable history', () => {
     expect(publishCall?.[0]).toBe('/api/hosted-workspaces/workspace-1/versions');
     expect(JSON.parse(String((publishCall?.[1] as RequestInit | undefined)?.body))).toEqual({
       baseVersionId: 'version-2',
+      fileSelectionVersion: 1,
       manifest: { schemaVersion: 1, files: [file] },
       resourceIdentities: [{ path: file.path, resourceId: 'resource-1' }],
     });
@@ -662,6 +691,8 @@ describe('bounded browser blob preparation', () => {
       files,
     };
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/storage-policy?fileSelectionVersion=1'))
+        return Response.json(TEST_PUBLICATION_POLICY);
       if (url.endsWith('/blobs/reserve')) return Response.json({ status: 'ready' });
       expect(url).toBe('/api/hosted-workspaces/workspace/versions');
       expect(new Headers(init?.headers).get('X-DNAForge-Account-ID')).toBe('alice');
@@ -678,12 +709,15 @@ describe('bounded browser blob preparation', () => {
     });
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       '/api/hosted-workspaces/workspace/blobs/reserve',
+      '/api/hosted-workspaces/workspace/storage-policy?fileSelectionVersion=1',
       '/api/hosted-workspaces/workspace/versions',
     ]);
   });
 
   it('prepares changed bytes instead of publishing stale retained transfer metadata', async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/storage-policy?fileSelectionVersion=1'))
+        return Response.json(TEST_PUBLICATION_POLICY);
       if (url.endsWith('/blobs/reserve')) return Response.json({ status: 'ready' });
       const body = JSON.parse(String(init?.body));
       expect(body.manifest.files[0].contentSha256).not.toBe('a'.repeat(64));
@@ -718,6 +752,7 @@ describe('bounded browser blob preparation', () => {
     );
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       '/api/hosted-workspaces/workspace/blobs/reserve',
+      '/api/hosted-workspaces/workspace/storage-policy?fileSelectionVersion=1',
       '/api/hosted-workspaces/workspace/versions',
     ]);
   });
@@ -787,6 +822,8 @@ describe('bounded browser blob preparation', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith('/storage-policy?fileSelectionVersion=1'))
+          return Response.json(TEST_PUBLICATION_POLICY);
         if (url.endsWith('/blobs/reserve')) {
           reserves += 1;
           return Response.json({ status: 'ready' });
@@ -861,6 +898,8 @@ describe('bounded browser blob preparation', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
+        if (url.endsWith('/storage-policy?fileSelectionVersion=1'))
+          return Response.json(TEST_PUBLICATION_POLICY);
         if (url.endsWith('/blobs/reserve')) {
           reservations += 1;
           await new Promise<void>((resolve) => {
@@ -911,6 +950,8 @@ describe('bounded browser blob preparation', () => {
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
         expect(new Headers(init?.headers).get('X-DNAForge-Account-ID')).toBe('alice');
+        if (url.endsWith('/storage-policy?fileSelectionVersion=1'))
+          return Response.json(TEST_PUBLICATION_POLICY);
         if (url.endsWith('/blobs/reserve')) {
           active += 1;
           peak = Math.max(peak, active);

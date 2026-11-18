@@ -13,6 +13,7 @@ export type DesktopSyncClientErrorCode =
   | 'IN_PROGRESS'
   | 'BAD_RESPONSE'
   | 'VALIDATION'
+  | 'UPGRADE_REQUIRED'
   | 'FEATURE_DISABLED'
   | 'FORBIDDEN'
   | 'NOT_FOUND'

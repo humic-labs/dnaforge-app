@@ -47,6 +47,7 @@ import { workspaceSyncBlobPath } from '../workspace-sync-blob-cache';
 import { workspaceSyncManifestFromBundle } from '../workspace-sync-manifest-upload';
 import { createWorkspaceSyncProjectsClient } from '../workspace-sync-projects';
 import { reconcileWorkspaceSyncConflict } from '../workspace-sync-reconcile-runtime';
+import { recordWorkspaceSyncReplicaFiles } from '../workspace-sync-replica-files';
 import { buildWorkspaceSyncSnapshot } from '../workspace-sync-snapshotter';
 import { createTestDb } from './test-db';
 
@@ -195,6 +196,13 @@ describe('automatic merge of a manifest-backed shared project ', () => {
          last_acked_local_head_sha, access_role, created_at, updated_at
        ) VALUES (1, 'workspace-a', 'account-a', 'org-lab', ?, 1, ?, 1, ?, 'editor', 1, 1)`
     ).run(WORKSPACE, BASE_ID, baseHead);
+    recordWorkspaceSyncReplicaFiles(db, {
+      workspaceUuid: 'workspace-a',
+      remoteWorkspaceId: WORKSPACE,
+      remoteVersionId: BASE_ID,
+      paths: base.files.map((file) => file.relativePath),
+      nowMs: 1,
+    });
 
     const details = new Map([
       [BASE_ID, manifestDetail(BASE_ID, 1, base)],
