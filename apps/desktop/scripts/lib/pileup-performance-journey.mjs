@@ -663,7 +663,7 @@ async function admitPortable(page, fixture) {
   return { ...fixture, savedViewPath };
 }
 
-async function startCadence(page) {
+export async function startCadence(page) {
   return page.evaluate(() => {
     const started = performance.now();
     const hasLongTasks = PerformanceObserver.supportedEntryTypes.includes('longtask');
@@ -672,15 +672,29 @@ async function startCadence(page) {
       previous: started,
       rafIntervalsMs: [],
       longTaskDurationsMs: hasLongTasks ? [] : null,
+      longAnimationFrames: { status: 'unsupported', entries: [], omittedEntries: 0 },
+      frameObserver: null,
+      recordFrames: null,
       raf: 0,
       observer: null,
-      wheel: { eventCount: 0, deltaY: 0, untrustedCount: 0 },
+      wheel: {
+        eventCount: 0,
+        deltaY: 0,
+        untrustedCount: 0,
+        firstTrustedEventMs: null,
+        lastTrustedEventMs: null,
+      },
       onWheel: null,
     };
     capture.onWheel = (event) => {
       capture.wheel.eventCount += 1;
       capture.wheel.deltaY += event.deltaY;
       if (!event.isTrusted) capture.wheel.untrustedCount += 1;
+      else {
+        const elapsed = performance.now() - started;
+        capture.wheel.firstTrustedEventMs ??= elapsed;
+        capture.wheel.lastTrustedEventMs = elapsed;
+      }
     };
     document.addEventListener('wheel', capture.onWheel, { capture: true, passive: true });
     const tick = () => {
@@ -698,12 +712,67 @@ async function startCadence(page) {
       });
       capture.observer.observe({ type: 'longtask' });
     }
+    if (PerformanceObserver.supportedEntryTypes.includes('long-animation-frame')) {
+      const filename = (source) => {
+        try {
+          const url = new URL(source);
+          const name = url.pathname.split('/').at(-1);
+          return url.origin === location.origin &&
+            /^https?:$/.test(url.protocol) &&
+            /^\/(?:src|assets|node_modules|@fs)\//.test(url.pathname) &&
+            /^[A-Za-z0-9_$.-]{1,120}\.(?:[cm]?[jt]sx?)$/.test(name)
+            ? name
+            : null;
+        } catch {
+          return null;
+        }
+      };
+      capture.recordFrames = (entries) => {
+        for (const entry of entries) {
+          if (entry.startTime < started) continue;
+          if (capture.longAnimationFrames.entries.length === 8) {
+            capture.longAnimationFrames.omittedEntries += 1;
+            continue;
+          }
+          capture.longAnimationFrames.entries.push({
+            startMs: entry.startTime - started,
+            durationMs: entry.duration,
+            blockingDurationMs: entry.blockingDuration,
+            omittedScripts: Math.max(0, entry.scripts.length - 4),
+            scripts: entry.scripts.slice(0, 4).map((script) => {
+              const name = filename(script.sourceURL);
+              return {
+                filename: name,
+                functionName:
+                  name !== null &&
+                  typeof script.sourceFunctionName === 'string' &&
+                  /^[A-Za-z_$][\w$.]{0,119}$/.test(script.sourceFunctionName)
+                    ? script.sourceFunctionName
+                    : null,
+                durationMs: script.duration,
+              };
+            }),
+          });
+        }
+      };
+      try {
+        capture.frameObserver = new PerformanceObserver((list) => {
+          capture.recordFrames(list.getEntries());
+        });
+        capture.frameObserver.observe({ type: 'long-animation-frame' });
+        capture.longAnimationFrames.status = 'available';
+      } catch {
+        capture.frameObserver?.disconnect();
+        capture.frameObserver = null;
+        capture.longAnimationFrames.status = 'unavailable';
+      }
+    }
     window.__pileupPerformanceCapture = capture;
     return performance.timeOrigin + started;
   });
 }
 
-async function stopCadence(page, expectedDeltaY) {
+export async function stopCadence(page, expectedDeltaY) {
   return page.evaluate(async (expectedDeltaY) => {
     const capture = window.__pileupPerformanceCapture;
     if (!capture) throw new Error('The gesture cadence recorder is absent.');
@@ -721,6 +790,8 @@ async function stopCadence(page, expectedDeltaY) {
       if (entry.startTime >= capture.started) capture.longTaskDurationsMs.push(entry.duration);
     }
     capture.observer?.disconnect();
+    capture.recordFrames?.(capture.frameObserver?.takeRecords() ?? []);
+    capture.frameObserver?.disconnect();
     document.removeEventListener('wheel', capture.onWheel, true);
     if (ended > capture.previous) capture.rafIntervalsMs.push(ended - capture.previous);
     delete window.__pileupPerformanceCapture;
@@ -728,6 +799,7 @@ async function stopCadence(page, expectedDeltaY) {
       durationMs: ended - capture.started,
       rafIntervalsMs: capture.rafIntervalsMs,
       longTaskDurationsMs: capture.longTaskDurationsMs,
+      longAnimationFrames: capture.longAnimationFrames,
       endedAtEpochMs: performance.timeOrigin + ended,
       wheelDeliveryWaitMs: ended - deliveryStarted,
       wheel: capture.wheel,
@@ -735,7 +807,7 @@ async function stopCadence(page, expectedDeltaY) {
   }, expectedDeltaY);
 }
 
-async function wheelGesture(page, cdp, { deltaY, modifiers = 0 }) {
+export async function wheelGesture(page, cdp, { deltaY, modifiers = 0 }) {
   const box = await viewer(page).locator('canvas').first().boundingBox();
   assert.ok(box, 'The indexed canvas has no visible bounds.');
   const x = box.x + box.width * 0.5;
@@ -761,9 +833,11 @@ async function wheelGesture(page, cdp, { deltaY, modifiers = 0 }) {
     );
   }
   await Promise.all(requests);
+  const lastInputToAllAcknowledgedMs = performance.now() - finalInput;
   const cadence = await stopCadence(page, deltaY * 120);
   return {
     finalInput,
+    lastInputToAllAcknowledgedMs,
     inputStartEpochMs,
     inputEndEpochMs: cadence.endedAtEpochMs,
     cadence,
@@ -1164,6 +1238,7 @@ export async function runPileupPerformanceJourney({
         if (capture) {
           cancelAnimationFrame(capture.raf);
           capture.observer?.disconnect();
+          capture.frameObserver?.disconnect();
           document.removeEventListener('wheel', capture.onWheel, true);
           delete window.__pileupPerformanceCapture;
         }

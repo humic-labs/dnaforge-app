@@ -312,8 +312,8 @@ export function createReadHoverSurface({
       if (!crop || crop.width > textureLimit || crop.height > textureLimit) return hide();
       const { width, height, left, top, scale } = crop;
       if (allocatedWidth !== width || allocatedHeight !== height) {
-        canvas.width = input.width = width;
-        canvas.height = input.height = height;
+        if (input.width !== width) canvas.width = input.width = width;
+        if (input.height !== height) canvas.height = input.height = height;
         gl.viewport(0, 0, width, height);
         gl.texImage2D(
           gl.TEXTURE_2D,
