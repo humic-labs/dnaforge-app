@@ -225,6 +225,49 @@ describe('PersistentRowLayout (JBrowse2-style)', () => {
     });
   });
 
+  it('finds the last visible identity at an equal start after sorting the input', () => {
+    const first: PileupRecord = {
+      chrom: 'chr1',
+      start: 100,
+      end: 120,
+      readId: 'alignment',
+      strand: '+',
+      mapq: 60,
+    };
+    const long = { ...first, end: 135 };
+    const hidden = { ...first, readId: 'hidden', end: 140 };
+    const earlier = { ...first, start: 20, end: 22, readId: 'earlier' };
+    const result = new PersistentRowLayout().assign([long, earlier, hidden, first], 2);
+    expect([...result.rows]).toEqual([1, 0, -1, 0]);
+    expect(result.readHitIndex.recordIndexFor(first)).toBe(0);
+    expect(result.readHitIndex.recordIndexFor(earlier)).toBe(1);
+    expect(result.readHitIndex.recordIndexFor(hidden)).toBeNull();
+  });
+
+  it('reuses the lowest available row after unequal intervals end in a dense ordered fork', () => {
+    const reads = Array.from({ length: 900 }, (_, i) => {
+      const start = Math.floor(i / 2);
+      return {
+        chrom: 'chr1',
+        start,
+        end: start + 1 + ((i * 19) % 73),
+        readId: String(i),
+        strand: '+' as const,
+        mapq: 60,
+      };
+    }).sort((a, b) => a.start - b.start || a.end - b.end);
+    const baseline = new PersistentRowLayout();
+    baseline.assign(reads.filter((_, i) => i % 6 === 1), 31);
+    const expected = baseline.forkForAssignment().assign(reads, 23);
+    const working = baseline.forkForAssignment();
+    const job = working.beginAssignment(reads, 23, { coordinateOrdered: true });
+    while (!job.complete) working.advanceAssignment(job, 7);
+    const actual = working.finishAssignment(job);
+    expect(actual.rows).toEqual(expected.rows);
+    expect(actual.hiddenReadCount).toBe(expected.hiddenReadCount);
+    expect(actual.hiddenReadCount).toBeGreaterThan(0);
+  });
+
   it('bounds interval searches while filling a dense retained window in coordinate order', () => {
     const depth = 80;
     const retained: PileupRecord[] = [];
