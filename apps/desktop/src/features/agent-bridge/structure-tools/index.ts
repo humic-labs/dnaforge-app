@@ -24,6 +24,10 @@ import type { PanelState, Tab } from '../../canvas/public/types';
 import { loadCatalogStructure } from '../../compute/public/molecular-catalog';
 import { getCurrentWorkspaceScope, type WorkspaceFolder } from '../../../stores/workspaceStore';
 import { platform } from '../../../platform';
+import {
+  molecularDocumentReferenceHref,
+  type MolecularDocumentReference,
+} from '../../../shared/molecular-document-reference';
 import { getUserFolders } from '../../workspace/public/path-resolve';
 import { pageMolecularChains } from '../../../shared/molecular-tool-readback';
 import { inspectionMeasurementForLayer } from '../../structure-drawer/public/inspection-measurement-data';
@@ -1743,7 +1747,7 @@ async function withSceneTarget<T>(
     waitForViewReady?: boolean;
     readOnly?: boolean;
     copy?: boolean;
-    retargetsTabOnSave?: boolean;
+    savedReference?: (result: T) => MolecularDocumentReference;
   } = {}
 ): Promise<T> {
   const documentReference = await requireMolecularDocumentTarget(target);
@@ -1803,12 +1807,20 @@ async function withSceneTarget<T>(
     `structure-panel:${found.registrationId}`
   );
 
-  const requireSameTarget = (allowSavedSourceChange = false) => {
-    const current = findRegisteredStructure(target);
+  const matchesSavedTarget = (
+    reference: MolecularDocumentReference | undefined,
+    savedTarget: string | undefined
+  ) =>
+    Boolean(reference && savedTarget && molecularDocumentReferenceHref(reference) === savedTarget);
+
+  const requireSameTarget = (savedTarget?: string) => {
+    const original = findRegisteredStructure(target);
+    const current = original ?? (savedTarget ? findRegisteredStructure(savedTarget) : null);
     if (
       !current ||
       current.registrationId !== found.registrationId ||
-      (!allowSavedSourceChange && current.viewerId !== found.viewerId)
+      ((!original || current.viewerId !== found.viewerId) &&
+        !matchesSavedTarget(current.entry.data.molecularDocumentReference, savedTarget))
     )
       throw new MolViewSpecSceneError('VIEW_CHANGED', 'The structure view closed or changed.');
     const currentHost = requireActiveStructureTab(
@@ -1852,17 +1864,22 @@ async function withSceneTarget<T>(
             );
         }
         const result = await operation(active);
+        const reference = options.savedReference?.(result);
+        const savedTarget = reference && molecularDocumentReferenceHref(reference);
         const savedTab =
-          options.retargetsTabOnSave && host
+          savedTarget && host
             ? structureTabHosts().find(({ tab }) => tab.id === host.tab.id)
             : null;
         if (
           !savedTab ||
-          savedTab.tab.entityId === host?.tab.entityId ||
           savedTab.panel.id !== host?.panel.id ||
-          savedTab.panel.activeTabId !== savedTab.tab.id
+          savedTab.panel.activeTabId !== savedTab.tab.id ||
+          !matchesSavedTarget(
+            savedTab.tab.initialStructureAttrs?.molecularDocumentReference,
+            savedTarget
+          )
         )
-          requireSameTarget(options.retargetsTabOnSave);
+          requireSameTarget(savedTarget);
         return result;
       },
       host
@@ -2879,7 +2896,7 @@ export async function handleMolSaveView(
             : 'Retained a clickable molecular result with pinned coordinates, appearance and camera in this chat. No project document or notebook was created; do not print its private locator or reference token.',
         });
       },
-      { copy: input.newPresentation, retargetsTabOnSave: true }
+      { copy: input.newPresentation, savedReference: (result) => result.documentReference }
     );
   } catch (error) {
     const failure = sceneToolFailure(error);
