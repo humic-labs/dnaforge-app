@@ -22,3 +22,5 @@ Local patch: Bash normalizes its byte values to unsigned eight-bit integers
 before escaping control characters. macOS Bash 3.2 otherwise sign-extends UTF-8
 bytes and corrupts Unicode command/property markers. Printable UTF-8 bytes
 remain unchanged on the OSC 633 wire.
+
+DNAForge starts each subsequent Bash prompt at the left edge of its terminal. This keeps Readline’s cursor position correct when the preceding command prints a partial line and the next command wraps.
