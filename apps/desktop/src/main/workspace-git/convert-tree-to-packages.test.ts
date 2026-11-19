@@ -171,6 +171,25 @@ describe('convertTreeToPlasmidPackages', () => {
     }
   );
 
+  it('keeps a FASTA with its own .fai during individual open and workspace conversion', async () => {
+    const fasta = '>reference DNA\nACGTACGTACGT\n';
+    const index = 'reference\t12\t15\t12\t13\n';
+    const source = await file('reads/reference.fa', fasta);
+    const paired = await file('reads/reference.fa.fai', index);
+    await file('reads/reference.fna', fasta);
+    await file('other/reference.fa', fasta);
+
+    expect(await convertLooseSequenceFile(root, source, { automatic: true })).toMatchObject({
+      converted: false,
+      packageRoots: [],
+    });
+    const tree = await convertTreeToPlasmidPackages(root);
+    expect(tree.failures).toEqual([]);
+    expect(tree.converted).toBe(2);
+    expect(await readFile(source, 'utf8')).toBe(fasta);
+    expect(await readFile(paired, 'utf8')).toBe(index);
+  });
+
   it('leaves an unrelated .gb file in place when it has no GenBank record', async () => {
     const source = await file('Yeast/Collision.gb', 'unmanaged unrelated file');
 
