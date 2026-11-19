@@ -32349,6 +32349,7 @@
                           "totalResidueAtomCount": {
                             "$ref": "#/properties/result/properties/story/properties/activeIndex"
                           },
+                          "instanceId": { "type": "string" },
                           "baseChain": { "type": "string" },
                           "labelAsymId": { "type": "string" },
                           "authAsymId": { "type": "string" },
@@ -35585,6 +35586,7 @@
                               "totalResidueAtomCount": {
                                 "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                               },
+                              "instanceId": { "type": "string" },
                               "baseChain": {
                                 "$ref": "#/properties/result/properties/structures/items/properties/selectedResidues/items/properties/baseChain"
                               },
@@ -37209,6 +37211,7 @@
                               "totalResidueAtomCount": {
                                 "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                               },
+                              "instanceId": { "type": "string" },
                               "baseChain": {
                                 "$ref": "#/properties/result/properties/structures/items/properties/selectedResidues/items/properties/baseChain"
                               },
@@ -39048,6 +39051,7 @@
                           "totalResidueAtomCount": {
                             "$ref": "#/properties/result/properties/story/properties/activeIndex"
                           },
+                          "instanceId": { "type": "string" },
                           "baseChain": { "type": "string" },
                           "labelAsymId": { "type": "string" },
                           "authAsymId": { "type": "string" },
@@ -43286,6 +43290,7 @@
                           "totalResidueAtomCount": {
                             "$ref": "#/properties/result/properties/story/properties/activeIndex"
                           },
+                          "instanceId": { "type": "string" },
                           "baseChain": { "type": "string" },
                           "labelAsymId": { "type": "string" },
                           "authAsymId": { "type": "string" },

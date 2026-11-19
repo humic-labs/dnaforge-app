@@ -74,6 +74,7 @@ const selectedResidue = z.object({
   compId: z.string(),
   selectedAtomCount: count,
   totalResidueAtomCount: count,
+  instanceId: z.string().optional(),
   ...chainScope,
 });
 const chainSummary = z.object({

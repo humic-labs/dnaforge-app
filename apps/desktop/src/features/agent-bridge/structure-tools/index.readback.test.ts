@@ -14,6 +14,7 @@ import {
   MOLECULAR_DOCUMENT_SCHEMA,
 } from '../../../shared/molecular-document';
 import { coordinateDigest, type MolecularView } from '../../../shared/molecular-view';
+import type { MolstarSelectedResidueReadbackEntry } from '../../page/public/embeds/structure3d/utils/molstarSelectionReadback';
 import {
   handleMolGetScene,
   handleMolGetState,
@@ -93,6 +94,7 @@ const readback = vi.hoisted(() => {
     catalogLoad: vi.fn(),
     reference: vi.fn(),
     groups: [] as Array<Record<string, unknown>>,
+    groupResidues: [] as MolstarSelectedResidueReadbackEntry[],
     connection,
     sceneResult: {
       format: 'mvsj',
@@ -221,6 +223,15 @@ vi.mock('../../compute/public/molecular-catalog', async (importOriginal) => ({
   loadCatalogStructure: (...args: unknown[]) => readback.catalogLoad(...args),
 }));
 vi.mock(
+  '../../page/public/embeds/structure3d/utils/molstarSelectionReadback',
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import('../../page/public/embeds/structure3d/utils/molstarSelectionReadback')
+    >()),
+    readMolstarLociResidues: () => readback.groupResidues,
+  })
+);
+vi.mock(
   '../../page/public/embeds/structure3d/molstar/molViewSpecSwatchSelection',
   async (importOriginal) => ({
     ...(await importOriginal<
@@ -228,7 +239,7 @@ vi.mock(
     >()),
     nativeMolViewSpecColorGroups: () => readback.groups,
     resolveMolViewSpecColorGroupLociByStructure: () => [
-      { loci: { kind: 'element-loci', elements: [] } },
+      { structureRef: 'structure:test', loci: { kind: 'element-loci', elements: [] } },
     ],
   })
 );
@@ -287,6 +298,7 @@ describe('molecular MCP readback integration', () => {
     vi.clearAllMocks();
     readback.inspectionReady = false;
     readback.groups = [];
+    readback.groupResidues = [];
     useCanvasStore.setState({
       panels: { main: { id: 'main', tabs: [], activeTabId: null } },
       layout: { type: 'panel', panelId: 'main' },
@@ -743,16 +755,29 @@ describe('molecular MCP readback integration', () => {
         targets: [],
       },
     ];
+    readback.groupResidues = [
+      {
+        chain: 'A',
+        position: 104,
+        labelSeqId: 104,
+        compId: 'ASN',
+        selectedAtomCount: 1,
+        totalResidueAtomCount: 8,
+        instanceId: '1_555',
+      },
+    ];
     const ordinary = await handleMolGetScene({ structureViewId: 'view-a' });
     expect(ordinary).not.toHaveProperty('namedColorGroupSelections');
     const detailed = await handleMolGetScene({
       structureViewId: 'view-a',
       includeColorGroupSelections: true,
     });
+    assertMcpOutput(molGetSceneOutputSchema, detailed);
     expect(detailed).toMatchObject({
       namedColorGroupSelections: [
         {
           label: 'Feature A',
+          residues: [{ instanceId: '1_555', structureRef: 'structure:test' }],
           frontmostAtSampledCenters: {
             status: 'unavailable',
             reason: 'Native camera projection/picking is unavailable.',
