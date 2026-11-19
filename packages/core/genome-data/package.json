@@ -22,6 +22,7 @@
       "import": "./src/test-support/indexed-fixtures.ts",
       "default": "./src/test-support/indexed-fixtures.ts"
     },
+    "./aligned-read-source-generation": "./src/aligned-read-source-generation.ts",
     "./annotation-catalog": {
       "types": "./src/annotation-catalog/index.ts",
       "import": "./src/annotation-catalog/index.ts",
