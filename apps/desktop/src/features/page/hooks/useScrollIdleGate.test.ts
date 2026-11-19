@@ -77,4 +77,52 @@ describe('useScrollIdleGate', () => {
 
     document.body.removeChild(scrollParent);
   });
+  it('keeps a cold offscreen viewer deferred until it is visible and scrolling has settled', () => {
+    let reportIntersection: ((visible: boolean) => void) | undefined;
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(callback: IntersectionObserverCallback) {
+          reportIntersection = (visible: boolean) =>
+            callback(
+              [{ isIntersecting: visible } as IntersectionObserverEntry],
+              this as unknown as IntersectionObserver
+            );
+        }
+        observe = observe;
+        disconnect = disconnect;
+      }
+    );
+    const scrollParent = document.createElement('div');
+    const child = document.createElement('div');
+    scrollParent.append(child);
+    const { result, unmount } = renderHook(() =>
+      useScrollIdleGate(useRef<HTMLElement | null>(child), {
+        idleMs: 100,
+        noInteractionFallbackMs: 1500,
+        waitUntilVisible: true,
+      })
+    );
+    try {
+      act(() => {
+        reportIntersection?.(false);
+        vi.advanceTimersByTime(1500);
+      });
+      expect(result.current).toBe(false);
+      act(() => {
+        scrollParent.dispatchEvent(new Event('wheel'));
+        reportIntersection?.(true);
+      });
+      expect(result.current).toBe(false);
+      act(() => vi.advanceTimersByTime(100));
+      expect(result.current).toBe(true);
+      expect(observe).toHaveBeenCalledWith(child);
+      expect(disconnect).toHaveBeenCalled();
+    } finally {
+      unmount();
+      vi.unstubAllGlobals();
+    }
+  });
 });

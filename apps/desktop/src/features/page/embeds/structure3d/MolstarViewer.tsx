@@ -523,6 +523,7 @@ const MolstarViewerComponent: React.FC<MolstarViewerProps> = ({
   const scrollIdleGate = useScrollIdleGate(wrapperRef, {
     idleMs: 150,
     noInteractionFallbackMs: 1500,
+    waitUntilVisible: deferWhileScrolling,
   });
   const scrollIdle = deferWhileScrolling ? scrollIdleGate : true;
 
