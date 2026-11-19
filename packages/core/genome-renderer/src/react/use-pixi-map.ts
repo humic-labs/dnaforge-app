@@ -1125,6 +1125,8 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     armDevicePixelRatioWatch();
 
     const initPixi = async () => {
+      await Promise.resolve();
+      if (destroyed) return;
       const current = optionsRef.current;
       if (!current.genome) return;
       const measuredSize = measureContainerSize();
