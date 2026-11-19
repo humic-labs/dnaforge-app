@@ -5,7 +5,9 @@ description: Verify notebook links, command menus, reference editing and tables 
 
 # Verify notebook authoring
 
-Use a disposable project and notebook in a development profile. Check the app port with `pnpm --dir apps/desktop dev:status`. Record the Git commit and any local changes alongside the results.
+Use a disposable project and notebook for automated checks. For a preview someone will keep testing, launch the desktop with a dedicated user-data directory in persistent user storage. Reuse that directory on every restart. The temporary scenario launcher is for short-lived checks. Electron stores managed projects beneath its active profile, so system cleanup can remove a temporary project's working files and its local recovery store together.
+
+Check the app port with `pnpm --dir apps/desktop dev:status`. Record the actual profile path, managed project root, Git commit and any local changes alongside the results.
 
 ## Component checks
 
