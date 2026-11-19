@@ -1320,6 +1320,66 @@ describe('useIndexedPileupStreaming tile-engine ownership', () => {
     unmount();
   });
 
+  it('reports the retired driver when a streaming track returns with the same source', async () => {
+    window.__webglExposeForTests = true;
+    const renderer = fakeRenderer();
+    const webglRef = { current: { getLinearRenderer: () => renderer } };
+    const assembly = rendererAssembly();
+    const dataset = pileupDataset({ bamPath: '/fixtures/restored-driver.bam' });
+    const readLifecycle = () =>
+      (
+        window as unknown as {
+          __tileEngineDebug: () => Record<
+            string,
+            {
+              alignedReadLifecycle: {
+                generation: number;
+                retirements?: Array<{
+                  generation: number;
+                  reason: string;
+                  sourceMatchesCurrent: boolean;
+                }>;
+              };
+            }
+          >;
+        }
+      ).__tileEngineDebug()[dataset.trackId]!.alignedReadLifecycle;
+    const { result, rerender, unmount } = renderHook(
+      ({ datasets }: { datasets: ActiveStressDataset[] }) =>
+        useIndexedPileupStreaming({
+          webglRef,
+          rendererAssembly: assembly,
+          containerWidth: 1000,
+          activeStressDatasets: datasets,
+        }),
+      { initialProps: { datasets: [dataset] } }
+    );
+    const drive = () => {
+      result.current.streamPileupViaTileEngine({ start: 0, end: 1000 });
+    };
+
+    try {
+      act(drive);
+      await waitFor(() => expect(driverMock.instances).toHaveLength(1));
+      const original = readLifecycle().generation;
+      rerender({ datasets: [] });
+      await waitFor(() => expect(driverMock.instances[0]!.dispose).toHaveBeenCalledOnce());
+      rerender({ datasets: [dataset] });
+      act(drive);
+      await waitFor(() => expect(driverMock.instances).toHaveLength(2));
+      expect(readLifecycle().generation).toBeGreaterThan(original);
+      expect(readLifecycle().retirements).toContainEqual(
+        expect.objectContaining({
+          generation: original,
+          reason: 'track-not-streaming',
+          sourceMatchesCurrent: true,
+        })
+      );
+    } finally {
+      unmount();
+    }
+  });
+
   it('adds a second BAM driver incrementally without replacing or cross-publishing the first', async () => {
     const renderer = fakeRenderer();
     const range = { start: 0, end: 1_000 };

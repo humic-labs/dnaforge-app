@@ -145,17 +145,27 @@ type TileEnginePublishedFeedWindow = Window & {
   __tileEnginePublishedFeedSnapshot?: (trackId: string) => TileEnginePublishedFeedReceipt | null;
 };
 
+type TileDriverRetirementReason =
+  | 'sidecar-changed'
+  | 'source-generation-conflict'
+  | 'source-identity-changed'
+  | 'view-inactive'
+  | 'track-not-streaming'
+  | 'track-admission-blocked'
+  | 'assembly-unavailable'
+  | 'viewer-unmounted';
+
 type AlignedReadLifecycleDebugEvent = {
   readonly trackId: string;
   readonly reason: string;
-  readonly classification: ReturnType<typeof classifyAlignedReadTileFailure>;
+  readonly classification: ReturnType<typeof classifyAlignedReadTileFailure> | 'retired';
   readonly sourceKey: string;
   readonly generation: number;
   readonly planKey: string;
 };
 
 type AlignedReadLifecycleDebugWindow = Window & {
-  __alignedReadLifecycleDebugEvents?: AlignedReadLifecycleDebugEvent[];
+  __alignedReadLifecycleDebugEvents?: Array<AlignedReadLifecycleDebugEvent & { atEpochMs: number }>;
   __webglDiagnosticsEnabled?: boolean;
   __webglExposeForTests?: boolean;
 };
@@ -180,7 +190,7 @@ function recordAlignedReadLifecycleDebugEvent(event: AlignedReadLifecycleDebugEv
   }
   target.__alignedReadLifecycleDebugEvents = [
     ...(target.__alignedReadLifecycleDebugEvents ?? []),
-    event,
+    { ...event, atEpochMs: Date.now() },
   ].slice(-32);
 }
 
@@ -196,6 +206,22 @@ type TileEngineDriverEntry = {
   publishedRenderer: object | null;
   pendingPresentation: PendingAlignedReadPresentation | null;
 };
+
+function retireTileDriver(
+  trackId: string,
+  entry: TileEngineDriverEntry,
+  reason: TileDriverRetirementReason
+): void {
+  recordAlignedReadLifecycleDebugEvent({
+    trackId,
+    classification: 'retired',
+    reason,
+    sourceKey: entry.sourceKey,
+    generation: entry.generation,
+    planKey: entry.planKey,
+  });
+  entry.driver.dispose();
+}
 
 type PendingAlignedReadPresentation = {
   sourceKey: string;
@@ -772,7 +798,7 @@ export function useIndexedPileupStreaming({
       tileEngineBaseUrlRef.current = refreshedBaseUrl;
       clearAllTrackStallWatches();
       for (const [activeTrackId, activeEntry] of tileEngineDriversRef.current.entries()) {
-        activeEntry.driver.dispose();
+        retireTileDriver(activeTrackId, activeEntry, 'sidecar-changed');
         clearTileEnginePublishedFeedReceipt(activeTrackId, tileEnginePublisherEpoch);
         trackLifecycle.set(activeTrackId, { phase: 'loading' });
       }
@@ -817,7 +843,7 @@ export function useIndexedPileupStreaming({
         entry.pendingPresentation = null;
         detachPresentedFrameSubscriptionIfIdle();
         if (reason === 'http-409') {
-          entry.driver.dispose();
+          retireTileDriver(trackId, entry, 'source-generation-conflict');
           tileEngineDriversRef.current.delete(trackId);
           tileEnginePublishedPayloadsRef.current.delete(trackId);
           clearTileEnginePublishedFeedReceipt(trackId, tileEnginePublisherEpoch);
@@ -1144,7 +1170,7 @@ export function useIndexedPileupStreaming({
         if (entry && entry.sourceKey !== sourceKey) {
           clearTrackRecovery(trackId);
           clearTrackStallWatch(trackId);
-          entry.driver.dispose();
+          retireTileDriver(trackId, entry, 'source-identity-changed');
           tileEngineDriversRef.current.delete(trackId);
           tileEnginePublishedPayloadsRef.current.delete(trackId);
           clearTileEnginePublishedFeedReceipt(trackId, tileEnginePublisherEpoch);
@@ -1613,6 +1639,18 @@ export function useIndexedPileupStreaming({
                       : undefined
                   ),
                   alignedReadLifecycle: {
+                    retirements: (
+                      window as AlignedReadLifecycleDebugWindow
+                    ).__alignedReadLifecycleDebugEvents
+                      ?.filter(
+                        (event) => event.trackId === tid && event.classification === 'retired'
+                      )
+                      .map((event) => ({
+                        reason: event.reason,
+                        generation: event.generation,
+                        atEpochMs: event.atEpochMs,
+                        sourceMatchesCurrent: event.sourceKey === activeEntry.sourceKey,
+                      })),
                     status: trackLifecycle.getSnapshot()[tid] ?? null,
                     sourceKey: activeEntry.sourceKey,
                     generation: activeEntry.generation,
@@ -2038,7 +2076,9 @@ export function useIndexedPileupStreaming({
     clearAllTrackStallWatches();
     clearSidecarResolutionRecovery();
     tileEngineUrlResolvingRef.current = false;
-    for (const entry of tileEngineDriversRef.current.values()) entry.driver.dispose();
+    for (const [trackId, entry] of tileEngineDriversRef.current) {
+      retireTileDriver(trackId, entry, 'view-inactive');
+    }
     tileEngineDriversRef.current.clear();
     detachPresentedFrameSubscriptionIfIdle();
   }, [
@@ -2086,12 +2126,16 @@ export function useIndexedPileupStreaming({
       if (!live.has(trackId)) {
         clearTrackRecovery(trackId);
         clearTrackStallWatch(trackId);
-        entry.driver.dispose();
+        const admissionError = activeStressDatasets.find((dataset) => dataset.trackId === trackId)
+          ?.source?.admissionError;
+        retireTileDriver(
+          trackId,
+          entry,
+          admissionError ? 'track-admission-blocked' : 'track-not-streaming'
+        );
         tileEngineDriversRef.current.delete(trackId);
         tileEnginePublishedPayloadsRef.current.delete(trackId);
         clearTileEnginePublishedFeedReceipt(trackId, tileEnginePublisherEpoch);
-        const admissionError = activeStressDatasets.find((dataset) => dataset.trackId === trackId)
-          ?.source?.admissionError;
         if (admissionError) {
           trackLifecycle.set(trackId, {
             phase: 'blocked',
@@ -2131,7 +2175,7 @@ export function useIndexedPileupStreaming({
     for (const [trackId, entry] of tileEngineDriversRef.current.entries()) {
       clearTrackRecovery(trackId);
       clearTrackStallWatch(trackId);
-      entry.driver.dispose();
+      retireTileDriver(trackId, entry, 'assembly-unavailable');
       tileEnginePublishedPayloadsRef.current.delete(trackId);
       clearTileEnginePublishedFeedReceipt(trackId, tileEnginePublisherEpoch);
       trackLifecycle.remove(trackId);
@@ -2166,8 +2210,8 @@ export function useIndexedPileupStreaming({
       clearAllTrackStallWatches();
       clearSidecarResolutionRecovery();
       tileEnginePendingCommitRef.current = null;
-      for (const entry of drivers.values()) entry.driver.dispose();
-      for (const trackId of drivers.keys()) {
+      for (const [trackId, entry] of drivers) {
+        retireTileDriver(trackId, entry, 'viewer-unmounted');
         publishedPayloads.delete(trackId);
         clearTileEnginePublishedFeedReceipt(trackId, tileEnginePublisherEpoch);
       }
