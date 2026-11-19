@@ -518,6 +518,21 @@
               }
             ]
           }
+        },
+        {
+          "title": "Whole RNA contour with protein context",
+          "description": "Use a whole-object surface when explaining the exterior shape. This 1URN example selects RNA entity 1. Keep the protein in a separate cartoon component for context. Use entity IDs from the native readback when adapting the scene.",
+          "node": {
+            "kind": "component",
+            "params": { "selector": { "label_entity_id": "1" } },
+            "children": [
+              {
+                "kind": "representation",
+                "params": { "type": "surface", "surface_type": "gaussian" },
+                "children": [{ "kind": "color", "params": { "color": "#4e84c4" } }]
+              }
+            ]
+          }
         }
       ]
     }
