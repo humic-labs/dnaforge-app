@@ -32,6 +32,22 @@ jobs:
           AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
           git -c "http.https://github.com/.extraheader=$AUTH" fetch --no-tags origin "+refs/pull/${PR}/head:refs/remotes/pull/head"
 
+      - name: Require the queued change to be exactly these commits
+        if: github.event_name == 'merge_group'
+        env:
+          BASE: ${{ github.event.merge_group.base_sha }}
+          QUEUED: ${{ github.event.merge_group.head_sha }}
+          TOKEN: ${{ github.token }}
+        run: |
+          [[ "$QUEUED" =~ ^[0-9a-f]{40}$ ]]
+          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=$AUTH" fetch --no-tags origin "$QUEUED"
+          expected=$(git merge-tree --write-tree "$BASE" refs/remotes/pull/head)
+          if [ "$expected" != "$(git rev-parse "$QUEUED^{tree}")" ]; then
+            echo "The queued change is not the pull request's current commits merged onto the queue base."
+            exit 1
+          fi
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version-file: '.nvmrc'
