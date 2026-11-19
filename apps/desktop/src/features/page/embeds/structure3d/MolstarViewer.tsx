@@ -1743,9 +1743,8 @@ const MolstarViewerComponent: React.FC<MolstarViewerProps> = ({
   }, [viewerCacheKey, viewerReady, cameraPersistenceOwner]);
 
   const cached = viewerCache.get(viewerCacheKey);
-  const cacheError = rendererHostId && hasPreviousPaneError(cached, structureKey)
-    ? null
-    : cached?.error;
+  const cacheError =
+    rendererHostId && hasPreviousPaneError(cached, structureKey) ? null : cached?.error;
   const error = formatMolstarViewerDisplayError(cacheError) ?? viewerError;
 
   useEffect(() => {

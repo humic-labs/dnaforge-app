@@ -414,6 +414,23 @@ describe('molecular MCP readback integration', () => {
     assertMcpOutput(molListStructuresOutputSchema, result);
     expect(readback.scene).not.toHaveBeenCalled();
   });
+
+  it('declares the native ligand source and instance fields in state output', () => {
+    const ligand = {
+      name: 'MG',
+      chainId: 'A',
+      position: 601,
+      atomCount: 1,
+      structureRef: 'primary',
+      sourceLabel: 'Coordinates',
+      isPrimarySource: true,
+      instanceId: 'A:1_555',
+    };
+    expect(molGetStateOutputSchema.shape.structures.element.shape.ligands.parse([ligand])).toEqual([
+      ligand,
+    ]);
+  });
+
   it('returns validated saved-view, screenshot and story-step receipts from canonical handlers', async () => {
     allowSuccessfulCapture();
     const screenshot = await handleMolCaptureScreenshot({ structureViewId: 'view-a' });

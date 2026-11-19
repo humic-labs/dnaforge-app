@@ -105,8 +105,12 @@ const coloration = z.discriminatedUnion('kind', [
 const ligand = z.object({
   name: z.string(),
   chainId: z.string(),
+  structureRef: z.string().optional(),
+  sourceLabel: z.string().optional(),
+  isPrimarySource: z.boolean().optional(),
   position: z.number().int(),
   atomCount: count,
+  instanceId: z.string().optional(),
   coloration: coloration.optional(),
   ...chainScope,
 });

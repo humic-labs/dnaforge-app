@@ -2393,43 +2393,43 @@ describe('MolstarViewer — Electron E2E stub', () => {
   it.each(['update', 'remount'] as const)(
     'clears a failed pane intent when the user switches to another structure by %s',
     async (transition) => {
-    const rendererHostId = 'pane:failed-then-switch';
-    const cacheKey = getPaneRendererHostCacheKey(rendererHostId);
-    const cached = seedCachedViewer(cacheKey, 'failed-then-switch-cache');
-    cached.loadedStructureKey = null;
-    cached.error = 'bad coordinates';
-    cached.rendererHostActivation = {
-      generation: 1,
-      requestedStructureKey: 'provider:RCSB:2BBB:ENTRY',
-      loadedStructureKey: null,
-      queue: Promise.resolve(),
-    };
-    const view = render(
-      <MolstarViewer pdbId="2BBB" rendererHostId={rendererHostId} height={240} />
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId('molstar-viewer-error')).toHaveTextContent(
-        userMessage('structure.failed')
-      )
-    );
-    expect(mockedActivateViewerStructure).not.toHaveBeenCalled();
+      const rendererHostId = 'pane:failed-then-switch';
+      const cacheKey = getPaneRendererHostCacheKey(rendererHostId);
+      const cached = seedCachedViewer(cacheKey, 'failed-then-switch-cache');
+      cached.loadedStructureKey = null;
+      cached.error = 'bad coordinates';
+      cached.rendererHostActivation = {
+        generation: 1,
+        requestedStructureKey: 'provider:RCSB:2BBB:ENTRY',
+        loadedStructureKey: null,
+        queue: Promise.resolve(),
+      };
+      const view = render(
+        <MolstarViewer pdbId="2BBB" rendererHostId={rendererHostId} height={240} />
+      );
+      await waitFor(() =>
+        expect(screen.getByTestId('molstar-viewer-error')).toHaveTextContent(
+          userMessage('structure.failed')
+        )
+      );
+      expect(mockedActivateViewerStructure).not.toHaveBeenCalled();
 
-    const next = <MolstarViewer pdbId="3CCC" rendererHostId={rendererHostId} height={240} />;
-    if (transition === 'remount') {
-      view.unmount();
-      render(next);
-    } else {
-      view.rerender(next);
-    }
-    await waitFor(() =>
-      expect(mockedActivateViewerStructure).toHaveBeenCalledWith(
-        cached,
-        expect.objectContaining({ structureKey: 'provider:RCSB:3CCC:ENTRY' })
-      )
-    );
-    await waitFor(() => expect(screen.queryByTestId('molstar-viewer-error')).toBeNull());
-    expect(viewerCache.get(cacheKey)).toBe(cached);
-    expect(cached.plugin?.dispose).not.toHaveBeenCalled();
+      const next = <MolstarViewer pdbId="3CCC" rendererHostId={rendererHostId} height={240} />;
+      if (transition === 'remount') {
+        view.unmount();
+        render(next);
+      } else {
+        view.rerender(next);
+      }
+      await waitFor(() =>
+        expect(mockedActivateViewerStructure).toHaveBeenCalledWith(
+          cached,
+          expect.objectContaining({ structureKey: 'provider:RCSB:3CCC:ENTRY' })
+        )
+      );
+      await waitFor(() => expect(screen.queryByTestId('molstar-viewer-error')).toBeNull());
+      expect(viewerCache.get(cacheKey)).toBe(cached);
+      expect(cached.plugin?.dispose).not.toHaveBeenCalled();
     }
   );
 

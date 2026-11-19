@@ -843,8 +843,8 @@ function structureTabHostForHandle(target?: string): StructureTabHost | null {
 }
 
 function structureTabCandidate(tab: Tab): RegisteredStructureCandidate {
-  const registrationId = tab.initialStructureAttrs?.structureViewIdentity?.structureViewId ??
-    tab.entityId;
+  const registrationId =
+    tab.initialStructureAttrs?.structureViewIdentity?.structureViewId ?? tab.entityId;
   const entry = useStructure3dStore.getState().expandedStructures[registrationId] ?? {
     data: tab.initialStructureAttrs ?? {},
     label: tab.label,
@@ -1711,9 +1711,10 @@ async function withSceneTarget<T>(
             );
         }
         const result = await operation(active);
-        const savedTab = options.retargetsTabOnSave && host
-          ? structureTabHosts().find(({ tab }) => tab.id === host.tab.id)
-          : null;
+        const savedTab =
+          options.retargetsTabOnSave && host
+            ? structureTabHosts().find(({ tab }) => tab.id === host.tab.id)
+            : null;
         if (
           !savedTab ||
           savedTab.tab.entityId === host?.tab.entityId ||

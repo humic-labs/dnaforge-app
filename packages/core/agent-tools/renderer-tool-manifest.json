@@ -35686,10 +35686,14 @@
                         "properties": {
                           "name": { "type": "string" },
                           "chainId": { "type": "string" },
+                          "structureRef": { "type": "string" },
+                          "sourceLabel": { "type": "string" },
+                          "isPrimarySource": { "type": "boolean" },
                           "position": { "type": "integer" },
                           "atomCount": {
                             "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
                           },
+                          "instanceId": { "type": "string" },
                           "coloration": {
                             "anyOf": [
                               {
@@ -37304,10 +37308,14 @@
                         "properties": {
                           "name": { "type": "string" },
                           "chainId": { "type": "string" },
+                          "structureRef": { "type": "string" },
+                          "sourceLabel": { "type": "string" },
+                          "isPrimarySource": { "type": "boolean" },
                           "position": { "type": "integer" },
                           "atomCount": {
                             "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
                           },
+                          "instanceId": { "type": "string" },
                           "coloration": {
                             "anyOf": [
                               {
