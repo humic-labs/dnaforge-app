@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { hasRequiredCapabilities } from '../shared/capability-policy';
 import type { WindowZoomResult } from '../shared/window-zoom';
+import { DEFAULT_MOLECULAR_AGENT_GUIDANCE } from '../shared/agent-presentation-instructions';
 import {
   ADMINISTRATION_SETTINGS_DEFAULTS,
   administrationRequestSchema,
@@ -130,6 +131,24 @@ export class AdministrationOwner {
       assertCurrent();
       if (op.kind === 'inspect-settings')
         return { kind: 'settings', snapshot: this.readSettings(), stateChanged: false };
+      if (op.kind === 'inspect-structure-guidance') {
+        const settings = this.readSettings();
+        if (settings.unsavedKeys.includes('molecularAgentInstructions'))
+          return this.fail(
+            'STRUCTURE_GUIDANCE_UNSAVED',
+            'Save or retry the structure guidance in Settings > AI, then read it again.',
+            false
+          );
+        return {
+          kind: 'structure-guidance',
+          guidance: {
+            defaultVersion: DEFAULT_MOLECULAR_AGENT_GUIDANCE.version,
+            source: settings.adopted.includes('molecularAgentInstructions') ? 'override' : 'default',
+            instructions:
+              settings.values.molecularAgentInstructions ?? DEFAULT_MOLECULAR_AGENT_GUIDANCE.instructions,
+          },
+        };
+      }
       if (
         op.kind === 'update-settings' ||
         op.kind === 'adopt-settings' ||
