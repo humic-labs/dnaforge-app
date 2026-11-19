@@ -4,7 +4,10 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { detectDocumentPackage } from '../../shared/document-package';
 import { FORGE_PACKAGE_MARKER_DIR } from '../../shared/forge-package-path';
 
+export type MissingFileBinding = { path: string; sizeBytes: number | null; contentHash: string };
+
 export interface MigrationPathOptions {
+  getMissingFileBindings?: () => readonly MissingFileBinding[];
   protectedPaths?: readonly string[];
   protectedEntityIds?: ReadonlySet<string>;
   assertCurrent?: () => void;

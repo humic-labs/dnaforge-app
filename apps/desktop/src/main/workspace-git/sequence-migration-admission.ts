@@ -1,3 +1,4 @@
+import type { MissingFileBinding } from './migration-paths';
 import type Database from 'better-sqlite3';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { ScientificObjectStore, hasAcceptedScientificWorkspace } from '../scientific-object-store';
@@ -66,6 +67,14 @@ export function captureSequenceMigrationAdmission(
     protectedEntityIds: acceptedIds,
     protectedPaths: [...protectedPaths],
     activeAcceptedPaths: [...activeAcceptedPaths],
+    getMissingFileBindings: () =>
+      db
+        .prepare(
+          `SELECT path, size_bytes AS sizeBytes, content_hash AS contentHash
+         FROM catalog_entity_files
+        WHERE workspace_id = ? AND status = 'missing' AND content_hash IS NOT NULL`
+        )
+        .all(workspaceId) as MissingFileBinding[],
     assertCurrent: () => {
       if (options.requireWritable) assertKnownWorkspaceContentWritable(db, root);
       if (

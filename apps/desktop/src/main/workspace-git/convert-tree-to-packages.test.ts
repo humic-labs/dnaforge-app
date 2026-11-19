@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { mkdtemp, mkdir, writeFile, readFile, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -80,6 +81,49 @@ describe('convertTreeToPlasmidPackages', () => {
     expect(await readFile(nested, 'utf8')).toBe(GB('Template'));
     expect(await exists(join(root, 'DNA/Unmanaged/Unmanaged.gb'))).toBe(true);
   });
+
+  it.each(['sha256', 'git'] as const)(
+    'preserves a moved standalone file with its recorded %s identity',
+    async (format) => {
+      const bytes = GB('Native');
+      const sizeBytes = Buffer.byteLength(bytes);
+      const hash =
+        format === 'git' ? createHash('sha1').update(`blob ${sizeBytes}\0`) : createHash('sha256');
+      const contentHash = `${format}:${hash.update(bytes).digest('hex')}`;
+      const oldPath = join(root, 'Old.gb');
+      const moved = await file('Renamed/Other.gb', bytes);
+      const duplicate = await file('Duplicate.gb', bytes);
+      await file('Unrelated.gb', GB('Change'));
+      await file(
+        '.forge/catalog.json',
+        JSON.stringify({
+          schema: 'dnaforge.native-workspace-manifest.v2',
+          entities: [
+            {
+              id: 'original',
+              type: 'sequence',
+              name: 'Original',
+              placement: { kind: 'file', relativePath: 'Old.gb', fileKind: 'genbank' },
+            },
+          ],
+          links: [],
+        })
+      );
+      const result = await convertTreeToPlasmidPackages(root, {
+        getMissingFileBindings: () => [{ path: oldPath, sizeBytes, contentHash }],
+      });
+      expect(result.converted).toBe(1);
+      expect(await readFile(moved, 'utf8')).toBe(bytes);
+      expect(await readFile(duplicate, 'utf8')).toBe(bytes);
+      expect(await exists(join(root, 'Unrelated/Unrelated.gb'))).toBe(true);
+      await file('Old.gb', bytes);
+      const restored = await convertTreeToPlasmidPackages(root, {
+        getMissingFileBindings: () => [{ path: oldPath, sizeBytes, contentHash }],
+      });
+      expect(restored.converted).toBe(2);
+      expect(await readFile(oldPath, 'utf8')).toBe(bytes);
+    }
+  );
 
   it('refuses conversion before mutating files when the native placement catalog is invalid', async () => {
     const native = await file('Native.gb', GB('Native'));

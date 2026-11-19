@@ -1,5 +1,6 @@
 import { isRecoveredComputeResultDirectory } from '../../shared/compute-result-path';
-import { type Dirent, promises as fs } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { constants, type Dirent, promises as fs } from 'node:fs';
 import type { NucleicAcid } from '@waypoint/sequence-utils';
 import { basename, dirname, extname, isAbsolute, join, relative, sep } from 'node:path';
 import {
@@ -515,16 +516,51 @@ export async function collectPlasmidPackageGitFiles(rootDir: string): Promise<st
   return [...found];
 }
 
+async function hasMissingFileContent(
+  path: string,
+  fingerprints: ReadonlyMap<number | null, Set<string>>
+) {
+  const stat = await fs.lstat(path);
+  if (!stat.isFile() || (!fingerprints.has(stat.size) && !fingerprints.has(null))) return false;
+  const sha256 = createHash('sha256');
+  const git = createHash('sha1').update(`blob ${stat.size}\0`);
+  const file = await fs.open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    for await (const chunk of file.createReadStream({ autoClose: false })) {
+      sha256.update(chunk);
+      git.update(chunk);
+    }
+  } finally {
+    await file.close();
+  }
+  const hashes = [`sha256:${sha256.digest('hex')}`, `git:${git.digest('hex')}`];
+  return hashes.some(
+    (hash) => fingerprints.get(stat.size)?.has(hash) || fingerprints.get(null)?.has(hash)
+  );
+}
+
 async function collectConstructFiles(
   rootDir: string,
   failures: Array<{ path: string; message: string }>,
   options: MigrationPathOptions
 ): Promise<{ files: string[]; protectedPaths: string[] }> {
   const found: string[] = [];
-  const protectedPaths = [
-    ...(options.protectedPaths ?? []),
-    ...(await declaredNativeMigrationPaths(rootDir)),
-  ];
+  const declaredPaths = new Set(await declaredNativeMigrationPaths(rootDir));
+  const protectedPaths = [...(options.protectedPaths ?? []), ...declaredPaths];
+  const missing = new Map<number | null, Set<string>>();
+  const missingBindings = declaredPaths.size > 0 ? options.getMissingFileBindings?.() : [];
+  for (const binding of missingBindings ?? []) {
+    if (!declaredPaths.has(binding.path)) continue;
+    try {
+      await fs.lstat(binding.path);
+      continue;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    const hashes = missing.get(binding.sizeBytes) ?? new Set<string>();
+    hashes.add(binding.contentHash);
+    missing.set(binding.sizeBytes, hashes);
+  }
   const protectedFile = (path: string) =>
     protectedPaths.some((protectedPath) => migrationPathsIntersect(path, protectedPath));
 
@@ -614,7 +650,17 @@ async function collectConstructFiles(
   }
 
   await walk(rootDir, 0);
-  return { files: found, protectedPaths };
+  if (missing.size === 0) return { files: found, protectedPaths };
+  const files: string[] = [];
+  for (const path of found) {
+    try {
+      if (await hasMissingFileContent(path, missing)) protectedPaths.push(path);
+      else files.push(path);
+    } catch (error) {
+      failures.push({ path, message: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  return { files, protectedPaths };
 }
 
 export async function declaredNativeMigrationPaths(rootDir: string): Promise<string[]> {

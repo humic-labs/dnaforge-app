@@ -96,6 +96,7 @@ export async function collectWorkspaceEntityMigrations(
       ...(await declaredNativeMigrationPaths(repoPath)),
     ],
     protectedEntityIds: options.protectedEntityIds,
+    getMissingFileBindings: options.getMissingFileBindings,
     assertCurrent: options.assertCurrent,
     withCleanPaths: options.withCleanPaths,
   };
