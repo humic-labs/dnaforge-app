@@ -3106,6 +3106,44 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       }
     );
 
+    it.each([
+      { marks: 3, firstMarks: 3 },
+      { marks: 4, firstMarks: 0 },
+    ])('bounds first-paint preparation for a row with $marks marks', ({ marks, firstMarks }) => {
+      const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
+      const container = renderer.mount(mountArgs);
+      const record = read(100, 106, 'marked', {
+        mismatches: Array.from({ length: marks }, (_, i) => ({ pos: 100 + i, kind: 'sub' })),
+      });
+      const args = paintArgsZoom(
+        container,
+        { records: [record] },
+        10,
+        { start: 100, end: 106 },
+        60
+      );
+      let time = 0;
+      const clock = vi.spyOn(performance, 'now').mockImplementation(() => time);
+      const begin = PersistentRowLayout.prototype.beginAssignment;
+      const setup = vi.spyOn(PersistentRowLayout.prototype, 'beginAssignment');
+      try {
+        setup.mockImplementationOnce(function (this: PersistentRowLayout, ...args) {
+          time += 3;
+          return begin.apply(this, args);
+        });
+        renderer.paint(args);
+        expect(renderer.getDiagnostics(container)?.readDifferenceInstanceCount).toBe(firstMarks);
+        renderer.paint(args);
+        const settled = renderer.getDiagnostics(container)!;
+        expect(settled.readDifferenceInstanceCount).toBe(marks);
+        expect(settled.readDifferenceBuildCount).toBe(1);
+      } finally {
+        setup.mockRestore();
+        clock.mockRestore();
+        renderer.unmount(container);
+      }
+    });
+
     it('shares the elapsed allowance with height finalization before publishing new reads', () => {
       const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
       const container = renderer.mount(mountArgs);
