@@ -1,11 +1,11 @@
 import type { IBuffer } from '@xterm/xterm';
 
-export function terminalBufferText(buffer: IBuffer): string {
+export function terminalBufferText(buffer: IBuffer, start = 0, end = buffer.length): string {
   let text = '';
-  for (let index = 0; index < buffer.length; index++) {
+  for (let index = start; index < end; index++) {
     const line = buffer.getLine(index);
     if (!line) continue;
-    if (index > 0 && !line.isWrapped) text += '\n';
+    if (index > start && !line.isWrapped) text += '\n';
     text += line.translateToString(!buffer.getLine(index + 1)?.isWrapped);
   }
   return text;

@@ -270,8 +270,14 @@ export function TerminalPane({
     setSearchContext({ terminal, search });
     if (import.meta.env.MODE === 'test') {
       let viewport = '';
+      let logicalViewport = '';
       const rendered = terminal.onRender(() => {
         const buffer = terminal.buffer.active;
+        logicalViewport = terminalBufferText(
+          buffer,
+          buffer.viewportY,
+          buffer.viewportY + terminal.rows
+        );
         viewport = Array.from(
           { length: terminal.rows },
           (_, row) => buffer.getLine(buffer.viewportY + row)?.translateToString(true) ?? ''
@@ -280,7 +286,8 @@ export function TerminalPane({
       lifetime.signal.addEventListener('abort', () => rendered.dispose(), { once: true });
       Object.defineProperty(surfaceElement, '__terminalReadViewport', {
         configurable: true,
-        value: () => viewport,
+        value: (lines: 'physical' | 'logical' = 'physical') =>
+          lines === 'logical' ? logicalViewport : viewport,
       });
       Object.defineProperty(surfaceElement, '__terminalReadSelection', {
         configurable: true,

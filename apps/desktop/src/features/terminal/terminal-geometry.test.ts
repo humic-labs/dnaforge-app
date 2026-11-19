@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import headless from '@xterm/headless';
+import { terminalBufferText } from './terminal-buffer';
 import { longestTerminalViewportLine } from './upstream/terminal-geometry';
 
 it('measures real wrapped terminal cells, including wide characters', async () => {
@@ -24,4 +25,19 @@ it('ignores long logical lines that have completely left the viewport', async ()
   );
   expect(longestTerminalViewportLine(terminal.buffer.active, terminal.cols)).toBe(4);
   terminal.dispose();
+});
+
+it('reads wrapped viewport text without including scrollback or joining separate lines', async () => {
+  const terminal = new headless.Terminal({ cols: 10, rows: 3, allowProposedApi: true });
+  try {
+    await new Promise<void>((resolve) =>
+      terminal.write('offscreen\r\nabcdefghijXYZ\r\nlast', resolve)
+    );
+    const buffer = terminal.buffer.active;
+    expect(terminalBufferText(buffer, buffer.viewportY, buffer.viewportY + terminal.rows)).toBe(
+      'abcdefghijXYZ\nlast'
+    );
+  } finally {
+    terminal.dispose();
+  }
 });
