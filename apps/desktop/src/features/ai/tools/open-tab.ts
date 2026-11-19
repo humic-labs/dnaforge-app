@@ -13,6 +13,8 @@ import { resolveMultiRootPath } from './path-utils';
 import type { WorkspaceFolder } from '../../../stores/workspaceStore';
 import { openTabSchema, type OpenTabInput } from './open-tab-schema';
 import { looksLikeWorkspacePath } from '../../../shared/resolve-entity-path';
+import { isMolecularDocumentFile } from '../../../shared/document-availability';
+import { userMessage } from '@waypoint/user-messages';
 
 export { openTabSchema, type OpenTabInput } from './open-tab-schema';
 
@@ -34,6 +36,21 @@ function validateEntityId(entityId: string): string | null {
 }
 
 const FILE_BASED_TYPES = ['file', 'structure', 'pdf', 'scientific-document'];
+
+async function waitForMolecularTab(tabId: string, signal?: AbortSignal): Promise<string | undefined> {
+  const { describeStructureOpen } = await import('../../agent-bridge/structure-tools');
+  const deadline = Date.now() + 10_000;
+  while (!signal?.aborted && Date.now() < deadline) {
+    const state = await describeStructureOpen(tabId).catch(() => null);
+    if (state?.viewerStatus === 'active') return;
+    if (!state || state.viewerStatus === 'error')
+      return state?.stateError ?? userMessage('document.readScene');
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+  }
+  return signal?.aborted
+    ? 'Document opening was cancelled.'
+    : userMessage('structure.failed');
+}
 
    
                                                                     
@@ -129,7 +146,8 @@ export async function openTabInCanvas(
     return { tabId };
   }
 
-  const existing = store.findTab(type, entityId);
+  const molecularFile = FILE_BASED_TYPES.includes(type) && isMolecularDocumentFile(entityId);
+  const existing = molecularFile ? undefined : store.findTab(type, entityId);
   if (existing) {
     store.setActiveTab(existing.panelId, existing.tabId);
     const working = Object.values(store.panels).find((panel) => panel.tabs.some((tab) => tab.type === 'chat'));
@@ -145,7 +163,13 @@ export async function openTabInCanvas(
     signal: options.signal,
   });
   store.focusPanel(workingPanelId);
-  if (result.status === 'presented') return { tabId: result.tabId };
+  if (result.status === 'presented') {
+    if (molecularFile) {
+      const error = await waitForMolecularTab(result.tabId, options.signal);
+      if (error) return { tabId: '', error };
+    }
+    return { tabId: result.tabId };
+  }
   if (createdPanelId && useCanvasStore.getState().panels[createdPanelId]?.tabs.length === 0) store.closePanel(createdPanelId);
   return { tabId: '', error: 'message' in result ? result.message : result.reason };
 }

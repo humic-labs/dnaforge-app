@@ -22,6 +22,14 @@ import { developerImportSourceRootsInDb } from '../registry-source-eligibility';
 import { isDeveloperImportSourcePath } from '../../shared/developer-import-sources';
 import { workspaceBrowserContract } from '../../shared/ipc/workspace-browser.contract';
 import { catalogIconContext } from '../../shared/catalog-icon-context';
+import { userMessage } from '@waypoint/user-messages';
+import {
+  isMolecularDocumentFile,
+  type DocumentAvailability,
+  type DocumentAvailabilityRequest,
+} from '../../shared/document-availability';
+import { molecularDocumentReadFailure } from '../../shared/molecular-document-read-failure';
+import { readRegisteredMolecularDocument } from '../registered-molecular-document';
 
 type WorkspaceRow = Readonly<{ id: number; path: string }>;
 
@@ -200,7 +208,21 @@ export function registerWorkspaceBrowserHandlers(): void {
     },
     listChildren: (_event, request: WorkspaceListChildrenRequest) =>
       listWorkspaceChildren(getDb(), request),
+    checkDocument: (_event, request) => checkWorkspaceDocument(getDb(), request),
   });
+}
+
+export async function checkWorkspaceDocument(
+  db: Database.Database,
+  request: DocumentAvailabilityRequest
+): Promise<DocumentAvailability> {
+  if (!isMolecularDocumentFile(request.path)) return { state: 'unchecked' };
+  try {
+    const saved = await readRegisteredMolecularDocument(db, request);
+    return { state: 'ready', revision: saved.revision };
+  } catch (error) {
+    return { state: 'blocked', reason: userMessage(molecularDocumentReadFailure(error)) };
+  }
 }
 
 function normalizeParentRelativePath(value: string): string {

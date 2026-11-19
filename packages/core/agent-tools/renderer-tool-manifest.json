@@ -5379,7 +5379,7 @@
                     "nextOpenInput": {
                       "type": "object",
                       "properties": {
-                        "type": { "type": "string", "const": "sequence" },
+                        "type": { "type": "string", "enum": ["sequence", "structure"] },
                         "entityId": { "type": "string" }
                       },
                       "required": ["type", "entityId"],
@@ -5403,6 +5403,34 @@
                     "importRequired": { "type": "boolean" },
                     "biologyMatches": { "type": "array", "items": { "type": "string" } },
                     "biologySearchPartial": { "type": "boolean" },
+                    "documentAvailability": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": { "state": { "type": "string", "const": "unchecked" } },
+                          "required": ["state"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "state": { "type": "string", "const": "ready" },
+                            "revision": { "type": "string" }
+                          },
+                          "required": ["state", "revision"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "state": { "type": "string", "const": "blocked" },
+                            "reason": { "type": "string" }
+                          },
+                          "required": ["state", "reason"],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
                     "iconContext": {
                       "type": "object",
                       "properties": {
@@ -39662,7 +39690,6 @@
               "structureViewId",
               "documentReference",
               "activeViewReference",
-              "inlineLink",
               "molecularDocumentId",
               "molecularDocumentReference",
               "molecularDocumentProjectId",

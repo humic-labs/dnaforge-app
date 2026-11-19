@@ -172,6 +172,7 @@ interface FilesystemContextMenuState {
   isNotebookPackage?: boolean;
   packageKind?: DocumentPackageKind;
   sequenceDocument?: ManagedSequenceDocumentRef;
+  documentAvailability?: FileEntry['documentAvailability'];
   isRootFolder: boolean;
   pinned: boolean;
 }
@@ -596,6 +597,7 @@ export function FileBrowser({
         isNotebookPackage: entry.isNotebookPackage ?? false,
         packageKind: entry.packageKind,
         sequenceDocument: entry.sequenceDocument,
+        documentAvailability: entry.documentAvailability,
         isRootFolder: false,
         pinned: folders.find((folder) => folder.path === workspaceRoot)?.pinned ?? false,
       });
@@ -1985,8 +1987,17 @@ export function FileBrowser({
             setContextMenu(null);
             setAddPickerLaunch(null);
           }}
-          onOpen={filesystemContextMenu.isDirectory ? undefined : handleContextMenuOpen}
-          onOpenInNewPanel={onOpenInNewPanel ? handleContextMenuOpenInNewPanel : undefined}
+          onOpen={
+            filesystemContextMenu.isDirectory ||
+            filesystemContextMenu.documentAvailability?.state === 'blocked'
+              ? undefined
+              : handleContextMenuOpen
+          }
+          onOpenInNewPanel={
+            onOpenInNewPanel && filesystemContextMenu.documentAvailability?.state !== 'blocked'
+              ? handleContextMenuOpenInNewPanel
+              : undefined
+          }
           onRename={
             contextAllowsWrites && !filesystemContextMenu.isRootFolder
               ? handleStartRename

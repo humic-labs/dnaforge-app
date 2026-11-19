@@ -66,7 +66,9 @@ function hasWorkingChanges(
     )
       continue;
     try {
-      const current = captureMolViewSpecView(entry.plugin);
+      const current = captureMolViewSpecView(entry.plugin, {
+        preserveUnchangedOpeningCamera: true,
+      });
       capturedNative = true;
       if (
         !samePresentationAppearance(baseline.scene, current.scene) ||

@@ -16,6 +16,13 @@ import { resolveExplicitProjectRoot } from '../../../shared/project-root-selecti
 import type { EntityColorContext } from '../../../shared/entity-color-family';
 import { catalogIconContext } from '../../../shared/catalog-icon-context';
 import { sequenceDocumentModel } from '../../sequence/public/store';
+import {
+  documentAvailabilitySchema,
+  isMolecularDocumentFile,
+  isTypedDocumentCandidate,
+  type DocumentAvailability,
+  type DocumentAvailabilityRequest,
+} from '../../../shared/document-availability';
 
 const BIOLOGY_EXTENSIONS = new Set(['gb', 'gbk', 'genbank', 'fasta', 'fa', 'fas', 'fna', 'seq']);
 const MAX_BIOLOGY_SEARCH_BYTES = 256 * 1024;
@@ -107,13 +114,14 @@ export interface FileListEntry {
   extension?: string;
   isBiologyFile: boolean;
   documentId?: string;
-  nextOpenInput?: { type: 'sequence'; entityId: string };
+  nextOpenInput?: { type: 'sequence' | 'structure'; entityId: string };
   nextInspectionInput?: { documentId: string; operation: { kind: 'inspect' } };
   resourceUri?: string;
   importRequired?: boolean;
   biologyMatches?: string[];
   biologySearchPartial?: boolean;
   iconContext?: EntityColorContext;
+  documentAvailability?: DocumentAvailability;
 }
 
 const projectScopeSchema = z
@@ -165,7 +173,7 @@ export const listFilesOutputSchema = z.object({
       extension: z.string().optional(),
       isBiologyFile: z.boolean(),
       documentId: z.string().optional(),
-      nextOpenInput: z.object({ type: z.literal('sequence'), entityId: z.string() }).optional(),
+      nextOpenInput: z.object({ type: z.enum(['sequence', 'structure']), entityId: z.string() }).optional(),
       nextInspectionInput: z
         .object({
           documentId: z.string(),
@@ -176,6 +184,7 @@ export const listFilesOutputSchema = z.object({
       importRequired: z.boolean().optional(),
       biologyMatches: z.array(z.string()).optional(),
       biologySearchPartial: z.boolean().optional(),
+      documentAvailability: documentAvailabilitySchema.optional(),
       iconContext: z.object({
         kind: z.string().optional(), molecule: z.string().optional(), path: z.string().optional(),
         packageKind: z.string().optional(), isDirectory: z.boolean().optional(),
@@ -366,6 +375,7 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
         entry: FileListEntry;
         biologyContentPath?: string;
       }> = [];
+      const availabilityRequests = new Map<FileListEntry, DocumentAvailabilityRequest>();
 
       const addEntry = (entry: FileListEntry, biologyContentPath?: string) => {
         const hints: Pick<FileListEntry, 'nextOpenInput' | 'nextInspectionInput'> = entry.documentId
@@ -460,14 +470,20 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
               );
               continue;
             }
-            addEntry({
+            const entry: FileListEntry = {
               name: item.name,
               path: relPath,
               type: 'file',
               extension: getExtension(item.name),
               isBiologyFile: isBiologyFile(item.name),
               ...(iconContexts.has(absolutePath) ? { iconContext: iconContexts.get(absolutePath) } : {}),
-            });
+            };
+            if (isTypedDocumentCandidate(absolutePath)) {
+              entries.push({ entry });
+              availabilityRequests.set(entry, { workspaceRoot, path: absolutePath });
+            } else {
+              addEntry(entry);
+            }
           }
         }
       }
@@ -534,6 +550,17 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
       const MAX_ENTRIES = 100;
       const totalCount = matchingEntries.length;
       const truncated = totalCount > MAX_ENTRIES;
+      const pageEntries = matchingEntries.slice(0, MAX_ENTRIES);
+      const workspace = platform().workspace;
+      for (const entry of pageEntries) {
+        const request = availabilityRequests.get(entry);
+        if (!request) continue;
+        const availability = await workspace?.checkDocument?.(request).catch(() => undefined);
+        entry.documentAvailability = availability ?? { state: 'unchecked' };
+        if (availability?.state !== 'ready') delete entry.iconContext;
+        else if (isMolecularDocumentFile(request.path))
+          entry.nextOpenInput = { type: 'structure', entityId: request.path };
+      }
       const bioCount = matchingEntries.filter((e) => e.isBiologyFile).length;
       const recommendedBiologySource = matchingEntries[0];
       const biologySearchIncomplete =
@@ -603,7 +630,7 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
                     },
             }
           : {}),
-        entries: truncated ? matchingEntries.slice(0, MAX_ENTRIES) : matchingEntries,
+        entries: pageEntries,
         count: totalCount,
         ...(truncated && {
           truncated: true,

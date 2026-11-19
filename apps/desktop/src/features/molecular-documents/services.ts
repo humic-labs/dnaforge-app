@@ -42,6 +42,7 @@ import {
   type MolecularDocumentReference,
 } from '../../shared/molecular-document-reference';
 import { molecularDocumentOwner } from '../../shared/molecular-document-owner';
+import { molecularDocumentReadMessage } from '../../shared/molecular-document-read-failure';
 import { stripDisplayExtension } from '../../utils/fileTypes';
 
 export type ProjectedMolecularDocument = SavedMolecularDocument & {
@@ -87,7 +88,11 @@ export async function readMolecularDocument(
     explicitWorkspaceRoot ??
     findWorkspaceRootForPath(folders, path) ??
     path.replace(/[\\/][^\\/]+$/, '');
-  const saved = await platform().molecularDocuments.read({ path, workspaceRoot });
+  const saved = await platform()
+    .molecularDocuments.read({ path, workspaceRoot })
+    .catch((error) => {
+      throw new Error(molecularDocumentReadMessage(error), { cause: error });
+    });
   let warning: string | undefined;
   try {
     for (const entry of saved.document.history)

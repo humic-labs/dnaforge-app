@@ -24,6 +24,8 @@ import { isApplePlatform } from './menuShortcuts';
 import { pathRelativeToBoundary } from '../shared/path-boundary';
 import { isHostedBrowserRuntime } from '../utils/environment';
 import { isSupportedSequencePath } from '../shared/scientific-file-types';
+import { isTypedDocumentCandidate } from '../shared/document-availability';
+import { useDocumentAvailability } from '../features/document-opening/useDocumentAvailability';
 
 interface FileTreeItemProps {
   entry: FileBrowserTreeEntry;
@@ -254,6 +256,11 @@ function FilesystemTreeItem({
   onDelete,
   dragToMoveEnabled = true,
 }: Omit<FileTreeItemProps, 'entry'> & { entry: FileEntry }) {
+  const typedCandidate =
+    !entry.isDirectory && (Boolean(entry.packageKind) || isTypedDocumentCandidate(entry.path));
+  const availability = useDocumentAvailability(rootPath, typedCandidate ? entry.path : undefined);
+  const showNeutralIcon = availability?.state === 'checking' || availability?.state === 'blocked';
+  const blockedReason = availability?.state === 'blocked' ? availability.reason : undefined;
   const [renameValue, setRenameValue] = useState(() => renameStem(entry));
   const inputRef = useRef<HTMLInputElement>(null);
   const itemRef = useRef<HTMLDivElement>(null);
@@ -300,22 +307,22 @@ function FilesystemTreeItem({
       if (entry.isDirectory) {
         if (e.shiftKey || e.metaKey || e.ctrlKey) return;
         onToggle(entry.path);
-      } else if (isHostedBrowserRuntime()) {
+      } else if (!blockedReason && isHostedBrowserRuntime()) {
         onOpen(entry);
       }
     },
-    [entry, onToggle, onSelect, onOpen, isRenaming]
+    [entry, onToggle, onSelect, onOpen, isRenaming, blockedReason]
   );
 
   const handleDoubleClick = useCallback(
     (e: MouseEvent<HTMLDivElement>) => {
       if (isRenaming) return;
       if (entry.isPending) return;
-      if (entry.isDirectory) return;
+      if (entry.isDirectory || blockedReason) return;
       e.preventDefault();
       onOpen(entry);
     },
-    [entry, onOpen, isRenaming]
+    [entry, onOpen, isRenaming, blockedReason]
   );
 
   const handleContextMenu = useCallback(
@@ -327,9 +334,9 @@ function FilesystemTreeItem({
       if (!selectedEntryIds.has(entry.entryId)) {
         onSelect(entry.entryId);
       }
-      onContextMenu?.(e, entry);
+      onContextMenu?.(e, { ...entry, documentAvailability: availability });
     },
-    [entry, onContextMenu, onSelect, isRenaming, selectedEntryIds]
+    [entry, availability, onContextMenu, onSelect, isRenaming, selectedEntryIds]
   );
 
   const handleRenameSubmit = useCallback(() => {
@@ -387,9 +394,9 @@ function FilesystemTreeItem({
         onDelete(entry.path);
         return;
       }
-      onKeyNavigate(entry, e);
+      onKeyNavigate(availability ? { ...entry, documentAvailability: availability } : entry, e);
     },
-    [entry, isRenaming, onDelete, onKeyNavigate]
+    [entry, isRenaming, onDelete, onKeyNavigate, availability]
   );
 
   const isExpanded = expandedPaths.has(entry.path);
@@ -477,12 +484,14 @@ function FilesystemTreeItem({
             : undefined
         }
         data-entry-name={entry.name}
+        data-document-availability={availability?.state}
         data-git-status={effectiveGitStatus ?? undefined}
         data-file-drop-target={entry.isDirectory && dragToMoveEnabled ? 'true' : undefined}
         role="treeitem"
         aria-level={depth + 1}
         aria-selected={isSelected}
         aria-expanded={entry.isDirectory ? isExpanded : undefined}
+        aria-description={blockedReason}
         tabIndex={isFocusable ? 0 : -1}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
@@ -494,23 +503,29 @@ function FilesystemTreeItem({
           if (e.button !== 0) return;
           startFileDrag(entry.path, entry.name, e);
         }}
-        title={isDesign ? displayName(entry) : entry.isBiologyFile ? entry.name : entry.path}
+        title={
+          blockedReason ??
+          (isDesign ? displayName(entry) : entry.isBiologyFile ? entry.name : entry.path)
+        }
         isSelected={isSelected}
         isExpanded={entry.isDirectory ? isExpanded : undefined}
         isLoading={entry.isDirectory ? entry.isLoading : undefined}
-        className={[entry.isBiologyFile ? 'font-medium' : '', isRenaming ? 'bg-bg-muted' : '']
-          .filter(Boolean)
-          .join(' ')}
+        className={`${entry.isBiologyFile ? 'font-medium' : ''}${isRenaming ? ' bg-bg-muted' : ''}`}
         icon={
           entry.isDirectory ? (
             <FolderIcon expanded={isExpanded} className="w-4 h-4 flex-shrink-0" />
+          ) : showNeutralIcon ? (
+            <FileTypeIcon category="generic" className="w-4 h-4 flex-shrink-0" />
           ) : (
             <FileIcon entry={entry} />
           )
         }
         labelClassName={isRenaming ? 'flex-1 min-w-0' : gitTextClass}
         labelTitle={
-          isRenaming ? undefined : isDesign ? displayName(entry) : (entry.displayName ?? entry.name)
+          isRenaming
+            ? undefined
+            : (blockedReason ??
+              (isDesign ? displayName(entry) : (entry.displayName ?? entry.name)))
         }
         label={
           isRenaming ? (

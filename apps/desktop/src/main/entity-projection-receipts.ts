@@ -43,11 +43,8 @@ import {
   managedSequenceProjectionVersionForExistingRecord,
   projectManagedSequenceRegistry,
 } from '../shared/managed-sequence-registry-projection';
-import {
-  MOLECULAR_DOCUMENT_SUFFIX,
-  parseMolecularDocument,
-  validateMolecularDocumentCoordinates,
-} from '../shared/molecular-document';
+import { MOLECULAR_DOCUMENT_SUFFIX } from '../shared/molecular-document';
+import { readMolecularDocumentContent } from '../shared/molecular-document-reader';
 import { molecularDocumentProjectionFields } from '../shared/molecular-document-projection';
 import { parseTrackViewDocument, TRACK_VIEW_SUFFIX } from '../shared/track-view';
 import { trackViewProjectionFields } from '../shared/track-view-projection';
@@ -477,8 +474,7 @@ async function equalitySnapshot(
   if (key.adapterKind === 'molecular-document') {
     if (!sourcePath.toLowerCase().endsWith(MOLECULAR_DOCUMENT_SUFFIX))
       throw new Error('Molecular projection source path is invalid.');
-    const document = parseMolecularDocument(bytes);
-    await validateMolecularDocumentCoordinates(document);
+    const document = await readMolecularDocumentContent(bytes);
     if (
       scopedProjectionId(workspaceScopeKey(workspace?.repo_uuid, workspace?.id), document.id) !==
       key.entityId

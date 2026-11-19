@@ -66,9 +66,9 @@ import {
   parseMolecularDocument,
   serializeMolecularDocument,
   molecularDocumentSummary,
-  validateMolecularDocumentCoordinates,
   type MolecularDocument,
 } from '../shared/molecular-document';
+import { validateMolecularDocumentForOpen } from '../shared/molecular-document-reader';
 
 export interface WorkspaceArtifactContext extends CatalogCreationContext {
   workspaceRoot?: string | null;
@@ -1272,7 +1272,7 @@ async function readResolvedWorkspaceArtifact(
   }
   const artifact = parseWorkspaceArtifact(content);
   if (artifact.schema === MOLECULAR_DOCUMENT_SCHEMA)
-    await validateMolecularDocumentCoordinates(artifact.document);
+    await validateMolecularDocumentForOpen(artifact.document);
   return {
     artifact,
     authorityPath: resolvedPath.readPath,

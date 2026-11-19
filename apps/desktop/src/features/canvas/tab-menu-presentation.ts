@@ -33,6 +33,7 @@ export interface TabStripPresentation {
   readonly isDirty: boolean;
   readonly isIndexedSequence: boolean;
   readonly isMolecularDocument?: boolean;
+  readonly molecularDocumentStatus?: 'checking' | 'blocked';
   readonly iconContext?: EntityColorContext;
 }
 
@@ -43,6 +44,13 @@ export function projectTabStripTab(tab: Tab): TabStripPresentation {
   const molecule =
     tab.artifactDocument?.orderType ??
     (documentId ? sequenceDocumentModel.getState().sequences[documentId]?.molecule : undefined);
+  const molecular = tab.type === 'structure' ? tab.initialStructureAttrs : undefined;
+  const molecularDocumentStatus =
+    molecular?.molecularDocumentPath && tab.structureRenderError
+      ? 'blocked'
+      : molecular?.molecularDocumentPath && !molecular.molViewSpec && !molecular.sourceId
+        ? 'checking'
+        : undefined;
   const sourcePath =
     tab.trackView?.path ??
     (tab.sequenceDocument?.kind === 'import-source-sequence'
@@ -60,9 +68,10 @@ export function projectTabStripTab(tab: Tab): TabStripPresentation {
       molecule,
       path: sourcePath,
     },
-    ...(tab.type === 'structure' && tab.initialStructureAttrs?.molecularDocumentId
+    ...(molecular?.molecularDocumentId
       ? { isMolecularDocument: true }
       : {}),
+    ...(molecularDocumentStatus ? { molecularDocumentStatus } : {}),
     isIndexedSequence: session.kind === 'sequence' && session.editor === 'indexed',
   };
 }

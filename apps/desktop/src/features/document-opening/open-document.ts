@@ -17,7 +17,7 @@ import type { OpenDocumentRequest, OpenFileDocumentRequest } from './types';
 import { registerPendingReadableContent } from '../../lib/readable-content-telemetry';
 import { beginPdfRead } from '../pdf/public/telemetry';
 import { TRACK_VIEW_SUFFIX } from '../../shared/track-view';
-import { MOLECULAR_DOCUMENT_FILE_SUFFIX } from '../../shared/registry-file-types';
+import { isMolecularDocumentFile } from '../../shared/document-availability';
 import { requestGenomeViewFileOpen } from '../sequence/public/genome-view-open-request';
 import { beginImageOpenRequest, admitImageOpen } from './image-view-lifecycle';
 import { resolveFilesystemDocumentTarget } from './filesystem-target';
@@ -198,8 +198,8 @@ const fileHandlers = {
 export function resolveFileDocumentKind(
   target: OpenFileDocumentRequest['target']
 ): FileDocumentKind | null {
+  if (isMolecularDocumentFile(target.path)) return 'molecular-document';
   if (target.tabType === 'page') return 'page';
-  if (target.path.endsWith(MOLECULAR_DOCUMENT_FILE_SUFFIX)) return 'molecular-document';
   if (target.path.endsWith(TRACK_VIEW_SUFFIX)) return 'track-view';
   if (isEntityArtifactPath(target.path)) return 'entity';
   const recognized = getTabTypeForFile(target.path);

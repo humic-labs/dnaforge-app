@@ -6,6 +6,7 @@ import { startFileDrag } from '../hooks/useFileDrag';
 import type { FileEntry } from '../hooks/useFileBrowser';
 import { useCanvasStore } from '../features/canvas/store';
 import { useSequenceStore } from '../features/sequence/store';
+import * as fileAvailability from '../features/document-opening/useDocumentAvailability';
 
 vi.mock('../hooks/useFileDrag', () => ({ startFileDrag: vi.fn() }));
 
@@ -82,6 +83,44 @@ function renderItem(entry: FileEntry) {
     />
   );
 }
+
+describe('file opening feedback', () => {
+  it('shows the ordinary notebook and primer rows without a message about checking', () => {
+    const notebook = renderItem(makeEntry('Notes.wpnote.json', 'json'));
+    expect(notebook.getByRole('treeitem')).toHaveTextContent('Notes');
+    expect(notebook.getByRole('treeitem')).not.toHaveTextContent('Check on open');
+    notebook.unmount();
+    const primer = renderItem(makeEntry('Primer.primer.json', 'json'));
+    expect(primer.getByRole('treeitem')).toHaveTextContent('Primer');
+    expect(primer.getByRole('treeitem')).not.toHaveTextContent('Check on open');
+  });
+
+  it('preserves a blocked file in the tree with its reason and without offering to open it', () => {
+    const reason = 'This file is damaged or incomplete. Try another copy.';
+    const availability = vi.spyOn(fileAvailability, 'useDocumentAvailability').mockReturnValue({
+      state: 'blocked',
+      reason,
+    });
+    try {
+      const onOpen = vi.fn();
+      const { getByRole } = render(
+        <FileTreeItem
+          {...treeItemProps}
+          entry={makeEntry('Damaged.dnaforge-molecular.json', 'json')}
+          onOpen={onOpen}
+        />
+      );
+      const row = getByRole('treeitem');
+      expect(row).toHaveTextContent('Damaged');
+      expect(row).toHaveAccessibleDescription(reason);
+      expect(row).not.toHaveTextContent(reason);
+      fireEvent.doubleClick(row);
+      expect(onOpen).not.toHaveBeenCalled();
+    } finally {
+      availability.mockRestore();
+    }
+  });
+});
 
 describe('FileTreeItem icon ', () => {
   it('uses the protein glyph and color for a typed native record artifact', () => {
