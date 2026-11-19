@@ -19,6 +19,7 @@ import {
   MOLECULAR_DOCUMENT_SCHEMA,
 } from '../../../shared/molecular-document';
 import { coordinateDigest, type MolecularView } from '../../../shared/molecular-view';
+import type { Structure3dAttrs } from '../../page/public/embeds/structure3d/types';
 import type { MolstarSelectedResidueReadbackEntry } from '../../page/public/embeds/structure3d/utils/molstarSelectionReadback';
 import {
   handleMolGetScene,
@@ -223,6 +224,10 @@ vi.mock('../../molecular-documents/public/services', async (importOriginal) => (
   })),
   saveMolecularDocumentSnapshot: (...args: unknown[]) => savedReferences.create(...args),
 }));
+vi.mock('../../molecular-documents/public/references', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../molecular-documents/public/references')>()),
+  resolveMolecularDocumentReference: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock('../../compute/public/molecular-catalog', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../compute/public/molecular-catalog')>()),
   loadCatalogStructure: (...args: unknown[]) => readback.catalogLoad(...args),
@@ -249,13 +254,14 @@ vi.mock(
   })
 );
 
-function registerView(structureViewId: string) {
+function registerView(structureViewId: string, initialAttrs?: Partial<Structure3dAttrs>) {
   const attrs = {
     source: 'pdb' as const,
     sourceId: '3TYG',
     pdbId: '3TYG',
     molViewSpec: readback.sceneResult.scene,
     structureViewIdentity: { schemaVersion: 1 as const, structureViewId, bindingId: null },
+    ...initialAttrs,
   };
   useStructure3dStore.getState().registerStructure(structureViewId, attrs, structureViewId);
   return useCanvasStore.getState().openTab('main', {
@@ -278,6 +284,24 @@ function allowSuccessfulCapture() {
 
 const savedRevisionId = '6cf13483-9489-48cf-85f4-977b84e60a22';
 const savedDocumentId = 'e00eb626-270d-4bf0-b92f-5b827285559b';
+const previousDocumentReference = {
+  kind: 'molecular-document',
+  version: 1,
+  documentId: savedDocumentId,
+  projectId: 'readback-workspace',
+  revisionId: '2e515407-f279-475c-8e0f-4a5fa9d4e412',
+  revisionSha256: 'b'.repeat(64),
+} as const;
+const documentViewId = `molecular-document:readback-workspace::${savedDocumentId}`;
+const priorDocumentAttrs = {
+  structureViewIdentity: undefined,
+  molecularDocumentId: previousDocumentReference.documentId,
+  molecularDocumentProjectId: previousDocumentReference.projectId,
+  molecularDocumentPath: '/readback-workspace/Saved view.molview.json',
+  molecularDocumentRevision: 'b'.repeat(64),
+  molecularDocumentReference: previousDocumentReference,
+  molecularDocumentSavedReferenceId: previousDocumentReference.revisionId,
+};
 async function savedDocumentResult(snapshot: MolecularView) {
   const document = molecularDocumentSchema.parse({
     schema: MOLECULAR_DOCUMENT_SCHEMA,
@@ -488,6 +512,80 @@ describe('molecular MCP readback integration', () => {
     assertMcpOutput(molSelectStoryStepOutputSchema, selected);
     expect(selected).toMatchObject({ ok: true, index: 1, title: 'Second step' });
   });
+
+  it('acknowledges a new revision saved from the current document reference on the same tab', async () => {
+    allowSuccessfulCapture();
+    readback.acceptSaved.mockReturnValue(true);
+    registerView(documentViewId, priorDocumentAttrs);
+    const tabId = useCanvasStore.getState().panels.main.activeTabId!;
+    const saved = await handleMolSaveView({
+      documentReference: previousDocumentReference,
+      title: 'Updated data view',
+      caption: '',
+      evidence: [],
+    });
+    expect(savedReferences.create).toHaveBeenCalledTimes(1);
+    const panel = useCanvasStore.getState().panels.main;
+    expect(panel.activeTabId).toBe(tabId);
+    expect(panel.tabs.find(({ id }) => id === tabId)).toMatchObject({
+      entityId: documentViewId,
+      initialStructureAttrs: { molecularDocumentSavedReferenceId: savedRevisionId },
+    });
+    expect(saved).toMatchObject({
+      ok: true,
+      structureViewId: documentViewId,
+      documentReference: { documentId: savedDocumentId, revisionId: savedRevisionId },
+    });
+    assertMcpOutput(molSaveViewOutputSchema, saved);
+  });
+
+  it.each(['reopened', 'replaced'] as const)(
+    'reports the durable write when its original tab was %s during publication',
+    async (change) => {
+      allowSuccessfulCapture();
+      readback.acceptSaved.mockReturnValue(true);
+      registerView(documentViewId, priorDocumentAttrs);
+      const panel = useCanvasStore.getState().panels.main;
+      const tab = panel.tabs.find(({ id }) => id === panel.activeTabId)!;
+      savedReferences.create.mockImplementationOnce(async (snapshot) => {
+        const written = await savedDocumentResult(snapshot);
+        const canvas = useCanvasStore.getState();
+        if (change === 'reopened') {
+          canvas.closeTab(panel.id, tab.id);
+          canvas.openTab(panel.id, {
+            type: 'structure',
+            entityId: documentViewId,
+            label: 'Reopened view',
+            initialStructureAttrs: tab.initialStructureAttrs,
+          });
+        } else {
+          canvas.retargetTab(
+            panel.id,
+            tab.id,
+            { type: 'structure', entityId: 'other-structure' },
+            {
+              label: 'Other structure',
+              initialStructureAttrs: { source: 'pdb', sourceId: '1URN' },
+            }
+          );
+        }
+        return written;
+      });
+      const saved = await handleMolSaveView({
+        documentReference: previousDocumentReference,
+        title: 'Updated data view',
+        caption: '',
+        evidence: [],
+      });
+      expect(savedReferences.create).toHaveBeenCalledTimes(1);
+      expect(saved).toMatchObject({
+        ok: false,
+        code: 'VIEW_CHANGED',
+        stateChanged: true,
+        partialEffects: [{ kind: 'saved-molecular-view', referenceId: savedRevisionId }],
+      });
+    }
+  );
 
   it('does not commit a save after the selected measurement changes during capture', async () => {
     allowSuccessfulCapture();
