@@ -14,6 +14,7 @@ import {
   MOLECULAR_DOCUMENT_SCHEMA,
 } from '../../../shared/molecular-document';
 import { coordinateDigest, type MolecularView } from '../../../shared/molecular-view';
+import type { MolstarSelectedResidueReadbackEntry } from '../../page/public/embeds/structure3d/utils/molstarSelectionReadback';
 import {
   handleMolGetScene,
   handleMolGetState,
@@ -93,6 +94,7 @@ const readback = vi.hoisted(() => {
     catalogLoad: vi.fn(),
     reference: vi.fn(),
     groups: [] as Array<Record<string, unknown>>,
+    groupResidues: [] as MolstarSelectedResidueReadbackEntry[],
     connection,
     sceneResult: {
       format: 'mvsj',
@@ -196,6 +198,7 @@ vi.mock('../../page/public/embeds/structure3d/molstar/molViewSpec', async (impor
   activeMolViewSpecScene: () => readback.sceneResult.scene,
   sameLoadedMolViewSpecScene: () => true,
   getMolViewSpecScene: () => readback.scene(),
+  getMolViewSpecSceneDocument: () => readback.sceneResult,
   captureMolViewSpecView: readback.capture,
   waitForMolViewSpecViewReady: readback.ready,
   validateMolViewSpecViewGeometry: readback.validateGeometry,
@@ -220,6 +223,15 @@ vi.mock('../../compute/public/molecular-catalog', async (importOriginal) => ({
   loadCatalogStructure: (...args: unknown[]) => readback.catalogLoad(...args),
 }));
 vi.mock(
+  '../../page/public/embeds/structure3d/utils/molstarSelectionReadback',
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import('../../page/public/embeds/structure3d/utils/molstarSelectionReadback')
+    >()),
+    readMolstarLociResidues: () => readback.groupResidues,
+  })
+);
+vi.mock(
   '../../page/public/embeds/structure3d/molstar/molViewSpecSwatchSelection',
   async (importOriginal) => ({
     ...(await importOriginal<
@@ -227,7 +239,7 @@ vi.mock(
     >()),
     nativeMolViewSpecColorGroups: () => readback.groups,
     resolveMolViewSpecColorGroupLociByStructure: () => [
-      { loci: { kind: 'element-loci', elements: [] } },
+      { structureRef: 'structure:test', loci: { kind: 'element-loci', elements: [] } },
     ],
   })
 );
@@ -286,6 +298,7 @@ describe('molecular MCP readback integration', () => {
     vi.clearAllMocks();
     readback.inspectionReady = false;
     readback.groups = [];
+    readback.groupResidues = [];
     useCanvasStore.setState({
       panels: { main: { id: 'main', tabs: [], activeTabId: null } },
       layout: { type: 'panel', panelId: 'main' },
@@ -336,7 +349,7 @@ describe('molecular MCP readback integration', () => {
         molecularConnectionSummary: projected.summary,
       },
     });
-    const scene = await handleMolGetScene({ structureViewId: 'view-a' });
+    const scene = await handleMolGetScene({ structureViewId: 'view-a', detail: 'full' });
     assertMcpOutput(molGetSceneOutputSchema, scene);
     expect(scene).toMatchObject({
       ok: true,
@@ -355,6 +368,7 @@ describe('molecular MCP readback integration', () => {
     const scene = await handleMolGetScene({
       structureViewId: 'view-a',
       includeParameterSchema: true,
+      detail: 'full',
     });
     assertMcpOutput(molGetSceneOutputSchema, scene);
     expect(scene).toMatchObject({ ok: true, structureViewId: 'view-a', ...readback.sceneResult });
@@ -375,7 +389,7 @@ describe('molecular MCP readback integration', () => {
     expect(
       await handleMolGetScene({ structureViewId: 'view-a', includeColorGroupSelections: true })
     ).toMatchObject({ ok: true, namedColorGroupSelections: [] });
-    const state = await handleMolGetState({ structureViewId: 'view-a' });
+    const state = await handleMolGetState({ structureViewId: 'view-a', detail: 'full' });
     assertMcpOutput(molGetStateOutputSchema, state);
     expect(state.structures).toHaveLength(1);
     expect(state.structures[0]).toMatchObject({
@@ -387,19 +401,19 @@ describe('molecular MCP readback integration', () => {
       },
       renderProfile: readback.sceneResult.renderProfile,
     });
-    expect(state.structures[0].native).not.toHaveProperty('molecularConnections');
+    expect(state.structures[0]).not.toHaveProperty('native.molecularConnections');
   });
 
   it('keeps inactive views unknown and reads only the requested logical view', async () => {
     const firstTabId = useCanvasStore.getState().panels.main.activeTabId!;
     registerView('view-b');
     useCanvasStore.getState().setActiveTab('main', firstTabId);
-    const state = await handleMolGetState({ structureViewId: 'view-a' });
+    const state = await handleMolGetState({ structureViewId: 'view-a', detail: 'full' });
     assertMcpOutput(molGetStateOutputSchema, state);
     expect(state.structures).toHaveLength(1);
     expect(readback.scene).toHaveBeenCalledTimes(1);
     expect(readback.withPlugin).toHaveBeenCalledTimes(1);
-    const inactive = await handleMolGetState({ structureViewId: 'view-b' });
+    const inactive = await handleMolGetState({ structureViewId: 'view-b', detail: 'full' });
     expect(inactive.structures[0]).toMatchObject({
       viewerStatus: 'inactive',
       molecularConnections: null,
@@ -413,6 +427,21 @@ describe('molecular MCP readback integration', () => {
     const result = await handleMolListStructures();
     assertMcpOutput(molListStructuresOutputSchema, result);
     expect(readback.scene).not.toHaveBeenCalled();
+  });
+
+  it('returns the current scene revision without exporting the scene or native appearance', async () => {
+    const summary = await handleMolGetScene({ structureViewId: 'view-a' });
+    assertMcpOutput(molGetSceneOutputSchema, summary);
+    expect(summary).toMatchObject({
+      ok: true,
+      sceneSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+      structureViewId: 'view-a',
+    });
+    expect(summary).not.toHaveProperty('scene');
+    expect(summary).not.toHaveProperty('native');
+    const exported = await handleMolGetScene({ structureViewId: 'view-a', includeScene: true });
+    expect(exported).toMatchObject({ ok: true, scene: readback.sceneResult.scene });
+    expect(exported).not.toHaveProperty('native');
   });
   it('returns validated saved-view, screenshot and story-step receipts from canonical handlers', async () => {
     allowSuccessfulCapture();
@@ -726,16 +755,29 @@ describe('molecular MCP readback integration', () => {
         targets: [],
       },
     ];
+    readback.groupResidues = [
+      {
+        chain: 'A',
+        position: 104,
+        labelSeqId: 104,
+        compId: 'ASN',
+        selectedAtomCount: 1,
+        totalResidueAtomCount: 8,
+        instanceId: '1_555',
+      },
+    ];
     const ordinary = await handleMolGetScene({ structureViewId: 'view-a' });
     expect(ordinary).not.toHaveProperty('namedColorGroupSelections');
     const detailed = await handleMolGetScene({
       structureViewId: 'view-a',
       includeColorGroupSelections: true,
     });
+    assertMcpOutput(molGetSceneOutputSchema, detailed);
     expect(detailed).toMatchObject({
       namedColorGroupSelections: [
         {
           label: 'Feature A',
+          residues: [{ instanceId: '1_555', structureRef: 'structure:test' }],
           frontmostAtSampledCenters: {
             status: 'unavailable',
             reason: 'Native camera projection/picking is unavailable.',

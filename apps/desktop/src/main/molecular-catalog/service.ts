@@ -307,6 +307,10 @@ export class MolecularCatalogService implements MolecularCatalogAPI {
     const identity = input.molecule ? moleculeId(input.molecule) : undefined;
     const filters: string[] = [];
     const parameters: Array<string | number> = [];
+    if (input.observationId) {
+      filters.push('o.id = ?');
+      parameters.push(input.observationId);
+    }
     if (identity) {
       filters.push(
         'EXISTS (SELECT 1 FROM molecular_catalog_mappings m WHERE m.observation_id = o.id AND m.molecule_id = ?)'

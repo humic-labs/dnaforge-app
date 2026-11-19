@@ -28,7 +28,7 @@ describe('shared Mol* viewer tools', () => {
   it('delegates every hosted/CLI tool factory to the existing viewer handler exactly once', async () => {
     const deps = dependencies();
     const calls = [
-      [createMolListStructuresTool(deps), {}, deps.listStructures, false],
+      [createMolListStructuresTool(deps), { detail: 'full' }, deps.listStructures],
       [createMolGetStateTool(deps), { viewerId: 'viewer:3OAA' }, deps.getState],
       [
         createMolSelectResiduesTool(deps),
@@ -57,10 +57,10 @@ describe('shared Mol* viewer tools', () => {
       ],
     ] as const;
 
-    for (const [viewerTool, input, handler, expectsInput = true] of calls) {
+    for (const [viewerTool, input, handler] of calls) {
       await execTool(viewerTool, input);
       expect(handler).toHaveBeenCalledTimes(1);
-      if (expectsInput) expect(handler).toHaveBeenCalledWith(input);
+      expect(handler).toHaveBeenCalledWith(input);
     }
   });
 
