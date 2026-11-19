@@ -1,5 +1,6 @@
 'use client';
 import { MenuRow, MenuSurface } from '@waypoint/ui-components';
+import { useMenuPointerSelection } from './use-menu-pointer-selection';
 
 import {
   forwardRef,
@@ -124,6 +125,7 @@ export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function
 ) {
   const home = !query.trim() && !activeCategory && !recentView && !browseView && !allView;
   const [activeKey, setActiveKey] = useState<string | null>(null);
+  const pointerSelection = useMenuPointerSelection(setActiveKey);
   const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const rows = useMemo<Choice[]>(() => {
     const entities = items.flatMap((group) =>
@@ -366,7 +368,7 @@ export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function
                   data-entity-type={entity?.type}
                   data-category-key={category?.key}
                   onMouseDown={keepEditorFocus}
-                  onMouseEnter={() => setActiveKey(key)}
+                  {...pointerSelection(key)}
                   onClick={() => choose(choice)}
                   active={selected}
                   icon={icon}

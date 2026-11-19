@@ -106,9 +106,11 @@ it('offers the same explicit layout order in the notebook toolbar and slash menu
     content: '<p>Notebook</p>',
   });
   render(<FormattingToolbar editor={editor} />);
-  fireEvent.click(screen.getByRole('combobox', { name: /^Notebook layout/ }));
-  const options = within(screen.getByRole('listbox', { name: /^Notebook layout/ }))
-    .getAllByRole('option')
+  const trigger = screen.getByRole('button', { name: 'Notebook layout' });
+  vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue(new DOMRect(100, 100, 40, 28));
+  fireEvent.click(trigger);
+  const options = within(screen.getByRole('menu', { name: 'Notebook layout' }))
+    .getAllByRole('menuitemradio')
     .map((option) => option.textContent);
   expect(options).toEqual(layoutCases.map(({ label }) => label));
   expect(

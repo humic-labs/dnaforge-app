@@ -195,3 +195,18 @@ it('keeps the previous result rows present while the first typed character chang
   await act(async () => pending.resolve(page([entity('target', 'Target')])));
   expect(screen.getByRole('option', { name: /Target/ })).toBe(row);
 });
+
+it('keeps keyboard selection until the pointer moves, including movement inside the previous row', async () => {
+  native.search.mockResolvedValue(page([entity('a', 'Target A'), entity('b', 'Target B')]));
+  const ref = createRef<MentionMenuRef>();
+  render(<EntityLinkMenu ref={ref} query="Target" workspaceRoot={null} command={vi.fn()} />);
+  const first = await screen.findByRole('option', { name: /Target A/ });
+  const second = await screen.findByRole('option', { name: /Target B/ });
+  fireEvent.mouseEnter(second, { clientX: 30, clientY: 64 });
+  expect(second).toHaveAttribute('aria-selected', 'true');
+  act(() => { ref.current!.onKeyDown({ event: new KeyboardEvent('keydown', { key: 'ArrowUp' }) }); });
+  fireEvent.mouseMove(second, { clientX: 30, clientY: 64 });
+  expect(first).toHaveAttribute('aria-selected', 'true');
+  fireEvent.mouseMove(second, { clientX: 31, clientY: 64 });
+  expect(second).toHaveAttribute('aria-selected', 'true');
+});

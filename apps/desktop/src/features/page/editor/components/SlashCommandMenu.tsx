@@ -1,5 +1,6 @@
 'use client';
 import { MenuRow, MenuSurface } from '@waypoint/ui-components';
+import { useMenuPointerSelection } from './use-menu-pointer-selection';
 
 import {
   Fragment,
@@ -30,6 +31,7 @@ export interface SlashCommandMenuProps {
 export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenuProps>(
   function SlashCommandMenu({ items, command, error, onRetry }, ref) {
     const [selectedName, setSelectedName] = useState<string | null>(null);
+    const pointerSelection = useMenuPointerSelection(setSelectedName);
     const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
     const columns = useMemo(() => {
       const grouped = groupCommandsByCategory(items);
@@ -164,7 +166,7 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
                         aria-label={cmd.name === 'entity-link' ? cmd.label : undefined}
                         title={cmd.name === 'entity-link' ? cmd.label : undefined}
                         onMouseDown={(event) => event.preventDefault()}
-                        onMouseEnter={() => setSelectedName(cmd.name)}
+                        {...pointerSelection(cmd.name)}
                         onClick={() => command(cmd)}
                         active={selectedColumn?.key === column.key && selectedRow === row}
                         icon={cmd.icon}
