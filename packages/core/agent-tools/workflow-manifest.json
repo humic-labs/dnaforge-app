@@ -461,36 +461,28 @@
           "kind": "mcp_tool",
           "execution_boundary": "app_service",
           "tool": "administration",
-          "arguments": { "operation": { "kind": "inspect-structure-guidance" } },
-          "description": "Read the current structure guidance. The external session provides it on first structure use. Read it again if Settings > AI changes."
+          "description": "Read the current structure guidance with operation.kind set to inspect-structure-guidance. The external session provides it on first structure use. Read it again if Settings > AI changes."
         },
         {
           "id": "open",
           "kind": "mcp_tool",
           "execution_boundary": "ui_bridge",
           "tool": "mol_open_tab",
-          "arguments": { "structure": { "kind": "file", "path": "example.cif" } },
-          "description": "Replace example.cif with the path of a real coordinate file inside the open project. Use mol_list_structures to find the exact structureViewId."
+          "description": "Pass a structure with kind file and the coordinate file path inside the open project. Use mol_list_structures to find the exact structureViewId."
         },
         {
           "id": "inspect",
           "kind": "mcp_tool",
           "execution_boundary": "ui_bridge",
           "tool": "mol_get_scene",
-          "arguments": { "structureViewId": "<structureViewId from mol_list_structures>" },
-          "description": "Parse the returned scene JSON and preserve its coordinate resource URI, parse format, canvas background and metadata version. Use the native chain inventory to choose real chain and residue IDs."
+          "description": "Supply the structureViewId from mol_list_structures. Parse the returned scene JSON and preserve its coordinate resource URI, parse format, canvas background and metadata version. Use the native chain inventory to choose real chain and residue IDs."
         },
         {
           "id": "apply",
           "kind": "mcp_tool",
           "execution_boundary": "ui_bridge",
           "tool": "mol_apply_scene",
-          "arguments": {
-            "structureViewId": "<structureViewId from mol_list_structures>",
-            "viewAction": "add",
-            "scene": "<stringified single-view MolViewSpec scene with a descriptive metadata.title>"
-          },
-          "description": "Use edit-current for the active view and add for another named perspective. If a fresh external session returns STRUCTURE_GUIDANCE_REQUIRED, read that guidance before resubmitting the intended change."
+          "description": "Supply the same structureViewId and a stringified single-view MolViewSpec scene with a descriptive metadata.title. Set viewAction to edit-current for the active view or add for another named perspective. If a fresh external session returns STRUCTURE_GUIDANCE_REQUIRED, read that guidance before resubmitting the intended change."
         },
         {
           "id": "verify",
