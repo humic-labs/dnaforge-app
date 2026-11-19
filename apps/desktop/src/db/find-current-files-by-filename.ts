@@ -1,5 +1,10 @@
 import { platform } from '../platform';
-import { pathIsAtOrUnder, pathRelativeToBoundary, stripTrailingSep } from '../shared/path-boundary';
+import {
+  isSafeWorkspaceRelativePath,
+  pathIsAtOrUnder,
+  pathRelativeToBoundary,
+  stripTrailingSep,
+} from '../shared/path-boundary';
 import { MANAGED_SEQUENCE_DOCUMENT_FIELD } from '../shared/managed-sequence-document';
 import {
   SEQUENCE_PACKAGE_FILE_KIND_ALIASES,
@@ -31,7 +36,8 @@ export async function findCurrentFilesByFilename(
 ): Promise<CurrentFileByFilename[]> {
   if (!filenameOrPath || !workspaceRoot) return [];
 
-  const basename = filenameOrPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? '';
+  const relativePath = filenameOrPath.replace(/\\/g, '/');
+  const basename = relativePath.split('/').filter(Boolean).pop() ?? '';
   if (!basename) return [];
 
   const root = stripTrailingSep(workspaceRoot);
@@ -58,7 +64,10 @@ export async function findCurrentFilesByFilename(
         entityId: row.entity_id,
       });
   }
-  if (hosted || !sequenceProductExtensionForPath(basename)) return matches;
+  const packagePath =
+    relativePath.includes('/') && isSafeWorkspaceRelativePath(relativePath) ? relativePath : null;
+  const productName = sequenceProductExtensionForPath(basename) ? basename : null;
+  if (hosted || (!packagePath && !productName)) return matches;
   const packages = await platform().db.select<Row[]>(
     `SELECT f.path, f.relative_path, f.content_hash, f.object_uuid, f.entity_id, f.file_kind
          FROM catalog_entity_files f
@@ -67,10 +76,11 @@ export async function findCurrentFilesByFilename(
         WHERE f.status = 'current' AND e.status = 'active' AND e.workspace_id = w.id
           AND w.path = ? AND w.archived_at IS NULL AND w.trashed_at IS NULL
           AND f.file_kind IN (${SEQUENCE_PACKAGE_FILE_KIND_ALIASES.map(() => '?').join(', ')})
-          AND COALESCE(json_extract(CASE WHEN json_valid(e.metadata) THEN e.metadata END,
-                '$.${MANAGED_SEQUENCE_DOCUMENT_FIELD}.productFile'), ?) = ? COLLATE NOCASE
+          AND (replace(f.path, char(92), '/') = rtrim(replace(w.path, char(92), '/'), '/') || '/' || ?
+            OR COALESCE(json_extract(CASE WHEN json_valid(e.metadata) THEN e.metadata END,
+                '$.${MANAGED_SEQUENCE_DOCUMENT_FIELD}.productFile'), ?) = ? COLLATE NOCASE)
         ORDER BY f.path`,
-    [root, ...SEQUENCE_PACKAGE_FILE_KIND_ALIASES, basename, basename]
+    [root, ...SEQUENCE_PACKAGE_FILE_KIND_ALIASES, packagePath, productName, productName]
   );
   if (!packages.length) return matches;
   const { readBoundSequenceProduct } = await import('./bound-sequence-product');
@@ -80,9 +90,12 @@ export async function findCurrentFilesByFilename(
       { kind: 'managed-sequence', packageRoot: row.path, packageId: row.entity_id },
       root
     );
-    if (product?.name.toLowerCase() === basename.toLowerCase())
+    if (!product) continue;
+    const exactDirectory =
+      packagePath !== null && pathRelativeToBoundary(row.path, root) === packagePath;
+    if (exactDirectory || (productName && product.name.toLowerCase() === productName.toLowerCase()))
       matches.push({
-        path: product.path,
+        path: exactDirectory ? packagePath : product.path,
         contentHash: row.content_hash,
         objectUuid: row.object_uuid,
         entityId: row.entity_id,

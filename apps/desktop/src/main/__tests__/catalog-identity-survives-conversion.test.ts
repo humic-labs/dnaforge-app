@@ -212,6 +212,21 @@ describe('catalog identity across loose-file conversion (real SQLite)', () => {
     }
   );
 
+  it('restores a legacy link to its exact nested package directory', async () => {
+    await fs.mkdir(join(root, 'records'));
+    const directory = join(root, 'records', 'archive');
+    await fs.rename(packageRoot, directory);
+    await reconcileSequencePackageCatalogEntity({
+      metaPath: join(directory, '.forge', 'plasmid.json'),
+      workspaceRoot: root,
+    });
+    db.prepare('UPDATE catalog_entity_files SET relative_path=NULL WHERE path=?').run(directory);
+    expect(await findCurrentFilesByFilename('records/archive', root)).toMatchObject([
+      { path: 'records/archive', objectUuid: 'clone-object', entityId: 'clone-entity' },
+    ]);
+    expect(await findCurrentFilesByFilename('other/archive', root)).toEqual([]);
+  });
+
   it('finds the actual primary filename of a relocated package for a legacy reference', async () => {
     const renamed = join(root, 'renamed-directory');
     await fs.rename(packageRoot, renamed);
