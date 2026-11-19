@@ -421,6 +421,119 @@ def _context(*, meta: dict[str, Any] | None = None) -> SimpleNamespace:
     )
 
 
+class StructureGuidanceSidecar(FakeSidecarClient):
+    def __init__(self):
+        super().__init__(
+            _catalog(
+                tools=[
+                    _tool(name)
+                    for name in (
+                        "administration",
+                        "mol_get_scene",
+                        "mol_apply_scene",
+                        "mol_structures",
+                        "echo",
+                    )
+                ]
+            )
+        )
+        self.instructions = "Use the saved custom structure guidance."
+
+    async def call_tool(self, name, arguments, *, idempotency_key):
+        status, body = await super().call_tool(name, arguments, idempotency_key=idempotency_key)
+        if name == "administration":
+            assert arguments == {"operation": {"kind": "inspect-structure-guidance"}}
+            body = {
+                **body,
+                "result": {
+                    "ok": True,
+                    "kind": "structure-guidance",
+                    "guidance": {
+                        "defaultVersion": 1,
+                        "source": "override",
+                        "instructions": self.instructions,
+                    },
+                },
+            }
+        return status, body
+
+
+@pytest.mark.asyncio
+async def test_first_external_structure_write_returns_guidance_before_dispatch():
+    sidecar = StructureGuidanceSidecar()
+    handlers = CompanionHandlers(sidecar, CompanionOptions())
+    ctx = _context()
+    apply = types.CallToolRequestParams(name="mol_apply_scene", arguments={})
+    operation = {"operation": {"kind": "inspect-structure-guidance"}}
+
+    first = await handlers.call_tool(ctx, apply)
+    assert first.is_error
+    assert "STRUCTURE_GUIDANCE_REQUIRED" in first.content[0].text
+    assert sidecar.instructions in first.content[0].text
+    assert sidecar.calls == [("administration", operation)]
+
+    applied = await handlers.call_tool(ctx, apply)
+    assert not applied.is_error and applied.structured_content == {"answer": 42}
+    assert sidecar.instructions not in applied.content[0].text
+    assert sidecar.calls[-1] == ("mol_apply_scene", {})
+    assert len(sidecar.calls) == 2
+
+    sidecar.instructions = ""
+    current = await handlers.call_tool(
+        ctx, types.CallToolRequestParams(name="administration", arguments=operation)
+    )
+    assert current.structured_content["guidance"]["instructions"] == ""
+    reconnected = await CompanionHandlers(sidecar, CompanionOptions()).call_tool(
+        _context(), apply
+    )
+    assert reconnected.is_error
+    assert "STRUCTURE_GUIDANCE_REQUIRED" in reconnected.content[0].text
+    assert sidecar.calls[-1] == ("administration", operation)
+
+
+@pytest.mark.asyncio
+async def test_first_structure_read_presents_guidance_and_preserves_the_scene_result():
+    sidecar = StructureGuidanceSidecar()
+    handlers = CompanionHandlers(sidecar, CompanionOptions())
+    ctx = _context()
+
+    unrelated = await handlers.call_tool(
+        ctx, types.CallToolRequestParams(name="echo", arguments={})
+    )
+    assert sidecar.instructions not in unrelated.content[0].text
+    read = await handlers.call_tool(
+        ctx,
+        types.CallToolRequestParams(name="mol_structures", arguments={"operation": "list"}),
+    )
+    assert not read.is_error
+    assert read.structured_content == {
+        "answer": 42,
+        "structureGuidance": {
+            "defaultVersion": 1,
+            "source": "override",
+            "instructions": sidecar.instructions,
+            "examplesUri": "waypoint://workflow/structure-authoring",
+        },
+    }
+    assert sidecar.instructions in read.content[0].text
+    again = await handlers.call_tool(
+        _context(), types.CallToolRequestParams(name="mol_get_scene", arguments={})
+    )
+    assert sidecar.instructions not in again.content[0].text
+    assert again.structured_content == {"answer": 42}
+    write = await handlers.call_tool(
+        ctx, types.CallToolRequestParams(name="mol_apply_scene", arguments={})
+    )
+    assert not write.is_error
+    assert [name for name, _ in sidecar.calls] == [
+        "echo",
+        "administration",
+        "mol_structures",
+        "mol_get_scene",
+        "mol_apply_scene",
+    ]
+
+
 @pytest.mark.asyncio
 async def test_catalog_handlers_revalidate_and_sort_scoped_discovery():
     sidecar = FakeSidecarClient(_catalog(tools=[_tool("zeta"), _tool("alpha")]))
