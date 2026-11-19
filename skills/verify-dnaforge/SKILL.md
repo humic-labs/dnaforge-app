@@ -17,9 +17,10 @@ launch, readiness checks and cleanup. Choose the
 [covered workspace structure map](features/covered-workspace-structure.md) for
 agent structure commands while Home, References or Settings is on screen, and
 the [unselected structure tab map](features/unselected-structure-tab.md) for
-agent structure commands on a tab the person has not selected. The sections
-below describe the
-[palette and enzyme journey](features/palettes-and-enzymes.md).
+agent structure commands on a tab the person has not selected, and the
+[protein inspection map](features/inspection-structure-tab.md) for unselected
+inspection tabs and retained inspection proteins. The sections below describe
+the [palette and enzyme journey](features/palettes-and-enzymes.md).
 
 ## Launch
 
