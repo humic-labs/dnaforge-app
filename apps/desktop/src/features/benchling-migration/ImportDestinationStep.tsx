@@ -1,5 +1,5 @@
 import { TextField } from '../../components/ui';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { FolderOpenIcon, PlusIcon } from '../../components/icons/glyphs';
 import type {
   BenchlingImportDestinationChoice,
@@ -335,6 +335,7 @@ function DestinationRadioRow({
   selected: boolean;
   onSelect(workspaceDbId: string): void;
 }) {
+  const id = useId();
   return (
     <label
       className={`flex cursor-pointer items-center justify-between gap-4 rounded-lg border px-3 py-3 transition-colors ${
@@ -345,22 +346,24 @@ function DestinationRadioRow({
         <input
           type="radio"
           name="benchling-import-destination"
+          aria-labelledby={`${id}-name ${id}-matches`}
+          aria-describedby={candidate.busy ? `${id}-availability` : undefined}
           value={candidate.workspaceDbId}
           checked={selected}
           onChange={() => onSelect(String(candidate.workspaceDbId))}
         />
         <span className="min-w-0">
-          <span className="block truncate text-sm font-medium text-fg">
+          <span id={`${id}-name`} className="block truncate text-sm font-medium text-fg">
             {candidate.workspaceName}
           </span>
           {candidate.busy ? (
-            <span className="block text-xs text-fg-muted">
+            <span id={`${id}-availability`} className="block text-xs text-fg-muted">
               Finishing another task. Availability is checked again when you import.
             </span>
           ) : null}
         </span>
       </span>
-      <span className="flex-none text-xs text-fg-muted">
+      <span id={`${id}-matches`} className="flex-none text-xs text-fg-muted">
         {formatWorkspaceMatchCount({
           matchingEntityCount: candidate.overlapCount,
           archiveEntityCount: archiveObjectCount,

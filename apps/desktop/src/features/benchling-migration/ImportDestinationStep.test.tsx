@@ -171,7 +171,11 @@ describe('Benchling import destination step', () => {
     );
     expect(screen.queryByText('No existing projects found.')).not.toBeInTheDocument();
     expect(screen.getByText(/Finishing another task/)).toBeVisible();
-    expect(screen.getByRole('radio', { name: /Sundew/ })).toBeChecked();
+    const choice = screen.getByRole('radio', { name: 'Sundew 663 of 663 entities have a match' });
+    expect(choice).toBeChecked();
+    expect(choice).toHaveAccessibleDescription(
+      'Finishing another task. Availability is checked again when you import.'
+    );
   });
   function chooseNewWorkspace() {
     fireEvent.click(screen.getByRole('button', { name: 'Create a new project' }));
