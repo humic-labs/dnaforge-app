@@ -15,6 +15,7 @@ import { useCanvasStore } from '../canvas/public/store';
 import { trackViewMatchesSavedConfiguration } from './track-view-configuration';
 import type { TrackViewControl, TrackViewSnapshot } from './track-view-control';
 import { saveTrackView } from './track-view-library';
+import { trackViewUserLayers } from './indexed-user-annotations';
 import { trackViewRecoveryDocument } from './track-view-recovery-document';
 
 type Mode = 'save' | 'rename' | 'copy';
@@ -104,8 +105,55 @@ export class TrackViewSession implements TrackViewControl {
     }
     this.source = null;
   }
+  private restoredDraft() {
+    const saved = this.saved?.document;
+    const state = this.tab.indexedGenome;
+    const view = this.tab.viewState;
+    const viewport = view?.indexedViewport;
+    if (
+      !this.tab.isDirty ||
+      !saved ||
+      this.tab.entityId !== saved.id ||
+      !state ||
+      !viewport ||
+      state.assembly?.assemblyId !== saved.reference.assemblyId ||
+      view?.indexedViewportCommand
+    )
+      return null;
+    const command = view.indexedGenomeViewRestoreCommand;
+    const annotation =
+      view.indexedAnnotationDraft?.id === command?.id
+        ? (view.indexedAnnotationDraft ?? command)
+        : command;
+    const visible = new Set(annotation?.visibleAnnotationTrackIds);
+    const userLayers = trackViewUserLayers(state);
+    return {
+      ...saved,
+      viewport,
+      scope: state.scope ?? saved.scope,
+      annotation: annotation
+        ? {
+            policy: annotation.annotationPolicy,
+            orderedTrackIds: annotation.orderedAnnotationTrackIds,
+            visibilityByTrackId: Object.fromEntries(
+              annotation.orderedAnnotationTrackIds.map((id) => [id, visible.has(id)])
+            ),
+          }
+        : saved.annotation,
+      dataTracks: state.dataTracks ?? state.ucscTracks ?? saved.dataTracks,
+      bamTracks: state.bamTracks ?? saved.bamTracks,
+      signalReadPileupViews: state.signalReadPileupViews ?? saved.signalReadPileupViews,
+      sequenceDataLayers: Object.hasOwn(state, 'sequenceDataLayers') ? state.sequenceDataLayers : saved.sequenceDataLayers,
+      comparisonProjection: Object.hasOwn(state, 'comparisonProjection') ? state.comparisonProjection : saved.comparisonProjection,
+      contactProjection: Object.hasOwn(state, 'contactProjection') ? state.contactProjection : saved.contactProjection,
+      variantSource: Object.hasOwn(state, 'variantSource') ? state.variantSource : saved.variantSource,
+      primerBindings: state.primerBindings === undefined ? saved.primerBindings : userLayers.primerBindings,
+      userAnnotations: state.userAnnotations === undefined ? saved.userAnnotations : userLayers.userAnnotations,
+    };
+  }
   private current(): TrackViewSnapshot {
     if (this.ready && this.source) this.snapshot = this.source.value.capture();
+    if (!this.ready) this.snapshot = this.restoredDraft() ?? this.snapshot;
     if (!this.snapshot) throw new Error('The reference is still opening.');
     return this.snapshot;
   }
@@ -205,7 +253,7 @@ export class TrackViewSession implements TrackViewControl {
   ): ReturnType<TrackViewControl['save']> {
     if (this.closed() || this.interaction.kind === 'saving' || !name.trim())
       return { ok: false, error: 'The view is closed, busy or its name is empty.' };
-    if (mode !== 'rename' && !this.ready) {
+    if (mode !== 'rename' && !this.ready && !this.restoredDraft()) {
       this.settle(false);
       return {
         ok: false,
@@ -222,7 +270,8 @@ export class TrackViewSession implements TrackViewControl {
       const captured = renaming ? previous.document : this.current();
       const portableReference = renaming
         ? previous.document.portableReference
-        : ((await this.capturePortableReference?.()) ?? captured.portableReference);
+        : ((this.ready ? await this.capturePortableReference?.() : undefined) ??
+          captured.portableReference);
       const now = new Date().toISOString();
       const document = validateTrackViewDocument({
         ...captured,

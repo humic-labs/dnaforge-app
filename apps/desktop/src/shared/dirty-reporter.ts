@@ -137,6 +137,11 @@ export async function saveAllUnsavedWork(): Promise<void> {
         ownsNativeFileDocument(target.filePath)
       )
         continue;
+      if (target.kind === 'tab' && tab.trackView && !documentLifecycle.has(target, tab.id)) {
+        const { getTrackViewSession } =
+          await import('../features/sequence/public/track-view-control');
+        getTrackViewSession(tab.id);
+      }
       pending.push(documentLifecycle.save(target, tab.id, 'all'));
     }
   }
