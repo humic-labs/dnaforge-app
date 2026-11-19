@@ -365,7 +365,7 @@ export function ActivityBar({
             icon={<span className="font-mono text-lg leading-none">›_</span>}
             label="Terminal"
             ariaLabel="Terminal"
-            active={activeView === 'terminal'}
+            active={activeView === 'terminal' && sidebarVisible}
             onClick={onOpenTerminal}
             testId="terminal-toggle"
           />

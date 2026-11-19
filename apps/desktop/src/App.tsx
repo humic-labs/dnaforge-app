@@ -683,7 +683,7 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
   } = useWorkspaceMainMode(activeView, sidebarVisible);
 
   const workspaceExplorerInsetRef = useRef(sidebarVisible ? sidebarWidth + 2 : 0);
-  if (!workspaceTakeoverActive) {
+  if (!workspaceTakeoverActive && !terminalViewActive) {
     workspaceExplorerInsetRef.current = sidebarVisible ? sidebarWidth + 2 : 0;
   }
 
@@ -1887,6 +1887,7 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
           files={fileBrowserContent}
         />
 
+        {terminalViewActive ? rendererFeatureSidebarView('terminal') : null}
         <div className="dnaforge-terminal-parent flex-1 flex flex-col overflow-hidden">
           <RendererFeatureActivations openView={handleViewChange} />
           <WorkspaceMain
