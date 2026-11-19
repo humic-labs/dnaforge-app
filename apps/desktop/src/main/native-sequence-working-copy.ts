@@ -328,7 +328,8 @@ export class NativeSequenceWorkingCopyOwner {
       if (mutating && document.scope.readOnly)
         throw refusal('READ_ONLY_SEQUENCE: This sequence belongs to a read-only source.');
       const state = this.model.getState();
-      if (request.expectedVersion !== state.getVersion(scope.documentId))
+      const expectedVersion = request.expectedVersion;
+      if (expectedVersion !== state.getVersion(scope.documentId))
         throw refusal('STALE_SEQUENCE: Inspect the current sequence before editing.');
       if (document.stampingCaptureId && mutating) {
         if (operation.kind === 'save')
@@ -457,7 +458,7 @@ export class NativeSequenceWorkingCopyOwner {
           } else {
             const result = applySequenceModelCommand(state, {
               documentId: scope.documentId,
-              expectedVersion: request.expectedVersion,
+              expectedVersion,
               operation,
             });
             if (!result.ok) throw refusal(`${result.code}: ${result.error}`);
