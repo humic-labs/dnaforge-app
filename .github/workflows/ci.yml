@@ -458,13 +458,12 @@ jobs:
       contents: read
       actions: read
       pull-requests: read
-      issues: write
     steps:
       - *a3
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version-file: .ci-control/.nvmrc
-      - name: Record an owned failure once
+      - name: Summarize the integration result
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node .ci-control/scripts/ci/report-main-result.mjs --publish
+        run: node .ci-control/scripts/ci/report-main-result.mjs >> "$GITHUB_STEP_SUMMARY"
