@@ -54,7 +54,10 @@ export function projectTabStripTab(tab: Tab): TabStripPresentation {
   return {
     id: tab.id,
     type: editor.type,
-    label: tab.type === 'sequence' ? sequenceDisplayName(tab.label) : tab.label,
+    label:
+      tab.type === 'sequence'
+        ? sequenceDisplayName(tab.quickLookSource?.sourceFileName ?? tab.label)
+        : tab.label,
     isDirty: isTabDirty(tab),
     ...(tab.quickLookSource || tab.sourceFileView?.location === 'external'
       ? { isExternalPreview: true }

@@ -184,6 +184,17 @@ describe('Tab — icon per tab type ', () => {
 describe('Tab title extension default ', () => {
   afterEach(() => cleanup());
 
+  it('describes external preview tabs without adding visible text beside the filename', () => {
+    renderTab({
+      type: 'file',
+      label: 'collection.fasta',
+      sourceFileView: { path: '/lab/collection.fasta', format: 'fasta', location: 'external' },
+    });
+    const tab = screen.getByRole('tab');
+    expect(tab).toHaveAccessibleDescription('Read-only preview. Not imported.');
+    expect(tab.textContent).toBe(screen.getByTestId('tab-label-t1').textContent);
+  });
+
   it('hides a recognized extension on any tab type that does not opt out', () => {
     renderTab({ type: 'structure', label: '1FS0.pdb' });
     expect(screen.getByTestId('tab-label-t1')).toHaveTextContent(/^1FS0$/);

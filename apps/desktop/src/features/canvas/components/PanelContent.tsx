@@ -72,7 +72,6 @@ import { resolveNativeFastaSourceAuthority } from '../../../services/native-cata
 import type { FastaKindReadAuthority } from '../../../shared/fasta-kind';
 import { inferCatalogFileKind } from '../../../shared/catalog-file-kind';
 import { LegacyMigrationFastaTab } from './LegacyMigrationFastaTab';
-import { PreviewFrame } from '../../external-preview/PreviewFrame';
 import { FastaKindReadStatus } from '../../../components/FastaKindReadStatus';
 import { sequencePresentation } from '../../../shared/sequence-presentation';
 import { EntityDetailsDrawer } from '../../entity-details/public/EntityDetails';
@@ -844,7 +843,17 @@ function PanelContentInternal({
 
   return (
     <TabErrorBoundary key={tab.id} label={tab.label} onClose={handleClose}>
-      {tab.quickLookSource ? <PreviewFrame>{content}</PreviewFrame> : content}
+      {tab.quickLookSource ? (
+        <section
+          aria-label="External file preview"
+          data-testid="external-preview-frame"
+          className="h-full min-h-0"
+        >
+          {content}
+        </section>
+      ) : (
+        content
+      )}
       {tab.type !== 'primer' &&
       tab.viewState?.entityDetailsOpen &&
       tab.viewState.entityDetailsEntityId ? (

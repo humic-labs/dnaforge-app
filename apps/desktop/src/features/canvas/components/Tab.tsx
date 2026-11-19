@@ -294,6 +294,7 @@ export const Tab = React.memo(function Tab({
       data-tab-label={tab.label}
       data-tab-type={tab.type}
       aria-selected={isActive}
+      aria-description={tab.isExternalPreview ? 'Read-only preview. Not imported.' : undefined}
       tabIndex={isActive ? 0 : -1}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
@@ -344,7 +345,8 @@ export const Tab = React.memo(function Tab({
         ) : (
           <span
             data-testid={`tab-label-${tab.id}`}
-            className={`tab-label flex-1 ${
+            title={tab.isExternalPreview ? `${tab.label} — read-only preview` : undefined}
+            className={`tab-label flex-1 ${tab.isExternalPreview ? 'italic' : ''} ${
               gitStatus === 'modified'
                 ? 'text-yellow-600 dark:text-yellow-300'
                 : gitStatus === 'untracked' || gitStatus === 'added'
@@ -357,11 +359,6 @@ export const Tab = React.memo(function Tab({
             {TAB_TYPES_SHOWING_RAW_LABEL.has(tab.type)
               ? tab.label
               : stripDisplayExtension(tab.label)}
-          </span>
-        )}
-        {!isEditing && tab.isExternalPreview && (
-          <span className="shrink-0 rounded border border-accent/50 px-1 text-[10px] font-medium text-accent">
-            Preview
           </span>
         )}
         {!isEditing && (
