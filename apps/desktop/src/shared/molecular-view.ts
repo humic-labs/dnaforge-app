@@ -123,7 +123,7 @@ export function molecularViewFromReferenceData(data: string | null): MolecularVi
   }
 }
 
-export async function coordinateDigest(value: string | BufferSource): Promise<string> {
+export async function coordinateDigest(value: string | Uint8Array<ArrayBuffer>): Promise<string> {
   const bytes = typeof value === 'string' ? new TextEncoder().encode(value) : value;
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');

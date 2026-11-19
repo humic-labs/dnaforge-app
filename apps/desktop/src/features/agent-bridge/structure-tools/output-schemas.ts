@@ -608,7 +608,7 @@ export const molSaveViewOutputSchema = z.object({
   structureViewId: z.string(),
   documentReference: molecularDocumentReferenceSchema,
   activeViewReference: molecularDocumentReferenceSchema,
-  inlineLink: z.string(),
+  inlineLink: z.string().optional(),
   molecularDocumentId: z.string().uuid(),
   molecularDocumentReference: molecularDocumentReferenceSchema,
   molecularDocumentProjectId: z.string(),

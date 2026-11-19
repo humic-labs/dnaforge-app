@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "scope": "Built-in registered actions and canonical aliases. Runtime-installed provider manifests are discovered through their existing provider registry.",
   "source": "apps/api/src/concurrency/builtins.py#register_builtin_agent_tools",
-  "sharedCatalogSha256": "cd366eacb30a7007cbc553dcdeb19ac363dda12719f460a0053b6cc22fe0bf87",
+  "sharedCatalogSha256": "d9f14bbde718ee9a06d62639660cdb10af6ff9e8f3527c9b47c5bf54040018ef",
   "tools": [
     {
       "name": "add_design_region",
