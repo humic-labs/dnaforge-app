@@ -3,7 +3,10 @@ import type { ReactNode } from 'react';
 import type { SequenceDisplayName } from '../../../shared/sequence-presentation';
 import { EditIcon } from '../../../components/icons';
 import { Button } from '../../../components/ui';
-import { DOCUMENT_TAB_UNDERBAR_MIN_CLASS } from '../public/document-tab-underbar';
+import {
+  UI_DOCUMENT_PREVIEW_ROW_CLASS,
+  UI_SEQUENCE_INFO_ROW_CLASS,
+} from '../../../components/ui/styles';
 import { SequenceViewerModeToggle, type SequenceViewMode } from './SequenceViewerModeToggle';
 import type {
   SequenceMapLayout,
@@ -91,7 +94,7 @@ export function SequenceInfoBar({
       data-testid="sequence-info-bar"
       role={preview ? 'group' : undefined}
       aria-label={preview ? 'Read-only preview · Not imported' : undefined}
-      className={`flex-shrink-0 flex items-center gap-x-3 px-3 ${DOCUMENT_TAB_UNDERBAR_MIN_CLASS} border-b border-border-hover text-xs text-fg-muted ${preview ? 'external-preview-toolbar flex-wrap gap-y-1 py-1' : 'bg-bg py-0'}`}
+      className={preview ? UI_DOCUMENT_PREVIEW_ROW_CLASS : UI_SEQUENCE_INFO_ROW_CLASS}
     >
       <span className={preview ? 'flex min-w-0 flex-[1_1_9rem] items-center gap-2' : 'contents'}>
         {preview && (

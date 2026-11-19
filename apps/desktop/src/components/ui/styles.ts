@@ -1,4 +1,8 @@
 import { INTERACTION_CLASS } from '@waypoint/ui-components';
+export const UI_DOCUMENT_PREVIEW_ROW_CLASS =
+  'external-preview-toolbar flex min-h-9 min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border-hover bg-bg px-3 py-1 text-xs text-fg-muted [background-image:linear-gradient(to_right,hsl(var(--color-accent)_/_0.3),transparent_78%)] [box-shadow:inset_3px_0_hsl(var(--color-accent))]';
+export const UI_SEQUENCE_INFO_ROW_CLASS =
+  'flex min-h-9 shrink-0 items-center gap-x-3 border-b border-border-hover bg-bg px-3 py-0 text-xs text-fg-muted';
 export const UI_PROSE_WRAP_CLASS = 'min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]';
 export const UI_PAGE_TITLE_CLASS = 'text-3xl font-bold tracking-tight text-fg';
 export const UI_SUBSECTION_TITLE_CLASS = 'text-xl font-semibold tracking-tight text-fg';

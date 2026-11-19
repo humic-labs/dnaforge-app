@@ -1380,12 +1380,6 @@ a[data-benchling-link-destination='external']::after {
   );
 }
 
-.external-preview-toolbar {
-  background-color: hsl(var(--color-bg));
-  background-image: linear-gradient(to right, hsl(var(--color-accent) / 0.3), transparent 78%);
-  box-shadow: inset 3px 0 hsl(var(--color-accent));
-}
-
 .tab-shell {
   container-type: inline-size;
 }

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { DOCUMENT_TAB_UNDERBAR_MIN_CLASS } from '../sequence/public/document-tab-underbar';
+import { UI_DOCUMENT_PREVIEW_ROW_CLASS } from '../../components/ui/styles';
 
 export interface PreviewControls {
   action: ReactNode;
@@ -19,7 +19,11 @@ export function DocumentInfoRow({
       <div
         role={controls ? 'group' : undefined}
         aria-label={controls ? 'Read-only preview · Not imported' : undefined}
-        className={`flex min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-muted ${controls ? `external-preview-toolbar ${DOCUMENT_TAB_UNDERBAR_MIN_CLASS} border-b border-border-hover px-3 py-1` : 'px-4 py-2'}`}
+        className={
+          controls
+            ? UI_DOCUMENT_PREVIEW_ROW_CLASS
+            : 'flex min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-xs text-fg-muted'
+        }
       >
         {controls && (
           <span
