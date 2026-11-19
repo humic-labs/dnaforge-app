@@ -16,7 +16,12 @@ import {
   BENCHLING_MIGRATION_WORKSPACE_MARKER,
 } from '../../shared/workspace-git-types';
 import { basename, dirname, join } from 'node:path';
-import { assertSafePath, withSafeWritablePath, withSafeWritablePaths } from './path-allowlist';
+import {
+  assertSafePath,
+  assertSafeWritablePath,
+  withSafeWritablePath,
+  withSafeWritablePaths,
+} from './path-allowlist';
 import { admitFileImportSource } from '../selected-preview-files';
 import { resolveSelectedLocalFilePath } from '../local-indexed-track-authority';
 import { getDb } from './database';
@@ -35,6 +40,7 @@ import {
   importFileAsNewManagedWorkspace,
   importContentIntoWorkspaceRoot,
   importFileIntoWorkspaceRoot,
+  isSourceDocumentImport,
   importFolderIntoWorkspaceRoot,
   importIntoManagedWorkspaceRepo,
   importSequenceContentIntoWorkspaceRoot,
@@ -350,15 +356,17 @@ export function registerWorkspaceGitHandlers(): void {
     },
     importFile: async (_event, request: ImportFileRequest) => {
       const admitted = await admitFileImportSource(request, assertSafePath);
+      const deps = { db: getDb(), managedRootDir: managedRootDir() };
+      if (
+        isSourceDocumentImport(admitted) &&
+        (!admitted.dedup || admitted.dedup.mode === 'keep-both')
+      ) {
+        const targetRoot = await assertSafeWritablePath(request.targetRoot);
+        return importFileIntoWorkspaceRoot({ ...admitted, targetRoot }, deps);
+      }
       return withSafeWritablePath(request.targetRoot, (targetRoot) =>
-        withDeclaredWorkspaceMutation(getDb(), targetRoot, [targetRoot], () =>
-          importFileIntoWorkspaceRoot(
-            { ...admitted, targetRoot },
-            {
-              db: getDb(),
-              managedRootDir: managedRootDir(),
-            }
-          )
+        withDeclaredWorkspaceMutation(deps.db, targetRoot, [targetRoot], () =>
+          importFileIntoWorkspaceRoot({ ...admitted, targetRoot }, deps)
         )
       );
     },

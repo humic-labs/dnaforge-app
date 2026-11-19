@@ -1,3 +1,4 @@
+import { SOURCE_DOCUMENT_MARKER_PATH } from '../shared/source-document-package';
 import { platform } from '../platform';
 import { isDeveloperImportSourcePath } from '../shared/developer-import-sources';
 import { isTextSequenceFileKind } from '../shared/catalog-file-kind';
@@ -604,6 +605,11 @@ async function reconcileWorkspaceRootByFsWalk(
   }): Promise<void> {
     const { entry, entryPath, dirPath, depth, sequencePackageRoot, scanDirectory } = args;
     if (EXCLUDED_DIRS.has(entry.name)) return;
+    if (
+      entry.name === 'original' &&
+      (await platform().fs.exists(dirPath + '/' + SOURCE_DOCUMENT_MARKER_PATH))
+    )
+      return;
     const metaPath = `${entryPath}/${NOTEBOOK_PACKAGE_MARKER_DIR}/${NOTEBOOK_PACKAGE_META_NAME}`;
     let isNotebookPackage = false;
     try {

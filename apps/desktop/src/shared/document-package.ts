@@ -1,4 +1,5 @@
 import { FORGE_PACKAGE_MARKER_DIR } from './forge-package-path';
+import { SOURCE_DOCUMENT_MARKER } from './source-document-package';
 import { NOTEBOOK_PACKAGE_META_NAME } from '../db/notebook-package';
 import { SEQUENCE_PACKAGE_META_ALIASES } from '../db/sequence-package';
 import {
@@ -7,7 +8,12 @@ import {
   type ScientificPackageKind,
 } from './scientific-package';
 
-export type DocumentPackageKind = 'notebook' | 'sequence' | 'table' | ScientificPackageKind;
+export type DocumentPackageKind =
+  | 'notebook'
+  | 'sequence'
+  | 'table'
+  | 'source-document'
+  | ScientificPackageKind;
 export interface DocumentPackage {
   kind: DocumentPackageKind;
   metadataPath: string;
@@ -30,6 +36,7 @@ export async function detectDocumentPackage(
   if (!(await io.exists(markerDirectory))) return undefined;
   const entries = (await io.readDir(markerDirectory)).filter((entry) => entry.isFile);
   const families: Array<[DocumentPackageKind, readonly string[]]> = [
+    ['source-document', [SOURCE_DOCUMENT_MARKER]],
     ['notebook', [NOTEBOOK_PACKAGE_META_NAME]],
     ['sequence', SEQUENCE_PACKAGE_META_ALIASES],
     ['table', ['table.json']],

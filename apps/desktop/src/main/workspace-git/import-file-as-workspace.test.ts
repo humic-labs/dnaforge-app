@@ -3,9 +3,18 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { readdir, rename, unlink } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { convertTreeToPlasmidPackages } from './convert-tree-to-packages';
-import { preservedFastaMarkerPath } from '../../shared/preserved-fasta';
+import {
+  readProjectSourceDocumentPackage,
+  readProjectSourceDocumentPresentation,
+} from '../source-document-package-store';
+import { parseSequencePackageDocument } from '../../db/sequence-package';
 import { tmpdir } from 'node:os';
-import { join, relative } from 'node:path';
+import { join, relative, dirname } from 'node:path';
+
+vi.mock('../molecular-catalog/inventory-worker', async () => ({
+  inventoryCoordinatesInWorker: (await import('../molecular-catalog/coordinate-inventory'))
+    .parseCoordinateInventory,
+}));
 
 vi.mock('electron', () => ({
   dialog: { showErrorBox: vi.fn() },
@@ -87,14 +96,23 @@ describe('importFileAsNewManagedWorkspace ', () => {
       { ...request, targetRoot: project.repoPath },
       deps
     );
-    expect(copy.relPath).toBe('reads (1).fa');
+    expect(copy.destPath).not.toBe(project.entryPath);
     expect((await convertTreeToPlasmidPackages(project.repoPath)).converted).toBe(0);
+    const ids = new Set<string>();
     for (const path of [project.entryPath!, copy.destPath]) {
-      expect(readFileSync(path, 'utf8')).toBe(bytes);
-      expect(readFileSync(await preservedFastaMarkerPath(path), 'utf8').trim()).toBe(
-        request.expectedSourceSha256
-      );
+      const { descriptor } = await readProjectSourceDocumentPackage(project.repoPath, path);
+      expect(descriptor.presentation).toBe('sequence-package');
+      expect(descriptor.productPaths).toHaveLength(2);
+      expect(readFileSync(descriptor.originalPath, 'utf8')).toBe(bytes);
+      for (const product of descriptor.productPaths) {
+        const document = parseSequencePackageDocument(
+          readFileSync(join(dirname(product), '.forge', 'plasmid.json'), 'utf8')
+        );
+        ids.add(document.id);
+        expect(readFileSync(product, 'utf8')).toContain('LOCUS');
+      }
     }
+    expect(ids.size).toBe(4);
     expect(readFileSync(src, 'utf8')).toBe(bytes);
   });
 
@@ -106,7 +124,7 @@ describe('importFileAsNewManagedWorkspace ', () => {
         { db, managedRootDir: managedRoot }
       )
     ).rejects.toThrow('changed after preview');
-    expect(await readdir(managedRoot)).toEqual([]);
+    expect(existsSync(managedRoot) ? await readdir(managedRoot) : []).toEqual([]);
     expect(db.prepare('SELECT name FROM workspaces').all()).toEqual([]);
   });
 
@@ -123,8 +141,8 @@ describe('importFileAsNewManagedWorkspace ', () => {
       { ...request, targetRoot: project.repoPath },
       deps
     );
-    expect(project.entryPath).toBe(join(project.repoPath, 'model.dnaforge-molecular.json'));
-    expect(second.destPath).toBe(join(project.repoPath, 'model 2.dnaforge-molecular.json'));
+    expect(project.entryPath).toMatch(/model\.dnaforge-molecular\.json$/);
+    expect(second.destPath).not.toBe(project.entryPath);
     expect(
       (await convertTreeToMolecularPackages(project.repoPath, { removeSource: unlink })).converted
     ).toBe(0);
@@ -138,26 +156,42 @@ describe('importFileAsNewManagedWorkspace ', () => {
       expect(document.history[0].snapshot.coordinates.text).toBe(original);
     }
     expect(ids.size).toBe(2);
-    const ledger = join(project.repoPath, MOLECULAR_MIGRATION_DIRECTORY);
-    const [source] = await readdir(ledger);
-    const attempts = (await readdir(join(ledger, source))).filter((name) =>
-      name.startsWith('attempt-')
-    );
-    expect(attempts).toHaveLength(2);
-    for (const attempt of attempts) {
-      const archived = join(ledger, source, attempt, 'original');
-      expect(readFileSync(archived, 'utf8')).toBe(original);
+    for (const path of [project.entryPath!, second.destPath]) {
+      const { descriptor } = await readProjectSourceDocumentPackage(project.repoPath, path);
+      expect(readFileSync(descriptor.originalPath, 'utf8')).toBe(original);
       expect(
         (
           await readFileAtHead(
             project.repoPath,
-            relative(project.repoPath, archived).split('\\').join('/')
+            relative(project.repoPath, descriptor.originalPath).split('\\').join('/')
           )
         ).toString('utf8')
       ).toBe(original);
     }
     expect(readFileSync(sourcePath, 'utf8')).toBe(original);
     expect(existsSync(join(project.repoPath, 'model.pdb'))).toBe(false);
+    const revised = original.replace('SAMPLE', 'REVISED');
+    const replacement = loose('updated.pdb', revised);
+    await importFileIntoWorkspaceRoot(
+      {
+        sourcePath: replacement,
+        targetRoot: project.repoPath,
+        dedup: { mode: 'replace', expectedRelPath: relative(project.repoPath, project.entryPath!) },
+      },
+      deps
+    );
+    const after = await readProjectSourceDocumentPresentation(project.repoPath, project.entryPath!);
+    expect(after.familyId === 'structure' && 'coordinates' in after && after.coordinates.text).toBe(
+      revised
+    );
+    expect(after.sourceSha256).toBe(expectedSourceSha256);
+    const { document: updatedDocument } = await readMolecularDocumentFile({
+      workspaceRoot: project.repoPath,
+      path: project.entryPath!,
+    });
+    expect(ids.has(updatedDocument.id)).toBe(true);
+    expect(updatedDocument.history).toHaveLength(2);
+    expect(readFileSync(replacement, 'utf8')).toBe(revised);
   });
 
   it('recovers a previous loose-path tab by its completed conversion and current project binding', async () => {

@@ -1074,7 +1074,9 @@ async function importQuickLookPackageIntoWorkspaceRootInternal(
     if (
       priorRecord?.state === 'completed' &&
       priorRecord.recordKey === recordKey &&
+      priorRecord.realTarget === realTarget &&
       (deps.independentCopies ||
+        options.publicationKey ||
         promotionRecordMatchesSnapshot(priorRecord, snapshot, realTarget)) &&
       isCanonicalPromotionCandidate(priorRecord) &&
       (await completedPublishedPackageMatches(priorRecord, options.publicationKey))
@@ -1852,6 +1854,18 @@ function validateExactFileImport(request: ImportFileAsWorkspaceRequest): void {
   }
 }
 
+export function isSourceDocumentImport(
+  request: ImportFileRequest,
+  sourcePath = request.sourcePath
+) {
+  const family = sourceDocumentFamily(sourcePath);
+  const explicitDnaRegistration =
+    family === 'fasta' &&
+    !request.preserveOriginal &&
+    Boolean(request.expectedSourceSha256 || request.confirmedDnaSourceSha256);
+  return Boolean(family && !explicitDnaRegistration);
+}
+
 async function importTypedProjectFile(
   request: ImportFileAsWorkspaceRequest,
   targetRoot: string | null,
@@ -1872,6 +1886,10 @@ async function importTypedProjectFile(
       familyId === 'structure' &&
       replacePath.endsWith(MOLECULAR_DOCUMENT_SUFFIX)
     ) {
+      if (captured.presentation !== 'molecular-document')
+        throw new Error(
+          'These coordinates exceed the editable molecular document limit. Keep both to save the coordinate asset.'
+        );
       const owner = await findKnownWorkspaceRoot(targetRoot, deps);
       if (!owner) throw new Error('Choose a known project destination.');
       const library = new MolecularDocumentLibrary();
@@ -1977,11 +1995,7 @@ export async function importFileIntoWorkspaceRoot(
   }
 
   const family = sourceDocumentFamily(realSource);
-  const explicitDnaRegistration =
-    family === 'fasta' &&
-    !request.preserveOriginal &&
-    Boolean(request.expectedSourceSha256 || request.confirmedDnaSourceSha256);
-  if (family && !explicitDnaRegistration) {
+  if (isSourceDocumentImport(request, realSource)) {
     const replacement =
       dedupMode === 'replace' ? join(request.targetRoot, expectedRelPath ?? base) : undefined;
     if (
@@ -1990,8 +2004,10 @@ export async function importFileIntoWorkspaceRoot(
         replacement &&
         (await existingPlasmidPackageRootForProduct(replacement))
       )
-    )
-      return importTypedProjectFile(request, request.targetRoot, deps, replacement);
+    ) {
+      const imported = await importTypedProjectFile(request, request.targetRoot, deps, replacement);
+      return { ...imported, relPath: relative(request.targetRoot, imported.destPath) };
+    }
   }
 
   if (isWorkImportCandidate(realSource))

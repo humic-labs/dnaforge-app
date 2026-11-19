@@ -45,6 +45,5 @@ export async function admitFileImportSource<
     const sourcePath = await resolvePreviewSource(request.sourcePath, resolveOrdinaryPath);
     return { ...request, sourcePath };
   }
-  await resolveOrdinaryPath(request.sourcePath);
-  return request;
+  return { ...request, sourcePath: await resolveOrdinaryPath(request.sourcePath) };
 }

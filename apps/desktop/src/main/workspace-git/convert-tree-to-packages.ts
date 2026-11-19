@@ -17,6 +17,7 @@ import {
   recoverImportedSequencePackages,
 } from './sequence-package-import';
 import { publishRerunSequenceRevision } from './sequence-package-rerun';
+import { SOURCE_DOCUMENT_MARKER } from '../../shared/source-document-package';
 import { FORGE_PACKAGE_MARKER_DIR } from '../../db/forge-package';
 import {
   SEQUENCE_PACKAGE_META_ALIASES,
@@ -648,7 +649,8 @@ async function isPackageRoot(
       SEQUENCE_PACKAGE_META_ALIASES.some((name) => names.has(name.toLowerCase())) ||
       names.has(NOTEBOOK_PACKAGE_META_NAME) ||
       names.has('protocol.json') ||
-      names.has('protocol-run.json')
+      names.has('protocol-run.json') ||
+      names.has(SOURCE_DOCUMENT_MARKER)
     );
   } catch {
     return true;

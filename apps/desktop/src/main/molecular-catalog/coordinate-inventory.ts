@@ -1,3 +1,4 @@
+import { SOFT_WARN_BYTES } from '../../shared/oversized-guard';
 import { createHash } from 'node:crypto';
 import { CIF } from 'molstar/lib/mol-io/reader/cif';
 import { parsePDB } from 'molstar/lib/mol-io/reader/pdb/parser';
@@ -24,6 +25,7 @@ import {
 
 export interface CoordinateInventoryRequest {
   bytes: Uint8Array;
+  purpose?: 'document-preview';
   format: MolecularCatalogFormat;
   molecules?: EncodedMolecule[];
   submitted?: SubmittedEncodedMolecule[];
@@ -37,8 +39,14 @@ export async function parseCoordinateInventory(
   request: CoordinateInventoryRequest
 ): Promise<CoordinateInventoryResult> {
   const { bytes, format } = request;
-  if (!bytes.byteLength || bytes.byteLength > MOLECULAR_CATALOG_MAX_COORDINATE_BYTES)
-    throw new Error('Coordinate bytes are empty or exceed the 64 MiB catalog limit.');
+  const byteLimit =
+    request.purpose === 'document-preview'
+      ? SOFT_WARN_BYTES
+      : MOLECULAR_CATALOG_MAX_COORDINATE_BYTES;
+  if (!bytes.byteLength || bytes.byteLength > byteLimit)
+    throw new Error(
+      `Coordinate bytes are empty or exceed the ${byteLimit / (1024 * 1024)} MiB limit.`
+    );
   const text = format === 'bcif' ? null : new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   const trajectories = [];
   if (format === 'pdb') {
