@@ -32665,6 +32665,11 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "viewHandle": {
+            "type": "string",
+            "pattern": "^structure\\-tab\\:",
+            "description": "Exact handle returned by a structure open. It expires when that tab closes."
+          },
           "documentReference": {
             "type": "object",
             "properties": {
@@ -32691,7 +32696,7 @@
           "structureViewId": {
             "type": "string",
             "minLength": 1,
-            "description": "Preferred logical structure view ID. Supply only one target field: structureViewId, bindingId, or legacy viewerId. Omit the other two."
+            "description": "Logical structure view ID. Supply this or one other target field."
           },
           "bindingId": {
             "type": "string",
@@ -34572,7 +34577,7 @@
     },
     {
       "name": "mol_open_tab",
-      "description": "Open a native Mol* structure viewer beside the working chat. For a local workspace coordinate file use {structure:{kind:\"file\",path:\"1URN.cif\"},label:\"U1A / RNA\"}; prefix with a workspace folder name when several roots are open. Also accepts a PDB id (kind:\"pdb\",pdbId), UniProt accession (kind:\"uniprot\",accession), allowed HTTPS structure URL (kind:\"url\",url), or inline coordinates (kind:\"data\",format:\"pdb\"|\"cif\",data). Never use relative or file:// URLs. Inspect readiness with mol_list_structures before editing.",
+      "description": "Open a native Mol* structure viewer beside the working chat. For a local workspace coordinate file use {structure:{kind:\"file\",path:\"1URN.cif\"},label:\"U1A / RNA\"}; prefix with a workspace folder name when several roots are open. Also accepts a PDB id (kind:\"pdb\",pdbId), UniProt accession (kind:\"uniprot\",accession), allowed HTTPS structure URL (kind:\"url\",url), inline coordinates (kind:\"data\",format:\"pdb\"|\"cif\",data), or a saved documentReference. Check viewerStatus with mol_get_state using the returned viewHandle. The handle expires on close. Reopen using the source or saved document reference.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -34662,51 +34667,47 @@
         "properties": {
           "ok": { "const": true },
           "result": {
-            "anyOf": [
-              {
+            "type": "object",
+            "properties": {
+              "ok": { "type": "boolean", "const": true },
+              "tabId": { "type": "string" },
+              "viewHandle": { "type": "string" },
+              "structureViewId": { "type": "string" },
+              "label": { "type": "string" },
+              "viewerStatus": {
+                "type": "string",
+                "enum": ["active", "inactive", "loading", "error"]
+              },
+              "stateError": { "type": "string" },
+              "documentReference": {
                 "type": "object",
                 "properties": {
-                  "ok": { "type": "boolean", "const": true },
-                  "tabId": { "type": "string" },
-                  "structureViewId": { "type": "string" },
-                  "documentReference": {
-                    "type": "object",
-                    "properties": {
-                      "kind": { "type": "string", "const": "molecular-document" },
-                      "version": { "type": "number", "const": 1 },
-                      "projectId": {
-                        "type": "string",
-                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,499}$"
-                      },
-                      "documentId": { "type": "string", "format": "uuid" },
-                      "revisionId": { "type": "string", "format": "uuid" },
-                      "revisionSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-                      "viewId": { "type": "string", "minLength": 1, "maxLength": 1000 },
-                      "groupId": { "type": "string", "minLength": 1, "maxLength": 1000 }
-                    },
-                    "required": [
-                      "kind",
-                      "version",
-                      "projectId",
-                      "documentId",
-                      "revisionId",
-                      "revisionSha256"
-                    ],
-                    "additionalProperties": false
+                  "kind": { "type": "string", "const": "molecular-document" },
+                  "version": { "type": "number", "const": 1 },
+                  "projectId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,499}$"
                   },
-                  "viewerStatus": { "type": "string", "const": "loading" }
+                  "documentId": { "type": "string", "format": "uuid" },
+                  "revisionId": { "type": "string", "format": "uuid" },
+                  "revisionSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                  "viewId": { "type": "string", "minLength": 1, "maxLength": 1000 },
+                  "groupId": { "type": "string", "minLength": 1, "maxLength": 1000 }
                 },
-                "required": ["ok", "tabId", "documentReference", "viewerStatus"],
+                "required": [
+                  "kind",
+                  "version",
+                  "projectId",
+                  "documentId",
+                  "revisionId",
+                  "revisionSha256"
+                ],
                 "additionalProperties": false
               },
-              {
-                "type": "object",
-                "properties": {
-                  "ok": { "type": "boolean", "const": true },
-                  "tabId": { "type": "string" },
-                  "label": { "type": "string" },
-                  "structureViewId": { "type": "string" },
-                  "source": {
+              "viewerId": { "type": "string" },
+              "source": {
+                "anyOf": [
+                  {
                     "anyOf": [
                       {
                         "type": "object",
@@ -34726,7 +34727,7 @@
                           "pdbEntityId": { "type": "string" },
                           "labelAsymIds": { "type": "array", "items": { "type": "string" } },
                           "authAsymIds": {
-                            "$ref": "#/properties/result/anyOf/1/properties/source/anyOf/1/properties/labelAsymIds"
+                            "$ref": "#/properties/result/properties/source/anyOf/0/anyOf/1/properties/labelAsymIds"
                           },
                           "assemblyId": { "type": "string" },
                           "uniprotFallback": {
@@ -34773,38 +34774,12 @@
                       }
                     ]
                   },
-                  "viewerStatus": { "type": "string", "const": "loading" },
-                  "next": { "type": "string" }
-                },
-                "required": [
-                  "ok",
-                  "tabId",
-                  "label",
-                  "structureViewId",
-                  "source",
-                  "viewerStatus",
-                  "next"
-                ],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "ok": { "type": "boolean", "const": true },
-                  "viewerId": { "type": "string" },
-                  "tabId": { "type": "string" },
-                  "label": { "type": "string" },
-                  "source": {
-                    "anyOf": [
-                      { "$ref": "#/properties/result/anyOf/1/properties/source" },
-                      { "type": "null" }
-                    ]
-                  }
-                },
-                "required": ["ok", "viewerId", "tabId", "label", "source"],
-                "additionalProperties": false
+                  { "type": "null" }
+                ]
               }
-            ]
+            },
+            "required": ["ok", "tabId", "viewHandle", "structureViewId", "label", "viewerStatus"],
+            "additionalProperties": false
           }
         },
         "required": ["ok", "result"],
@@ -34822,11 +34797,17 @@
     },
     {
       "name": "mol_activate_view",
-      "description": "Activate one already-open structure tab by exact structureViewId without fetching or changing its coordinates. Use this before controlling another pinned view in the same pane.",
+      "description": "Select one already-open structure tab by viewHandle or structureViewId without raising the app window. Check viewerStatus before making scene changes.",
       "inputSchema": {
         "type": "object",
-        "properties": { "structureViewId": { "type": "string", "minLength": 1 } },
-        "required": ["structureViewId"],
+        "properties": {
+          "structureViewId": { "type": "string", "minLength": 1 },
+          "viewHandle": {
+            "type": "string",
+            "pattern": "^structure\\-tab\\:",
+            "description": "Exact handle returned by a structure open. It expires when that tab closes."
+          }
+        },
         "additionalProperties": false
       },
       "outputSchema": {
@@ -34841,7 +34822,14 @@
                   "ok": { "type": "boolean", "const": true },
                   "structureViewId": { "type": "string" },
                   "panelId": { "type": "string" },
-                  "tabId": { "type": "string" }
+                  "tabId": { "type": "string" },
+                  "viewHandle": { "type": "string" },
+                  "label": { "type": "string" },
+                  "viewerStatus": {
+                    "type": "string",
+                    "enum": ["active", "inactive", "loading", "error"]
+                  },
+                  "stateError": { "type": "string" }
                 },
                 "required": ["ok", "structureViewId", "panelId", "tabId"],
                 "additionalProperties": false
@@ -34872,7 +34860,7 @@
     },
     {
       "name": "mol_list_structures",
-      "description": "List open structure views with their exact IDs, readiness and chain counts. Use detail:\"full\" for the complete inventory or mol_get_state with chainPage for exact chains in one view.",
+      "description": "List open structure tabs with their handles, readiness and chain counts, including tabs still loading or awaiting selection. Use detail:\"full\" for the complete inventory or mol_get_state with chainPage for exact chains in one view.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -34897,6 +34885,8 @@
                 "items": {
                   "type": "object",
                   "properties": {
+                    "tabId": { "type": "string" },
+                    "viewHandle": { "type": "string" },
                     "documentOwner": {
                       "anyOf": [
                         {
@@ -35727,10 +35717,14 @@
                         "properties": {
                           "name": { "type": "string" },
                           "chainId": { "type": "string" },
+                          "structureRef": { "type": "string" },
+                          "sourceLabel": { "type": "string" },
+                          "isPrimarySource": { "type": "boolean" },
                           "position": { "type": "integer" },
                           "atomCount": {
                             "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                           },
+                          "instanceId": { "type": "string" },
                           "coloration": {
                             "anyOf": [
                               {
@@ -36430,10 +36424,15 @@
     },
     {
       "name": "mol_get_state",
-      "description": "Read live structure status, camera, representation and inventory counts. Use chainPage:{offset,limit} on one exact view for chain identities and follow chainPage.nextOffset. Use connectionQuery for connection evidence or detail:\"full\" for native appearance, selected residues and the complete inventory. Prefer structureViewId or bindingId; legacy viewerId must resolve uniquely.",
+      "description": "Read structure readiness, camera, representation and inventory counts. Use viewHandle from open for that tab lifetime, or supply one documentReference, structureViewId, bindingId or unique legacy viewerId. Use chainPage:{offset,limit} on one exact view for chain identities and follow chainPage.nextOffset. Use connectionQuery for connection evidence or detail:\"full\" for native appearance, selected residues and the complete inventory.",
       "inputSchema": {
         "type": "object",
         "properties": {
+          "viewHandle": {
+            "type": "string",
+            "pattern": "^structure\\-tab\\:",
+            "description": "Exact handle returned by a structure open. It expires when that tab closes."
+          },
           "documentReference": {
             "type": "object",
             "properties": {
@@ -36460,7 +36459,7 @@
           "structureViewId": {
             "type": "string",
             "minLength": 1,
-            "description": "Preferred logical structure view ID. Supply only one target field: structureViewId, bindingId, or legacy viewerId. Omit the other two."
+            "description": "Logical structure view ID. Supply this or one other target field."
           },
           "bindingId": {
             "type": "string",
@@ -36522,6 +36521,8 @@
                 "items": {
                   "type": "object",
                   "properties": {
+                    "tabId": { "type": "string" },
+                    "viewHandle": { "type": "string" },
                     "documentOwner": {
                       "anyOf": [
                         {
@@ -37352,10 +37353,14 @@
                         "properties": {
                           "name": { "type": "string" },
                           "chainId": { "type": "string" },
+                          "structureRef": { "type": "string" },
+                          "sourceLabel": { "type": "string" },
+                          "isPrimarySource": { "type": "boolean" },
                           "position": { "type": "integer" },
                           "atomCount": {
                             "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                           },
+                          "instanceId": { "type": "string" },
                           "coloration": {
                             "anyOf": [
                               {
@@ -38059,6 +38064,11 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "viewHandle": {
+            "type": "string",
+            "pattern": "^structure\\-tab\\:",
+            "description": "Exact handle returned by a structure open. It expires when that tab closes."
+          },
           "documentReference": {
             "type": "object",
             "properties": {
@@ -38085,7 +38095,7 @@
           "structureViewId": {
             "type": "string",
             "minLength": 1,
-            "description": "Preferred logical structure view ID. Supply only one target field: structureViewId, bindingId, or legacy viewerId. Omit the other two."
+            "description": "Logical structure view ID. Supply this or one other target field."
           },
           "bindingId": {
             "type": "string",
@@ -39328,6 +39338,11 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "viewHandle": {
+            "type": "string",
+            "pattern": "^structure\\-tab\\:",
+            "description": "Exact handle returned by a structure open. It expires when that tab closes."
+          },
           "documentReference": {
             "type": "object",
             "properties": {
@@ -39354,7 +39369,7 @@
           "structureViewId": {
             "type": "string",
             "minLength": 1,
-            "description": "Preferred logical structure view ID. Supply only one target field: structureViewId, bindingId, or legacy viewerId. Omit the other two."
+            "description": "Logical structure view ID. Supply this or one other target field."
           },
           "bindingId": {
             "type": "string",
@@ -40556,7 +40571,7 @@
     },
     {
       "name": "mol_structures",
-      "description": "Register, find and open reusable structures across all documents and workspaces. register takes workspaceRoot, filePath (PDB/mmCIF/BinaryCIF), optional full typed molecules, and source:{kind:\"import\",uri?} or source:{kind:\"prediction\",jobRecordId}. Predictions are verified against the native compute run and actual provider output; do not relabel imported coordinates as a prediction. register and list return observation identities and chainCount by default. Use list with observationId and chainPage:{offset,limit} to read exact chains, then pass chainPage.nextOffset as the next offset. Keep the same filters between pages. Use detail:\"full\" for the complete observation and chain list. list takes optional molecule:{kind:\"protein\"|\"rna\"|\"dna\",sequence:fullEncodedSequence}, requestHash for the complete client request, and providerRequestHash for the actual reported normalized inputs/model/version. Missing request evidence cannot match these hashes; undocumented defaults stay unknown. mapping takes observationId, chainKey from list and optional molecule; returns the original chain inventory, immutable source/run provenance and persisted molecule-to-residue mappings without coordinate bytes. Sequence positions are one-based, observedResidueIndex is zero-based in chain.observedResidues, and labelSequenceId/authorSequenceId/insertionCode identify physical residues for mol_data selectors. Missing geometry has no mapping entry. Modified residues retain their actual chemistry while matching known encoded parents. open takes observationId and optional chainKey from list. Add documentId to attach a chosen text coordinate chain to an already-open mutation inspection. It opens stored original coordinates without rerunning or contacting a provider. Use mol_list_structures, mol_get_scene and mol_data to apply arbitrary signals and save visual variations. Ambiguous/incomplete sequences cannot assert exact identity.",
+      "description": "Register, find and open reusable structures across all documents and workspaces. register takes workspaceRoot, filePath (PDB/mmCIF/BinaryCIF), optional full typed molecules, and source:{kind:\"import\",uri?} or source:{kind:\"prediction\",jobRecordId}. Predictions are verified against the native compute run and actual provider output; do not relabel imported coordinates as a prediction. register and list return observation identities and chainCount by default. Use list with observationId and chainPage:{offset,limit} to read exact chains, then pass chainPage.nextOffset as the next offset. Keep the same filters between pages. Use detail:\"full\" for the complete observation and chain list. list takes optional molecule:{kind:\"protein\"|\"rna\"|\"dna\",sequence:fullEncodedSequence}, requestHash for the complete client request, and providerRequestHash for the actual reported normalized inputs/model/version. Missing request evidence cannot match these hashes; undocumented defaults stay unknown. mapping takes observationId, chainKey from list and optional molecule; returns the original chain inventory, immutable source/run provenance and persisted molecule-to-residue mappings without coordinate bytes. Sequence positions are one-based, observedResidueIndex is zero-based in chain.observedResidues, and labelSequenceId/authorSequenceId/insertionCode identify physical residues for mol_data selectors. Missing geometry has no mapping entry. Modified residues retain their actual chemistry while matching known encoded parents. open takes observationId and optional chainKey from list. Add documentId to attach a chosen text coordinate chain to an already-open mutation inspection. It opens stored original coordinates without rerunning or contacting a provider. Check viewerStatus with mol_get_state using opened.viewHandle. Reopen by observationId and chainKey after the tab closes. When the viewer is active, use mol_get_scene and mol_data to apply signals and save visual variations. Ambiguous/incomplete sequences cannot assert exact identity.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -41163,6 +41178,8 @@
                 "type": "object",
                 "properties": {
                   "ok": { "type": "boolean", "const": true },
+                  "observationId": { "type": "string" },
+                  "chainKey": { "type": "string" },
                   "opened": {
                     "type": "object",
                     "properties": {
@@ -41174,13 +41191,32 @@
                       "content": {
                         "type": "string",
                         "enum": ["ready", "loading", "missing", "error"]
-                      }
+                      },
+                      "viewHandle": { "type": "string" },
+                      "structureViewId": { "type": "string" },
+                      "label": { "type": "string" },
+                      "viewerStatus": {
+                        "type": "string",
+                        "enum": ["active", "inactive", "loading", "error"]
+                      },
+                      "stateError": { "type": "string" }
                     },
-                    "required": ["status", "tabId", "panelId", "tabType", "disposition", "content"],
+                    "required": [
+                      "status",
+                      "tabId",
+                      "panelId",
+                      "tabType",
+                      "disposition",
+                      "content",
+                      "viewHandle",
+                      "structureViewId",
+                      "label",
+                      "viewerStatus"
+                    ],
                     "additionalProperties": false
                   }
                 },
-                "required": ["ok", "opened"],
+                "required": ["ok", "observationId", "opened"],
                 "additionalProperties": false
               }
             ]
@@ -42332,6 +42368,11 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "viewHandle": {
+            "type": "string",
+            "pattern": "^structure\\-tab\\:",
+            "description": "Exact handle returned by a structure open. It expires when that tab closes."
+          },
           "documentReference": {
             "type": "object",
             "properties": {
@@ -42358,7 +42399,7 @@
           "structureViewId": {
             "type": "string",
             "minLength": 1,
-            "description": "Preferred logical structure view ID. Supply only one target field: structureViewId, bindingId, or legacy viewerId. Omit the other two."
+            "description": "Logical structure view ID. Supply this or one other target field."
           },
           "bindingId": {
             "type": "string",
@@ -43455,6 +43496,11 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "viewHandle": {
+            "type": "string",
+            "pattern": "^structure\\-tab\\:",
+            "description": "Exact handle returned by a structure open. It expires when that tab closes."
+          },
           "documentReference": {
             "type": "object",
             "properties": {
@@ -43481,7 +43527,7 @@
           "structureViewId": {
             "type": "string",
             "minLength": 1,
-            "description": "Preferred logical structure view ID. Supply only one target field: structureViewId, bindingId, or legacy viewerId. Omit the other two."
+            "description": "Logical structure view ID. Supply this or one other target field."
           },
           "bindingId": {
             "type": "string",
@@ -43558,6 +43604,11 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "viewHandle": {
+            "type": "string",
+            "pattern": "^structure\\-tab\\:",
+            "description": "Exact handle returned by a structure open. It expires when that tab closes."
+          },
           "documentReference": {
             "type": "object",
             "properties": {
@@ -43584,7 +43635,7 @@
           "structureViewId": {
             "type": "string",
             "minLength": 1,
-            "description": "Preferred logical structure view ID. Supply only one target field: structureViewId, bindingId, or legacy viewerId. Omit the other two."
+            "description": "Logical structure view ID. Supply this or one other target field."
           },
           "bindingId": {
             "type": "string",
@@ -43634,6 +43685,11 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "viewHandle": {
+            "type": "string",
+            "pattern": "^structure\\-tab\\:",
+            "description": "Exact handle returned by a structure open. It expires when that tab closes."
+          },
           "documentReference": {
             "type": "object",
             "properties": {
@@ -43660,7 +43716,7 @@
           "structureViewId": {
             "type": "string",
             "minLength": 1,
-            "description": "Preferred logical structure view ID. Supply only one target field: structureViewId, bindingId, or legacy viewerId. Omit the other two."
+            "description": "Logical structure view ID. Supply this or one other target field."
           },
           "bindingId": {
             "type": "string",
@@ -43735,6 +43791,11 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "viewHandle": {
+            "type": "string",
+            "pattern": "^structure\\-tab\\:",
+            "description": "Exact handle returned by a structure open. It expires when that tab closes."
+          },
           "documentReference": {
             "type": "object",
             "properties": {
@@ -43761,7 +43822,7 @@
           "structureViewId": {
             "type": "string",
             "minLength": 1,
-            "description": "Preferred logical structure view ID. Supply only one target field: structureViewId, bindingId, or legacy viewerId. Omit the other two."
+            "description": "Logical structure view ID. Supply this or one other target field."
           },
           "bindingId": {
             "type": "string",
@@ -43816,6 +43877,11 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "viewHandle": {
+            "type": "string",
+            "pattern": "^structure\\-tab\\:",
+            "description": "Exact handle returned by a structure open. It expires when that tab closes."
+          },
           "documentReference": {
             "type": "object",
             "properties": {
@@ -43842,7 +43908,7 @@
           "structureViewId": {
             "type": "string",
             "minLength": 1,
-            "description": "Preferred logical structure view ID. Supply only one target field: structureViewId, bindingId, or legacy viewerId. Omit the other two."
+            "description": "Logical structure view ID. Supply this or one other target field."
           },
           "bindingId": {
             "type": "string",
@@ -43902,6 +43968,11 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "viewHandle": {
+            "type": "string",
+            "pattern": "^structure\\-tab\\:",
+            "description": "Exact handle returned by a structure open. It expires when that tab closes."
+          },
           "documentReference": {
             "type": "object",
             "properties": {
@@ -43928,7 +43999,7 @@
           "structureViewId": {
             "type": "string",
             "minLength": 1,
-            "description": "Preferred logical structure view ID. Supply only one target field: structureViewId, bindingId, or legacy viewerId. Omit the other two."
+            "description": "Logical structure view ID. Supply this or one other target field."
           },
           "bindingId": {
             "type": "string",
@@ -43978,6 +44049,11 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "viewHandle": {
+            "type": "string",
+            "pattern": "^structure\\-tab\\:",
+            "description": "Exact handle returned by a structure open. It expires when that tab closes."
+          },
           "documentReference": {
             "type": "object",
             "properties": {
@@ -44004,7 +44080,7 @@
           "structureViewId": {
             "type": "string",
             "minLength": 1,
-            "description": "Preferred logical structure view ID. Supply only one target field: structureViewId, bindingId, or legacy viewerId. Omit the other two."
+            "description": "Logical structure view ID. Supply this or one other target field."
           },
           "bindingId": {
             "type": "string",

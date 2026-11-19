@@ -24,6 +24,7 @@ import {
   recordPendingCreationAdd,
   recordPendingCreationDelete,
   deleteCachedViewer,
+  type ActiveMolstarViewer,
   type CachedViewer,
 } from './cache';
 
@@ -790,6 +791,56 @@ describe('withActivePlugin', () => {
       wrapper: tabWrapper,
       container: tab.container,
     });
+  });
+
+  it('refuses the previous document in the same pane even when it has the same coordinates', async () => {
+    const coordinateKey = `saved-coordinate:sha256:${'a'.repeat(64)}`;
+    const cacheKey = getPaneRendererHostCacheKey('pane:main', 'loaded');
+    const viewer = fakeViewer({ lastUsed: 1, connected: false });
+    const firstOwner = document.createElement('section');
+    firstOwner.dataset.structureAgentHost = 'molecular-document:project::first';
+    const secondOwner = document.createElement('section');
+    secondOwner.dataset.structureAgentHost = 'molecular-document:project::second';
+    const firstWrapper = document.createElement('div');
+    const secondWrapper = document.createElement('div');
+    document.body.append(firstOwner, secondOwner);
+    firstOwner.append(firstWrapper);
+    secondOwner.append(secondWrapper);
+    firstWrapper.append(viewer.container);
+    viewerCache.set(cacheKey, viewer);
+    registerActiveWrapper(coordinateKey, firstWrapper, viewer.plugin, cacheKey);
+    const resolveWrapper = vi.fn((active: ActiveMolstarViewer) => active.wrapper);
+    const secondTarget = { cacheKey, registrationId: secondOwner.dataset.structureAgentHost };
+
+    await expect(
+      withActivePlugin(coordinateKey, resolveWrapper, secondTarget)
+    ).rejects.toMatchObject({
+      code: 'VIEWER_NOT_FOUND',
+    });
+    expect(resolveWrapper).not.toHaveBeenCalled();
+    await expect(withActivePlugin(coordinateKey, resolveWrapper, { cacheKey })).resolves.toBe(
+      firstWrapper
+    );
+
+    secondWrapper.append(viewer.container);
+    registerActiveWrapper(coordinateKey, secondWrapper, viewer.plugin, cacheKey);
+
+    await expect(withActivePlugin(coordinateKey, resolveWrapper, secondTarget)).resolves.toBe(
+      secondWrapper
+    );
+    viewer.error = 'Coordinate scene failed to load';
+    await expect(
+      withActivePlugin(coordinateKey, resolveWrapper, secondTarget)
+    ).rejects.toMatchObject({
+      code: 'PLUGIN_NOT_READY',
+      details: { error: viewer.error },
+    });
+    await expect(
+      withActivePlugin(coordinateKey, resolveWrapper, {
+        cacheKey,
+        registrationId: firstOwner.dataset.structureAgentHost,
+      })
+    ).rejects.toMatchObject({ code: 'VIEWER_NOT_FOUND' });
   });
 
   it('can target an exact active instance cache key when the same source is mounted twice', async () => {
