@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
-export function failureIssue({ repository, branch = 'dev', sha, runUrl, pullRequests, jobs }) {
+export function failureReport({ repository, branch = 'dev', sha, runUrl, pullRequests, jobs }) {
   assert.match(repository, /^[\w.-]+\/[\w.-]+$/u);
   assert.ok(['dev', 'staging', 'prod', 'main'].includes(branch), 'Unknown integration branch');
   assert.match(sha, /^[a-f0-9]{40}$/u);
@@ -16,16 +16,14 @@ export function failureIssue({ repository, branch = 'dev', sha, runUrl, pullRequ
     body: [
       `The retained [CI run](${runUrl}) failed on ${branch} commit \`${sha}\`.`,
       '',
-      'Delivery ownership remains with the maintainers of the associated contribution until the failure is classified and repaired. This report identifies the merged change; it does not establish that it caused every failure.',
-      '',
-      ...pullRequests.map((pr) => `- Contribution #${pr.number}: ${pr.title}`),
+      ...pullRequests.map((pr) => `- Contribution #${pr.number}`),
       '',
       ...failed.map((job) => `- ${job.name}: ${job.conclusion}`),
-      '',
-      'Retain the original failing attempt. Record a diagnosed regression, a separately evidenced pre-existing failure, or an infrastructure failure before resolving this issue. Do not rerun until green as a substitute for diagnosis.',
     ].join('\n'),
   };
 }
+
+export { failureReport as failureIssue };
 
 export function retainedPushBranch(env, run) {
   assert.equal(env.GITHUB_EVENT_NAME, 'push');
@@ -39,11 +37,10 @@ export function retainedPushBranch(env, run) {
   return branch;
 }
 
-function api(endpoint, body) {
+function api(endpoint) {
   return JSON.parse(
-    execFileSync('gh', ['api', endpoint, ...(body ? ['--method', 'POST', '--input', '-'] : [])], {
+    execFileSync('gh', ['api', endpoint], {
       encoding: 'utf8',
-      input: body ? JSON.stringify(body) : undefined,
     })
   );
 }
@@ -68,16 +65,17 @@ function main() {
   const qualification = jobs.filter(({ name }) => name === 'Promotion qualification');
   assert.equal(qualification.length, 1, 'Missing qualification job');
   if (qualification[0].conclusion === 'success')
-    return console.log(`${branch} qualification passed; no failure issue needed.`);
+    return console.log(`Qualification passed on ${branch} commit \`${sha}\`.`);
   const pulls = api(`repos/${repository}/commits/${sha}/pulls?per_page=100`);
-  const issue = failureIssue({ repository, branch, sha, runUrl: run.html_url, pullRequests: pulls, jobs });
-  const existing = api(
-    `search/issues?q=${encodeURIComponent(`repo:${repository} is:issue in:title "${issue.title}"`)}`
-  );
-  const match = existing.items.find(({ title }) => title === issue.title);
-  if (match) return console.log(`Retained failure issue ${match.html_url}`);
-  if (!process.argv.includes('--publish')) return console.log(JSON.stringify(issue, null, 2));
-  console.log(api(`repos/${repository}/issues`, issue).html_url);
+  const report = failureReport({
+    repository,
+    branch,
+    sha,
+    runUrl: `${run.html_url}/attempts/${run.run_attempt}`,
+    pullRequests: pulls,
+    jobs,
+  });
+  console.log(`## ${report.title}\n\n${report.body}`);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
