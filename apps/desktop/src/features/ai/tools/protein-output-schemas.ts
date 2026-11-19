@@ -6,6 +6,7 @@ import {
   encodedMoleculeSchema,
 } from '../../../shared/molecular-catalog';
 import { residueMeasurementSchema } from '../../page/public/embeds/structure3d/residueMeasurement';
+import { structureOpenOutputFields } from '../../agent-bridge/public/structure-tools/contracts';
 
 const count = z.number().int().nonnegative();
 const ids = z.array(z.number().int());
@@ -274,5 +275,10 @@ export const molecularStructuresOutputSchema = z.union([
     observationId: z.string(),
     chainKey: z.string(),
   }),
-  z.object({ ok: z.literal(true), opened: presented }),
+  z.object({
+    ok: z.literal(true),
+    observationId: z.string(),
+    chainKey: z.string().optional(),
+    opened: presented.extend(structureOpenOutputFields),
+  }),
 ]);

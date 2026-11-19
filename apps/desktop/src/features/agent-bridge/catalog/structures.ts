@@ -226,7 +226,7 @@ export const structuresTools = defineRendererToolCatalog({
   mol_open_tab: {
     name: 'mol_open_tab',
     description:
-      'Open a native Mol* structure viewer beside the working chat. For a local workspace coordinate file use {structure:{kind:"file",path:"1URN.cif"},label:"U1A / RNA"}; prefix with a workspace folder name when several roots are open. Also accepts a PDB id (kind:"pdb",pdbId), UniProt accession (kind:"uniprot",accession), allowed HTTPS structure URL (kind:"url",url), or inline coordinates (kind:"data",format:"pdb"|"cif",data). Never use relative or file:// URLs. Inspect readiness with mol_list_structures before editing.',
+      'Open a native Mol* structure viewer beside the working chat. For a local workspace coordinate file use {structure:{kind:"file",path:"1URN.cif"},label:"U1A / RNA"}; prefix with a workspace folder name when several roots are open. Also accepts a PDB id (kind:"pdb",pdbId), UniProt accession (kind:"uniprot",accession), allowed HTTPS structure URL (kind:"url",url), inline coordinates (kind:"data",format:"pdb"|"cif",data), or a saved documentReference. Check viewerStatus with mol_get_state using the returned viewHandle. The handle expires on close. Reopen using the source or saved document reference.',
     shape: 'viz-tab-action',
     required_capabilities: ['modify-tabs'],
     conditional_required_capabilities: ['read-workspace', 'external-fetch:structure'],
@@ -250,7 +250,7 @@ export const structuresTools = defineRendererToolCatalog({
   mol_activate_view: {
     name: 'mol_activate_view',
     description:
-      'Activate one already-open structure tab by exact structureViewId without fetching or changing its coordinates. Use this before controlling another pinned view in the same pane.',
+      'Select one already-open structure tab by viewHandle or structureViewId without raising the app window. Check viewerStatus before making scene changes.',
     shape: 'viz-tab-action',
     required_capabilities: ['modify-tabs'],
     conditional_required_capabilities: [],
@@ -266,7 +266,7 @@ export const structuresTools = defineRendererToolCatalog({
   },
   mol_list_structures: {
     name: 'mol_list_structures',
-    description: 'List structures registered in the DNAForge Mol* viewer store.',
+    description: 'List open structure views and their viewerStatus, including tabs still preparing a renderer or awaiting selection.',
     shape: 'data-service',
     required_capabilities: ['read-workspace'],
     conditional_required_capabilities: [],
@@ -277,7 +277,7 @@ export const structuresTools = defineRendererToolCatalog({
     mcpAnnotations: READ_ONLY_IDEMPOTENT_MCP_ANNOTATIONS,
     workspaceGrounding: 'always',
     emptyInputReason:
-      'mol_list_structures intentionally snapshots the registered Mol* viewer store.',
+      'mol_list_structures snapshots open tabs and registered native viewers.',
     exposure: { kind: 'shared' },
     inputSchema: molListStructuresSchema,
     outputSchema: molListStructuresOutputSchema,
@@ -286,7 +286,7 @@ export const structuresTools = defineRendererToolCatalog({
   mol_get_state: {
     name: 'mol_get_state',
     description:
-      'Read structure viewer state, active render profile, and molecular connections with endpoint identities, source provenance and depiction coverage. Optionally filter by one logical structureViewId, bindingId, or legacy viewerId.',
+      'Read structure readiness, active render profile and molecular connections with endpoint identities, source provenance and depiction coverage. Use viewHandle from open to check that tab lifetime, or supply one documentReference, structureViewId, bindingId or legacy viewerId.',
     shape: 'data-service',
     required_capabilities: ['read-workspace'],
     conditional_required_capabilities: [],

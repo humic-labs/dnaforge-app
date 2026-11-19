@@ -24,7 +24,12 @@ import {
   molecularComparisonSchema,
   molecularViewEvidenceSchema,
 } from '../../page/public/embeds/structure3d/molecularView';
-import { molSetColorSchema, molSetRepresentationSchema } from './contracts';
+import {
+  molSetColorSchema,
+  molSetRepresentationSchema,
+  structureOpenOutputFields,
+  structureViewerStatusSchema,
+} from './contracts';
 import { molecularDocumentReferenceSchema } from '../../../shared/molecular-document-reference';
 import { molecularDataLoadSchema } from '../../../shared/molecular-data-ipc';
 import {
@@ -399,6 +404,8 @@ const residueTarget = z.object({
     .optional(),
 });
 export const registeredStructureOutputSchema = z.object({
+  tabId: z.string().optional(),
+  viewHandle: z.string().optional(),
   documentOwner: molecularDocumentBindingOutputFields.documentOwner.optional(),
   documentReference: molecularDocumentReferenceSchema.optional(),
   documentUnavailable: z.string().optional(),
@@ -449,7 +456,11 @@ export const registeredStructureOutputSchema = z.object({
     molstarElementCount: count.nullable(),
     molstarStatsLabel: z.string().nullable(),
   }),
-  viewerStatus: z.enum(['active', 'inactive', 'loading', 'error']),
+  viewerStatus: structureViewerStatusSchema,
+  inactiveReason: z.string().optional(),
+  reactivation: z
+    .object({ tool: z.literal('mol_activate_view'), structureViewId: z.string() })
+    .optional(),
   chains: z.array(chainSummary),
   ligands: z.array(ligand),
   camera: cameraSnapshotOutputSchema.nullable(),
@@ -573,6 +584,10 @@ export const molActivateViewOutputSchema = z.union([
     structureViewId: z.string(),
     panelId: z.string(),
     tabId: z.string(),
+    viewHandle: z.string().optional(),
+    label: z.string().optional(),
+    viewerStatus: structureViewerStatusSchema.optional(),
+    stateError: z.string().optional(),
   }),
   z.object({
     ok: z.literal(true),
@@ -675,31 +690,13 @@ const sourceRef = z.union([
   urlStructureReferenceOutputSchema,
   z.object({ kind: z.literal('data'), format: z.enum(['pdb', 'cif']), byteLength: count }),
 ]);
-export const molOpenTabOutputSchema = z.union([
-  z.object({
-    ok: z.literal(true),
-    tabId: z.string(),
-    structureViewId: z.string().optional(),
-    documentReference: molecularDocumentReferenceSchema,
-    viewerStatus: z.literal('loading'),
-  }),
-  z.object({
-    ok: z.literal(true),
-    tabId: z.string(),
-    label: z.string(),
-    structureViewId: z.string(),
-    source: sourceRef,
-    viewerStatus: z.literal('loading'),
-    next: z.string(),
-  }),
-  z.object({
-    ok: z.literal(true),
-    viewerId: z.string(),
-    tabId: z.string(),
-    label: z.string(),
-    source: sourceRef.nullable(),
-  }),
-]);
+export const molOpenTabOutputSchema = z.object({
+  ok: z.literal(true),
+  ...structureOpenOutputFields,
+  documentReference: molecularDocumentReferenceSchema.optional(),
+  viewerId: z.string().optional(),
+  source: sourceRef.nullable().optional(),
+});
 export const molOpenDrawerOutputSchema = z.object({
   ok: z.literal(true),
   status: z.enum(['idle', 'resolving', 'rendering', 'ready', 'no_match', 'error']),

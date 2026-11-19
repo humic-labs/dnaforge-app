@@ -193,7 +193,26 @@ export const molOpenDrawerSchema = z
 
 export const molListStructuresSchema = z.object({}).strict();
 
-export const molActivateViewSchema = z.object({ structureViewId: z.string().min(1) }).strict();
+export const structureViewerStatusSchema = z.enum(['active', 'inactive', 'loading', 'error']);
+export const structureOpenOutputFields = {
+  tabId: z.string(),
+  viewHandle: z.string(),
+  structureViewId: z.string(),
+  label: z.string(),
+  viewerStatus: structureViewerStatusSchema,
+  stateError: z.string().optional(),
+};
+
+const viewHandle = z
+  .string()
+  .startsWith('structure-tab:')
+  .optional()
+  .describe('Exact handle returned by a structure open. It expires when that tab closes.');
+
+export const molActivateViewSchema = z
+  .object({ structureViewId: z.string().min(1).optional(), viewHandle })
+  .strict()
+  .superRefine((input, context) => validateStructureTarget(input, context, false));
 
 const alignmentRegionSchema = z
   .object({
@@ -242,6 +261,7 @@ export const molAlignStructuresSchema = z
   .strict();
 
 const structureTargetShape = {
+  viewHandle,
   documentReference: molecularDocumentReferenceSchema
     .optional()
     .describe(
@@ -252,7 +272,7 @@ const structureTargetShape = {
     .min(1)
     .optional()
     .describe(
-      'Preferred logical structure view ID. Supply only one target field: structureViewId, bindingId, or legacy viewerId. Omit the other two.'
+      'Logical structure view ID. Supply this or one other target field.'
     ),
   bindingId: z
     .string()
@@ -269,6 +289,7 @@ const structureTargetShape = {
 };
 
 export type StructureTargetInput = {
+  viewHandle?: string;
   documentReference?: MolecularDocumentReference;
   structureViewId?: string;
   bindingId?: string;
@@ -281,6 +302,7 @@ function validateStructureTarget(
   allowEmpty: boolean
 ): void {
   const count = [
+    input.viewHandle,
     input.documentReference,
     input.structureViewId,
     input.bindingId,
@@ -290,15 +312,15 @@ function validateStructureTarget(
   context.addIssue({
     code: z.ZodIssueCode.custom,
     message: allowEmpty
-      ? 'Provide at most one documentReference, structureViewId, bindingId, or legacy viewerId.'
-      : 'Provide exactly one documentReference, structureViewId, bindingId, or legacy viewerId.',
+      ? 'Provide at most one viewHandle, documentReference, structureViewId, bindingId, or legacy viewerId.'
+      : 'Provide exactly one viewHandle, documentReference, structureViewId, bindingId, or legacy viewerId.',
   });
 }
 
 export function structureTargetRef(input: StructureTargetInput): string | undefined {
   return input.documentReference
     ? molecularDocumentReferenceHref(input.documentReference)
-    : (input.structureViewId ?? input.bindingId ?? input.viewerId);
+    : (input.viewHandle ?? input.structureViewId ?? input.bindingId ?? input.viewerId);
 }
 
 export const molSaveViewSchema = z

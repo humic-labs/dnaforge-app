@@ -667,6 +667,7 @@ describe('molecular MCP readback integration', () => {
     expect(await handleMolGetScene({ structureViewId: id })).toMatchObject({ ok: true });
     expect(readback.withPlugin).toHaveBeenLastCalledWith(expect.anything(), expect.any(Function), {
       cacheKey: getPaneRendererHostCacheKey(`pane:${panelId}`, 'loaded'),
+      registrationId: id,
     });
     expect((await handleMolGetState({ structureViewId: id })).structures[0]).toMatchObject({
       viewerStatus: 'active',
@@ -700,7 +701,10 @@ describe('molecular MCP readback integration', () => {
       expect(readback.withPlugin).toHaveBeenLastCalledWith(
         expect.anything(),
         expect.any(Function),
-        { cacheKey: getPaneRendererHostCacheKey(`pane:${focusedPanelId}`, 'loaded') }
+        {
+          cacheKey: getPaneRendererHostCacheKey(`pane:${focusedPanelId}`, 'loaded'),
+          registrationId: id,
+        }
       );
     }
   });

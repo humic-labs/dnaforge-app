@@ -296,7 +296,7 @@ describe('structure renderer tools', () => {
           visibleBackbones: true,
           selection: true,
         },
-        viewerStatus: 'inactive',
+        viewerStatus: 'loading',
         currentSelection: expect.objectContaining({
           selection: null,
           selectedResidues: [],

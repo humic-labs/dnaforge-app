@@ -2390,12 +2390,20 @@ describe('MolstarViewer — Electron E2E stub', () => {
     expect(cached.plugin?.dispose).not.toHaveBeenCalled();
   });
 
-  it('clears a failed pane intent when the user switches to another structure', async () => {
+  it.each(['update', 'remount'] as const)(
+    'clears a failed pane intent when the user switches to another structure by %s',
+    async (transition) => {
     const rendererHostId = 'pane:failed-then-switch';
     const cacheKey = getPaneRendererHostCacheKey(rendererHostId);
     const cached = seedCachedViewer(cacheKey, 'failed-then-switch-cache');
     cached.loadedStructureKey = null;
     cached.error = 'bad coordinates';
+    cached.rendererHostActivation = {
+      generation: 1,
+      requestedStructureKey: 'provider:RCSB:2BBB:ENTRY',
+      loadedStructureKey: null,
+      queue: Promise.resolve(),
+    };
     const view = render(
       <MolstarViewer pdbId="2BBB" rendererHostId={rendererHostId} height={240} />
     );
@@ -2406,7 +2414,13 @@ describe('MolstarViewer — Electron E2E stub', () => {
     );
     expect(mockedActivateViewerStructure).not.toHaveBeenCalled();
 
-    view.rerender(<MolstarViewer pdbId="3CCC" rendererHostId={rendererHostId} height={240} />);
+    const next = <MolstarViewer pdbId="3CCC" rendererHostId={rendererHostId} height={240} />;
+    if (transition === 'remount') {
+      view.unmount();
+      render(next);
+    } else {
+      view.rerender(next);
+    }
     await waitFor(() =>
       expect(mockedActivateViewerStructure).toHaveBeenCalledWith(
         cached,
@@ -2416,7 +2430,8 @@ describe('MolstarViewer — Electron E2E stub', () => {
     await waitFor(() => expect(screen.queryByTestId('molstar-viewer-error')).toBeNull());
     expect(viewerCache.get(cacheKey)).toBe(cached);
     expect(cached.plugin?.dispose).not.toHaveBeenCalled();
-  });
+    }
+  );
 
   it('keeps hover-preview MolStar cache entries isolated from committed loaded viewers', async () => {
     const loadedKey = getViewerCacheKey('provider:RCSB:1ABC:ENTRY', 'drawer-same-structure');
