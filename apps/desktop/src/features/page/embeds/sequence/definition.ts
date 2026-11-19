@@ -3,6 +3,7 @@ import { embedRegistry } from '../registry';
 import { SequencePicker } from './Picker';
 import type { SlashCommandDefinition } from '../types';
 import { BiologyFileIcon } from '../../../../components/icons';
+import { readManagedSequenceDocumentRef } from '../../../../shared/managed-sequence-document';
 import { platform } from '../../../../platform';
 import { resolveReferenceContentHash } from '../../entity-ref/resolve-content-hash';
 
@@ -33,6 +34,7 @@ export const sequenceCommand: SlashCommandDefinition = {
         catalogHash: typeof data.contentHash === 'string' ? data.contentHash : null,
         workspaceRoot: typeof data.owningRoot === 'string' ? data.owningRoot : null,
         workspaceRelativePath: path,
+        managedDocument: readManagedSequenceDocumentRef(data.sequenceDocument),
         contentHash: (input) => platform().fs.contentHash(input),
       }).then((contentHash) => ({
         nodeType: 'mention' as const,

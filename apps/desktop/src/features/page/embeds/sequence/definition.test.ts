@@ -3,12 +3,20 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockContentHash } = vi.hoisted(() => ({
+const { mockContentHash, readMarker } = vi.hoisted(() => ({
   mockContentHash: vi.fn(),
+  readMarker: vi.fn(),
 }));
 
 vi.mock('../../../../platform', () => ({
-  platform: () => ({ fs: { contentHash: mockContentHash } }),
+  platform: () => ({
+    fs: {
+      contentHash: mockContentHash,
+      exists: async () => true,
+      readTextFile: readMarker,
+      validateWorkspacePath: async () => true,
+    },
+  }),
 }));
 
 import { sequenceCommand } from './definition';
@@ -60,6 +68,42 @@ describe('sequenceCommand.onComplete', () => {
       workspaceRelativePath: 'sequences/vectors/pUC19.gb',
     });
     expect((result as { contentHash: string }).contentHash).toBe(`sha256:${'a'.repeat(64)}`);
+  });
+
+  it('fingerprints the document file and persists the portable package path', async () => {
+    const packageRoot = '/ws/beta/sequences/document';
+    const sequenceDocument = { kind: 'managed-sequence', packageId: 'ent-1', packageRoot };
+    const { buildSequencePackageDocument, serializeSequencePackageDocument } =
+      await import('../../../../db/sequence-package');
+    readMarker.mockResolvedValue(
+      serializeSequencePackageDocument(
+        buildSequencePackageDocument({
+          id: 'ent-1',
+          name: 'Document',
+          product: { file: 'primary.gb' },
+        })
+      )
+    );
+    const data = {
+      ...BASE,
+      path: 'sequences/document',
+      entityId: 'ent-1',
+      sequenceDocument,
+      contentHash: 'git-package:revision',
+    };
+    expect(await complete(data)).toMatchObject({
+      path: data.path,
+      contentHash: `sha256:${'a'.repeat(64)}`,
+    });
+    expect(mockContentHash).toHaveBeenCalledWith({
+      workspaceRoot: BASE.owningRoot,
+      workspaceRelativePath: 'sequences/document/primary.gb',
+    });
+    mockContentHash.mockClear();
+    expect(
+      await complete({ ...data, sequenceDocument: { ...sequenceDocument, packageId: 'other' } })
+    ).toMatchObject({ contentHash: null });
+    expect(mockContentHash).not.toHaveBeenCalled();
   });
 
   it('passes an existing sha256 through without a main round trip', async () => {

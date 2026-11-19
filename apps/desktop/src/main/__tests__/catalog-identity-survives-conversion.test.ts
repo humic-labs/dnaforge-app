@@ -183,6 +183,42 @@ describe('catalog identity across loose-file conversion (real SQLite)', () => {
     ).toBe('independent-file');
   });
 
+  it.each([false, true])(
+    'retains the object across a package move and return (already missing: %s)',
+    async (markedMissing) => {
+      const reconcile = (directory: string) =>
+        reconcileSequencePackageCatalogEntity({
+          metaPath: join(directory, '.forge', 'plasmid.json'),
+          workspaceRoot: root,
+        });
+      const destination = join(root, 'renamed');
+      await reconcile(packageRoot);
+      await fs.rename(packageRoot, destination);
+      if (markedMissing) await markCatalogFileMissing(packageRoot, 'workspace-reconcile');
+      await reconcile(destination);
+      expect(rowAt(destination)).toEqual({ status: 'current', object_uuid: 'clone-object' });
+      expect(rowAt(packageRoot)).toEqual({ status: 'historical', object_uuid: null });
+      await fs.rename(destination, packageRoot);
+      await reconcile(packageRoot);
+      expect(rowAt(destination)).toEqual({ status: 'historical', object_uuid: null });
+      expect(rowAt(packageRoot)).toEqual({ status: 'current', object_uuid: 'clone-object' });
+    }
+  );
+
+  it('assigns a separate object to a package copy while the original directory exists', async () => {
+    const reconcile = (directory: string) =>
+      reconcileSequencePackageCatalogEntity({
+        metaPath: join(directory, '.forge', 'plasmid.json'),
+        workspaceRoot: root,
+      });
+    await reconcile(packageRoot);
+    const copy = join(root, 'copy');
+    await fs.cp(packageRoot, copy, { recursive: true });
+    await reconcile(copy);
+    expect(rowAt(copy).object_uuid).not.toBe('clone-object');
+    expect(rowAt(packageRoot).object_uuid).toBe('clone-object');
+  });
+
   it('refuses a mismatching package marker without moving catalog identity or history', async () => {
     await fs.writeFile(
       join(packageRoot, '.forge', 'plasmid.json'),
