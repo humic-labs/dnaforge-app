@@ -1,8 +1,33 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { inspectDesktopReports, inspectNativeReports } from './qualification.mjs';
+import {
+  inspectDesktopReports,
+  inspectNativeReports,
+  isMainBootstrapEvent,
+} from './qualification.mjs';
 
 const journeys = ['workspace', 'track', 'genome', 'canvas', 'chat', 'palettes'];
+
+test('main bootstrap uses the event target even when the queue ref names a temporary branch', () => {
+  const queueRef = 'refs/heads/gh-readonly-queue/main/pr-97-example';
+  const event = { merge_group: { base_ref: 'refs/heads/main' } };
+  assert.equal(isMainBootstrapEvent('merge_group', event, queueRef), true);
+  assert.equal(
+    isMainBootstrapEvent('merge_group', { merge_group: { base_ref: 'refs/heads/dev' } }, queueRef),
+    false
+  );
+  assert.equal(isMainBootstrapEvent('pull_request', event, queueRef), false);
+  assert.equal(isMainBootstrapEvent('push', {}, 'refs/heads/main'), true);
+  assert.equal(
+    isMainBootstrapEvent(
+      'pull_request',
+      { pull_request: { base: { ref: 'main' } } },
+      'refs/pull/97/merge'
+    ),
+    true
+  );
+  assert.equal(isMainBootstrapEvent('workflow_dispatch', {}, 'refs/heads/main'), false);
+});
 
 function manifest() {
   return {

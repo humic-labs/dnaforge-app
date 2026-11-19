@@ -21,6 +21,12 @@ const write = (file, value) => {
   writeFileSync(file, JSON.stringify(value, null, 2) + '\n');
 };
 
+export function isMainBootstrapEvent(eventName, event, ref) {
+  if (eventName === 'push') return ref === 'refs/heads/main';
+  if (eventName === 'pull_request') return event.pull_request?.base?.ref === 'main';
+  return eventName === 'merge_group' && event.merge_group?.base_ref === 'refs/heads/main';
+}
+
 function sameIdentity(manifest, report) {
   for (const key of ['sourceSha', 'sourceTree', 'controlSha'])
     assert.match(manifest[key], /^[a-f0-9]{40}$/u, `Invalid ${key}`);
@@ -233,9 +239,7 @@ async function main(args) {
     const event = read(process.env.GITHUB_EVENT_PATH);
     const bootstrap =
       process.env.CI_BOOTSTRAP_MAIN === 'true' &&
-      ((process.env.GITHUB_EVENT_NAME === 'push' && process.env.GITHUB_REF === 'refs/heads/main') ||
-        (process.env.GITHUB_EVENT_NAME === 'pull_request' &&
-          event.pull_request?.base?.ref === 'main'));
+      isMainBootstrapEvent(process.env.GITHUB_EVENT_NAME, event, process.env.GITHUB_REF);
     const lane = bootstrap
       ? 'qualification'
       : ciLane(process.env.GITHUB_EVENT_NAME, event, process.env.GITHUB_REF, ciBranches(policy));
