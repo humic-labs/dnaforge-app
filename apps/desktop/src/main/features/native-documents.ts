@@ -255,7 +255,7 @@ export function createNativeDocuments(
     const owner = new NativeAnnotationDocumentOwner({
       nativeOwnerInstanceId: nativeAuthority.ownerInstanceId,
       db: getDb,
-      workspaceRoots: () => workspaces.roots(),
+      workspaceRoots: () => workspaces.readableRoots(),
       fetch: withNativeDocumentSettlementTestSeam(nativeDocumentFetch),
       prepare: async (actionId, document) => {
         const assertWorkspace = workspaces.capture(document.workspaceRoot);
