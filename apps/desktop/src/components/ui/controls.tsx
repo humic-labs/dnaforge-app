@@ -2,7 +2,6 @@ import {
   MenuRow,
   MenuTrigger,
   MenuSearchInput,
-  menuDensityStyle,
   MenuStatus,
   useMenu,
 } from '@waypoint/ui-components';
@@ -73,8 +72,7 @@ export const TextField = forwardRef<
       ref={ref}
       data-ui-control="input"
       data-settings-control="input"
-      style={props.readOnly ? undefined : menuDensityStyle('form')}
-      className={`${props.readOnly ? UI_READONLY_FIELD_CLASS : 'wp-menu-trigger wp-menu-search-input'}${monospace ? ' !font-mono' : ''}`}
+      className={`${props.readOnly ? UI_READONLY_FIELD_CLASS : 'wp-form-density wp-menu-trigger wp-menu-search-input'}${monospace ? ' !font-mono' : ''}`}
     />
   );
 });
