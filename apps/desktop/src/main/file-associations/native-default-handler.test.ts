@@ -102,14 +102,24 @@ describe(' native default-handler adapters', () => {
     const deps = createNativeDefaultHandlerDependencies({
       platform: 'win32',
       appBundleId: 'com.dnaforge.desktop',
-      isPackaged: true,
+      isPackaged: false,
+      helperSourcePath: resolve(
+        __dirname,
+        '../../../resources/helpers-src/dnaforge-file-association.m'
+      ),
       resourcesPath: 'resources',
       execPath: 'DNAForge.exe',
       runCommand,
       openExternal: vi.fn(),
     });
     await expect(deps.queryWindowsProgIds()).rejects.toThrow('COM query failed');
-    const extensions = runCommand.mock.calls[0][1].at(-1).split(',') as string[];
+    const args = runCommand.mock.calls[0][1];
+    expect(args).toContain('-EncodedCommand');
+    expect(args).not.toContain('-ExecutionPolicy');
+    const command = Buffer.from(args.at(-1), 'base64').toString('utf16le');
+    expect(command).toContain('QueryCurrentDefault');
+    const extensions = command.match(/-Extensions '([a-z0-9,]+)'$/u)?.[1]?.split(',') ?? [];
+    expect(extensions).toContain('dna');
     const results: Record<string, { progId: string; name: string } | null> = Object.fromEntries(
       extensions.map((extension) => [extension, null])
     );

@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -227,14 +228,20 @@ export function createNativeDefaultHandlerDependencies(
         'v1.0',
         'powershell.exe'
       );
+      if (!extensions.every((extension) => /^[a-z0-9]+$/u.test(extension))) {
+        throw new Error('Invalid registered filename extension.');
+      }
+      const reader = await readFile(script, 'utf8');
+      const command = `[Console]::OutputEncoding = [Text.UTF8Encoding]::new()
+& {
+${reader}
+} -Extensions '${extensions.join(',')}'`;
       const result = await runCommand(executable, [
         '-NoLogo',
         '-NoProfile',
         '-NonInteractive',
-        '-File',
-        script,
-        '-Extensions',
-        extensions.join(','),
+        '-EncodedCommand',
+        Buffer.from(command, 'utf16le').toString('base64'),
       ]);
       if (result.code !== 0)
         throw new Error(result.stderr.trim() || 'Windows default-app query failed.');

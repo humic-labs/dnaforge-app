@@ -48,7 +48,10 @@ if (!(Test-Path -LiteralPath $script)) { throw 'Install the candidate in this sa
 $extensions = @('gb', 'gbk', 'gbff', 'genbank')
 $all = $extensions + @('dna')
 function Read-Handlers {
-  $result = & powershell.exe -NoProfile -NonInteractive -File $script -Extensions ($all -join ',')
+  $reader = Get-Content -Raw -Encoding UTF8 -LiteralPath $script
+  $command = "[Console]::OutputEncoding = [Text.UTF8Encoding]::new()`n& {`n$reader`n} -Extensions '$($all -join ',')'"
+  $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+  $result = & powershell.exe -NoProfile -NonInteractive -EncodedCommand $encoded
   if ($LASTEXITCODE -ne 0) { throw 'Effective shell query failed.' }
   return $result | ConvertFrom-Json
 }
