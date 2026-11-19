@@ -246,7 +246,10 @@ export function createHighlightResiduesTool(
       const requestedStructureRef = inputStructureRef(input);
       let snapshot: unknown;
       try {
-        snapshot = await dependencies.getStructureState(structureStateTarget(input));
+        snapshot = await dependencies.getStructureState({
+          ...structureStateTarget(input),
+          detail: 'full',
+        });
       } catch (error) {
         const code =
           error && typeof error === 'object' && 'code' in error

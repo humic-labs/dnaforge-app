@@ -285,7 +285,7 @@ describe('structure renderer tools', () => {
     expect(attrs).not.toHaveProperty('colorMode');
     expect(attrs).not.toHaveProperty('activePresetId');
 
-    const listed = await handleMolListStructures();
+    const listed = await handleMolListStructures({ detail: 'full' });
     expect(listed.structures).toEqual([
       expect.objectContaining({
         structureId: AF_VIEWER_ID,
@@ -354,7 +354,7 @@ describe('structure renderer tools', () => {
     });
     useStructure3dStore.getState().setSelected('binding:a', [{ chain: 'A', position: 7 }]);
 
-    const listed = await handleMolListStructures();
+    const listed = await handleMolListStructures({ detail: 'full' });
     expect(listed.structures).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -432,7 +432,7 @@ describe('structure renderer tools', () => {
       label: '1FS0.bcif',
     });
 
-    await expect(handleMolListStructures()).resolves.toMatchObject({
+    await expect(handleMolListStructures({ detail: 'full' })).resolves.toMatchObject({
       ok: true,
       structures: [
         {

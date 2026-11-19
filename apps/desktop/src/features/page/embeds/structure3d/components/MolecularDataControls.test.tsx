@@ -3,10 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Structure3dAttrs } from '../types';
 import { MolecularDataControls } from './MolecularDataControls';
 
-const commands = vi.hoisted(() => ({ data: vi.fn(), save: vi.fn() }));
+const commands = vi.hoisted(() => ({ data: vi.fn(), save: vi.fn(), scene: vi.fn(), apply: vi.fn() }));
 vi.mock('../../../../agent-bridge/structure-tools', () => ({
   handleMolData: commands.data,
   handleMolSaveView: commands.save,
+  handleMolGetScene: commands.scene,
+  handleMolApplyScene: commands.apply,
 }));
 
 const dataRevision = 'a'.repeat(64),
@@ -73,6 +75,22 @@ describe('human molecular data controls', () => {
       mappingRevision,
       unresolved: [],
     });
+  });
+
+  it('exports and applies the starter scene when preparing a data view', async () => {
+    const scene = '{"kind":"single","root":{"kind":"root"}}';
+    commands.scene.mockResolvedValue({ ok: true, scene });
+    commands.apply.mockResolvedValue({ ok: true, rendered: true });
+    render(
+      <MolecularDataControls
+        structureViewId="view"
+        attrs={{ source: 'file', sourceId: 'coordinates' }}
+        ready
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare data view' }));
+    await waitFor(() => expect(commands.apply).toHaveBeenCalledWith({ structureViewId: 'view', scene }));
+    expect(commands.scene).toHaveBeenCalledWith({ structureViewId: 'view', includeScene: true });
   });
 
   it('keeps the working view compact and preserves custom agent colors when making a variation', async () => {
