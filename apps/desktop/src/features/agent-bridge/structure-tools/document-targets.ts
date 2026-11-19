@@ -1,4 +1,3 @@
-import { useCanvasStore } from '../../canvas/public/store';
 import { resolveWorkspaceScope } from '../../../db/workspace-catalog';
 import {
   molecularDocumentReferenceFromHref,
@@ -61,16 +60,7 @@ export async function openMolecularDocumentTarget(
       'DOCUMENT_OPEN_FAILED',
       'message' in opened ? opened.message : 'The molecular document did not open.'
     );
-  const tab = useCanvasStore
-    .getState()
-    .panels[opened.panelId]?.tabs.find((candidate) => candidate.id === opened.tabId);
-  return {
-    ok: true,
-    tabId: opened.tabId,
-    structureViewId: tab?.entityId,
-    documentReference: reference,
-    viewerStatus: 'loading' as const,
-  };
+  return opened.tabId;
 }
 
 export function molecularDocumentReferenceLinks(

@@ -35,6 +35,10 @@ import {
   molSetSideChainsSchema,
 } from './index';
 import type { Structure3dAttrs } from '../../page/embeds/structure3d/types';
+import {
+  hasAgentStructureRenderer,
+  useAgentStructureRenderers,
+} from '../../page/embeds/structure3d/agentStructureRenderers';
 
 vi.mock('../../document-opening/public/open-document', () => ({
   openDocument: vi.fn(),
@@ -73,6 +77,7 @@ function resetStores() {
     selectionAnchor: {},
     selectionRangeBase: {},
   });
+  useAgentStructureRenderers.setState({ tabIds: [] });
 }
 
 describe('structure renderer tools', () => {
@@ -285,7 +290,7 @@ describe('structure renderer tools', () => {
     expect(attrs).not.toHaveProperty('colorMode');
     expect(attrs).not.toHaveProperty('activePresetId');
 
-    const listed = await handleMolListStructures();
+    const listed = await handleMolListStructures({ detail: 'full' });
     expect(listed.structures).toEqual([
       expect.objectContaining({
         structureId: AF_VIEWER_ID,
@@ -296,7 +301,7 @@ describe('structure renderer tools', () => {
           visibleBackbones: true,
           selection: true,
         },
-        viewerStatus: 'inactive',
+        viewerStatus: 'loading',
         currentSelection: expect.objectContaining({
           selection: null,
           selectedResidues: [],
@@ -354,7 +359,7 @@ describe('structure renderer tools', () => {
     });
     useStructure3dStore.getState().setSelected('binding:a', [{ chain: 'A', position: 7 }]);
 
-    const listed = await handleMolListStructures();
+    const listed = await handleMolListStructures({ detail: 'full' });
     expect(listed.structures).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -432,7 +437,7 @@ describe('structure renderer tools', () => {
       label: '1FS0.bcif',
     });
 
-    await expect(handleMolListStructures()).resolves.toMatchObject({
+    await expect(handleMolListStructures({ detail: 'full' })).resolves.toMatchObject({
       ok: true,
       structures: [
         {
@@ -671,7 +676,7 @@ describe('structure renderer tools', () => {
         molViewSpec: '{"first":true}',
       },
     });
-    canvas.openTab('main', {
+    const secondTabId = canvas.openTab('main', {
       type: 'structure',
       entityId: second,
       label: 'Second saved view',
@@ -700,18 +705,25 @@ describe('structure renderer tools', () => {
     expect(listed.structures.find((item) => item.structureViewId === first)?.viewerStatus).toBe(
       'inactive'
     );
-    expect(await handleMolGetScene({ structureViewId: first })).toMatchObject({
-      ok: false,
-      code: 'VIEW_NOT_ACTIVE',
-      error: expect.stringContaining('mol_activate_view'),
-    });
-    expect(
-      await handleMolApplyScene({ structureViewId: first, scene: '{"changed":true}' })
-    ).toMatchObject({
-      ok: false,
-      code: 'VIEW_NOT_ACTIVE',
-      stateChanged: false,
-    });
+    vi.useFakeTimers();
+    try {
+      const scene = handleMolGetScene({ structureViewId: first });
+      await vi.advanceTimersByTimeAsync(31_000);
+      const sceneResult = await scene;
+      expect(sceneResult).toMatchObject({ ok: false, code: 'PLUGIN_NOT_READY', retriable: true });
+      expect(JSON.stringify(sceneResult)).not.toContain('mol_activate_view');
+      const applied = handleMolApplyScene({ structureViewId: first, scene: '{"changed":true}' });
+      await vi.advanceTimersByTimeAsync(31_000);
+      expect(await applied).toMatchObject({
+        ok: false,
+        code: 'PLUGIN_NOT_READY',
+        stateChanged: false,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(hasAgentStructureRenderer(firstTabId)).toBe(true);
+    expect(useCanvasStore.getState().panels.main.activeTabId).toBe(secondTabId);
     expect(useStructure3dStore.getState().expandedStructures[first].data.molViewSpec).toBe(
       '{"first":true}'
     );
@@ -722,10 +734,15 @@ describe('structure renderer tools', () => {
       tabId: firstTabId,
     });
     expect(useCanvasStore.getState().panels.main.activeTabId).toBe(firstTabId);
-    expect(await handleMolGetScene({ structureViewId: second })).toMatchObject({
-      ok: false,
-      code: 'VIEW_NOT_ACTIVE',
-    });
+    vi.useFakeTimers();
+    try {
+      const scene = handleMolGetScene({ structureViewId: second });
+      await vi.advanceTimersByTimeAsync(31_000);
+      expect(await scene).toMatchObject({ ok: false, code: 'PLUGIN_NOT_READY' });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(useCanvasStore.getState().panels.main.activeTabId).toBe(firstTabId);
     expect(await handleMolActivateView({ structureViewId: 'saved-view:absent' })).toMatchObject({
       ok: false,
       code: 'VIEWER_NOT_FOUND',

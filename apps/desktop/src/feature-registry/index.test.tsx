@@ -85,7 +85,7 @@ describe('renderer feature registry', () => {
   });
 
   it('lists the remote hosts view, its activity button and its screen category', () => {
-    expect(rendererFeatureViewIds()).toEqual(['remote-hosts', 'terminal']);
+    expect(rendererFeatureViewIds()).toEqual(['remote-hosts']);
     expect(rendererFeatureScreenCategory('remote-hosts')).toBe('settings');
     expect(rendererFeatureActivityButtons()).toEqual([
       expect.objectContaining({
@@ -106,7 +106,7 @@ describe('renderer feature registry', () => {
     expect(isRendererFeatureSidebarView('ai')).toBe(true);
     expect(isRendererFeatureView('ai')).toBe(false);
     expect(rendererFeatureView('ai')).toBeNull();
-    expect(rendererFeatureViewIds(undefined, 'sidebar')).toEqual(['ai']);
+    expect(rendererFeatureViewIds(undefined, 'sidebar')).toEqual(['terminal', 'ai']);
     expect(rendererFeatureSidebarView('ai')).not.toBeNull();
     expect(rendererFeatureSidebarView('remote-hosts')).toBeNull();
   });

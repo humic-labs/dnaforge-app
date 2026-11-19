@@ -283,7 +283,10 @@ export function MolecularDataControls({
               void execute(async () => {
                 const { handleMolGetScene, handleMolApplyScene } =
                   await import('../../../../agent-bridge/public/structure-tools');
-                const read = (await handleMolGetScene({ structureViewId })) as Outcome & {
+                const read = (await handleMolGetScene({
+                  structureViewId,
+                  includeScene: true,
+                })) as Outcome & {
                   scene?: string;
                 };
                 if (!read.ok) throw new Error(read.error ?? 'The loaded view could not be read.');

@@ -23,19 +23,15 @@ import {
   SearchIcon,
   EllipsisIcon,
   CloseIcon,
-  MoveToTabIcon,
   OpenExternalIcon,
 } from '../../components/icons';
+import { TerminalSessionSidebar } from './TerminalSessionSidebar';
 import {
-  NavigationAction,
-  NavigationList,
-  NavigationRow,
-  UI_NAVIGATION_EMPTY_CLASS,
-  UI_NAVIGATION_GROUP_CLASS,
-  UI_NAVIGATION_HEADER_CLASS,
-  UI_NAVIGATION_METADATA_CLASS,
-  UI_NAVIGATION_PANEL_CLASS,
-} from '../../components/ui';
+  moveListSession,
+  normalizeSessionList,
+  type TerminalListEntry,
+} from './terminal-session-list';
+import { TERMINAL_TAB_TRANSFER_EVENT, type TerminalTabTransfer } from './public/tab-transfer';
 import { COMMAND_IDS, useCommandHandler, useCommandRegistry } from '../../commands';
 import { PortalMenu } from '../../components/PortalMenu';
 import { confirmDialog } from '../../components/confirm-dialog-store';
@@ -63,6 +59,7 @@ import {
   terminalGroupViewId,
   migrateTerminalGroupViews,
   moveTerminalGroupToView,
+  moveIndividualTerminalToView,
   TERMINAL_WORKSPACE_TAB_ID,
   type TerminalPresentation,
   type TerminalGroup,
@@ -130,6 +127,7 @@ export function TerminalDock({
   const [profiles, setProfiles] = useState<TerminalProfile[]>([]);
   const [profileId, setProfileId] = useState('');
   const [groups, setGroups] = useState<TerminalGroup[]>([]);
+  const [listEntries, setListEntries] = useState<TerminalListEntry[]>([]);
   const [paneTargets, setPaneTargets] = useState<Record<string, HTMLDivElement>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
   useEffect(() => {
@@ -379,7 +377,7 @@ export function TerminalDock({
       setUiViewId(viewId);
       setActiveByView((current) => ({ ...current, [viewId]: id }));
       if (group.placement === 'editor' && !floatingGroupId) {
-        setOpen(false);
+        if (!workspaceNavigation.current.workspaceActive) setOpen(false);
         const canvas = useCanvasStore.getState();
         const tab = canvas.findTab('terminal', terminalGroupViewId(group));
         if (tab) {
@@ -471,6 +469,15 @@ export function TerminalDock({
             }))
             .filter((group) => group.sessions.length)
         );
+        setListEntries((current) =>
+          current
+            .filter((item) => typeof item !== 'string' || !removed.has(item))
+            .map((item) =>
+              typeof item === 'string'
+                ? item
+                : { ...item, sessions: item.sessions.filter((id) => !removed.has(id)) }
+            )
+        );
         setActiveId((current) => (current && removed.has(current) ? null : current));
       }
       if (event.kind === 'added') {
@@ -488,6 +495,12 @@ export function TerminalDock({
             placement: floatingGroupId ? 'panel' : 'editor',
           },
         ]);
+        setListEntries((current) =>
+          normalizeSessionList(current, [
+            ...current.flatMap((item) => (typeof item === 'string' ? [item] : item.sessions)),
+            ...ids,
+          ])
+        );
         setActiveId(ids[0] ?? null);
         setOpen(Boolean(floatingGroupId));
       }
@@ -505,6 +518,7 @@ export function TerminalDock({
         setProfileId(configuration.defaultProfileId ?? available[0]?.id ?? '');
         let layout: {
           groups?: TerminalGroup[];
+          sessionList?: unknown;
           activeId?: string;
           open?: boolean;
           height?: number;
@@ -555,6 +569,12 @@ export function TerminalDock({
         setGroups(
           migrateTerminalGroupViews(restored, layout.presentation, Boolean(floatingGroupId))
         );
+        setListEntries(
+          normalizeSessionList(
+            layout.sessionList,
+            restored.flatMap((group) => group.sessions)
+          )
+        );
         setActiveByView(
           layout.activeByView && typeof layout.activeByView === 'object'
             ? Object.fromEntries(
@@ -602,9 +622,28 @@ export function TerminalDock({
     if (initialized)
       localStorage.setItem(
         storageKey,
-        JSON.stringify({ version: 2, groups, activeId, activeByView, open, height, maximized })
+        JSON.stringify({
+          version: 2,
+          groups,
+          sessionList: listEntries,
+          activeId,
+          activeByView,
+          open,
+          height,
+          maximized,
+        })
       );
-  }, [initialized, groups, activeId, activeByView, open, height, maximized, storageKey]);
+  }, [
+    initialized,
+    groups,
+    listEntries,
+    activeId,
+    activeByView,
+    open,
+    height,
+    maximized,
+    storageKey,
+  ]);
   useEffect(() => {
     if (!port) return;
     return subscribeTerminalProfilesChanged(() => {
@@ -647,6 +686,7 @@ export function TerminalDock({
           profileId: profileId || undefined,
         });
         setSessions((current) => [...current, session]);
+        setListEntries((current) => [...current, session.id]);
         setGroups((current) =>
           split && parent
             ? splitTerminalPane(current, parentId!, session.id)
@@ -918,6 +958,18 @@ export function TerminalDock({
             : undefined,
         }))
       );
+      setListEntries((current) =>
+        current.map((item) =>
+          typeof item === 'string'
+            ? item === id
+              ? replacement.id
+              : item
+            : {
+                ...item,
+                sessions: item.sessions.map((entry) => (entry === id ? replacement.id : entry)),
+              }
+        )
+      );
       setActiveId(replacement.id);
       setActiveByView((current) =>
         Object.fromEntries(
@@ -933,20 +985,31 @@ export function TerminalDock({
       setBusy(false);
     }
   };
-  const moveToNewTab = (id: string) => {
+  const moveToNewTab = (id: string, targetPanelId?: string, keepSidebar = false) => {
+    const session = sessionMap.get(id);
+    const canvas = useCanvasStore.getState();
+    if (!session || (targetPanelId && !canvas.panels[targetPanelId])) return;
     const viewId = crypto.randomUUID();
-    setGroups((current) => moveTerminalGroupToView(current, id, viewId));
+    setGroups((current) => moveIndividualTerminalToView(current, id, viewId));
+    if (targetPanelId) canvas.focusPanel(targetPanelId);
     setActiveByView((current) => ({ ...current, [viewId]: id }));
     setActiveId(id);
     setUiViewId(viewId);
-    setOpen(false);
-    dispatchCommand(COMMAND_IDS.appShowExplorer, { source: 'ui' });
+    if (!keepSidebar) {
+      setOpen(false);
+      dispatchCommand(COMMAND_IDS.appShowExplorer, { source: 'ui' });
+    }
   };
   const moveToEditor = (id = activeId) => {
     const group = groups.find((group) => group.sessions.includes(id ?? ''));
     if (!group || !id) return;
     if (onOpenWorkspace && group.placement !== 'editor') {
-      moveToNewTab(id);
+      const viewId = crypto.randomUUID();
+      setGroups((current) => moveTerminalGroupToView(current, id, viewId));
+      setActiveByView((current) => ({ ...current, [viewId]: id }));
+      setUiViewId(viewId);
+      setActiveId(id);
+      if (!workspaceNavigation.current.workspaceActive) setOpen(false);
       return;
     }
     const viewId = terminalGroupViewId(group);
@@ -996,6 +1059,25 @@ export function TerminalDock({
     },
     [groups, activeId]
   );
+  useEffect(() => {
+    if (!initialized || floatingGroupId) return;
+    const receive = (event: Event) => {
+      const transfer = (event as CustomEvent<TerminalTabTransfer>).detail;
+      if (
+        transfer?.target === 'editor' &&
+        panelGroups.some((group) => group.sessions.includes(transfer.sessionId))
+      ) {
+        moveToNewTab(transfer.sessionId, transfer.panelId, true);
+      } else if (transfer?.target === 'sidebar') {
+        const view = editorViews.get(transfer.viewId);
+        const id = view && selectedFor(transfer.viewId, view);
+        const group = view?.find((item) => item.sessions.includes(id ?? ''));
+        if (group) moveToPanel(group.id);
+      }
+    };
+    window.addEventListener(TERMINAL_TAB_TRANSFER_EVENT, receive);
+    return () => window.removeEventListener(TERMINAL_TAB_TRANSFER_EVENT, receive);
+  });
   useEffect(() => {
     if (!initialized || floatingGroupId) return;
     const canvas = useCanvasStore.getState();
@@ -1077,7 +1159,7 @@ export function TerminalDock({
     if (id) {
       setActiveId(id);
       setUiViewId(viewId);
-      setOpen(false);
+      if (!workspaceNavigation.current.workspaceActive) setOpen(false);
     }
   }, [editorTargets, groups, activeByView, activeId, open, workspaceActive]);
 
@@ -1104,7 +1186,6 @@ export function TerminalDock({
     const active = sessionMap.get(activeId ?? '');
     const activeGroup = groups.find((group) => group.sessions.includes(activeId ?? ''))?.id;
     const workspace = !floatingGroupId && viewId === PANEL_VIEW_ID ? workspaceTarget : null;
-    const SessionList = workspace ? NavigationList : 'div';
     const surfaceTarget = editorTarget ?? workspace;
     const editorChrome = editorTarget?.chrome;
     const open = !editorTarget && panelVisible;
@@ -1618,312 +1699,267 @@ export function TerminalDock({
               )}
             </div>
             <TerminalGroupHost chrome target={workspace?.sidebar} visible={surfaceOpen}>
-              <div
-                data-terminal-surface
-                className={workspace ? UI_NAVIGATION_PANEL_CLASS : 'dnaforge-terminal-tabs'}
-              >
-                {workspace && (
-                  <div className={UI_NAVIGATION_HEADER_CLASS}>
-                    <h2>Terminals</h2>
-                    <NavigationAction
-                      id="new-terminal"
-                      label="New terminal"
-                      disabled={busy || !initialized}
-                      onInvoke={() => void create()}
-                      icon={<PlusIcon className="w-4 h-4" />}
-                    />
-                  </div>
-                )}
-                <SessionList
-                  role="tablist"
-                  aria-label="Terminal sessions"
-                  aria-orientation={workspace ? 'vertical' : 'horizontal'}
-                  {...(!workspace ? { className: 'dnaforge-terminal-tab-items' } : {})}
-                >
-                  {groups.map((group) => (
-                    <div
-                      key={group.id}
-                      className={
-                        workspace ? UI_NAVIGATION_GROUP_CLASS : 'dnaforge-terminal-tab-group'
-                      }
-                      data-terminal-tab-group-id={group.id}
-                      data-split={group.sessions.length > 1}
-                      data-direction={group.direction ?? 'horizontal'}
-                      data-active={group.sessions.includes(activeId ?? '')}
-                      role={group.sessions.length > 1 ? 'group' : undefined}
-                      aria-label={
-                        group.sessions.length > 1
-                          ? group.direction === 'vertical'
-                            ? 'Stacked terminals'
-                            : 'Side by side terminals'
-                          : undefined
-                      }
-                    >
-                      {group.sessions.length > 1 && (
-                        <span
-                          className={
-                            workspace
-                              ? UI_NAVIGATION_METADATA_CLASS
-                              : 'dnaforge-terminal-split-indicator'
-                          }
-                          role="img"
-                          aria-label={
-                            group.direction === 'vertical' ? 'Stacked split' : 'Side by side split'
-                          }
-                          title={
-                            group.direction === 'vertical'
+              {workspace ? (
+                <TerminalSessionSidebar
+                  entries={listEntries}
+                  setEntries={setListEntries}
+                  sessions={new Map(orderedSessions.map((session) => [session.id, session]))}
+                  activeId={activeId}
+                  bells={bells}
+                  busy={busy || !initialized}
+                  onSelect={activateSession}
+                  onSplit={(id) => void create(true, undefined, id)}
+                  onClose={(id) => void close(id)}
+                  onMoveToTab={(id) => moveToNewTab(id)}
+                  onRename={(id) => {
+                    setRenaming(id);
+                    setName(sessionMap.get(id)?.title ?? '');
+                  }}
+                  onContext={showContextMenu}
+                  onNew={(groupId) => {
+                    void create().then((session) => {
+                      if (session && groupId)
+                        setListEntries((entries) => moveListSession(entries, session.id, groupId));
+                    });
+                  }}
+                />
+              ) : (
+                <div data-terminal-surface className="dnaforge-terminal-tabs">
+                  <div
+                    role="tablist"
+                    aria-label="Terminal sessions"
+                    aria-orientation="horizontal"
+                    className="dnaforge-terminal-tab-items"
+                  >
+                    {groups.map((group) => (
+                      <div
+                        key={group.id}
+                        className="dnaforge-terminal-tab-group"
+                        data-terminal-tab-group-id={group.id}
+                        data-split={group.sessions.length > 1}
+                        data-direction={group.direction ?? 'horizontal'}
+                        data-active={group.sessions.includes(activeId ?? '')}
+                        role={group.sessions.length > 1 ? 'group' : undefined}
+                        aria-label={
+                          group.sessions.length > 1
+                            ? group.direction === 'vertical'
                               ? 'Stacked terminals'
                               : 'Side by side terminals'
-                          }
-                        >
-                          <svg
-                            viewBox="0 0 16 16"
-                            width="14"
-                            height="14"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.2"
-                            aria-hidden="true"
+                            : undefined
+                        }
+                      >
+                        {group.sessions.length > 1 && (
+                          <span
+                            className="dnaforge-terminal-split-indicator"
+                            role="img"
+                            aria-label={
+                              group.direction === 'vertical'
+                                ? 'Stacked split'
+                                : 'Side by side split'
+                            }
+                            title={
+                              group.direction === 'vertical'
+                                ? 'Stacked terminals'
+                                : 'Side by side terminals'
+                            }
                           >
-                            <rect x="1.5" y="1.5" width="13" height="13" rx="2" />
-                            {group.direction === 'vertical' ? (
-                              <path d="M2 8h12" />
-                            ) : (
-                              <path d="M8 2v12" />
-                            )}
-                          </svg>
-                        </span>
-                      )}
-                      {group.sessions.map((id) => {
-                        const session = sessionMap.get(id);
-                        if (!session) return null;
-                        const rowProps: HTMLAttributes<HTMLDivElement> & {
-                          'data-terminal-tab-id': string;
-                          'data-terminal-group-id': string;
-                        } = {
-                          'data-terminal-tab-id': session.id,
-                          'data-terminal-group-id': group.id,
-                          onContextMenu: (event) => {
-                            event.preventDefault();
-                            showContextMenu(session.id, event.clientX, event.clientY);
-                          },
-                          draggable: true,
-                          onDragStart: (event) => {
-                            event.dataTransfer.setData(TERMINAL_DRAG_TYPE, session.id);
-                            event.dataTransfer.effectAllowed = 'move';
-                          },
-                          onDragOver: (event) => {
-                            if (event.dataTransfer.types.includes(TERMINAL_DRAG_TYPE))
+                            <svg
+                              viewBox="0 0 16 16"
+                              width="14"
+                              height="14"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.2"
+                              aria-hidden="true"
+                            >
+                              <rect x="1.5" y="1.5" width="13" height="13" rx="2" />
+                              {group.direction === 'vertical' ? (
+                                <path d="M2 8h12" />
+                              ) : (
+                                <path d="M8 2v12" />
+                              )}
+                            </svg>
+                          </span>
+                        )}
+                        {group.sessions.map((id) => {
+                          const session = sessionMap.get(id);
+                          if (!session) return null;
+                          const rowProps: HTMLAttributes<HTMLDivElement> & {
+                            'data-terminal-tab-id': string;
+                            'data-terminal-group-id': string;
+                          } = {
+                            'data-terminal-tab-id': session.id,
+                            'data-terminal-group-id': group.id,
+                            onContextMenu: (event) => {
                               event.preventDefault();
-                          },
-                          onDrop: (event) => {
-                            const source = event.dataTransfer.getData(TERMINAL_DRAG_TYPE);
-                            if (
-                              !sessions.some((item) => item.id === source) ||
-                              source === session.id
-                            )
-                              return;
-                            event.preventDefault();
-                            const bounds = event.currentTarget.getBoundingClientRect();
-                            const side = workspace
-                              ? event.clientY < bounds.top + bounds.height / 2
-                                ? 'before'
-                                : 'after'
-                              : event.clientX < bounds.left + bounds.width / 2
-                                ? 'before'
-                                : 'after';
-                            setGroups((current) =>
-                              reorderTerminalGroups(
-                                current.map((item) =>
-                                  item.sessions.includes(source)
-                                    ? {
-                                        ...item,
-                                        viewId: terminalGroupViewId(group),
-                                        placement: group.placement,
-                                      }
-                                    : item
-                                ),
-                                source,
-                                session.id,
-                                side
+                              showContextMenu(session.id, event.clientX, event.clientY);
+                            },
+                            draggable: true,
+                            onDragStart: (event) => {
+                              event.dataTransfer.setData(TERMINAL_DRAG_TYPE, session.id);
+                              event.dataTransfer.effectAllowed = 'move';
+                            },
+                            onDragOver: (event) => {
+                              if (event.dataTransfer.types.includes(TERMINAL_DRAG_TYPE))
+                                event.preventDefault();
+                            },
+                            onDrop: (event) => {
+                              const source = event.dataTransfer.getData(TERMINAL_DRAG_TYPE);
+                              if (
+                                !sessions.some((item) => item.id === source) ||
+                                source === session.id
                               )
-                            );
-                            setActiveId(source);
-                            setActiveByView((current) => ({ ...current, [viewId]: source }));
-                          },
-                        };
-                        const activate: MouseEventHandler<HTMLButtonElement> = (event) => {
-                          activateSession(session.id);
-                          if (event.altKey) void create(true, session.cwd, session.id);
-                        };
-                        const navigate: KeyboardEventHandler<HTMLButtonElement> = (event) => {
-                          if (
-                            event.code === 'Tab' &&
-                            event.ctrlKey &&
-                            !event.metaKey &&
-                            !event.altKey
-                          ) {
-                            event.preventDefault();
-                            navigateGroup(session.id, event.shiftKey ? -1 : 1);
-                          } else if (terminalSplitShortcut(terminalHostPlatform(), event)) {
-                            event.preventDefault();
-                            void create(true, undefined, session.id);
-                          } else if (event.key === 'Delete') {
-                            event.preventDefault();
-                            void close(session.id);
-                          } else if (
-                            [
-                              'ArrowRight',
-                              'ArrowLeft',
-                              'ArrowDown',
-                              'ArrowUp',
-                              'Home',
-                              'End',
-                            ].includes(event.key)
-                          ) {
-                            event.preventDefault();
-                            const index = orderedSessions.findIndex(
-                              (item) => item.id === session.id
-                            );
-                            const next =
-                              event.key === 'Home'
-                                ? orderedSessions[0]
-                                : event.key === 'End'
-                                  ? orderedSessions[orderedSessions.length - 1]
-                                  : orderedSessions[
-                                      (index +
-                                        (event.key === 'ArrowDown' || event.key === 'ArrowRight'
-                                          ? 1
-                                          : -1) +
-                                        orderedSessions.length) %
-                                        orderedSessions.length
-                                    ];
-                            if (next) {
-                              activateSession(next.id);
-                              const list = event.currentTarget.closest('[role="tablist"]');
-                              requestAnimationFrame(() =>
-                                safeFocus(
-                                  list?.querySelector<HTMLButtonElement>(
-                                    `[data-terminal-tab-id="${next.id}"] [role="tab"]`
-                                  )
+                                return;
+                              event.preventDefault();
+                              const bounds = event.currentTarget.getBoundingClientRect();
+                              const side =
+                                event.clientX < bounds.left + bounds.width / 2 ? 'before' : 'after';
+                              setGroups((current) =>
+                                reorderTerminalGroups(
+                                  current.map((item) =>
+                                    item.sessions.includes(source)
+                                      ? {
+                                          ...item,
+                                          viewId: terminalGroupViewId(group),
+                                          placement: group.placement,
+                                        }
+                                      : item
+                                  ),
+                                  source,
+                                  session.id,
+                                  side
                                 )
                               );
+                              setActiveId(source);
+                              setActiveByView((current) => ({ ...current, [viewId]: source }));
+                            },
+                          };
+                          const activate: MouseEventHandler<HTMLButtonElement> = (event) => {
+                            activateSession(session.id);
+                            if (event.altKey) void create(true, session.cwd, session.id);
+                          };
+                          const navigate: KeyboardEventHandler<HTMLButtonElement> = (event) => {
+                            if (
+                              event.code === 'Tab' &&
+                              event.ctrlKey &&
+                              !event.metaKey &&
+                              !event.altKey
+                            ) {
+                              event.preventDefault();
+                              navigateGroup(session.id, event.shiftKey ? -1 : 1);
+                            } else if (terminalSplitShortcut(terminalHostPlatform(), event)) {
+                              event.preventDefault();
+                              void create(true, undefined, session.id);
+                            } else if (event.key === 'Delete') {
+                              event.preventDefault();
+                              void close(session.id);
+                            } else if (
+                              [
+                                'ArrowRight',
+                                'ArrowLeft',
+                                'ArrowDown',
+                                'ArrowUp',
+                                'Home',
+                                'End',
+                              ].includes(event.key)
+                            ) {
+                              event.preventDefault();
+                              const index = orderedSessions.findIndex(
+                                (item) => item.id === session.id
+                              );
+                              const next =
+                                event.key === 'Home'
+                                  ? orderedSessions[0]
+                                  : event.key === 'End'
+                                    ? orderedSessions[orderedSessions.length - 1]
+                                    : orderedSessions[
+                                        (index +
+                                          (event.key === 'ArrowDown' || event.key === 'ArrowRight'
+                                            ? 1
+                                            : -1) +
+                                          orderedSessions.length) %
+                                          orderedSessions.length
+                                      ];
+                              if (next) {
+                                activateSession(next.id);
+                                const list = event.currentTarget.closest('[role="tablist"]');
+                                requestAnimationFrame(() =>
+                                  safeFocus(
+                                    list?.querySelector<HTMLButtonElement>(
+                                      `[data-terminal-tab-id="${next.id}"] [role="tab"]`
+                                    )
+                                  )
+                                );
+                              }
                             }
-                          }
-                        };
-                        const rename = () => {
-                          setRenaming(session.id);
-                          setName(session.title);
-                        };
-                        const title =
-                          session.status === 'exited'
-                            ? `${session.exitCode === null ? 'Stopped' : `(${session.exitCode})`} ${session.title}`
-                            : session.title;
-                        if (workspace) {
+                          };
+                          const rename = () => {
+                            setRenaming(session.id);
+                            setName(session.title);
+                          };
+                          const title =
+                            session.status === 'exited'
+                              ? `${session.exitCode === null ? 'Stopped' : `(${session.exitCode})`} ${session.title}`
+                              : session.title;
                           return (
-                            <NavigationRow
+                            <div
                               key={session.id}
                               {...rowProps}
-                              title={title}
-                              detail={session.cwd}
-                              status={{
-                                label:
-                                  session.status === 'exited'
-                                    ? 'Exited'
-                                    : session.shellState === 'command'
-                                      ? 'Running'
-                                      : 'Ready',
-                                tone: session.status === 'exited' ? 'neutral' : 'success',
+                              className="dnaforge-terminal-tab-row wp-interactive"
+                              data-interaction-group="true"
+                              onClick={(event) => {
+                                if (event.target === event.currentTarget)
+                                  activateSession(session.id);
                               }}
-                              leadingIcon={
-                                bells[session.id] ? (
-                                  <ExclamationCircleIcon className="w-3.5 h-3.5" />
-                                ) : undefined
-                              }
-                              selection={{
-                                kind: 'tab',
-                                selected: session.id === activeId,
-                                tabIndex: session.id === activeId ? 0 : -1,
-                              }}
-                              primaryTitle={`${session.cwd}\nPID ${session.pid}${session.shellState === 'command' ? `\n${session.commands.at(-1)?.command ?? 'Running'}` : ''}${bells[session.id] ? '\nTerminal bell' : ''}`}
-                              onActivate={activate}
-                              onPrimaryKeyDown={navigate}
-                              onPrimaryDoubleClick={rename}
-                              actions={[
-                                {
-                                  id: 'move-to-tab',
-                                  label: 'Move terminal to tab',
-                                  icon: <MoveToTabIcon className="w-3.5 h-3.5" />,
-                                  onInvoke: () => moveToNewTab(session.id),
-                                },
-                                {
-                                  id: 'close',
-                                  label: `Close terminal ${session.title}`,
-                                  icon: <CloseIcon className="w-3.5 h-3.5" />,
-                                  onInvoke: () => void close(session.id),
-                                },
-                              ]}
-                            />
-                          );
-                        }
-                        return (
-                          <div
-                            key={session.id}
-                            {...rowProps}
-                            className="dnaforge-terminal-tab-row wp-interactive"
-                            data-interaction-group="true"
-                            onClick={(event) => {
-                              if (event.target === event.currentTarget) activateSession(session.id);
-                            }}
-                          >
-                            <button
-                              className="wp-interactive"
-                              role="tab"
-                              tabIndex={session.id === activeId ? 0 : -1}
-                              aria-selected={session.id === activeId}
-                              title={`${session.cwd}\nPID ${session.pid}`}
-                              onClick={activate}
-                              onKeyDown={navigate}
-                              onDoubleClick={rename}
                             >
-                              <span
-                                className="dnaforge-terminal-session-dot"
-                                data-status={session.status}
-                                aria-hidden="true"
-                              />
-                              {session.status === 'exited'
-                                ? session.exitCode === null
-                                  ? 'Stopped '
-                                  : `(${session.exitCode}) `
-                                : ''}
-                              <span className="dnaforge-terminal-session-label">
-                                <span>{session.title}</span>
-                              </span>
-                            </button>
-                            {bells[session.id] && (
-                              <span
-                                role="img"
-                                aria-label="Terminal bell"
-                                title="Terminal bell"
-                                className="dnaforge-terminal-tab-bell"
+                              <button
+                                className="wp-interactive"
+                                role="tab"
+                                tabIndex={session.id === activeId ? 0 : -1}
+                                aria-selected={session.id === activeId}
+                                title={`${session.cwd}\nPID ${session.pid}`}
+                                onClick={activate}
+                                onKeyDown={navigate}
+                                onDoubleClick={rename}
                               >
-                                <ExclamationCircleIcon className="w-3.5 h-3.5" />
-                              </span>
-                            )}
-                            <button
-                              className="wp-interactive"
-                              aria-label={`Close terminal ${session.title}`}
-                              onClick={() => void close(session.id)}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </SessionList>
-                {!workspace && (
+                                <span
+                                  className="dnaforge-terminal-session-dot"
+                                  data-status={session.status}
+                                  aria-hidden="true"
+                                />
+                                {session.status === 'exited'
+                                  ? session.exitCode === null
+                                    ? 'Stopped '
+                                    : `(${session.exitCode}) `
+                                  : ''}
+                                <span className="dnaforge-terminal-session-label">
+                                  <span>{session.title}</span>
+                                </span>
+                              </button>
+                              {bells[session.id] && (
+                                <span
+                                  role="img"
+                                  aria-label="Terminal bell"
+                                  title="Terminal bell"
+                                  className="dnaforge-terminal-tab-bell"
+                                >
+                                  <ExclamationCircleIcon className="w-3.5 h-3.5" />
+                                </span>
+                              )}
+                              <button
+                                className="wp-interactive"
+                                aria-label={`Close terminal ${session.title}`}
+                                onClick={() => void close(session.id)}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+
                   <button
                     aria-label="New terminal"
                     title="New session"
@@ -1933,13 +1969,8 @@ export function TerminalDock({
                   >
                     <PlusIcon />
                   </button>
-                )}
-                {workspace && !groups.length && (
-                  <p className={UI_NAVIGATION_EMPTY_CLASS}>
-                    No terminals here. Use + to start a session.
-                  </p>
-                )}
-              </div>
+                </div>
+              )}
             </TerminalGroupHost>
           </div>
           {renaming && surfaceOpen && (
@@ -2072,11 +2103,38 @@ export function TerminalDock({
                       .length ?? 0) < 2,
                   run: () => unsplit(contextMenu.id),
                 },
+                ...(workspace
+                  ? listEntries.flatMap((item) =>
+                      typeof item === 'string'
+                        ? []
+                        : item.sessions.includes(contextMenu.id)
+                          ? [
+                              {
+                                id: 'ungroup-session',
+                                label: 'Remove from group',
+                                run: () =>
+                                  setListEntries((current) =>
+                                    moveListSession(current, contextMenu.id, null)
+                                  ),
+                              },
+                            ]
+                          : [
+                              {
+                                id: 'list-group:' + item.id,
+                                label: 'Move to ' + item.name,
+                                run: () =>
+                                  setListEntries((current) =>
+                                    moveListSession(current, contextMenu.id, item.id)
+                                  ),
+                              },
+                            ]
+                    )
+                  : []),
                 ...groups
                   .filter((group) => !group.sessions.includes(contextMenu.id))
                   .map((group, index) => ({
                     id: `move-group:${group.id}`,
-                    label: `Move terminal to group ${index + 1}: ${sessionMap.get(group.sessions[0]!)?.title ?? 'Terminal'}`,
+                    label: `Split with ${sessionMap.get(group.sessions[0]!)?.title ?? `terminal ${index + 1}`}`,
                     run: () =>
                       movePane(contextMenu.id, group.sessions[group.sessions.length - 1]!, 'after'),
                   })),
@@ -2185,7 +2243,7 @@ export function TerminalDock({
                     setUiViewId(viewId);
                   }
                   if (group?.placement === 'editor') {
-                    setOpen(false);
+                    if (!workspaceNavigation.current.workspaceActive) setOpen(false);
                     editorTargets[terminalGroupViewId(group)]?.focus();
                   }
                 }}

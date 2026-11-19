@@ -271,6 +271,11 @@ function notifyPluginReady(
   onPluginReady?.(plugin);
 }
 
+function hasPreviousPaneError(cached: CachedViewer | undefined, structureKey: string): boolean {
+  const requested = cached?.rendererHostActivation?.requestedStructureKey;
+  return !!cached?.error && !cached.isLoading && !!requested && requested !== structureKey;
+}
+
 function isMolstarE2eStubEnabled(): boolean {
   return typeof window !== 'undefined' && window.__WAYPOINT_E2E_MOLSTAR_STUB__ === true;
 }
@@ -722,7 +727,18 @@ const MolstarViewerComponent: React.FC<MolstarViewerProps> = ({
 
     if (e2eStubEnabled) return;
     if (!wrapperRef.current || !structureKey || !viewerCacheKey) return;
-    const existingCached = viewerCache.get(viewerCacheKey);
+    let existingCached = viewerCache.get(viewerCacheKey);
+    if (rendererHostId && existingCached && hasPreviousPaneError(existingCached, structureKey)) {
+      if (existingCached.plugin && existingCached.rendererHostActivation) {
+        existingCached.error = null;
+        existingCached.loadedStructureKey = null;
+        existingCached.rendererHostActivation.loadedStructureKey = null;
+      } else {
+        deleteCachedViewer(viewerCacheKey, 'pane-request-changed-after-error');
+        recordPendingCreationDelete(viewerCacheKey, 'pane-request-changed-after-error');
+        existingCached = undefined;
+      }
+    }
     const isJoiningExistingWork = !!existingCached || pendingCreations.has(viewerCacheKey);
     if (!scrollIdle && !isJoiningExistingWork) return;
     const loadGeneration = ++loadGenerationRef.current;
@@ -1727,12 +1743,19 @@ const MolstarViewerComponent: React.FC<MolstarViewerProps> = ({
   }, [viewerCacheKey, viewerReady, cameraPersistenceOwner]);
 
   const cached = viewerCache.get(viewerCacheKey);
-  const error = formatMolstarViewerDisplayError(cached?.error) ?? viewerError;
+  const cacheError =
+    rendererHostId && hasPreviousPaneError(cached, structureKey) ? null : cached?.error;
+  const error = formatMolstarViewerDisplayError(cacheError) ?? viewerError;
 
   useEffect(() => {
     if (e2eStubEnabled || !viewerCacheKey) return;
     const cachedViewer = viewerCache.get(viewerCacheKey);
-    if (!cachedViewer?.error || cachedViewer.isLoading) return;
+    if (
+      !cachedViewer?.error ||
+      cachedViewer.isLoading ||
+      (rendererHostId && hasPreviousPaneError(cachedViewer, structureKey))
+    )
+      return;
     const cachedError = cachedViewer.error;
     if (!rendererHostId) {
       detachCachedViewerContainer(cachedViewer, wrapperRef.current);
@@ -1746,7 +1769,7 @@ const MolstarViewerComponent: React.FC<MolstarViewerProps> = ({
     } else {
       notifyViewerError('cached-error-effect', cachedError);
     }
-  }, [e2eStubEnabled, notifyViewerError, rendererHostId, viewerCacheKey]);
+  }, [e2eStubEnabled, notifyViewerError, rendererHostId, structureKey, viewerCacheKey]);
 
   useEffect(() => {
     if (!viewerCacheKey || !structureKey) return;

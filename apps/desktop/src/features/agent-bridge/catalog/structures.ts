@@ -226,7 +226,7 @@ export const structuresTools = defineRendererToolCatalog({
   mol_open_tab: {
     name: 'mol_open_tab',
     description:
-      'Open a native Mol* structure viewer beside the working chat. For a local workspace coordinate file use {structure:{kind:"file",path:"1URN.cif"},label:"U1A / RNA"}; prefix with a workspace folder name when several roots are open. Also accepts a PDB id (kind:"pdb",pdbId), UniProt accession (kind:"uniprot",accession), allowed HTTPS structure URL (kind:"url",url), or inline coordinates (kind:"data",format:"pdb"|"cif",data). Never use relative or file:// URLs. Inspect readiness with mol_list_structures before editing.',
+      'Open a native Mol* structure viewer beside the working chat. For a local workspace coordinate file use {structure:{kind:"file",path:"1URN.cif"},label:"U1A / RNA"}; prefix with a workspace folder name when several roots are open. Also accepts a PDB id (kind:"pdb",pdbId), UniProt accession (kind:"uniprot",accession), allowed HTTPS structure URL (kind:"url",url), inline coordinates (kind:"data",format:"pdb"|"cif",data), or a saved documentReference. Check viewerStatus with mol_get_state using the returned viewHandle. The handle expires on close. Reopen using the source or saved document reference.',
     shape: 'viz-tab-action',
     required_capabilities: ['modify-tabs'],
     conditional_required_capabilities: ['read-workspace', 'external-fetch:structure'],
@@ -250,7 +250,7 @@ export const structuresTools = defineRendererToolCatalog({
   mol_activate_view: {
     name: 'mol_activate_view',
     description:
-      'Activate one already-open structure tab by exact structureViewId without fetching or changing its coordinates. Use this before controlling another pinned view in the same pane.',
+      'Show one already-open structure tab to the person by selecting it, by viewHandle or structureViewId, without raising the app window. Scene commands, readback and screenshots work on unselected tabs without selecting them.',
     shape: 'viz-tab-action',
     required_capabilities: ['modify-tabs'],
     conditional_required_capabilities: [],
@@ -266,7 +266,8 @@ export const structuresTools = defineRendererToolCatalog({
   },
   mol_list_structures: {
     name: 'mol_list_structures',
-    description: 'List structures registered in the DNAForge Mol* viewer store.',
+    description:
+      'List open structure tabs with their handles, readiness and chain counts, including tabs still loading or awaiting selection. Use detail:"full" for the complete inventory or mol_get_state with chainPage for exact chains in one view.',
     shape: 'data-service',
     required_capabilities: ['read-workspace'],
     conditional_required_capabilities: [],
@@ -276,8 +277,6 @@ export const structuresTools = defineRendererToolCatalog({
     conditionallyRequiresWorkspace: false,
     mcpAnnotations: READ_ONLY_IDEMPOTENT_MCP_ANNOTATIONS,
     workspaceGrounding: 'always',
-    emptyInputReason:
-      'mol_list_structures intentionally snapshots the registered Mol* viewer store.',
     exposure: { kind: 'shared' },
     inputSchema: molListStructuresSchema,
     outputSchema: molListStructuresOutputSchema,
@@ -286,7 +285,7 @@ export const structuresTools = defineRendererToolCatalog({
   mol_get_state: {
     name: 'mol_get_state',
     description:
-      'Read structure viewer state, active render profile, and molecular connections with endpoint identities, source provenance and depiction coverage. Optionally filter by one logical structureViewId, bindingId, or legacy viewerId.',
+      'Read structure readiness, camera, representation and inventory counts. Use viewHandle from open for that tab lifetime, or supply one documentReference, structureViewId, bindingId or unique legacy viewerId. Use chainPage:{offset,limit} on one exact view for chain identities and follow chainPage.nextOffset. Use connectionQuery for connection evidence or detail:"full" for native appearance, selected residues and the complete inventory.',
     shape: 'data-service',
     required_capabilities: ['read-workspace'],
     conditional_required_capabilities: [],
@@ -441,16 +440,22 @@ export const structuresTools = defineRendererToolCatalog({
     description: MOL_SCENE_TOOL_DESCRIPTIONS.applyScene,
     shape: 'viz-tab-action',
     required_capabilities: ['modify-tabs'],
-    conditional_required_capabilities: [],
+    conditional_required_capabilities: ['read-workspace'],
     audit_required: true,
     effects: ['ui-bound'],
     requiresWorkspace: false,
-    conditionallyRequiresWorkspace: false,
+    conditionallyRequiresWorkspace: true,
     mcpAnnotations: UI_IDEMPOTENT_MCP_ANNOTATIONS,
     exposure: { kind: 'shared' },
     inputSchema: molApplySceneSchema,
     outputSchema: molApplySceneOutputSchema,
     execution: resultSdkRendererTool((context) => createMolApplySceneTool(undefined, context)),
+    resolveInputAuthorization: (input) => {
+      const parsed = molApplySceneSchema.safeParse(input);
+      return parsed.success && parsed.data.scenePath
+        ? { additionalRequiredCapabilities: ['read-workspace'], requiresWorkspace: true }
+        : {};
+    },
   },
   mol_select_story_step: {
     name: 'mol_select_story_step',

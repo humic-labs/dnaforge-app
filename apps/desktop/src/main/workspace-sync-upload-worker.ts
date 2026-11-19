@@ -907,6 +907,7 @@ export class WorkspaceSyncUploadWorker {
       failed.errorCode !== 'VALIDATION' &&
       failed.errorCode !== 'UPGRADE_REQUIRED' &&
       failed.errorCode !== 'QUOTA_EXCEEDED' &&
+      failed.errorCode !== 'MULTIPART_LEASE_EXPIRED' &&
       failed.errorCode !== 'RECOVERY_CAPTURE_ONLY' &&
       failed.errorCode !== 'RECOVERY_CANDIDATE_EXPIRED' &&
       failed.errorCode !== 'SCIENTIFIC_CLOUD_TRANSFER_UNSUPPORTED' &&

@@ -2,6 +2,7 @@ import type { MouseEventHandler, ReactNode, Ref } from 'react';
 import { stripDisplayExtension } from '../../../utils/fileTypes';
 import type { TabType } from '../types';
 import { getTabIcon } from './Tab';
+import { terminalTabDropTarget } from '../../terminal/public/tab-transfer';
 import { CloseIcon } from '../../../components/icons';
 import { isHostedBrowserRuntime } from '../../../utils/environment';
 
@@ -25,6 +26,7 @@ export function CanvasTabStrip({
       role="tablist"
       data-testid={isHostedBrowserRuntime() ? 'tabbar-hosted-workspace' : `tabbar-${panelId}`}
       data-tab-bar={panelId}
+      {...terminalTabDropTarget(panelId)}
       className="flex h-9 min-w-0 shrink-0 items-center bg-bg-muted"
       onContextMenu={onContextMenu}
     >

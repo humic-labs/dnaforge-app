@@ -48,6 +48,42 @@ const scene = JSON.stringify({
 });
 
 describe('discoverable molecular document parameters', () => {
+  it('pages only camera parameters for the requested perspective and keeps the whole-scene digest', async () => {
+    const base = JSON.parse(scene);
+    const story = JSON.stringify({
+      kind: 'multiple',
+      metadata: base.metadata,
+      snapshots: Array.from({ length: 6 }, (_, index) => ({
+        metadata: { key: `view-${index}` },
+        root: {
+          ...base.root,
+          children: [
+            ...base.root.children,
+            { kind: 'camera', params: { target: [0, 0, 0], position: [0, index, 50], up: [0, 1, 0] } },
+          ],
+        },
+      })),
+    });
+    const first = await inspectMolecularDocumentParameters(story, {
+      nodeKind: 'camera',
+      snapshotIndex: 4,
+      limit: 1,
+    });
+    expect(first.sceneSha256).toBe(await molecularSceneDigest(story));
+    expect(first.total).toBe(4);
+    expect(first.nextOffset).toBe(1);
+    const rest = await inspectMolecularDocumentParameters(story, {
+      nodeKind: 'camera',
+      snapshotIndex: 4,
+      offset: 1,
+    });
+    const parameters = [...first.parameters, ...rest.parameters];
+    expect(parameters.every((parameter) => parameter.path.startsWith('/snapshots/4/'))).toBe(true);
+    expect(parameters.map((parameter) => parameter.name)).toEqual(['target', 'position', 'up', 'near']);
+    expect(parameters.find((parameter) => parameter.name === 'position')?.value).toEqual([0, 4, 50]);
+    expect(rest.nextOffset).toBeNull();
+  });
+
   it('rejects an ignored parameter after rendering-policy compilation instead of claiming success', async () => {
     const parameters = await inspectMolecularDocumentParameters(scene, { limit: 256 });
     const color = parameters.parameters.find(

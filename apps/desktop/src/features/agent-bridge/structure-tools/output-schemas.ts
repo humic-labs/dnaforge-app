@@ -24,9 +24,15 @@ import {
   molecularComparisonSchema,
   molecularViewEvidenceSchema,
 } from '../../page/public/embeds/structure3d/molecularView';
-import { molSetColorSchema, molSetRepresentationSchema } from './contracts';
+import {
+  molSetColorSchema,
+  molSetRepresentationSchema,
+  structureOpenOutputFields,
+  structureViewerStatusSchema,
+} from './contracts';
 import { molecularDocumentReferenceSchema } from '../../../shared/molecular-document-reference';
 import { molecularDataLoadSchema } from '../../../shared/molecular-data-ipc';
+import { molecularChainPageOutputSchema } from '../../../shared/molecular-tool-readback';
 import {
   molecularDocumentBindingOutputFields,
   molecularDocumentParametersOutputSchema,
@@ -73,6 +79,7 @@ const selectedResidue = z.object({
   compId: z.string(),
   selectedAtomCount: count,
   totalResidueAtomCount: count,
+  instanceId: z.string().optional(),
   ...chainScope,
 });
 const chainSummary = z.object({
@@ -100,8 +107,12 @@ const coloration = z.discriminatedUnion('kind', [
 const ligand = z.object({
   name: z.string(),
   chainId: z.string(),
+  structureRef: z.string().optional(),
+  sourceLabel: z.string().optional(),
+  isPrimarySource: z.boolean().optional(),
   position: z.number().int(),
   atomCount: count,
+  instanceId: z.string().optional(),
   coloration: coloration.optional(),
   ...chainScope,
 });
@@ -399,6 +410,8 @@ const residueTarget = z.object({
     .optional(),
 });
 export const registeredStructureOutputSchema = z.object({
+  tabId: z.string().optional(),
+  viewHandle: z.string().optional(),
   documentOwner: molecularDocumentBindingOutputFields.documentOwner.optional(),
   documentReference: molecularDocumentReferenceSchema.optional(),
   documentUnavailable: z.string().optional(),
@@ -409,15 +422,30 @@ export const registeredStructureOutputSchema = z.object({
       alignment: molecularComparisonSchema.shape.alignment,
       allele: molecularAlleleSchema,
     })
-    .nullable(),
-  registrationId: z.string(),
-  structureId: z.string(),
+    .nullable()
+    .optional(),
+  registrationId: z.string().optional(),
+  structureId: z.string().optional(),
   structureViewId: z.string(),
-  bindingId: z.string().nullable(),
-  viewerId: z.string(),
+  bindingId: z.string().nullable().optional(),
+  viewerId: z.string().optional(),
   label: z.string(),
-  source: z.enum(['pdb', 'alphafold', 'url', 'file']).nullable(),
-  sourceId: z.string().nullable(),
+  source: z.enum(['pdb', 'alphafold', 'url', 'file']).nullable().optional(),
+  inactiveReason: z.string().optional(),
+  reactivation: z
+    .object({ tool: z.literal('mol_activate_view'), structureViewId: z.string() })
+    .optional(),
+  savedViewReferenceId: z.string().nullable().optional(),
+  retainedProtein: z
+    .object({
+      proteinSequenceSha256: z.string(),
+      proteinLength: count,
+      candidateId: z.string().nullable().optional(),
+      measurements: z.array(residueMeasurementSchema),
+      activeMeasurementId: z.string().optional(),
+    })
+    .optional(),
+  sourceId: z.string().nullable().optional(),
   coordinateArtifact: z
     .object({
       entityId: z.string(),
@@ -425,22 +453,25 @@ export const registeredStructureOutputSchema = z.object({
       coordinateDigestSha256: z.string(),
       format: z.enum(['pdb', 'mmcif', 'binary-cif']),
     })
-    .nullable(),
+    .nullable()
+    .optional(),
   proteinMapping: z
     .object({
       proteinSequenceSha256: z.string(),
       proteinLength: count,
       label: z.string(),
-      residueTargets: z.array(residueTarget),
-      measurements: z.array(residueMeasurementSchema),
+      residueTargets: z.array(residueTarget).optional(),
+      measurements: z.array(residueMeasurementSchema).optional(),
       activeMeasurementId: z.string().optional(),
     })
-    .nullable(),
-  sceneFormat: z.enum(['molviewspec', 'recipe']),
-  representation: z.string(),
-  colorMode: z.string(),
-  sideChains,
-  selectedResidues: z.array(residueLocationOutputSchema),
+    .nullable()
+    .optional(),
+  sceneFormat: z.enum(['molviewspec', 'recipe']).optional(),
+  representation: z.string().optional(),
+  colorMode: z.string().optional(),
+  sideChains: sideChains.optional(),
+  selectedResidues: z.array(residueLocationOutputSchema).optional(),
+  selectionCount: count.nullable().optional(),
   currentSelection: z.object({
     selection: z.null(),
     lastMcpSelectionExpression: z.string().nullable(),
@@ -448,11 +479,14 @@ export const registeredStructureOutputSchema = z.object({
     molstarSelectedResidues: z.array(selectedResidue),
     molstarElementCount: count.nullable(),
     molstarStatsLabel: z.string().nullable(),
-  }),
-  viewerStatus: z.enum(['active', 'inactive', 'loading', 'error']),
-  chains: z.array(chainSummary),
-  ligands: z.array(ligand),
-  camera: cameraSnapshotOutputSchema.nullable(),
+  }).optional(),
+  viewerStatus: structureViewerStatusSchema,
+  chainCount: count.optional(),
+  chainPage: molecularChainPageOutputSchema.optional(),
+  chains: z.array(chainSummary).optional(),
+  ligandCount: count.optional(),
+  ligands: z.array(ligand).optional(),
+  camera: cameraSnapshotOutputSchema.nullable().optional(),
   molecularConnections: z.array(molecularConnectionOutputSchema).nullable().optional(),
   molecularConnectionSummary: molecularConnectionSummaryOutputSchema.nullable().optional(),
   native: nativeSceneOutputSchema
@@ -467,7 +501,7 @@ export const molListStructuresOutputSchema = z.object({
   structures: z.array(registeredStructureOutputSchema),
 });
 export const molGetStateOutputSchema = molListStructuresOutputSchema;
-export const molGetSceneOutputSchema = z.object({
+const fullSceneOutputSchema = z.object({
   ok: z.literal(true),
   structureViewId: z.string(),
   ...molecularDocumentBindingOutputFields,
@@ -478,6 +512,21 @@ export const molGetSceneOutputSchema = z.object({
   featureExposureNotes: z.string().optional(),
   namedColorGroupSelections: z.array(namedGroupSelection).optional(),
 });
+export const molGetSceneOutputSchema = fullSceneOutputSchema
+  .partial({
+    scene: true,
+    renderProfileGuidance: true,
+    limitations: true,
+    guidance: true,
+    native: true,
+  })
+  .extend({
+    sceneSha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    activeIndex: count.optional(),
+    viewCount: count.optional(),
+    molecularConnections: z.array(molecularConnectionOutputSchema).optional(),
+    molecularConnectionSummary: molecularConnectionSummaryOutputSchema.optional(),
+  });
 export const molApplySceneOutputSchema = molGetSceneOutputSchema
   .omit({
     documentOwner: true,
@@ -486,7 +535,9 @@ export const molApplySceneOutputSchema = molGetSceneOutputSchema
   .extend({
     rendered: z.literal(true),
   });
-export const molAlignStructuresOutputSchema = molApplySceneOutputSchema.extend({ alignment });
+export const molAlignStructuresOutputSchema = fullSceneOutputSchema
+  .omit({ documentOwner: true, documentReference: true })
+  .extend({ rendered: z.literal(true), alignment });
 export const molSaveToNotebookOutputSchema = z.object({
   ok: z.literal(true),
   referenceId: z.string(),
@@ -573,6 +624,10 @@ export const molActivateViewOutputSchema = z.union([
     structureViewId: z.string(),
     panelId: z.string(),
     tabId: z.string(),
+    viewHandle: z.string().optional(),
+    label: z.string().optional(),
+    viewerStatus: structureViewerStatusSchema.optional(),
+    stateError: z.string().optional(),
   }),
   z.object({
     ok: z.literal(true),
@@ -675,31 +730,13 @@ const sourceRef = z.union([
   urlStructureReferenceOutputSchema,
   z.object({ kind: z.literal('data'), format: z.enum(['pdb', 'cif']), byteLength: count }),
 ]);
-export const molOpenTabOutputSchema = z.union([
-  z.object({
-    ok: z.literal(true),
-    tabId: z.string(),
-    structureViewId: z.string().optional(),
-    documentReference: molecularDocumentReferenceSchema,
-    viewerStatus: z.literal('loading'),
-  }),
-  z.object({
-    ok: z.literal(true),
-    tabId: z.string(),
-    label: z.string(),
-    structureViewId: z.string(),
-    source: sourceRef,
-    viewerStatus: z.literal('loading'),
-    next: z.string(),
-  }),
-  z.object({
-    ok: z.literal(true),
-    viewerId: z.string(),
-    tabId: z.string(),
-    label: z.string(),
-    source: sourceRef.nullable(),
-  }),
-]);
+export const molOpenTabOutputSchema = z.object({
+  ok: z.literal(true),
+  ...structureOpenOutputFields,
+  documentReference: molecularDocumentReferenceSchema.optional(),
+  viewerId: z.string().optional(),
+  source: sourceRef.nullable().optional(),
+});
 export const molOpenDrawerOutputSchema = z.object({
   ok: z.literal(true),
   status: z.enum(['idle', 'resolving', 'rendering', 'ready', 'no_match', 'error']),

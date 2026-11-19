@@ -449,6 +449,92 @@
           "description": "Required operations succeed under the current grant, or the result remains explicitly incomplete without substitute artifacts."
         }
       ]
+    },
+    {
+      "id": "structure-authoring",
+      "title": "Molecular structure authoring examples",
+      "mode": "reference",
+      "user_goal": "Open a coordinate model and author named overview and detail views in DNAForge with MolViewSpec.",
+      "steps": [
+        {
+          "id": "guidance",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "administration",
+          "description": "Read the current structure guidance with operation.kind set to inspect-structure-guidance. The external session provides it on first structure use. Read it again if Settings > AI changes."
+        },
+        {
+          "id": "open",
+          "kind": "mcp_tool",
+          "execution_boundary": "ui_bridge",
+          "tool": "mol_open_tab",
+          "description": "Pass a structure with kind file and the coordinate file path inside the open project. Use mol_list_structures to find the exact structureViewId."
+        },
+        {
+          "id": "inspect",
+          "kind": "mcp_tool",
+          "execution_boundary": "ui_bridge",
+          "tool": "mol_get_scene",
+          "description": "Supply the structureViewId from mol_list_structures and set includeScene to true for the full scene JSON. Preserve its coordinate resource URI, parse format, canvas background and metadata version. For exact chains and residue ranges, use mol_get_state with chainPage on the same structureViewId."
+        },
+        {
+          "id": "apply",
+          "kind": "mcp_tool",
+          "execution_boundary": "ui_bridge",
+          "tool": "mol_apply_scene",
+          "description": "Supply the same structureViewId and a stringified single-view MolViewSpec scene with a descriptive metadata.title. Set viewAction to edit-current for the active view or add for another named perspective. For a small change, use includeParameterSchema on mol_get_scene and send parameterEdits with expectedSceneSha256 from that read. If a fresh external session returns STRUCTURE_GUIDANCE_REQUIRED, read that guidance before resubmitting the intended change."
+        },
+        {
+          "id": "verify",
+          "kind": "mcp_tool",
+          "execution_boundary": "ui_bridge",
+          "tool": "mol_capture_screenshot",
+          "description": "Use mol_select_story_step to inspect each perspective. Check the scene readback and screenshot, then use mol_save_view to pin the checked presentation."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Overview of a protein model",
+          "description": "Place this component under the existing structure node in the scene.",
+          "node": {
+            "kind": "component",
+            "params": { "selector": "protein" },
+            "children": [{ "kind": "representation", "params": { "type": "cartoon" } }]
+          }
+        },
+        {
+          "title": "Detail of a residue interval with protein context",
+          "description": "Add this component beside the overview component. Replace the chain and interval with the native label identifiers for the deciding evidence.",
+          "node": {
+            "kind": "component",
+            "params": {
+              "selector": { "label_asym_id": "A", "beg_label_seq_id": 30, "end_label_seq_id": 36 }
+            },
+            "children": [
+              {
+                "kind": "representation",
+                "params": { "type": "ball_and_stick" },
+                "children": [{ "kind": "color", "params": { "color": "#0f766e" } }]
+              }
+            ]
+          }
+        },
+        {
+          "title": "Whole RNA contour with protein context",
+          "description": "Use a whole-object surface when explaining the exterior shape. This 1URN example selects RNA entity 1. Keep the protein in a separate cartoon component for context. Use entity IDs from the native readback when adapting the scene.",
+          "node": {
+            "kind": "component",
+            "params": { "selector": { "label_entity_id": "1" } },
+            "children": [
+              {
+                "kind": "representation",
+                "params": { "type": "surface", "surface_type": "gaussian" },
+                "children": [{ "kind": "color", "params": { "color": "#4e84c4" } }]
+              }
+            ]
+          }
+        }
+      ]
     }
   ]
 }

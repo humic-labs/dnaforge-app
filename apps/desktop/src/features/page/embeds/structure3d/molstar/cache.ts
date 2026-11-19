@@ -433,52 +433,47 @@ export function unregisterActiveWrapper(
   }
 }
 
+function isActiveViewerHandle(handle: ActiveViewerHandle, registrationId?: string): boolean {
+  const cached = viewerCache.get(handle.cacheKey);
+  return (
+    handle.wrapper.isConnected &&
+    cached?.container.isConnected === true &&
+    cached.container.parentElement === handle.wrapper &&
+    (registrationId === undefined ||
+      handle.wrapper
+        .closest('[data-structure-agent-host]')
+        ?.getAttribute('data-structure-agent-host') === registrationId)
+  );
+}
+
 export function hasActiveMolstarViewerHost(structureKey: string, registrationId?: string): boolean {
   const handles = activeViewerHandles.get(structureKey);
-  if (!handles) return false;
-  return Array.from(handles.values()).some((handle) => {
-    const cached = viewerCache.get(handle.cacheKey);
-    return (
-      handle.wrapper.isConnected &&
-      cached?.container.isConnected === true &&
-      cached.container.parentElement === handle.wrapper &&
-      (registrationId === undefined ||
-        handle.wrapper
-          .closest('[data-structure-agent-host]')
-          ?.getAttribute('data-structure-agent-host') === registrationId)
-    );
-  });
+  return (
+    !!handles &&
+    Array.from(handles.values()).some((handle) => isActiveViewerHandle(handle, registrationId))
+  );
 }
 
 export async function withActivePlugin<T>(
   structureKey: string,
   fn: (active: ActiveMolstarViewer) => T | Promise<T>,
-  options: { cacheKey?: string } = {}
+  options: { cacheKey?: string; registrationId?: string } = {}
 ): Promise<T> {
   const handles = activeViewerHandles.get(structureKey);
-  const activeHandle = options.cacheKey
+  const handle = options.cacheKey
     ? handles?.get(options.cacheKey)
-    : handles
-      ? Array.from(handles.values()).find((handle) => {
-          const cached = viewerCache.get(handle.cacheKey);
-          return (
-            handle.wrapper.isConnected &&
-            cached?.container.isConnected &&
-            cached.container.parentElement === handle.wrapper
-          );
-        })
-      : undefined;
-  const exactHandleIsActive =
-    options.cacheKey && activeHandle
-      ? (() => {
-          const cached = viewerCache.get(activeHandle.cacheKey);
-          return (
-            activeHandle.wrapper.isConnected &&
-            cached?.container.isConnected &&
-            cached.container.parentElement === activeHandle.wrapper
-          );
-        })()
-      : true;
+    : Array.from(handles?.values() ?? []).find((candidate) =>
+        isActiveViewerHandle(candidate, options.registrationId)
+      );
+  const activeHandle =
+    handle && isActiveViewerHandle(handle, options.registrationId) ? handle : undefined;
+  if (options.registrationId !== undefined && !activeHandle) {
+    throw new ActiveMolstarViewerError(
+      'VIEWER_NOT_FOUND',
+      `No active viewer with id ${structureKey}.`,
+      { viewerId: structureKey, registrationId: options.registrationId }
+    );
+  }
   const cacheKey = activeHandle?.cacheKey ?? options.cacheKey ?? structureKey;
   const cached = viewerCache.get(cacheKey);
   if (!cached) {
@@ -495,13 +490,7 @@ export async function withActivePlugin<T>(
   }
 
   const wrapper = activeHandle?.wrapper ?? null;
-  if (
-    !exactHandleIsActive ||
-    !wrapper ||
-    !wrapper.isConnected ||
-    cached.container.parentElement !== wrapper ||
-    !cached.container.isConnected
-  ) {
+  if (!wrapper) {
     throw new ActiveMolstarViewerError(
       'VIEWER_NOT_FOUND',
       `No active viewer with id ${structureKey}.`,
