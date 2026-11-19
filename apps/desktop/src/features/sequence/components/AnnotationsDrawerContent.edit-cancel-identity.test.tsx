@@ -60,4 +60,28 @@ describe('AnnotationsDrawerContent — an abandoned edit names its row', () => {
     fireEvent.click(cancel);
     expect(onAnnotationEditCancel).toHaveBeenCalledWith(2);
   });
+
+  it('preserves an expanded draft when scrolling past its row', () => {
+    const onSave = vi.fn();
+    const manyAnnotations = Array.from({ length: 40 }, (_, index) => ({
+      ...annotations[0],
+      name: `annotation ${index}`,
+      start: 10 + index * 60,
+      end: 60 + index * 60,
+    }));
+    render(
+      <AnnotationsDrawerContent {...base} annotations={manyAnnotations} onAnnotationSave={onSave} />
+    );
+    openEditor(0);
+    const name = screen.getByTestId('edit-name-input');
+    fireEvent.change(name, { target: { value: 'unsaved annotation' } });
+
+    const list = screen.getByTestId('annotation-list-scroll');
+    fireEvent.scroll(list, { target: { scrollTop: 700 } });
+    fireEvent.scroll(list, { target: { scrollTop: 0 } });
+
+    expect(screen.getByTestId('edit-name-input')).toHaveValue('unsaved annotation');
+    fireEvent.click(screen.getByTestId('edit-save-button'));
+    expect(onSave).toHaveBeenCalledWith(0, expect.objectContaining({ name: 'unsaved annotation' }));
+  });
 });

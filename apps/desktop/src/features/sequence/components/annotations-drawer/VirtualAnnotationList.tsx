@@ -139,16 +139,15 @@ export function VirtualAnnotationList({
     [items, expandedIndex, editFormHeight]
   );
 
-  const { totalHeight, startIndex, endIndex, offsets } = useMemo(() => {
+  const { totalHeight, renderedPositions, offsets } = useMemo(() => {
     const offs: number[] = [];
     let h = 0;
+    let expandedPosition = -1;
     for (let i = 0; i < items.length; i++) {
       offs.push(h);
       h += getRowHeight(i);
+      if (items[i].originalIndex === expandedIndex) expandedPosition = i;
     }
-
-    let start = 0;
-    let end = items.length;
 
     let lo = 0,
       hi = items.length - 1;
@@ -157,15 +156,18 @@ export function VirtualAnnotationList({
       if (offs[mid] + getRowHeight(mid) < scrollTop) lo = mid + 1;
       else hi = mid - 1;
     }
-    start = Math.max(0, lo - OVERSCAN);
+    const start = Math.max(0, lo - OVERSCAN);
 
     const bottom = scrollTop + viewportHeight;
     let idx = lo;
     while (idx < items.length && offs[idx] < bottom) idx++;
-    end = Math.min(items.length, idx + OVERSCAN);
+    const end = Math.min(items.length, idx + OVERSCAN);
+    const positions = Array.from({ length: end - start }, (_, index) => start + index);
+    if (expandedPosition >= 0 && expandedPosition < start) positions.unshift(expandedPosition);
+    if (expandedPosition >= end) positions.push(expandedPosition);
 
-    return { totalHeight: h, startIndex: start, endIndex: end, offsets: offs };
-  }, [items, scrollTop, viewportHeight, getRowHeight]);
+    return { totalHeight: h, renderedPositions: positions, offsets: offs };
+  }, [items, scrollTop, viewportHeight, getRowHeight, expandedIndex]);
 
   if (items.length === 0) {
     return (
@@ -174,8 +176,6 @@ export function VirtualAnnotationList({
       </div>
     );
   }
-
-  const visibleItems = items.slice(startIndex, endIndex);
 
   return (
     <div
@@ -188,9 +188,8 @@ export function VirtualAnnotationList({
       onMouseDown={() => safeFocus(containerRef.current)}
     >
       <div style={{ height: totalHeight, position: 'relative' }}>
-        {visibleItems.map((item, i) => {
-          const actualIndex = startIndex + i;
-          const { ann, originalIndex } = item;
+        {renderedPositions.map((actualIndex) => {
+          const { ann, originalIndex } = items[actualIndex];
           const isSelected = selectedIndex === originalIndex;
           const isExpanded = expandedIndex === originalIndex;
           return (
