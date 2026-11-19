@@ -50,7 +50,8 @@ export function dispatchNativeWheel(
     cancelable: true,
   });
   Object.defineProperty(event, 'timeStamp', { value: fixture.time });
-  fixture.emit({ ...packet, timestamp: view.performance.timeOrigin + event.timeStamp });
+  const elapsedSinceEvent = view.performance.now() - event.timeStamp;
+  fixture.emit({ ...packet, timestamp: Date.now() - elapsedSinceEvent });
   target.dispatchEvent(event);
   dispose?.();
   return true;
