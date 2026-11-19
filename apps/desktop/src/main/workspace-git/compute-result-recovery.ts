@@ -17,7 +17,10 @@ import {
   inventoryComputeSource,
   retainComputeSource,
 } from './compute-result-retention';
-import { materializeCoordinatePackage } from './coordinate-package-import';
+import {
+  materializeCoordinatePackage,
+  stageRetainedCoordinateView,
+} from './coordinate-package-import';
 import { settleCompletedMolecularMigrationLinks } from './molecular-migration-journal';
 import {
   captureComputeNativeMembers,
@@ -184,26 +187,22 @@ export async function recoverComputeResult(
       for (const item of source.entries) {
         if (
           item.kind !== 'file' ||
-          item.relativePath.split('/').some((part) => part.startsWith('.')) ||
-          native.members.some(
-            (member) =>
-              !(
-                member.kind === 'file' &&
-                member.disposition === 'transfer' &&
-                !member.preserveDirect
-              ) &&
-              (item.relativePath === member.path || item.relativePath.startsWith(member.path + '/'))
-          )
+          item.relativePath.split('/').some((part) => part.startsWith('.'))
         )
           continue;
+        const member = native.members.find(
+          (member) =>
+            item.relativePath === member.path || item.relativePath.startsWith(member.path + '/')
+        );
+        const bound =
+          member?.kind === 'file' && member.disposition === 'transfer' ? member : undefined;
+        if (member && !bound) continue;
         assertCurrent();
         const filePath = join(outputRoot, item.relativePath);
-        const bound = native.members.find(
-          (member) =>
-            member.kind === 'file' &&
-            member.disposition === 'transfer' &&
-            member.path === item.relativePath
-        );
+        if (bound?.preserveDirect) {
+          await stageRetainedCoordinateView(filePath, item.byteLength);
+          continue;
+        }
         if (isConstructSequenceFile(filePath)) {
           if (bound) {
             const preview = await previewImportedSequencePackages(filePath, { automatic: true });

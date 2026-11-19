@@ -1,12 +1,14 @@
 import { isRecoveredComputeResultDirectory } from '../../shared/compute-result-path';
 import { randomUUID } from 'node:crypto';
-import { readdir, unlink } from 'node:fs/promises';
+import { readFile, readdir, unlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import {
   buildDefaultMolecularDocument,
   coordinateFileStem,
   packagedCoordinateFormat,
+  type PackagedCoordinateFormat,
 } from '../../shared/default-molecular-view';
+import { MOLECULAR_VIEW_MAX_COORDINATE_BYTES } from '../../shared/molecular-view';
 import { binaryCoordinateText } from '../../shared/binary-coordinates';
 import {
   MOLECULAR_DOCUMENT_SUFFIX,
@@ -66,20 +68,52 @@ async function materializeCoordinatePackageWithJournal(
     coordinatePath,
     'coordinate',
     async (bytes) => ({
-      content: serializeMolecularDocument(
-        await buildDefaultMolecularDocument({
-          name: stem,
-          format,
-          text: format === 'bcif' ? binaryCoordinateText(bytes) : bytes.toString('utf8'),
-          createdAt: (options.now ?? Date.now)(),
-          documentId: randomUUID(),
-          referenceId: randomUUID(),
-        })
-      ),
+      content: await defaultCoordinateView(stem, format, bytes, (options.now ?? Date.now)()),
       productNames: molecularViewNames(stem),
     }),
     options
   );
+}
+
+async function defaultCoordinateView(
+  stem: string,
+  format: PackagedCoordinateFormat,
+  bytes: Buffer,
+  createdAt: number
+): Promise<string> {
+  return serializeMolecularDocument(
+    await buildDefaultMolecularDocument({
+      name: stem,
+      format,
+      text: format === 'bcif' ? binaryCoordinateText(bytes) : bytes.toString('utf8'),
+      createdAt,
+      documentId: randomUUID(),
+      referenceId: randomUUID(),
+    })
+  );
+}
+
+export async function stageRetainedCoordinateView(
+  coordinatePath: string,
+  byteLength: number
+): Promise<void> {
+  const fileName = basename(coordinatePath);
+  const format = packagedCoordinateFormat(fileName);
+  if (!format || byteLength === 0) return;
+  const encodedLength = format === 'bcif' ? Math.ceil(byteLength / 3) * 4 : byteLength;
+  if (encodedLength > MOLECULAR_VIEW_MAX_COORDINATE_BYTES) return;
+  const bytes = await readFile(coordinatePath);
+  const stem = coordinateFileStem(fileName);
+  const content = await defaultCoordinateView(stem, format, bytes, Date.now());
+  for (const name of molecularViewNames(stem)) {
+    try {
+      await writeFile(join(dirname(coordinatePath), name), content, { flag: 'wx' });
+      return;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    }
+  }
+  throw new Error('No available filename for the recovered molecular view.');
 }
 
 const SKIPPED_ROOT_DIRECTORIES = new Set(['Structures', 'compute', 'node_modules']);
