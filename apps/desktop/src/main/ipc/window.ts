@@ -1,5 +1,5 @@
 import { handleGroup } from '../../shared/ipc-contract';
-import { BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, screen } from 'electron';
 import {
   WINDOWS_MENU_IDS,
   type WindowsMenuId,
@@ -57,6 +57,39 @@ export function registerWindowHandlers(): void {
   const titleBarThemes = new WeakMap<BrowserWindow, boolean>();
 
   handleGroup(windowContract, {
+    getDisplayColorSpace: (event) => {
+      if (event.sender.isDestroyed()) return null;
+      const window = BrowserWindow.fromWebContents(event.sender);
+      if (!window || window.isDestroyed()) return null;
+      const content = window.getContentBounds();
+      const profiles = new Set(
+        screen
+          .getAllDisplays()
+          .filter(
+            ({ bounds }) =>
+              Math.min(content.x + content.width, bounds.x + bounds.width) >
+                Math.max(content.x, bounds.x) &&
+              Math.min(content.y + content.height, bounds.y + bounds.height) >
+                Math.max(content.y, bounds.y)
+          )
+          .map((display) => display.colorSpace)
+      );
+      if (profiles.size !== 1) return null;
+      const forced = app.commandLine.hasSwitch('force-color-profile')
+        ? app.commandLine.getSwitchValue('force-color-profile')
+        : null;
+      if (
+        profiles.has('{primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}') &&
+        (forced === null || forced === 'srgb')
+      )
+        return 'srgb';
+      if (
+        profiles.has('{primaries:P3, transfer:SRGB, matrix:RGB, range:FULL}') &&
+        (forced === null || forced === 'display-p3-d65')
+      )
+        return 'display-p3';
+      return null;
+    },
     setZoomLevel: (event, level) => {
       if (event.sender.isDestroyed()) return { status: 'refused', reason: 'window_unavailable' };
       const window = BrowserWindow.fromWebContents(event.sender);
