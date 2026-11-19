@@ -411,6 +411,7 @@ function seedActiveMolstarViewer(
     },
   } as unknown as MolstarPlugin;
   const wrapper = document.createElement('div');
+  wrapper.dataset.structureAgentHost = viewerId;
   const container = document.createElement('div');
   document.body.appendChild(wrapper);
   wrapper.appendChild(container);
@@ -446,6 +447,50 @@ describe(' Molstar MCP harness', () => {
     vi.clearAllMocks();
     resetHarnessState();
     setupGenBankMocks();
+  });
+
+  it('reports an accepted file tab before its renderer mounts and expires its handle on close', async () => {
+    const { sink } = makeAuditSink();
+    const canvas = useCanvasStore.getState();
+    const structureViewId = 'structure-view:file:v1:fixture';
+    const file = {
+      type: 'structure' as const,
+      entityId: structureViewId,
+      label: 'Coordinate fixture',
+      initialStructureAttrs: {
+        source: 'file' as const,
+        sourceId: 'data_fixture',
+        structureViewIdentity: { schemaVersion: 1 as const, structureViewId, bindingId: null },
+      },
+    };
+    const tabId = canvas.openTab('main', file);
+    const viewHandle = `structure-tab:${tabId}`;
+
+    expect(expectSuccess(await runTool('mol_list_structures', {}, sink))).toMatchObject({
+      structures: [{ structureViewId, viewHandle, viewerStatus: 'loading' }],
+    });
+    expect(expectSuccess(await runTool('mol_get_state', { viewHandle }, sink))).toMatchObject({
+      structures: [{ structureViewId, viewHandle, viewerStatus: 'loading' }],
+    });
+    expect(
+      expectFailure(await runTool('mol_capture_screenshot', { viewHandle }, sink))
+    ).toMatchObject({ code: 'PLUGIN_NOT_READY', retriable: true });
+
+    canvas.closeTab('main', tabId);
+    expect(expectFailure(await runTool('mol_get_state', { viewHandle }, sink))).toMatchObject({
+      code: 'VIEW_CLOSED',
+      retriable: false,
+    });
+    const reopenedTabId = canvas.openTab('main', file);
+    expect(reopenedTabId).not.toBe(tabId);
+    expect(
+      expectSuccess(await runTool('mol_get_state', { structureViewId }, sink))
+    ).toMatchObject({
+      structures: [{ structureViewId, viewHandle: `structure-tab:${reopenedTabId}` }],
+    });
+    expect(
+      expectFailure(await runTool('mol_capture_screenshot', { viewHandle }, sink))
+    ).toMatchObject({ code: 'VIEW_CLOSED', retriable: false });
   });
 
   it('completes standalone structure tab management through the renderer bridge', async () => {
@@ -668,7 +713,7 @@ describe(' Molstar MCP harness', () => {
         camera: unknown;
         chains: Array<{ chainId: string; residueRange: { start: number; end: number } }>;
       }>;
-    }>(await runTool('mol_get_state', { viewerId: AF_VIEWER_ID }, sink));
+    }>(await runTool('mol_get_state', { viewerId: AF_VIEWER_ID, detail: 'full' }, sink));
     expect(stateResult.structures[0], JSON.stringify(stateResult.structures[0])).toMatchObject({
       viewerStatus: 'active',
       currentSelection: {
@@ -836,7 +881,7 @@ describe(' Molstar MCP harness', () => {
           molstarElementCount: number | null;
         };
       }>;
-    }>(await runTool('mol_get_state', { viewerId: AF_VIEWER_ID }, sink));
+    }>(await runTool('mol_get_state', { viewerId: AF_VIEWER_ID, detail: 'full' }, sink));
 
     expect(stateResult.structures[0].currentSelection).toEqual(
       expect.objectContaining({
@@ -874,7 +919,7 @@ describe(' Molstar MCP harness', () => {
           molstarSelectedResidues: Array<{ position: number; compId: string }>;
         };
       }>;
-    }>(await runTool('mol_get_state', {}, sink));
+    }>(await runTool('mol_get_state', { detail: 'full' }, sink));
     const byStructureId = new Map(
       stateResult.structures.map((structure) => [structure.structureId, structure])
     );

@@ -21,7 +21,7 @@ export {
 };
 
 export interface MolstarViewerToolDependencies {
-  listStructures: () => ReturnType<typeof StructureOperations.handleMolListStructures>;
+  listStructures: (input: unknown) => ReturnType<typeof StructureOperations.handleMolListStructures>;
   getState: (input: unknown) => ReturnType<typeof StructureOperations.handleMolGetState>;
   selectResidues: (
     input: unknown
@@ -35,8 +35,8 @@ export interface MolstarViewerToolDependencies {
 }
 
 const defaultDependencies: MolstarViewerToolDependencies = {
-  listStructures: async () =>
-    (await import('../../agent-bridge/public/structure-tools')).handleMolListStructures(),
+  listStructures: async (input) =>
+    (await import('../../agent-bridge/public/structure-tools')).handleMolListStructures(input),
   getState: async (input) =>
     (await import('../../agent-bridge/public/structure-tools')).handleMolGetState(input),
   selectResidues: async (input) =>
@@ -56,9 +56,9 @@ export function createMolListStructuresTool(
 ) {
   return resultTool({
     description:
-      'List structures registered in the live DNAForge Mol* viewer. Use this read only when the active structure is ambiguous; do not reopen a structure that is already registered.',
+      'List open structure views with their exact IDs, readiness and chain counts. Use detail:"full" for the complete inventory or mol_get_state with chainPage for exact chains in one view.',
     inputSchema: molListStructuresSchema,
-    execute: async () => dependencies.listStructures(),
+    execute: async (input) => dependencies.listStructures(input),
   });
 }
 
@@ -67,7 +67,7 @@ export function createMolGetStateTool(
 ) {
   return resultTool({
     description:
-      'Read live Mol* state for one logical structure view/binding or all registered views, including exact native selected residues, representation, color, side chains, and camera. Prefer structureViewId or bindingId returned by mol_list_structures; legacy viewerId must resolve uniquely. Do not call it for residue identity already present in a structure selection card.',
+      'Read live structure status, camera, representation and inventory counts. Use chainPage:{offset,limit} on one exact view for chain identities, connectionQuery for connection evidence, or detail:"full" for native appearance, selected residues and the complete inventory. Prefer structureViewId or bindingId returned by mol_list_structures; legacy viewerId must resolve uniquely.',
     inputSchema: molGetStateSchema,
     execute: async (input: z.infer<typeof molGetStateSchema>) => dependencies.getState(input),
   });

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { assertMcpOutput } from '../../../test-utils/mcp-output-test-helper';
+import { useCanvasStore } from '../../canvas/public/store';
 import { execTool } from './test-helpers';
 import { createMolecularStructuresTool } from './molecular-structures';
 import { createProteinStructureComparisonTool } from './protein-structure-comparison';
@@ -147,6 +148,7 @@ const presented = {
 
 beforeEach(() => {
   for (const operation of Object.values(operations)) operation.mockReset();
+  useCanvasStore.setState(useCanvasStore.getInitialState());
 });
 describe('protein and molecular catalog canonical output contracts', () => {
   it('validates register, empty discovery, mapping, attachment and native-open catalog replies', async () => {
@@ -184,11 +186,37 @@ describe('protein and molecular catalog canonical output contracts', () => {
         documentId: 'document1',
       })
     );
-    operations.open.mockResolvedValue(presented);
-    assertMcpOutput(
-      molecularStructuresOutputSchema,
-      await execTool(tool, { operation: 'open', observationId, chainKey: 'A:1' })
-    );
+    const entityId = `catalog-view:${observationId}:${chain.key}`;
+    operations.open.mockImplementationOnce(async () => {
+      const canvas = useCanvasStore.getState();
+      const tabId = canvas.openTab(presented.panelId, {
+        type: 'structure',
+        entityId,
+        label: observation.label,
+        initialStructureAttrs: {
+          source: 'file',
+          sourceId: `catalog:${observationId}`,
+          catalogSource: { observationId, chainKey: chain.key },
+        },
+      });
+      return { ...presented, tabId };
+    });
+    const opened = await execTool(tool, { operation: 'open', observationId, chainKey: chain.key });
+    assertMcpOutput(molecularStructuresOutputSchema, opened);
+    const { activeTabId } = useCanvasStore.getState().panels[presented.panelId];
+    expect(opened).toMatchObject({
+      ok: true,
+      observationId,
+      chainKey: chain.key,
+      opened: {
+        content: 'loading',
+        tabId: activeTabId,
+        viewHandle: `structure-tab:${activeTabId}`,
+        structureViewId: entityId,
+        label: observation.label,
+        viewerStatus: 'loading',
+      },
+    });
   });
 
   it('validates every comparison-management response shape without submitting provider compute', async () => {

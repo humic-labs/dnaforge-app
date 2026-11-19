@@ -28,6 +28,7 @@ describe('native molecular document canvas persistence', () => {
               entityId: 'molecular-document:document',
               label: 'Pocket',
               initialStructureAttrs: attrs,
+              structureRenderError: 'The renderer failed.',
             },
           ],
         },
@@ -36,7 +37,9 @@ describe('native molecular document canvas persistence', () => {
       focusedPanelId: 'main',
     };
     const durable = partializeCanvasState(state);
-    const pointer = durable.panels.main.tabs[0].initialStructureAttrs!;
+    const tab = durable.panels.main.tabs[0];
+    expect(tab).not.toHaveProperty('structureRenderError');
+    const pointer = tab.initialStructureAttrs!;
     expect(pointer.molecularDocumentPath).toBe(attrs.molecularDocumentPath);
     expect(pointer.molecularDocumentId).toBe('document');
     expect(pointer.molViewSpec).toBeUndefined();

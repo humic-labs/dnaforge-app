@@ -222,7 +222,7 @@ describe('highlight_residues tool', () => {
       regions: [{ start: 57, end: 57 }],
     });
 
-    expect(calls).toEqual([{ bindingId: 'binding:b' }]);
+    expect(calls).toEqual([{ bindingId: 'binding:b', detail: 'full' }]);
     expect(result).toMatchObject({
       ok: true,
       structureRef: 'binding:b',

@@ -331,6 +331,9 @@ async function errorFromResponse(response: Response): Promise<DesktopSyncClientE
   ) {
     return typedError('VALIDATION', message, response.status, false, true, details);
   }
+  if (response.status === 409 && code === 'MULTIPART_LEASE_EXPIRED') {
+    return typedError(code, message, response.status, true, false, details);
+  }
   if (response.status === 409) {
     return typedError('CONFLICT', message, response.status, false, true, details);
   }

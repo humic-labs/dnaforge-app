@@ -105,21 +105,49 @@ function fieldsFor(node: Node) {
 
 function walk(
   scene: Record<string, unknown>,
-  visit: (node: Node, path: string, viewId?: string) => void
+  visit: (node: Node, path: string, viewId?: string) => void,
+  snapshotIndex?: number
 ) {
   const root = (node: Node, path: string, viewId?: string) => {
     visit(node, path, viewId);
     node.children?.forEach((child, index) => root(child, `${path}/children/${index}`, viewId));
   };
   if (scene.kind === 'multiple')
-    (scene.snapshots as Array<{ root: Node; metadata?: { key?: string } }>).forEach((view, index) =>
-      root(view.root, `/snapshots/${index}/root`, view.metadata?.key)
-    );
-  else root(scene.root as Node, '/root', (scene.metadata as { key?: string } | undefined)?.key);
+    (scene.snapshots as Array<{ root: Node; metadata?: { key?: string } }>).forEach((view, index) => {
+      if (snapshotIndex === undefined || snapshotIndex === index)
+        root(view.root, `/snapshots/${index}/root`, view.metadata?.key);
+    });
+  else if (snapshotIndex === undefined || snapshotIndex === 0)
+    root(scene.root as Node, '/root', (scene.metadata as { key?: string } | undefined)?.key);
 }
 
 export async function molecularSceneDigest(scene: string): Promise<string> {
   return coordinateDigest(canonicalJson(JSON.parse(scene)));
+}
+
+export async function requireMolecularSceneRevision(scene: string, expectedSceneSha256: string) {
+  if ((await molecularSceneDigest(scene)) !== expectedSceneSha256)
+    throw Object.assign(
+      new Error('The molecular scene changed. Read its current revision before editing.'),
+      { code: 'MVS_SCENE_STALE' }
+    );
+}
+
+export function preserveUneditedParameterSnapshots(
+  current: string,
+  compiled: string,
+  edits: ReadonlyArray<{ path: string }>
+): string {
+  const before = JSON.parse(current);
+  if (before.kind !== 'multiple') return compiled;
+  const after = JSON.parse(compiled);
+  if (after.kind !== 'multiple' || after.snapshots.length !== before.snapshots.length)
+    throw Error('The parameter edit changed the number of perspectives.');
+  const edited = new Set(edits.map(({ path }) => Number(path.split('/')[2])));
+  after.snapshots = before.snapshots.map((snapshot: unknown, index: number) =>
+    edited.has(index) ? after.snapshots[index] : snapshot
+  );
+  return JSON.stringify(after);
 }
 
 function molecularColorValue(node: Node) {
@@ -266,12 +294,19 @@ export function requireAppliedMolecularParameterEdits(
 
 export async function inspectMolecularDocumentParameters(
   scene: string,
-  options: { offset?: number; limit?: number } = {}
+  options: { offset?: number; limit?: number; nodeKind?: string; snapshotIndex?: number } = {}
 ) {
   const parameters: Parameter[] = [];
+  const { offset = 0, limit = 64, nodeKind, snapshotIndex } = options;
+  let total = 0;
+  const requested = () => {
+    const index = total++;
+    return index >= offset && index - offset < limit;
+  };
   walk(JSON.parse(scene), (node, path, viewId) => {
+    if (nodeKind && node.kind !== nodeKind) return;
     for (const [name, field] of Object.entries(fieldsFor(node))) {
-      if (unsafe.has(name)) continue;
+      if (unsafe.has(name) || !requested()) continue;
       parameters.push({
         path: `${path}/params/${name}`,
         nodeKind: node.kind,
@@ -286,7 +321,7 @@ export async function inspectMolecularDocumentParameters(
       });
     }
     const schema = schemaFor(node);
-    if (schema.type === 'union')
+    if (schema.type === 'union' && requested())
       parameters.push({
         path: `${path}/params/${schema.discriminator}`,
         nodeKind: node.kind,
@@ -298,18 +333,16 @@ export async function inspectMolecularDocumentParameters(
         description: schema.discriminatorDescription,
         valueSchema: { enum: Object.keys(schema.cases) },
       });
-  });
-  const offset = options.offset ?? 0,
-    limit = options.limit ?? 64;
+  }, snapshotIndex);
   return {
     schema: 'dnaforge.molecular-document-parameters.v1',
     sceneSha256: await molecularSceneDigest(scene),
     valueSchemaDialect: 'https://json-schema.org/draft/2020-12/schema',
     validation:
       'Installed MolViewSpec validators are authoritative, including x-molstar-type constraints.',
-    parameters: parameters.slice(offset, offset + limit),
-    total: parameters.length,
-    nextOffset: offset + limit < parameters.length ? offset + limit : null,
+    parameters,
+    total,
+    nextOffset: offset + parameters.length < total ? offset + parameters.length : null,
     write: {
       tool: 'mol_apply_scene',
       fields: ['parameterEdits', 'expectedSceneSha256'],
@@ -337,8 +370,7 @@ export async function editMolecularDocumentParameters(
   expectedSceneSha256: string,
   edits: ReadonlyArray<{ path: string; value: unknown }>
 ): Promise<string> {
-  if ((await molecularSceneDigest(scene)) !== expectedSceneSha256)
-    throw Error('The molecular document parameters changed. Inspect them again before editing.');
+  await requireMolecularSceneRevision(scene, expectedSceneSha256);
   const document = JSON.parse(scene);
   const nodes = new Map<string, Node>();
   walk(document, (node, path) => nodes.set(path, node));

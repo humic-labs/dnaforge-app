@@ -1,5 +1,5 @@
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import type { Tab } from '../types';
 import { useCanvasStore } from '../store';
 import { LoadingTab } from './load-states';
@@ -15,6 +15,7 @@ import {
   markStructureViewHostInteractive,
   markStructureViewHostReleased,
 } from '../../structure-drawer/public/state/structure-view-handoff';
+import { useStructureRendererHostId } from '../../page/public/embeds/structure3d/agentStructureRenderers';
 
 export function StructureTabContent({
   tab,
@@ -25,14 +26,72 @@ export function StructureTabContent({
   panelId: string;
   isActive: boolean;
 }) {
-  const prediction = usePredictionResultAttrs(tab.predictionResult, tab.entityId);
+  const {
+    id: tabId,
+    entityId,
+    initialStructureAttrs,
+    molecularViewReferenceId,
+    predictionResult,
+  } = tab;
+  const paneRendererHostId = `pane:${panelId}`;
+  const rendererHostId = useStructureRendererHostId(paneRendererHostId);
+  const rendered = isActive || rendererHostId !== paneRendererHostId;
+  const opening = useMemo(
+    () => ({ current: false }),
+    [
+      isActive,
+      panelId,
+      tabId,
+      entityId,
+      initialStructureAttrs,
+      molecularViewReferenceId,
+      predictionResult,
+    ]
+  );
+  const publishStructureRenderError = useCallback(
+    (message?: string) => {
+      if (!opening.current) return;
+      const canvas = useCanvasStore.getState();
+      const panel = canvas.panels[panelId];
+      const current = panel?.tabs.find((item) => item.id === tabId);
+      if (
+        panel?.activeTabId !== tabId ||
+        current?.type !== 'structure' ||
+        current.entityId !== entityId ||
+        current.initialStructureAttrs !== initialStructureAttrs ||
+        current.molecularViewReferenceId !== molecularViewReferenceId ||
+        current.predictionResult !== predictionResult ||
+        current.structureRenderError === message
+      )
+        return;
+      canvas.updateTab(panelId, tabId, { structureRenderError: message });
+    },
+    [
+      opening,
+      panelId,
+      tabId,
+      entityId,
+      initialStructureAttrs,
+      molecularViewReferenceId,
+      predictionResult,
+    ]
+  );
+  useLayoutEffect(() => {
+    opening.current = isActive;
+    publishStructureRenderError();
+    return () => {
+      opening.current = false;
+    };
+  }, [isActive, opening, publishStructureRenderError]);
+
+  const prediction = usePredictionResultAttrs(predictionResult, entityId);
   const savedView = useSavedMolecularViewAttrs(
-    tab.entityId,
-    tab.initialStructureAttrs,
-    tab.molecularViewReferenceId
+    entityId,
+    initialStructureAttrs,
+    molecularViewReferenceId
   );
   const [restored, setRestored] = useState<{
-    entityId: string;
+    opening: typeof opening;
     attrs?: NonNullable<Tab['initialStructureAttrs']>;
     error?: string;
   } | null>(null);
@@ -44,7 +103,7 @@ export function StructureTabContent({
       : undefined;
   useEffect(() => {
     if (
-      !isActive ||
+      !rendered ||
       (!nativePointer && (tab.initialStructureAttrs || !tab.entityId.startsWith('saved-view:')))
     )
       return;
@@ -80,7 +139,7 @@ export function StructureTabContent({
           ...(savedSelectionRefs.length ? { savedSelectionRefs } : {}),
         };
         if (!cancelled) {
-          setRestored({ entityId: tab.entityId, attrs });
+          setRestored({ opening, attrs });
           useCanvasStore.getState().updateTab(panelId, tab.id, {
             initialStructureAttrs: attrs,
             label: saved.document.name,
@@ -98,25 +157,35 @@ export function StructureTabContent({
       await viewModule.validateMolecularViewCoordinates(view);
       if (!cancelled)
         setRestored({
-          entityId: tab.entityId,
+          opening,
           attrs: viewModule.molecularViewAttrs(tab.entityId, view, undefined, row!.id),
         });
     })().catch((error: unknown) => {
       if (!cancelled)
         setRestored({
-          entityId: tab.entityId,
+          opening,
           error: toUserMessage(error, 'failure.the-saved-molecular-view-could-not-open'),
         });
     });
     return () => {
       cancelled = true;
     };
-  }, [tab.entityId, tab.id, tab.initialStructureAttrs, nativePointer, panelId, isActive]);
+  }, [tab.entityId, tab.id, tab.initialStructureAttrs, nativePointer, panelId, rendered, opening]);
+  const restoredView = restored?.opening === opening ? restored : undefined;
+  const readError = tab.predictionResult
+    ? prediction?.error && toUserMessage(prediction.error, 'structure.failed')
+    : (restoredView?.error ??
+      (savedView?.error &&
+        toUserMessage(savedView.error, 'failure.the-saved-molecular-view-could-not-open')));
+  useEffect(() => {
+    if (readError) publishStructureRenderError(readError);
+  }, [readError, publishStructureRenderError]);
+
   const structureAttrs = tab.predictionResult
     ? prediction?.attrs
     : (savedView?.attrs ??
       (!nativePointer ? tab.initialStructureAttrs : undefined) ??
-      (restored?.entityId === tab.entityId ? restored.attrs : undefined));
+      restoredView?.attrs);
   const coordinateStructureId = structureAttrs?.structureBinding?.structureId ?? tab.entityId;
   const structureViewId = structureAttrs?.structureViewIdentity?.structureViewId ?? tab.entityId;
   const bindingId = structureAttrs?.structureBinding?.bindingId;
@@ -141,6 +210,7 @@ export function StructureTabContent({
   );
 
   const handleLoad = useCallback(() => {
+    publishStructureRenderError();
     markStructureViewHostInteractive(structureViewId, viewerInstanceId);
     if (!handoff) return;
     acknowledgeStructureViewHandoff({
@@ -149,13 +219,14 @@ export function StructureTabContent({
       viewerInstanceId,
       generation: handoff.generation,
     });
-  }, [handoff, structureViewId, viewerInstanceId]);
+  }, [handoff, publishStructureRenderError, structureViewId, viewerInstanceId]);
 
   const handleError = useCallback(
     (message: string) => {
+      publishStructureRenderError(message);
       if (handoff) failStructureViewHandoff(handoff.transactionId, message);
     },
-    [handoff]
+    [handoff, publishStructureRenderError]
   );
 
   if (tab.predictionResult && !prediction?.attrs)
@@ -170,17 +241,17 @@ export function StructureTabContent({
     return (
       <div role={savedView.error ? 'alert' : 'status'} className="p-3 text-sm">
         {savedView.error != null
-          ? toUserMessage(savedView.error, 'failure.opening-saved-molecular-view')
+          ? toUserMessage(savedView.error, 'failure.the-saved-molecular-view-could-not-open')
           : userMessage('failure.opening-saved-molecular-view')}
       </div>
     );
   if ((nativePointer || tab.entityId.startsWith('saved-view:')) && !structureAttrs) {
-    return restored?.entityId === tab.entityId && restored.error ? (
+    return restoredView?.error ? (
       <div
         role="alert"
         className="flex h-full items-center justify-center p-6 text-sm text-fg-muted"
       >
-        {toUserMessage(restored.error, 'structure.failed')}
+        {toUserMessage(restoredView.error, 'structure.failed')}
       </div>
     ) : (
       <LoadingTab />
@@ -195,7 +266,7 @@ export function StructureTabContent({
       bindingId={bindingId}
       initialStructureAttrs={structureAttrs}
       viewerInstanceId={viewerInstanceId}
-      rendererHostId={`pane:${panelId}`}
+      rendererHostId={rendererHostId}
       navigationAccessory={
         tab.entityId.startsWith('saved-view:') ? (
           <ProteinRunStructureSwitcher
