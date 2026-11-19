@@ -3967,6 +3967,64 @@ describe('IndexedGenomeTab loading screen — phase transitions', () => {
     }
   );
 
+  it('remounts at the retained draft viewport and applies a later explicit restore', async () => {
+    const command = {
+      id: 'opened-view',
+      viewport: { kind: 'assembly-range' as const, start0: 100_000, end0: 102_000 },
+      annotationPolicy: { isoformMode: 'canonical' as const, laneLimit: null },
+      visibleAnnotationTrackIds: ['gene'],
+      orderedAnnotationTrackIds: ['gene'],
+    };
+    const tab: Tab = {
+      ...assemblyIndexedTab(),
+      isDirty: true,
+      viewState: {
+        indexedViewport: { start0: 200_000, end0: 203_000 },
+        indexedAnnotationDraft: {
+          id: command.id,
+          orderedAnnotationTrackIds: ['exon', 'gene'],
+          visibleAnnotationTrackIds: ['exon'],
+          annotationPolicy: { isoformMode: 'expanded', laneLimit: 3 },
+        },
+        indexedGenomeViewRestoreCommand: command,
+      },
+    };
+    resetCanvasStore(tab);
+    const ui = render(<IndexedGenomeTab tab={tab} />);
+    await waitForSessionSubscription();
+    act(() => emitPlatformEvent('genome:sessionUpdated', readySessionUpdate(tab.indexedGenome!)));
+    await waitFor(() =>
+      expect(viewerState.props?.targetViewport).toMatchObject({ start: 200_000, end: 203_000 })
+    );
+    expect(viewerState.props?.annotationVisibilityCommand).toMatchObject({
+      orderedTrackIds: ['exon', 'gene'],
+      visibleTrackIds: ['exon'],
+    });
+    expect(viewerState.props?.annotationMapperPolicy).toEqual({
+      isoformMode: 'expanded',
+      laneLimit: 3,
+    });
+    ui.rerender(
+      <IndexedGenomeTab
+        tab={{
+          ...tab,
+          viewState: {
+            ...tab.viewState,
+            indexedGenomeViewRestoreCommand: { ...command, id: 'explicit-restore' },
+          },
+        }}
+      />
+    );
+    await waitFor(() =>
+      expect(viewerState.props?.targetViewport).toMatchObject({ start: 100_000, end: 102_000 })
+    );
+    expect(viewerState.props?.annotationVisibilityCommand).toMatchObject({
+      orderedTrackIds: ['gene'],
+      visibleTrackIds: ['gene'],
+    });
+    expect(viewerState.props?.annotationMapperPolicy).toEqual(command.annotationPolicy);
+  });
+
   it('formats the coordinate field after restoring a portable view', async () => {
     const tab: Tab = {
       ...assemblyIndexedTab(),
