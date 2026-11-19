@@ -1,8 +1,10 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { reconcileTrackView } from './reconcile-track-view';
 import { mkdir, readdir, readFile, lstat } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import {
   canonicalWorkspacePath,
+  WorkspaceFilePreconditionError,
   writeWorkspaceTextFileAtomicInMain,
 } from './primer-artifact-files';
 import { isPathInsideBoundary } from '../shared/path-boundary';
@@ -11,7 +13,9 @@ import {
   parseTrackViewDocument,
   serializeTrackViewDocument,
   trackViewIdSchema,
+  validateTrackViewDocument,
   type SavedTrackView,
+  type TrackViewDocument,
   type SaveTrackViewRequest,
   type TrackViewList,
 } from '../shared/track-view';
@@ -157,6 +161,50 @@ export class TrackViewLibrary {
     return result;
   }
 
+  private async saveRecoveredCopy(
+    draft: TrackViewDocument,
+    expectedRevision: string,
+    destination: { workspaceRoot: string; path: string }
+  ): Promise<SavedTrackView> {
+    const { creationRequest: _request, updatedAt, ...fields } = draft;
+    const digest = createHash('sha256')
+      .update(expectedRevision)
+      .update(JSON.stringify(fields))
+      .digest('hex');
+    const write = async (suffix: string) => {
+      const id = `track-view-${suffix}`;
+      const path = join(dirname(destination.path), `${id}${TRACK_VIEW_SUFFIX}`);
+      const document = {
+        ...fields,
+        id,
+        name: `${draft.name.slice(0, 183)} (recovered copy)`,
+        createdAt: updatedAt,
+        updatedAt,
+      };
+      try {
+        return await this.save({
+          document,
+          expectedRevision: null,
+          destination: { ...destination, path },
+        });
+      } catch (error) {
+        if (
+          !(error instanceof Error) ||
+          error.message !== 'A track view artifact already exists at that location.'
+        )
+          throw error;
+        const existing = await this.read(path);
+        const sameEdit =
+          serializeTrackViewDocument({ ...existing.document, createdAt: updatedAt, updatedAt }) ===
+          serializeTrackViewDocument(document);
+        return sameEdit ? existing : null;
+      }
+    };
+    const saved = (await write(digest)) ?? (await write(randomUUID()));
+    if (!saved) throw new Error('A recovered Track view already exists at the copy destination.');
+    return { ...saved, reconciliation: 'saved-copy' };
+  }
+
   async save(request: SaveTrackViewRequest): Promise<SavedTrackView> {
     const content = serializeTrackViewDocument(request.document);
     const document = parseTrackViewDocument(content);
@@ -175,16 +223,51 @@ export class TrackViewLibrary {
       throw new Error('Invalid saved Track view revision.');
     }
     await mkdir(this.root, { recursive: true });
-    const result = await writeWorkspaceTextFileAtomicInMain({
-      workspaceRoot: location.workspaceRoot ?? this.root,
-      path,
-      content,
-      artifactNoun: 'track view',
-      mode: request.expectedRevision === null ? 'create' : 'replace',
-      ...(request.expectedRevision === null
-        ? {}
-        : { expectedContentHash: request.expectedRevision }),
-    });
+    let result: Awaited<ReturnType<typeof writeWorkspaceTextFileAtomicInMain>>;
+    try {
+      result = await writeWorkspaceTextFileAtomicInMain({
+        workspaceRoot: location.workspaceRoot ?? this.root,
+        path,
+        content,
+        artifactNoun: 'track view',
+        mode: request.expectedRevision === null ? 'create' : 'replace',
+        ...(request.expectedRevision === null
+          ? {}
+          : { expectedContentHash: request.expectedRevision }),
+      });
+    } catch (error) {
+      if (
+        !(error instanceof WorkspaceFilePreconditionError) ||
+        !request.baseDocument ||
+        !request.expectedRevision
+      )
+        throw error;
+      const current = await this.read(path);
+      if (current.document.id !== document.id)
+        throw new Error('This file belongs to another Track view.');
+      const destination = { path, workspaceRoot: location.workspaceRoot ?? this.root };
+      const baseline = validateTrackViewDocument(request.baseDocument);
+      const capturedDigest = createHash('sha256')
+        .update(`${JSON.stringify(request.baseDocument, null, 2)}\n`)
+        .digest('hex');
+      const merged =
+        capturedDigest === request.expectedRevision
+          ? reconcileTrackView(baseline, document, current.document)
+          : null;
+      if (merged) {
+        try {
+          const saved = await this.save({
+            document: merged,
+            expectedRevision: current.revision,
+            destination,
+          });
+          return { ...saved, reconciliation: 'merged' };
+        } catch (retryError) {
+          if (!(retryError instanceof WorkspaceFilePreconditionError)) throw retryError;
+        }
+      }
+      return this.saveRecoveredCopy(document, request.expectedRevision, destination);
+    }
     let warning = result.cleanupWarning;
     if (location.workspaceRoot) {
       try {

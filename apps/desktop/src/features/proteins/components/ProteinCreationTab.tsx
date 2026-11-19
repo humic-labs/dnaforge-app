@@ -53,7 +53,7 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
         : undefined,
     [context, destinationDir, name, notes, organism, sequence, sourceCds]
   );
-  useUnsavedDraftRecovery<NewDraftPayload>({
+  const { completePublishedDraft } = useUnsavedDraftRecovery<NewDraftPayload>({
     key: context?.persistence === 'draft' ? `new:${tab.id}` : null,
     name: recoveryPayload?.label ?? 'Untitled Protein',
     baseline: NEW_DOCUMENT_BASELINE,
@@ -95,6 +95,7 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
         sourceCds: sourceCds.trim() || undefined,
         notes: notes.trim() || undefined,
       });
+      if (!(await completePublishedDraft())) return false;
       useCanvasStore
         .getState()
         .retargetTab(
