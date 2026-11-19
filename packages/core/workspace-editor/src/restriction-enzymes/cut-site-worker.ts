@@ -1,9 +1,9 @@
-import {
-  scanAllStreaming,
-  type CutSiteWorkerRequest,
-  type CutSiteWorkerResponse,
-  type ThinCutSiteHit,
+import type {
+  CutSiteWorkerRequest,
+  CutSiteWorkerResponse,
+  ThinCutSiteHit,
 } from '@waypoint/sequence-utils';
+import { scanAllStreaming } from '@waypoint/sequence-utils/restriction-enzymes/cut-site-stream';
 
 const ctx = self as typeof self & {
   postMessage: (msg: CutSiteWorkerResponse) => void;
