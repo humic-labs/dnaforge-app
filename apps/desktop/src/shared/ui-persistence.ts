@@ -4,6 +4,7 @@ import type { ActivityView } from './activity-view';
 const EXPANDED_PATHS_PREFIX = 'waypoint:file-tree-expanded:';
 const SIDEBAR_STATE_KEY = 'waypoint:sidebar-state';
 const SCHEMA_VERSION = 1;
+const SIDEBAR_SCHEMA_VERSION = 2;
 
 export const EXPANDED_PATHS_PER_ROOT_CAP = 500;
 
@@ -168,21 +169,27 @@ export function readSidebarState(): SidebarState {
   if (!parsed || typeof parsed !== 'object') return { ...SIDEBAR_DEFAULTS };
 
   const record = parsed as Partial<SidebarState> & { v?: number };
-  if (record.v !== SCHEMA_VERSION) return { ...SIDEBAR_DEFAULTS };
+  if (record.v !== 1 && record.v !== SIDEBAR_SCHEMA_VERSION) return { ...SIDEBAR_DEFAULTS };
 
   const storedView = record.activeView as ActivityView | undefined;
   const viewIsRestorable = !!storedView && RESTORABLE_VIEWS.has(storedView);
 
   return {
     activeView: viewIsRestorable ? storedView : 'files',
-    sidebarVisible: viewIsRestorable ? record.sidebarVisible !== false : true,
+    sidebarVisible:
+      !viewIsRestorable ||
+      (record.v === 1 && storedView === 'terminal') ||
+      record.sidebarVisible !== false,
     sidebarWidth: clampWidth(record.sidebarWidth),
   };
 }
 
 export function writeSidebarState(state: SidebarState): void {
   try {
-    localStorage.setItem(SIDEBAR_STATE_KEY, JSON.stringify({ v: SCHEMA_VERSION, ...state }));
+    localStorage.setItem(
+      SIDEBAR_STATE_KEY,
+      JSON.stringify({ v: SIDEBAR_SCHEMA_VERSION, ...state })
+    );
   } catch (err) {
     warnOnce('sidebar', err);
   }
