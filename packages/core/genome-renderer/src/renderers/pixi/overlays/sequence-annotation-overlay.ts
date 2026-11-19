@@ -732,7 +732,6 @@ export class SequenceAnnotationOverlay implements RetainedOverlayTrack {
     this.floatingLabels = new FloatingAnnotationLabelPresenter({
       container: this.container,
       features: () => this.features,
-      featureForId: (featureId) => this.featureById.get(featureId),
       candidatesForPath: (path, preloadMargin) =>
         this.featureWindowIndex.candidatesForPath(path, this.features, preloadMargin, {
           forceWindowing: true,

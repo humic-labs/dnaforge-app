@@ -119,7 +119,6 @@ function createHost(
   source: readonly Feature[],
   requestFrame: () => void
 ): FloatingAnnotationLabelPresenterHost & { readonly windowQueries: () => number } {
-  const byId = new Map(source.map((feature) => [feature.id, feature]));
 
   const inRange = (startBp: number, endBp: number): Feature[] => {
     let low = 0;
@@ -142,7 +141,6 @@ function createHost(
   return {
     container: new Container(),
     features: () => source,
-    featureForId: (featureId) => byId.get(featureId),
     candidatesForPath: (viewPath, preloadMargin) => {
       windowQueries += 1;
       const marginBp = preloadMargin / viewPath.pixelsPerBp;

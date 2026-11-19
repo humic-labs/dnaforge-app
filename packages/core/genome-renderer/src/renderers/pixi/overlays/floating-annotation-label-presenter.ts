@@ -151,7 +151,6 @@ export interface FloatingAnnotationCalloutRecord {
 export interface FloatingAnnotationLabelPresenterHost {
   readonly container: Container;
   readonly features: () => readonly Feature[];
-  readonly featureForId: (featureId: number) => Feature | undefined;
   readonly candidatesForPath: (path: PathMapper, preloadMargin: number) => readonly Feature[];
   readonly featuresInRange: (startBp: number, endBp: number) => readonly Feature[];
   readonly genomeLength: () => number;
@@ -171,6 +170,12 @@ export interface FloatingAnnotationLabelPresenterHost {
   readonly requestFrame?: () => void;
 }
 
+interface FloatingAnnotationBodyDescriptor extends FloatingAnnotationLabelDescriptor {
+  readonly startBp: number;
+  readonly endBp: number;
+  readonly offset: number;
+}
+
 interface FloatingAnnotationLabelAssignmentCache {
   readonly key: string;
   readonly zoomBandIndex: number;
@@ -178,7 +183,7 @@ interface FloatingAnnotationLabelAssignmentCache {
   readonly zoomBandMaxPixelsPerBp: number;
   readonly densityPoolCount: number;
   readonly densityTargetCount: number;
-  readonly descriptorsByFeatureId: ReadonlyMap<number, FloatingAnnotationLabelDescriptor>;
+  readonly descriptorsByFeatureId: ReadonlyMap<number, FloatingAnnotationBodyDescriptor>;
   readonly plan: FloatingAnnotationLabelAssignmentPlan;
 }
 
@@ -201,7 +206,7 @@ interface FloatingAnnotationLabelPreparedAssignment {
   readonly densityPoolCount: number;
   readonly densityTargetCount: number;
   readonly descriptors: readonly FloatingAnnotationLabelDescriptor[];
-  readonly descriptorsByFeatureId: ReadonlyMap<number, FloatingAnnotationLabelDescriptor>;
+  readonly descriptorsByFeatureId: ReadonlyMap<number, FloatingAnnotationBodyDescriptor>;
 }
 
 interface FloatingAnnotationLabelActivePrewarm {
@@ -218,7 +223,7 @@ interface FloatingAnnotationLabelPreparingPrewarm {
   readonly densityPoolCount: number;
   readonly densityTargetCount: number;
   readonly descriptors: FloatingAnnotationLabelDescriptor[];
-  readonly descriptorsByFeatureId: Map<number, FloatingAnnotationLabelDescriptor>;
+  readonly descriptorsByFeatureId: Map<number, FloatingAnnotationBodyDescriptor>;
   featureIndex: number;
 }
 
@@ -610,7 +615,7 @@ export class FloatingAnnotationLabelPresenter {
     feature: Feature,
     minPixelsPerBp: number,
     maxPixelsPerBp: number
-  ): FloatingAnnotationLabelDescriptor | null {
+  ): FloatingAnnotationBodyDescriptor | null {
     if (!feature.displayName || (feature.type === 'CDS' && this.host.cdsDetailProgress() > 0.01)) {
       return null;
     }
@@ -633,6 +638,9 @@ export class FloatingAnnotationLabelPresenter {
     const outwardRail = offset + outwardSide * (this.host.barHeight() / 2);
     return {
       featureId: feature.id,
+      startBp: bodyRange.startBp,
+      endBp: bodyRange.endBp,
+      offset,
       text: measured.text,
       stableOrder: [this.priorityRankByFeatureId.get(feature.id) ?? feature.start, feature.id],
       sequenceCenterBp: bodyRange.startBp + bodyRange.lengthBp / 2,
@@ -651,15 +659,12 @@ export class FloatingAnnotationLabelPresenter {
   }
 
   private localOutwardClearance(
-    feature: Feature,
-    descriptor: FloatingAnnotationLabelDescriptor,
+    descriptor: FloatingAnnotationBodyDescriptor,
+    ownOuterEdge: number,
     minPixelsPerBp: number,
     layoutCenterMinBp: number,
     layoutCenterMaxBp: number
   ): number {
-    const halfBarHeight = this.host.barHeight() / 2;
-    const ownOffset = this.host.featureOffset(feature);
-    const ownOuterEdge = ownOffset + descriptor.outwardSide * halfBarHeight;
     const halfLabelSpanBp = (descriptor.textWidth / 2 + 3) / Math.max(minPixelsPerBp, 1e-9);
     const rawStart = Math.min(layoutCenterMinBp, layoutCenterMaxBp) - halfLabelSpanBp;
     const rawEnd = Math.max(layoutCenterMinBp, layoutCenterMaxBp) + halfLabelSpanBp;
@@ -722,7 +727,7 @@ export class FloatingAnnotationLabelPresenter {
       maxCandidates: densityPoolCount,
     });
     const descriptors: FloatingAnnotationLabelDescriptor[] = [];
-    const descriptorsByFeatureId = new Map<number, FloatingAnnotationLabelDescriptor>();
+    const descriptorsByFeatureId = new Map<number, FloatingAnnotationBodyDescriptor>();
     ptime('annotation.floating-label-assignment-descriptors', () => {
       for (const feature of this.priorityFeatures) {
         const prepared = this.prepareAssignmentDescriptor(feature, minPixelsPerBp, maxPixelsPerBp);
@@ -746,11 +751,10 @@ export class FloatingAnnotationLabelPresenter {
     feature: Feature,
     minPixelsPerBp: number,
     maxPixelsPerBp: number
-  ): FloatingAnnotationLabelDescriptor | null {
+  ): FloatingAnnotationBodyDescriptor | null {
     const baseDescriptor = this.descriptor(feature, minPixelsPerBp, maxPixelsPerBp);
     if (!baseDescriptor) return null;
-    const ownOffset = this.host.featureOffset(feature);
-    const ownOuterRail = ownOffset + baseDescriptor.outwardSide * (this.host.barHeight() / 2);
+    const ownOuterRail = baseDescriptor.placementOptions[0].outwardRail;
     const placementOptions: FloatingAnnotationLabelPlacementOption[] = [];
     for (const tangentStep of FLOATING_LABEL_TANGENT_STEPS) {
       const centerAtMinPixelsPerBp =
@@ -763,8 +767,8 @@ export class FloatingAnnotationLabelPresenter {
       const layoutCenterMaxBp = Math.max(centerAtMinPixelsPerBp, centerAtMaxPixelsPerBp);
       const layoutCenterBp = (layoutCenterMinBp + layoutCenterMaxBp) / 2;
       const outwardClearance = this.localOutwardClearance(
-        feature,
         baseDescriptor,
+        ownOuterRail,
         minPixelsPerBp,
         layoutCenterMinBp,
         layoutCenterMaxBp
@@ -1194,20 +1198,16 @@ export class FloatingAnnotationLabelPresenter {
   }
 
   private candidate(
-    feature: Feature,
-    descriptor: FloatingAnnotationLabelDescriptor,
+    descriptor: FloatingAnnotationBodyDescriptor,
     path: PathMapper,
     state: RenderState,
     preloadMargin: number,
     radialCenter: { readonly x: number; readonly y: number } | null
   ): FloatingAnnotationLabelCandidate | null {
-    const bodyRange = this.bodyRange(feature);
-    if (!bodyRange) return null;
-    const pixelWidth = bodyRange.lengthBp * path.pixelsPerBp;
+    const { startBp, endBp, offset } = descriptor;
+    const pixelWidth = (endBp - startBp) * path.pixelsPerBp;
     if (!Number.isFinite(pixelWidth) || pixelWidth > MIN_BAR_FOR_LABEL) return null;
-    const offset = this.host.featureOffset(feature);
-    const centerBp = bodyRange.startBp + bodyRange.lengthBp / 2;
-    const center = path.featureLabelPosAt(centerBp, offset);
+    const center = path.featureLabelPosAt(descriptor.sequenceCenterBp, offset);
 
     const barHeight = this.host.barHeight();
     const reach = preloadMargin + descriptor.textWidth + pixelWidth + barHeight;
@@ -1219,8 +1219,6 @@ export class FloatingAnnotationLabelPresenter {
     ) {
       return null;
     }
-    const normal = { x: -Math.sin(center.angle), y: Math.cos(center.angle) };
-    const outwardSign = offset <= 0 ? -1 : 1;
     const radial = radialCenter
       ? { x: center.x - radialCenter.x, y: center.y - radialCenter.y }
       : null;
@@ -1228,13 +1226,11 @@ export class FloatingAnnotationLabelPresenter {
     const outward =
       radial && radialLength > 1e-9
         ? { x: radial.x / radialLength, y: radial.y / radialLength }
-        : { x: normal.x * outwardSign, y: normal.y * outwardSign };
-    const bodyPoints = path.featurePolygonAt(
-      bodyRange.startBp,
-      bodyRange.endBp,
-      offset,
-      barHeight / 2
-    );
+        : {
+            x: -Math.sin(center.angle) * descriptor.outwardSide,
+            y: Math.cos(center.angle) * descriptor.outwardSide,
+          };
+    const bodyPoints = path.featurePolygonAt(startBp, endBp, offset, barHeight / 2);
     if (bodyPoints.length < 6) return null;
     const bodyBounds = computeBBox(bodyPoints);
     const expandedMargin = preloadMargin + descriptor.textWidth;
@@ -1267,21 +1263,21 @@ export class FloatingAnnotationLabelPresenter {
     if (state.width <= 0 || state.height <= 0 || !this.host.shouldRenderFeatureText(path))
       return [];
     const pool = assignmentCache.descriptorsByFeatureId;
-    const windowFeatures = this.windowFeatures(path, preloadMargin, pool);
-    this.windowFeatureCount = windowFeatures.length;
+    const windowFeatures = this.windowFeatures(path, preloadMargin, pool.size);
     const candidates: FloatingAnnotationLabelCandidate[] = [];
-    for (const feature of windowFeatures) {
-      const descriptor = pool.get(feature.id);
-      if (!descriptor) continue;
-      const candidate = this.candidate(
-        feature,
-        descriptor,
-        path,
-        state,
-        preloadMargin,
-        radialCenter
-      );
+    const collect = (descriptor: FloatingAnnotationBodyDescriptor): void => {
+      const candidate = this.candidate(descriptor, path, state, preloadMargin, radialCenter);
       if (candidate) candidates.push(candidate);
+    };
+    if (windowFeatures) {
+      this.windowFeatureCount = windowFeatures.length;
+      for (const feature of windowFeatures) {
+        const descriptor = pool.get(feature.id);
+        if (descriptor) collect(descriptor);
+      }
+    } else {
+      this.windowFeatureCount = pool.size;
+      for (const descriptor of pool.values()) collect(descriptor);
     }
     return candidates;
   }
@@ -1289,8 +1285,8 @@ export class FloatingAnnotationLabelPresenter {
   private windowFeatures(
     path: PathMapper,
     preloadMargin: number,
-    pool: ReadonlyMap<number, FloatingAnnotationLabelDescriptor>
-  ): readonly Feature[] {
+    poolSize: number
+  ): readonly Feature[] | null {
     const features = this.host.features();
     const genomeLength = this.host.genomeLength();
     const marginBp = preloadMargin / Math.max(path.pixelsPerBp, 1e-9);
@@ -1299,14 +1295,7 @@ export class FloatingAnnotationLabelPresenter {
       genomeLength > 0 && Number.isFinite(windowBp)
         ? features.length * Math.min(1, windowBp / genomeLength)
         : features.length;
-    if (pool.size <= estimatedWindowCount) {
-      const poolFeatures: Feature[] = [];
-      for (const featureId of pool.keys()) {
-        const feature = this.host.featureForId(featureId);
-        if (feature) poolFeatures.push(feature);
-      }
-      return poolFeatures;
-    }
+    if (poolSize <= estimatedWindowCount) return null;
     return this.host.candidatesForPath(path, preloadMargin);
   }
 
