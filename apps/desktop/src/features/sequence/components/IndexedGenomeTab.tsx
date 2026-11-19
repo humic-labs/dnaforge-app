@@ -914,14 +914,20 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
   const initialIndexedViewportRef = useRef<{
     tabId: string;
     range: { start0: number; end0: number } | null;
+    restoreId?: string;
+    annotation?: NonNullable<Tab['viewState']>['indexedAnnotationDraft'];
   }>({
     tabId: tab.id,
     range: tab.viewState?.indexedViewport ?? null,
+    restoreId: tab.viewState?.indexedGenomeViewRestoreCommand?.id,
+    annotation: tab.viewState?.indexedAnnotationDraft,
   });
   if (initialIndexedViewportRef.current.tabId !== tab.id) {
     initialIndexedViewportRef.current = {
       tabId: tab.id,
       range: tab.viewState?.indexedViewport ?? null,
+      restoreId: tab.viewState?.indexedGenomeViewRestoreCommand?.id,
+      annotation: tab.viewState?.indexedAnnotationDraft,
     };
   }
   const appliedInitialIndexedViewportRef = useRef<string | null>(null);
@@ -1188,7 +1194,19 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         ? { isoformMode: requested.isoformMode, laneLimit: requested.laneLimit }
         : { ...DEFAULT_INDEXED_ANNOTATION_MAPPER_POLICY };
     });
-  const portableViewRestoreCommand = tab.viewState?.indexedGenomeViewRestoreCommand;
+  const issuedRestoreCommand = tab.viewState?.indexedGenomeViewRestoreCommand;
+  const initialDraft = initialIndexedViewportRef.current;
+  const portableViewRestoreCommand = useMemo(() => {
+    if (!issuedRestoreCommand || issuedRestoreCommand.id !== initialDraft.restoreId)
+      return issuedRestoreCommand;
+    return {
+      ...issuedRestoreCommand,
+      ...(initialDraft.annotation?.id === issuedRestoreCommand.id ? initialDraft.annotation : {}),
+      ...(initialDraft.range
+        ? { viewport: { kind: 'assembly-range' as const, ...initialDraft.range } }
+        : {}),
+    };
+  }, [issuedRestoreCommand, initialDraft]);
   const appliedPortableViewRestoreCommandRef = useRef<string | null>(null);
   useEffect(() => {
     if (
@@ -1227,6 +1245,54 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
   const commitAnnotationMapperPolicy = useCallback((next: IndexedGenomeAnnotationMapperPolicy) => {
     setAnnotationMapperPolicy(next);
   }, []);
+  useEffect(() => {
+    if (
+      !issuedRestoreCommand ||
+      committedViewRestoreId !== issuedRestoreCommand.id ||
+      !orderedAnnotationTrackIds ||
+      !visibleAnnotationTrackIds
+    )
+      return;
+    const canvas = useCanvasStore.getState();
+    const panel = Object.values(canvas.panels).find((panel) =>
+      panel.tabs.some((t) => t.id === tab.id)
+    );
+    const current = panel?.tabs.find((t) => t.id === tab.id);
+    if (
+      !panel ||
+      current?.viewState?.indexedGenomeViewRestoreCommand?.id !== issuedRestoreCommand.id
+    )
+      return;
+    const previous =
+      current.viewState.indexedAnnotationDraft?.id === issuedRestoreCommand.id
+        ? current.viewState.indexedAnnotationDraft
+        : issuedRestoreCommand;
+    const visible = [...visibleAnnotationTrackIds];
+    if (
+      previous.annotationPolicy.isoformMode === annotationMapperPolicy.isoformMode &&
+      previous.annotationPolicy.laneLimit === annotationMapperPolicy.laneLimit &&
+      previous.visibleAnnotationTrackIds.length === visible.length &&
+      previous.visibleAnnotationTrackIds.every((id) => visibleAnnotationTrackIds.has(id)) &&
+      previous.orderedAnnotationTrackIds.length === orderedAnnotationTrackIds.length &&
+      previous.orderedAnnotationTrackIds.every((id, i) => id === orderedAnnotationTrackIds[i])
+    )
+      return;
+    canvas.setTabViewState(panel.id, tab.id, {
+      indexedAnnotationDraft: {
+        id: issuedRestoreCommand.id,
+        annotationPolicy: annotationMapperPolicy,
+        orderedAnnotationTrackIds: [...orderedAnnotationTrackIds],
+        visibleAnnotationTrackIds: visible,
+      },
+    });
+  }, [
+    annotationMapperPolicy,
+    committedViewRestoreId,
+    issuedRestoreCommand,
+    orderedAnnotationTrackIds,
+    tab.id,
+    visibleAnnotationTrackIds,
+  ]);
   const [savingPortableView, setSavingPortableView] = useState(false);
   const savePortableView = useCallback(async () => {
     const current = indexedStateRef.current;

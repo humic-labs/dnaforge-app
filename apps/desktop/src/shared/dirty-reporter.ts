@@ -9,6 +9,7 @@ import type { DirtyWorkItem } from './dirty-work-state';
 import { isDesktopRuntime } from '../utils/environment';
 import { isTabDirty, saveTargetForTab } from '../features/canvas/artifact-document-lifecycle';
 import { documentLifecycle } from './document-lifecycle';
+import { classifyTabSession } from '../features/canvas/tab-document-session';
 import { useCanvasStore } from '../features/canvas/store';
 import { isKnownTabType, quitWorkPhrase, TAB_TYPES, type TabType } from './tab-kind';
 import {
@@ -17,6 +18,7 @@ import {
 } from '../features/design/design-recovery';
 
 export function initDirtyReporter(): () => void {
+  let lastReport: string | undefined;
   const publish = () => {
     try {
       const dirtyPageIds = [...usePageStore.getState().dirtyIds];
@@ -53,7 +55,7 @@ export function initDirtyReporter(): () => void {
         }))
       );
 
-      platform().app.reportDirtyState({
+      const report = {
         hasDirtyWork,
         details,
         dirtyPageIds,
@@ -61,7 +63,12 @@ export function initDirtyReporter(): () => void {
         dirtyTabIds,
         dirtyFilePaths,
         ...(isDesktopRuntime() ? { dirtyItems } : {}),
-      });
+      };
+      const serialized = JSON.stringify(report);
+      if (serialized !== lastReport) {
+        platform().app.reportDirtyState(report);
+        lastReport = serialized;
+      }
     } catch (err) {
       console.warn('[DirtyReporter] Failed to report dirty state:', err);
     }
@@ -79,12 +86,14 @@ export function initDirtyReporter(): () => void {
     if (state.panels !== prev.panels) publish();
   });
   const unsubDesign = useDesignRecoveryStore.subscribe(publish);
+  const unsubLifecycle = documentLifecycle.subscribe(publish);
 
   return () => {
     unsubPage();
     unsubSequence();
     unsubCanvas();
     unsubDesign();
+    unsubLifecycle();
   };
 }
 
@@ -130,14 +139,23 @@ export async function saveAllUnsavedWork(): Promise<void> {
     for (const tab of panel.tabs) {
       if (!isTabDirty(tab)) continue;
       const target = saveTargetForTab(tab);
-      if (target.kind === 'sequence-document') continue;
+      if (
+        target.kind === 'sequence-document' &&
+        classifyTabSession(tab).kind !== 'sequence-assembly'
+      )
+        continue;
       if (
         nativeDocumentsSettled &&
         target.kind === 'file' &&
         ownsNativeFileDocument(target.filePath)
       )
         continue;
-      pending.push(documentLifecycle.save(target, tab.id));
+      if (target.kind === 'tab' && tab.trackView && !documentLifecycle.has(target, tab.id)) {
+        const { getTrackViewSession } =
+          await import('../features/sequence/public/track-view-control');
+        getTrackViewSession(tab.id);
+      }
+      pending.push(documentLifecycle.save(target, tab.id, 'all'));
     }
   }
   const results = await Promise.allSettled(pending);

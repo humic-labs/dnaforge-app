@@ -98,6 +98,92 @@ describe('Track view file authority', () => {
     expect(JSON.parse(await readFile(path, 'utf8')).name).toBe('Updated view');
   });
 
+  it('reconciles a restored viewport with a newer track setting on disk', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'track-view-reconcile-'));
+    roots.push(root);
+    const library = new TrackViewLibrary(root);
+    const base = await library.save({ document: trackViewFixture(), expectedRevision: null });
+    const annotation = {
+      ...base.document.annotation,
+      policy: { isoformMode: 'expanded', laneLimit: 5 },
+    };
+    await library.save({
+      document: { ...base.document, annotation },
+      expectedRevision: base.revision,
+    });
+    const viewport = { start0: 404, end0: 800 };
+    const document = { ...base.document, viewport, scope: { kind: 'chromosome', chrom: 'pUC19' } };
+    const reopened = new TrackViewLibrary(root);
+    const result = await reopened.save({
+      document,
+      baseDocument: base.document,
+      expectedRevision: base.revision,
+    });
+    expect(result.reconciliation).toBe('merged');
+    expect(result.path).toBe(base.path);
+    expect((await reopened.read(base.document.id)).document).toMatchObject({
+      viewport,
+      scope: document.scope,
+      annotation,
+    });
+  });
+
+  it('combines independent edits to the same alignment track and preserves its source', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'track-view-merge-lane-'));
+    roots.push(root);
+    const library = new TrackViewLibrary(root);
+    const track = {
+      trackId: 'reads',
+      label: 'Reads',
+      visible: true,
+      trackPx: 340,
+      laneHeightPx: 4,
+      coverageCutoffDepth: 80,
+      source: { bamPath: '/reference/reads.bam', indexPath: '/reference/reads.bam.bai' },
+    };
+    const base = await library.save({
+      document: { ...trackViewFixture(), bamTracks: [track] },
+      expectedRevision: null,
+    });
+    await library.save({
+      document: { ...base.document, bamTracks: [{ ...track, trackPx: 276, laneHeightPx: 3 }] },
+      expectedRevision: base.revision,
+    });
+    const local = { ...base.document, bamTracks: [{ ...track, coverageCutoffDepth: 0 }] };
+    const saved = await library.save({
+      document: local,
+      expectedRevision: base.revision,
+      baseDocument: base.document,
+    });
+    expect(saved.reconciliation).toBe('merged');
+    const reopened = await new TrackViewLibrary(root).read(base.document.id);
+    expect(reopened.document.bamTracks).toEqual([
+      { ...track, trackPx: 276, laneHeightPx: 3, coverageCutoffDepth: 0 },
+    ]);
+  });
+
+  it('keeps both versions of an overlapping viewport edit under distinct saved identities', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'track-view-conflict-'));
+    roots.push(root);
+    const library = new TrackViewLibrary(root);
+    const base = await library.save({ document: trackViewFixture(), expectedRevision: null });
+    const newer = await library.save({
+      document: { ...base.document, viewport: { start0: 300, end0: 550 } },
+      expectedRevision: base.revision,
+    });
+    const document = { ...base.document, viewport: { start0: 50, end0: 200 } };
+    const draft = { document, baseDocument: base.document, expectedRevision: base.revision };
+    const recovered = await library.save(draft);
+    expect(recovered.reconciliation).toBe('saved-copy');
+    expect(recovered.document.id).not.toBe(base.document.id);
+    expect((await library.read(recovered.document.id)).document.viewport).toEqual(
+      document.viewport
+    );
+    expect(await library.read(base.document.id)).toEqual(newer);
+    expect((await library.save(draft)).document.id).toBe(recovered.document.id);
+    expect((await library.list()).views).toHaveLength(2);
+  });
+
   it('does not follow a symlink out of the personal library when opening a view', async () => {
     const root = await mkdtemp(join(tmpdir(), 'track-view-test-'));
     roots.push(root);
