@@ -184,7 +184,7 @@
 }
 .wp-menu-native-select-control {
   appearance: none;
-  padding-inline-end: calc(var(--menu-padding-inline) + 12px + var(--menu-slot-gap));
+  padding-inline-end: max(28px, calc(var(--menu-padding-inline) + 12px + var(--menu-slot-gap)));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
