@@ -1,3 +1,9 @@
+import { withUserMessage, userMessagePayload, userMessageValue } from '@waypoint/user-messages';
+import {
+  ProteinProjectionError,
+  type PublishedProteinDraft,
+  type RecordProteinInput,
+} from './protein-artifact-owner';
 import { computeChecksum } from '@waypoint/sequence-utils';
 import {
   bindCatalogEntityToFile,
@@ -12,7 +18,7 @@ import { limsEntityArtifactAdapter } from '../../db/entity-substrate/lims-entity
 import { platform } from '../../platform';
 import { updateLimsEntity } from '../../services/lims-entity-mutations';
 import { serializeAminoAcidFasta } from '../../shared/amino-acid-sequence';
-import { isSafeWorkspaceRelativePath } from '../../shared/path-boundary';
+import { isSafeWorkspaceRelativePath, pathRelativeToBoundary } from '../../shared/path-boundary';
 import {
   LIMS_GIT_EXPORT_RELATIVE_PATH,
   type AminoAcidSequenceRef,
@@ -71,7 +77,7 @@ function joinPath(left: string, right: string): string {
 }
 
 async function readProteinEntityArtifactRevision(input: {
-  entity: LimsEntity;
+  entityId: string;
   locator: { relativePath: string };
   workspaceRoot: string;
   workspaceId: number;
@@ -80,7 +86,7 @@ async function readProteinEntityArtifactRevision(input: {
   if (!(await platform().fs.exists(artifactPath))) return null;
   const content = await platform().fs.readTextFile(artifactPath);
   const artifact = parseEntityArtifact(content);
-  if (artifact.id !== input.entity.id || artifact.kind !== 'protein') return null;
+  if (artifact.id !== input.entityId || artifact.kind !== 'protein') return null;
   return {
     artifact,
     artifactPath,
@@ -114,7 +120,7 @@ export async function resolveProteinEntityArtifactRevision(input: {
   const ownerRoot = await getWorkspaceRootById(input.entity.workspaceId);
   if (ownerRoot && input.entity.workspaceId != null) {
     const revision = await readProteinEntityArtifactRevision({
-      entity: input.entity,
+      entityId: input.entity.id,
       locator: artifactLocator,
       workspaceRoot: ownerRoot,
       workspaceId: input.entity.workspaceId,
@@ -127,7 +133,7 @@ export async function resolveProteinEntityArtifactRevision(input: {
     const workspaceId = await resolveWorkspaceId(workspaceRoot);
     if (workspaceId == null) continue;
     const revision = await readProteinEntityArtifactRevision({
-      entity: input.entity,
+      entityId: input.entity.id,
       locator: artifactLocator,
       workspaceRoot,
       workspaceId,
@@ -159,8 +165,55 @@ async function savePackageProteinSequence(input: {
 }): Promise<SaveProteinSequenceResult> {
   const resolution = await resolveProteinEntityArtifactRevision(input);
   if (resolution.status === 'missing-authority') return resolution;
-  const { revision } = resolution;
-  const expectedContentHash = normalizeSha256(input.expectedContentHash);
+  return writePackageProteinRevision(resolution.revision, input.bases, input.expectedContentHash);
+}
+
+export async function updatePublishedProteinDraft(
+  input: RecordProteinInput,
+  published: PublishedProteinDraft
+) {
+  if (!input.name.trim()) throw new Error('Protein name is required.');
+  if (!published.id || !isSafeWorkspaceRelativePath(published.relativePath)) {
+    throw new Error('The original protein package location is unavailable.');
+  }
+  const path = joinPath(input.workspaceRoot, published.relativePath);
+  const fileName = pathRelativeToBoundary(
+    path,
+    input.dir ?? joinPath(input.workspaceRoot, 'proteins')
+  );
+  if (!fileName || fileName.includes('/') || fileName.includes('\\')) {
+    throw withUserMessage(
+      new Error('The original protein destination changed.'),
+      userMessagePayload('document.saveLocationChanged', { name: userMessageValue(input.name) })
+    );
+  }
+  const workspaceId = await resolveWorkspaceId(input.workspaceRoot);
+  if (workspaceId == null) throw new Error('The original protein project is unavailable.');
+  const revision = await readProteinEntityArtifactRevision({
+    entityId: published.id,
+    locator: { relativePath: published.relativePath },
+    workspaceRoot: input.workspaceRoot,
+    workspaceId,
+  });
+  if (!revision) throw new Error('The original protein package is unavailable.');
+  const bases = normalizeProteinSequence(input.sequence);
+  const error = proteinSequenceValidationError(bases);
+  if (error) throw new Error(error);
+  const result = await writePackageProteinRevision(revision, bases, published.contentHash, input);
+  return {
+    artifactPath: published.relativePath,
+    contentHash: result.expectedContentHash,
+    limsEntity: result.entity,
+  };
+}
+
+async function writePackageProteinRevision(
+  revision: ProteinEntityArtifactRevision,
+  bases: string,
+  previousHash: string,
+  draft?: RecordProteinInput
+): Promise<SavedProteinSequence> {
+  const expectedContentHash = normalizeSha256(previousHash);
   if (!expectedContentHash) throw new Error('The opened protein revision is unavailable.');
   if (normalizeSha256(revision.contentHash) !== expectedContentHash) {
     throw new Error('This protein package changed after it was opened. Reopen it before saving.');
@@ -178,9 +231,13 @@ async function savePackageProteinSequence(input: {
     throw new Error('Protein file and Registry disagree. Preserve both versions before saving.');
   const nextArtifact: EntityArtifact = {
     ...revision.artifact,
+    ...(draft ? { name: draft.name.trim() } : {}),
     fields: {
       ...revision.artifact.fields,
-      sequence: await buildInlineProteinSequenceRef(input.bases),
+      ...(draft
+        ? { sourceCds: draft.sourceCds, organism: draft.organism, notes: draft.notes }
+        : {}),
+      sequence: await buildInlineProteinSequenceRef(bases),
     },
   };
   const content = serializeEntityArtifact(nextArtifact);
@@ -192,41 +249,52 @@ async function savePackageProteinSequence(input: {
     expectedContentHash,
     artifactNoun: 'protein package',
   });
-  const stat = await platform().fs.stat(revision.artifactPath);
-  const projected = await reconcileEntityFile(
-    limsEntityArtifactAdapter,
-    content,
-    revision.artifactPath,
-    stat.mtime,
-    {
-      workspaceRoot: revision.workspaceRoot,
-      workspaceId: revision.workspaceId,
-    }
-  );
-  if (projected.outcome === 'conflict')
-    throw new Error(
-      'Protein file was saved, but Registry has a conflicting edit. Preserve both versions before continuing.'
+  try {
+    const stat = await platform().fs.stat(revision.artifactPath);
+    const projected = await reconcileEntityFile(
+      limsEntityArtifactAdapter,
+      content,
+      revision.artifactPath,
+      stat.mtime,
+      {
+        workspaceRoot: revision.workspaceRoot,
+        workspaceId: revision.workspaceId,
+      }
     );
-  const [entity] = await queryLimsEntities({
-    id: input.entity.id,
-    includeArchived: true,
-    limit: 1,
-  });
-  if (!entity)
-    throw new Error('Registry projection did not return after saving the protein package.');
-  if (await isGitRepo(revision.workspaceRoot)) {
-    await gitCommitPaths(revision.workspaceRoot, `Update protein ${entity.name}`, [
+    if (projected.outcome === 'conflict')
+      throw new Error(
+        'Protein file was saved, but Registry has a conflicting edit. Preserve both versions before continuing.'
+      );
+    const [entity] = await queryLimsEntities({
+      id: revision.artifact.id,
+      includeArchived: true,
+      limit: 1,
+    });
+    if (!entity)
+      throw new Error('Registry projection did not return after saving the protein package.');
+    if (await isGitRepo(revision.workspaceRoot)) {
+      await gitCommitPaths(revision.workspaceRoot, `Update protein ${entity.name}`, [
+        revision.relativePath,
+        LIMS_GIT_EXPORT_RELATIVE_PATH,
+      ]);
+    }
+    emitLimsRegistrationChanged({ filePath: revision.artifactPath, entityId: entity.id });
+    return {
+      status: 'saved',
+      entity,
+      bases,
+      expectedContentHash: write.contentHash,
+    };
+  } catch (error) {
+    if (!draft) throw error;
+    throw new ProteinProjectionError(
       revision.relativePath,
-      LIMS_GIT_EXPORT_RELATIVE_PATH,
-    ]);
+      revision.artifactPath,
+      nextArtifact,
+      false,
+      error
+    );
   }
-  emitLimsRegistrationChanged({ filePath: revision.artifactPath, entityId: entity.id });
-  return {
-    status: 'saved',
-    entity,
-    bases: input.bases,
-    expectedContentHash: write.contentHash,
-  };
 }
 
 async function saveLegacyProteinSequence(input: {

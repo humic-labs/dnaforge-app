@@ -1,8 +1,15 @@
+import { useDocumentDraft } from '../../../shared/use-document-draft';
+import {
+  documentLifecycle,
+  type DocumentSaveAcknowledgement,
+} from '../../../shared/document-lifecycle';
 import { reportSaveFailure } from '../../../lib/report-save-failure';
 import { useDocumentLifecycle } from '../../../shared/use-document-lifecycle';
 import { toUserMessage, userMessageWithValues, userMessageValue } from '@waypoint/user-messages';
 import { Button, TextField, TextArea } from '../../../components/ui';
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { computeChecksum } from '@waypoint/sequence-utils';
+import { serializeEntityArtifact } from '../../lims/public/entity-artifact';
 import type { Tab } from '../../canvas/public/types';
 import { useCanvasStore } from '../../canvas/public/store';
 import { SequenceDrawer } from '../../sequence/public/components/SequenceDrawer';
@@ -12,7 +19,12 @@ import {
   normalizeProteinSequence,
   proteinSequenceValidationError,
 } from '../../lims/public/protein-sequence';
-import { recordProtein } from '../record-proteins';
+import {
+  recordProtein,
+  ProteinProjectionError,
+  type PublishedProteinDraft,
+} from '../record-proteins';
+import { updatePublishedProteinDraft } from '../save-protein-sequence';
 import { ProteinSaveLocationPicker } from './ProteinSaveLocationPicker';
 import { requestTabClose } from '../../canvas/public/artifact-document-lifecycle';
 import {
@@ -26,21 +38,64 @@ interface ProteinCreationTabProps {
   panelId: string;
 }
 
+function publicationFields(publication?: PublishedProteinDraft): Record<string, string> {
+  return publication
+    ? {
+        publishedProteinId: publication.id,
+        publishedProteinPath: publication.relativePath,
+        publishedProteinHash: publication.contentHash,
+      }
+    : {};
+}
+
 export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
   const context = tab.artifactDocument?.kind === 'protein' ? tab.artifactDocument : undefined;
   const folders = useWorkspaceStore((state) => state.folders);
   const updateTab = useCanvasStore((state) => state.updateTab);
 
   const recovered = tab.recoveredDraft;
-  const [name, setName] = useState(recovered?.name ?? '');
-  const [sequence, setSequence] = useState(recovered?.sequence ?? '');
-  const [organism, setOrganism] = useState(recovered?.organism ?? '');
-  const [sourceCds, setSourceCds] = useState(recovered?.sourceCds ?? '');
-  const [notes, setNotes] = useState(recovered?.notes ?? '');
-  const [destinationDir, setDestinationDir] = useState(
-    recovered?.destinationDir ?? context?.destinationPath ?? ''
+  const [publication, setPublication] = useState<PublishedProteinDraft | undefined>(() =>
+    recovered &&
+    ('publishedProteinId' in recovered ||
+      'publishedProteinPath' in recovered ||
+      'publishedProteinHash' in recovered)
+      ? {
+          id: recovered.publishedProteinId ?? '',
+          relativePath: recovered.publishedProteinPath ?? '',
+          contentHash: recovered.publishedProteinHash ?? '',
+        }
+      : undefined
   );
-  const dirty = Boolean(recovered || name || sequence || organism || sourceCds || notes);
+  const published = useRef(publication);
+  const lifetime = useMemo(() => ({ active: true }), [tab.id, context?.workspaceRoot]);
+  useLayoutEffect(() => {
+    lifetime.active = true;
+    return () => {
+      lifetime.active = false;
+    };
+  }, [lifetime]);
+  const draft = useDocumentDraft(() => ({
+    name: recovered?.name ?? '',
+    sequence: recovered?.sequence ?? '',
+    organism: recovered?.organism ?? '',
+    sourceCds: recovered?.sourceCds ?? '',
+    notes: recovered?.notes ?? '',
+    destinationDir: recovered?.destinationDir ?? context?.destinationPath ?? '',
+  }));
+  const { name, sequence, organism, sourceCds, notes, destinationDir } = draft.value;
+  const isDirty = () => {
+    const current = draft.read().value;
+    return Boolean(
+      recovered ||
+      current.name ||
+      current.sequence ||
+      current.organism ||
+      current.sourceCds ||
+      current.notes ||
+      current.destinationDir !== context?.destinationPath
+    );
+  };
+  const dirty = isDirty();
   const recoveryPayload = useMemo<NewDraftPayload | undefined>(
     () =>
       context
@@ -48,12 +103,20 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
             tabType: 'protein',
             label: name.trim() || 'Untitled Protein',
             artifactDocument: context,
-            fields: { name, sequence, organism, sourceCds, notes, destinationDir },
+            fields: {
+              name,
+              sequence,
+              organism,
+              sourceCds,
+              notes,
+              destinationDir,
+              ...publicationFields(publication),
+            },
           }
         : undefined,
-    [context, destinationDir, name, notes, organism, sequence, sourceCds]
+    [context, destinationDir, name, notes, organism, publication, sequence, sourceCds]
   );
-  const { completePublishedDraft } = useUnsavedDraftRecovery<NewDraftPayload>({
+  const { completePublishedDraft, flushDraft } = useUnsavedDraftRecovery<NewDraftPayload>({
     key: context?.persistence === 'draft' ? `new:${tab.id}` : null,
     name: recoveryPayload?.label ?? 'Untitled Protein',
     baseline: NEW_DOCUMENT_BASELINE,
@@ -67,15 +130,33 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
   const sequenceError = sequence.trim() ? proteinSequenceValidationError(sequence) : null;
 
   const updateName = (value: string) => {
-    setName(value);
+    draft.edit({ name: value });
     updateTab(panelId, tab.id, {
       label: value.trim() || 'Untitled Protein',
     });
   };
 
-  const save = async (): Promise<boolean> => {
+  const retainPublication = async (next: PublishedProteinDraft) => {
+    if (!lifetime.active || !context) return;
+    published.current = next;
+    setPublication(next);
+    const fields = draft.read().value;
+    await flushDraft({
+      baseline: NEW_DOCUMENT_BASELINE,
+      payload: {
+        tabType: 'protein',
+        artifactDocument: context,
+        label: fields.name.trim() || 'Untitled Protein',
+        fields: { ...fields, ...publicationFields(next) },
+      },
+    });
+  };
+
+  const save = async (): Promise<DocumentSaveAcknowledgement> => {
+    const revision = draft.revision;
     if (
       !context ||
+      draft.read().revision !== revision ||
       saving ||
       !name.trim() ||
       !normalizedSequence ||
@@ -86,7 +167,7 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
     }
     setSaving(true);
     try {
-      const result = await recordProtein({
+      const input = {
         name: name.trim(),
         sequence: normalizedSequence,
         workspaceRoot: context.workspaceRoot,
@@ -94,8 +175,22 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
         organism: organism.trim() || undefined,
         sourceCds: sourceCds.trim() || undefined,
         notes: notes.trim() || undefined,
-      });
-      if (!(await completePublishedDraft())) return false;
+      };
+      const prior = published.current;
+      const result = prior
+        ? await updatePublishedProteinDraft(input, prior)
+        : await recordProtein(input);
+      const current = () => lifetime.active && draft.read().revision === revision;
+      if (!current() || !(await completePublishedDraft(current)) || !current()) {
+        if (prior || ('created' in result && result.created)) {
+          await retainPublication({
+            id: result.limsEntity.id,
+            relativePath: result.artifactPath,
+            contentHash: result.contentHash,
+          });
+        }
+        return false;
+      }
       useCanvasStore
         .getState()
         .retargetTab(
@@ -117,8 +212,18 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
           definition: 'protein-creation-tab-created-protein-example',
         }
       );
-      return true;
+      return { publishedRevision: revision };
     } catch (error) {
+      if (
+        error instanceof ProteinProjectionError &&
+        (error.created || published.current?.id === error.artifact.id)
+      ) {
+        await retainPublication({
+          id: error.artifact.id,
+          relativePath: error.artifactPath,
+          contentHash: await computeChecksum(serializeEntityArtifact(error.artifact)),
+        });
+      }
       reportSaveFailure('[ProteinCreationTab] Save failed:', { tabId: tab.id }, error);
       useToastStore.getState().addToast(toUserMessage(error, 'structure.failed'), {
         definition: 'protein-creation-tab-save',
@@ -132,7 +237,8 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
   useDocumentLifecycle({
     target: { kind: 'tab', tabId: tab.id },
     tabId: tab.id,
-    isDirty: () => dirty,
+    readRevision: () => draft.read().revision,
+    isDirty,
     save,
     discard: () => undefined,
   });
@@ -157,7 +263,7 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
           data-testid="protein-draft-sequence"
           value={sequence}
           onChange={(event) => {
-            setSequence(event.target.value.toUpperCase());
+            draft.edit({ sequence: event.target.value.toUpperCase() });
           }}
           spellCheck={false}
           placeholder="Type or paste an amino-acid sequence"
@@ -175,7 +281,7 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
           className="flex h-full min-h-0 flex-col"
           onSubmit={(event) => {
             event.preventDefault();
-            void save();
+            void documentLifecycle.save({ kind: 'tab', tabId: tab.id }, tab.id);
           }}
         >
           <div className="shrink-0 border-b border-border px-4 py-3">
@@ -197,7 +303,7 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
                 <TextField
                   value={organism}
                   onChange={(event) => {
-                    setOrganism(event.target.value);
+                    draft.edit({ organism: event.target.value });
                   }}
                 />
               </label>
@@ -206,7 +312,7 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
                 <TextField
                   value={sourceCds}
                   onChange={(event) => {
-                    setSourceCds(event.target.value);
+                    draft.edit({ sourceCds: event.target.value });
                   }}
                 />
               </label>
@@ -215,7 +321,7 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
                 <TextArea
                   value={notes}
                   onChange={(event) => {
-                    setNotes(event.target.value);
+                    draft.edit({ notes: event.target.value });
                   }}
                   rows={3}
                 />
@@ -228,7 +334,7 @@ export function ProteinCreationTab({ tab, panelId }: ProteinCreationTabProps) {
                 initialDir={context.destinationPath}
                 selectedDir={destinationDir}
                 onSelectFolder={(path) => {
-                  setDestinationDir(path);
+                  draft.edit({ destinationDir: path });
                 }}
               />
             </div>

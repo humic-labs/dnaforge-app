@@ -386,6 +386,92 @@ describe('PrimerCreationTab', () => {
     expect(screen.queryByRole('combobox', { name: 'Add schema field' })).not.toBeInTheDocument();
   });
 
+  it('saves a new primer with its details closed and restores its custom fields from recovery', async () => {
+    commandMocks.createPrimer.mockResolvedValue({
+      artifactPath: '/workspace/project/Kept.primer.json',
+      artifact: { name: 'Kept' },
+    });
+    const first = render(<PrimerCreationTab tab={tab} panelId="main" />);
+    await waitFor(() => expect(commandMocks.listSchemas).toHaveBeenCalled());
+    fireEvent.click(screen.getByTestId('primer-schema-select'));
+    fireEvent.click(await screen.findByRole('option', { name: 'qPCR primer' }));
+    fireEvent.change(screen.getByTestId('entity-schema-field-assayId'), {
+      target: { value: 'hidden-field' },
+    });
+    fireEvent.change(screen.getByTestId('primer-name-input'), { target: { value: 'Kept' } });
+    fireEvent.change(screen.getByTestId('primer-sequence-input'), {
+      target: { value: 'ATCGATCG' },
+    });
+    fireEvent.click(screen.getByTestId('primer-toolbar-metadata'));
+    const target = { kind: 'tab', tabId: tab.id } as const;
+    expect(documentLifecycle.has(target, tab.id)).toBe(true);
+    const key = 'new:' + tab.id;
+    await flushPendingUnsavedDraftWrites([key]);
+    const entry = await readUnsavedDraft<{ fields: Record<string, string> }>(key);
+    expect(entry).toBeDefined();
+    first.unmount();
+    render(
+      <PrimerCreationTab tab={{ ...tab, recoveredDraft: entry!.payload.fields }} panelId="main" />
+    );
+    expect(await screen.findByTestId('entity-schema-field-assayId')).toHaveValue('hidden-field');
+    fireEvent.click(screen.getByTestId('primer-toolbar-metadata'));
+    await act(async () => expect(await documentLifecycle.save(target, tab.id, 'all')).toBe(true));
+    expect(commandMocks.createPrimer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Kept',
+        sequence: 'ATCGATCG',
+        entityFields: { assayId: 'hidden-field' },
+      })
+    );
+  });
+
+  it('retries an edit made during first save against the same published primer after recovery', async () => {
+    const path = '/workspace/project/oligos/First.primer.json';
+    const artifact = await buildPrimerArtifact({
+      id: 'primer-first-save',
+      catalogNumber: 'P-4',
+      name: 'First',
+      sequence: 'ATCGATCG',
+      workspaceRoot: '/workspace/project',
+      artifactPath: path,
+      source: 'manual',
+    });
+    const publication = Promise.withResolvers<unknown>();
+    commandMocks.createPrimer.mockReturnValueOnce(publication.promise);
+    const first = render(<PrimerCreationTab tab={tab} panelId="main" />);
+    await waitFor(() => expect(commandMocks.listSchemas).toHaveBeenCalled());
+    fireEvent.change(screen.getByTestId('primer-name-input'), { target: { value: 'First' } });
+    fireEvent.change(screen.getByTestId('primer-sequence-input'), {
+      target: { value: 'ATCGATCG' },
+    });
+    const target = { kind: 'tab', tabId: tab.id } as const;
+    const saving = documentLifecycle.save(target, tab.id);
+    await waitFor(() => expect(commandMocks.createPrimer).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByTestId('primer-name-input'), { target: { value: 'Second' } });
+    publication.resolve({ created: true, artifactPath: path, artifact });
+    await act(async () => expect(await saving).toBe(false));
+    const key = 'new:' + tab.id;
+    await flushPendingUnsavedDraftWrites([key]);
+    const entry = await readUnsavedDraft<{ fields: Record<string, string> }>(key);
+    first.unmount();
+    commandMocks.updateArtifactContent.mockResolvedValue({
+      artifactPath: path,
+      artifact: { ...artifact, name: 'Second' },
+    });
+    render(
+      <PrimerCreationTab tab={{ ...tab, recoveredDraft: entry!.payload.fields }} panelId="main" />
+    );
+    await act(async () => expect(await documentLifecycle.save(target, tab.id, 'all')).toBe(true));
+    expect(commandMocks.createPrimer).toHaveBeenCalledTimes(1);
+    expect(commandMocks.updateArtifactContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Second',
+        artifactPath: path,
+        expectedArtifactRevision: artifact.artifactRevision,
+      })
+    );
+  });
+
   it('switches to a primer-derived schema and saves its revision plus entered fields', async () => {
     commandMocks.createPrimer.mockResolvedValue({
       artifactPath: '/workspace/project/oligos/qPCR_F1.primer.json',

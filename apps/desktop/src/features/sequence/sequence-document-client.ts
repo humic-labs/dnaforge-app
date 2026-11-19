@@ -266,13 +266,14 @@ export class SequenceDocumentClientBridge {
       ]);
       return;
     }
-    await Promise.all(
-      [...this.clients.values()].map(async (client) => {
-        await client.loading;
-        await client.tail;
-        if (client.error) throw client.error;
-      })
-    );
+    await Promise.all([...this.clients.keys()].map((id) => this.flushDocument(id)));
+  }
+  async flushDocument(documentId: string): Promise<void> {
+    const client = this.clients.get(documentId);
+    if (!client) return;
+    await client.loading;
+    await client.tail;
+    if (client.error) throw client.error;
   }
   async execute(
     documentId: string,
