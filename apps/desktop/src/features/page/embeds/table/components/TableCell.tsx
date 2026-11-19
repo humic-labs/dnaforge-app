@@ -195,7 +195,8 @@ export const TableCell = React.memo(function TableCell({
   const [autocompleteSelectedIndex, setAutocompleteSelectedIndex] = useState(0);
 
   const searchTerm = editingValue.match(FORMULA_PREFIX)?.[1].toUpperCase() ?? null;
-  const filteredOptions = filterFormulaOptions(searchTerm ?? '');
+  const filteredOptions = searchTerm === null ? [] : filterFormulaOptions(searchTerm);
+  const autocompleteOpen = showAutocomplete && searchTerm !== null;
 
   useEffect(() => {
     const shouldShow = isEditing && searchTerm !== null;
@@ -321,7 +322,7 @@ export const TableCell = React.memo(function TableCell({
     (e: React.KeyboardEvent) => {
       if (e.nativeEvent.isComposing || (e as { isComposing?: boolean }).isComposing) return;
 
-      if (showAutocomplete && filteredOptions.length > 0) {
+      if (autocompleteOpen && filteredOptions.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
           e.stopPropagation();
@@ -343,7 +344,7 @@ export const TableCell = React.memo(function TableCell({
         }
       }
 
-      if (showAutocomplete && e.key === 'Escape') {
+      if (autocompleteOpen && e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
         setShowAutocomplete(false);
@@ -372,7 +373,7 @@ export const TableCell = React.memo(function TableCell({
       }
     },
     [
-      showAutocomplete,
+      autocompleteOpen,
       filteredOptions,
       autocompleteSelectedIndex,
       handleFormulaSelect,
@@ -612,7 +613,7 @@ export const TableCell = React.memo(function TableCell({
           />
         )}
       </div>
-      {showAutocomplete && autocompletePosition && typeof document !== 'undefined'
+      {autocompleteOpen && autocompletePosition && typeof document !== 'undefined'
         ? createPortal(
             <FormulaAutocomplete
               filteredOptions={filteredOptions}

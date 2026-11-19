@@ -3,6 +3,8 @@
  */
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { flushSync } from 'react-dom';
+import { createRoot, type Root } from 'react-dom/client';
 import { createRef } from 'react';
 
 const { mockResolveProviderReference } = vi.hoisted(() => ({
@@ -197,6 +199,58 @@ describe('TableCell — autocomplete open with matches (=su)', () => {
 
     expect(onEditingValueChange).not.toHaveBeenCalled();
     expect(onEditCommit).not.toHaveBeenCalled();
+  });
+});
+
+describe('TableCell — autocomplete still open after the value leaves a bare prefix', () => {
+  it('Enter commits =$B1+B$1 instead of inserting the first function', () => {
+    const onEditingValueChange = vi.fn();
+    const onEditCommit = vi.fn();
+    const editInputRef = createRef<HTMLInputElement>();
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root: Root = createRoot(container);
+    const props = (editingValue: string) => ({
+      cell: baseCell,
+      position: pos,
+      isFocused: true as const,
+      isEditing: true as const,
+      editingValue,
+      editInputRef,
+      onCellClick: () => {},
+      onCellDoubleClick: () => {},
+      onEditingValueChange,
+      onEditCommit,
+      onEditCancel: () => {},
+      cellRef: () => {},
+    });
+
+    act(() => {
+      root.render(<TableCell {...props('=')} />);
+    });
+    expect(document.querySelector('.formula-autocomplete-dropdown')).not.toBeNull();
+
+    const input = container.querySelector('input');
+    expect(input).not.toBeNull();
+    let dropdownWhileFlagIsStale: Element | null = null;
+    act(() => {
+      flushSync(() => {
+        root.render(<TableCell {...props('=$B1+B$1')} />);
+      });
+      dropdownWhileFlagIsStale = document.querySelector('.formula-autocomplete-dropdown');
+      input?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+      );
+    });
+
+    expect(dropdownWhileFlagIsStale).toBeNull();
+    expect(onEditingValueChange).not.toHaveBeenCalled();
+    expect(onEditCommit).toHaveBeenCalledWith('down');
+
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
   });
 });
 
