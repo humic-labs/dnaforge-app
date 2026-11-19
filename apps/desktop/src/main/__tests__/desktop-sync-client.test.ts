@@ -360,6 +360,26 @@ describe('desktop sync client', () => {
     }
   });
 
+  it('retries only an explicitly renewable multipart lease expiry', async () => {
+    const path = '/api/desktop-sync/workspaces/owned/blobs/multipart';
+    const client = makeClient();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(409, { code: 'MULTIPART_LEASE_EXPIRED' }))
+      .mockResolvedValueOnce(jsonResponse(409, { code: 'CONFLICT' }));
+    const options = { method: 'POST' as const, body: { action: 'sign-part' } };
+
+    await expect(client.requestJson(path, options)).rejects.toMatchObject({
+      code: 'MULTIPART_LEASE_EXPIRED',
+      retryable: true,
+      terminal: false,
+    });
+    await expect(client.requestJson(path, options)).rejects.toMatchObject({
+      code: 'CONFLICT',
+      retryable: false,
+      terminal: true,
+    });
+  });
+
   it('recovers on the same client after a feature-flag suspension without revoking auth', async () => {
     fetchMock
       .mockResolvedValueOnce(
