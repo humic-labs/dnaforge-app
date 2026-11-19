@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { access, cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 
@@ -26,6 +27,11 @@ import { nativeNotebookDocumentAdapter } from './native-notebook-document-adapte
 import { replaceNotebookProjectionFromFileInMain } from './notebook-projection-authority';
 import { notebookProjectionFingerprint } from '../shared/notebook-projection';
 import { readNotebookPublicationInDb } from './notebook-publication';
+import {
+  buildSequencePackageDocument,
+  sequencePackagePaths,
+  serializeSequencePackageDocument,
+} from '../db/sequence-package';
 
 let directory: string, root: string, profile: string, db: Database.Database;
 vi.mock('./ipc/database', () => ({ getDb: () => db }));
@@ -71,6 +77,54 @@ const owner = () => {
 };
 
 describe('native notebook legacy package boundary', () => {
+  it('inserts a managed file reference with the package identity and the declared product hash', async () => {
+    const native = owner();
+    const created = await native.create({
+      title: 'Notes',
+      workspaceRoot: root,
+      requestId: 'source-notes',
+    });
+    const entityId = 'notebook-source';
+    const objectUuid = '85a8fc9f-2839-40b3-84de-317d3c504cce';
+    const packageRoot = join(root, 'Archived document');
+    const paths = sequencePackagePaths(packageRoot, { productFile: 'original.gb' });
+    const document = buildSequencePackageDocument({
+      id: entityId,
+      name: 'Archived document',
+      product: { file: 'original.gb' },
+    });
+    const bytes = Buffer.from('fixture contents');
+    await mkdir(paths.metaDir, { recursive: true });
+    await writeFile(paths.metaPath, serializeSequencePackageDocument(document));
+    await writeFile(paths.productPath, bytes);
+    db.prepare(
+      "INSERT INTO catalog_entities(id,type,name,locator,storage_type,workspace_id,created_at,updated_at) VALUES (?,'sequence','Archived document',?,'file',7,1,1)"
+    ).run(entityId, packageRoot);
+    db.prepare(
+      "INSERT INTO catalog_entity_files(id,entity_id,workspace_id,path,file_kind,object_uuid,created_at,updated_at) VALUES ('source-file',?,7,?,'waypoint-sequence',?,1,1)"
+    ).run(entityId, packageRoot, objectUuid);
+    await native.execute({
+      documentId: created.documentId,
+      expectedRevision: created.revision,
+      operation: {
+        kind: 'insert',
+        index: created.blockCount,
+        source: { kind: 'entity', type: 'sequence', entityId },
+      },
+    });
+    const result = await native.execute({
+      documentId: created.documentId,
+      operation: { kind: 'inspect', limit: 50 },
+    });
+    expect(result.blocks?.at(-1)?.block.content?.[0]?.attrs).toMatchObject({
+      entityId,
+      objectUuid,
+      path: 'Archived document',
+      contentHash: 'sha256:' + createHash('sha256').update(bytes).digest('hex'),
+    });
+    await native.close();
+  });
+
   it('does not claim settlement for a different project or package location', async () => {
     const native = owner();
     const created = await native.create({

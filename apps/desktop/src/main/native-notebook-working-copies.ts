@@ -22,6 +22,9 @@ import {
   type PublishNotebookPackageResult,
 } from '../db/notebook-package-migration';
 import { notebookPackagePaths, parseNotebookPackageDocument } from '../db/notebook-package';
+import { isSequencePackageFileKind, sequencePackageRootForMetaPath } from '../db/sequence-package';
+import { createNativeSequenceDocumentResolver } from './native-sequence-document-resolver';
+import { readFileBoundedFromHandle } from './ipc/bounded-file-read';
 import { contentFingerprint } from '../shared/content-fingerprint';
 import {
   canonicalNotebookJson,
@@ -1591,10 +1594,32 @@ export function createNativeNotebookWorkingCopies(options: {
         !under(workspaceMutationRootIdentity(binding.path), scope.workspaceRoot)
       )
         throw new Error('Search for this exact entity in the notebook project.');
-      const file =
-        source.type === 'sequence'
-          ? await sourceFile(scope.workspaceRoot, binding.path)
-          : undefined;
+      const readSequenceFile = async () => {
+        if (!isSequencePackageFileKind(binding.file_kind))
+          return sourceFile(scope.workspaceRoot, binding.path);
+        const resolveSequence = createNativeSequenceDocumentResolver({
+          db: options.db,
+          workspaceRoots: () => [scope.workspaceRoot],
+        });
+        const document = await resolveSequence({
+          operationId: 'notebook-reference-insertion',
+          targetDocumentId: entity.id,
+        });
+        const bytes = await readFileBoundedFromHandle(
+          document.sourcePath,
+          IMAGE_CONSTANTS.MAX_FILE_SIZE
+        );
+        const hash = 'sha256:' + createHash('sha256').update(bytes).digest('hex');
+        return {
+          member: relative(
+            scope.workspaceRoot,
+            sequencePackageRootForMetaPath(binding.path) ?? binding.path
+          ),
+          hash,
+          revision: JSON.stringify([document.sourcePath, hash]),
+        };
+      };
+      const file = source.type === 'sequence' ? await readSequenceFile() : undefined;
       const block = {
         type: 'paragraph',
         content: [
@@ -1605,7 +1630,11 @@ export function createNativeNotebookWorkingCopies(options: {
               entityId: entity.id,
               label: entity.name,
               ...(file
-                ? { path: file.member, contentHash: file.hash, objectUuid: binding.object_uuid }
+                ? {
+                    path: file.member,
+                    contentHash: file.hash,
+                    objectUuid: binding.object_uuid,
+                  }
                 : {}),
             },
           },
@@ -1622,8 +1651,7 @@ export function createNativeNotebookWorkingCopies(options: {
             after.updated_at !== entity.updated_at ||
             next?.path !== binding.path ||
             next.object_uuid !== binding.object_uuid ||
-            (file &&
-              (await sourceFile(scope.workspaceRoot, binding.path)).revision !== file.revision)
+            (file && (await readSequenceFile()).revision !== file.revision)
           )
             throw new Error('The entity or its source changed during insertion.');
         },
