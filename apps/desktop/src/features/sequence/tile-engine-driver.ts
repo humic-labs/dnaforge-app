@@ -1188,12 +1188,12 @@ export class TileEngineDriver {
   }
 
   private exactReadOwnerPresentationKind(args: {
-    visibleReadRecordCount: number;
+    hasVisibleReads: boolean;
     readsCoverViewport: boolean;
     stableBandReady: boolean;
     cameraSettled: boolean;
   }): TileEngineOwnerPresentationKind {
-    if (args.visibleReadRecordCount > 0 && args.readsCoverViewport) return 'reads';
+    if (args.hasVisibleReads && args.readsCoverViewport) return 'reads';
     if (!args.stableBandReady) return 'pending';
     if (!args.cameraSettled) return 'reads';
     return 'empty';
@@ -1311,13 +1311,11 @@ export class TileEngineDriver {
       stableBandReady,
     } = this.composeReads(view, readLevel);
     const exactReadOwner = this.exactReadPreparationIsEligible(view);
-    const visibleReadRecordCount = records.reduce(
-      (count, record) =>
-        count + (record.end > view.globalStart && record.start < view.globalEnd ? 1 : 0),
-      0
+    const hasVisibleReads = records.some(
+      (record) => record.end > view.globalStart && record.start < view.globalEnd
     );
     const cameraSettled = this.cameraSettledForEmptyRegion(view);
-    if (exactReadOwner && stableBandReady && visibleReadRecordCount === 0 && !cameraSettled) {
+    if (exactReadOwner && stableBandReady && !hasVisibleReads && !cameraSettled) {
       this.scheduleEmptyRegionSettlement();
     } else {
       this.cancelEmptyRegionSettlement?.();
@@ -1332,7 +1330,7 @@ export class TileEngineDriver {
     const referenceIntervalsChanged =
       referenceIntervalSignature !== this.lastReferenceIntervalSignature;
     const exactReadOwnerPresentationKind = this.exactReadOwnerPresentationKind({
-      visibleReadRecordCount,
+      hasVisibleReads,
       readsCoverViewport,
       stableBandReady,
       cameraSettled,
@@ -1430,12 +1428,12 @@ export class TileEngineDriver {
     const readRevisionChanged =
       readRevisionKey !== this.lastPublishedReadRevisionKey || exactReadOwnerPresentationChanged;
     const hasNewCompleteReadOwner =
-      visibleReadRecordCount > 0 && readsCoverViewport && readRevisionChanged;
+      hasVisibleReads && readsCoverViewport && readRevisionChanged;
     const hasNewAuthoritativeEmptyOwner =
       exactReadOwner &&
       stableBandReady &&
       cameraSettled &&
-      visibleReadRecordCount === 0 &&
+      !hasVisibleReads &&
       readRevisionChanged;
     const corridorAtlasPresentation = this.corridorAtlasPresentationForFeed(corridorAtlas, finest);
     const corridorAtlasPresentationChanged =

@@ -102,8 +102,13 @@ export class TileCoordinator {
           const key: TileKey = { sourceId: source.id, level, index: t.index };
           const ks = tileKeyString(key);
           visibleKeys.add(ks);
+          const predictedCore =
+            purpose === 'current' &&
+            fetchView !== view &&
+            t.core &&
+            (t.globalEnd <= view.globalStart || t.globalStart >= view.globalEnd);
           const priority: TileTransportPriority = {
-            purpose,
+            purpose: predictedCore ? 'pan-lead' : purpose,
             epoch: this.currentEpoch,
             core: t.core && (purpose === 'current' || plan.promoteCore),
             marginDistanceTiles: t.marginDistanceTiles,

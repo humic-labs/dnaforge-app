@@ -1391,6 +1391,9 @@ importers:
       '@types/react':
         specifier: 18.3.18
         version: 18.3.18
+      postcss:
+        specifier: 8.5.23
+        version: 8.5.23
       typescript:
         specifier: ^5.3.0
         version: 5.8.3
