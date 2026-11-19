@@ -5,6 +5,7 @@ import {
   registerSelectedLocalIndexedTrackPaths,
 } from '../local-indexed-track-authority';
 import { sidecarSessionAuthority } from '../sidecar-session-runtime';
+import { withSequencePackageSavePicker } from '../sequence-package-save-picker';
 import { dialogContract } from '../../shared/ipc/dialog.contract';
 
 export function registerDialogHandlers(): void {
@@ -36,11 +37,16 @@ export function registerDialogHandlers(): void {
     save: async (event, options) => {
       const win = BrowserWindow.fromWebContents(event.sender);
       if (!win) return null;
-      const result = await dialog.showSaveDialog(win, {
-        ...(options.title ? { title: options.title } : {}),
-        defaultPath: options.defaultPath,
-        filters: options.filters,
-      });
+      const packagePicker = options.purpose === 'edited-sequence-package';
+      const show = () =>
+        dialog.showSaveDialog(win, {
+          ...(packagePicker ? { title: 'Save Edited Sequence Package' } : {}),
+          defaultPath: options.defaultPath,
+          filters: options.filters,
+        });
+      const result = packagePicker
+        ? await withSequencePackageSavePicker(event.sender, show)
+        : await show();
       return result.canceled ? null : (result.filePath ?? null);
     },
   });

@@ -162,7 +162,7 @@ async function saveCopy(
   let pending = copies.get(documentId);
   if (!pending || pending.captured !== captured) {
     const selected = await platform().dialog.save({
-      title: 'Save Edited Sequence Package',
+      purpose: 'edited-sequence-package',
       defaultPath: sourcePath.replace(/\.[^./\\]+$/u, '') + ' copy',
     });
     if (!selected) throw new SaveAllCancelled();

@@ -144,7 +144,7 @@ describe('Save As for an edited loose sequence', () => {
     expect(ports.open).toHaveBeenCalledWith(expect.objectContaining({ filePath }));
     expect(ports.close).toHaveBeenCalledWith('panel', 'source-tab');
     expect(ports.picker).toHaveBeenCalledWith({
-      title: 'Save Edited Sequence Package',
+      purpose: 'edited-sequence-package',
       defaultPath: join(ports.root, 'original copy'),
     });
     expect(useSequenceStore.getState().isDirty(f.documentId)).toBe(false);
