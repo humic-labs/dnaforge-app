@@ -1,4 +1,13 @@
-import { isFastaSource, preservedFastaMarkerPath } from '../../shared/preserved-fasta';
+import { SOURCE_DOCUMENT_MARKER_PATH } from '../../shared/source-document-package';
+import {
+  readSourcePackageAtRoot,
+  prepareSourceDocumentPackage,
+  sourceDocumentFamily,
+} from '../source-document-package-store';
+import { importSourceDocumentPackage } from './source-document-promotion';
+import { tmpdir } from 'node:os';
+import { MOLECULAR_DOCUMENT_SUFFIX, parseMolecularDocument } from '../../shared/molecular-document';
+import { MolecularDocumentLibrary } from '../molecular-document-library';
 import { createHash, randomUUID } from 'node:crypto';
 import { constants as fsConstants, createReadStream, existsSync, type Stats } from 'node:fs';
 import {
@@ -41,13 +50,12 @@ import {
   beginQuickLookPromotionWrite,
   beginQuickLookRendererMutationBlock,
   commitAllIfDirty,
+  commitPathsIfDirty,
   initManagedRepo,
   QUICK_LOOK_PROMOTION_OWNER_FILE,
   type QuickLookPromotionWriteLease,
   withManagedWorkspaceMutationLock,
 } from './index';
-import { materializeCoordinatePackageWithJournal } from './coordinate-package-import';
-import { packagedCoordinateFormat } from '../../shared/default-molecular-view';
 import {
   existingPlasmidPackageRootForProduct,
   inspectSequenceFileSha256,
@@ -62,6 +70,7 @@ import { convertTreeToPlasmidPackages, type ConvertTreeResult } from './convert-
 import {
   fromPackageRelative,
   parseSequencePackageDocument,
+  serializeSequencePackageDocument,
   sequencePackageMetaPaths,
   sequencePackagePaths,
   sequencePrimerArtifactLookupPaths,
@@ -261,6 +270,7 @@ export interface QuickLookWorkspacePreparationDeps extends ImportFileIntoWorkspa
 }
 
 export interface QuickLookPackageImportDeps extends ImportFileIntoWorkspaceDeps {
+  readonly independentCopies?: boolean;
   readonly promotionJournalRoot: string;
 }
 
@@ -499,6 +509,13 @@ async function verifyPromotedPackage(
     );
     actualFiles.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
     if (JSON.stringify(actualFiles) !== JSON.stringify(expected)) return false;
+    if (expected.some((file) => file.relativePath === SOURCE_DOCUMENT_MARKER_PATH)) {
+      const { descriptor } = await readSourcePackageAtRoot(candidateRoot, true);
+      return (
+        relative(descriptor.packageRoot, descriptor.entryPath).split(sep).join('/') ===
+        productRelativePath
+      );
+    }
     const document = parseSequencePackageDocument(
       await readFile(fromPackageRelative('.forge/plasmid.json', candidateRoot), 'utf8')
     );
@@ -509,6 +526,21 @@ async function verifyPromotedPackage(
   } catch {
     return false;
   }
+}
+
+async function completedPublishedPackageMatches(
+  record: QuickLookPromotionRecord,
+  installedId?: string
+) {
+  if (!installedId)
+    return verifyPromotedPackage(record.candidateRoot, record.productRelativePath, record.files);
+  if (!identityMatches(record, await physicalDirectoryIdentity(record.candidateRoot))) return false;
+  const { descriptor } = await readSourcePackageAtRoot(record.candidateRoot, false);
+  return (
+    descriptor.packageId === installedId &&
+    relative(descriptor.packageRoot, descriptor.entryPath).split(sep).join('/') ===
+      record.productRelativePath
+  );
 }
 
 function isCanonicalPromotionCandidate(record: QuickLookPromotionRecord): boolean {
@@ -984,7 +1016,12 @@ async function importQuickLookPackageIntoWorkspaceRootInternal(
   snapshot: VerifiedQuickLookPackageSnapshot,
   targetRoot: string,
   deps: QuickLookPackageImportDeps,
-  options: { readonly commit?: boolean; readonly recover?: boolean },
+  options: {
+    readonly commit?: boolean;
+    readonly recover?: boolean;
+    readonly packageName?: string;
+    readonly publicationKey?: string;
+  },
   lockManagedWorkspace: boolean
 ): Promise<ImportFileResult> {
   const realTarget = await realpath(targetRoot);
@@ -1003,10 +1040,10 @@ async function importQuickLookPackageIntoWorkspaceRootInternal(
   const expectedFiles = new Map(
     snapshot.files.map((file) => [file.relativePath, file.sha256] as const)
   );
-  if (
-    !expectedFiles.has('.forge/plasmid.json') ||
-    !expectedFiles.has(snapshot.productRelativePath)
-  ) {
+  const markerRelativePath = expectedFiles.has(SOURCE_DOCUMENT_MARKER_PATH)
+    ? SOURCE_DOCUMENT_MARKER_PATH
+    : '.forge/plasmid.json';
+  if (!expectedFiles.has(markerRelativePath) || !expectedFiles.has(snapshot.productRelativePath)) {
     throw new Error('Quick Look package manifest is incomplete.');
   }
 
@@ -1016,14 +1053,19 @@ async function importQuickLookPackageIntoWorkspaceRootInternal(
     ? productName.slice(0, productName.length - productExtension.length)
     : productName;
   const packageStem =
-    rawStem
+    (options.packageName ?? rawStem)
       .trim()
       .replace(/[/\\:*?"<>|]+/gu, '-')
       .replace(/^[.\s]+|[.\s]+$/gu, '') || 'Imported sequence';
 
   const mutationRoot = findManagedRepoRoot(realTarget) ?? realTarget;
   const operation = async (): Promise<ImportFileResult> => {
-    const recordKey = promotionRecordKey(snapshot, realTarget);
+    const sourceKey = options.publicationKey ?? promotionRecordKey(snapshot, realTarget);
+    const recordKey = deps.independentCopies
+      ? createHash('sha256')
+          .update('independent:' + sourceKey)
+          .digest('hex')
+      : sourceKey;
     const recordPath = join(deps.promotionJournalRoot, `${recordKey}.json`);
     if (options.recover !== false && (await lstat(recordPath).catch(() => null))) {
       await recoverPromotionRecord(recordPath, deps);
@@ -1032,13 +1074,10 @@ async function importQuickLookPackageIntoWorkspaceRootInternal(
     if (
       priorRecord?.state === 'completed' &&
       priorRecord.recordKey === recordKey &&
-      promotionRecordMatchesSnapshot(priorRecord, snapshot, realTarget) &&
+      (deps.independentCopies ||
+        promotionRecordMatchesSnapshot(priorRecord, snapshot, realTarget)) &&
       isCanonicalPromotionCandidate(priorRecord) &&
-      (await verifyPromotedPackage(
-        priorRecord.candidateRoot,
-        priorRecord.productRelativePath,
-        priorRecord.files
-      ))
+      (await completedPublishedPackageMatches(priorRecord, options.publicationKey))
     ) {
       const destPath = fromPackageRelative(
         priorRecord.productRelativePath,
@@ -1080,6 +1119,22 @@ async function importQuickLookPackageIntoWorkspaceRootInternal(
         throw new Error(`Could not choose a collision-free package name for ${productName}.`);
       }
       const destinationIdentity = await physicalDirectoryIdentity(destinationPackageRoot);
+      let savedMarker: string | undefined;
+      let savedFiles = snapshot.files;
+      if (deps.independentCopies) {
+        const original = await readFile(join(sourceRoot, markerRelativePath));
+        if (
+          createHash('sha256').update(original).digest('hex') !==
+          expectedFiles.get(markerRelativePath)
+        )
+          throw new Error('The preview package metadata changed during import.');
+        const document = parseSequencePackageDocument(original.toString('utf8'));
+        savedMarker = serializeSequencePackageDocument({ ...document, id: randomUUID() });
+        const markerHash = createHash('sha256').update(savedMarker).digest('hex');
+        savedFiles = snapshot.files.map((file) =>
+          file.relativePath === markerRelativePath ? { ...file, sha256: markerHash } : file
+        );
+      }
       if (!destinationIdentity) {
         throw new Error('Quick Look promotion destination is not a physical directory.');
       }
@@ -1094,7 +1149,7 @@ async function importQuickLookPackageIntoWorkspaceRootInternal(
         candidateDevice: destinationIdentity.device,
         candidateInode: destinationIdentity.inode,
         productRelativePath: snapshot.productRelativePath,
-        files: snapshot.files,
+        files: savedFiles,
         committed: false,
       };
       await writePromotionRecord(recordPath, promotionRecord);
@@ -1104,10 +1159,9 @@ async function importQuickLookPackageIntoWorkspaceRootInternal(
         { flag: 'wx', mode: 0o600 }
       );
 
-      const markerRelativePath = '.forge/plasmid.json';
       const filesInPublicationOrder = [
-        ...snapshot.files.filter((file) => file.relativePath !== markerRelativePath),
-        ...snapshot.files.filter((file) => file.relativePath === markerRelativePath),
+        ...savedFiles.filter((file) => file.relativePath !== markerRelativePath),
+        ...savedFiles.filter((file) => file.relativePath === markerRelativePath),
       ];
       for (const file of filesInPublicationOrder) {
         const sourcePath = fromPackageRelative(file.relativePath, sourceRoot);
@@ -1117,7 +1171,9 @@ async function importQuickLookPackageIntoWorkspaceRootInternal(
         }
         const destinationPath = fromPackageRelative(file.relativePath, destinationPackageRoot);
         await mkdir(dirname(destinationPath), { recursive: true });
-        await copyFile(sourcePath, destinationPath, fsConstants.COPYFILE_EXCL);
+        if (file.relativePath === markerRelativePath && savedMarker !== undefined)
+          await writeFile(destinationPath, savedMarker, { flag: 'wx' });
+        else await copyFile(sourcePath, destinationPath, fsConstants.COPYFILE_EXCL);
         if ((await sha256Stream(destinationPath)) !== file.sha256) {
           throw new Error(`Quick Look package changed while copying: ${file.relativePath}`);
         }
@@ -1127,7 +1183,7 @@ async function importQuickLookPackageIntoWorkspaceRootInternal(
         !(await verifyPromotedPackage(
           destinationPackageRoot,
           snapshot.productRelativePath,
-          snapshot.files
+          savedFiles
         ))
       ) {
         throw new Error('Copied Quick Look package does not match its verified snapshot.');
@@ -1193,7 +1249,12 @@ export async function importQuickLookPackageIntoWorkspaceRoot(
   snapshot: VerifiedQuickLookPackageSnapshot,
   targetRoot: string,
   deps: QuickLookPackageImportDeps,
-  options: { readonly commit?: boolean; readonly recover?: boolean } = {}
+  options: {
+    readonly commit?: boolean;
+    readonly recover?: boolean;
+    readonly packageName?: string;
+    readonly publicationKey?: string;
+  } = {}
 ): Promise<ImportFileResult> {
   return importQuickLookPackageIntoWorkspaceRootInternal(snapshot, targetRoot, deps, options, true);
 }
@@ -1610,7 +1671,12 @@ export async function importQuickLookGenerationIntoWorkspaceRoot(
 
   const mutationRoot = findManagedRepoRoot(realTarget) ?? realTarget;
   return withQuickLookWorkspacePublicationLock(deps.db, mutationRoot, async () => {
-    const recordKey = quickLookSetRecordKey(snapshot, realTarget);
+    const sourceKey = quickLookSetRecordKey(snapshot, realTarget);
+    const recordKey = deps.independentCopies
+      ? createHash('sha256')
+          .update('independent:' + sourceKey)
+          .digest('hex')
+      : sourceKey;
     const recordPath = join(deps.promotionJournalRoot, `set-${recordKey}.json`);
     if (await lstat(recordPath).catch(() => null)) {
       await recoverQuickLookSetPromotionRecord(recordPath, deps);
@@ -1714,7 +1780,20 @@ export async function importQuickLookGenerationIntoWorkspaceRoot(
           recordId: record.recordId,
           childName: basename(dirname(promoted.destPath)),
           productRelativePath: record.productRelativePath,
-          files: record.files,
+          files: deps.independentCopies
+            ? await Promise.all(
+                record.files.map(async (file) =>
+                  file.relativePath === '.forge/plasmid.json'
+                    ? {
+                        ...file,
+                        sha256: await sha256Stream(
+                          join(dirname(promoted.destPath), file.relativePath)
+                        ),
+                      }
+                    : file
+                )
+              )
+            : record.files,
         });
       }
       journal = { ...journal, records: recordEntries };
@@ -1773,33 +1852,84 @@ function validateExactFileImport(request: ImportFileAsWorkspaceRequest): void {
   }
 }
 
-async function markPreservedFasta(
-  path: string,
-  request: ImportFileAsWorkspaceRequest
-): Promise<void> {
-  if (!request.preserveOriginal || !isFastaSource(path)) return;
-  const marker = await preservedFastaMarkerPath(path);
-  await writeFile(marker, request.expectedSourceSha256 + '\n', { flag: 'wx' });
-}
-
-async function packageImportedCoordinates(path: string, expectedSourceSha256?: string) {
-  const copiedIdentity = await physicalFileIdentity(path);
+async function importTypedProjectFile(
+  request: ImportFileAsWorkspaceRequest,
+  targetRoot: string | null,
+  deps: ImportFileIntoWorkspaceDeps,
+  replacePath?: string
+) {
+  const sourcePath = await realpath(request.sourcePath);
+  const familyId = sourceDocumentFamily(sourcePath);
+  if (!familyId) throw new Error('This format has no source document package.');
+  const staging = await mkdtemp(join(tmpdir(), 'dnaforge-doc-import-'));
   try {
-    return await materializeCoordinatePackageWithJournal(path, {
-      expectedSourceSha256,
-      removeSource: (member) => unlinkIfIdentityMatches(member, copiedIdentity),
-    });
-  } catch (error) {
-    await assertExpectedSourceDigest(path, expectedSourceSha256);
-    console.warn(`[importFile] kept ${basename(path)} as a coordinate file:`, error);
-    return null;
+    const captured = await prepareSourceDocumentPackage(staging, { familyId, sourcePath });
+    if (request.expectedSourceSha256 && request.expectedSourceSha256 !== captured.sha256)
+      throw new Error('The selected file changed after preview. Reopen the original file.');
+    if (
+      replacePath &&
+      targetRoot &&
+      familyId === 'structure' &&
+      replacePath.endsWith(MOLECULAR_DOCUMENT_SUFFIX)
+    ) {
+      const owner = await findKnownWorkspaceRoot(targetRoot, deps);
+      if (!owner) throw new Error('Choose a known project destination.');
+      const library = new MolecularDocumentLibrary();
+      const destination = { workspaceRoot: owner, path: replacePath };
+      const previous = await library.read(destination);
+      const next = parseMolecularDocument(await readFile(captured.entryPath, 'utf8'));
+      const entry = next.history[0];
+      await library.save({
+        destination,
+        expectedRevision: previous.revision,
+        document: {
+          ...previous.document,
+          currentReferenceId: entry.referenceId,
+          history: [
+            ...previous.document.history,
+            {
+              ...entry,
+              snapshot: {
+                ...entry.snapshot,
+                presentation: { ...entry.snapshot.presentation, id: previous.document.id },
+                source: { source: 'file', sourceId: 'sha256:' + captured.sha256 },
+              },
+            },
+          ],
+        },
+      });
+      const repoRoot = findManagedRepoRoot(owner);
+      const committed = repoRoot
+        ? (await commitPathsIfDirty(repoRoot, 'Update molecular coordinates', {
+            paths: [relative(repoRoot, replacePath).split(sep).join('/')],
+          })) !== null
+        : false;
+      return {
+        destPath: replacePath,
+        relPath: relative(targetRoot, replacePath),
+        committed,
+        replaced: true,
+        packageProductPaths: [replacePath],
+        workspaceRoot: owner,
+        createdWorkspaceName: null,
+        workspaceUuid: undefined,
+      };
+    }
+    if (replacePath)
+      throw new Error(
+        'This destination cannot be replaced by this document type. Keep both documents or choose a compatible project location.'
+      );
+    return await importSourceDocumentPackage(
+      staging,
+      captured.packageId,
+      targetRoot,
+      deps,
+      undefined,
+      true
+    );
+  } finally {
+    await rm(staging, { recursive: true, force: true });
   }
-}
-
-function coordinateGitFiles(result: Awaited<ReturnType<typeof packageImportedCoordinates>>) {
-  return Object.keys(result?.expectedContentSha256 ?? {}).filter(
-    (path) => result?.expectedContentSha256[path] != null
-  );
 }
 
 export async function importFileIntoWorkspaceRoot(
@@ -1844,6 +1974,24 @@ export async function importFileIntoWorkspaceRoot(
       committed: false,
       skipped: true,
     };
+  }
+
+  const family = sourceDocumentFamily(realSource);
+  const explicitDnaRegistration =
+    family === 'fasta' &&
+    !request.preserveOriginal &&
+    Boolean(request.expectedSourceSha256 || request.confirmedDnaSourceSha256);
+  if (family && !explicitDnaRegistration) {
+    const replacement =
+      dedupMode === 'replace' ? join(request.targetRoot, expectedRelPath ?? base) : undefined;
+    if (
+      !(
+        family === 'fasta' &&
+        replacement &&
+        (await existingPlasmidPackageRootForProduct(replacement))
+      )
+    )
+      return importTypedProjectFile(request, request.targetRoot, deps, replacement);
   }
 
   if (isWorkImportCandidate(realSource))
@@ -1915,7 +2063,6 @@ export async function importFileIntoWorkspaceRoot(
         await copyFile(realSource, destPath, fsConstants.COPYFILE_EXCL);
         copiedIdentity = await physicalFileIdentity(destPath);
         await assertExpectedSourceDigest(destPath, request.expectedSourceSha256);
-        await markPreservedFasta(destPath, request);
         break;
       } catch (err) {
         if (copiedIdentity) {
@@ -1967,24 +2114,12 @@ export async function importFileIntoWorkspaceRoot(
     }
   }
 
-  const coordinate =
-    !replaced && !packageProductPaths && packagedCoordinateFormat(relPath)
-      ? await packageImportedCoordinates(destPath, request.expectedSourceSha256)
-      : null;
-  if (coordinate) {
-    destPath = coordinate.productPath;
-    relPath = relative(request.targetRoot, destPath);
-  }
-
   let committed = false;
   const repoRoot = findManagedRepoRoot(request.targetRoot);
   if (repoRoot) {
     try {
       const oid = await commitAllIfDirty(repoRoot, `Import ${relPath}`, {
-        forceInclude: [
-          ...requiredGitFilesForProducts(packageProductPaths),
-          ...coordinateGitFiles(coordinate),
-        ],
+        forceInclude: requiredGitFilesForProducts(packageProductPaths),
       });
       committed = oid !== null;
     } catch (err) {
@@ -3374,6 +3509,27 @@ export async function importFileAsNewManagedWorkspace(
     throw new Error(`Cannot create a workspace from a non-file: ${sourceFile}`);
   }
 
+  if (sourceDocumentFamily(realSource)) {
+    const promoted = await importTypedProjectFile(request, null, deps);
+    if (!promoted.workspaceUuid || !promoted.createdWorkspaceName)
+      throw new Error('The new source document project has no saved identity.');
+    const project = db
+      .prepare('SELECT created_at FROM workspaces WHERE path=?')
+      .get(promoted.workspaceRoot) as { created_at: number };
+    return {
+      workspaceUuid: promoted.workspaceUuid,
+      repoPath: promoted.workspaceRoot,
+      entryPath: promoted.destPath,
+      displayName: promoted.createdWorkspaceName,
+      originPath: realSource,
+      createdAt: project.created_at,
+      reused: false,
+      largeFilePolicy: 'copy',
+      largeFiles: [],
+      symlinkedLargeFiles: [],
+    };
+  }
+
   if (isWorkImportCandidate(realSource))
     assertIndependentWorkImport(realSource, await readFile(realSource, 'utf8'));
 
@@ -3394,7 +3550,6 @@ export async function importFileAsNewManagedWorkspace(
     await mkdir(repoPath);
     await copyFile(realSource, join(repoPath, destName));
     await assertExpectedSourceDigest(join(repoPath, destName), request.expectedSourceSha256);
-    await markPreservedFasta(join(repoPath, destName), request);
     if (!request.preserveOriginal) {
       try {
         const materialized = await materializeImportedSequencePackages(join(repoPath, destName));
@@ -3406,11 +3561,7 @@ export async function importFileAsNewManagedWorkspace(
         );
       }
     }
-    const coordinate =
-      !packageProductPaths?.length && packagedCoordinateFormat(destName)
-        ? await packageImportedCoordinates(entryPath, request.expectedSourceSha256)
-        : null;
-    entryPath = coordinate?.productPath ?? packageProductPaths?.[0] ?? entryPath;
+    entryPath = packageProductPaths?.[0] ?? entryPath;
     await writeFile(
       join(repoPath, MANAGED_WORKSPACE_MARKER),
       `${JSON.stringify({ schema: 1, workspaceUuid, originPath: realSource, importedAt: createdAt }, null, 2)}\n`,
@@ -3418,10 +3569,7 @@ export async function importFileAsNewManagedWorkspace(
     );
     await initManagedRepo(repoPath);
     await commitAllIfDirty(repoPath, 'Initial import', {
-      forceInclude: [
-        ...requiredGitFilesForProducts(packageProductPaths),
-        ...coordinateGitFiles(coordinate),
-      ],
+      forceInclude: requiredGitFilesForProducts(packageProductPaths),
     });
 
     db.prepare(

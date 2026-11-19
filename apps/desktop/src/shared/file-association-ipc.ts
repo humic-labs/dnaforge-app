@@ -82,3 +82,35 @@ export interface PromoteQuickLookPackageResult {
     readonly relPath: string;
   }[];
 }
+
+export interface ExternalPreviewReceipt {
+  readonly version: 1;
+  readonly packageId: string;
+  readonly familyId: HandlerFamilyId;
+  readonly sourcePath: string;
+  readonly sourceFileName: string;
+  readonly contentHash: string;
+  readonly sequence?: QuickLookPackageReceipt;
+  readonly acquisitionId?: string;
+}
+
+export interface ProjectPreviewPackage {
+  readonly packageId: string;
+  readonly packageInstanceId: string;
+  readonly familyId: Exclude<HandlerFamilyId, FileAssociationFamilyId>;
+  readonly sourceFileName: string;
+  readonly contentHash: string;
+  readonly entryPath: string;
+  readonly productPaths: readonly string[];
+  readonly presentation:
+    | 'sequence-package'
+    | 'fasta-collection'
+    | 'molecular-document'
+    | 'chromatogram';
+  readonly bytes: Uint8Array;
+}
+
+export interface PreviewTabSnapshot {
+  readonly ownerId: string;
+  readonly receipts: readonly (ExternalPreviewReceipt | QuickLookPackageReceipt)[];
+}

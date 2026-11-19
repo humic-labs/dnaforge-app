@@ -47,6 +47,8 @@ export const QUICK_LOOK_MAX_SOURCE_BYTES = {
 export interface QuickLookPackageStore {
   materialize(request: MaterializeQuickLookPackageRequest): Promise<QuickLookPackageReceipt>;
   preparePackage(packageRoot: string): Promise<boolean>;
+  recoverReceipt(receipt: QuickLookPackageReceipt): Promise<QuickLookPackageReceipt>;
+  originalPath(receipt: QuickLookPackageReceipt): Promise<string>;
   promote(
     request: { readonly receipt: QuickLookPackageReceipt; readonly targetRoot: string },
     importer: QuickLookPackageImporter
@@ -187,9 +189,11 @@ function generationIdentity(
 function generationKeyFor(
   familyId: FileAssociationFamilyId,
   sourcePath: string,
-  contentHash: string
+  contentHash: string,
+  legacy = false
 ): string {
   return createHash('sha256')
+    .update(legacy ? '' : 'dnaforge.external-sequence.v1\0')
     .update(familyId)
     .update('\0')
     .update(sourcePath)
@@ -491,6 +495,15 @@ async function preparePublishedPackage(
   return true;
 }
 
+export function quickLookPackageId(receipt: QuickLookPackageReceipt): string {
+  const current = generationKeyFor(receipt.familyId, receipt.sourcePath, receipt.contentHash);
+  const legacy = generationKeyFor(receipt.familyId, receipt.sourcePath, receipt.contentHash, true);
+  const actual = basename(dirname(dirname(dirname(receipt.packageRoot))));
+  if (actual !== current && actual !== legacy)
+    throw new Error('The sequence preview identity does not match.');
+  return actual;
+}
+
 function identityForReceipt(receipt: QuickLookPackageReceipt): GenerationIdentity | null {
   if (
     !isAbsolute(receipt.sourcePath) ||
@@ -502,7 +515,7 @@ function identityForReceipt(receipt: QuickLookPackageReceipt): GenerationIdentit
   }
   return {
     contentHash: receipt.contentHash,
-    generationKey: generationKeyFor(receipt.familyId, receipt.sourcePath, receipt.contentHash),
+    generationKey: quickLookPackageId(receipt),
     sourceFileName: receipt.sourceFileName,
   };
 }
@@ -906,6 +919,21 @@ async function buildGeneration(
   }
 }
 
+async function verifiedOriginalPath(
+  storeRoot: string,
+  receipt: QuickLookPackageReceipt
+): Promise<string> {
+  if (!(await verifiedPublishedSnapshot(storeRoot, receipt)))
+    throw new Error('The saved sequence preview is incomplete or changed.');
+  const original =
+    receipt.familyId === 'snapgene' || receipt.records.length > 1
+      ? join(receipt.packageRoot, 'contents', receipt.sourceFileName)
+      : receipt.productPath;
+  if ((await sha256File(original)) !== receipt.contentHash)
+    throw new Error('The original sequence package member has changed.');
+  return original;
+}
+
 export function createQuickLookPackageStore(
   userDataRoot: string,
   options: QuickLookPackageStoreOptions = {}
@@ -942,6 +970,28 @@ export function createQuickLookPackageStore(
       }).finally(() => inflightBySource.delete(inflightKey));
       inflightBySource.set(inflightKey, promise);
       return promise;
+    },
+    async originalPath(receipt) {
+      return enqueueMaterialization(() => verifiedOriginalPath(storeRoot, receipt));
+    },
+    async recoverReceipt(receipt) {
+      return enqueueMaterialization(async () => {
+        const original = await verifiedOriginalPath(storeRoot, receipt);
+        const currentId = generationKeyFor(
+          receipt.familyId,
+          receipt.sourcePath,
+          receipt.contentHash
+        );
+        if (quickLookPackageId(receipt) === currentId) return receipt;
+        const bytes = await readFileBoundedFromHandle(
+          original,
+          QUICK_LOOK_MAX_SOURCE_BYTES[receipt.familyId]
+        );
+        const identity = generationIdentity(receipt, bytes);
+        if (identity.contentHash !== receipt.contentHash)
+          throw new Error('The saved preview source changed.');
+        return buildGeneration(storeRoot, receipt, bytes, identity, maxStoreBytes);
+      });
     },
     async preparePackage(packageRoot) {
       return enqueueMaterialization(() => preparePublishedPackage(storeRoot, packageRoot));

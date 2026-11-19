@@ -314,6 +314,35 @@ export const browserMockBridge: PlatformBridge = {
     },
   },
   fileAssociations: {
+    openPreview: async () => {
+      throw new Error('External document packages require the desktop app.');
+    },
+    adoptPreview: async () => {
+      throw new Error('External document packages require the desktop app.');
+    },
+    releasePreview: async () => {},
+    syncPreviewTabs: async () => {},
+    savePreview: async () => {
+      throw new Error('External document packages require the desktop app.');
+    },
+    readPreviewPackage: async () => {
+      throw new Error('External document packages require the desktop app.');
+    },
+    resolvePreviewImportSource: async () => {
+      throw new Error('External document packages require the desktop app.');
+    },
+    describeProjectPreviewPackage: async () => {
+      throw new Error('External document packages require the desktop app.');
+    },
+    readPreviewPresentation: async () => {
+      throw new Error('External document packages require the desktop app.');
+    },
+    readProjectPreviewPresentation: async () => {
+      throw new Error('External document packages require the desktop app.');
+    },
+    readProjectPreviewPackage: async () => {
+      throw new Error('External document packages require the desktop app.');
+    },
     readPreviewBytes: (path, maxBytes) => browserMockBridge.fs.readFileBounded(path, maxBytes),
     takePendingActivations: async () => [],
     materializeQuickLookPackage: async (request) => {

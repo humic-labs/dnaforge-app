@@ -45,6 +45,7 @@ vi.mock('../file-associations/native-default-handler', () => ({
 }));
 vi.mock('../file-associations/quick-look-package-store', () => ({
   createQuickLookPackageStore: mocks.createStore,
+  QUICK_LOOK_STORE_MAX_BYTES: 2 * 1024 ** 3,
 }));
 vi.mock('../file-associations/quick-look-destination-promotion', () => ({
   promoteQuickLookToDestination: mocks.promote,
@@ -210,6 +211,7 @@ describe('file associations main feature', () => {
     ) => unknown;
     importer({ snapshot: 's' }, '/physical');
     expect(mocks.importGeneration).toHaveBeenCalledWith({ snapshot: 's' }, '/physical', {
+      independentCopies: true,
       db: mocks.db,
       managedRootDir: '/managed',
       promotionJournalRoot: PROMOTIONS,
