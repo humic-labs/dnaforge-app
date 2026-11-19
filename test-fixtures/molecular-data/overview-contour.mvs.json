@@ -1,0 +1,52 @@
+{
+  "metadata": {
+    "version": "1.7",
+    "timestamp": "2026-11-18T00:00:00.000Z",
+    "title": "RNA contour with protein context"
+  },
+  "root": {
+    "kind": "root",
+    "children": [
+      {
+        "kind": "download",
+        "params": { "url": "structure.cif" },
+        "children": [
+          {
+            "kind": "parse",
+            "params": { "format": "mmcif" },
+            "children": [
+              {
+                "kind": "structure",
+                "params": { "type": "model" },
+                "children": [
+                  {
+                    "kind": "component",
+                    "params": { "selector": { "label_entity_id": "1" } },
+                    "children": [
+                      {
+                        "kind": "representation",
+                        "params": { "type": "surface", "surface_type": "gaussian" },
+                        "children": [{ "kind": "color", "params": { "color": "#4e84c4" } }]
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "component",
+                    "params": { "selector": { "label_entity_id": "2" } },
+                    "children": [
+                      {
+                        "kind": "representation",
+                        "params": { "type": "cartoon" },
+                        "children": [{ "kind": "color", "params": { "color": "#c48333" } }]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
