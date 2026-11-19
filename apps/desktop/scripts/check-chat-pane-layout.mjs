@@ -86,8 +86,10 @@ try {
   const pane = page.getByTestId('full-chat-view').filter({ visible: true });
   const toolbar = pane.getByTestId('chat-composer-toolbar');
   await expect(toolbar).toBeVisible();
+  const dismissSeedPrompt = page.getByRole('button', { name: 'Not now', exact: true });
+  if (await dismissSeedPrompt.isVisible()) await dismissSeedPrompt.click();
   const divider = page.locator('[role="separator"].cursor-col-resize').filter({ visible: true });
-  for (const width of [260, 600]) {
+  async function resizeChat(width, expectedWidth) {
     const handle = await divider.boundingBox();
     const box = await pane.boundingBox();
     const x = handle.x + handle.width / 2;
@@ -97,11 +99,14 @@ try {
     await page.mouse.move(x + box.width - width, y, { steps: 10 });
     await page.mouse.up();
     await expect
-      .poll(async () => Math.abs((await pane.boundingBox()).width - width))
+      .poll(async () => Math.abs((await pane.boundingBox()).width - expectedWidth))
       .toBeLessThan(3);
+  }
+
+  async function checkControls(label) {
     await pane.getByTestId('ai-input').fill('Review this layout');
-    if (out) await page.screenshot({ path: path.join(out, `chat-${width}.png`) });
-    assert.deepEqual(await toolbar.evaluate(inspectButtons), [], `Toolbar at ${width}px`);
+    if (out) await page.screenshot({ path: path.join(out, `${label}.png`) });
+    assert.deepEqual(await toolbar.evaluate(inspectButtons), [], label);
     const route = toolbar.getByTestId('model-selector-button');
     await route.click();
     await expect(page.getByTestId('chat-assistant-route-menu')).toBeVisible();
@@ -109,8 +114,29 @@ try {
     const send = toolbar.getByTestId('chat-send-button');
     await expect(send).toBeInViewport({ ratio: 1 });
     if (await send.isEnabled()) await send.click({ trial: true });
-    console.log(`Chat controls fit and accept pointer input at ${width}px`);
+    console.log(`${label} passed`);
   }
+  await resizeChat(260, 260);
+  await checkControls('conversation-260');
+  await resizeChat(72, 256);
+  const history = page.getByTestId('ai-history-button');
+  await expect
+    .poll(async () => (await history.boundingBox()).x - (await pane.boundingBox()).x)
+    .toBeGreaterThanOrEqual(0);
+  await checkControls('conversation-minimum');
+  await history.click();
+  await expect(pane).toHaveAttribute('data-history-pinned', 'true');
+  const transcript = pane.getByTestId('chat-transcript-rail');
+  await expect.poll(async () => (await transcript.boundingBox()).width).toBeGreaterThanOrEqual(200);
+  await checkControls('pinned-history');
+  await history.click();
+  await page.mouse.move(0, 0);
+  await resizeChat(600, 600);
+  await checkControls('conversation-600');
+  await page.getByTestId('ai-new-conversation-button').click();
+  await expect(pane.getByRole('heading', { name: 'What can I help with?' })).toBeVisible();
+  await resizeChat(260, 260);
+  await checkControls('new-chat-260');
 } finally {
   await browser.close();
 }

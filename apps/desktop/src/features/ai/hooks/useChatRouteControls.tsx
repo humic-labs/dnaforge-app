@@ -528,7 +528,7 @@ export function useChatRouteControls({
     if (modelCatalogFailed) {
       return (
         <div
-          className="flex min-w-0 items-center gap-1"
+          className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1"
           data-testid="chat-cli-model-controls"
           title={
             modelCatalog?.error != null
@@ -587,7 +587,7 @@ export function useChatRouteControls({
 
     return (
       <div
-        className="flex min-w-0 items-center gap-1"
+        className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1"
         data-testid="chat-cli-model-controls"
         title={`${TURN_TRANSPORT_LABELS[transport]} model and effort controls`}
       >
@@ -676,7 +676,10 @@ export function useChatRouteControls({
     if (!activeAssistantRoute) return null;
     if (activeAssistantRoute.kind === 'provider') {
       return (
-        <div className="flex min-w-0 items-center" data-testid="chat-model-controls">
+        <div
+          className="flex min-w-0 max-w-full flex-wrap items-center justify-end"
+          data-testid="chat-model-controls"
+        >
           {renderDirectApiModelControl(activeAssistantRoute.provider)}
           {beforeOptionsMenu}
         </div>
@@ -708,7 +711,7 @@ export function useChatRouteControls({
     const cliAuthFailed = !!cliAuthResult && !cliAuthResult.ok;
 
     return (
-      <div className="flex min-w-0 items-center gap-1">
+      <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1">
         <button
           type="button"
           onClick={openActiveRouteConfiguration}

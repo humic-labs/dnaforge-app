@@ -3226,10 +3226,10 @@ function InitializedChatView({
                         />
                       </div>
                       <div
-                        className="flex items-center justify-between gap-2 px-3 pb-1.5 pt-0.5"
+                        className="chat-composer-toolbar px-3 pb-1.5 pt-0.5"
                         data-testid="chat-composer-toolbar"
                       >
-                        <div className="flex items-center gap-1">
+                        <div className="mr-auto flex items-center gap-1">
                           <button
                             onClick={handleAttachFile}
                             className="inline-flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition-colors wp-interactive hover:text-accent disabled:opacity-30 [&_svg]:stroke-[2.25]"
@@ -3241,40 +3241,39 @@ function InitializedChatView({
                           </button>
                           {renderAgentActionsControl()}
                         </div>
-                        <div className="ml-auto flex min-w-0 flex-nowrap items-center justify-end gap-1.5">
-                          {renderAssistantRouteSelector()}
-                          {renderComposerModelControls()}
-                          {renderRouteConfigurationPrompt()}
-                          {renderRouteCheckingStatus()}
-                          {renderComputeConnectPrompt()}
-                          <button
-                            onClick={handleSend}
-                            disabled={
-                              (!input.trim() &&
-                                attachedFiles.length === 0 &&
-                                composeReferences.length === 0) ||
-                              activeRouteSendBlocked
-                            }
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-fg-muted transition-colors hover:bg-accent hover:text-accent-fg disabled:opacity-30 [&_svg]:stroke-[2.25]"
-                            title={
-                              activeRouteFallbackNotice && !activeRouteSendBlocked
-                                ? activeRouteFallbackNotice
-                                : activeDirectApiNeedsKey
-                                  ? 'Add a Direct API key before sending'
-                                  : activeCliNeedsLogin
-                                    ? 'Sign in to this CLI host before sending'
-                                    : activeRouteSendBlocked
-                                      ? 'Waiting for AI route detection'
-                                      : isLoading
-                                        ? 'Queue message (Enter)'
-                                        : 'Send (Enter)'
-                            }
-                            aria-label="Send message"
-                            data-testid="chat-send-button"
-                          >
-                            <SendIcon />
-                          </button>
-                        </div>
+
+                        {renderAssistantRouteSelector()}
+                        {renderComposerModelControls()}
+                        {renderRouteConfigurationPrompt()}
+                        {renderRouteCheckingStatus()}
+                        {renderComputeConnectPrompt()}
+                        <button
+                          onClick={handleSend}
+                          disabled={
+                            (!input.trim() &&
+                              attachedFiles.length === 0 &&
+                              composeReferences.length === 0) ||
+                            activeRouteSendBlocked
+                          }
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-fg-muted transition-colors hover:bg-accent hover:text-accent-fg disabled:opacity-30 [&_svg]:stroke-[2.25]"
+                          title={
+                            activeRouteFallbackNotice && !activeRouteSendBlocked
+                              ? activeRouteFallbackNotice
+                              : activeDirectApiNeedsKey
+                                ? 'Add a Direct API key before sending'
+                                : activeCliNeedsLogin
+                                  ? 'Sign in to this CLI host before sending'
+                                  : activeRouteSendBlocked
+                                    ? 'Waiting for AI route detection'
+                                    : isLoading
+                                      ? 'Queue message (Enter)'
+                                      : 'Send (Enter)'
+                          }
+                          aria-label="Send message"
+                          data-testid="chat-send-button"
+                        >
+                          <SendIcon />
+                        </button>
                       </div>
                     </div>
                   </div>
