@@ -161,3 +161,17 @@ their drag feedback instead of ordinary hover or selection fills.
 
 [Appearance ownership and rendering exceptions](./appearance-owners.md) lists
 the adapters and the domain visuals that retain their own rendering.
+
+## Source analysis
+
+`@waypoint/ui-components/styling-check` exports `createStylingChecker` for Node
+development tools with TypeScript and PostCSS installed. It checks menu callers,
+control ownership and appearance changes. Host adapters can declare additional
+source roots, theme files, canonical control modules and import aliases through
+its profile argument. Each host uses the same analyzer.
+
+Run `node scripts/guard-ui-styling.mjs --staged` to inspect staged changes, or
+`node scripts/guard-ui-styling.mjs --base COMMIT` to compare a commit with HEAD.
+The command uses the current Git repository. Unchanged existing styles retain
+their exact identities; new or duplicated competing styles are rejected.
+`node --test scripts/guard-ui-styling.test.mjs` exercises the analysis rules.
