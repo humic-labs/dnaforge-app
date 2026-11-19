@@ -16,7 +16,11 @@ import { trackViewMatchesSavedConfiguration } from './track-view-configuration';
 import type { TrackViewControl, TrackViewSnapshot } from './track-view-control';
 import { saveTrackView } from './track-view-library';
 import { trackViewUserLayers } from './indexed-user-annotations';
-import { trackViewRecoveryDocument } from './track-view-recovery-document';
+import {
+  sameSavedReference,
+  trackViewRecoveryDocument,
+  trackViewSourceBindings,
+} from './track-view-recovery-document';
 
 type Mode = 'save' | 'rename' | 'copy';
 type Naming = { kind: 'naming'; mode: Mode; name: string; error: string | null };
@@ -143,12 +147,22 @@ export class TrackViewSession implements TrackViewControl {
       dataTracks: state.dataTracks ?? state.ucscTracks ?? saved.dataTracks,
       bamTracks: state.bamTracks ?? saved.bamTracks,
       signalReadPileupViews: state.signalReadPileupViews ?? saved.signalReadPileupViews,
-      sequenceDataLayers: Object.hasOwn(state, 'sequenceDataLayers') ? state.sequenceDataLayers : saved.sequenceDataLayers,
-      comparisonProjection: Object.hasOwn(state, 'comparisonProjection') ? state.comparisonProjection : saved.comparisonProjection,
-      contactProjection: Object.hasOwn(state, 'contactProjection') ? state.contactProjection : saved.contactProjection,
-      variantSource: Object.hasOwn(state, 'variantSource') ? state.variantSource : saved.variantSource,
-      primerBindings: state.primerBindings === undefined ? saved.primerBindings : userLayers.primerBindings,
-      userAnnotations: state.userAnnotations === undefined ? saved.userAnnotations : userLayers.userAnnotations,
+      sequenceDataLayers: Object.hasOwn(state, 'sequenceDataLayers')
+        ? state.sequenceDataLayers
+        : saved.sequenceDataLayers,
+      comparisonProjection: Object.hasOwn(state, 'comparisonProjection')
+        ? state.comparisonProjection
+        : saved.comparisonProjection,
+      contactProjection: Object.hasOwn(state, 'contactProjection')
+        ? state.contactProjection
+        : saved.contactProjection,
+      variantSource: Object.hasOwn(state, 'variantSource')
+        ? state.variantSource
+        : saved.variantSource,
+      primerBindings:
+        state.primerBindings === undefined ? saved.primerBindings : userLayers.primerBindings,
+      userAnnotations:
+        state.userAnnotations === undefined ? saved.userAnnotations : userLayers.userAnnotations,
     };
   }
   private current(): TrackViewSnapshot {
@@ -268,9 +282,16 @@ export class TrackViewSession implements TrackViewControl {
       const previous = mode === 'copy' ? null : this.saved;
       const renaming = mode === 'rename' && previous;
       const captured = renaming ? previous.document : this.current();
+      const savedPresentation =
+        mode === 'save' && expectedRevision === undefined ? previous?.document : undefined;
+      const retainedReference =
+        savedPresentation?.portableReference && sameSavedReference(captured, savedPresentation)
+          ? savedPresentation.portableReference
+          : undefined;
       const portableReference = renaming
         ? previous.document.portableReference
-        : ((this.ready ? await this.capturePortableReference?.() : undefined) ??
+        : (retainedReference ??
+          (this.ready ? await this.capturePortableReference?.() : undefined) ??
           captured.portableReference);
       const now = new Date().toISOString();
       const document = validateTrackViewDocument({
@@ -290,7 +311,12 @@ export class TrackViewSession implements TrackViewControl {
           : {}),
         updatedAt: now,
       });
-      if (portableReference) await trackViewRecoveryDocument(document);
+      if (
+        portableReference &&
+        (!savedPresentation ||
+          trackViewSourceBindings(savedPresentation) !== trackViewSourceBindings(document))
+      )
+        await trackViewRecoveryDocument(document);
       if (this.closed()) throw new Error('The Track view closed before its save began.');
       if (expectedRevision !== undefined && expectedRevision !== this.revision())
         throw new Error('The view changed while preparing its save. Inspect it again.');

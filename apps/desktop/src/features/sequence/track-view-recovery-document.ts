@@ -1,5 +1,6 @@
 import { platform } from '../../platform';
 import { createIndexedBbiTrackId, type PortableGenomeViewDocument } from '@waypoint/genome-data';
+import { canonicalJson } from '../../shared/canonical-json';
 import { isAbsolutePath } from '../../shared/resolve-entity-path';
 import { validateTrackViewDocument, type TrackViewDocument } from '../../shared/track-view';
 import type { AdmitPortableTracksResult } from './portable-genome-view-restore';
@@ -14,6 +15,45 @@ function restoresFromNativeAlignmentSource(track: TrackViewDocument['bamTracks']
       isAbsolutePath(track.source.bamPath) &&
       isAbsolutePath(track.source.indexPath))
   );
+}
+
+export function sameSavedReference(
+  captured: Pick<TrackViewDocument, 'reference' | 'portableReference'>,
+  saved: TrackViewDocument
+): boolean {
+  return (
+    canonicalJson(captured.reference) === canonicalJson(saved.reference) &&
+    (!captured.portableReference ||
+      canonicalJson(captured.portableReference) === canonicalJson(saved.portableReference ?? null))
+  );
+}
+
+export function trackViewSourceBindings(document: TrackViewDocument): string {
+  const projectionBinding = (
+    projection: TrackViewDocument['contactProjection'] | TrackViewDocument['comparisonProjection']
+  ) =>
+    projection && { kind: projection.kind, project: projection.project, source: projection.source };
+  const dataLayers = document.sequenceDataLayers;
+  return canonicalJson({
+    reference: document.reference,
+    portableReference: document.portableReference,
+    dataTracks: document.dataTracks
+      .map(({ trackId, source, remoteSignal }) => ({ trackId, source, remoteSignal }))
+      .sort((a, b) => a.trackId.localeCompare(b.trackId)),
+    bamTracks: document.bamTracks
+      .map(({ trackId, source, admittedSource }) => ({ trackId, source, admittedSource }))
+      .sort((a, b) => a.trackId.localeCompare(b.trackId)),
+    variantSource: document.variantSource,
+    contactProjection: projectionBinding(document.contactProjection),
+    comparisonProjection: projectionBinding(document.comparisonProjection),
+    sequenceDataLayers: dataLayers && {
+      project: dataLayers.project,
+      targetDocumentId: dataLayers.targetDocumentId,
+      layers: dataLayers.layers
+        .map(({ id, revision }) => ({ id, revision }))
+        .sort((a, b) => a.id.localeCompare(b.id)),
+    },
+  });
 }
 
 export async function trackViewRecoveryDocument(
