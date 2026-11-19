@@ -34,7 +34,7 @@ import {
 } from './migration-paths';
 import {
   NATIVE_WORKSPACE_MANIFEST_PATH,
-  NATIVE_WORKSPACE_MANIFEST_V2_SCHEMA,
+  nativeWorkspaceEntityPhysicalRoot,
   parseNativeWorkspaceManifest,
 } from '../../shared/native-workspace-manifest';
 
@@ -674,17 +674,12 @@ export async function declaredNativeMigrationPaths(rootDir: string): Promise<str
       throw error;
     });
   const manifest = manifestText === null ? null : parseNativeWorkspaceManifest(manifestText);
-  const nativeFiles = new Set<string>();
-  const nativePackages = new Set<string>();
-  if (manifest?.schema === NATIVE_WORKSPACE_MANIFEST_V2_SCHEMA) {
-    for (const entity of manifest.entities) {
-      if (entity.placement.kind === 'file')
-        nativeFiles.add(join(rootDir, entity.placement.relativePath));
-      if (entity.placement.kind === 'package')
-        nativePackages.add(join(rootDir, entity.placement.rootRelativePath));
-    }
+  const paths = new Set<string>();
+  for (const entity of manifest?.entities ?? []) {
+    const relativePath = nativeWorkspaceEntityPhysicalRoot(entity);
+    if (relativePath) paths.add(join(rootDir, relativePath));
   }
-  return [...nativeFiles, ...nativePackages];
+  return [...paths];
 }
 
 async function isPackageRoot(

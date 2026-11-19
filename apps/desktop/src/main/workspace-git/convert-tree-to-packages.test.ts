@@ -45,6 +45,24 @@ describe('convertTreeToPlasmidPackages', () => {
     expect(await exists(join(root, 'plasmids', 'vectors', 'pET28', 'pET28.gb'))).toBe(true);
   });
 
+  it('retains declared paths in an older project while converting its unlisted files', async () => {
+    const first = await file('Imported/First.gb', GB('Same'));
+    const second = await file('Imported/Second.gb', GB('Same'));
+    await file('Imported/Unlisted.gb', GB('Same'));
+    const entities = [
+      { id: 'first', name: 'Same', path: 'Imported/First.gb' },
+      { id: 'second', name: 'Same', path: 'Imported/Second.gb' },
+    ].map((entity) => ({ ...entity, type: 'sequence', fileKind: 'genbank' }));
+    await file(
+      '.forge/catalog.json',
+      JSON.stringify({ schema: 'dnaforge.native-workspace-manifest.v1', entities, links: [] })
+    );
+    expect((await convertTreeToPlasmidPackages(root)).converted).toBe(1);
+    expect(await readFile(first, 'utf8')).toBe(GB('Same'));
+    expect(await readFile(second, 'utf8')).toBe(GB('Same'));
+    expect(await exists(join(root, 'Imported/Unlisted/Unlisted.gb'))).toBe(true);
+  });
+
   it('preserves exact native file and package placements while converting unmanaged constructs', async () => {
     const native = await file('DNA/Native.gb', GB('Native'));
     const nested = await file('Protocol/assets/Template.gb', GB('Template'));
