@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "scope": "Built-in registered actions and canonical aliases. Runtime-installed provider manifests are discovered through their existing provider registry.",
   "source": "apps/api/src/concurrency/builtins.py#register_builtin_agent_tools",
-  "sharedCatalogSha256": "709c4f26bdae581a07d1f4de090870e301f05f9c0617ea93474adeb47aca6b58",
+  "sharedCatalogSha256": "54fa780afe649982f6b505032714b9f5c0d1867da3fdb55a4254687d259bbc5c",
   "tools": [
     {
       "name": "add_design_region",
@@ -2363,9 +2363,11 @@
       "requiredCapabilities": [
         "modify-tabs"
       ],
-      "conditionalCapabilities": [],
+      "conditionalCapabilities": [
+        "read-workspace"
+      ],
       "requiresWorkspace": false,
-      "conditionallyRequiresWorkspace": false,
+      "conditionallyRequiresWorkspace": true,
       "replayPolicy": "reuse_result",
       "contractRef": "packages/core/agent-tools/renderer-tool-manifest.json#tools/mol_apply_scene"
     },

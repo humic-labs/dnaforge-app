@@ -668,7 +668,7 @@ describe(' Molstar MCP harness', () => {
         camera: unknown;
         chains: Array<{ chainId: string; residueRange: { start: number; end: number } }>;
       }>;
-    }>(await runTool('mol_get_state', { viewerId: AF_VIEWER_ID }, sink));
+    }>(await runTool('mol_get_state', { viewerId: AF_VIEWER_ID, detail: 'full' }, sink));
     expect(stateResult.structures[0], JSON.stringify(stateResult.structures[0])).toMatchObject({
       viewerStatus: 'active',
       currentSelection: {
@@ -836,7 +836,7 @@ describe(' Molstar MCP harness', () => {
           molstarElementCount: number | null;
         };
       }>;
-    }>(await runTool('mol_get_state', { viewerId: AF_VIEWER_ID }, sink));
+    }>(await runTool('mol_get_state', { viewerId: AF_VIEWER_ID, detail: 'full' }, sink));
 
     expect(stateResult.structures[0].currentSelection).toEqual(
       expect.objectContaining({
@@ -874,7 +874,7 @@ describe(' Molstar MCP harness', () => {
           molstarSelectedResidues: Array<{ position: number; compId: string }>;
         };
       }>;
-    }>(await runTool('mol_get_state', {}, sink));
+    }>(await runTool('mol_get_state', { detail: 'full' }, sink));
     const byStructureId = new Map(
       stateResult.structures.map((structure) => [structure.structureId, structure])
     );

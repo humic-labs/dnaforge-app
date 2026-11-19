@@ -11,6 +11,7 @@ import {
 import { handleMolApplyScene as executeMolApplyScene } from './index';
 import { assertMcpOutput } from '../../../test-utils/mcp-output-test-helper';
 import { molApplySceneOutputSchema } from './output-schemas';
+import { molecularSceneDigest } from './document-parameters';
 async function handleMolApplyScene(input: unknown) {
   const result = await executeMolApplyScene(input);
   if (result.ok) assertMcpOutput(molApplySceneOutputSchema, result);
@@ -18,7 +19,7 @@ async function handleMolApplyScene(input: unknown) {
 }
 import { resolveMolecularDisplayGroups } from '../../page/public/embeds/structure3d/molstar/molecularDisplayGroups';
 
-const renderer = vi.hoisted(() => ({ scene: '', apply: vi.fn() }));
+const renderer = vi.hoisted(() => ({ scene: '', apply: vi.fn(), enterQueue: vi.fn() }));
 
 vi.mock('../../page/public/embeds/structure3d/viewerCache', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../page/public/embeds/structure3d/viewerCache')>()),
@@ -48,7 +49,7 @@ vi.mock('../../page/public/embeds/structure3d/molstar/molViewSpec', async (impor
     );
   },
   activeMolViewSpecScene: () => renderer.scene,
-  getMolViewSpecScene: () => ({
+  getMolViewSpecSceneDocument: () => ({
     format: 'mvsj',
     renderProfile: { selection: 'native', resolvedProfile: null },
     renderProfileGuidance: 'Defaults',
@@ -76,7 +77,14 @@ vi.mock('../../page/public/embeds/structure3d/molstar/molViewSpec', async (impor
     resource: { uri: 'structure.cif', format: 'mmcif', boundTo: 'current-structure-view' },
     resources: [{ uri: 'structure.cif', format: 'mmcif', boundTo: 'current-structure-view' }],
   }),
-  applyMolViewSpecScene: async (_plugin: unknown, scene: string, onRendered: () => void) => {
+  applyMolViewSpecScene: async (
+    _plugin: unknown,
+    scene: string,
+    onRendered: () => void,
+    options?: { beforeApply?: () => void }
+  ) => {
+    renderer.enterQueue();
+    options?.beforeApply?.();
     renderer.apply(scene);
     renderer.scene = scene;
     onRendered();
@@ -170,6 +178,29 @@ describe('scene-tool render-profile persistence boundary', () => {
     ).toMatchObject({ ok: false, stateChanged: false });
     expect(renderer.apply).not.toHaveBeenCalled();
     expect(renderer.scene).toBe(before);
+  });
+
+  it('refuses a parameter edit when the scene changes before its queued render begins', async () => {
+    const before = renderer.scene;
+    const competing = authoredScene();
+    competing.root.children![1].params = {
+      target: [0, 0, 0],
+      position: [0, 30, 50],
+      up: [0, 1, 0],
+    };
+    const newer = MVSData.toMVSJ(competing);
+    renderer.enterQueue.mockImplementationOnce(() => {
+      renderer.scene = newer;
+    });
+    const reply = await handleMolApplyScene({
+      structureViewId: 'saved-view:run-a',
+      expectedSceneSha256: await molecularSceneDigest(before),
+      parameterEdits: [{ path: '/root/children/1/params/position', value: [0, 0, 25] }],
+    });
+    expect(reply).toMatchObject({ ok: false, code: 'MVS_SCENE_STALE', stateChanged: false });
+    expect(renderer.enterQueue).toHaveBeenCalledOnce();
+    expect(renderer.apply).not.toHaveBeenCalled();
+    expect(renderer.scene).toBe(newer);
   });
 
   it('rejects invalid profile input before mutating the native viewer or stored scene', async () => {
