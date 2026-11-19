@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { residueLocationsForChain, SequenceTrack } from './SequenceTrack';
 import { ResidueBox } from './ResidueBox';
+import { useOverflowYWhenNeeded } from '../hooks/useOverflowYWhenNeeded';
 import type {
   ChainSequence,
   ResidueLocation,
@@ -152,6 +153,10 @@ export const SequenceViewer = memo(function SequenceViewer({
     [chains, scene, view, renderModel, resolvedChainColoring]
   );
   const displayRows = resolvedRenderModel.chainRows;
+  const chainTableOverflowsY = useOverflowYWhenNeeded(
+    chainTableRef,
+    `${displayRows.length}:${chainTableHeightPx}`
+  );
   const polymerResidueDisplayByChainKey = useMemo(
     () =>
       new Map(
@@ -409,7 +414,8 @@ export const SequenceViewer = memo(function SequenceViewer({
         ref={chainTableRef}
         tabIndex={onKeyDownCapture ? 0 : undefined}
         onKeyDownCapture={onKeyDownCapture}
-        className={`min-h-0 overflow-y-auto divide-y divide-border/30 border-b border-border select-none ${onKeyDownCapture ? 'outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent' : ''}`}
+        data-overflow-y={chainTableOverflowsY ? 'auto' : 'none'}
+        className={`min-h-0 ${chainTableOverflowsY ? 'overflow-y-auto' : 'overflow-y-clip'} divide-y divide-border/30 border-b border-border select-none ${onKeyDownCapture ? 'outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent' : ''}`}
         style={{ maxHeight: chainTableHeightPx, scrollbarWidth: 'thin' }}
       >
         {displayRows.length === 0 && (

@@ -77,6 +77,19 @@ describe('SequenceViewer chain table resize', () => {
     expect(screen.getByRole(role)).toHaveTextContent(text);
   });
 
+  it('uses its own scroll container only while rows exceed the available height', () => {
+    renderViewer();
+    const table = screen.getByTestId('structure-chain-table');
+    const handle = screen.getByTestId('structure-chain-table-resize-handle');
+    const height = vi.spyOn(table, 'clientHeight', 'get').mockReturnValue(100);
+    vi.spyOn(table, 'scrollHeight', 'get').mockReturnValue(130);
+    fireEvent.keyDown(handle, { key: 'ArrowUp' });
+    expect(table).toHaveClass('overflow-y-auto');
+    height.mockReturnValue(130);
+    fireEvent.keyDown(handle, { key: 'ArrowDown' });
+    expect(table).toHaveClass('overflow-y-clip');
+  });
+
   it('starts manual resizing from the visible height when the pane constrained the initial table', () => {
     renderViewer();
     const table = screen.getByTestId('structure-chain-table');
