@@ -5,7 +5,7 @@ export async function readAcceptedScientificFile(
   workspaceRoot: string,
   relativePath: string,
   maxBytes: number
-): Promise<{ bytes: Uint8Array; resourceId: string } | null> {
+): Promise<{ bytes: Uint8Array; resourceId: string; workspaceScope: string } | null> {
   const namespace = await readScientificNamespace(workspaceRoot);
   if (!namespace) return null;
   const entry = namespace.entries.find(
@@ -31,5 +31,5 @@ export async function readAcceptedScientificFile(
     throw new Error(
       'The accepted file changed size after this project snapshot. Refresh before opening.'
     );
-  return { bytes, resourceId: entry.resourceId };
+  return { bytes, resourceId: entry.resourceId, workspaceScope: namespace.workspace };
 }

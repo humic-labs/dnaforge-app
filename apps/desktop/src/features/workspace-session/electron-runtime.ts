@@ -16,6 +16,7 @@ import {
   HOSTED_RESOURCE_BINDINGS_PATH,
   parseHostedResourceBindings,
 } from '../../shared/hosted-resource-bindings';
+import { hasWorkspaceScope, scopedProjectionId } from '../../shared/workspace-scoped-identity';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { readAcceptedScientificFile } from '../../services/read-accepted-scientific-file';
 import { isDeveloperImportSourcePath } from '../../shared/developer-import-sources';
@@ -37,7 +38,7 @@ export interface ElectronWorkspaceRuntimeDependencies {
     rootPath: string,
     relativePath: string,
     maxBytes: number
-  ): Promise<{ bytes: Uint8Array; resourceId: string } | null>;
+  ): ReturnType<typeof readAcceptedScientificFile>;
   readTextFile(path: string): Promise<string>;
   fileExists(path: string): Promise<boolean>;
   beginMutation(rootPath: string): Promise<string>;
@@ -97,7 +98,13 @@ export function createElectronWorkspaceRuntime(
         file.path,
         maxBytes
       );
-      if (accepted && file.resourceId && accepted.resourceId !== file.resourceId)
+      if (
+        accepted &&
+        file.resourceId &&
+        accepted.resourceId !== file.resourceId &&
+        (hasWorkspaceScope(file.resourceId) ||
+          accepted.resourceId !== scopedProjectionId(accepted.workspaceScope, file.resourceId))
+      )
         throw new Error(
           `Accepted project file identity changed before it could be opened: ${file.path}.`
         );

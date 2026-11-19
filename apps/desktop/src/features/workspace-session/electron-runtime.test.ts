@@ -124,6 +124,7 @@ describe('Electron workspace runtime', () => {
       readAcceptedFile: vi.fn(async () => ({
         bytes: new Uint8Array([1, 1, 1]),
         resourceId: 'resource-first',
+        workspaceScope: 'ws1',
       })),
     };
     vi.mocked(deps.readFileBounded).mockResolvedValue(new Uint8Array([9, 9, 9]));
@@ -136,6 +137,7 @@ describe('Electron workspace runtime', () => {
     deps.readAcceptedFile.mockResolvedValueOnce({
       bytes: new Uint8Array([2, 2, 2]),
       resourceId: 'resource-first',
+      workspaceScope: 'ws1',
     });
     await expect(runtime.readFile({ snapshot, file: snapshot.files[0] })).rejects.toThrow(
       'changed before'
@@ -143,11 +145,34 @@ describe('Electron workspace runtime', () => {
     deps.readAcceptedFile.mockResolvedValueOnce({
       bytes: new Uint8Array([1, 1, 1]),
       resourceId: 'another-resource',
+      workspaceScope: 'ws1',
     });
     await expect(runtime.readFile({ snapshot, file: snapshot.files[0] })).rejects.toThrow(
       'identity changed'
     );
     expect(deps.readFileBounded).not.toHaveBeenCalled();
+  });
+
+  it('matches portable file IDs only to the same document in the current workspace', async () => {
+    const bytes = new Uint8Array([1, 1, 1]);
+    const readAcceptedFile = vi.fn(async () => ({
+      bytes,
+      resourceId: 'ws1::resource-first',
+      workspaceScope: 'ws1',
+    }));
+    const runtime = createElectronWorkspaceRuntime({ ...dependencies(), readAcceptedFile });
+    const snapshot = await runtime.loadWorkspace((await runtime.listWorkspaces()).workspaces[0]);
+    const file = snapshot.files[0];
+    await expect(runtime.readFile({ snapshot, file })).resolves.toEqual(bytes);
+    await expect(
+      runtime.readFile({ snapshot, file: { ...file, resourceId: 'ws2::resource-first' } })
+    ).rejects.toThrow('identity changed');
+    readAcceptedFile.mockResolvedValueOnce({
+      bytes,
+      workspaceScope: 'ws1',
+      resourceId: 'ws2::resource-first',
+    });
+    await expect(runtime.readFile({ snapshot, file })).rejects.toThrow('identity changed');
   });
 
   it('retains accepted read failure rather than falling back to valid working bytes', async () => {

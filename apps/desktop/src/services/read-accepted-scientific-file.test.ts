@@ -28,6 +28,7 @@ it('pins the declared revision and returns its exact bounded native bytes and id
   await expect(readAcceptedScientificFile('/w', entry.path, 6)).resolves.toEqual({
     bytes: new TextEncoder().encode('native'),
     resourceId: entry.resourceId,
+    workspaceScope: 'workspace:1',
   });
   expect(mocks.read).toHaveBeenCalledWith({
     workspaceRoot: '/w',
