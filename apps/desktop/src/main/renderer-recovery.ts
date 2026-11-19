@@ -187,10 +187,13 @@ export function installRendererRecovery(win: BrowserWindow, deps: RendererRecove
     };
     const fallback = setTimeout(reload, 3000);
     finishReplacement = reload;
+    if (pid > 0) {
+      try {
+        process.kill(pid, 'SIGKILL');
+        return;
+      } catch {}
+    }
     contents.forcefullyCrashRenderer();
-    try {
-      if (pid > 0) process.kill(pid, 'SIGKILL');
-    } catch {}
   };
 
   contents.on('render-process-gone', () => {

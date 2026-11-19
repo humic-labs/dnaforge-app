@@ -149,6 +149,22 @@ describe('renderer recovery ', () => {
     expect(showMessageBox).toHaveBeenCalledOnce();
   });
 
+  it('terminates the frozen renderer once when its process is available', async () => {
+    const { contents } = setup(1);
+    vi.spyOn(contents, 'getOSProcessId').mockReturnValue(207);
+    const terminate = vi.spyOn(process, 'kill').mockReturnValue(true);
+    try {
+      contents.emit('unresponsive');
+      await settle();
+      expect(terminate).toHaveBeenCalledWith(207, 'SIGKILL');
+      expect(contents.forcefullyCrashRenderer).not.toHaveBeenCalled();
+      contents.emit('render-process-gone', {}, { reason: 'killed', exitCode: 1 });
+      expect(contents.reload).toHaveBeenCalledOnce();
+    } finally {
+      terminate.mockRestore();
+    }
+  });
+
   it('prompts when a frozen window stops answering, without any user input', async () => {
     vi.useFakeTimers();
     try {
