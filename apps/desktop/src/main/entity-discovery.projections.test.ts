@@ -1,3 +1,4 @@
+import * as scientificReader from './scientific-document-reader';
 import { mkdtemp, realpath, rm, writeFile, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -130,7 +131,14 @@ it('omits an unopenable Registry detail with the wrong revision kind and preserv
   }
 });
 
-it('checks the saved primer identity before insertion and never substitutes its Registry or legacy mirror after loss', async () => {
+async function withPrimerInventory(
+  run: (
+    db: ReturnType<typeof createTestDb>,
+    root: string,
+    file: string,
+    content: string
+  ) => Promise<void>
+) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'notebook-primer-link-')));
   const db = createTestDb();
   try {
@@ -162,6 +170,106 @@ it('checks the saved primer identity before insertion and never substitutes its 
     db.prepare(
       "INSERT INTO catalog_entity_files(id,entity_id,workspace_id,path,relative_path,file_kind,status,created_at,updated_at) VALUES('f','original',1,?,'one.primer.json','primer-artifact','current',1,1)"
     ).run(file);
+    await run(db, root, file, content);
+  } finally {
+    vi.restoreAllMocks();
+    db.close();
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
+it('keeps a first page authoritative while unrelated notebook saves continue during native primer verification', async () => {
+  await withPrimerInventory(async (db) => {
+    db.prepare(
+      "INSERT INTO pages(id,title,content,created_at,updated_at) VALUES('unrelated','Notebook','{}',1,1)"
+    ).run();
+    const originalRead = scientificReader.readScientificDocumentInMain;
+    const read = vi
+      .spyOn(scientificReader, 'readScientificDocumentInMain')
+      .mockImplementation(async (...args) => {
+        const result = await originalRead(...args);
+        db.prepare("UPDATE pages SET updated_at=updated_at+1 WHERE id='unrelated'").run();
+        return result;
+      });
+    const first = await searchNotebookEntityTargets(db, { query: '', limit: 1 });
+    expect(first.items.map((x) => x.id)).toEqual(['original']);
+    expect(read).toHaveBeenCalled();
+    expect(read.mock.calls.length).toBeLessThanOrEqual(3);
+    expect(first.generation).toBe(searchEntitiesInDb(db, { query: '' }).generation);
+    const next = await searchNotebookEntityTargets(db, {
+      query: '',
+      limit: 1,
+      cursor: first.nextCursor!,
+    });
+    expect(next.items.map((x) => x.id)).toEqual(['database-only']);
+    db.prepare("UPDATE pages SET updated_at=updated_at+1 WHERE id='unrelated'").run();
+    await expect(
+      searchNotebookEntityTargets(db, { query: '', limit: 1, cursor: first.nextCursor! })
+    ).rejects.toThrow('ENTITY_DISCOVERY_REFRESH_REQUIRED');
+  });
+});
+
+it('restores first-page order when a competing edit changes which entity ranks first and excludes a lost primer', async () => {
+  await withPrimerInventory(async (db, _root, file) => {
+    const originalRead = scientificReader.readScientificDocumentInMain;
+    vi.spyOn(scientificReader, 'readScientificDocumentInMain').mockImplementationOnce(
+      async (...args) => {
+        const result = await originalRead(...args);
+        await rm(file);
+        db.prepare(
+          "UPDATE lims_entity SET name='A newly ranked oligo' WHERE id='database-only'"
+        ).run();
+        return result;
+      }
+    );
+    expect(
+      (await searchNotebookEntityTargets(db, { query: '', limit: 1 })).items.map((x) => x.id)
+    ).toEqual(['database-only']);
+    expect((await searchNotebookEntityTargets(db, { query: 'Primer one' })).items).toEqual([]);
+  });
+});
+
+it('excludes a primer removed during a competing write even when its catalog row and ranking are unchanged', async () => {
+  await withPrimerInventory(async (db, _root, file) => {
+    const read = scientificReader.readScientificDocumentInMain;
+    vi.spyOn(scientificReader, 'readScientificDocumentInMain').mockImplementationOnce(
+      async (...args) => {
+        const result = await read(...args);
+        await rm(file);
+        db.prepare('UPDATE workspaces SET created_at=created_at+1 WHERE id=1').run();
+        return result;
+      }
+    );
+    const page = await searchNotebookEntityTargets(db, { query: '', limit: 1 });
+    expect(page.items.map((x) => x.id)).toEqual(['database-only']);
+  });
+});
+
+it('refuses a continuation invalidated during verification and bounds restarts for continuously changing ranked results', async () => {
+  await withPrimerInventory(async (db) => {
+    db.prepare("UPDATE lims_entity SET name='A stored oligo' WHERE id='database-only'").run();
+    const first = await searchNotebookEntityTargets(db, { query: '', limit: 1 });
+    const org = scientificReader.readScientificDocumentInMain;
+    const read = vi
+      .spyOn(scientificReader, 'readScientificDocumentInMain')
+      .mockImplementation(async (...args) => {
+        const result = await org(...args);
+        db.prepare("UPDATE catalog_entities SET name=name || '!' WHERE id='original'").run();
+        return result;
+      });
+    await expect(
+      searchNotebookEntityTargets(db, { query: '', limit: 1, cursor: first.nextCursor! })
+    ).rejects.toThrow('ENTITY_DISCOVERY_REFRESH_REQUIRED');
+    read.mockClear();
+    await expect(
+      searchNotebookEntityTargets(db, { query: 'Primer one', limit: 1 })
+    ).rejects.toThrow('ENTITY_DISCOVERY_REFRESH_REQUIRED');
+    expect(read).toHaveBeenCalledTimes(3);
+  });
+});
+
+it('checks the saved primer identity before insertion and never substitutes its Registry or legacy mirror after loss', async () => {
+  await withPrimerInventory(async (db, _root, file, content) => {
     const statuses = async () =>
       (await resolveNotebookEntityTargets(db, { ids: ['original', 'database-only'] })).items.map(
         (x) => x.status
@@ -187,8 +295,5 @@ it('checks the saved primer identity before insertion and never substitutes its 
     expect((await searchPage()).items.map((entry) => entry.id)).toEqual(['database-only']);
     await rename(file + '.moved', file);
     expect(await statuses()).toEqual(['available', 'available']);
-  } finally {
-    db.close();
-    await rm(root, { recursive: true, force: true });
-  }
+  });
 });
