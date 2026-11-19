@@ -203,6 +203,7 @@ vi.mock('../../page/public/embeds/structure3d/molstar/molViewSpec', async (impor
   >()),
   activeMolViewSpecScene: () => readback.sceneResult.scene,
   sameLoadedMolViewSpecScene: () => true,
+  hasMolViewSpecController: () => true,
   getMolViewSpecScene: () => readback.scene(),
   getMolViewSpecSceneDocument: () => readback.sceneResult,
   captureMolViewSpecView: readback.capture,
