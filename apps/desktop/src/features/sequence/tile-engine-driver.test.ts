@@ -6513,6 +6513,36 @@ describe('TileEngineDriver  P5 engine-as-data-source)', () => {
     driver.dispose();
   });
 
+  it('pans at the exact read level without fetching intermediate guide-only tiles', async () => {
+    const feeds: TileEngineFeed[] = [];
+    const alignmentLevels = new Set<number>();
+    const transport = alternateColumnTransport();
+    const driver = new TileEngineDriver({
+      assembly: twoChromAssembly(),
+      source: { bamPath: '/reads.bam', indexPath: '/reads.bam.bai' },
+      baseUrl: 'http://sidecar',
+      onFeed: (feed) => feeds.push(feed),
+      transport: (request, signal) => {
+        if (request.kind === 'alignment') alignmentLevels.add(request.level);
+        return transport(request, signal);
+      },
+    });
+
+    try {
+      await feedFor(driver, feeds, { start: 60_000, end: 104_000 }, 1416);
+      alignmentLevels.clear();
+      const feed = await feedFor(driver, feeds, { start: 192_000, end: 236_000 }, 1416);
+
+      expect(driver.debugSnapshot().level).toBe(5);
+      expect(feed?.ownerPresentation).toEqual({ kind: 'reads' });
+      expect(feed?.records.length).toBeGreaterThan(0);
+      expect(feed?.alternateColumns.length).toBeGreaterThan(0);
+      expect([...alignmentLevels]).toEqual([2]);
+    } finally {
+      driver.dispose();
+    }
+  });
+
   it('publishes late first-histogram mutation columns after coverage is already reusable', async () => {
     const feeds: TileEngineFeed[] = [];
     const held = holdAlternateColumnAlignmentTransport();

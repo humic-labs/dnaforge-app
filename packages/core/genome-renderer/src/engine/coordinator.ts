@@ -92,6 +92,7 @@ export class TileCoordinator {
         source,
         view,
         sourceLevel,
+        L,
         this.maxLevel,
         panDeltaBp
       )) {
@@ -266,6 +267,7 @@ function fetchPlansForSource(
   source: TileSource,
   view: Viewport,
   currentLevel: number,
+  viewportLevel: number,
   maxLevel: number,
   panDeltaBp = 0
 ): FetchPlan[] {
@@ -410,8 +412,9 @@ function fetchPlansForSource(
     add(currentLevel - 1, view, PREFETCH_MARGIN_TILES, 'adjacent-finer');
   }
 
-  if (shouldPrefetchCoarser(view, currentLevel)) {
-    add(currentLevel + 1, view, PREFETCH_MARGIN_TILES, 'coarser');
+  const coarserLevel = currentLevel + 1;
+  if (coarserLevel >= viewportLevel && shouldPrefetchCoarser(view, currentLevel)) {
+    add(coarserLevel, view, PREFETCH_MARGIN_TILES, 'coarser');
   }
   return out;
 }
