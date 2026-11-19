@@ -1,7 +1,6 @@
 import { createContext, useContext, useRef, useMemo, useLayoutEffect, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useCanvasStore } from '../store';
-import { useWorkspaceVisibility } from '../workspace-visibility';
 import { PresentationHost } from '../../../presentation/PresentationSurface';
 import { debugLog } from '../../../utils/debug-log';
 import type { Tab } from '../types';
@@ -69,7 +68,6 @@ export function TabPortalProvider({
   }, []);
 
   const panels = useCanvasStore((s) => s.panels);
-  const workspaceVisible = useWorkspaceVisibility();
 
   const allTabs = useMemo(() => {
     const tabs: Array<{ panelId: string; tab: Tab }> = [];
@@ -150,7 +148,7 @@ export function TabPortalProvider({
         if (!host) return null;
         const isActive = activeTabIds.has(tab.id);
 
-        if (tab.type === 'structure' && (!isActive || !workspaceVisible)) return null;
+        if (tab.type === 'structure' && !isActive) return null;
 
         const budgeted = isBudgetedSequenceTab(tab);
         if (!isActive && budgeted && !retainedSequenceTabIds.has(tab.id)) return null;
