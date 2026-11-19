@@ -59,6 +59,19 @@ export function agentStructureRendererHostId(tabId: string): string {
   return `agent:${tabId}`;
 }
 
+export function retainedInspectionRendererSlot(tabId: string, proteinKey: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < proteinKey.length; index += 1) {
+    hash ^= proteinKey.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `${tabId}#${hash.toString(16).padStart(8, '0')}`;
+}
+
+export function rendererSlotTabId(slot: string): string {
+  return slot.split('#')[0];
+}
+
 export function hasAgentStructureRenderer(tabId: string): boolean {
   return useAgentStructureRenderers.getState().tabIds.includes(tabId);
 }
