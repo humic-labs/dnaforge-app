@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { EntityLinkMenu, type EntityLinkMenuProps } from './EntityLinkMenu';
 import { EntitySlashCommandMenu } from './EntitySlashCommandMenu';
 import type { MentionMenuRef } from './MentionMenu';
@@ -23,7 +23,10 @@ export const NotebookPickerMenu = forwardRef<MentionMenuRef, { page: NotebookPic
     const [limited, setLimited] = useState(false);
     const [visibleKey, setVisibleKey] = useState(key);
     const lastVisible = useRef(page);
-    const activeMenu = useRef<MentionMenuRef>(null);
+    const activeMenu = useRef<MentionMenuRef | null>(null);
+    const bindActiveMenu = useCallback((menu: MentionMenuRef | null) => {
+      activeMenu.current = menu;
+    }, []);
     const changing = visibleKey !== key;
     useLayoutEffect(() => {
       if (!changing) lastVisible.current = page;
@@ -40,7 +43,7 @@ export const NotebookPickerMenu = forwardRef<MentionMenuRef, { page: NotebookPic
           const paneKey = pageKey(pane);
           const outgoing = paneKey !== key;
           const staged = changing && !outgoing;
-          const menuRef = outgoing ? undefined : activeMenu;
+          const menuRef = outgoing ? undefined : bindActiveMenu;
           const onReady = staged ? () => setVisibleKey(key) : undefined;
           return (
             <div
