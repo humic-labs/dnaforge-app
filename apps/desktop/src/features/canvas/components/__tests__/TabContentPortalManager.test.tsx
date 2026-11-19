@@ -508,7 +508,7 @@ describe('TabPortalProvider', () => {
       expect(panelContentHostSpy).toHaveBeenCalledWith('1fs0.pdb', 'main');
     });
 
-    it('suspends the selected structure when another workspace surface takes over and restores its tab', () => {
+    it('keeps the selected structure running while another workspace surface takes over', () => {
       const tabId = mockOpenTab('main', {
         type: 'structure',
         entityId: '1fs0.pdb',
@@ -534,15 +534,16 @@ describe('TabPortalProvider', () => {
         'aria-hidden',
         'true'
       );
-      expect(unmountCountFor('1fs0.pdb')).toBe(1);
-      expect(screen.queryByTestId('panel-content-1fs0.pdb')).not.toBeInTheDocument();
+      expect(unmountCountFor('1fs0.pdb')).toBe(0);
+      expect(screen.getByTestId('panel-content-1fs0.pdb')).toBeInTheDocument();
       expect(getActiveTab('main')?.id).toBe(tabId);
       expect(releaseCachedViewerLeaseSpy).not.toHaveBeenCalled();
 
       rerender(workspace(false));
       expect(screen.getByTestId('panel-content-1fs0.pdb')).toBeInTheDocument();
       expect(getActiveTab('main')?.id).toBe(tabId);
-      expect(mountCountFor('1fs0.pdb')).toBe(2);
+      expect(mountCountFor('1fs0.pdb')).toBe(1);
+      expect(unmountCountFor('1fs0.pdb')).toBe(0);
       expect(acquireCachedViewerLeaseSpy).toHaveBeenCalledTimes(1);
       expect(releaseCachedViewerLeaseSpy).not.toHaveBeenCalled();
     });
