@@ -326,6 +326,9 @@
     color 100ms,
     border-color 100ms;
 }
+.wp-interactive.transition-none {
+  transition: none;
+}
 .wp-interactive[data-selected='true']:not([data-drop-active]) {
   background-color: var(--interaction-selected-background);
 }
