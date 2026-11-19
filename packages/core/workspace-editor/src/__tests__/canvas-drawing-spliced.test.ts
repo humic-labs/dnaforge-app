@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { drawAnnotations } from '../canvas-drawing';
 import { DEFAULT_EDITOR_CONFIG, type WorkspaceEditorConfig } from '../types';
-import type { Annotation } from '@waypoint/sequence-utils';
+import { parseSnapGene, type Annotation } from '@waypoint/sequence-utils';
 
 vi.mock('../canvas-theme', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../canvas-theme')>();
@@ -145,6 +147,44 @@ describe('drawAnnotations — DNA-TG1 spliced rendering (Phase 3)', () => {
   beforeEach(() => {
     ctx = createMockContext();
   });
+
+  test.each(['promoter', 'regulatory'])(
+    'draws a multipart %s promoter as one annotation',
+    (type) => {
+      const bytes = readFileSync(
+        resolve(__dirname, '../../../../../test-fixtures/import-formats/pUC19.dna')
+      );
+      const plasmid = parseSnapGene(bytes);
+      const lac = plasmid.annotations.find((annotation) => annotation.name === 'lac promoter');
+      expect(lac?.segments).toHaveLength(3);
+      if (!lac) throw new Error('Missing lac promoter');
+      const promoter = {
+        ...lac,
+        type,
+        qualifiers:
+          type === 'regulatory'
+            ? { ...lac.qualifiers, regulatory_class: ['promoter'] }
+            : lac.qualifiers,
+        lane: 0,
+      };
+      const regular = createMockContext();
+      drawAnnotations(
+        regular,
+        [{ ...promoter, segments: undefined }],
+        500,
+        550,
+        0,
+        0,
+        1,
+        config,
+        plasmid.length
+      );
+      drawAnnotations(ctx, [promoter], 500, 550, 0, 0, 1, config, plasmid.length);
+
+      expect(regular.ops.filter((op) => op.op === 'fill')).toHaveLength(1);
+      expect(ctx.ops).toEqual(regular.ops);
+    }
+  );
 
   test('spliced CDS draws an intron connector line across the bbox', () => {
     drawAnnotations(ctx, [makeSplicedCDS()], 0, 300, 0, 0, 1, config);
