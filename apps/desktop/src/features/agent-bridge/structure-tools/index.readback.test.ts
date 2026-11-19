@@ -196,6 +196,7 @@ vi.mock('../../page/public/embeds/structure3d/molstar/molViewSpec', async (impor
   activeMolViewSpecScene: () => readback.sceneResult.scene,
   sameLoadedMolViewSpecScene: () => true,
   getMolViewSpecScene: () => readback.scene(),
+  getMolViewSpecSceneDocument: () => readback.sceneResult,
   captureMolViewSpecView: readback.capture,
   waitForMolViewSpecViewReady: readback.ready,
   validateMolViewSpecViewGeometry: readback.validateGeometry,
@@ -336,7 +337,7 @@ describe('molecular MCP readback integration', () => {
         molecularConnectionSummary: projected.summary,
       },
     });
-    const scene = await handleMolGetScene({ structureViewId: 'view-a' });
+    const scene = await handleMolGetScene({ structureViewId: 'view-a', detail: 'full' });
     assertMcpOutput(molGetSceneOutputSchema, scene);
     expect(scene).toMatchObject({
       ok: true,
@@ -355,6 +356,7 @@ describe('molecular MCP readback integration', () => {
     const scene = await handleMolGetScene({
       structureViewId: 'view-a',
       includeParameterSchema: true,
+      detail: 'full',
     });
     assertMcpOutput(molGetSceneOutputSchema, scene);
     expect(scene).toMatchObject({ ok: true, structureViewId: 'view-a', ...readback.sceneResult });
@@ -375,7 +377,7 @@ describe('molecular MCP readback integration', () => {
     expect(
       await handleMolGetScene({ structureViewId: 'view-a', includeColorGroupSelections: true })
     ).toMatchObject({ ok: true, namedColorGroupSelections: [] });
-    const state = await handleMolGetState({ structureViewId: 'view-a' });
+    const state = await handleMolGetState({ structureViewId: 'view-a', detail: 'full' });
     assertMcpOutput(molGetStateOutputSchema, state);
     expect(state.structures).toHaveLength(1);
     expect(state.structures[0]).toMatchObject({
@@ -387,19 +389,19 @@ describe('molecular MCP readback integration', () => {
       },
       renderProfile: readback.sceneResult.renderProfile,
     });
-    expect(state.structures[0].native).not.toHaveProperty('molecularConnections');
+    expect(state.structures[0]).not.toHaveProperty('native.molecularConnections');
   });
 
   it('keeps inactive views unknown and reads only the requested logical view', async () => {
     const firstTabId = useCanvasStore.getState().panels.main.activeTabId!;
     registerView('view-b');
     useCanvasStore.getState().setActiveTab('main', firstTabId);
-    const state = await handleMolGetState({ structureViewId: 'view-a' });
+    const state = await handleMolGetState({ structureViewId: 'view-a', detail: 'full' });
     assertMcpOutput(molGetStateOutputSchema, state);
     expect(state.structures).toHaveLength(1);
     expect(readback.scene).toHaveBeenCalledTimes(1);
     expect(readback.withPlugin).toHaveBeenCalledTimes(1);
-    const inactive = await handleMolGetState({ structureViewId: 'view-b' });
+    const inactive = await handleMolGetState({ structureViewId: 'view-b', detail: 'full' });
     expect(inactive.structures[0]).toMatchObject({
       viewerStatus: 'inactive',
       molecularConnections: null,
@@ -413,6 +415,21 @@ describe('molecular MCP readback integration', () => {
     const result = await handleMolListStructures();
     assertMcpOutput(molListStructuresOutputSchema, result);
     expect(readback.scene).not.toHaveBeenCalled();
+  });
+
+  it('returns the current scene revision without exporting the scene or native appearance', async () => {
+    const summary = await handleMolGetScene({ structureViewId: 'view-a' });
+    assertMcpOutput(molGetSceneOutputSchema, summary);
+    expect(summary).toMatchObject({
+      ok: true,
+      sceneSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+      structureViewId: 'view-a',
+    });
+    expect(summary).not.toHaveProperty('scene');
+    expect(summary).not.toHaveProperty('native');
+    const exported = await handleMolGetScene({ structureViewId: 'view-a', includeScene: true });
+    expect(exported).toMatchObject({ ok: true, scene: readback.sceneResult.scene });
+    expect(exported).not.toHaveProperty('native');
   });
   it('returns validated saved-view, screenshot and story-step receipts from canonical handlers', async () => {
     allowSuccessfulCapture();

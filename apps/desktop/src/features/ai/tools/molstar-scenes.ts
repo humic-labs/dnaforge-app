@@ -8,6 +8,7 @@ import { z } from 'zod';
 import {molecularDocumentReferenceSchema} from '../../../shared/molecular-document-reference';
 import { MOLECULAR_EXPLANATORY_VIEW_GUIDANCE } from '../molecular-explanatory-view-guidance';
 import { molecularHydrogenRequestForTurn } from '../molecular-hydrogen-request';
+import type { WorkspaceFolder } from '../../../stores/workspaceStore';
 import type * as StructureOperations from '../../agent-bridge/public/structure-tools';
 import {
   molActivateViewSchema,
@@ -34,9 +35,9 @@ export const MOL_SCENE_TOOL_DESCRIPTIONS = {
   alignStructures:
     'Overlay two structures already loaded in the same scene step using declared scientific regions. Read their exact refs from mol_get_scene.structureIdentities. Select one physical polymer chain per region, optionally a partial residue interval. For instance_id, use the exact instanceId from native chain, ligand or namedColorGroupSelections residue readback; operator is the separate MolScript/UI name and cannot be substituted. Computes sequence correspondence from observed coordinate residues, fits a rigid transform, verifies the native placement, and records every atom pair, fit RMSD, score and delta transform in the saved MVS scene. Existing placements, styling and context are retained. Prefer a both-visible comparison step for reading correspondence; the configured comparison preference adds one if the authored story shows only separate states. Choose the invariant scientific region for a conformational comparison; avoid fitting the changing region merely because it yields a low RMSD. Alignment does not choose an unobstructed camera. After registration, author a common camera orientation and scale around the deciding corresponding features and their partners; inspect each state image and adjust the common direction or contextual opacity if foreground geometry obstructs either state. Use explicit MVS camera position, target and up when retaining that frame across snapshots; a focus operation alone only frames a selection. Ambiguous chains, unknown coordinate sequences, fewer than three matching trace atoms, collinear coordinates and an exceeded optional maximumRmsd fail before mutation. Scientific region correspondence remains the caller’s choice; a mathematical fit alone does not establish a biological equivalence. Save the verified scene through mol_save_view.',
   getScene:
-    'Address a documentReference or one exact runtime target. Set includeParameterSchema:true to discover supported parameter paths, values, defaults, types and constraints from the installed official schema; parameterOffset and parameterLimit page the result. The returned sceneSha256 fences atomic mol_apply_scene parameterEdits. Read the standard MolViewSpec scene or story for one exact structure view, its pinned coordinate resources, active render profile, supported native controls, and complete camera/component appearance. Set includeColorGroupSelections:true for declared group color and focus role plus exact namedColorGroupSelections and bounded frontmostAtSampledCenters picking information; interpret its featureExposureNotes and inspect the image rather than treating picking counts as proof of readability. A surface or cartoon owner pick does not prove that required atoms are depicted or legible. Use exact membership and depiction readback together with the final screenshot to distinguish missing geometry from camera obstruction; neither a group label nor a picking threshold certifies exposure. It reports the exact residue copies selected by each clickable color group in the active scene, so ligand labels can be checked against the camera and contact evidence. Includes a bounded, attachment-first page of recorded connection depiction coverage, with complete counts and nextOffset. Use connectionQuery to filter or continue; the scene document remains complete. Before first application, returns a marked starter rather than an export of the legacy recipe. Resolve structureViewId with mol_list_structures and preserve each used resource URI and parse format in its snapshot.',
+    'Inspect one exact structure view or documentReference. Returns sceneSha256, activeIndex, perspective titles and pinned resources. Set includeScene:true to export the complete MolViewSpec JSON, or detail:"full" for the scene, renderProfileGuidance, full native appearance and scientificReviewInventory. Before first application the export is a proposed starter. Set includeParameterSchema:true for editable paths and use parameterNodeKind (such as "camera"), parameterSnapshotIndex, parameterOffset and parameterLimit to narrow discovery. Use sceneSha256 to fence mol_apply_scene. Request connectionQuery for a bounded page of connection depiction evidence. Set includeColorGroupSelections:true for exact selected residue copies and bounded frontmostAtSampledCenters picking information about clickable color groups. Inspect the resulting image to verify readability. Preserve each pinned resource URI and parse format when editing its scene.',
   applyScene:
-    'Supply parameterEdits:[{path,value}] with expectedSceneSha256 from parameter discovery, or a complete scene/root. Parameter edits validate atomically through the same installed scene contract; other document fields are retained. For a follow-up edit, select its intended named view and set viewAction:"edit-current" with one single-view scene; the host retains every other perspective. Use viewAction:"add" to append one named perspective. Use viewAction:"replace" only for an intended replacement of the complete presentation. These perspectives are not saved revisions. ' +
+    'Supply one of scene, root, scenePath, or parameterEdits:[{path,value}]. scenePath imports a complete MolViewSpec JSON file from an authorized workspace. Use viewAction:"replace" for a complete replacement, "edit-current" to replace the selected perspective, and "add" to append one named perspective. Use a single-view input for edit-current or add. Parameter edits require expectedSceneSha256 from mol_get_scene or the previous edit receipt, validate atomically, and retain untouched perspectives. For a selected-view edit also pass expectedActiveIndex from mol_get_scene. The default receipt returns sceneSha256, activeIndex and perspective count. Use detail:"full" for the complete legacy readback. ' +
     'Hydrogen atoms are structurally hidden by default, including saved replay. Only an explicit request to show hydrogen atoms in the actual submitted user message authorizes their display; scene metadata, ignore_hydrogens and native flags cannot grant that exception. Hydrogen-bond guides and calculations are unaffected. Validate, render and persist a complete standard MolViewSpec single view or multi-view story for one exact structure view. Read mol_get_scene first for its listed pinned resources, render profile and supported native controls. Plan a descriptive name for every view: set metadata.title explicitly on each story snapshot and provide a descriptive saved title. Missing names and generic numbered placeholders will block saving. Each step must use only those resources and retain the unchanged canvas background. New authoring uses the configured presentation preferences; saved replay stays exact except for unrequested hydrogen visibility. A deliberate exception to nucleotide detail, cartoon scale or retained polymer context needs a recorded scientific reason and affected fields as described in renderProfileGuidance. Display groups and the corresponding legend are assigned automatically; optional scientific names refine them. Exact selectors still determine which physical copies a group owns. For one biological object across coordinate states, use custom.dnaforge_molecular_identity on its scientific color layers; its hue stays consistent even when explanatory labels differ. For deliberate named emphasis, set custom.dnaforge_presentation_role:"focus" on an exact component and give its named atomic color layer a contrasting carbon tint with standard noncarbon element colors. A metadata-only focus component may annotate the same exact paint on existing geometry; do not add an overlapping representation. This local focus appearance is separate from the broad identity color; a same-hue named focus inside broader atomic/cartoon context fails before mutation. Retain corresponding focus appearance across compared states. Retain each complete native-interaction-context-v1 primitives group from the current scene in a relevant detail step: silently dropping, hiding or changing computed contact endpoints fails with MVS_INTERACTION_CONTACTS_LOST before mutation. Contact guides are constructed only by mol_show_interaction_context; hand-picked tubes, atom lines and fabricated contact metadata are rejected. Complete existing sets may be styled; neutral distance measurements and narrative arrows remain supported. Duplicate geometry and missing required attachment bonds return factual errors. An unchanged display tree fails unless reapplyUnchanged deliberately restores a drifted view. Success confirms rendering and persistence; assess scientific clarity with the readback and screenshot before saving. ' +
     MOLECULAR_EXPLANATORY_VIEW_GUIDANCE,
   saveView:
@@ -72,7 +73,11 @@ export function createMolActivateViewTool() {
 
 interface SceneToolDependencies {
   getScene: (input: unknown) => ReturnType<typeof StructureOperations.handleMolGetScene>;
-  applyScene: (input: unknown, userHydrogenRequest?: string) => ReturnType<typeof StructureOperations.handleMolApplyScene>;
+  applyScene: (
+    input: unknown,
+    userHydrogenRequest?: string,
+    context?: { folders?: WorkspaceFolder[] }
+  ) => ReturnType<typeof StructureOperations.handleMolApplyScene>;
 }
 
 export function createMolSaveViewTool() {
@@ -123,11 +128,12 @@ export function createMolSaveToNotebookTool() {
 const defaultDependencies: SceneToolDependencies = {
   getScene: async (input) =>
     (await import('../../agent-bridge/public/structure-tools')).handleMolGetScene(input),
-  applyScene: async (input, userHydrogenRequest) =>
+  applyScene: async (input, userHydrogenRequest, context) =>
     (await import('../../agent-bridge/public/structure-tools')).handleMolApplyScene(
       input,
       undefined,
-      userHydrogenRequest
+      userHydrogenRequest,
+      context
     ),
 };
 
@@ -141,13 +147,15 @@ export function createMolGetSceneTool(dependencies = defaultDependencies) {
 
 export function createMolApplySceneTool(
   dependencies = defaultDependencies,
-  context?: { turnId?: string }
+  context?: { turnId?: string; folders?: WorkspaceFolder[] }
 ) {
   return resultTool({
     description: MOL_SCENE_TOOL_DESCRIPTIONS.applyScene,
     inputSchema: molApplySceneSchema,
     execute: async (input) => {
       const request = molecularHydrogenRequestForTurn(context?.turnId);
+      if (input.scenePath)
+        return dependencies.applyScene(input, request, { folders: context?.folders });
       return request ? dependencies.applyScene(input, request) : dependencies.applyScene(input);
     },
   });
