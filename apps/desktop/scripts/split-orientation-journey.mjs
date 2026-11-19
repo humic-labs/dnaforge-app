@@ -59,8 +59,12 @@ try {
     window.__test.closeAllTabs();
     window.__webglExposeForTests = true;
   });
-  const row = page.locator('[data-testid="file-tree-item"][data-entry-name="pUC19"]');
-  await row.first().dblclick();
+  const entrySelector = await page.evaluate(
+    (entryPath) => '[data-testid="file-tree-item"][data-entry-path=' + CSS.escape(entryPath) + ']',
+    path.join(workspace, 'pUC19')
+  );
+  await page.locator(entrySelector).dblclick();
+  await page.locator('[role="tab"][data-tab-label="pUC19"][aria-selected="true"]').waitFor();
 
   await page.waitForFunction(() => window.__webglReady && window.__webglGenome?.length === 2686);
   cdp = await page.context().newCDPSession(page);
