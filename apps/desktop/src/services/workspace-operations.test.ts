@@ -431,6 +431,18 @@ describe('workspace operation owner', () => {
     expect(reconciledEvents).toEqual([{ path: null, workspaceRoot: ROOT }]);
   });
 
+  it('indexes a mounted reference folder without attempting file or notebook migration', async () => {
+    useWorkspaceStore.setState({
+      folders: [{ name: 'Reference', path: ROOT, pinned: true, addedAt: 0 }],
+    });
+    await reconcileWorkspaceOnMount(ROOT);
+    expect(mocks.migrateDatabaseOnlyNotebooksForWorkspace).not.toHaveBeenCalled();
+    expect(mocks.reconcileMountedWorkspaceRoot).toHaveBeenCalledWith(
+      ROOT,
+      expect.objectContaining({ healManagedHead: false })
+    );
+  });
+
   it('keeps per-notebook materialization failures internal and continues reconstruction', async () => {
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const failure = { id: 'workspace-scoped-page', message: 'package write failed' };

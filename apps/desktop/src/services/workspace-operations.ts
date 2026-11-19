@@ -116,17 +116,20 @@ export async function reconcileWorkspaceOnMount(
   options: { signal?: AbortSignal } = {}
 ): Promise<WorkspaceReconcileOperationResult> {
   const workspaceRoot = stripTrailingSep(rawWorkspaceRoot);
+  const folder = useWorkspaceStore
+    .getState()
+    .folders.find((entry) => stripTrailingSep(entry.path) === workspaceRoot);
   const input: WorkspaceReconcileOperationInput = {
     workspaceRoot,
     signal: options.signal,
     strict: false,
     catalogSource: 'head',
-
-    healManagedHead: true,
+    healManagedHead: !folder?.pinned,
     displayDelivery: 'optional',
   };
   const durable = await runTrackedWorkspaceReconcile(workspaceRoot, async () => {
-    if (isDeveloperImportSourcePath(workspaceRoot)) return reconstructDurably(input);
+    if (!input.healManagedHead || isDeveloperImportSourcePath(workspaceRoot))
+      return reconstructDurably(input);
     const notebookMigration = await migrateDatabaseOnlyNotebooksForWorkspace(workspaceRoot);
     if (notebookMigration.failed.length > 0) {
       console.warn(
