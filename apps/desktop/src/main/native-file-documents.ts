@@ -1,8 +1,12 @@
+import { retainTablePublication } from './retain-table-package';
 import { isForgePackageMetaPath } from '../shared/forge-package-path';
 import { parseTablePackageHead } from '../shared/table-package';
 import { publishTablePackageInMain, readTablePackageInMain } from './table-package';
+import { writeWithBoundFileRetention } from './saved-file-publication';
 import { resolveProjectFilePath } from '../shared/workspace-file-path';
 import { inferCatalogFileKind } from '../shared/catalog-file-kind';
+import { withCatalogFileSource } from './catalog-file-source-retention';
+import { assertCommittedDatabaseReadAllowed } from './workspace-sync-database-fence';
 import { registerWorkspaceFileInDb } from './catalog-entity-registration';
 import { createHash, randomUUID } from 'node:crypto';
 import { lstatSync } from 'node:fs';
@@ -339,17 +343,21 @@ export function createNativeFileDocuments(options: {
       if (rows.length > 1)
         throw new Error('AMBIGUOUS_FILE_DOCUMENT: Multiple catalog identities claim this file.');
       const retained = (await identityRecords()).find((record) => record.path === path);
-      const documentId =
-        rows[0]?.id ??
-        retained?.documentId ??
-        (owner?.repo_uuid
-          ? registerWorkspaceFileInDb(db, {
-              path: storedPath,
-              workspaceRoot: owner.path,
-              entityType: 'file',
-              fileKind: inferCatalogFileKind(storedPath),
-            }).id
-          : `file-document:${randomUUID()}`);
+      let documentId = rows[0]?.id ?? retained?.documentId;
+      if (!documentId && owner?.repo_uuid) {
+        const input = {
+          path: storedPath,
+          workspaceRoot: owner.path,
+          entityType: 'file',
+          fileKind: inferCatalogFileKind(storedPath),
+        } as const;
+        const assertCurrent = options.captureWorkspace?.(owner.path, false) ?? (() => assertCommittedDatabaseReadAllowed(db));
+        const row = await withCatalogFileSource(
+          db, input, () => registerWorkspaceFileInDb(db, input), (result) => result.id, assertCurrent
+        );
+        documentId = row.id;
+      }
+      documentId ??= `file-document:${randomUUID()}`;
       await publishIdentity({ documentId, path, dirty: false });
       return documentId;
     },
@@ -594,7 +602,7 @@ export function createNativeFileDocuments(options: {
       )
         throw new Error('FILE_CHANGED: The table package changed while it was inspected.');
     },
-    async write(input, admission) {
+    async write(input, admission, documentId) {
       await withKnownWorkspacePathMutation(options.db(), [input.path], async () => {
         admission.assertCurrent();
         if (isForgePackageMetaPath(input.path, 'table.json')) {
@@ -606,11 +614,15 @@ export function createNativeFileDocuments(options: {
               mode: 'replace',
               expectedContentHash: input.expectedContentHash?.replace(/^sha256:/, ''),
             },
-            { assertCurrent: admission.assertCurrent }
+            { assertCurrent: admission.assertCurrent, retain: retainTablePublication(options.db(), admission.assertCurrent) }
           );
           return;
         }
-        await writeTextFileAtomicInMain(input, { beforePublish: admission.assertCurrent });
+        await writeWithBoundFileRetention(
+          options.db(),
+          { ...input, documentId, workspaceRoot:findKnownWorkspaceRoot(options.db(),input.path)??undefined,expectedSha256:input.expectedContentHash,blobRoot: join(options.profileDirectory(), 'retained-file-blobs') },
+          (mark) => writeTextFileAtomicInMain(input, { beforePublish: staged=>{admission.assertCurrent();mark(staged);} })
+        );
       });
     },
     async loadRecord(path) {

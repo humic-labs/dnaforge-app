@@ -1,6 +1,7 @@
 import { MenuNativeSelect } from '@waypoint/ui-components';
 import { RegistryTemporalFilter } from './registry/RegistryTemporalFilter';
 import type { LimsRegistryDateFilter, LimsQueryRegistrySummariesInput } from '../../../shared/lims';
+import { useEntityViewHistory } from '../../../services/recent-entity-views';
 import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import { importReceiptMessage, sequenceRegistrationFailureMessage } from '../import-user-messages';
 import {
@@ -123,6 +124,7 @@ import {
   REGISTRY_SORT_OPTIONS,
   STATUS_FILTER_OPTIONS,
   registryColumnsForSchema,
+  registryKindFilterChoices,
   type DevScenario,
   type RegistryColumnDef,
 } from './registry/registry-columns';
@@ -293,6 +295,7 @@ export function LimsPanel({
     offset: 0,
   });
   const [registryPreview, setRegistryPreview] = useState<LimsRegistryPreview | null>(null);
+  const viewedEntityId = registryPreview?.entity.id;
   const registryPreviewRef = useRef(registryPreview);
   registryPreviewRef.current = registryPreview;
   const [registryLoading, setRegistryLoading] = useState(false);
@@ -312,6 +315,10 @@ export function LimsPanel({
 
   const [registryOverlayMounted, setRegistryOverlayMounted] = useState(false);
   const [registryOverlayShown, setRegistryOverlayShown] = useState(false);
+  useEffect(() => {
+    if (viewedEntityId && registryOverlayShown)
+      useEntityViewHistory.getState().recordView(viewedEntityId);
+  }, [viewedEntityId, registryOverlayShown]);
 
   const [registryMorphRect, setRegistryMorphRect] = useState<{
     top: number;
@@ -388,13 +395,18 @@ export function LimsPanel({
     setDateSort(undefined);
     setRegistrySort(sort);
   }
-  const registryColumns = useMemo(
+  const registryKindChoices = useMemo(
     () =>
-      registryColumnsForSchema(
-        selectedTableSchema,
-        limsSchemas.map((schema) => ({ value: schema.entityKind, label: schema.displayName }))
+      registryKindFilterChoices(
+        registryPage.availableKinds ?? [],
+        selectedSchemaKinds,
+        limsSchemas
       ),
-    [limsSchemas, selectedTableSchema]
+    [registryPage.availableKinds, selectedSchemaKinds, limsSchemas]
+  );
+  const registryColumns = useMemo(
+    () => registryColumnsForSchema(selectedTableSchema, registryKindChoices),
+    [registryKindChoices, selectedTableSchema]
   );
 
   const registryColTrack = (column: RegistryColumnDef) =>
@@ -517,6 +529,7 @@ export function LimsPanel({
     const el = registryPanelRef.current;
     if (!el) return null;
     const r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return null;
     return {
       top: r.top,
       left: r.left,
@@ -709,9 +722,9 @@ export function LimsPanel({
       const reqId = ++registryReqRef.current;
       setRegistryLoading(true);
       try {
-        const filters = registryQueryFilters();
+        const filters = currentRegistryQueryFilters.current();
         const page = await queryLimsRegistrySummaries({
-          ...currentRegistryQueryFilters.current(),
+          ...filters,
           limit: REGISTRY_PAGE_SIZE,
           offset: 0,
         });
@@ -2873,6 +2886,25 @@ export function LimsPanel({
   const selectedRegistryOrganization =
     registryOrganizations.find((organization) => organization.orgId === selectedRegistryOrgId) ??
     null;
+  const organizationRecordFilters = {
+    projectIds: registryRemoteFilterProjectIds,
+    kinds: registryCategoricalFilters.kind,
+    nameLike: registryTextFilters.name,
+    registryIdLike: registryTextFilters.registryId,
+    includeArchived: registryShowArchived,
+  };
+  const organizationKindCounts = new Map<string, number>();
+  if (registryScope !== 'local' && organizationRegistry) {
+    for (const record of organizationRegistryRecords(
+      organizationRegistry,
+      registryScope,
+      registryProject,
+      organizationRegistrySearch,
+      { ...organizationRecordFilters, kinds: undefined }
+    )) {
+      organizationKindCounts.set(record.kind, (organizationKindCounts.get(record.kind) ?? 0) + 1);
+    }
+  }
   const registryFilterFacets: RegistryFilterFacet[] = [
     ...(registryOrganizations.length > 0 || registryScope !== 'local'
       ? [
@@ -2931,23 +2963,16 @@ export function LimsPanel({
     },
     {
       key: 'kind',
-      label: 'Schema',
-      searchLabel: 'Search schemas',
+      label: 'Entity type',
+      searchLabel: 'Search entity types',
       options:
         registryScope === 'local'
-          ? limsSchemas.map((schema) => ({ value: schema.entityKind, label: schema.displayName }))
-          : [
-              ...new Set(
-                (organizationRegistry?.entities ?? []).map((entity) =>
-                  typeof entity.kind === 'string'
-                    ? entity.kind
-                    : String(entity.entityKind ?? 'record')
-                )
-              ),
-            ].map((kind) => ({
-              value: kind,
-              label: limsSchemas.find((schema) => schema.entityKind === kind)?.displayName ?? kind,
-            })),
+          ? registryKindChoices
+          : registryKindFilterChoices(
+              [...organizationKindCounts].map(([kind, count]) => ({ kind, count })),
+              selectedSchemaKinds,
+              limsSchemas
+            ),
       selected: getColumnCategoricalFilter('kind'),
       onChange: (values) => setColumnCategoricalFilter('kind', values),
     },
@@ -2964,13 +2989,6 @@ export function LimsPanel({
         ]
       : []),
   ];
-  const organizationRecordFilters = {
-    projectIds: registryRemoteFilterProjectIds,
-    kinds: registryCategoricalFilters.kind,
-    nameLike: registryTextFilters.name,
-    registryIdLike: registryTextFilters.registryId,
-    includeArchived: registryShowArchived,
-  };
   const visibleOrganizationSelection =
     selectedOrganizationRecordId &&
     organizationRegistry &&
@@ -3013,6 +3031,7 @@ export function LimsPanel({
       unresolvedCount={unconnectedEntityIds.size}
       onUnresolvedChange={registryScope === 'local' ? setUnconnectedOnly : undefined}
       search={visibleRegistrySearch}
+      onSearchChange={setVisibleRegistrySearch}
       onClearSearch={() => setVisibleRegistrySearch('')}
       onClearAll={clearRegistryFilters}
       open={registryFiltersOpen}

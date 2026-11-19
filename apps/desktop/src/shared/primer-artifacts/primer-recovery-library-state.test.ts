@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { isAbsolute, join, relative } from 'node:path';
+import { join } from 'node:path';
+import { validateWorkspacePathInMain } from '../../main/primer-artifact-files';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ensureSchema } from '../../main/schema';
 import { createLimsTestBridge } from '../../main/__tests__/lims-bridge-for-db';
@@ -59,8 +60,7 @@ function reportOwner() {
       fs: {
         exists: async (path) => existsSync(path),
         readTextFile: async (path) => readFileSync(path, 'utf8'),
-        validateWorkspacePath: async ({ workspaceRoot, path }) =>
-          isAbsolute(path) && !relative(workspaceRoot, path).startsWith('..'),
+        validateWorkspacePath: validateWorkspacePathInMain,
         writeWorkspaceTextFileAtomic: unused,
       },
     }),
@@ -80,6 +80,21 @@ function reportOwner() {
   };
   return { ...createPrimerRecoveryReportOwner(dependencies), database, getOriginalDefaultProject };
 }
+
+it('distinguishes an absent project file from a path outside the project without creating either file', async () => {
+  const project = join(root, '4');
+  const missing = join(project, 'primers', 'lost.primer.json');
+  const outside = join(root, '9', 'lost.primer.json');
+  const owner = reportOwner();
+  await expect(owner.readPrimerRecoveryDocument(missing, project)).rejects.toThrow(
+    'primer file is missing'
+  );
+  await expect(owner.readPrimerRecoveryDocument(outside, project)).rejects.toThrow(
+    'outside its recorded project'
+  );
+  expect(existsSync(missing)).toBe(false);
+  expect(existsSync(outside)).toBe(false);
+});
 
 it('keeps 375 existing unassigned legacy primers available across repeated inventory reads without choosing a project', async () => {
   const bases = 'ACGTTGCAAGTCCTGATCGATAGCTAGC';

@@ -55,6 +55,7 @@ export interface PublishTablePackageInput extends TablePackageLocation {
 }
 
 export interface TablePackagePublicationOptions {
+  retain?(result: ReadTablePackageResult): Promise<void>;
   assertCurrent(): void;
   writeAtomic?: typeof writeWorkspaceTextFileAtomicInMain;
   syncDirectory?: typeof syncDirectory;
@@ -345,6 +346,7 @@ export async function publishTablePackageInMain(
         throw new WorkspaceFilePreconditionError(
           'The table changed during publication acknowledgement.'
         );
+      await options.retain?.(result);
       current(options);
       return { ...result, publication: 'already-committed' };
     }
@@ -355,6 +357,7 @@ export async function publishTablePackageInMain(
       (!previous || previous.headContentHash !== input.expectedContentHash)
     )
       throw new WorkspaceFilePreconditionError('The table changed since this save was captured.');
+    if (previous) await options.retain?.(previous);
     await createDirectories(owner, paths.revisionsDirectory, options);
     const writeAtomic = options.writeAtomic ?? writeWorkspaceTextFileAtomicInMain;
     const warnings: string[] = [];
@@ -456,6 +459,7 @@ export async function publishTablePackageInMain(
       throw new WorkspaceFilePreconditionError(
         'The table changed before publication was acknowledged.'
       );
+    await options.retain?.(result);
     current(options);
     return { ...result, publication: 'committed', ...(warnings.length ? { warnings } : {}) };
   });

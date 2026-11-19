@@ -102,7 +102,7 @@ describe('the common metadata panel in either host', () => {
     await waitFor(() => expect(search).toHaveFocus());
     fireEvent.change(search, { target: { value: 'Other' } });
     fireEvent.click(
-      await screen.findByRole('option', { name: 'Other parent sample', exact: true })
+      await screen.findByRole('option', { name: 'Other parent Sample', exact: true })
     );
     expect(session.getSnapshot().draft?.fields.parent).toEqual({
       origin: 'native',

@@ -27,10 +27,16 @@ import { getCanonicalOligoEntity } from '../../primers/public/primer-references'
 import { planReferenceResolution } from './plan-reference-resolution';
 import { resolvePageReference } from './resolve-page-reference';
 import { getSequenceWithPath } from '../../../db';
-import { resolveWorkspaceScope } from '../../../db/workspace-catalog';
+import {
+  getCatalogEntity,
+  getCurrentCatalogFileForEntity,
+  getWorkspaceRootById,
+  resolveWorkspaceScope,
+} from '../../../db/workspace-catalog';
 import {
   resolveExactNativeCatalogDestination,
   resolveNativeCatalogDestination,
+  type NativeCatalogDestination,
 } from '../../../services/native-catalog-destination';
 import { resolveMigrationSequenceDestinationPath } from '../../../services/legacy-migration-sequence-destination';
 import { isLimsEntityOpened, openLimsEntity } from '../../lims/public/open-entity';
@@ -54,6 +60,7 @@ export interface ReferenceOpenDetail {
 }
 
 export interface ContainedReference {
+  boundEntityId?: string;
   absolutePath: string;
   workspaceRoot: string;
   entityType: string | null | undefined;
@@ -103,7 +110,7 @@ export interface EntityReferenceRoute {
   readonly matchesContentHash: boolean;
   readonly matchesPath: 'always' | 'reveal-only';
   readonly byId?: ReferenceRouteStep;
-  readonly containedOpen: 'sequence' | 'file';
+  readonly containedOpen: 'sequence' | 'file' | 'notebook';
   readonly revealsPackageRoot: boolean;
 }
 
@@ -226,7 +233,10 @@ const openRegistryOligo: ReferenceRouteStep = async ({ intent, entityId }, ctx) 
   }
 };
 
-function openNativeCatalog(exact: boolean): ReferenceRouteStep {
+function openNativeCatalog(
+  exact: boolean,
+  expectedType?: NativeCatalogDestination['entityType']
+): ReferenceRouteStep {
   return async ({ detail, intent, entityId, owningRoot }, ctx) => {
     if (!owningRoot) {
       ctx.refuse(
@@ -248,6 +258,10 @@ function openNativeCatalog(exact: boolean): ReferenceRouteStep {
     if (!ctx.current(intent)) return;
     if (!target) {
       ctx.refuse(intent, 'target_missing', userMessage('reference.projectUnavailable'));
+      return;
+    }
+    if (expectedType && (target.entityType !== expectedType || target.entityId !== entityId)) {
+      ctx.refuse(intent, 'target_mismatch', userMessage('reference.recordWrongTarget'));
       return;
     }
     if (target.locator.kind === 'workspace_page') {
@@ -335,11 +349,24 @@ function openNativeCatalog(exact: boolean): ReferenceRouteStep {
   };
 }
 
+export const openBoundNotebook = openNativeCatalog(true, 'notebook');
+
 const openRegistryRecord: ReferenceRouteStep = async ({ detail, intent, entityId }, ctx) => {
   await presentRegistryEntity(ctx, intent, entityId, detail.label || entityId);
 };
 
 const openPageById: ReferenceRouteStep = async ({ detail, intent, entityId, owningRoot }, ctx) => {
+  const entity = await getCatalogEntity(entityId);
+  if (!ctx.current(intent)) return;
+  const file = entity?.type === 'notebook' ? await getCurrentCatalogFileForEntity(entity.id) : null;
+  if (!ctx.current(intent)) return;
+  if (entity?.type === 'notebook' && file) {
+    const root =
+      entity.workspace_id == null ? null : await getWorkspaceRootById(entity.workspace_id);
+    if (!ctx.current(intent)) return;
+    await openBoundNotebook({ detail, intent, entityId, owningRoot: root, action: 'open' }, ctx);
+    return;
+  }
   const label = detail.label || 'Page';
   const openRoots = ctx.folders.filter((folder) => !folder.pinned).map((folder) => folder.path);
   if (owningRoot) await waitForWorkspaceReconcileIdle(owningRoot);
@@ -550,6 +577,7 @@ export const ENTITY_REFERENCE_ROUTES = {
     ...UNKNOWN_ENTITY_REFERENCE_ROUTE,
     matchesContentHash: false,
     matchesPath: 'reveal-only',
+    containedOpen: 'notebook',
     byId: openPageById,
   },
   sequence: {

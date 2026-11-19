@@ -15,7 +15,7 @@ import type { SaveTrackViewRequest } from '../../shared/track-view';
 import { TrackViewLibrary } from '../track-view-library';
 
 export function registerTrackViewIpcHandlers(): void {
-  const library = new TrackViewLibrary(join(app.getPath('userData'), 'Track views'));
+  const library = new TrackViewLibrary(join(app.getPath('userData'), 'Track views'), { db: getDb });
   const commands = new TrackViewCommands({
     library,
     resolveProject: async (project) => {

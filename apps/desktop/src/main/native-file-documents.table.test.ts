@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestDb } from './__tests__/test-db';
 import { ensureSchema } from './schema';
+import { restoreSavedFileSource, listSavedFileVersions } from './saved-file-sources';
 import { createNativeFileDocuments } from './native-file-documents';
 import { NativeDocumentDispatcher } from './native-document-dispatcher';
 import { registerCatalogEntityInDb } from './catalog-entity-registration';
@@ -148,6 +149,32 @@ describe('native managed table admission', () => {
       (await readTablePackageInMain({ workspaceRoot: f.root, packageRoot: table.packageRoot })).head
         .snapshot.data.cells![0][0].value
     ).toBe('registered table saved');
+    expect(
+      await readFile(tablePackageRevisionPath(table.packageRoot, table.head.snapshotSha256), 'utf8')
+    ).toBe(serializeTableSnapshot(table.head.snapshot));
+    const owner = { workspaceId: 7, entityId: table.head.id };
+    const receipts = listSavedFileVersions(f.db, { ...owner, offset: 0, limit: 10 }).versions;
+    expect(receipts).toHaveLength(2);
+    await rm(table.packageRoot, { recursive: true });
+    const original = join(f.root, 'Recovered original');
+    await restoreSavedFileSource(f.db, {
+      ...owner,
+      destination: original,
+      revisionId: receipts[1].id,
+    });
+    expect(
+      (await readTablePackageInMain({ workspaceRoot: f.root, packageRoot: original })).head
+    ).toEqual(table.head);
+    await restoreSavedFileSource(f.db, {
+      ...owner,
+      destination: table.packageRoot,
+      revisionId: receipts[0].id,
+    });
+    const recovered = await readTablePackageInMain({
+      workspaceRoot: f.root,
+      packageRoot: table.packageRoot,
+    });
+    expect(recovered.head.snapshot.data.cells![0][0].value).toBe('registered table saved');
     expect(
       await readFile(tablePackageRevisionPath(table.packageRoot, table.head.snapshotSha256), 'utf8')
     ).toBe(serializeTableSnapshot(table.head.snapshot));

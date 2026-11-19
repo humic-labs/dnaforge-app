@@ -1,10 +1,14 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { reportPrimerRecoveryInventory } from './workspace-reconcile-report';
+import {
+  reportPrimerReconcileFailures,
+  reportPrimerRecoveryInventory,
+} from './workspace-reconcile-report';
+import { getLatestPrimerRecoveryInventory } from '../features/primers/public/primer-recovery-report';
 import { useToastStore } from '../stores/toast-store';
 import type { PrimerRecoveryInventory } from '../features/primers/public/primer-recovery-report';
 
 vi.mock('../features/primers/public/primer-recovery-report', () => ({
-  getLatestPrimerRecoveryInventory: () => null,
+  getLatestPrimerRecoveryInventory: vi.fn(() => null),
 }));
 
 const unresolved = {
@@ -12,6 +16,50 @@ const unresolved = {
   reason: 'identity-not-recorded' as const,
   message: 'The original My Project has not been identified.',
 };
+
+it('shows each affected primer once across startup and project scans, then clears resolved records', () => {
+  const message = 'The saved primer file is missing. Restore it from project history or a backup.';
+  const entries = ['Forward', 'Reverse'].map((name) => ({
+    ...orphan,
+    name,
+    id: name,
+    workspaceId: 4,
+    message,
+  }));
+  const scan = {
+    scanned: 0,
+    registered: 0,
+    repaired: 0,
+    missing: 0,
+    externalMovesRelinked: 0,
+    externalMovesAmbiguous: 0,
+    primerArtifactsDiscovered: 0,
+    primerArtifactsReconciled: 0,
+    errors: [],
+    primerArtifactErrors: entries.map((e) => ({
+      path: 'registry:' + e.id,
+      primerName: e.name,
+      message,
+    })),
+  };
+  const notices = () =>
+    useToastStore.getState().toasts.filter((t) => t.definition === 'primer-recovery-failed');
+  vi.mocked(getLatestPrimerRecoveryInventory).mockReturnValue(null);
+  reportPrimerReconcileFailures('/projects/one', scan);
+  const report = inventory(entries);
+  vi.mocked(getLatestPrimerRecoveryInventory).mockReturnValue(report);
+  reportPrimerRecoveryInventory(report);
+  reportPrimerReconcileFailures('/projects/one', scan);
+  expect(notices()).toHaveLength(1);
+  expect(notices()[0].message).toContain('Forward');
+  expect(notices()[0].message).toContain('Reverse');
+  expect(notices()[0].message).toContain(message);
+  reportPrimerRecoveryInventory(
+    inventory(entries.map((e) => ({ ...e, status: 'document-backed' })))
+  );
+  expect(notices()).toHaveLength(0);
+  vi.mocked(getLatestPrimerRecoveryInventory).mockReturnValue(null);
+});
 const orphan: PrimerRecoveryInventory['entries'][number] = {
   id: 'legacy-primer-1',
   name: 'Historical primer',

@@ -30,6 +30,8 @@ import {
 } from '../shared/notebook-model/document';
 import { extractTitle, shouldDeriveNotebookTitleFromContent } from '../shared/notebook-model/title';
 import { contentFingerprint } from '../shared/content-fingerprint';
+import { normalizeNotebookReferenceOccurrences } from '../shared/notebook-reference-occurrences';
+import { NativeNotebookReferenceHistory } from './notebook-reference-history';
 import { canonicalNotebookJson } from '../db/notebook-markdown-codec';
 import {
   nativeNotebookRequestSchema,
@@ -96,7 +98,8 @@ export interface NativeNotebookOptions {
   prepareResourceReferences?(
     scope: NativeNotebookScope,
     content: JSONContent,
-    previousContent: JSONContent
+    previousContent: JSONContent,
+    retainedReferences?: readonly JSONContent[]
   ): Promise<{ content: JSONContent; verify(): Promise<void> }>;
   prepareTableAliases?(
     scope: NativeNotebookScope,
@@ -156,6 +159,7 @@ export interface NativeNotebookOptions {
   ): Promise<NotebookDocumentSnapshot>;
 }
 interface NotebookCopy {
+  referenceHistory: NativeNotebookReferenceHistory;
   scope: NativeNotebookScope;
   source: NativeNotebookSource;
   model: NotebookDocumentModel;
@@ -461,7 +465,8 @@ export class NativeNotebookWorkingCopyOwner {
               const prepared = await this.prepareResourceReferences(
                 scope,
                 candidate,
-                copy.model.content
+                copy.model.content,
+                copy
               );
               await prepared.verify();
               assertCurrent();
@@ -551,10 +556,23 @@ export class NativeNotebookWorkingCopyOwner {
   private async prepareResourceReferences(
     scope: NativeNotebookScope,
     content: JSONContent,
-    previousContent: JSONContent
+    previousContent: JSONContent,
+    copy: NotebookCopy
   ) {
+    const legacy =
+      normalizeNotebookReferenceOccurrences(previousContent, { documentId: scope.documentId }) !==
+      previousContent;
+    content = normalizeNotebookReferenceOccurrences(content, {
+      documentId: scope.documentId,
+      ...(legacy ? {} : { createId: randomUUID }),
+    });
     if (this.options.prepareResourceReferences)
-      return this.options.prepareResourceReferences(scope, content, previousContent);
+      return this.options.prepareResourceReferences(
+        scope,
+        content,
+        previousContent,
+        copy.referenceHistory.references()
+      );
     return { content, verify: async () => scope.assertCurrent() };
   }
   private async refreshTableAliases(copy: NotebookCopy): Promise<void> {
@@ -589,7 +607,8 @@ export class NativeNotebookWorkingCopyOwner {
     const references = await this.prepareResourceReferences(
       copy.scope,
       candidate.content,
-      copy.model.content
+      copy.model.content,
+      copy
     );
     await references.verify();
     const aliases = await this.options.prepareTableAliases?.(copy.scope, references.content);
@@ -818,6 +837,7 @@ export class NativeNotebookWorkingCopyOwner {
               'NOTEBOOK_RECOVERY_PENDING',
               'Restore or discard the retained notebook draft before editing.'
             );
+          copy.referenceHistory.remember(copy.model.content);
           let result: unknown;
           if (operation.kind === 'save') return { save: this.save(copy) };
           if (operation.kind === 'capture-save') {
@@ -921,7 +941,15 @@ export class NativeNotebookWorkingCopyOwner {
                 'NOTEBOOK_RECOVERY_CONFLICT',
                 'The package changed after this retained draft. Both versions remain preserved; resolve the conflict before restoring.'
               );
-            copy.model = new NotebookDocumentModel(recovery.content, recovery.title);
+            const restored = await this.prepareResourceReferences(
+              scope,
+              recovery.content,
+              copy.source.content,
+              copy
+            );
+            await restored.verify();
+            scope.assertCurrent();
+            copy.model = new NotebookDocumentModel(restored.content, recovery.title);
             copy.recovery = undefined;
             copy.version++;
           } else if (operation.kind === 'retain-legacy-recovery') {
@@ -1276,6 +1304,7 @@ export class NativeNotebookWorkingCopyOwner {
       const source = await this.options.load(scope);
       scope.assertCurrent();
       const copy: NotebookCopy = {
+        referenceHistory: new NativeNotebookReferenceHistory(),
         scope,
         source,
         model: new NotebookDocumentModel(source.content, source.title),
@@ -1444,6 +1473,18 @@ export class NativeNotebookWorkingCopyOwner {
       copy.source.publication?.status !== 'pending'
     )
       return Promise.resolve(this.snapshot(copy));
+    const normalized = normalizeNotebookReferenceOccurrences(copy.model.content, {
+      documentId: copy.scope.documentId,
+      ...(normalizeNotebookReferenceOccurrences(copy.source.content, {
+        documentId: copy.scope.documentId,
+      }) === copy.source.content
+        ? { createId: randomUUID }
+        : {}),
+    });
+    if (normalized !== copy.model.content) {
+      copy.model.applySteps([], undefined, false, undefined, false, normalized);
+      copy.version++;
+    }
     if (shouldDeriveNotebookTitleFromContent(copy.model.title)) {
       const derived = extractTitle(copy.model.content);
       if (derived && derived !== copy.model.title) {
@@ -1465,7 +1506,12 @@ export class NativeNotebookWorkingCopyOwner {
       this.assertUnprotected(scope.path);
       if (this.options.normalizePath(scope.path) !== this.options.normalizePath(copy.scope.path))
         throw refused('NOTEBOOK_BINDING_CHANGED', 'The notebook moved before this save began.');
-      const references = await this.prepareResourceReferences(scope, content, copy.source.content);
+      const references = await this.prepareResourceReferences(
+        scope,
+        content,
+        copy.source.content,
+        copy
+      );
       await references.verify();
       const aliases = await this.options.prepareTableAliases?.(scope, references.content);
       await aliases?.verify();
@@ -1476,8 +1522,10 @@ export class NativeNotebookWorkingCopyOwner {
           'Inspect the canonical table placement before saving.'
         );
       scope.assertCurrent();
-      const result = await this.options.publish(scope, copy.source, content, title);
+      const result = await this.options.publish(scope, copy.source, references.content, title);
       published = true;
+      if (copy.version === version && references.content !== content)
+        copy.model.applySteps([], undefined, false, undefined, false, references.content);
       copy.source = result.source;
       if (result.scope) copy.scope = result.scope;
       copy.warnings = result.warnings;

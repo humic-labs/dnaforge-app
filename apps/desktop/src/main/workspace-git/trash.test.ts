@@ -8,6 +8,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -67,6 +68,21 @@ describe('trash purge', () => {
     ).run(uuid, repoPath, uuid, `/origin/${uuid}`, 1, 1, trashedAt);
     return repoPath;
   }
+
+  it('retains individual file Trash through explicit project deletion and automatic expiry', async () => {
+    const project = seedTrashed('uuid-file-trash', 1);
+    const receipt = join(project, '.git', 'dnaforge-file-trash', randomUUID());
+    mkdirSync(receipt, { recursive: true });
+    writeFileSync(join(receipt, 'payload'), 'retained content');
+    await expect(purgeTrashedWorkspaceByUuid(db, managedRoot, 'uuid-file-trash')).rejects.toThrow(
+      'file Trash'
+    );
+    expect(await purgeExpiredTrashedWorkspaces(db, managedRoot, RETENTION + 2, RETENTION)).toEqual({
+      purged: [],
+    });
+    expect(readFileSync(join(receipt, 'payload'), 'utf8')).toBe('retained content');
+    expect(countRows('uuid-file-trash')).toBe(1);
+  });
 
   function countRows(uuid: string): number {
     return (

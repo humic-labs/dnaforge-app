@@ -1,3 +1,5 @@
+import { entityKindLabel } from './entity-types';
+
 export const REGISTRY_ARTIFACT_SEARCH_PROJECTION_KEY = 'registryArtifactSearchProjection';
 
 export type RegistryFileStorage = 'flat-file' | 'dir-package';
@@ -35,7 +37,7 @@ export interface RegistryFileType {
   registryProjected: boolean;
 }
 
-export const REGISTRY_FILE_TYPES: readonly RegistryFileType[] = [
+const registryFileFormats: readonly (Omit<RegistryFileType, 'label'> & { label?: string })[] = [
   {
     id: 'entity-record',
     label: 'Registry record',
@@ -47,7 +49,6 @@ export const REGISTRY_FILE_TYPES: readonly RegistryFileType[] = [
   },
   {
     id: 'primer',
-    label: 'Primer',
     storage: 'flat-file',
     suffix: '.primer.json',
     defaultDir: 'primers',
@@ -56,7 +57,6 @@ export const REGISTRY_FILE_TYPES: readonly RegistryFileType[] = [
   },
   {
     id: 'sequence',
-    label: 'Sequence',
     storage: 'dir-package',
 
     suffix: '.forge/plasmid.json',
@@ -64,7 +64,6 @@ export const REGISTRY_FILE_TYPES: readonly RegistryFileType[] = [
   },
   {
     id: 'notebook',
-    label: 'Notebook',
     storage: 'dir-package',
     suffix: '.forge/notebook.json',
     registryProjected: true,
@@ -80,7 +79,6 @@ export const REGISTRY_FILE_TYPES: readonly RegistryFileType[] = [
   },
   {
     id: 'design',
-    label: 'Design',
     storage: 'flat-file',
     suffix: '.wpdesign.json',
     treeHiddenCompoundSuffix: '.wpdesign.json',
@@ -96,7 +94,6 @@ export const REGISTRY_FILE_TYPES: readonly RegistryFileType[] = [
   },
   {
     id: 'track-view',
-    label: 'Saved genome view',
     storage: 'flat-file',
     suffix: TRACK_VIEW_FILE_SUFFIX,
     treeHiddenCompoundSuffix: TRACK_VIEW_FILE_SUFFIX,
@@ -104,13 +101,19 @@ export const REGISTRY_FILE_TYPES: readonly RegistryFileType[] = [
   },
   {
     id: 'molecular-document',
-    label: 'Molecular visualization',
     storage: 'flat-file',
     suffix: MOLECULAR_DOCUMENT_FILE_SUFFIX,
     treeHiddenCompoundSuffix: MOLECULAR_DOCUMENT_FILE_SUFFIX,
     registryProjected: true,
   },
 ];
+
+export const REGISTRY_FILE_TYPES: readonly RegistryFileType[] = registryFileFormats.map(
+  (format) => ({
+    ...format,
+    label: format.label ?? entityKindLabel(format.id),
+  })
+);
 
 export const TREE_HIDDEN_COMPOUND_SUFFIXES: readonly string[] = REGISTRY_FILE_TYPES.map(
   (t) => t.treeHiddenCompoundSuffix

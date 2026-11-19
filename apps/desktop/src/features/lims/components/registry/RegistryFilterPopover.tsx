@@ -68,6 +68,11 @@ export function RegistryFilterPopover({
                 }
               />
               {option.label}
+              {option.count !== undefined ? (
+                <span aria-hidden className="text-fg-subtle">
+                  {option.count}
+                </span>
+              ) : null}
             </label>
           );
         })}

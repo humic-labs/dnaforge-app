@@ -5,6 +5,7 @@ import { canonicalJson } from '../shared/canonical-json';
 import { writeWorkspaceTextFileAtomicInMain } from './primer-artifact-files';
 import { syncDirectory as syncDirectoryInMain } from './fs-durability';
 import { createKeyedMutex } from './workspace-git/keyed-mutex';
+import { scheduleSavedSourceMigration } from './backfill-saved-file-sources';
 import type Database from 'better-sqlite3';
 import { registerAdmittedProjectRoot } from './admitted-project-roots';
 import { dirname, join } from 'node:path';
@@ -91,6 +92,7 @@ export async function resolveProjectRootInMain(
       .prepare('SELECT * FROM workspaces WHERE id = ?')
       .get(workspaceId) as ProjectRow;
     registerAdmittedProjectRoot(rootPath);
+    scheduleSavedSourceMigration(deps.db,workspaceId);
     return {
       workspaceId,
       rootPath,

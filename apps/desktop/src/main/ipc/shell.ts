@@ -1,3 +1,6 @@
+import { assertSafeWritablePath } from './path-allowlist';
+import { savedFileSourceRequest } from '../../shared/saved-file-source-command';
+import { runSavedFileSourceCommand } from '../saved-file-source-command';
 import { nativeDocuments } from '../features/native-documents';
 import { handleGroup, mainIpc } from '../../shared/ipc-contract';
 import { app, clipboard, shell } from 'electron';
@@ -7,6 +10,7 @@ import { assertAllowedGitInvocation } from './allowed-git-invocation';
 import { WORKSPACE_GIT_AUTHOR } from '../../shared/workspace-git-author';
 import { assertSafePath, getAllowedRoots, withSafeWritablePath } from './path-allowlist';
 import { getDb } from './database';
+import { assertSystemTrashAllowed, workspaceEntityOwnsPath } from '../saved-entity-file-retention';
 import { trashAcceptedScientificPath } from '../scientific-resource-lifecycle';
 import {
   withKnownWorkspacePathMutation,
@@ -78,6 +82,39 @@ export function registerShellHandlers(): void {
 
   const FORBIDDEN_GIT_ARG = /^(-c|--exec-path|--upload-pack|--receive-pack)(=|$)|^ext::/i;
   handleGroup(shellContract, {
+    savedFileSource: async (event, input) => {
+      const req = savedFileSourceRequest.parse(input),
+        db = getDb();
+      if (req.workspaceRoot === null) {
+        const root = join(app.getPath('userData'), 'Track views');
+        if (req.operation.kind === 'restore')
+          await assertSafeWritablePath(join(root, req.operation.destination), {
+            requireAbsolute: true,
+          });
+        return runSavedFileSourceCommand(db, req, {
+          root,
+          workspaceId: null,
+          assertCurrent: () => assertCommittedDatabaseReadAllowed(db),
+        });
+      }
+      const root = await assertSafePath(req.workspaceRoot, { requireAbsolute: true }),
+        scoped = { ...req, workspaceRoot: root };
+      if (req.operation.kind === 'versions')
+        return nativeDocuments.workspaceCommands.runFileSource(scoped);
+      const dest = await assertSafeWritablePath(join(root, req.operation.destination), {
+        requireAbsolute: true,
+      });
+      return nativeDocuments.workspaceCommands.runFileSource(scoped, (operation) =>
+        withDeclaredRendererWorkspaceMutation({
+          db,
+          ownerId: event.sender.id,
+          workspaceRoot: root,
+          mutationPaths: [dest],
+          fileWrite: true,
+          operation,
+        })
+      );
+    },
     projectHistory: async (event, input) => {
       const request = projectHistoryRequestSchema.parse(input);
       const root = await assertSafePath(request.workspaceRoot, { requireAbsolute: true });
@@ -126,7 +163,8 @@ export function registerShellHandlers(): void {
                 paths,
                 contentPaths
               );
-            }
+            },
+            (path) => workspaceEntityOwnsPath(db, root, path)
           ),
       });
     },
@@ -153,6 +191,7 @@ export function registerShellHandlers(): void {
             paths: [safePath],
             mutationToken,
             operation: async () => {
+              await assertSystemTrashAllowed(getDb(), safePath);
               assertCurrent();
               return shell.trashItem(safePath);
             },

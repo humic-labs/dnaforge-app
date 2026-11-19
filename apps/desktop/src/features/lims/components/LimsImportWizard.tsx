@@ -1,4 +1,9 @@
 import {
+  entityKindNoun,
+  entityKindPluralLabel,
+  schemaEntityTypeLabel,
+} from '@waypoint/scientific-artifacts/shared/entity-types';
+import {
   usePresentationOverlay,
   PresentationScopeContext,
 } from '../../../presentation/PresentationSurface';
@@ -49,22 +54,13 @@ export type ImportDoorKind = LimsEntityKind;
 
 const SEQUENCE_DOOR_KINDS: ReadonlySet<string> = new Set(['plasmid', 'chromosome', 'genome']);
 
-const FRIENDLY_PLURAL: Partial<Record<string, string>> = {
-  oligo: 'DNA oligos',
-  rna_oligo: 'RNA oligos',
-  strain: 'strains',
-  protein: 'proteins',
-  sequence: 'sequences',
-};
-
-const PRIMARY_TILES: { kind: ImportDoorKind; label: string; sub: string; testid?: string }[] = [
-  { kind: 'oligo', label: 'DNA oligos', sub: 'DNA oligos from a spreadsheet' },
-  { kind: 'rna_oligo', label: 'RNA oligos', sub: 'RNA oligos from a spreadsheet' },
-  { kind: 'strain', label: 'Strains', sub: 'strains from a spreadsheet' },
+const PRIMARY_TILES: { kind: ImportDoorKind; sub: string; testid?: string }[] = [
+  { kind: 'oligo', sub: 'DNA oligos from a spreadsheet' },
+  { kind: 'rna_oligo', sub: 'RNA oligos from a spreadsheet' },
+  { kind: 'strain', sub: 'strains from a spreadsheet' },
 
   {
     kind: 'sequence',
-    label: 'Sequences',
     sub: 'DNA sequence files',
     testid: 'lims-import-type-sequences',
   },
@@ -86,10 +82,9 @@ function kindNoun(
   schemas: LimsSchemaDefinitionView[],
   plural: boolean
 ): string {
-  const p =
-    FRIENDLY_PLURAL[kind] ??
-    `${(schemas.find((s) => s.entityKind === kind)?.displayName ?? kind).toLowerCase()}s`;
-  return plural ? p : p.replace(/s$/, '');
+  const custom = schemas.find((schema) => schema.entityKind === kind && !schema.builtin);
+  if (custom) return plural ? `${custom.displayName} records` : custom.displayName;
+  return entityKindNoun(kind, plural);
 }
 
 export type WizardStep = 'type' | 'file' | 'destination' | 'review';
@@ -770,7 +765,9 @@ function TypeStep({
             onClick={() => onChoose(tile.kind)}
             className={tileClass(tile.kind)}
           >
-            <span className="text-xs font-semibold text-fg">{tile.label}</span>
+            <span className="text-xs font-semibold text-fg">
+              {entityKindPluralLabel(tile.kind)}
+            </span>
             <span className="text-[11px] leading-snug text-fg-muted">{tile.sub}</span>
           </button>
         ))}
@@ -800,7 +797,7 @@ function TypeStep({
                       : 'border-transparent text-fg hover:border-accent/40'
                   }`}
                 >
-                  {schema.displayName}
+                  {schemaEntityTypeLabel(schema)}
                 </button>
               ))}
             </div>

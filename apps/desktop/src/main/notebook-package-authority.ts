@@ -1,3 +1,5 @@
+import type Database from 'better-sqlite3';
+import { retainNotebookPackage } from './retain-notebook-package';
 import { access, mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { isAbsolute, relative, resolve } from 'node:path';
 
@@ -34,7 +36,8 @@ async function createPackageFileOps(
     workspaceRoot: string;
     packageRoot: string;
   },
-  authority?: NotebookPublicationAuthority
+  authority?: NotebookPublicationAuthority,
+  db?: Database.Database
 ): Promise<NotebookPackageFileOps> {
   const lexicalPackageRoot = resolve(input.packageRoot);
 
@@ -62,6 +65,10 @@ async function createPackageFileOps(
   }
 
   return {
+    async retainNotebookSource(id, stage) {
+      const database = db ?? (await import('./ipc/database')).getDb();
+      await retainNotebookPackage(database, input, id, stage, authority?.assertCurrent);
+    },
     async exists(path) {
       const safePath = await canonicalMember(path, true);
       try {
@@ -120,7 +127,8 @@ async function withNotebookPublication<T>(
   input: { workspaceRoot: string; packageRoot: string },
   publicationPath: string,
   assertCurrent: (() => void) | undefined,
-  operation: (ops: NotebookPackageFileOps) => Promise<T>
+  operation: (ops: NotebookPackageFileOps) => Promise<T>,
+  db?: Database.Database
 ): Promise<T> {
   let state: { kind: 'pending' } | { kind: 'refused'; error: unknown } | { kind: 'published' } = {
     kind: 'pending',
@@ -145,7 +153,7 @@ async function withNotebookPublication<T>(
     throw error;
   };
   try {
-    return await operation(await createPackageFileOps(input, authority));
+    return await operation(await createPackageFileOps(input, authority, db));
   } catch (error) {
     return rethrow(error);
   }
@@ -153,38 +161,44 @@ async function withNotebookPublication<T>(
 
 export async function publishNotebookPackageV2InMain(
   input: SerializablePublishNotebookPackageInput,
-  assertCurrent?: () => void
+  assertCurrent?: () => void,
+  db?: Database.Database
 ): Promise<PublishNotebookPackageResult> {
   return withNotebookPublication(
     input,
     notebookPackagePaths(input.packageRoot).markdownPath,
     assertCurrent,
-    (ops) => publishNotebookPackageV2(ops, input)
+    (ops) => publishNotebookPackageV2(ops, input),
+    db
   );
 }
 
 export async function migrateNotebookPackageAtPathInMain(
-  input: MigrateNotebookPackageAtPathInput
+  input: MigrateNotebookPackageAtPathInput,
+  db?: Database.Database
 ): Promise<PublishNotebookPackageResult | null> {
-  const ops = await createPackageFileOps(input);
+  const ops = await createPackageFileOps(input, undefined, db);
   return migrateNotebookPackageAtPath(ops, input);
 }
 
 export async function prepareNotebookPackageRenameInMain(
   input: Omit<PrepareNotebookPackageRenameInput, 'now'>,
-  assertCurrent?: () => void
+  assertCurrent?: () => void,
+  db?: Database.Database
 ): Promise<void> {
   return withNotebookPublication(
     input,
     notebookPackagePaths(input.packageRoot).renameJournalPath,
     assertCurrent,
-    (ops) => prepareNotebookPackageRename(ops, input)
+    (ops) => prepareNotebookPackageRename(ops, input),
+    db
   );
 }
 
 export async function recoverNotebookPackageRenameIfNeededInMain(
-  input: RecoverNotebookPackageRenameInput
+  input: RecoverNotebookPackageRenameInput,
+  db?: Database.Database
 ): Promise<PublishNotebookPackageResult | null> {
-  const ops = await createPackageFileOps(input);
+  const ops = await createPackageFileOps(input, undefined, db);
   return recoverNotebookPackageRenameIfNeeded(ops, input.packageRoot);
 }

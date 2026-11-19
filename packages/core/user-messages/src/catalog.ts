@@ -1148,6 +1148,16 @@ export const USER_MESSAGES = {
   'primer.libraryFileRecoveryPending':
     'Some primer files still need recovery. Your original records and recovery progress are preserved. Retry to continue.',
   'primer.failed': 'We couldn’t complete this primer action. Check your inputs and try again.',
+  'primer.recoveryFileMissing':
+    'The saved primer file is missing. Restore it from project history or a backup.',
+  'primer.recoveryRestoreFailed':
+    'A saved primer copy could not be restored. Review the current project and try again.',
+  'primer.recoverySavedCopyAvailable':
+    'The primer file is missing. A verified saved copy is available to restore.',
+  'primer.recoveryFileOutside': 'The saved primer document is outside its recorded project.',
+  'primer.recoveryProjectUnavailable':
+    'The primer’s project folder is unavailable. Reconnect the project before recovery.',
+  'primer.recoveryReview': 'Review the saved primer files in the owning project.',
   'failure.could-not-load-this-binding-site': 'Could not load this binding site.',
   'failure.could-not-save-this-binding-site': 'Could not save this binding site.',
   'failure.open-this-sequence-in-its-project-to-edit-the-binding-site':

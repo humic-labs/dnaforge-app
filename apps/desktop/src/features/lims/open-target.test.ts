@@ -98,6 +98,7 @@ describe('LIMS entity open target resolver', () => {
         workspaceId: 7,
         fields: {
           sequence,
+          ...(kind === 'notebook' ? { packagePath: '/workspace/Notebook' } : {}),
           artifact: { schema: 'waypoint.entity.v2', relativePath: 'saved.entity.json' },
         },
       });
@@ -369,6 +370,15 @@ describe('LIMS entity open target resolver — protein entities ', () => {
       entityKind: 'protein',
       label: 'Inline GFP',
       registrationStatus: 'registered',
+    });
+  });
+
+  it('keeps notebook-class metadata records openable without inventing a missing notebook page', () => {
+    const notebook = makeEntity({ id: 'metadata-notebook', kind: 'notebook', fields: {} });
+    expect(resolveLimsEntityOpenTargetFromEntity(notebook)).toMatchObject({
+      kind: 'record_detail',
+      entityId: 'metadata-notebook',
+      reason: 'no_primary_representation',
     });
   });
 

@@ -1,4 +1,10 @@
 import {
+  preparePrimerFileMove,
+  rewritePreparedPrimerMove,
+  finishPrimerFileMoveInTx,
+  releasePrimerMove,
+} from './primer-file-move-intent';
+import {
   assertEnrolledPrimerPathMutationAllowed,
   assertEnrolledPrimerRelocationAllowed,
 } from './primer-artifact-mutation-guard';
@@ -9,7 +15,7 @@ import { submitScientificWorkspace } from './scientific-workspace-service';
 import type Database from 'better-sqlite3';
 import type { NativeDocumentDispatcher } from './native-document-dispatcher';
 
-import { access, cp, rename, rm } from 'fs/promises';
+import { cp, lstat, rename, rm } from 'fs/promises';
 import { basename, isAbsolute, join, relative, resolve } from 'path';
 import { withSafeWritablePaths } from './ipc/path-allowlist';
 import {
@@ -271,10 +277,11 @@ export function createWorkspaceFileRelocator(options: {
 
   async function pathExists(p: string): Promise<boolean> {
     try {
-      await access(p);
+      await lstat(p);
       return true;
-    } catch {
-      return false;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+      throw error;
     }
   }
 
@@ -385,82 +392,124 @@ export function createWorkspaceFileRelocator(options: {
       : null;
     assertEnrolledPrimerRelocationAllowed(getDb(), input);
     if (nativeManifestMove) await beginNativeWorkspaceManifestMove(nativeManifestMove);
-
+    const primerMove =
+      workspaceRoot && !nativeManifestMove
+        ? await preparePrimerFileMove(db, { workspaceRoot, oldPath, newPath, actor: input.actor })
+        : null;
     try {
-      await moveFile(oldPath, newPath);
-    } catch (error) {
-      if (nativeManifestMove) await completeNativeWorkspaceManifestMove(nativeManifestMove);
-      throw error;
-    }
+      try {
+        await moveFile(oldPath, newPath);
+      } catch (error) {
+        if (nativeManifestMove) await completeNativeWorkspaceManifestMove(nativeManifestMove);
+        throw error;
+      }
 
-    let primerRewrite: ReturnType<typeof rewriteAffectedPrimerArtifacts> | null = null;
-    let manifestWritten = false;
-    try {
-      if (workspaceRoot) {
-        primerRewrite = rewriteAffectedPrimerArtifacts({
-          workspaceRoot,
-          oldAbs: oldPath,
-          newAbs: newPath,
-          assertWritable: (path) => assertEnrolledPrimerPathMutationAllowed(getDb(), [path]),
-        });
+      let primerRewrite: ReturnType<typeof rewriteAffectedPrimerArtifacts> | null = null;
+      let manifestWritten = false;
+      let counts: RelocateEntityFileResult['counts'];
+      try {
+        if (workspaceRoot) {
+          primerRewrite = primerMove
+            ? rewritePreparedPrimerMove(db, primerMove, {
+                workspaceRoot,
+                oldPath,
+                newPath,
+                actor: input.actor,
+              })
+            : rewriteAffectedPrimerArtifacts({
+                db,
+                workspaceRoot,
+                oldAbs: oldPath,
+                newAbs: newPath,
+                assertWritable: (path) => assertEnrolledPrimerPathMutationAllowed(getDb(), [path]),
+              });
 
-        if (primerRewrite.failedPaths.length > 0) {
+          if (primerRewrite.failedPaths.length > 0) {
+            throw new Error(
+              `RELOCATE_PRIMER_WRITE_FAILED: ${primerRewrite.failedPaths.length} primer artifact(s) could ` +
+                `not be rewritten (e.g. "${primerRewrite.failedPaths[0]}"); relocation aborted to avoid a stale reference.`
+            );
+          }
+        }
+
+        if (nativeManifestMove) {
+          await writeMovedNativeWorkspaceManifest(nativeManifestMove);
+          manifestWritten = true;
+        }
+
+        counts = db.transaction(() => {
+          const result = relocateWorkspaceFileRefsInDb(db, {
+            workspaceRoot,
+            oldPath,
+            newPath,
+            actor: input.actor,
+            savedPrimers: primerRewrite?.saved,
+          });
+          finishPrimerFileMoveInTx(db, primerMove);
+          return result;
+        })();
+      } catch (err) {
+        const failedPrimerRestores = primerRewrite
+          ? restorePrimerArtifactBytes(primerRewrite.originalBytes, primerRewrite.writtenHashes)
+          : [];
+        let manifestRestoreError: unknown = null;
+        if (nativeManifestMove && manifestWritten) {
+          try {
+            await restoreNativeWorkspaceManifestMove(nativeManifestMove);
+          } catch (error) {
+            manifestRestoreError = error;
+          }
+        }
+        try {
+          if (await pathExists(oldPath))
+            throw new Error('The original location now has another occupant.');
+          await moveFile(newPath, oldPath);
+        } catch (reverseErr) {
           throw new Error(
-            `RELOCATE_PRIMER_WRITE_FAILED: ${primerRewrite.failedPaths.length} primer artifact(s) could ` +
-              `not be rewritten (e.g. "${primerRewrite.failedPaths[0]}"); relocation aborted to avoid a stale reference.`
+            `RELOCATE_SPLIT_STATE: the reference update failed (${(err as Error).message}) AND the file ` +
+              `could not be moved back from "${newPath}" to "${oldPath}" (${(reverseErr as Error).message}). ` +
+              `The file is at the new path but its registry references were not updated — move it back manually.`
           );
         }
-      }
-
-      if (nativeManifestMove) {
-        await writeMovedNativeWorkspaceManifest(nativeManifestMove);
-        manifestWritten = true;
-      }
-
-      const counts = db.transaction(() =>
-        relocateWorkspaceFileRefsInDb(db, {
-          workspaceRoot,
-          oldPath,
-          newPath,
-          actor: input.actor,
-        })
-      )();
-
-      materializeLimsGitExportForWorkspaceIds(db, counts.lims.workspaceIds);
-      if (nativeManifestMove) await completeNativeWorkspaceManifestMove(nativeManifestMove);
-
-      return { newPath, counts };
-    } catch (err) {
-      if (primerRewrite) {
-        try {
-          restorePrimerArtifactBytes(primerRewrite.originalBytes);
-        } catch {}
-      }
-      let manifestRestoreError: unknown = null;
-      if (nativeManifestMove && manifestWritten) {
-        try {
-          await restoreNativeWorkspaceManifestMove(nativeManifestMove);
-        } catch (error) {
-          manifestRestoreError = error;
+        if (nativeManifestMove && manifestRestoreError === null) {
+          await completeNativeWorkspaceManifestMove(nativeManifestMove);
         }
+        if (manifestRestoreError && nativeManifestMove) {
+          throw nativeManifestSplitStateError(nativeManifestMove, err, manifestRestoreError);
+        }
+        if (failedPrimerRestores.length)
+          throw new Error(
+            `RELOCATE_PRIMER_RESTORE_FAILED: ${failedPrimerRestores.length} file(s) changed or could not be restored. Retained source versions were preserved. ${errorMessage(err)}`
+          );
+        throw err;
       }
-      try {
-        await moveFile(newPath, oldPath);
-      } catch (reverseErr) {
-        throw new Error(
-          `RELOCATE_SPLIT_STATE: the reference update failed (${(err as Error).message}) AND the file ` +
-            `could not be moved back from "${newPath}" to "${oldPath}" (${(reverseErr as Error).message}). ` +
-            `The file is at the new path but its registry references were not updated — move it back manually.`
-        );
-      }
-      if (nativeManifestMove && manifestRestoreError === null) {
-        await completeNativeWorkspaceManifestMove(nativeManifestMove);
-      }
-      if (manifestRestoreError && nativeManifestMove) {
-        throw nativeManifestSplitStateError(nativeManifestMove, err, manifestRestoreError);
-      }
-      throw err;
+      return finishCommittedMove(db, newPath, counts, nativeManifestMove);
+    } finally {
+      releasePrimerMove(primerMove);
     }
+  }
+
+  async function finishCommittedMove(
+    db: Database.Database,
+    newPath: string,
+    counts: RelocateEntityFileResult['counts'],
+    nativeManifestMove: PreparedNativeWorkspaceManifestMove | null
+  ): Promise<RelocateEntityFileResult> {
+    materializeLimsGitExportForWorkspaceIds(db, counts.lims.workspaceIds);
+    if (nativeManifestMove) {
+      try {
+        await completeNativeWorkspaceManifestMove(nativeManifestMove);
+      } catch (error) {
+        return {
+          newPath,
+          counts,
+          warnings: [
+            `The move completed, but its recovery journal could not be cleared: ${errorMessage(error)}`,
+          ],
+        };
+      }
+    }
+    return { newPath, counts };
   }
 
   function nativeManifestSplitStateError(
@@ -565,9 +614,11 @@ export function createWorkspaceFileRelocator(options: {
 
     let primerRewrite: ReturnType<typeof rewriteAffectedPrimerArtifacts> | null = null;
     let manifestWritten = false;
+    let counts: RelocateEntityFileResult['counts'];
     try {
       if (workspaceRoot) {
         primerRewrite = rewriteAffectedPrimerArtifacts({
+          db,
           workspaceRoot,
           oldAbs: oldPath,
           newAbs: newPath,
@@ -586,25 +637,19 @@ export function createWorkspaceFileRelocator(options: {
         manifestWritten = true;
       }
 
-      const counts = db.transaction(() =>
+      counts = db.transaction(() =>
         relocateWorkspaceFileRefsInDb(db, {
           workspaceRoot,
           oldPath,
           newPath,
           actor: input.actor,
+          savedPrimers: primerRewrite?.saved,
         })
       )();
-
-      materializeLimsGitExportForWorkspaceIds(db, counts.lims.workspaceIds);
-      if (nativeManifestMove) await completeNativeWorkspaceManifestMove(nativeManifestMove);
-
-      return { newPath, counts };
     } catch (err) {
-      if (primerRewrite) {
-        try {
-          restorePrimerArtifactBytes(primerRewrite.originalBytes);
-        } catch {}
-      }
+      const failedPrimerRestores = primerRewrite
+        ? restorePrimerArtifactBytes(primerRewrite.originalBytes, primerRewrite.writtenHashes)
+        : [];
       let manifestRestoreError: unknown = null;
       if (nativeManifestMove && manifestWritten) {
         try {
@@ -619,8 +664,13 @@ export function createWorkspaceFileRelocator(options: {
       if (manifestRestoreError && nativeManifestMove) {
         throw nativeManifestSplitStateError(nativeManifestMove, err, manifestRestoreError);
       }
+      if (failedPrimerRestores.length)
+        throw new Error(
+          `RELOCATE_PRIMER_RESTORE_FAILED: ${failedPrimerRestores.length} file(s) changed or could not be restored. Retained source versions were preserved. ${errorMessage(err)}`
+        );
       throw err;
     }
+    return finishCommittedMove(db, newPath, counts, nativeManifestMove);
   }
 
   return { relocateEntityFile, relinkMovedEntityFile };

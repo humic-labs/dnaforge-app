@@ -97,11 +97,11 @@ describe('SearchPanel workspace entities ', () => {
 
   it('labels every included catalog type and keeps every result actionable', async () => {
     const inventory = [
-      ['notebook', 'Pages', 'page'],
+      ['notebook', 'Notebooks', 'Notebook'],
       ['sequence', 'Sequences', 'sequence'],
       ['primer', 'Primers', 'primer'],
       ['design', 'Designs', 'design'],
-      ['structure', 'Structures', 'structure'],
+      ['structure', 'Files', 'File'],
       ['protein', 'Proteins', 'protein'],
       ['protocol', 'Protocols', 'protocol'],
       ['protocol_run', 'Protocol runs', 'protocol run'],
@@ -112,11 +112,12 @@ describe('SearchPanel workspace entities ', () => {
       ['sample', 'Samples', 'sample'],
       ['record', 'Records', 'record'],
       ['track-view', 'Track views', 'track view'],
-      ['file', 'Files', 'file'],
+      ['molecular-document', 'Molecular documents', 'Molecular document'],
+      ['file', 'Files', 'File'],
     ] as const;
     mockSearch.mockResolvedValue({
-      results: inventory.map(([entityType, , itemLabel]) =>
-        result(entityType, `Known ${itemLabel}`, `${entityType}-result`)
+      results: inventory.map(([entityType]) =>
+        result(entityType, `Known ${entityType}`, `${entityType}-result`)
       ),
       nextPosition: null,
     });
@@ -129,14 +130,14 @@ describe('SearchPanel workspace entities ', () => {
     for (const [entityType, sectionName, itemLabel] of inventory) {
       const section = await screen.findByRole('region', { name: sectionName });
       const button = within(section).getByRole('button', {
-        name: `Open Known ${itemLabel} (${itemLabel})`,
+        name: `Open Known ${entityType} (${itemLabel.slice(0, 1).toUpperCase() + itemLabel.slice(1)})`,
       });
       expect(button).toBeEnabled();
       fireEvent.click(button);
       expect(mockDispatch).toHaveBeenLastCalledWith(
         expect.objectContaining({
           entityId: `repo-beta::${entityType}-result`,
-          label: `Known ${itemLabel}`,
+          label: `Known ${entityType}`,
           owningRoot: '/ws/beta',
         })
       );
@@ -197,7 +198,7 @@ describe('SearchPanel workspace entities ', () => {
 
     const input = screen.getByPlaceholderText('Search pages, sequences, primers...');
     fireEvent.change(input, { target: { value: 'result' } });
-    await screen.findByRole('button', { name: 'Open Later page (page)' });
+    await screen.findByRole('button', { name: 'Open Later page (Notebook)' });
 
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(mockDispatch).toHaveBeenCalledWith(

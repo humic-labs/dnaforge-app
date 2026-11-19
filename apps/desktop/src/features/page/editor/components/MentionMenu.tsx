@@ -1,32 +1,28 @@
 'use client';
+import { MenuRow, MenuSurface } from '@waypoint/ui-components';
 
 import {
   forwardRef,
+  Fragment,
   useCallback,
   useEffect,
   useImperativeHandle,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type MouseEvent,
 } from 'react';
-import {
-  MenuRow,
-  MenuStatus,
-  MenuSurface,
-  INTERACTION_CLASS,
-  useMenu,
-  type MenuCloseReason,
-} from '@waypoint/ui-components';
-import {
-  usePresentationSurface,
-  usePresentationScope,
-} from '../../../../presentation/PresentationSurface';
+import { ProjectRootIcon } from '../../../../components/icons/glyphs';
 import { cn } from '@/shared/lib/cn';
-import { SearchIcon } from '../../../../components/icons/glyphs';
-import type { Entity, EntityGroup, EntityType } from '../lib/search';
-import { getEntityIcon } from '../lib/search';
+import { UI_TOOLBAR_SELECT_TRIGGER_CLASS } from '../../../../components/ui/styles';
+import type { Entity, EntityGroup, EntityLinkCategory, EntityType } from '../lib/search';
+import {
+  entityLocationLabel,
+  getEntityCategoryIcon,
+  getEntityIcon,
+  matchingEntityLinkCategories,
+} from '../lib/search';
+import type { EntityDiscoveryView } from '../lib/use-entity-discovery';
 
 export interface MentionAttrs {
   entityType: EntityType;
@@ -40,19 +36,46 @@ export interface MentionAttrs {
 }
 
 export interface MentionMenuRef {
-  close: (reason: MenuCloseReason) => void;
   onKeyDown: (props: { event: KeyboardEvent }) => boolean;
 }
 
 export interface MentionMenuProps {
-  presentationParentId?: string;
   items: EntityGroup[];
   query: string;
   command: (attrs: MentionAttrs) => void;
+  categories?: readonly EntityLinkCategory[];
+  activeCategory?: EntityLinkCategory | null;
+  onBrowse?: (category: EntityLinkCategory) => void;
+  onBack?: () => void;
+  browseView?: boolean;
+  allView?: boolean;
+  onTypes?: () => void;
+  onAll?: () => void;
+  recentView?: boolean;
+  onRecent?: () => void;
+  status?: EntityDiscoveryView['status'];
+  error?: string | null;
+  onRetry?: () => void;
+  nextCursor?: string | null;
+  onLoadMore?: () => void;
+  loadingMore?: boolean;
+  includeArchived?: boolean;
+  onToggleArchived?: () => void;
+  projectScope?: boolean;
+  onToggleProjectScope?: () => void;
 }
 
-const ALL = 'all';
-const ALL_VIEW_GROUP_LIMIT = 5;
+const NO_CATEGORIES: readonly EntityLinkCategory[] = [];
+type Choice =
+  | { kind: 'entity'; entity: Entity; group: EntityGroup }
+  | { kind: 'category'; category: EntityLinkCategory }
+  | { kind: 'browse' | 'all' | 'recent' };
+
+function choiceKey(choice: Choice): string {
+  if (choice.kind === 'entity') return `entity:${choice.entity.id}`;
+  if (choice.kind === 'category') return `category:${choice.category.key}`;
+  return choice.kind;
+}
 
 function attrsFor(item: Entity): MentionAttrs {
   return {
@@ -72,259 +95,340 @@ function keepEditorFocus(event: MouseEvent) {
 }
 
 export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function MentionMenu(
-  { items, query, command, presentationParentId },
+  {
+    items,
+    query,
+    command,
+    categories = NO_CATEGORIES,
+    activeCategory = null,
+    onBrowse,
+    onBack,
+    browseView = false,
+    allView = false,
+    onTypes,
+    onAll,
+    recentView = false,
+    onRecent,
+    status = 'ready',
+    error = null,
+    onRetry,
+    nextCursor,
+    onLoadMore,
+    loadingMore = false,
+    includeArchived = false,
+    onToggleArchived,
+    projectScope = false,
+    onToggleProjectScope,
+  },
   ref
 ) {
-  const [filter, setFilter] = useState(ALL);
-  const origin = usePresentationScope();
+  const home = !query.trim() && !activeCategory && !recentView && !browseView && !allView;
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const rows = useMemo<Choice[]>(() => {
+    const entities = items.flatMap((group) =>
+      group.items.map((entity): Choice => ({ kind: 'entity', entity, group }))
+    );
+    const matches =
+      onBrowse && !activeCategory && !recentView && (!home || !onTypes)
+        ? browseView
+          ? matchingEntityLinkCategories(
+              categories.filter((category) => category.browse !== false),
+              query
+            )
+          : matchingEntityLinkCategories(categories, query)
+        : [];
+    const categoryRows = matches.map((category): Choice => ({ kind: 'category', category }));
+    if (browseView) return [...(onAll ? [{ kind: 'all' } as const] : []), ...categoryRows];
+    if (home)
+      return [
+        ...(onTypes ? [{ kind: 'browse' } as const] : categoryRows),
+        ...entities.slice(0, 4),
+        ...(onRecent ? [{ kind: 'recent' } as const] : []),
+      ];
+    return [...entities, ...categoryRows];
+  }, [
+    items,
+    query,
+    categories,
+    activeCategory,
+    onBrowse,
+    recentView,
+    browseView,
+    home,
+    onTypes,
+    onAll,
+    onRecent,
+  ]);
+  const selectedKey = rows.some((row) => choiceKey(row) === activeKey)
+    ? activeKey
+    : rows[0]
+      ? choiceKey(rows[0])
+      : null;
+  const selectedIndex = rows.findIndex((row) => choiceKey(row) === selectedKey);
 
-  const groups = useMemo(() => items.filter((group) => group.items.length > 0), [items]);
-  const activeFilter = groups.some((group) => group.key === filter) ? filter : ALL;
-  const filterKeys = useMemo(() => [ALL, ...groups.map((group) => group.key)], [groups]);
-  const totalCount = useMemo(
-    () => groups.reduce((count, group) => count + group.items.length, 0),
-    [groups]
-  );
-  const partial = groups.some((group) => group.partial);
-
-  const visibleGroups = useMemo(() => {
-    const selected =
-      activeFilter === ALL
-        ? groups.map((group) => ({
-            group,
-            shown: group.items.slice(0, ALL_VIEW_GROUP_LIMIT),
-            hidden: Math.max(0, group.items.length - ALL_VIEW_GROUP_LIMIT),
-          }))
-        : groups
-            .filter((group) => group.key === activeFilter)
-            .map((group) => ({ group, shown: group.items, hidden: 0 }));
-    return selected;
-  }, [groups, activeFilter]);
-
-  const rows = useMemo(
-    () =>
-      visibleGroups.flatMap(({ group, shown }) =>
-        shown.map((item) => ({
-          id: JSON.stringify([group.key, item.type, item.id]),
-          item,
-        }))
-      ),
-    [visibleGroups]
-  );
-  const menuItems = useMemo(
-    () =>
-      rows.length > 0
-        ? rows.map(({ id, item }) => ({ id, textValue: item.name, closeOnActivate: false }))
-        : query
-          ? [{ id: 'create-page', textValue: query, closeOnActivate: false }]
-          : [],
-    [rows, query]
-  );
-  const menu = useMenu({
-    items: menuItems,
-    defaultOpen: true,
-    onActivate: (id) => {
-      const row = rows.find((candidate) => candidate.id === id);
-      if (!row && (id !== 'create-page' || !query)) return;
-      menu.close('handoff');
-      command(row ? attrsFor(row.item) : { entityType: 'page', entityId: 'new', label: query });
-    },
-  });
-  const presentation = usePresentationSurface({
-    parentId: presentationParentId,
-    active: menu.isOpen,
-  });
-  const activeId = menuItems.some((item) => item.id === menu.activeId)
-    ? menu.activeId
-    : (menuItems[0]?.id ?? null);
-  const bindSurface = useCallback(
-    (node: HTMLDivElement | null) => {
-      presentation.bindRef(node);
-      menu.bindSurface(node);
-    },
-    [presentation.bindRef, menu.bindSurface]
-  );
-  useLayoutEffect(() => menu.positioned(), [menu.positioned]);
   useEffect(() => {
-    if (activeId !== null) itemRefs.current.get(activeId)?.scrollIntoView({ block: 'nearest' });
-  }, [activeId]);
-  const setItemRef = useCallback((id: string, node: HTMLButtonElement | null) => {
-    if (node) itemRefs.current.set(id, node);
-    else itemRefs.current.delete(id);
-  }, []);
-  const cycleFilter = useCallback(
-    (step: number) => {
-      const index = filterKeys.indexOf(activeFilter);
-      setFilter(filterKeys[(index + step + filterKeys.length) % filterKeys.length]);
+    if (selectedKey) itemRefs.current.get(selectedKey)?.scrollIntoView({ block: 'nearest' });
+  }, [selectedKey]);
+
+  const choose = useCallback(
+    (choice: Choice | undefined) => {
+      if (choice?.kind === 'entity') {
+        if (status === 'ready') command(attrsFor(choice.entity));
+      } else if (choice?.kind === 'category') onBrowse?.(choice.category);
+      else if (choice?.kind === 'browse') onTypes?.();
+      else if (choice?.kind === 'all') onAll?.();
+      else if (choice?.kind === 'recent') onRecent?.();
     },
-    [filterKeys, activeFilter]
+    [command, onBrowse, onTypes, onAll, onRecent, status]
   );
 
   useImperativeHandle(ref, () => ({
-    close: menu.close,
     onKeyDown: ({ event }) => {
-      if (
-        !menu.isOpen ||
-        event.defaultPrevented ||
-        event.isComposing ||
-        event.keyCode === 229 ||
-        !presentation.owner.allowsEvent(presentationParentId ?? origin.id, 'keyboard', event)
-      )
-        return false;
-      if (event.key === 'Tab') {
+      if (event.isComposing || event.keyCode === 229) return false;
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        const available = status === 'ready' ? rows : rows.filter((row) => row.kind !== 'entity');
+        if (!available.length) {
+          if (status !== 'loading') return false;
+          event.preventDefault();
+          return true;
+        }
         event.preventDefault();
-        cycleFilter(event.shiftKey ? -1 : 1);
+        const direction = event.key === 'ArrowDown' ? 1 : -1;
+        const index = available.findIndex((row) => choiceKey(row) === selectedKey);
+        const next =
+          index < 0
+            ? direction > 0
+              ? 0
+              : available.length - 1
+            : (index + direction + available.length) % available.length;
+        setActiveKey(choiceKey(available[next]));
         return true;
       }
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter')
-        return menu.handleKeyDown(event, { wrap: true });
+      if (event.key === 'Enter' && selectedIndex >= 0) {
+        event.preventDefault();
+        choose(rows[selectedIndex]);
+        return true;
+      }
       return false;
     },
   }));
 
-  const groupLabel = (key: string) =>
-    key === ALL ? 'All' : (groups.find((group) => group.key === key)?.label ?? key);
-  const groupCount = (key: string) =>
-    key === ALL ? totalCount : (groups.find((group) => group.key === key)?.items.length ?? 0);
-
-  if (!menu.isOpen) return null;
-
   return (
     <MenuSurface
-      surface="workspace"
-      ref={bindSurface}
-      density="form"
+      surface="inline-workspace"
       content="panel"
       selection={false}
       icons
-      data-menu-id="root"
-      data-presentation-surface={presentation.id}
+      shortcuts
+      submenus
+      density="form"
       layout={{
         width: '24rem',
         maxWidth: 'calc(100vw - 16px)',
-        maxHeight: 'min(28rem, calc(100vh - 16px))',
+        maxHeight: 'min(28rem,calc(100vh - 16px))',
+        display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        display: presentation.visible ? 'flex' : 'none',
       }}
       data-testid="mention-menu"
     >
-      <div className="p-2 border-b border-border flex flex-col gap-2">
-        <div
-          className="flex items-center gap-2 rounded-md border border-border bg-bg-muted px-2 py-1.5 text-sm"
-          data-testid="mention-menu-search"
-        >
-          <SearchIcon className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
-          {query ? (
-            <span className="truncate" data-testid="mention-menu-query">
-              {query}
-            </span>
-          ) : (
-            <span className="truncate text-fg-subtle">Search the Registry and every project</span>
+      {(onBack || activeCategory || onToggleProjectScope || onToggleArchived) && (
+        <div className="flex min-w-0 items-center gap-2 px-2 py-1">
+          {onBack && (
+            <button
+              type="button"
+              onMouseDown={keepEditorFocus}
+              onClick={onBack}
+              className={cn(UI_TOOLBAR_SELECT_TRIGGER_CLASS, 'shrink-0')}
+              aria-label="Back"
+              title="Backspace when search is empty"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-hidden="true"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              Back
+              {!query && (
+                <kbd className="rounded bg-bg-muted px-1 font-sans text-[11px] text-fg-subtle">
+                  Backspace
+                </kbd>
+              )}
+            </button>
           )}
-        </div>
-        {groups.length > 1 && (
-          <div className="flex flex-wrap gap-1" role="tablist" aria-label="Filter by kind">
-            {filterKeys.map((key) => (
+          {activeCategory && (
+            <span
+              className="min-w-0 truncate text-xs text-fg-subtle"
+              data-testid="mention-active-category"
+            >
+              {activeCategory.label}
+            </span>
+          )}
+          <div className="ml-auto flex items-center gap-1">
+            {onToggleProjectScope && (
               <button
-                key={key}
                 type="button"
-                role="tab"
-                aria-selected={key === activeFilter}
-                data-testid={`mention-filter-${key}`}
                 onMouseDown={keepEditorFocus}
-                onClick={() => setFilter(key)}
+                onClick={onToggleProjectScope}
+                aria-label="Limit to this project"
+                aria-pressed={projectScope}
+                title="Limit to this project"
                 className={cn(
-                  `${INTERACTION_CLASS} rounded-full px-2 py-0.5 text-xs transition-colors`,
-                  key === activeFilter
-                    ? 'bg-accent/15 text-accent'
-                    : `bg-bg-muted text-fg-muted ${INTERACTION_CLASS}`
+                  UI_TOOLBAR_SELECT_TRIGGER_CLASS,
+                  projectScope ? 'bg-accent-subtle text-accent' : 'text-fg-muted'
                 )}
               >
-                {groupLabel(key)} <span className="tabular-nums">{groupCount(key)}</span>
+                <ProjectRootIcon className="h-4 w-4" />
               </button>
-            ))}
+            )}
+            {onToggleArchived && (
+              <button
+                type="button"
+                aria-pressed={includeArchived}
+                onMouseDown={keepEditorFocus}
+                onClick={onToggleArchived}
+                className={UI_TOOLBAR_SELECT_TRIGGER_CLASS}
+              >
+                {includeArchived ? 'Including archived' : 'Active only'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      <div
+        className="min-h-0 overflow-auto p-1"
+        role="listbox"
+        aria-label="Entity links"
+        aria-busy={status === 'loading' || loadingMore}
+      >
+        {rows.length === 0 && status === 'ready' && (
+          <div className="px-3 py-2 text-sm text-fg-muted">
+            {recentView || home ? 'No recently viewed entities' : 'No matching entities'}
+          </div>
+        )}
+        {rows.map((choice, index) => {
+          const key = choiceKey(choice);
+          const selected = key === selectedKey;
+          const category = choice.kind === 'category' ? choice.category : null;
+          const entity = choice.kind === 'entity' ? choice.entity : null;
+          const location = entity ? entityLocationLabel(entity) : null;
+          const icon = entity
+            ? getEntityIcon(entity)
+            : category
+              ? getEntityCategoryIcon(category)
+              : null;
+          const section =
+            home && entity && rows[index - 1]?.kind !== 'entity' ? 'Recently viewed' : null;
+          const label =
+            choice.kind === 'entity'
+              ? choice.entity.name
+              : choice.kind === 'category'
+                ? choice.category.label
+                : choice.kind === 'browse'
+                  ? 'Browse types'
+                  : choice.kind === 'all'
+                    ? 'Browse all'
+                    : home
+                      ? 'All recently viewed'
+                      : 'Recently viewed';
+          return (
+            <Fragment key={key}>
+              {section && (
+                <div
+                  className="px-3 pt-2 pb-1 text-xs text-fg-subtle"
+                  data-testid="mention-menu-section"
+                >
+                  {section}
+                </div>
+              )}
+              <MenuRow
+                type="button"
+                role="option"
+                aria-selected={selected}
+                aria-disabled={choice.kind === 'entity' && status !== 'ready' ? true : undefined}
+                aria-label={category ? `Browse ${category.label}` : entity ? undefined : label}
+                ref={(element) => {
+                  if (element) itemRefs.current.set(key, element);
+                  else itemRefs.current.delete(key);
+                }}
+                data-testid={
+                  entity
+                    ? 'mention-menu-item'
+                    : category
+                      ? 'mention-browse-category'
+                      : choice.kind === 'recent'
+                        ? 'mention-recently-viewed'
+                        : 'mention-browse-types'
+                }
+                data-entity-type={entity?.type}
+                data-category-key={category?.key}
+                onMouseDown={keepEditorFocus}
+                onMouseEnter={() => setActiveKey(key)}
+                onClick={() => choose(choice)}
+                active={selected}
+                icon={icon}
+                shortcut={entity?.registryId}
+                submenu={!entity}
+                description={
+                  choice.kind === 'entity' && (
+                    <>
+                      {entity?.kindLabel ?? choice.group.label}
+                      {location && (
+                        <>
+                          {' '}
+                          · <span data-testid="mention-menu-item-project">{location}</span>
+                        </>
+                      )}
+                      {entity?.archived ? ' · Archived' : null}
+                    </>
+                  )
+                }
+              >
+                {label}
+              </MenuRow>
+            </Fragment>
+          );
+        })}
+        {status === 'loading' && (
+          <div
+            className={rows.length ? 'sr-only' : 'px-3 py-2 text-sm text-fg-muted'}
+            role="status"
+          >
+            Loading entities…
           </div>
         )}
       </div>
-
-      <div className="overflow-auto p-1 min-h-0" role="listbox">
-        {rows.length === 0 && query ? (
-          <MenuRow
-            role="option"
-            active={activeId === 'create-page'}
-            aria-selected={activeId === 'create-page'}
-            icon="+"
-            onMouseDown={keepEditorFocus}
-            onClick={() => menu.activate('create-page')}
-          >
-            Create &quot;{query}&quot;
-          </MenuRow>
-        ) : rows.length === 0 ? (
-          <MenuStatus>No items to reference</MenuStatus>
-        ) : (
-          visibleGroups.map(({ group, shown, hidden }) => (
-            <div key={group.key} data-testid={`mention-group-${group.key}`}>
-              <div className="flex items-center justify-between gap-2 px-2 pt-2 pb-1 text-xs text-fg-subtle">
-                <span className="font-medium uppercase tracking-wide truncate">{group.label}</span>
-                <span>{group.source === 'registry' ? 'Registry' : 'Project'}</span>
-              </div>
-              {shown.map((item) => {
-                const id = JSON.stringify([group.key, item.type, item.id]);
-                return (
-                  <MenuRow
-                    key={id}
-                    active={id === activeId}
-                    icon={getEntityIcon(item)}
-                    role="option"
-                    aria-selected={id === activeId}
-                    ref={(el) => setItemRef(id, el)}
-                    data-testid="mention-menu-item"
-                    data-entity-type={item.type}
-                    onMouseDown={keepEditorFocus}
-                    onMouseEnter={() => menu.point(id)}
-                    onClick={() => menu.activate(id)}
-                  >
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="truncate flex-1">{item.name}</span>
-                      {item.projectName && (
-                        <span
-                          className="shrink-0 max-w-[40%] truncate text-xs text-fg-subtle"
-                          data-testid="mention-menu-item-project"
-                        >
-                          {item.projectName}
-                        </span>
-                      )}
-                      {item.registryId && (
-                        <span className="shrink-0 text-xs text-fg-subtle tabular-nums">
-                          {item.registryId}
-                        </span>
-                      )}
-                    </span>
-                  </MenuRow>
-                );
-              })}
-              {hidden > 0 && (
-                <button
-                  type="button"
-                  onMouseDown={keepEditorFocus}
-                  onClick={() => setFilter(group.key)}
-                  className={`${INTERACTION_CLASS} w-full px-2 py-1 text-left text-xs text-fg-muted rounded`}
-                  data-testid={`mention-more-${group.key}`}
-                >
-                  {hidden} more
-                </button>
-              )}
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className="border-t border-border px-2 py-1 text-[11px] text-fg-subtle flex justify-between gap-2">
-        <span>↑↓ choose · ↵ insert · Tab filter</span>
-        {partial && <span>More matches: keep typing</span>}
-      </div>
+      {error && (
+        <div className="px-3 py-2 text-sm text-fg-muted" role="alert">
+          {error}
+          {onRetry && (
+            <button
+              type="button"
+              onMouseDown={keepEditorFocus}
+              onClick={onRetry}
+              className="ml-2 text-fg underline"
+            >
+              {status === 'refresh-required' ? 'Refresh' : 'Retry'}
+            </button>
+          )}
+        </div>
+      )}
+      {nextCursor && status === 'ready' && (
+        <MenuRow
+          onMouseDown={keepEditorFocus}
+          onClick={onLoadMore}
+          disabled={loadingMore}
+          data-testid="mention-load-more"
+        >
+          {loadingMore ? 'Loading…' : 'Load more results'}
+        </MenuRow>
+      )}
     </MenuSurface>
   );
 });

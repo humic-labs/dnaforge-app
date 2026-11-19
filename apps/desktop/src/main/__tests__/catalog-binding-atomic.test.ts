@@ -104,6 +104,9 @@ vi.mock('../../platform', () => ({
   }),
 }));
 
+import * as projectMemory from '../../db/project-memory';
+import { rebuildWorkspaceCatalogProjection } from '../../db/project-memory-projection';
+import * as environment from '../../utils/environment';
 import { ensureSchema } from '../schema';
 import { seedLimsBuiltinsInDb } from '../lims-engine-core';
 import { createTestDb } from './test-db';
@@ -345,6 +348,38 @@ describe('catalog binding through real renderer delegation, production IPC, and 
       notes: 'Global record',
     });
   });
+
+  it.each([
+    "DELETE FROM primers WHERE id='legacy'",
+    "DELETE FROM primer_bindings WHERE id='attachment'",
+    "UPDATE OR REPLACE primers SET catalog_number='P001' WHERE id='global'",
+    "UPDATE OR REPLACE primer_bindings SET binding_start=1 WHERE id='another'",
+    "INSERT OR REPLACE INTO primer_bindings(id,primer_id,sequence_id,binding_start,binding_end,strand,created_at,updated_at) VALUES('new','legacy',1,1,4,1,1,1)",
+  ])(
+    'preserves saved legacy primers and attachments through renderer SQL: %s',
+    async (statement) => {
+      const db = state.db!;
+      db.exec(`INSERT INTO indexed_files(id,workspace_id,path,name,extension,indexed_at)
+      VALUES(1,7,'/ws/example.gb','example.gb','gb',1);
+      INSERT INTO sequences(id,file_id,name,length) VALUES(1,1,'Example',20);
+      INSERT INTO primers(id,catalog_number,name,sequence,length,workspace_id,created_at,updated_at)
+      VALUES('legacy','P001','Legacy','ATCG',4,7,1,1),('global','P002','Global','CGAT',4,NULL,1,1);
+      INSERT INTO primer_bindings(id,primer_id,sequence_id,binding_start,binding_end,strand,created_at,updated_at)
+      VALUES('attachment','legacy',1,1,4,1,1,1),('another','legacy',1,6,9,1,1,1);`);
+      function savedRows() {
+        return {
+          primers: db.prepare('SELECT * FROM primers ORDER BY id').all(),
+          bindings: db.prepare('SELECT * FROM primer_bindings ORDER BY id').all(),
+        };
+      }
+      const before = savedRows();
+      const execute = state.handlers.get('db:execute')!;
+      await expect(
+        Promise.resolve().then(() => execute({ sender: state.sender }, statement))
+      ).rejects.toThrow(/REQUIRES_NATIVE_COMMAND/);
+      expect(savedRows()).toEqual(before);
+    }
+  );
 
   it.each(["access_mode='reference'", 'archived_at=9', 'trashed_at=9'])(
     'refuses legacy content and attachment mutations under a nonwritable owner: %s',
@@ -1113,6 +1148,126 @@ describe('catalog binding through real renderer delegation, production IPC, and 
       objectUuid: 'attempted-replacement',
     });
     expect(repeated.object_uuid).toBe('supplied-object');
+  });
+
+  it('retains committed catalog entities when a later request presents their ID or their exact file binding', async () => {
+    addBinding('published', '/ws/Published');
+    const db = state.db!;
+    db.prepare(
+      `INSERT INTO catalog_entity_events(id,entity_id,event_type,actor,created_at)
+      VALUES('published-history','target','created','user',1)`
+    ).run();
+    const before = snapshot();
+    const unbound = state.handlers.get('db:deleteCatalogEntityIfUnbound')!;
+    const bound = state.handlers.get('db:deleteCatalogEntityWithExactBinding')!;
+    const sender = { sender: state.sender };
+    await expect(
+      Promise.resolve().then(() =>
+        bound(sender, {
+          entityId: 'historical-owner',
+          path: '/ws/Published',
+          fileKind: 'waypoint-notebook',
+        })
+      )
+    ).resolves.toBe(false);
+    await expect(
+      Promise.resolve().then(() =>
+        bound(sender, {
+          entityId: 'target',
+          path: '/ws/Published',
+          fileKind: 'waypoint-notebook',
+        })
+      )
+    ).rejects.toThrow(/already committed/i);
+    await expect(Promise.resolve().then(() => unbound(sender, 'historical-owner'))).rejects.toThrow(
+      /already committed/i
+    );
+    expect(snapshot()).toEqual(before);
+  });
+
+  it('refuses a standalone workspace reset containing a published non-FASTA catalog', async () => {
+    addBinding('published', '/ws/Published');
+    state.db!.exec(`INSERT INTO catalog_entity_events(id,entity_id,event_type,actor,created_at)
+      VALUES('published-event','target','created','user',1);
+      INSERT INTO catalog_entity_links(id,source_entity_id,target_entity_id,relation,confidence,created_at,updated_at)
+      VALUES('published-link','target','historical-owner','mentions','confirmed',1,1)`);
+    const before = snapshot();
+    const clear = state.handlers.get('db:clearCatalogProjection')!;
+    const sender = { sender: state.sender };
+    await expect(Promise.resolve().then(() => clear(sender, '/ws'))).rejects.toThrow(
+      /populated catalog/i
+    );
+    expect(snapshot()).toEqual(before);
+    expect(state.db!.prepare('SELECT id FROM catalog_entity_links').all()).toEqual([
+      { id: 'published-link' },
+    ]);
+    expect(await clear(sender, '/other')).toEqual({
+      workspaceId: 8,
+      entities: 0,
+      files: 0,
+      links: 0,
+      events: 0,
+    });
+  });
+
+  it('atomically replays into an empty workspace and can retry after a mid-replay failure', async () => {
+    const before = snapshot();
+    const db = state.db!;
+    const snapshotSource = vi.spyOn(projectMemory, 'readProjectMemory').mockResolvedValue({
+      manifest: null,
+      events: [],
+      files: [],
+      links: [],
+      conflicts: [],
+      entities: ['first', 'second'].map((id) => ({
+        id,
+        displayName: id,
+        schema: 'waypoint.project-memory.entity.v1',
+        kind: 'design',
+        status: 'active',
+        createdByEventId: id,
+        updatedByEventId: id,
+      })),
+    });
+    const desktop = vi.spyOn(environment, 'isDesktopRuntime').mockReturnValue(true);
+    try {
+      db.exec(`CREATE TRIGGER fail_second_replay BEFORE INSERT ON catalog_entities
+        WHEN NEW.id='second' BEGIN SELECT RAISE(ABORT,'interrupted recovery'); END;`);
+      const input = { workspaceRoot: '/other' };
+      await expect(rebuildWorkspaceCatalogProjection(input)).rejects.toThrow(
+        'interrupted recovery'
+      );
+      expect(snapshot()).toEqual(before);
+      expect(db.inTransaction).toBe(false);
+      db.exec('DROP TRIGGER fail_second_replay');
+      const result = await rebuildWorkspaceCatalogProjection(input);
+      expect(result.projectMemory.entities).toBe(2);
+      expect(
+        db.prepare('SELECT id FROM catalog_entities WHERE workspace_id=8 ORDER BY id').all()
+      ).toEqual([{ id: 'first' }, { id: 'second' }]);
+      const recovered = snapshot();
+      await expect(
+        rebuildWorkspaceCatalogProjection({ ...input, clearExisting: false })
+      ).rejects.toThrow(/populated catalog/i);
+      expect(snapshot()).toEqual(recovered);
+    } finally {
+      desktop.mockRestore();
+      snapshotSource.mockRestore();
+    }
+  });
+
+  it('rolls back only its own new catalog row when first binding fails', async () => {
+    const db = state.db!;
+    const before = snapshot();
+    db.exec(`CREATE TRIGGER fail_new_binding BEFORE INSERT ON catalog_entity_files
+      WHEN NEW.path='/ws/new.txt' BEGIN SELECT RAISE(ABORT,'simulated first binding failure'); END;`);
+    await expect(
+      registerWorkspaceFile({ path: '/ws/new.txt', workspaceRoot: '/ws', fileKind: 'file' })
+    ).rejects.toThrow('simulated first binding failure');
+    expect(snapshot()).toEqual(before);
+    expect(
+      db.prepare("SELECT id FROM catalog_entities WHERE locator='file:///ws/new.txt'").get()
+    ).toBeUndefined();
   });
 
   it('obeys the renderer database fence without demoting any current binding', async () => {

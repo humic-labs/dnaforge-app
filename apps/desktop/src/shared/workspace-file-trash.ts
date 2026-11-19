@@ -59,3 +59,6 @@ export type WorkspaceFileTrashResult =
       entryId?: string;
       path?: string;
     };
+
+export const retainedEntityMessage =
+  'SAVED_ENTITY_CONTENT: This item contains a saved entity. Its contents must be retained.';

@@ -79,6 +79,7 @@ import {
   rememberOriginalDefaultProject,
   resolveOriginalDefaultProject,
 } from '../original-default-project';
+import { retainSequencePackage } from '../retain-sequence-package';
 import { findKnownWorkspaceRoot } from './known-workspace-scope';
 import { benchlingProjectionLayoutPolicy } from './benchling-projection-layout';
 import { withKnownWorkspacePathMutation } from '../workspace-sync-mutation-lease';
@@ -775,6 +776,29 @@ async function assertKnownImportDestination(
   assertSharedProjectContentWritable(deps.db, workspaceRoot);
 }
 
+async function retainImportedPackages(
+  deps: Pick<ImportFileIntoWorkspaceDeps, 'db' | 'managedRootDir'>,
+  targetRoot: string,
+  packageRoots: readonly string[]
+): Promise<void> {
+  if (packageRoots.length === 0) return;
+  const workspaceRoot = await findKnownWorkspaceRoot(targetRoot, deps);
+  if (!workspaceRoot) throw new Error('The imported package has no owning project.');
+  const physicalWorkspace = await realpath(workspaceRoot);
+  for (const packageRoot of new Set(packageRoots)) {
+    await retainSequencePackage(deps.db, {
+      workspaceRoot: physicalWorkspace,
+      packageRoot: await realpath(packageRoot),
+    });
+  }
+}
+
+function sequenceRootsFromPackageFiles(paths: readonly string[]): string[] {
+  return paths.flatMap((path) =>
+    sequencePackageMetaPaths(dirname(dirname(path))).includes(path) ? [dirname(dirname(path))] : []
+  );
+}
+
 interface WorkspaceRow {
   id: number;
   name: string;
@@ -834,6 +858,11 @@ export async function importIntoManagedWorkspaceRepo(
             err
           );
         }
+        await retainImportedPackages(
+          deps,
+          existing.path,
+          sequenceRootsFromPackageFiles(requiredGitFiles)
+        );
         if (conversionCompleted) {
           const commitOid = await commitManagedChanges(
             existing.path,
@@ -939,6 +968,7 @@ export async function importIntoManagedWorkspaceRepo(
        last_opened_at = excluded.last_opened_at`
   ).run(displayName, repoPath, workspaceUuid, originPath, createdAt, createdAt);
 
+  await retainImportedPackages(deps, repoPath, sequenceRootsFromPackageFiles(requiredGitFiles));
   return {
     workspaceUuid,
     repoPath,
@@ -1042,6 +1072,8 @@ async function importQuickLookPackageIntoWorkspaceRootInternal(
         priorRecord.productRelativePath,
         join(targetRoot, priorRecord.candidateName)
       );
+      if (lockManagedWorkspace)
+        await retainImportedPackages(deps, targetRoot, [priorRecord.candidateRoot]);
       return {
         destPath,
         relPath: relative(targetRoot, destPath),
@@ -1164,6 +1196,8 @@ async function importQuickLookPackageIntoWorkspaceRootInternal(
           error
         )
       );
+      if (lockManagedWorkspace)
+        await retainImportedPackages(deps, targetRoot, [lexicalPackageRoot]);
       return {
         destPath,
         relPath,
@@ -1620,6 +1654,11 @@ export async function importQuickLookGenerationIntoWorkspaceRoot(
         isCanonicalQuickLookSetRecord(prior) &&
         (await verifyQuickLookSetAtRoot(prior, prior.finalRoot))
       ) {
+        await retainImportedPackages(
+          deps,
+          targetRoot,
+          prior.records.map((record) => join(prior.finalRoot, record.childName))
+        );
         return quickLookSetResult(prior, targetRoot);
       }
       throw new Error(
@@ -1745,6 +1784,11 @@ export async function importQuickLookGenerationIntoWorkspaceRoot(
       }
       journal = { ...journal, committed };
       await writeQuickLookSetRecord(recordPath, journal);
+      await retainImportedPackages(
+        deps,
+        targetRoot,
+        journal.records.map((record) => join(journal.finalRoot, record.childName))
+      );
       return quickLookSetResult(journal, targetRoot);
     } finally {
       if (!published && (await exactOwnedSetRoot(journal, stagingRoot))) {
@@ -1820,6 +1864,7 @@ export async function importFileIntoWorkspaceRoot(
     await assertPhysicalWriteDestination(request.targetRoot, destPath);
     const overwritePackageRoot = await existingPlasmidPackageRootForProduct(destPath);
     if (overwritePackageRoot) {
+      await retainImportedPackages(deps, request.targetRoot, [overwritePackageRoot]);
       const looseImport = join(request.targetRoot, `.${stem}.import-${randomUUID()}${ext}`);
       let looseImportIdentity: PhysicalFileIdentity | undefined;
       try {
@@ -1955,6 +2000,11 @@ export async function importFileIntoWorkspaceRoot(
     }
   }
 
+  await retainImportedPackages(
+    deps,
+    request.targetRoot,
+    (packageProductPaths ?? []).map((path) => dirname(path))
+  );
   return {
     destPath,
     relPath,
@@ -2447,8 +2497,11 @@ class NativeSequenceImportTransaction {
       await this.stageSource();
       await sequenceImportBeforeClaimForTest?.(this.plan.logicalPath);
       await this.claimDestination();
+      if (this.plan.kind === 'replace-package')
+        await retainImportedPackages(this.deps, this.request.targetRoot, [this.plan.packageRoot]);
       const materialized = await this.materializeSource();
       await this.acceptMaterialization(materialized);
+      await retainImportedPackages(this.deps, this.request.targetRoot, this.packageRoots);
       const settlementFailure = await this.settleImport();
       return settlementFailure ?? (await this.commitAndBuildResult());
     } catch (error) {
@@ -3156,6 +3209,7 @@ export async function importContentIntoWorkspaceRoot(
     await assertPhysicalWriteDestination(request.targetRoot, destPath);
     const overwritePackageRoot = await existingPlasmidPackageRootForProduct(destPath);
     if (overwritePackageRoot) {
+      await retainImportedPackages(deps, request.targetRoot, [overwritePackageRoot]);
       const looseImport = join(request.targetRoot, `.${stem}.import-${randomUUID()}${ext}`);
       try {
         if (request.contentBytes) {
@@ -3243,6 +3297,11 @@ export async function importContentIntoWorkspaceRoot(
     }
   }
 
+  await retainImportedPackages(
+    deps,
+    request.targetRoot,
+    (packageProductPaths ?? []).map((path) => dirname(path))
+  );
   return {
     destPath,
     relPath,
@@ -3320,6 +3379,11 @@ export async function importFolderIntoWorkspaceRoot(
     }
   }
 
+  await retainImportedPackages(
+    deps,
+    request.targetRoot,
+    sequenceRootsFromPackageFiles(requiredGitFiles)
+  );
   return { destPath: destDir, relPath, committed };
 }
 
@@ -3373,6 +3437,11 @@ export async function importFileAsNewManagedWorkspace(
        last_opened_at = excluded.last_opened_at`
   ).run(displayName, repoPath, workspaceUuid, realSource, createdAt, createdAt);
 
+  await retainImportedPackages(
+    deps,
+    repoPath,
+    (packageProductPaths ?? []).map((path) => dirname(path))
+  );
   return {
     workspaceUuid,
     repoPath,

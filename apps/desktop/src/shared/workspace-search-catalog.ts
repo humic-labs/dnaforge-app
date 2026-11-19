@@ -1,3 +1,7 @@
+import {
+  resolveNamedEntityType,
+  namedEntityTypePresentation,
+} from '@waypoint/scientific-artifacts/shared/entity-types';
 import { catalogNameSearch } from './catalog-name-search';
 import type { CatalogEntityType } from './catalog-entity';
 import type { SqliteIpcValue } from './sqlite-ipc';
@@ -10,22 +14,22 @@ import { catalogIconContext } from './catalog-icon-context';
 export type SidebarSearchableCatalogEntityType = Exclude<CatalogEntityType, 'selection' | 'folder'>;
 
 const sidebarSearchableCatalogEntityTypeInventory = {
-  'track-view': true,
-  'molecular-document': true,
+  notebook: true,
   sequence: true,
   primer: true,
-  notebook: true,
   design: true,
+  structure: true,
+  protein: true,
+  protocol: true,
+  protocol_run: true,
   alignment: true,
   trace: true,
   report: true,
   construct: true,
   sample: true,
   record: true,
-  structure: true,
-  protein: true,
-  protocol: true,
-  protocol_run: true,
+  'track-view': true,
+  'molecular-document': true,
   file: true,
 } as const satisfies Record<SidebarSearchableCatalogEntityType, true>;
 
@@ -40,6 +44,7 @@ export interface MountedCatalogEntitySearchResult {
   workspaceRoot: string;
   workspaceName: string;
   iconContext?: EntityColorContext;
+  namedType?: ReturnType<typeof searchResultNamedType>;
 }
 
 export interface SearchMountedCatalogEntitiesInput {
@@ -67,6 +72,12 @@ export interface MountedCatalogSearchPage {
 export interface MountedCatalogEntitySearchRow {
   entity_id: string;
   entity_type: string;
+  registry_kind?: string | null;
+  schema_id?: string | null;
+  schema_name?: string | null;
+  schema_label?: string | null;
+  schema_builtin?: number | null;
+  file_kind?: string | null;
   name: string;
   storage_type: string;
   metadata: string | null;
@@ -75,6 +86,22 @@ export interface MountedCatalogEntitySearchRow {
   updated_at: number;
   icon_kind?: string | null;
   icon_path?: string | null;
+}
+
+export function searchResultNamedType(type: string, row?: MountedCatalogEntitySearchRow) {
+  const key = resolveNamedEntityType({
+    type,
+    registryKind: row?.registry_kind,
+    schemaId: row?.schema_id,
+    schemaBuiltin: row?.schema_builtin,
+    representationKind: row?.file_kind,
+  });
+  const { label, kindLabel, iconKind } = namedEntityTypePresentation(
+    key,
+    row?.schema_name,
+    row?.schema_label
+  );
+  return { key, label, kindLabel, iconKind };
 }
 
 const sidebarSearchableCatalogEntityTypeSet = new Set<string>(
@@ -189,9 +216,14 @@ export function createMountedCatalogSearch(
     SELECT e.id AS entity_id,
            e.type AS entity_type,
            e.name AS name,
+           l.kind AS registry_kind, s.id AS schema_id, s.name AS schema_name,
+           s.display_name AS schema_label, s.builtin AS schema_builtin,
+           (SELECT f.file_kind FROM catalog_entity_files f
+             WHERE f.entity_id=e.id AND f.workspace_id=e.workspace_id AND f.status='current'
+             ORDER BY f.id LIMIT 1) AS file_kind,
            e.storage_type AS storage_type,
            e.metadata AS metadata,
-           (SELECT kind FROM lims_entity l WHERE l.id = e.id) AS icon_kind,
+           l.kind AS icon_kind,
            (SELECT path FROM catalog_entity_files f
              WHERE f.entity_id = e.id AND f.workspace_id = e.workspace_id
                AND f.status = 'current' ORDER BY f.id LIMIT 1) AS icon_path,
@@ -200,6 +232,9 @@ export function createMountedCatalogSearch(
            COALESCE(e.updated_at, 0) AS updated_at
     FROM catalog_entities e${search?.indexSql ?? ''}
     JOIN workspaces w ON w.id = e.workspace_id
+    LEFT JOIN lims_entity l ON l.id=e.id
+    LEFT JOIN lims_schema_revision r ON r.id=l.schema_revision_id
+    LEFT JOIN lims_schema s ON s.id=COALESCE(r.schema_id,l.schema_id)
     WHERE e.type IN (${typePlaceholders})
       AND e.status = 'active'
       AND w.path IN (${rootPlaceholders})
@@ -307,6 +342,9 @@ export function createMountedCatalogSearch(
           workspaceRoot: row.workspace_root,
           workspaceName: row.workspace_name,
           ...(iconContext ? { iconContext } : {}),
+          ...(row.schema_id || row.file_kind
+            ? { namedType: searchResultNamedType(row.entity_type, row) }
+            : {}),
         },
       ];
     });

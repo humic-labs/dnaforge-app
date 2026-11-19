@@ -15,14 +15,22 @@ import {
 } from '../shared/first-project';
 import {
   getLatestPrimerRecoveryInventory,
+  refreshPrimerRecoveryInventory,
   type PrimerRecoveryInventory,
 } from '../features/primers/public/primer-recovery-report';
 
 const entityConflictToasts = new Map<string, string>();
-const primerRecoveryToasts = new Map<string, string>();
 const entityMigrationToasts = new Map<string, string>();
+interface PrimerFailure {
+  id: string;
+  message: string;
+  primerName?: string;
+  restore?: PrimerRecoveryInventory['entries'][number]['restore'];
+}
+const provisionalPrimerFailures = new Map<string, PrimerFailure[]>();
 let originalProjectToast: string | undefined;
 let legacyLibraryToast: string | undefined;
+let lastPrimerRestoreSelection = '[]';
 
 export function reportEntityMigrationIssues(
   rootPath: string,
@@ -113,48 +121,88 @@ export function reportPrimerRecoveryInventory(report: PrimerRecoveryInventory): 
     report.entries.filter((entry) => entry.workspaceId === null && entry.status === 'needs-review')
       .length
   );
-  reportPrimerRecoveryFailures(
-    'all-projects',
-    report.entries
-      .filter(
-        (entry) =>
-          entry.status === 'needs-review' &&
-          !(
-            entry.workspaceId === null &&
-            report.originalProject?.status === 'unresolved' &&
-            entry.message === report.originalProject.message
-          )
-      )
-      .map((entry) => ({
-        message: entry.message ?? 'This primer needs review.',
-        primerName: entry.name,
-      }))
-  );
+  const knownIds = new Set(report.entries.map((entry) => entry.id));
+  for (const [root, failures] of provisionalPrimerFailures) {
+    const remaining = failures.filter((failure) => !knownIds.has(failure.id));
+    if (remaining.length) provisionalPrimerFailures.set(root, remaining);
+    else provisionalPrimerFailures.delete(root);
+  }
+  const failures = report.entries
+    .filter(
+      (entry) =>
+        entry.status === 'needs-review' &&
+        !(
+          entry.workspaceId === null &&
+          report.originalProject?.status === 'unresolved' &&
+          entry.message === report.originalProject.message
+        )
+    )
+    .map((entry) => ({
+      id: entry.id,
+      message: entry.message ?? userMessage('primer.recoveryReview'),
+      primerName: entry.name,
+      restore: entry.restore,
+    }));
+  showPrimerRecoveryFailures(failures);
 }
 
-export function reportPrimerRecoveryFailures(
-  key: string,
-  failures: readonly { message: string; primerName?: string }[]
-): void {
+function showPrimerRecoveryFailures(inventory: PrimerFailure[]): void {
   const store = useToastStore.getState();
-  const previousId = primerRecoveryToasts.get(key);
-  if (failures.length === 0) {
-    if (previousId) store.removeToast(previousId);
-    primerRecoveryToasts.delete(key);
+  const records = [...provisionalPrimerFailures.values()].flat().concat(inventory);
+  const failures = [...new Map(records.map((failure) => [failure.id, failure])).values()];
+  const names =
+    failures.length <= 2 && failures.every((f) => f.primerName)
+      ? failures.map((failure) => `"${failure.primerName}"`).join(' and ')
+      : '';
+  const message = failures.length
+    ? userMessageWithValues('primer.recoverySummary', {
+        subject: userMessageValue(names ? ` for ${names}` : ''),
+        count: userMessageValue(failures.length),
+        noun: userMessageValue(failures.length === 1 ? 'issue' : 'issues'),
+        detail: userMessageValue(toUserMessage(failures[0].message, 'primer.recoveryReview')),
+      })
+    : null;
+  const restore = failures.flatMap((failure) => (failure.restore ? [failure.restore] : []));
+  const restoreKey = JSON.stringify(restore);
+  const previous = store.toasts.filter((toast) => toast.definition === 'primer-recovery-failed');
+  const unchanged = previous.find(
+    (toast) =>
+      toast.phase !== 'exiting' &&
+      toast.message === message &&
+      restoreKey === lastPrimerRestoreSelection
+  );
+  lastPrimerRestoreSelection = restoreKey;
+  for (const toast of previous) {
+    if (toast !== unchanged) store.removeToast(toast.id);
+  }
+  if (!message || unchanged) return;
+  if (!restore.length) {
+    store.addToast(message, { definition: 'primer-recovery-failed' });
     return;
   }
-  const first = failures[0];
-  const subject = first.primerName ? ` for "${first.primerName}"` : '';
-  const message = userMessageWithValues('primer.recoverySummary', {
-    subject: userMessageValue(subject),
-    count: userMessageValue(failures.length),
-    noun: userMessageValue(failures.length === 1 ? 'issue' : 'issues'),
-    detail: userMessageValue(toUserMessage(first.message, 'primer.failed')),
+  store.addRichToast({
+    definition: 'primer-recovery-failed',
+    message,
+    actions: [
+      {
+        label: 'Restore saved copies',
+        onClick: async () => {
+          const { restoreSavedPrimerDocument } =
+            await import('../features/primers/primer-artifact-service');
+          let failed = false;
+          for (const selection of restore) {
+            try {
+              await restoreSavedPrimerDocument(selection);
+            } catch {
+              failed = true;
+            }
+          }
+          reportPrimerRecoveryInventory(await refreshPrimerRecoveryInventory());
+          if (failed) store.addToast(userMessage('primer.recoveryRestoreFailed'), 'error');
+        },
+      },
+    ],
   });
-  const previous = store.toasts.find(({ id }) => id === previousId);
-  if (previous?.phase !== 'exiting' && previous?.message === message) return;
-  if (previousId) store.removeToast(previousId);
-  primerRecoveryToasts.set(key, store.addToast(message, { definition: 'primer-recovery-failed' }));
 }
 
 export function reportEntityReconcileConflicts(
@@ -204,7 +252,6 @@ export function reportPrimerReconcileFailures(
   result: WorkspaceReconcileResult
 ): void {
   const inventory = getLatestPrimerRecoveryInventory();
-  if (inventory) reportPrimerRecoveryInventory(inventory);
   const recoveryErrors = result.primerArtifactErrors.filter(
     (error) =>
       /^(registry|legacy-primer):/.test(error.path) &&
@@ -213,7 +260,18 @@ export function reportPrimerReconcileFailures(
         error.message === inventory.originalProject.message
       )
   );
-  reportPrimerRecoveryFailures(rootPath, recoveryErrors);
+  if (recoveryErrors.length)
+    provisionalPrimerFailures.set(
+      rootPath,
+      recoveryErrors.map((error) => ({
+        id: error.path.slice(error.path.indexOf(':') + 1),
+        message: error.message,
+        primerName: error.primerName,
+      }))
+    );
+  else provisionalPrimerFailures.delete(rootPath);
+  if (inventory) reportPrimerRecoveryInventory(inventory);
+  else showPrimerRecoveryFailures([]);
   if (result.primerArtifactErrors.length === 0) return;
 
   const artifactErrors = result.primerArtifactErrors.filter((error) =>

@@ -65,6 +65,15 @@ const KIND_OPTIONS: Array<{ value: LimsEntityKind; label: string }> = [
   { value: 'protein', label: 'Proteins' },
   { value: 'plasmid', label: 'Plasmids' },
 ];
+function previewValue(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object') {
+    if ('bases' in value && typeof value.bases === 'string') return value.bases;
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+
 function fileName(path: string) {
   return path.split(/[\\/]/).pop() ?? path;
 }
@@ -114,6 +123,23 @@ function initialMappings(
     };
   });
 }
+function conflictDescription(reason: string): string {
+  switch (reason) {
+    case 'both-edited':
+      return 'The spreadsheet row and Registry record both changed.';
+    case 'missing-target':
+      return 'The linked Registry record could not be found.';
+    case 'archived-target':
+      return 'The linked Registry record is archived.';
+    case 'entity-kind-changed':
+      return 'The record type changed in the spreadsheet or Registry.';
+    case 'missing-target-version':
+      return 'The Registry record has no usable version for a safe update.';
+    default:
+      return 'This row needs review before it can be updated.';
+  }
+}
+
 function summaryLabel(view: SheetSyncView): UserMessage {
   if (view.kind === 'syncing') return userMessage('sheetSync.syncing');
   if (view.kind === 'paused') return userMessage('sheetSync.paused');
@@ -157,6 +183,8 @@ export function SheetSyncManagerButton() {
   const roots = useMemo(() => writableProjectRoots(folders), [folders]);
   const [root, setRoot] = useState('');
   const [workbook, setWorkbook] = useState<Workbook | null>(null);
+  const [sourceProvider, setSourceProvider] = useState<Workbook['provider'] | null>(null);
+  const setupEpoch = useRef(0);
   const [sheet, setSheet] = useState('');
   const [kind, setKind] = useState<LimsEntityKind>('oligo');
   const [keyColumn, setKeyColumn] = useState('');
@@ -232,16 +260,35 @@ export function SheetSyncManagerButton() {
     };
   }, [open, workbook, sheet, kind, keyColumn, mappings]);
 
-  async function chooseWorkbook() {
+  function chooseSource(provider: Workbook['provider']) {
+    const request = ++setupEpoch.current;
+    setSourceProvider(provider);
+    setWorkbook(null);
+    setSheet('');
+    setKeyColumn('');
+    setMappings([]);
+    setInspected(null);
+    setPreview({ kind: 'idle' });
     setError(null);
+    return request;
+  }
+
+  function closeSetup() {
+    setupEpoch.current += 1;
+    setOpen(false);
+  }
+
+  async function chooseWorkbook() {
+    const request = chooseSource('local-excel');
     try {
       const selected = await platform().dialog.open({
         title: 'Choose a master Excel workbook',
         multiple: false,
         filters: [{ name: 'Excel workbooks', extensions: ['xlsx', 'xls', 'xlsm'] }],
       });
-      if (typeof selected !== 'string') return;
+      if (typeof selected !== 'string' || setupEpoch.current !== request) return;
       const bytes = Uint8Array.from(await platform().fs.readFile(selected)).buffer;
+      if (setupEpoch.current !== request) return;
       const info = inspectLimsSource({ fileName: fileName(selected), arrayBuffer: bytes });
       const sheets =
         info.sheetDispositions?.map((disposition) => disposition.sheetName) ??
@@ -254,7 +301,7 @@ export function SheetSyncManagerButton() {
       setInspected(null);
       setPreview({ kind: 'idle' });
     } catch (reason) {
-      setError(toUserMessage(reason, 'operation.failed'));
+      if (setupEpoch.current === request) setError(toUserMessage(reason, 'operation.failed'));
     }
   }
   async function connect() {
@@ -281,6 +328,8 @@ export function SheetSyncManagerButton() {
               },
               destinationRelativePath: 'spreadsheets',
             });
+      setupEpoch.current += 1;
+      setSourceProvider(null);
       setWorkbook(null);
       setInspected(null);
       setPreview({ kind: 'idle' });
@@ -326,10 +375,22 @@ export function SheetSyncManagerButton() {
   }
   if (!isDesktopRuntime()) return null;
   const fields = fieldOptions(kind);
+  const previewFields = [
+    ...new Set(
+      mappings.flatMap((mapping) =>
+        mapping.mappingMode === 'mapped' && mapping.mappedField?.startsWith('fields.')
+          ? [mapping.mappedField]
+          : []
+      )
+    ),
+  ].map((field) => ({
+    key: field.slice('fields.'.length),
+    label: fields.find((option) => option.value === field)?.label ?? field.slice('fields.'.length),
+  }));
+  const setupRequest = setupEpoch.current;
   return (
     <>
-      <button
-        type="button"
+      <Button
         aria-haspopup="dialog"
         data-testid="sheet-sync-open"
         onClick={(event) => {
@@ -339,13 +400,13 @@ export function SheetSyncManagerButton() {
         }}
         className="h-7 rounded-md border border-border bg-bg px-2 text-xs text-fg-muted wp-interactive "
       >
-        Spreadsheet sync…
-      </button>
+        Connected spreadsheets…
+      </Button>
       {open ? (
         <div
           ref={presentationOverlay.bindRef(undefined, '0')}
           className="fixed inset-0 z-[10060] flex items-center justify-center bg-black/40"
-          onMouseDown={() => setOpen(false)}
+          onMouseDown={closeSetup}
         >
           <PresentationScopeContext.Provider value={presentationOverlay.scope}>
             <section
@@ -361,7 +422,7 @@ export function SheetSyncManagerButton() {
                 if (event.key === 'Escape') {
                   event.preventDefault();
                   event.stopPropagation();
-                  setOpen(false);
+                  closeSetup();
                 }
                 if (event.key === 'Tab') {
                   const controls = [
@@ -387,14 +448,14 @@ export function SheetSyncManagerButton() {
               <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
                 <div>
                   <h2 id="sheet-sync-title" className="text-base font-semibold">
-                    Spreadsheet sync
+                    Connected spreadsheets
                   </h2>
                   <p className="mt-1 max-w-xl text-xs leading-5 text-fg-muted">
-                    Keep using your master spreadsheet. Rows become Registry records and update
-                    while the project is open. Your source stays unchanged.
+                    Pull spreadsheet rows into Registry records while the project is open. Changes
+                    in DNAForge are never written back to the source spreadsheet.
                   </p>
                 </div>
-                <Button aria-label="Close spreadsheet sync" onClick={() => setOpen(false)}>
+                <Button aria-label="Close spreadsheet sync" onClick={closeSetup}>
                   Close
                 </Button>
               </header>
@@ -491,7 +552,7 @@ export function SheetSyncManagerButton() {
                                       disabled={view.kind === 'syncing'}
                                       onClick={() => void action(view, 'sync')}
                                     >
-                                      {view.kind === 'error' ? 'Retry' : 'Sync now'}
+                                      {view.kind === 'error' ? 'Retry pull' : 'Pull updates'}
                                     </Button>
                                     <Button onClick={() => void action(view, 'pause')}>
                                       Pause
@@ -501,12 +562,16 @@ export function SheetSyncManagerButton() {
                               </div>
                             </div>
                             {view.kind === 'ready' && view.summary.conflicts.length ? (
-                              <p className="mt-2 text-xs text-warning">
-                                Rows{' '}
-                                {view.summary.conflicts.map((conflict) => conflict.key).join(', ')}{' '}
-                                changed in both places. Review those rows; neither version was
-                                overwritten.
-                              </p>
+                              <div className="mt-2 text-xs text-warning">
+                                <ul className="space-y-1">
+                                  {view.summary.conflicts.map((conflict) => (
+                                    <li key={conflict.key}>
+                                      Row {conflict.key}: {conflictDescription(conflict.reason)}
+                                    </li>
+                                  ))}
+                                </ul>
+                                <p className="mt-1">No conflicting record was overwritten.</p>
+                              </div>
                             ) : null}
                           </>
                         )}
@@ -514,34 +579,51 @@ export function SheetSyncManagerButton() {
                     ))}
                   </div>
                 ) : null}
-                <GoogleSheetChooser
-                  disabled={!root || busy}
-                  onSelected={async ({ grantId, spreadsheet, snapshot }) => {
-                    setWorkbook({
-                      provider: 'google-sheets',
-                      grantId,
-                      snapshot,
-                      path: spreadsheet.title,
-                      sheets: [snapshot.sheetTitle],
-                    });
-                    setSheet(snapshot.sheetTitle);
-                    setMappings([]);
-                    setKeyColumn('');
-                    setInspected(null);
-                    setPreview({ kind: 'idle' });
-                  }}
-                />
                 <section className="border-t border-border pt-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="text-sm font-semibold">Connect a workbook</h3>
+                  <h3 className="text-sm font-semibold">Connect a spreadsheet</h3>
+                  <div
+                    className="mt-3 flex flex-wrap gap-2"
+                    role="group"
+                    aria-label="Spreadsheet source"
+                  >
                     <Button
                       disabled={!root || busy}
+                      aria-pressed={sourceProvider === 'google-sheets'}
+                      onClick={() => chooseSource('google-sheets')}
+                    >
+                      Choose Google Sheet
+                    </Button>
+                    <Button
+                      disabled={!root || busy}
+                      aria-pressed={sourceProvider === 'local-excel'}
                       onClick={() => void chooseWorkbook()}
                       data-testid="sheet-sync-choose-file"
                     >
                       Choose Excel workbook
                     </Button>
                   </div>
+                  {sourceProvider === 'google-sheets' && !workbook ? (
+                    <div className="mt-4">
+                      <GoogleSheetChooser
+                        disabled={!root || busy}
+                        onSelected={async ({ grantId, spreadsheet, snapshot }) => {
+                          if (setupEpoch.current !== setupRequest) return;
+                          setWorkbook({
+                            provider: 'google-sheets',
+                            grantId,
+                            snapshot,
+                            path: spreadsheet.title,
+                            sheets: [snapshot.sheetTitle],
+                          });
+                          setSheet(snapshot.sheetTitle);
+                          setMappings([]);
+                          setKeyColumn('');
+                          setInspected(null);
+                          setPreview({ kind: 'idle' });
+                        }}
+                      />
+                    </div>
+                  ) : null}
                   {workbook ? (
                     <>
                       <p className="mt-2 truncate text-xs text-fg-muted" title={workbook.path}>
@@ -637,6 +719,7 @@ export function SheetSyncManagerButton() {
                             <thead className="bg-bg-muted text-fg-muted">
                               <tr>
                                 <th className="px-3 py-2 font-medium">Workbook column</th>
+                                <th className="px-3 py-2 font-medium">Source sample</th>
                                 <th className="px-3 py-2 font-medium">Registry field</th>
                               </tr>
                             </thead>
@@ -654,6 +737,16 @@ export function SheetSyncManagerButton() {
                                 return (
                                   <tr key={column.sourceColumn}>
                                     <td className="px-3 py-2">{column.sourceColumn}</td>
+                                    <td
+                                      className="max-w-48 truncate px-3 py-2"
+                                      title={previewValue(
+                                        inspected.records[0]?.source[column.sourceColumn]
+                                      )}
+                                    >
+                                      {previewValue(
+                                        inspected.records[0]?.source[column.sourceColumn]
+                                      )}
+                                    </td>
                                     <td className="px-3 py-2">
                                       <span className="block min-w-0 w-full">
                                         <MenuNativeSelect
@@ -728,6 +821,11 @@ export function SheetSyncManagerButton() {
                                   <tr>
                                     <th className="px-3 py-2 font-medium">ID</th>
                                     <th className="px-3 py-2 font-medium">Record name</th>
+                                    {previewFields.map((field) => (
+                                      <th key={field.key} className="px-3 py-2 font-medium">
+                                        {field.label}
+                                      </th>
+                                    ))}
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border bg-bg">
@@ -735,6 +833,15 @@ export function SheetSyncManagerButton() {
                                     <tr key={record.externalRowId ?? record.id}>
                                       <td className="px-3 py-2">{record.externalRowId}</td>
                                       <td className="px-3 py-2">{record.entityDraft.name}</td>
+                                      {previewFields.map((field) => (
+                                        <td
+                                          key={field.key}
+                                          className="max-w-64 truncate px-3 py-2"
+                                          title={previewValue(record.entityDraft.fields[field.key])}
+                                        >
+                                          {previewValue(record.entityDraft.fields[field.key])}
+                                        </td>
+                                      ))}
                                     </tr>
                                   ))}
                                 </tbody>
@@ -759,13 +866,14 @@ export function SheetSyncManagerButton() {
                           onClick={() => void connect()}
                           data-testid="sheet-sync-connect"
                         >
-                          {busy ? 'Connecting…' : 'Connect and sync'}
+                          {busy ? 'Connecting…' : 'Connect and pull updates'}
                         </Button>
                       </div>
                     </>
                   ) : (
                     <p className="mt-2 text-xs leading-5 text-fg-muted">
-                      Choose the worksheet and its column mappings before enabling automatic pulls.
+                      Choose a source, then review its worksheet and mapped values before enabling
+                      automatic pulls.
                     </p>
                   )}
                 </section>

@@ -40,6 +40,10 @@ import { createAdministrationTables } from './administration-schema';
 import { createWorkReminderTables } from './work-reminder-schema';
 import { createScientificObjectTables } from './scientific-object-schema';
 import { createCatalogNameSearchIndex } from './catalog-name-search-index';
+import { createNotebookReferenceProjectionTables } from './notebook-reference-projection';
+import { installSavedEntityRowHistory } from './saved-entity-row-versions';
+import { createSavedFileSourceTables } from './saved-file-sources-schema';
+import { createNotebookSavedReferenceRetention } from './notebook-saved-reference-retention';
 import {
   createScientificHistoryIdentityTable,
   migrateScientificHistoryIdentity,
@@ -318,6 +322,7 @@ export function ensureSchema(
   let restoredFromBackup = false;
 
   try {
+    if (!isVirginDatabase && version < 45) installSavedEntityRowHistory(db, true);
     if (version < 1) {
       migrateToV1(db);
     }
@@ -454,6 +459,8 @@ export function ensureSchema(
     if (version < 46) createAdministrationTables(db);
     if (version < 47) ensureWorkspaceSyncOperationIdentityColumns(db);
     if (version < 48) migrateAgentSessionStopStates(db);
+    if (version < 49) createNotebookReferenceProjectionTables(db);
+    if (version < 50) createNotebookSavedReferenceRetention(db);
 
     repairCurrentSchemaWithLimsWriteGuards(db, version < 26, isVirginDatabase);
   } catch (err) {
@@ -582,6 +589,8 @@ function repairCurrentSchema(db: Database.Database): void {
   createAnalyticsEventOutboxTable(db);
   createAgentProviderSessionControlTables(db);
   createEntityProjectionSourcesTable(db);
+  createNotebookReferenceProjectionTables(db);
+  createNotebookSavedReferenceRetention(db);
   createGraphPersistenceTables(db);
   createComputeJobTables(db);
   createScientificObjectTables(db);
@@ -676,6 +685,8 @@ function repairCurrentSchemaWithLimsWriteGuards(
       `);
     }
     createLimsSafetyWriteGuards(db);
+    createSavedFileSourceTables(db);
+    installSavedEntityRowHistory(db);
   })();
 }
 

@@ -88,12 +88,14 @@ describe('native individual file recovery', () => {
   });
 
   it('purges only an exact current entry and preserves unrelated content', async () => {
+    const runWithEmptyCatalog = (request: Parameters<typeof runWorkspaceFileTrash>[0]) =>
+      runWorkspaceFileTrash(request, undefined, undefined, undefined, () => false);
     await writeFile(join(root, 'keep.txt'), 'keep');
     const path = join(root, 'disposable.txt');
     await writeFile(path, 'disposable');
-    const inspected = await runWorkspaceFileTrash({ kind: 'inspect', workspaceRoot: root, path });
+    const inspected = await runWithEmptyCatalog({ kind: 'inspect', workspaceRoot: root, path });
     if (inspected.kind !== 'inspect') throw new Error('Expected source inspection');
-    const trashed = await runWorkspaceFileTrash({
+    const trashed = await runWithEmptyCatalog({
       kind: 'trash',
       workspaceRoot: root,
       path,
@@ -101,21 +103,21 @@ describe('native individual file recovery', () => {
     });
     if (trashed.kind !== 'trash') throw new Error('Expected Trash entry');
     expect(
-      await runWorkspaceFileTrash({
+      await runWithEmptyCatalog({
         kind: 'purge',
         workspaceRoot: root,
         entryId: trashed.entry.id,
         expectedRevision: 'stale',
       })
     ).toMatchObject({ kind: 'failed', code: 'STALE_TRASH_ENTRY', stateChanged: false });
-    await runWorkspaceFileTrash({
+    await runWithEmptyCatalog({
       kind: 'purge',
       workspaceRoot: root,
       entryId: trashed.entry.id,
       expectedRevision: trashed.entry.revision,
     });
     expect(await readFile(join(root, 'keep.txt'), 'utf8')).toBe('keep');
-    expect(await runWorkspaceFileTrash({ kind: 'list', workspaceRoot: root })).toMatchObject({
+    expect(await runWithEmptyCatalog({ kind: 'list', workspaceRoot: root })).toMatchObject({
       entries: [],
     });
   });

@@ -6673,7 +6673,7 @@
     },
     {
       "name": "get_workspace",
-      "description": "Read authorized registered authoring projects, reference folders, displayed folders, tabs and current caller capabilities. Choose notebook and design destinations from projects; pinned referenceFolders are sources, not authoring destinations. Displayed folders and the current selection do not define project access. DNAForge is the connected molecular-biology workspace. For primer or plasmid design and protocol-notebook requests, start with get_workspace.projects and inspect existing sequences using list_files, find_features and get_sequence. Deliver native editable assembly drafts, canonical saved oligos with bindings, and a native notebook. Preserve drafts until separately finalized. Choose an exact destination project; pinned reference folders are sources. Inspect available source sequences before calling them unknown or leaving their inspection for future work. Build requested construct variants with create_design, add_design_region and draft_design_assembly. Save the requested notebook in DNAForge rather than an unrelated repository. Persist every selected oligo that the plan instructs the user to order. Register the primers of a draft assembly with save_design_primers, which saves or links them and records the link on the design; never retype them through create_primer. For other oligos use save_designed_primer for a pinned design_primers candidate, or create_primer for exact authored notation, with annealingLength whenever the oligo has a 5-prime tail. Store each oligo's full ordered bases, modifications, annealing portion and relevant bindings, then read it back with get_primer. Text, CSV, sequence annotations and reference records do not create oligos. Do not write separate CSV or JSON copies of primers or of the design; exports are generated on request. Choose the destination project explicitly when a template belongs to another project. Create or update the protocol with the native notebook tools, structured tables and returned typed references to sources, exact regions, drafts and saved oligos or bindings. Use declared coordinate systems. Use get_entity_link for external hyperlinks and shell opens; use returned inline links or notebook reference payloads on their supported surfaces. Reuse existing identities on retry and respect saved revisions and unsaved edits. If a required operation is unavailable or refused, retain valid drafts and report the incomplete step without substituting another artifact type. An explanation alone does not authorize authoring. Background tool requests must preserve operating-system focus.",
+      "description": "Read authorized registered authoring projects, reference folders, displayed folders, tabs and current caller capabilities. Choose notebook and design destinations from projects; pinned referenceFolders are sources, not authoring destinations. Displayed folders and the current selection do not define project access. DNAForge is the connected molecular-biology workspace. For primer or plasmid design and protocol-notebook requests, start with get_workspace.projects and inspect existing sequences using list_files, find_features and get_sequence. Deliver native editable assembly drafts, canonical saved oligos with bindings, and a native notebook. Preserve drafts until separately finalized. Choose an exact destination project; pinned reference folders are sources. Inspect available source sequences before calling them unknown or leaving their inspection for future work. Build requested construct variants with create_design, add_design_region and draft_design_assembly. Save the requested notebook in DNAForge rather than an unrelated repository. Persist every selected oligo that the plan instructs the user to order. Register the primers of a draft assembly with save_design_primers, which saves or links them and records the link on the design; never retype them through create_primer. For other oligos use save_designed_primer for a pinned design_primers candidate, or create_primer for exact authored notation, with annealingLength whenever the oligo has a 5-prime tail. Store each oligo's full ordered bases, modifications, annealing portion and relevant bindings, then read it back with get_primer. Text, CSV, sequence annotations and reference records do not create oligos. Do not write separate CSV or JSON copies of primers or of the design; exports are generated on request. Choose the destination project explicitly when a template belongs to another project. Create or update the protocol with the native notebook tools and returned typed references to sources, exact regions, drafts and saved oligos or bindings. Author notebook tables as native editable table-builder blocks by supplying their complete rows and cells to create_notebook or update_notebook; do not substitute Markdown tables in paragraph text. Preserve cell formatting and exact references, and read back the saved notebook before reporting delivery. Use declared coordinate systems. Use get_entity_link for external hyperlinks and shell opens; use returned inline links or notebook reference payloads on their supported surfaces. Reuse existing identities on retry and respect saved revisions and unsaved edits. If a required operation is unavailable or refused, retain valid drafts and report the incomplete step without substituting another artifact type. An explanation alone does not authorize authoring. Background tool requests must preserve operating-system focus.",
       "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
       "outputSchema": {
         "type": "object",
@@ -44910,6 +44910,371 @@
       "exposure": { "kind": "shared" }
     },
     {
+      "name": "entity_discovery",
+      "description": "Search every eligible linkable entity with complete pagination, or resolve exact saved IDs. Uses the same native database discovery owner as notebook linking.",
+      "inputSchema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "query": { "type": "string", "maxLength": 1000 },
+              "scope": {
+                "type": "object",
+                "properties": {
+                  "projectId": { "type": "string", "minLength": 1, "maxLength": 500 },
+                  "projectRoot": { "type": "string", "minLength": 1, "maxLength": 8192 },
+                  "projectRoots": {
+                    "type": "array",
+                    "items": { "type": "string", "minLength": 1, "maxLength": 8192 },
+                    "maxItems": 128
+                  },
+                  "includeArchived": { "type": "boolean" }
+                },
+                "additionalProperties": false
+              },
+              "filter": {
+                "type": "object",
+                "properties": {
+                  "namedTypeKey": { "type": "string", "minLength": 1, "maxLength": 1000 },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "sequences",
+                      "primers",
+                      "notebooks",
+                      "structures",
+                      "tables",
+                      "records",
+                      "files"
+                    ]
+                  },
+                  "entityTypes": {
+                    "type": "array",
+                    "items": { "type": "string", "minLength": 1, "maxLength": 100 },
+                    "maxItems": 100
+                  },
+                  "registryKinds": {
+                    "type": "array",
+                    "items": { "type": "string", "minLength": 1, "maxLength": 100 },
+                    "maxItems": 100
+                  },
+                  "schemaId": { "type": "string", "minLength": 1, "maxLength": 500 },
+                  "role": { "type": "string", "const": "primer" }
+                },
+                "additionalProperties": false
+              },
+              "preferredProjectId": { "type": "string", "minLength": 1, "maxLength": 500 },
+              "preferredProjectRoot": { "type": "string", "minLength": 1, "maxLength": 8192 },
+              "cursor": { "type": "string", "minLength": 1, "maxLength": 8192 },
+              "limit": { "type": "integer", "minimum": 1, "maximum": 200 },
+              "operation": { "type": "string", "const": "search" }
+            },
+            "required": ["query", "operation"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "ids": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1, "maxLength": 500 },
+                "maxItems": 1000
+              },
+              "scope": {
+                "type": "object",
+                "properties": {
+                  "projectId": { "type": "string", "minLength": 1, "maxLength": 500 },
+                  "projectRoot": { "type": "string", "minLength": 1, "maxLength": 8192 },
+                  "projectRoots": {
+                    "type": "array",
+                    "items": { "type": "string", "minLength": 1, "maxLength": 8192 },
+                    "maxItems": 128
+                  },
+                  "includeArchived": { "type": "boolean" }
+                },
+                "additionalProperties": false
+              },
+              "operation": { "type": "string", "const": "resolve" }
+            },
+            "required": ["ids", "operation"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scope": {
+                "type": "object",
+                "properties": {
+                  "projectId": { "type": "string", "minLength": 1, "maxLength": 500 },
+                  "projectRoot": { "type": "string", "minLength": 1, "maxLength": 8192 },
+                  "projectRoots": {
+                    "type": "array",
+                    "items": { "type": "string", "minLength": 1, "maxLength": 8192 },
+                    "maxItems": 128
+                  },
+                  "includeArchived": { "type": "boolean" }
+                },
+                "additionalProperties": false
+              },
+              "operation": { "type": "string", "const": "types" }
+            },
+            "required": ["operation"],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": { "const": true },
+          "result": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "registry",
+                            "track-view",
+                            "molecular-document",
+                            "sequence",
+                            "primer",
+                            "page",
+                            "design",
+                            "alignment",
+                            "trace",
+                            "report",
+                            "construct",
+                            "sample",
+                            "record",
+                            "selection",
+                            "structure",
+                            "protein",
+                            "protocol",
+                            "protocol_run",
+                            "file"
+                          ]
+                        },
+                        "name": { "type": "string" },
+                        "sequenceLength": {
+                          "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }]
+                        },
+                        "source": { "type": "string", "enum": ["project", "registry", "primer"] },
+                        "namedTypeKey": { "type": "string", "minLength": 1 },
+                        "iconKind": {
+                          "type": "string",
+                          "enum": [
+                            "molecular-document",
+                            "notebook",
+                            "sequence",
+                            "annotation",
+                            "alignment",
+                            "primer",
+                            "design",
+                            "protein",
+                            "strain",
+                            "record",
+                            "structure",
+                            "genome",
+                            "chat",
+                            "folder",
+                            "text",
+                            "table"
+                          ]
+                        },
+                        "kindLabel": { "type": "string" },
+                        "path": { "type": ["string", "null"] },
+                        "contentHash": { "type": ["string", "null"] },
+                        "objectUuid": { "type": ["string", "null"] },
+                        "registryKind": { "type": ["string", "null"] },
+                        "registryId": { "type": ["string", "null"] },
+                        "schemaId": { "type": ["string", "null"] },
+                        "projectId": { "type": ["string", "null"] },
+                        "projectRoot": { "type": ["string", "null"] },
+                        "projectName": { "type": ["string", "null"] },
+                        "archived": { "type": "boolean" },
+                        "localOnly": { "type": "boolean" }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "name",
+                        "source",
+                        "namedTypeKey",
+                        "iconKind",
+                        "kindLabel",
+                        "path",
+                        "contentHash",
+                        "objectUuid",
+                        "registryKind",
+                        "registryId",
+                        "schemaId",
+                        "projectId",
+                        "projectRoot",
+                        "projectName",
+                        "archived"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "nextCursor": { "type": ["string", "null"] },
+                  "generation": { "type": "string" },
+                  "coverage": {
+                    "type": "object",
+                    "properties": {
+                      "catalog": { "type": "integer", "minimum": 0 },
+                      "registry": { "type": "integer", "minimum": 0 },
+                      "primers": { "type": "integer", "minimum": 0 },
+                      "excluded": { "type": "integer", "minimum": 0 }
+                    },
+                    "required": ["catalog", "registry", "primers", "excluded"],
+                    "additionalProperties": false
+                  },
+                  "ok": { "type": "boolean", "const": true },
+                  "operation": { "type": "string", "const": "search" }
+                },
+                "required": ["items", "nextCursor", "generation", "coverage", "ok", "operation"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": { "type": "string" },
+                            "status": { "type": "string", "const": "available" },
+                            "entity": {
+                              "$ref": "#/properties/result/anyOf/0/properties/items/items"
+                            }
+                          },
+                          "required": ["id", "status", "entity"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": { "type": "string" },
+                            "status": { "type": "string", "const": "unavailable" }
+                          },
+                          "required": ["id", "status"],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "generation": { "type": "string" },
+                  "coverage": { "$ref": "#/properties/result/anyOf/0/properties/coverage" },
+                  "ok": { "type": "boolean", "const": true },
+                  "operation": { "type": "string", "const": "resolve" }
+                },
+                "required": ["items", "generation", "coverage", "ok", "operation"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": { "type": "string" },
+                        "kind": { "type": "string", "enum": ["type", "shortcut"] },
+                        "label": { "type": "string" },
+                        "terms": { "type": "array", "items": { "type": "string" } },
+                        "filter": {
+                          "type": "object",
+                          "properties": {
+                            "namedTypeKey": { "type": "string", "minLength": 1, "maxLength": 1000 },
+                            "category": {
+                              "type": "string",
+                              "enum": [
+                                "sequences",
+                                "primers",
+                                "notebooks",
+                                "structures",
+                                "tables",
+                                "records",
+                                "files"
+                              ]
+                            },
+                            "entityTypes": {
+                              "type": "array",
+                              "items": { "type": "string", "minLength": 1, "maxLength": 100 },
+                              "maxItems": 100
+                            },
+                            "registryKinds": {
+                              "type": "array",
+                              "items": { "type": "string", "minLength": 1, "maxLength": 100 },
+                              "maxItems": 100
+                            },
+                            "schemaId": { "type": "string", "minLength": 1, "maxLength": 500 },
+                            "role": { "type": "string", "const": "primer" }
+                          },
+                          "additionalProperties": false
+                        },
+                        "iconKind": {
+                          "type": "string",
+                          "enum": [
+                            "molecular-document",
+                            "notebook",
+                            "sequence",
+                            "annotation",
+                            "alignment",
+                            "primer",
+                            "design",
+                            "protein",
+                            "strain",
+                            "record",
+                            "structure",
+                            "genome",
+                            "chat",
+                            "folder",
+                            "text",
+                            "table"
+                          ]
+                        },
+                        "count": { "type": "integer", "minimum": 0 }
+                      },
+                      "required": ["key", "kind", "label", "terms", "filter", "iconKind", "count"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "generation": { "type": "string" },
+                  "coverage": { "$ref": "#/properties/result/anyOf/0/properties/coverage" },
+                  "ok": { "type": "boolean", "const": true },
+                  "operation": { "type": "string", "const": "types" }
+                },
+                "required": ["items", "generation", "coverage", "ok", "operation"],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": ["ok", "result"],
+        "additionalProperties": true
+      },
+      "shape": "data-service",
+      "effects": ["read-only"],
+      "required_capabilities": ["read-workspace"],
+      "audit_required": true,
+      "requiresWorkspace": false,
+      "workspaceGrounding": "always",
+      "exposure": { "kind": "shared" }
+    },
+    {
       "name": "registry_records",
       "description": "Discover live record schemas; create, update, archive, restore or undo native Registry records and relationships. Uses file-authoritative record creation and audited native mutations with event revision checks.",
       "inputSchema": {
@@ -45714,6 +46079,7 @@
                       "description": "Values keyed by the field definitions of this record's immutable schema revision."
                     },
                     "schemaDisplayName": { "type": "string" },
+                    "schemaIconKind": { "type": "string" },
                     "eventSeq": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
                     "name": { "type": "string" },
                     "registryId": { "type": ["string", "null"] },
@@ -46330,6 +46696,7 @@
                     "$ref": "#/properties/result/properties/entity/properties/fields"
                   },
                   "schemaDisplayName": { "type": "string" },
+                  "schemaIconKind": { "type": "string" },
                   "eventSeq": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
                   "name": { "type": "string" },
                   "registryId": { "type": ["string", "null"] },
@@ -52856,22 +53223,22 @@
             "items": {
               "type": "string",
               "enum": [
-                "track-view",
-                "molecular-document",
+                "notebook",
                 "sequence",
                 "primer",
-                "notebook",
                 "design",
+                "structure",
+                "protein",
+                "protocol",
+                "protocol_run",
                 "alignment",
                 "trace",
                 "report",
                 "construct",
                 "sample",
                 "record",
-                "structure",
-                "protein",
-                "protocol",
-                "protocol_run",
+                "track-view",
+                "molecular-document",
                 "file"
               ]
             },
@@ -54310,7 +54677,7 @@
     },
     {
       "name": "create_notebook",
-      "description": "Create a native protocol notebook with paragraphs, headings and structured tables. Each inline item is {text, referenceId?}; use exact referenceId values returned by create_notebook_reference or create_reference for sequences, source regions, draft assemblies and real oligos. Table rows contain cells, each containing inline items. intentId identifies one creation intent: retry with the same value and content to reuse the same notebook. Choose workspace from get_workspace.projects, not pinned referenceFolders. Returns owning project, saved revision and an openable reference. No clipboard or GUI workaround is needed.",
+      "description": "Create a native protocol notebook with paragraphs, headings and editable DNAForge table-builder blocks. Use table blocks for tabular notebook content instead of Markdown table text. Each inline item is {text, referenceId?}; use exact referenceId values returned by create_notebook_reference or create_reference for sequences, source regions, draft assemblies and real oligos. Supply all table rows together; rows contain cells, each containing inline items. The native table editor preserves formatted runs and exact references. intentId identifies one creation intent: retry with the same value and content to reuse the same notebook. Choose workspace from get_workspace.projects, not pinned referenceFolders. Returns owning project, saved revision and an openable reference. No clipboard or GUI workaround is needed.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -54529,7 +54896,7 @@
     },
     {
       "name": "update_notebook",
-      "description": "Append or replace native notebook content, preserving structured tables and typed references. Read get_notebook first and supply its exact revision. Unsaved human edits and stale revisions are protected.",
+      "description": "Append or replace native notebook content with editable DNAForge table-builder blocks and typed references. Supply tabular content as table blocks with all rows together instead of Markdown table text. Read get_notebook first and supply its exact revision. Unsaved human edits and stale revisions are protected.",
       "inputSchema": {
         "type": "object",
         "properties": {

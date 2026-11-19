@@ -804,6 +804,124 @@ describe('registered primer raw shell refusal', () => {
     }
   );
 
+  it.each(['file', 'parent'] as const)(
+    'keeps the saved bytes of a local, unenrolled entity when purging its %s',
+    async (target) => {
+      const event = gitReadEvent(819);
+      const handler = await getShellHandler('shell:fileTrash');
+      const osTrash = await getShellHandler('shell:trashItem');
+      const directory = join(root, 'Catalogued');
+      const localPath = join(directory, 'saved.txt');
+      const localId = randomUUID();
+      mkdirSync(directory);
+      writeFileSync(localPath, 'local entity bytes');
+      db.prepare(
+        `INSERT INTO catalog_entities
+        (id,type,name,locator,storage_type,status,workspace_id,created_at,updated_at)
+        VALUES(?,'file','Local record',?,'file','active',7,1,1)`
+      ).run(localId, `file://${localPath}`);
+      db.prepare(
+        `INSERT INTO catalog_entity_files
+        (id,entity_id,workspace_id,path,relative_path,file_kind,status,created_at,updated_at)
+        VALUES(?,?,7,?,'Catalogued/saved.txt','text','current',1,1)`
+      ).run(randomUUID(), localId, localPath);
+      const item = target === 'file' ? localPath : directory;
+      await expect(osTrash(event, item)).rejects.toThrow('SAVED_ENTITY_CONTENT');
+      expect(shell.trashItem).not.toHaveBeenCalled();
+      const inspected = await runWorkspaceFileTrash({
+        kind: 'inspect',
+        workspaceRoot: root,
+        path: item,
+      });
+      if (inspected.kind !== 'inspect') throw new Error('Expected source inspection');
+      const moved = (await handler(event, {
+        kind: 'trash',
+        workspaceRoot: root,
+        path: item,
+        expectedRevision: inspected.source.revision,
+      })) as Awaited<ReturnType<typeof runWorkspaceFileTrash>>;
+      if (moved.kind !== 'trash') throw new Error('Expected reversible project Trash');
+      const entry = {
+        workspaceRoot: root,
+        entryId: moved.entry.id,
+        expectedRevision: moved.entry.revision,
+      };
+      expect(await handler(event, { kind: 'purge', ...entry })).toMatchObject({
+        kind: 'failed',
+        code: 'SAVED_ENTITY_CONTENT',
+        stateChanged: false,
+      });
+      db.prepare('DELETE FROM catalog_entity_files WHERE entity_id=?').run(localId);
+      db.prepare('DELETE FROM catalog_entities WHERE id=?').run(localId);
+      expect(await handler(event, { kind: 'purge', ...entry })).toMatchObject({
+        kind: 'failed',
+        code: 'RETENTION_UNVERIFIED',
+        stateChanged: false,
+      });
+      expect(await handler(event, { kind: 'restore', ...entry })).toMatchObject({
+        kind: 'restore',
+      });
+      expect(readFileSync(localPath, 'utf8')).toBe('local entity bytes');
+    }
+  );
+
+  it('protects an absolute catalog binding with no project owner from system Trash', async () => {
+    const outside = mkdtempSync(join(TEST_OTHER_ROOT, 'global-file-'));
+    try {
+      const path = join(outside, 'registered.txt');
+      writeFileSync(path, 'global entity bytes');
+      db.prepare(
+        `INSERT INTO catalog_entities(id,type,name,locator,storage_type,status,created_at,updated_at)
+        VALUES(?,'file','Unscoped registration',?,'file','active',1,1)`
+      ).run(randomUUID(), `file://${path}`);
+      const osTrash = await getShellHandler('shell:trashItem');
+      await expect(osTrash(gitReadEvent(821), path)).rejects.toThrow('SAVED_ENTITY_CONTENT');
+      expect(shell.trashItem).not.toHaveBeenCalled();
+      expect(readFileSync(path, 'utf8')).toBe('global entity bytes');
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('retains old Trash receipts without a deletion eligibility record', async () => {
+    const path = join(root, 'older.txt');
+    writeFileSync(path, 'legacy');
+    const inspected = await runWorkspaceFileTrash({ kind: 'inspect', workspaceRoot: root, path });
+    if (inspected.kind !== 'inspect') throw new Error('Expected inspection');
+    const moved = await runWorkspaceFileTrash({
+      kind: 'trash',
+      workspaceRoot: root,
+      path,
+      expectedRevision: inspected.source.revision,
+    });
+    if (moved.kind !== 'trash') throw new Error('Expected Trash receipt');
+    const journalPath = join(root, '.git', 'dnaforge-file-trash', moved.entry.id, 'record.json');
+    const { purgeEligible, ...legacyRecord } = JSON.parse(readFileSync(journalPath, 'utf8'));
+    expect(purgeEligible).toBe(false);
+    writeFileSync(
+      journalPath,
+      JSON.stringify({ ...legacyRecord, schema: 'dnaforge.file-trash.v1' })
+    );
+    const listed = await runWorkspaceFileTrash({ kind: 'list', workspaceRoot: root });
+    if (listed.kind !== 'list' || listed.entries.length !== 1)
+      throw new Error('Expected legacy receipt');
+    const handler = await getShellHandler('shell:fileTrash');
+    const entry = {
+      workspaceRoot: root,
+      entryId: moved.entry.id,
+      expectedRevision: listed.entries[0].revision,
+    };
+    expect(await handler(gitReadEvent(820), { kind: 'purge', ...entry })).toMatchObject({
+      kind: 'failed',
+      code: 'RETENTION_UNVERIFIED',
+      stateChanged: false,
+    });
+    expect(await handler(gitReadEvent(820), { kind: 'restore', ...entry })).toMatchObject({
+      kind: 'restore',
+    });
+    expect(readFileSync(path, 'utf8')).toBe('legacy');
+  });
+
   it('project Trash keeps ordinary trash, restore and purge available beside a registered primer', async () => {
     const handler = await getShellHandler('shell:fileTrash');
     const event = gitReadEvent(816);

@@ -80,7 +80,11 @@ export interface NativeFileDocumentOwnerOptions {
   ): Promise<NativeFileDocumentAdmission>;
   read(path: string, maximumBytes: number): Promise<Uint8Array>;
   verifyTablePackage?(admission: NativeFileDocumentAdmission, content: string): Promise<void>;
-  write(input: TextFileAtomicWriteInput, admission: NativeFileDocumentAdmission): Promise<void>;
+  write(
+    input: TextFileAtomicWriteInput,
+    admission: NativeFileDocumentAdmission,
+    documentId: string
+  ): Promise<void>;
   loadRecord(path: string): Promise<NativeFileDocumentRecord | undefined>;
   resolveIdentity?(documentId: string): Promise<string | undefined>;
   identityForPath?(path: string): Promise<string | undefined>;
@@ -1148,7 +1152,8 @@ export class NativeFileDocumentOwner {
               previous && document.diskContent !== baseline ? document.diskContent : baseline
             ),
           },
-          admission
+          admission,
+          document.documentId
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

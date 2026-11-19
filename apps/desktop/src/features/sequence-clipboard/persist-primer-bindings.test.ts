@@ -70,7 +70,7 @@ function persistence(primers: Record<string, Primer>): RichPastePrimerPersistenc
         intents.push(intent);
       },
     },
-    deleteLegacyBinding: vi.fn(async () => undefined),
+    removeOwnedLegacyBinding: vi.fn(async () => undefined),
     listLegacyBoundPrimers: vi.fn(async () => []),
     readSavedTarget: vi.fn(async () => undefined),
     getPrimer: vi.fn(async (id: string) => primers[id] ?? null),
@@ -267,7 +267,7 @@ describe('persistRichPastePrimerBindings', () => {
         return bound.binding;
       }
     );
-    services.deleteLegacyBinding = vi.fn(async (id: string) => {
+    services.removeOwnedLegacyBinding = vi.fn(async ({ bindingId: id }: { bindingId: string }) => {
       const index = stored.findIndex((row) => row.binding.id === id);
       if (index >= 0) stored.splice(index, 1);
     });

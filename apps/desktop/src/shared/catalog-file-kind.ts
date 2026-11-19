@@ -155,3 +155,7 @@ export function isVisibleManagedHeadFile(relPath: string): boolean {
     .toLowerCase()
     .endsWith('.waypoint.json');
 }
+
+export function isSavedEntityMember(path: string): boolean {
+  return path.split(/[\\/]/).includes('.forge') || isManagedCatalogHeadCandidate(path);
+}

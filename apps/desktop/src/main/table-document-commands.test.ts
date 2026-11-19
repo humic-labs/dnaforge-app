@@ -1,9 +1,10 @@
 // @vitest-environment node
 
 import { createHash, randomUUID } from 'node:crypto';
-import { access, cp, rename } from 'node:fs/promises';
+import { access, cp, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { restoreSavedFileSource, listSavedFileVersions } from './saved-file-sources';
 import { tableCommandFixture, identityTestPaths } from './__tests__/table-command-fixture';
 import { NativeTableDocumentCommands } from './table-document-commands';
 import { publishTablePackageInMain, readTablePackageInMain } from './table-package';
@@ -104,6 +105,32 @@ describe('native table document commands', () => {
     await expect(
       f.commands.execute({ kind: 'open', location: made.request.destination })
     ).rejects.toThrow();
+  });
+
+  it('recovers the first acknowledged table after loss of its entire package directory', async () => {
+    const f = await fixture();
+    const made = await created(f);
+    const destination = made.request.destination;
+    const original = await readTablePackageInMain(destination);
+    const workspaceId = f.db
+      .prepare('SELECT id FROM workspaces WHERE path=?')
+      .pluck()
+      .get(f.workspaceRoot) as number;
+    const owner = { workspaceId, entityId: made.table.tableId };
+    const receipts = listSavedFileVersions(f.db, { ...owner, offset: 0, limit: 10 }).versions;
+    expect(receipts).toHaveLength(1);
+    await rm(destination.packageRoot, { recursive: true });
+    await restoreSavedFileSource(f.db, {
+      ...owner,
+      destination: destination.packageRoot,
+      revisionId: receipts[0].id,
+    });
+    const restored = await readTablePackageInMain({
+      ...destination,
+      expectedDocumentId: owner.entityId,
+    });
+    expect(restored.headText).toBe(original.headText);
+    expect(restored.snapshotText).toBe(original.snapshotText);
   });
 
   it('creates a real package once and reuses its durable identity after command-service restart', async () => {

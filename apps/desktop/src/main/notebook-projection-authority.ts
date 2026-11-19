@@ -11,6 +11,7 @@ import { readNotebookProjectionSource } from '../db/notebook-projection-source';
 import { withNotebookPackageAuthorityLock } from '../db/notebook-package-migration';
 import {
   notebookProjectionFingerprint,
+  retainLegacyNotebookPage,
   type LegacyNotebookPageMutation,
   type NotebookPageRow,
   type NotebookProjectionFromFileInput,
@@ -26,6 +27,8 @@ import {
 import { canonicalWorkspacePath } from './primer-artifact-files';
 import { assertWorkspaceWriteAllowed } from './workspace-write-admission';
 import { setCatalogFileStateInDb } from './catalog-projection-commands';
+import { replaceNotebookReferenceProjectionInDb } from './notebook-reference-projection';
+import { normalizeNotebookReferenceOccurrences } from '../shared/notebook-reference-occurrences';
 
 function requireText(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0 && !value.includes('\0');
@@ -104,10 +107,7 @@ export function mutateLegacyNotebookPageInDb(
     const workspaceRoot = notebookPageWorkspaceRootInDb(db, input.id);
     if (workspaceRoot) assertWorkspaceWriteAllowed(db, [workspaceRoot]);
     const existing = readNotebookPageInDb(db, input.id);
-    if (input.operation === 'delete') {
-      db.prepare('DELETE FROM pages WHERE id=?').run(input.id);
-      return null;
-    }
+    if (input.operation === 'delete') return retainLegacyNotebookPage(existing);
     if (
       !requireText(input.title) ||
       !Number.isSafeInteger(input.updatedAt) ||
@@ -124,12 +124,20 @@ export function mutateLegacyNotebookPageInDb(
       throw new Error('Notebook projection changed before its legacy mutation.');
     if (input.operation === 'create' && existing)
       throw new Error('Notebook projection already exists.');
-    const content = JSON.stringify(input.content);
+    const normalized = normalizeNotebookReferenceOccurrences(input.content, {
+      documentId: input.id,
+    });
+    const content = JSON.stringify(normalized);
     JSON.parse(content);
     db.prepare(
       `INSERT INTO pages(id,title,content,date,created_at,updated_at) VALUES(?,?,?,NULL,?,?)
        ON CONFLICT(id) DO UPDATE SET title=excluded.title,content=excluded.content,updated_at=excluded.updated_at`
     ).run(input.id, input.title, content, input.updatedAt, input.updatedAt);
+    replaceNotebookReferenceProjectionInDb(db, {
+      documentId: input.id,
+      sourceFingerprint: notebookProjectionFingerprint(input.title, content),
+      content: normalized,
+    });
     return readNotebookPageInDb(db, input.id);
   })();
 }
@@ -241,6 +249,11 @@ export async function replaceNotebookProjectionFromFileInMain(
           now,
           now
         );
+        replaceNotebookReferenceProjectionInDb(db, {
+          documentId: input.pageId,
+          sourceFingerprint: fingerprint,
+          content: source.document.content,
+        });
         writeEntityProjectionReceiptInDb(db, key, fingerprint);
         const written = readNotebookPageInDb(db, input.pageId)!;
         settlePresentation?.(written);

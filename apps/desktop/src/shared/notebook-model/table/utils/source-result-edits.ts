@@ -8,6 +8,7 @@ export function userOwnedCell(cell: Cell, value: string, type: Cell['type']): Ce
     formulaCompatibility: _formulaCompatibility,
     stale: _stale,
     computed: _computed,
+    content: _content,
     ...retained
   } = cell;
   return { ...retained, value, type };

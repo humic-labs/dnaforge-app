@@ -6,6 +6,7 @@ import { TRASH_RETENTION_MS } from '../../shared/workspace-git-types';
 import { acquireWorkspaceSyncMutationLease } from '../workspace-sync-mutation-lease';
 import { acquireWorkspaceSyncDatabaseFence } from '../workspace-sync-database-fence';
 import { assertWorkspaceMigrationActionsSettled } from '../workspace-migration-admission';
+import { hasWorkspaceFileTrashPayloads } from '../workspace-file-trash';
 import { readOriginalDefaultProjectIdentity } from '../original-default-project';
 
 interface TrashedWorkspaceRow {
@@ -89,6 +90,12 @@ async function purgeManagedWorkspaceRow(
       if (refusal) {
         if (expiry) return false;
         throw refusal;
+      }
+      if (await hasWorkspaceFileTrashPayloads(current.path)) {
+        if (expiry) return false;
+        throw new Error(
+          'This project still contains items in file Trash. Restore the project to recover those items.'
+        );
       }
       await removeManagedWorkspaceDirectory(managedRootDir, current);
 

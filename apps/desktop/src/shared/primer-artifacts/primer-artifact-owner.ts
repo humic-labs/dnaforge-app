@@ -1,3 +1,5 @@
+import { readRetainedPrimerSource, type PrimerRestoreSelection } from './primer-source-history';
+import { readBoundPrimerArtifact } from '../primers/primer-artifact';
 import { withUserMessage } from '@waypoint/user-messages';
 import type { createPrimerRecoveryServices } from './primer-recovery-owner';
 import type { LimsEntityActionInput } from '../lims';
@@ -281,7 +283,12 @@ export interface PrimerArtifactDependencies {
       | 'readPrimerArtifactRevisionState'
       | 'revisePrimerArtifact'
       | 'resumePrimerArtifactPublication'
-    >;
+    > & {
+      readCommittedPrimerSource?(request: {
+        entityId: string;
+        mutationToken?: string;
+      }): Promise<string | null>;
+    };
   };
   buildFileDnaSequenceRef: ReturnType<typeof createDnaSequenceOwner>['buildFileDnaSequenceRef'];
   buildInlineDnaSequenceRef: typeof buildInlineDnaSequenceRef;
@@ -805,6 +812,35 @@ export function createPrimerArtifactOwner(dependencies: PrimerArtifactDependenci
       options.mutationToken
     );
   }
+  async function restoreSavedPrimerDocument(selection: PrimerRestoreSelection): Promise<void> {
+    await withRendererWorkspaceMutation(selection.root, async (mutationToken) => {
+      const source = await readRetainedPrimerSource(platform(), selection.id, mutationToken);
+      if (
+        !source ||
+        source.sha256 !== selection.sha256 ||
+        source.root !== selection.root ||
+        source.relativePath !== selection.relativePath ||
+        (await findTrashedPrimerDocument(selection.id, source.path))
+      )
+        throw new Error(
+          'The saved primer changed before recovery. Refresh its project and try again.'
+        );
+      const fs = platform().fs;
+      if (await fs.exists(source.path)) {
+        if ((await fs.readTextFile(source.path)) !== source.content)
+          throw new Error('A different file occupies the saved primer location.');
+      } else {
+        await fs.writeWorkspaceTextFileAtomic({
+          workspaceRoot: source.root,
+          path: source.path,
+          content: source.content,
+          mode: 'create',
+          mutationToken,
+        });
+      }
+      await projectPrimerArtifact(source.artifact, source.root, { mutationToken });
+    });
+  }
   async function reconcilePrimerArtifact(
     artifactPath: string,
     workspaceRoot: string,
@@ -970,12 +1006,14 @@ export function createPrimerArtifactOwner(dependencies: PrimerArtifactDependenci
         if (record) {
           record.status = 'unresolved';
           record.message = message;
+          record.reason = 'recovery-failed';
         } else {
           recovery.records.push({
             id: candidate.artifact.id,
             name: candidate.artifact.name,
             source: candidate.artifact.recovery?.source ?? 'registry',
             status: 'unresolved',
+            reason: 'recovery-failed',
             artifactPath: candidate.path,
             message,
           });
@@ -1556,12 +1594,11 @@ export function createPrimerArtifactOwner(dependencies: PrimerArtifactDependenci
         throw new Error('The primer publication state is unavailable.');
     }
     const { content, acceptedRevision } = await readScientificText(normalizedPath, workspaceRoot);
-    const artifact = parsePrimerArtifact(content);
-    if (
-      artifact.file.workspaceRelativePath !== validation.relativePath ||
-      (binding?.status === 'current' && binding.entity_id !== artifact.id)
-    )
-      throw new Error('Primer artifact identity does not match its project file path.');
+    const artifact = readBoundPrimerArtifact(
+      content,
+      validation.relativePath,
+      binding?.status === 'current' ? binding.entity_id : undefined
+    );
 
     const state = await platform().lims.readPrimerArtifactRevisionState({
       entityId: artifact.id,
@@ -2656,6 +2693,7 @@ export function createPrimerArtifactOwner(dependencies: PrimerArtifactDependenci
     writeAndProjectPrimerArtifact,
     savePrimerArtifact,
     reconcilePrimerArtifact,
+    restoreSavedPrimerDocument,
     reconcilePrimerArtifactsInWorkspace,
     attachPrimerArtifact,
     readSavedPrimerBindingTarget,

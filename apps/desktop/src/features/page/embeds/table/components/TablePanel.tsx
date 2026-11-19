@@ -590,6 +590,7 @@ export function TablePanel({
           columnLabels={columnLabels}
           showColumnLabels={columnLabels.length > 0}
           referenceWorkspaceRoot={table.referenceWorkspaceRoot}
+          referenceNotebookPageId={table.sourcePageId}
           onColumnResize={hasWriter ? setColumnWidth : undefined}
           onRowResize={hasWriter ? setRowHeight : undefined}
           onColumnLabelChange={hasWriter ? setColumnLabel : undefined}

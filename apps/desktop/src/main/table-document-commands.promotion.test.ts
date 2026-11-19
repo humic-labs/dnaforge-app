@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { createHash, randomUUID } from 'node:crypto';
-import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { JSONContent } from '@tiptap/core';
@@ -14,6 +14,7 @@ import {
   type NativeNotebookSource,
 } from './notebook-document-owner';
 import { NativeDocumentCommandError } from '../shared/native-document-error';
+import { restoreSavedFileSource, listSavedFileVersions } from './saved-file-sources';
 import { publishNotebookPackageV2InMain } from './notebook-package-authority';
 import { readCanonicalNotebookPackage } from '../db/notebook-package-migration';
 import { notebookPackagePaths } from '../db/notebook-package';
@@ -81,23 +82,27 @@ async function fixture(options: { nativeIdentityPrefix?: string } = {}) {
     workspaceRoot: root(),
     packageRoot: join(root(), 'Extracted table'),
   });
-  await publishNotebookPackageV2InMain({
-    workspaceRoot: root(),
-    packageRoot: notebookPath(),
-    id: notebookId,
-    title: 'Notebook',
-    sourceShape: 'new-package',
-    content: {
-      type: 'doc',
-      content: [
-        {
-          type: 'paragraph',
-          content: [{ type: 'text', text: 'Other notebook content retained.' }],
-        },
-        structuredClone(originalTable),
-      ],
+  await publishNotebookPackageV2InMain(
+    {
+      workspaceRoot: root(),
+      packageRoot: notebookPath(),
+      id: notebookId,
+      title: 'Notebook',
+      sourceShape: 'new-package',
+      content: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Other notebook content retained.' }],
+          },
+          structuredClone(originalTable),
+        ],
+      },
     },
-  });
+    undefined,
+    f.db
+  );
   const load = async (): Promise<NativeNotebookSource> => {
     const bytesRead = new Map<string, Buffer>();
     const current = await readCanonicalNotebookPackage(
@@ -177,7 +182,8 @@ async function fixture(options: { nativeIdentityPrefix?: string } = {}) {
           preservedPreamble: fresh.preservedPreamble,
           preservedTitleProjection: fresh.preservedTitleProjection,
         },
-        scope.assertCurrent
+        scope.assertCurrent,
+        f.db
       );
       return { source: await load() };
     },
@@ -300,6 +306,27 @@ async function completed(
 }
 
 describe('recoverable native table promotion', () => {
+  it('restores the active promoted package with its inline reference alias after directory loss', async () => {
+    const f = await fixture();
+    const request = await f.request();
+    const result = await f.f.commands.execute(request);
+    const { actual: original } = await completed(f, result);
+    const destination = f.destination();
+    const workspaceId = f.f.db
+      .prepare('SELECT id FROM workspaces WHERE path=?')
+      .pluck()
+      .get(destination.workspaceRoot) as number;
+    const owner = { workspaceId, entityId: original.head.id };
+    const revisions = listSavedFileVersions(f.f.db, { ...owner, offset: 0, limit: 10 }).versions;
+    expect(revisions).toHaveLength(1);
+    await rm(destination.packageRoot, { recursive: true });
+    await restoreSavedFileSource(f.f.db, { ...owner, destination: destination.packageRoot });
+    expect((await readTablePackageInMain(destination)).headText).toBe(original.headText);
+    expect((await f.f.commands.execute({ kind: 'resolve', reference: sourceReference })).kind).toBe(
+      'resolved'
+    );
+  });
+
   it('keeps completed extraction complete after its table moves without recreating the old destination', async () => {
     const t = await fixture();
     const request = await t.request();

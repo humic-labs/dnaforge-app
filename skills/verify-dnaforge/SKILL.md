@@ -1,13 +1,16 @@
 ---
 name: verify-dnaforge
 description:
-  Verify saved read pileups, annotations, track palette edits, catalog-backed
+  Verify notebook authoring, saved read pileups, annotations, track palette edits, catalog-backed
   restriction enzyme selection and agent 3D structure work behind other screens
   or on unselected tabs in an isolated DNAForge desktop development app.
 ---
 
 # Verify DNAForge desktop workflows
 
+Notebook repair claims also use the focused
+[notebook verification skill](../verify-notebook-authoring/SKILL.md), which separates
+component results from real app acceptance and lists the reported regressions.
 For release and usage analytics notices, follow the
 [desktop relaunch checks](features/desktop-notices.md).
 
@@ -49,7 +52,9 @@ profile. It writes a receipt without changing application state.
 node apps/desktop/scripts/palette-enzyme-journey.mjs --out "$HOME/DNAForge-proof/run"
 ```
 
-The [feature map](features/palettes-and-enzymes.md) defines the acceptance path.
+The [palette and enzyme feature map](features/palettes-and-enzymes.md) defines
+that acceptance path. For notebook authoring, follow the
+[notebook feature map](features/notebook-authoring.md) in the running app.
 
 ## Evidence
 

@@ -5,6 +5,7 @@ export function createPrimerTrashReader(dependencies: PrimerRecoveryDependencies
   async function findTrashedPrimerDocument(entityId: string, expectedPath?: string) {
     const files = await platform().db.select<
       Array<{
+        id: string;
         path: string;
         workspace_id: number | null;
         status: string;
@@ -12,7 +13,7 @@ export function createPrimerTrashReader(dependencies: PrimerRecoveryDependencies
         missing_since: number | null;
       }>
     >(
-      'SELECT path, workspace_id, status, file_kind, missing_since FROM catalog_entity_files WHERE entity_id = ?',
+      'SELECT id, path, workspace_id, status, file_kind, missing_since FROM catalog_entity_files WHERE entity_id = ?',
       [entityId]
     );
     if (files.some((file) => file.status === 'current')) return null;
@@ -24,10 +25,15 @@ export function createPrimerTrashReader(dependencies: PrimerRecoveryDependencies
     );
     if (missing.length !== 1 || (await platform().fs.exists(missing[0].path))) return null;
     const file = missing[0];
+    if (file.missing_since === null) return null;
     const events = await platform().db.select<Array<{ payload: string | null }>>(
-      `SELECT payload FROM catalog_entity_events WHERE entity_id = ? AND event_type = 'file_missing'
-     AND created_at >= ? ORDER BY created_at DESC, rowid DESC`,
-      [entityId, file.missing_since ?? 0]
+      `SELECT e.payload FROM catalog_entity_files f
+       JOIN catalog_entity_events e ON e.entity_id = f.entity_id
+       WHERE f.id = ? AND f.entity_id = ? AND f.path = ? AND f.status = 'missing'
+         AND f.missing_since = ? AND e.event_type = 'file_missing' AND e.created_at >= f.missing_since
+         AND NOT EXISTS (SELECT 1 FROM catalog_entity_files c WHERE c.entity_id = f.entity_id AND c.status = 'current')
+       ORDER BY e.rowid DESC`,
+      [file.id, entityId, file.path, file.missing_since]
     );
     for (const event of events) {
       let payload: unknown;
@@ -43,8 +49,12 @@ export function createPrimerTrashReader(dependencies: PrimerRecoveryDependencies
         payload.path !== file.path
       )
         continue;
-      if ('reason' in payload && payload.reason === 'git-indexer') continue;
-      return 'reason' in payload && payload.reason === 'moved-to-trash' ? file : null;
+      if ('bindingId' in payload && payload.bindingId !== file.id) continue;
+      if ('reason' in payload) {
+        if (payload.reason === 'moved-to-trash') return file;
+        if (payload.reason === 'deleted') return null;
+      }
+      if ('startsMissingInterval' in payload && payload.startsMissingInterval === true) return null;
     }
     return null;
   }

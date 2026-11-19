@@ -1,8 +1,6 @@
 import { createHash } from 'node:crypto';
-import { constants } from 'node:fs';
-import { open } from 'node:fs/promises';
 
-import { decodeBundleFileContent, type WorkspaceSyncFile } from '@waypoint/share-bundle';
+import type { WorkspaceSyncFile } from '@waypoint/share-bundle';
 import { parseSequencePackageAdmissionDescriptor } from '@waypoint/share-bundle/sequence-package-admission';
 import { parseGenBankFull, parseGenBankRecords } from '@waypoint/sequence-utils';
 
@@ -10,7 +8,7 @@ import type {
   WorkspaceSyncMergeSequenceSummary,
   WorkspaceSyncMergeSideSummary,
 } from '../shared/workspace-sync-ipc';
-import { workspaceSyncBlobPath } from './workspace-sync-blob-cache';
+import { readVerifiedWorkspaceSyncFile } from './workspace-sync-blob-cache';
 import type { ReconcileResource } from './workspace-sync-reconcile';
 
 const COMPARISON_MAX_BYTES = 2 * 1024 * 1024;
@@ -131,45 +129,7 @@ async function sequenceSummary(
 
 async function readComparisonBytes(file: WorkspaceSyncFile): Promise<Uint8Array> {
   if (file.sizeBytes > COMPARISON_MAX_BYTES) throw new Error('Comparison display bound exceeded.');
-  let bytes: Uint8Array;
-  if (file.encoding !== 'blob') {
-    bytes = decodeBundleFileContent(file);
-  } else {
-    const handle = await open(
-      await workspaceSyncBlobPath(file.sha256),
-      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)
-    );
-    try {
-      const before = await handle.stat();
-      if (!before.isFile() || before.size !== file.sizeBytes)
-        throw new Error('Comparison blob size differs.');
-      const captured = Buffer.alloc(file.sizeBytes);
-      let offset = 0;
-      while (offset < captured.length) {
-        const { bytesRead } = await handle.read(captured, offset, captured.length - offset, offset);
-        if (!bytesRead) throw new Error('Comparison blob ended early.');
-        offset += bytesRead;
-      }
-      const after = await handle.stat();
-      if (
-        before.size !== after.size ||
-        before.mtimeMs !== after.mtimeMs ||
-        before.ctimeMs !== after.ctimeMs
-      ) {
-        throw new Error('Comparison blob changed.');
-      }
-      bytes = captured;
-    } finally {
-      await handle.close();
-    }
-  }
-  if (
-    bytes.byteLength !== file.sizeBytes ||
-    createHash('sha256').update(bytes).digest('hex') !== file.sha256
-  ) {
-    throw new Error('Comparison bytes differ from frozen content.');
-  }
-  return bytes;
+  return readVerifiedWorkspaceSyncFile(file);
 }
 
 function hash(value: string): string {

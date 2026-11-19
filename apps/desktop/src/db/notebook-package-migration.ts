@@ -53,6 +53,7 @@ export interface NotebookPackageDirectoryEntry {
 }
 
 export interface NotebookPackageFileOps {
+  retainNotebookSource?(id: string, stage: 'before' | 'published'): Promise<void>;
   exists(path: string): Promise<boolean>;
   mkdir(path: string, options?: { recursive?: boolean }): Promise<void>;
   readTextFile(path: string): Promise<string>;
@@ -366,6 +367,7 @@ export async function prepareNotebookPackageRename(
   ) {
     throw new NotebookExternalConflictError(notebookPackagePaths(input.packageRoot).markdownPath);
   }
+  await ops.retainNotebookSource?.(current.metadata.id, 'before');
   const paths = notebookPackagePaths(input.packageRoot);
   const journal: NotebookRenameJournal = {
     schema: 'waypoint.notebook-rename.v1',
@@ -416,7 +418,14 @@ export async function recoverNotebookPackageRenameIfNeeded(
   const metadata = parseNotebookPackageMetadata(metadataRaw);
   const markdown = await ops.readTextFile(paths.markdownPath);
   const parsed = await parseCanonical(ops, packageRoot, markdown, metadata.id, metadata.title);
-  const published = await publishNotebookPackageV2(ops, {
+  const recoveredOps: NotebookPackageFileOps = {
+    ...ops,
+    retainNotebookSource: (id, stage) =>
+      stage === 'published' && ops.retainNotebookSource
+        ? ops.retainNotebookSource(id, stage)
+        : Promise.resolve(),
+  };
+  const published = await publishNotebookPackageV2(recoveredOps, {
     packageRoot,
     workspaceRoot: workspaceRootFromPackageDepth(
       packageRoot,
@@ -559,9 +568,12 @@ export async function publishNotebookPackageV2(
   if (ops.publishNotebookPackageV2InMain && !input.now && !input.interruptAt) {
     return ops.publishNotebookPackageV2InMain(input);
   }
-  return withNotebookPackageAuthorityLock(input.packageRoot, () =>
-    publishNotebookPackageV2Unlocked(ops, input)
-  );
+  return withNotebookPackageAuthorityLock(input.packageRoot, async () => {
+    await ops.retainNotebookSource?.(input.id, 'before');
+    const result = await publishNotebookPackageV2Unlocked(ops, input);
+    await ops.retainNotebookSource?.(result.metadata.id, 'published');
+    return result;
+  });
 }
 
 function provisionalLegacyCutoverNeedsRepublish(args: {
@@ -589,8 +601,8 @@ async function provisionalV1MigrationNeedsRepublish(args: {
     args.sourceShape === 'v1-package' &&
     !args.currentMetadata &&
     args.existingMetadataRaw !== null &&
-    (await args.ops.exists(args.archivePath)) &&
-    (await args.ops.readTextFile(args.archivePath)) !== args.existingMetadataRaw
+    (!(await args.ops.exists(args.archivePath)) ||
+      (await args.ops.readTextFile(args.archivePath)) !== args.existingMetadataRaw)
   );
 }
 
@@ -687,12 +699,14 @@ async function publishNotebookPackageV2Unlocked(
           markdownFileName: fileName(paths.markdownPath),
           updatedAt: input.updatedAt ?? startedAt,
           existing: existingRecord,
-          migration: {
-            fromFormatVersion: 1,
-            completedAt: startedAt,
-            archivePath: archiveRelativePath,
-            sourceShape: input.sourceShape,
-          },
+          ...((await ops.exists(archivePath)) && {
+            migration: {
+              fromFormatVersion: 1,
+              completedAt: startedAt,
+              archivePath: archiveRelativePath,
+              sourceShape: input.sourceShape,
+            },
+          }),
         });
         await writePackageMetadata(
           ops,

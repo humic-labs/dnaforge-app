@@ -1,179 +1,179 @@
 'use client';
+import { MenuRow, MenuSurface } from '@waypoint/ui-components';
 
 import {
+  Fragment,
   forwardRef,
-  useCallback,
   useEffect,
   useImperativeHandle,
-  useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
-import {
-  MenuRow,
-  MenuStatus,
-  MenuSurface,
-  useMenu,
-  type MenuCloseReason,
-} from '@waypoint/ui-components';
-import {
-  usePresentationSurface,
-  usePresentationScope,
-} from '../../../../presentation/PresentationSurface';
+import { cn } from '@/shared/lib/cn';
+
 import type { SlashCommand } from '../lib/commands';
 import { groupCommandsByCategory } from '../lib/commands';
 
 export interface SlashCommandMenuRef {
   onKeyDown: (props: { event: KeyboardEvent }) => boolean;
-  close: (reason: MenuCloseReason) => void;
 }
 
 export interface SlashCommandMenuProps {
   items: SlashCommand[];
   command: (cmd: SlashCommand) => void;
-  presentationParentId?: string;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenuProps>(
-  function SlashCommandMenu({ items, command, presentationParentId }, ref) {
-    const itemRefs = useRef(new Map<string, HTMLButtonElement>());
-    const origin = usePresentationScope();
-    const grouped = useMemo(() => groupCommandsByCategory(items), [items]);
-    const leftColumn = useMemo(
-      () => [...(grouped.format ?? []), ...(grouped.insert ?? [])],
-      [grouped]
+  function SlashCommandMenu({ items, command, error, onRetry }, ref) {
+    const [selectedName, setSelectedName] = useState<string | null>(null);
+    const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+    const columns = useMemo(() => {
+      const grouped = groupCommandsByCategory(items);
+      return [
+        {
+          key: 'format' as const,
+          label: 'Format',
+          commands: items.filter(
+            (item) => item.category === 'format' || item.category === 'insert'
+          ),
+        },
+        { key: 'embed' as const, label: 'Embed', commands: grouped.embed },
+        { key: 'entity' as const, label: 'Entity', commands: grouped.entity },
+      ].filter((column) => column.commands.length);
+    }, [items]);
+    const selectedColumn =
+      columns.find((column) => column.commands.some((item) => item.name === selectedName)) ??
+      columns[0];
+    const selectedRow = Math.max(
+      0,
+      selectedColumn?.commands.findIndex((item) => item.name === selectedName) ?? 0
     );
-    const rightColumn = useMemo(() => grouped.embed ?? [], [grouped]);
-    const commands = useMemo(() => [...leftColumn, ...rightColumn], [leftColumn, rightColumn]);
-    const menuItems = useMemo(
-      () =>
-        commands.map((item) => ({ id: item.name, textValue: item.label, closeOnActivate: false })),
-      [commands]
-    );
-    const menu = useMenu({
-      items: menuItems,
-      defaultOpen: true,
-      onActivate: (id) => {
-        const item = commands.find((candidate) => candidate.name === id);
-        if (!item) return;
-        menu.close('handoff');
-        command(item);
-      },
-    });
-    const presentation = usePresentationSurface({
-      parentId: presentationParentId,
-      active: menu.isOpen,
-    });
-    const activeId = commands.some((item) => item.name === menu.activeId)
-      ? menu.activeId
-      : (commands[0]?.name ?? null);
-    const bindSurface = useCallback(
-      (node: HTMLDivElement | null) => {
-        presentation.bindRef(node);
-        menu.bindSurface(node);
-      },
-      [presentation.bindRef, menu.bindSurface]
-    );
-    useLayoutEffect(() => menu.positioned(), [menu.positioned]);
+    const selectedCommandName = selectedColumn?.commands[selectedRow]?.name ?? null;
+
     useEffect(() => {
-      if (activeId !== null) itemRefs.current.get(activeId)?.scrollIntoView({ block: 'nearest' });
-    }, [activeId]);
+      setSelectedName(selectedCommandName);
+      if (selectedCommandName)
+        itemRefs.current.get(selectedCommandName)?.scrollIntoView({ block: 'nearest' });
+    }, [selectedCommandName]);
+
     useImperativeHandle(ref, () => ({
-      close: menu.close,
       onKeyDown: ({ event }) => {
-        if (
-          !menu.isOpen ||
-          event.defaultPrevented ||
-          event.isComposing ||
-          event.keyCode === 229 ||
-          !presentation.owner.allowsEvent(presentationParentId ?? origin.id, 'keyboard', event)
-        )
-          return false;
-        const inLeft = leftColumn.some((item) => item.name === activeId);
-        const currentColumn = inLeft ? leftColumn : rightColumn;
-        if (currentColumn.length === 0) return false;
-        const otherColumn =
-          event.key === 'ArrowRight' && inLeft
-            ? rightColumn
-            : event.key === 'ArrowLeft' && !inLeft
-              ? leftColumn
-              : null;
-        if (otherColumn?.length) {
+        if (event.isComposing || event.keyCode === 229 || !selectedColumn) return false;
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           event.preventDefault();
-          const index = currentColumn.findIndex((item) => item.name === activeId);
-          menu.point(otherColumn[Math.max(0, Math.min(index, otherColumn.length - 1))].name);
+          const direction = event.key === 'ArrowDown' ? 1 : -1;
+          const row =
+            (selectedRow + direction + selectedColumn.commands.length) %
+            selectedColumn.commands.length;
+          setSelectedName(selectedColumn.commands[row].name);
           return true;
         }
-        if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter')
-          return menu.handleKeyDown(event, {
-            wrap: true,
-            itemIds: currentColumn.map((item) => item.name),
-          });
+        if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+          event.preventDefault();
+          const index = columns.indexOf(selectedColumn);
+          const direction = event.key === 'ArrowRight' ? 1 : -1;
+          const next = columns[(index + direction + columns.length) % columns.length];
+          setSelectedName(next.commands[Math.min(selectedRow, next.commands.length - 1)].name);
+          return true;
+        }
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          const selected = selectedColumn.commands[selectedRow];
+          if (selected) command(selected);
+          return true;
+        }
         return false;
       },
     }));
-    if (!menu.isOpen) return null;
-    const hasBothColumns = leftColumn.length > 0 && rightColumn.length > 0;
-    const renderCommand = (item: SlashCommand) => (
-      <MenuRow
-        key={item.name}
-        ref={(node) => {
-          if (node) itemRefs.current.set(item.name, node);
-          else itemRefs.current.delete(item.name);
-        }}
-        role="option"
-        tabIndex={-1}
-        active={activeId === item.name}
-        aria-selected={activeId === item.name}
-        icon={item.icon}
-        data-command-name={item.name}
-        onMouseDown={(event) => event.preventDefault()}
-        onMouseEnter={() => menu.point(item.name)}
-        onClick={() => menu.activate(item.name)}
-      >
-        {item.label}
-      </MenuRow>
-    );
+
     return (
       <MenuSurface
-        surface="workspace"
-        ref={bindSurface}
-        density="form"
+        surface="inline-workspace"
         selection={false}
         icons
-        role="listbox"
-        aria-label="Notebook commands"
-        data-menu-id="root"
-        data-presentation-surface={presentation.id}
+        submenus
+        density="form"
         layout={{
-          width: hasBothColumns ? 420 : '13rem',
+          width: Math.max(1, columns.length) * 220,
           maxWidth: 'calc(100vw - 16px)',
-          maxHeight: 'min(20rem, calc(100vh - 16px))',
+          maxHeight: 'min(24rem,calc(100vh - 16px))',
           overflow: 'auto',
-          display: presentation.visible ? undefined : 'none',
         }}
+        data-testid="slash-command-menu"
       >
-        {commands.length === 0 ? (
-          <MenuStatus>No matching commands</MenuStatus>
+        {error && (
+          <div role="alert" className="px-3 py-2 text-xs text-fg-muted">
+            {error}
+            {onRetry && (
+              <button
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={onRetry}
+                className="ml-2 text-fg underline"
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        )}
+        {columns.length === 0 ? (
+          <div className="px-3 py-2 text-sm text-fg-muted">No matching commands or categories</div>
         ) : (
-          <div className={hasBothColumns ? 'flex gap-1.5' : undefined}>
-            {leftColumn.length > 0 && (
-              <div className="flex-1 min-w-0" role="group" aria-label="Format">
-                <div className="px-2 py-1 text-xs text-fg-subtle font-medium uppercase tracking-wide">
-                  Format
-                </div>
-                {leftColumn.map(renderCommand)}
+          <div
+            className="grid gap-1"
+            style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0,1fr))` }}
+          >
+            {columns.map((column, columnIndex) => (
+              <div
+                key={column.key}
+                role="group"
+                aria-label={column.label}
+                className={cn(
+                  'min-w-0',
+                  column.key === 'entity' && 'grid grid-cols-[minmax(0,1fr)_auto] content-start',
+                  columnIndex > 0 && 'border-l border-border-subtle pl-1'
+                )}
+              >
+                <div className="px-3 py-2 text-xs text-fg-subtle">{column.label}</div>
+                {column.commands.map((cmd, row) => (
+                  <Fragment key={cmd.name}>
+                    {cmd.section === 'layout' && column.commands[row - 1]?.section !== 'layout' && (
+                      <div className="mt-1 border-t border-border-subtle px-3 pt-3 pb-2 text-xs text-fg-subtle">
+                        Layout
+                      </div>
+                    )}
+                    <div
+                      className={
+                        cmd.name === 'entity-link'
+                          ? 'col-start-2 row-start-1 self-center'
+                          : 'col-span-full'
+                      }
+                    >
+                      <MenuRow
+                        data-command-name={cmd.name}
+                        ref={(element) => {
+                          if (element) itemRefs.current.set(cmd.name, element);
+                          else itemRefs.current.delete(cmd.name);
+                        }}
+                        aria-label={cmd.name === 'entity-link' ? cmd.label : undefined}
+                        title={cmd.name === 'entity-link' ? cmd.label : undefined}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onMouseEnter={() => setSelectedName(cmd.name)}
+                        onClick={() => command(cmd)}
+                        active={selectedColumn?.key === column.key && selectedRow === row}
+                        icon={cmd.icon}
+                        submenu={column.key === 'entity' && cmd.name !== 'entity-link'}
+                      >
+                        {cmd.name !== 'entity-link' && cmd.label}
+                      </MenuRow>
+                    </div>
+                  </Fragment>
+                ))}
               </div>
-            )}
-            {hasBothColumns && <div className="w-px bg-border-subtle" />}
-            {rightColumn.length > 0 && (
-              <div className="flex-1 min-w-0" role="group" aria-label="Embed">
-                <div className="px-2 py-1 text-xs text-fg-subtle font-medium uppercase tracking-wide">
-                  Embed
-                </div>
-                {rightColumn.map(renderCommand)}
-              </div>
-            )}
+            ))}
           </div>
         )}
       </MenuSurface>

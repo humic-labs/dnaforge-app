@@ -1,4 +1,5 @@
 import type { SourceFormulaMetadata } from './source-formula-result';
+import type { JSONContent } from '@tiptap/core';
 
 export type CellType = 'text' | 'number' | 'formula';
 
@@ -17,11 +18,13 @@ export interface CellFormat {
 
 export interface NativeEntityCellReference {
   kind: 'native-entity';
+  occurrenceId?: string;
   entityId: string;
 }
 
 export interface LegacyMigrationDestinationCellReference {
   kind: 'migration-destination';
+  occurrenceId?: string;
   destinationTargetId: string;
 }
 
@@ -43,6 +46,7 @@ export interface CellSpan {
 export interface Cell extends SourceFormulaMetadata {
   value: string;
   type: CellType;
+  content?: JSONContent[];
   computed?: string | number;
   format?: CellFormat;
   reference?: TableCellReference;

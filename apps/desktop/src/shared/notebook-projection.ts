@@ -24,6 +24,12 @@ export interface NotebookProjectionFromFileInput {
   expectedProjectionFingerprint: string | null;
 }
 
+export function retainLegacyNotebookPage(page: NotebookPageRow | null): null {
+  if (page)
+    throw new Error('This database record is the only saved copy of the notebook. It was kept.');
+  return null;
+}
+
 export type LegacyNotebookPageMutation =
   | { operation: 'delete'; id: string }
   | {

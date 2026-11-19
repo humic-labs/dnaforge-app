@@ -1,3 +1,5 @@
+import { retainSequencePackage } from '../retain-sequence-package';
+import { writeWithBoundFileRetention } from '../saved-file-publication';
 import { appendProjectMemoryEventInMain } from '../project-memory';
 import { sequencePackageFilesystemHandlers } from './sequence-package-filesystem-handlers';
 import { resolveRegisteredProjectPath } from '../project-path-identity';
@@ -192,12 +194,23 @@ export function registerFilesystemHandlers(): void {
               assertWorkspaceContentPublicationWritable(db, event, workspaceRoot);
               return {
                 ok: true as const,
-                result: await writeWorkspaceBinaryFileAtomicInMain(
-                  { ...input, workspaceRoot, path },
+                result: await writeWithBoundFileRetention(
+                  db,
                   {
-                    beforePublish: () =>
-                      assertWorkspaceContentPublicationWritable(db, event, workspaceRoot),
-                  }
+                    path,
+                    content: input.content,
+                    workspaceRoot,
+                  },
+                  (mark) =>
+                    writeWorkspaceBinaryFileAtomicInMain(
+                      { ...input, workspaceRoot, path },
+                      {
+                        beforePublish: (staged) => {
+                          assertWorkspaceContentPublicationWritable(db, event, workspaceRoot);
+                          mark(staged);
+                        },
+                      }
+                    )
                 ),
               };
             },
@@ -230,16 +243,27 @@ export function registerFilesystemHandlers(): void {
             operation: async () => {
               assertCurrent();
               const write = () =>
-                writeWorkspaceTextFileAtomicInMain(
-                  { ...input, workspaceRoot, path },
+                writeWithBoundFileRetention(
+                  db,
                   {
-                    beforePublish: () => {
-                      assertCurrent();
-                      withRendererDatabaseStatement(db, event.sender, () =>
-                        assertEnrolledPrimerPathMutationAllowed(db, [path])
-                      );
-                    },
-                  }
+                    path,
+                    content: input.content,
+                    workspaceRoot,
+                    expectedSha256: input.expectedContentHash,
+                  },
+                  (mark) =>
+                    writeWorkspaceTextFileAtomicInMain(
+                      { ...input, workspaceRoot, path },
+                      {
+                        beforePublish: (staged) => {
+                          assertCurrent();
+                          withRendererDatabaseStatement(db, event.sender, () =>
+                            assertEnrolledPrimerPathMutationAllowed(db, [path])
+                          );
+                          mark(staged);
+                        },
+                      }
+                    )
                 );
               const sequencePackageRoot = packageRootForLockedSequenceMarkerReplace(
                 workspaceRoot,
@@ -287,8 +311,10 @@ export function registerFilesystemHandlers(): void {
           mutationToken: input.mutationToken,
           operation: async () => {
             assertWorkspaceContentPublicationWritable(db, event, workspaceRoot);
-            return publishNotebookPackageV2InMain({ ...input, workspaceRoot, packageRoot }, () =>
-              assertWorkspaceContentPublicationWritable(db, event, workspaceRoot)
+            return publishNotebookPackageV2InMain(
+              { ...input, workspaceRoot, packageRoot },
+              () => assertWorkspaceContentPublicationWritable(db, event, workspaceRoot),
+              getDb()
             );
           },
         })
@@ -312,7 +338,7 @@ export function registerFilesystemHandlers(): void {
             mutationPaths: [packageRoot],
             mutationToken: input.mutationToken,
             operation: () =>
-              migrateNotebookPackageAtPathInMain({ ...input, workspaceRoot, packageRoot }),
+              migrateNotebookPackageAtPathInMain({ ...input, workspaceRoot, packageRoot }, getDb()),
           }),
         { requireAbsolute: true }
       );
@@ -340,7 +366,8 @@ export function registerFilesystemHandlers(): void {
               assertWorkspaceContentPublicationWritable(db, event, workspaceRoot);
               return prepareNotebookPackageRenameInMain(
                 { ...input, workspaceRoot, packageRoot, nextPackageRoot },
-                () => assertWorkspaceContentPublicationWritable(db, event, workspaceRoot)
+                () => assertWorkspaceContentPublicationWritable(db, event, workspaceRoot),
+                getDb()
               );
             },
           })
@@ -364,11 +391,14 @@ export function registerFilesystemHandlers(): void {
             mutationPaths: [packageRoot],
             mutationToken: input.mutationToken,
             operation: () =>
-              recoverNotebookPackageRenameIfNeededInMain({
-                ...input,
-                workspaceRoot,
-                packageRoot,
-              }),
+              recoverNotebookPackageRenameIfNeededInMain(
+                {
+                  ...input,
+                  workspaceRoot,
+                  packageRoot,
+                },
+                getDb()
+              ),
           }),
         { requireAbsolute: true }
       );
@@ -418,9 +448,19 @@ export function registerFilesystemHandlers(): void {
           const sourceIdentity = options?.requireConverted
             ? await stat(safeFilePath, { bigint: true })
             : null;
+          if (safeOverwritePackageRoot)
+            await retainSequencePackage(workspaceScope.db, {
+              workspaceRoot: sourceWorkspaceRoot,
+              packageRoot: safeOverwritePackageRoot,
+            });
           const result = await materializeImportedSequencePackages(safeFilePath, undefined, {
             overwritePackageRoot: safeOverwritePackageRoot,
           });
+          for (const pkg of result.packages)
+            await retainSequencePackage(workspaceScope.db, {
+              workspaceRoot: sourceWorkspaceRoot,
+              packageRoot: pkg.packageRoot,
+            });
           if (options?.requireConverted && !result.converted) {
             const currentIdentity = await stat(safeFilePath, { bigint: true }).catch(() => null);
             const isSameSource =
@@ -924,11 +964,24 @@ export function registerFilesystemHandlers(): void {
                 if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
               }
               assertCurrent();
-              if (options?.append) {
-                await writeFile(safePath, content, { encoding: 'utf-8', flag: 'a' });
-              } else {
-                await writeFile(safePath, content, 'utf-8');
-              }
+              const { getDb } = await import('./database');
+              await writeWithBoundFileRetention(
+                getDb(),
+                {
+                  path: safePath,
+                  content,
+                  append: options?.append,
+                  publishRetained: assertCurrent,
+                },
+                async () => {
+                  assertCurrent();
+                  if (options?.append) {
+                    await writeFile(safePath, content, { encoding: 'utf-8', flag: 'a' });
+                  } else {
+                    await writeFile(safePath, content, 'utf-8');
+                  }
+                }
+              );
               packageScratchCapabilities.recordGeneratedWrite(safePath, event.sender.id);
             },
             mutationToken
@@ -949,9 +1002,20 @@ export function registerFilesystemHandlers(): void {
                 packageScratchCapabilities.validateGeneratedWrite(path, event.sender.id, {
                   content: input.content,
                 });
-                await writeTextFileAtomicInMain(
-                  { ...input, path },
-                  { beforePublish: assertCurrent }
+                const { getDb } = await import('./database');
+                await writeWithBoundFileRetention(
+                  getDb(),
+                  { path, content: input.content },
+                  (mark) =>
+                    writeTextFileAtomicInMain(
+                      { ...input, path },
+                      {
+                        beforePublish: (staged) => {
+                          assertCurrent();
+                          mark(staged);
+                        },
+                      }
+                    )
                 );
                 packageScratchCapabilities.recordGeneratedWrite(path, event.sender.id);
               }),

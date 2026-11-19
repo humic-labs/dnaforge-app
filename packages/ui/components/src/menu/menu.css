@@ -53,6 +53,18 @@
   background-color: hsl(var(--color-bg-subtle));
   border-color: transparent;
 }
+.wp-menu[data-menu-surface='inline-workspace'] {
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  box-shadow: none;
+}
+.wp-menu[data-menu-surface='inline-workspace'] .wp-menu-row {
+  transition: none;
+}
+.wp-menu[data-menu-surface='inline-workspace'] .wp-menu-row[data-active='false']:hover {
+  background: transparent;
+}
 .wp-menu[data-menu-icons='true'] {
   --menu-icon-display: inline-flex;
 }

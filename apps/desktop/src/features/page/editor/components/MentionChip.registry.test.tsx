@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MentionChip } from './MentionChip';
@@ -46,7 +46,7 @@ describe('a Registry link chip', () => {
     });
   });
 
-  it('keeps the record kind and opens the record by its Registry id', () => {
+  it('keeps the record kind and opens the record by its Registry id', async () => {
     chip({
       entityType: 'registry',
       entityId: 'ent-strain',
@@ -57,6 +57,7 @@ describe('a Registry link chip', () => {
       objectUuid: null,
     });
 
+    await act(async () => {});
     const node = screen.getByTestId('mention-node');
     expect(node.getAttribute('data-entity-type')).toBe('registry');
     expect(node.getAttribute('data-registry-kind')).toBe('strain');

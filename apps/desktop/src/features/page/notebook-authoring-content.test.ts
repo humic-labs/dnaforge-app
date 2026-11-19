@@ -15,8 +15,8 @@ describe('native notebook authoring content', () => {
       },
     ];
     const content = compileNotebookBlocks(blocks);
-    expect(content.content?.[0].content).toHaveLength(2);
-    expect(content.content?.[0].content?.[1].content?.[1].content?.[0].content?.[0].text).toBe(
+    expect(content.content?.[0].attrs?.data.cells).toHaveLength(2);
+    expect(content.content?.[0].attrs?.data.cells[1][1].value).toBe(
       'CAGCTTTTGTTCCCTTTAGTGAGGGTTAATTG'
     );
     expect(notebookBlockReferenceIds(blocks)).toEqual([referenceId]);

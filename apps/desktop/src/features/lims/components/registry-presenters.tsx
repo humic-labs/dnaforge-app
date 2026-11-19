@@ -1,3 +1,7 @@
+import {
+  entityKindLabel,
+  entityKindNoun,
+} from '@waypoint/scientific-artifacts/shared/entity-types';
 import { iconForEntityKind } from '../../../components/icons';
 import { RegistryOpenButton } from './registry/RegistryOpenButton';
 import type { ProjectableEntitySchemaRevisionSnapshot } from '../../../shared/entity-schema';
@@ -335,56 +339,5 @@ export function iconForLimsKind(kind: string, className = 'h-3.5 w-3.5 flex-shri
   return iconForEntityKind(kind, className);
 }
 
-export function registryTypeLabel(kind: string): string {
-  if (kind === 'genome') return 'assembly';
-  if (kind === 'track-view') return 'track view';
-  if (kind === 'molecular-document') return 'molecular views';
-  return kind;
-}
-
-export function singularKindLabel(kind: string): string {
-  switch (kind) {
-    case 'sequence':
-      return 'DNA sequence';
-    case 'oligo':
-      return 'DNA oligo';
-    case 'rna_oligo':
-      return 'RNA oligo';
-    case 'plasmid':
-      return 'plasmid';
-    case 'genome':
-      return 'assembly';
-    case 'chromosome':
-      return 'chromosome';
-    case 'strain':
-      return 'strain';
-    case 'organism':
-      return 'organism';
-    case 'protein':
-      return 'protein';
-    case 'dna_sequence':
-      return 'DNA sequence';
-    case 'rna_sequence':
-      return 'RNA sequence';
-    case 'track-view':
-      return 'track view';
-    case 'molecular-document':
-      return 'molecular document';
-    case 'guide_rna':
-      return 'guide RNA';
-    case 'allele':
-      return 'allele';
-    case 'locus':
-      return 'locus';
-    case 'part':
-      return 'part';
-    case 'fragment':
-      return 'fragment';
-    case 'marker':
-      return 'marker';
-    case 'external_ref':
-      return 'external reference';
-    default:
-      return kind;
-  }
-}
+export const registryTypeLabel = entityKindLabel;
+export const singularKindLabel = entityKindNoun;

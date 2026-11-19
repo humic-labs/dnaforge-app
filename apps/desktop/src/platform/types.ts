@@ -549,6 +549,9 @@ export type * from '../shared/agent-runtime-ipc';
 export type * from '../shared/agent-capability-controls';
 
 export interface PlatformBridge {
+  entityDiscovery: import('../shared/ipc/contract').ClientOf<
+    typeof import('../shared/ipc/entity-discovery.contract').entityDiscoveryContract
+  >;
   notebook: {
     migrateLegacyProjectFiles(request: {
       workspaceRoot: string;
@@ -647,6 +650,9 @@ export interface PlatformBridge {
     onChanged(listener: (event: ImportReviewChanged) => void): () => void;
   };
   lims: ArtifactRegistryIO & {
+    readCommittedPrimerSource(
+      request: import('../shared/primer-artifact-revision').PrimerArtifactRevisionStateRequest
+    ): Promise<string | null>;
     readPrimerArtifactRevisionState(
       request: import('../shared/primer-artifact-revision').PrimerArtifactRevisionStateRequest
     ): Promise<import('../shared/primer-artifact-revision').PrimerArtifactRevisionState>;
@@ -1009,6 +1015,7 @@ export interface PlatformBridge {
     onImportProgress(callback: (event: ImportProgressEvent) => void): () => void;
   };
   shell: {
+    savedFileSource(request:import('../shared/saved-file-source-command').SavedFileSourceRequest):Promise<import('../shared/saved-file-source-command').SavedFileSourceResult>;
     projectHistory(
       request: import('../shared/project-history').ProjectHistoryRequest
     ): Promise<import('../shared/project-history').ProjectHistoryResult>;
