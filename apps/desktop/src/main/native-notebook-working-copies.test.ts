@@ -77,6 +77,43 @@ const owner = () => {
 };
 
 describe('native notebook legacy package boundary', () => {
+  it('defers automatic migration while a notebook has unsaved edits and keeps explicit file changes protected', async () => {
+    const native = owner();
+    const created = await native.create({
+      title: 'Editing',
+      workspaceRoot: root,
+      requestId: 'edited-notebook',
+    });
+    const edited = await native.execute({
+      documentId: created.documentId,
+      expectedRevision: created.revision,
+      operation: {
+        kind: 'splice-blocks',
+        index: created.blockCount,
+        deleteCount: 0,
+        blocks: [{ type: 'paragraph', content: [{ type: 'text', text: 'Pending change' }] }],
+      },
+    });
+    expect(edited.dirty).toBe(true);
+    await expect(native.migrateLegacyProjectFiles(root)).resolves.toMatchObject({
+      migrated: 0,
+      issues: [],
+    });
+    await expect(native.assertClean(created.path)).rejects.toMatchObject({
+      code: 'DIRTY_NOTEBOOK',
+    });
+    const saved = await native.execute({
+      documentId: created.documentId,
+      expectedRevision: edited.revision,
+      operation: { kind: 'save' },
+    });
+    expect(saved.dirty).toBe(false);
+    expect(await readFile(notebookPackagePaths(created.path).markdownPath, 'utf8')).toContain(
+      'Pending change'
+    );
+    await native.close();
+  });
+
   it('inserts a managed file reference with the package identity and the declared product hash', async () => {
     const native = owner();
     const created = await native.create({

@@ -1011,6 +1011,8 @@ export function createNativeNotebookWorkingCopies(options: {
             }
           });
         } catch (error) {
+          if (error instanceof NativeDocumentCommandError && error.code === 'DIRTY_NOTEBOOK')
+            continue;
           result.issues.push({
             path: row.path,
             reason: error instanceof Error ? error.message : String(error),
