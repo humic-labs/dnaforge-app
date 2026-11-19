@@ -8,6 +8,9 @@ description:
 
 # Verify DNAForge desktop workflows
 
+For window and divider resizing with a wrapped sequence above its plasmid map,
+follow the [split sequence viewer checks](features/split-sequence-map.md).
+
 For release and usage analytics notices, follow the
 [desktop relaunch checks](features/desktop-notices.md).
 
