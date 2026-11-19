@@ -1,4 +1,4 @@
-import { withUserMessage, userMessageWithValues, userMessageValue } from '@waypoint/user-messages';
+import { withUserMessage, userMessagePayload, userMessageValue } from '@waypoint/user-messages';
 import {
   ProteinProjectionError,
   type PublishedProteinDraft,
@@ -184,7 +184,7 @@ export async function updatePublishedProteinDraft(
   if (!fileName || fileName.includes('/') || fileName.includes('\\')) {
     throw withUserMessage(
       new Error('The original protein destination changed.'),
-      userMessageWithValues('document.saveLocationChanged', { name: userMessageValue(input.name) })
+      userMessagePayload('document.saveLocationChanged', { name: userMessageValue(input.name) })
     );
   }
   const workspaceId = await resolveWorkspaceId(input.workspaceRoot);
