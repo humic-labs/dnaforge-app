@@ -18,7 +18,7 @@ const { readFileBounded, bindStructure, showViewport } = vi.hoisted(() => ({
   bindStructure: vi.fn(),
   showViewport: vi.fn(),
 }));
-vi.mock('../../platform', () => ({ platform: () => ({ fileAssociations: { readPreviewBytes: readFileBounded } }) }));
+vi.mock('../../platform', () => ({ platform: () => ({ fs: { readFileBounded } }) }));
 vi.mock('../page/public/embeds/structure3d/LazyMolstarViewer', () => ({
   LazyMolstarViewer: (props: unknown) => {
     bindStructure(props);

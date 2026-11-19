@@ -7,7 +7,10 @@ import type {
 import type { Structure3dAttrs } from '../page/public/embeds/structure3d/types';
 import type { StructureInspection } from '../structure-drawer/public/inspection-types';
 import type { SourceFileView } from '../../shared/external-preview';
-import type { QuickLookPackageReceipt } from '../../shared/file-association-ipc';
+import type {
+  ExternalPreviewReceipt,
+  QuickLookPackageReceipt,
+} from '../../shared/file-association-ipc';
 import type { SequenceDocumentRef } from '../../shared/managed-sequence-document';
 import type { CutSiteDisplayRequest } from '@waypoint/workspace-editor';
 import type { LegacyMigrationFastaRead } from '../../shared/legacy-migration-read';
@@ -151,7 +154,13 @@ export interface Tab {
   legacyMigrationRead?: LegacyMigrationFastaRead;
   legacyFasta?: Exclude<FastaKindReadAuthority, { status: 'declared' }>;
   quickLookSource?: QuickLookPackageReceipt;
-  sourceFileView?: SourceFileView;
+  previewReceipt?: ExternalPreviewReceipt;
+  sourceFileView?: SourceFileView & {
+    receipt?: ExternalPreviewReceipt;
+    projectPackageId?: string;
+    sourceFileName?: string;
+    selectedRecord?: number;
+  };
 
   sequenceDocument?: SequenceDocumentRef;
 

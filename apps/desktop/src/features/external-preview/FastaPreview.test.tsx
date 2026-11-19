@@ -8,8 +8,21 @@ const readFileBounded = vi.hoisted(() => vi.fn());
 const importNew = vi.hoisted(() => vi.fn());
 vi.mock('../../platform', () => ({
   platform: () => ({
-    fileAssociations: { readPreviewBytes: readFileBounded },
-    workspace: { importFileAsNewWorkspace: importNew },
+    fileAssociations: {
+      readPreviewPresentation: async ({ receipt }: { receipt: { contentHash: string } }) => ({
+        familyId: 'fasta',
+        sourceSha256: receipt.contentHash,
+        records: [
+          { name: 'first', sequence: 'ACGT', length: 4 },
+          { name: 'second', sequence: 'TTAA', length: 4 },
+        ],
+      }),
+      adoptPreview: async ({ receipt }: { receipt: unknown }) => receipt,
+      savePreview: importNew,
+      syncPreviewTabs: vi.fn(),
+      releasePreview: vi.fn(),
+    },
+    fs: { readFileBounded },
   }),
 }));
 vi.mock('../../stores/workspaceStore', () => ({ useWorkspaceStore: () => [] }));
@@ -23,8 +36,16 @@ it('shows import beside the external record selector and removes it in a project
   readFileBounded.mockResolvedValue(bytes);
   importNew.mockRejectedValueOnce(new Error('Changed source'));
   const view = { format: 'fasta' as const, path: '/input.fa' };
+  const receipt = {
+    version: 1 as const,
+    packageId: 'cached-fasta',
+    familyId: 'fasta' as const,
+    sourceFileName: 'input.fa',
+    sourcePath: view.path,
+    contentHash: createHash('sha256').update(bytes).digest('hex'),
+  };
   const { rerender } = render(
-    <SourceFileViewer tabId="doc" view={{ ...view, location: 'external' }} />
+    <SourceFileViewer tabId="doc" view={{ ...view, location: 'external', receipt }} />
   );
   expect(await screen.findByText('2 records')).toBeVisible();
   const row = within(screen.getByRole('group', { name: 'Read-only preview · Not imported' }));
@@ -35,9 +56,8 @@ it('shows import beside the external record selector and removes it in a project
   fireEvent.click(picker.getByRole('button', { name: 'Import' }));
   expect(await picker.findByRole('alert')).toBeVisible();
   expect(importNew).toHaveBeenCalledWith({
-    sourcePath: view.path,
-    preserveOriginal: true,
-    expectedSourceSha256: createHash('sha256').update(bytes).digest('hex'),
+    receipt,
+    destination: { kind: 'new-workspace', name: 'input' },
   });
   fireEvent.click(picker.getByRole('button', { name: 'Cancel' }));
   expect(screen.queryByRole('region', { name: 'Import destination' })).toBeNull();

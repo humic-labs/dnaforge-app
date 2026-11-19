@@ -1,3 +1,4 @@
+import type { SourceDocumentPresentationData } from '../../shared/source-document-package';
 import { useCallback, useState } from 'react';
 import { decodeSequenceDocument, type TraceData } from '@waypoint/sequence-utils';
 import { SequenceViewer1D } from '@waypoint/workspace-editor';
@@ -78,8 +79,20 @@ function TraceViewer({
   );
 }
 
-export function ChromatogramPreview({ path, onSnapshot, controls }: PreviewProps) {
-  const source = usePreviewSource(path, MAX_TRACE_BYTES, readChromatogram);
+function packageChromatogram(data: SourceDocumentPresentationData, path: string) {
+  if (data.familyId !== 'chromatogram')
+    throw new Error('The saved document is not a chromatogram.');
+  return readChromatogram(data.bytes, path);
+}
+
+export function ChromatogramPreview({ path, onSnapshot, controls, readPackage }: PreviewProps) {
+  const source = usePreviewSource(
+    path,
+    MAX_TRACE_BYTES,
+    readChromatogram,
+    packageChromatogram,
+    readPackage
+  );
   useDisplayedSnapshot(source?.status === 'loaded' ? undefined : onSnapshot, null);
   if (source?.status !== 'loaded')
     return (

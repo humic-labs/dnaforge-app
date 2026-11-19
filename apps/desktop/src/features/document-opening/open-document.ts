@@ -1,3 +1,4 @@
+import { isSourceDocumentMarkerPath } from '../../shared/source-document-package';
 import { isFastaSource, isPreservedFasta } from '../../shared/preserved-fasta';
 import { getTabTypeForFile } from '../../utils/fileTypes';
 import { isAdoptableMarkdownPath } from '../../shared/markdown-notebook';
@@ -314,6 +315,10 @@ async function dispatchDocument(request: OpenDocumentRequest): Promise<DocumentO
     return result;
   }
   if (target.kind === 'file') {
+    if (isSourceDocumentMarkerPath(target.path)) {
+      const { openProjectSourcePackage } = await import('../../lib/open-external-preview');
+      return openProjectSourcePackage(target.path, request.placement, request.signal);
+    }
     if (/\.(md|markdown)$/i.test(target.path) && platform().notebook.adoptMarkdown) {
       const root = findWorkspaceRootForPath(useWorkspaceStore.getState().folders, target.path);
       if (root && isAdoptableMarkdownPath(target.path.slice(root.length + 1))) {

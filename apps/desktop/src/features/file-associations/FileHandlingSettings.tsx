@@ -267,9 +267,8 @@ export function FileHandlingSettings() {
   return (
     <div className="space-y-3" data-testid="file-handling-settings">
       <p className="mb-5 max-w-2xl text-sm leading-5 text-fg-muted">
-        GenBank and SnapGene previews keep a read-only copy in this app profile after you close the
-        tab (up to 2 GiB total). Other previews read the original file each time. Import to Edit
-        saves a copy in a project.
+        Previews keep a read-only copy in this app profile (up to 2 GiB total). Open and recently
+        closed tabs can reopen after the original moves. Import saves a separate copy in a project.
       </p>
       {HANDLER_FAMILIES.map((family) => (
         <FamilyRow

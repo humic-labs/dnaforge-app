@@ -20,8 +20,8 @@ import { ImportDestinationPicker } from '../features/import-wizard/ImportDestina
 import type { ImportDestination } from '../features/workspace-loader/resolve-import-destination';
 import { useQuickLookImportStore } from '../stores/quick-look-import-store';
 import { isPathInsideBoundary } from '../shared/path-boundary';
-import { managedSequenceRepository } from '../features/sequence/managed-sequence-repository';
-import { retargetOpenSequenceTab } from '../features/sequence/openSequenceFile';
+import { syncPreviewTabs, releasePresentedPreview } from '../lib/preview-tab-packages';
+import { promotePreviewTab } from '../features/external-preview/promote-preview-tab';
 
 export interface QuickLookDestinationCommit {
   readonly workspaceRoot: string;
@@ -55,6 +55,7 @@ export function QuickLookImportHost({
   const presentationEvents = usePresentationListener(presentationOverlay.scope);
 
   const request = useQuickLookImportStore((state) => state.request);
+  const initiatingTabId = useQuickLookImportStore((state) => state.tabId);
   const requestId = useQuickLookImportStore((state) => state.requestId);
   const promoting = useQuickLookImportStore((state) => state.phase === 'promoting');
   const mounted = useRef(false);
@@ -122,7 +123,12 @@ export function QuickLookImportHost({
       if (current()) useQuickLookImportStore.getState().fail(requestId);
     };
     let durableDestPath: string | null = null;
+    let receipt:
+      | Awaited<ReturnType<ReturnType<typeof platform>['fileAssociations']['adoptPreview']>>
+      | undefined;
     try {
+      await syncPreviewTabs();
+      receipt = await platform().fileAssociations.adoptPreview({ receipt: request });
       const rememberedResult =
         durablePromotion?.sourcePath === request.sourcePath &&
         durablePromotion.contentHash === request.contentHash
@@ -130,8 +136,8 @@ export function QuickLookImportHost({
           : null;
       const result =
         rememberedResult ??
-        (await platform().fileAssociations.promoteQuickLookPackage({
-          receipt: request,
+        (await platform().fileAssociations.savePreview({
+          receipt,
           destination:
             destination.kind === 'new-workspace'
               ? { kind: 'new-workspace', name: workspaceNameFor(request.sourceFileName) }
@@ -144,6 +150,7 @@ export function QuickLookImportHost({
         .flatMap(([panelId, panel]) => panel.tabs.map((tab) => ({ panelId, tab })))
         .find(
           ({ tab }) =>
+            (!initiatingTabId || tab.id === initiatingTabId) &&
             tab.type === 'sequence' &&
             tab.quickLookSource?.sourcePath === request.sourcePath &&
             tab.quickLookSource.contentHash === request.contentHash
@@ -177,25 +184,8 @@ export function QuickLookImportHost({
       });
 
       if (!current()) return;
-      const promoted = await managedSequenceRepository.findByMemberPath(destPath);
+      await promotePreviewTab(receipt, result, sourceTab.tab.id);
       if (!current()) return;
-      if (!promoted) {
-        throw new Error('The imported sequence package could not be resolved.');
-      }
-      const retargetedTabId = retargetOpenSequenceTab(
-        sourceTab.tab.sequenceDocument,
-        promoted.ref,
-        {
-          label:
-            promoted.document.name || selectedSourceRecord?.displayName || request.sourceFileName,
-          presentation: null,
-        }
-      );
-      if (!retargetedTabId) {
-        throw new Error(
-          'The Quick Look tab is no longer open. The imported package was preserved.'
-        );
-      }
       finish(requestId);
       useToastStore.getState().addToast(
         request.records.length === 1
@@ -228,6 +218,10 @@ export function QuickLookImportHost({
         });
       }
     } finally {
+      if (receipt)
+        await releasePresentedPreview(receipt).catch((error: unknown) =>
+          console.error('[preview release]', error)
+        );
       const state = useQuickLookImportStore.getState();
       if (!mounted.current && state.requestId === requestId && state.phase === 'promoting') {
         state.fail(requestId);

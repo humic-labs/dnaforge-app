@@ -190,7 +190,6 @@ import {
 import type { QuickLookPackageReceipt } from '../../../shared/file-association-ipc';
 
 import { managedSequenceRepository } from '../managed-sequence-repository';
-import { retargetOpenSequenceTab } from '../openSequenceFile';
 import {
   sequenceDisplayName,
   type SequencePresentation,
@@ -274,10 +273,27 @@ export function SequenceTab({
               });
             return;
           }
-          retargetOpenSequenceTab(documentRef, resolved.ref, {
-            label: resolved.document.name || record.displayName,
-            presentation: { kind: 'quick-look', receipt: quickLookSource },
-          });
+          const canvas = useCanvasStore.getState();
+          const panel = Object.values(canvas.panels).find((p) =>
+            p.tabs.some(
+              (t) =>
+                t.id === tabId &&
+                t.quickLookSource === quickLookSource &&
+                t.sequenceDocument === documentRef
+            )
+          );
+          if (panel)
+            canvas.retargetTab(
+              panel.id,
+              tabId,
+              { type: 'sequence', sequenceDocument: resolved.ref },
+              {
+                label: resolved.document.name || record.displayName,
+                readOnly: true,
+                quickLookSource,
+                sourceFileName: quickLookSource.sourceFileName,
+              }
+            );
         } catch (error) {
           console.error('[SequenceTab] Could not open Quick Look record:', error);
           useToastStore
@@ -288,7 +304,7 @@ export function SequenceTab({
         }
       })();
     },
-    [documentRef, quickLookSource, selectedQuickLookRecord?.recordId]
+    [documentRef, quickLookSource, selectedQuickLookRecord?.recordId, tabId]
   );
 
   useExternalResourceInvalidationListener();
@@ -2373,7 +2389,7 @@ export function SequenceTab({
                         })),
                         selectedRecordId: selectedQuickLookRecord.recordId,
                         onSelect: selectQuickLookRecord,
-                        onImportToEdit: () => requestQuickLookImport(quickLookSource),
+                        onImportToEdit: () => requestQuickLookImport(quickLookSource, tabId),
                       }
                     : undefined
                 }

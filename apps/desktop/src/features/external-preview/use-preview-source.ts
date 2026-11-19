@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import { platform } from '../../platform';
 import { sha256Hex } from '../../shared/sha256';
+import type { SourceDocumentPresentationData } from '../../shared/source-document-package';
 import type { PreviewControls } from './DocumentInfoRow';
 
 export interface PreviewProps {
   path: string;
+  readPackage?: () => Promise<SourceDocumentPresentationData>;
+  recordIndex?: number;
+  onRecordChange?: (index: number) => void;
   onSnapshot?: (sha256: string | null) => void;
   controls?: PreviewControls;
 }
@@ -16,13 +20,27 @@ type Source<T> =
 export function usePreviewSource<T>(
   path: string,
   maxBytes: number,
-  decode: (bytes: Uint8Array, path: string) => T
+  decode: (bytes: Uint8Array, path: string) => T,
+  fromPackage: (data: SourceDocumentPresentationData, path: string) => T,
+  readPackage?: () => Promise<SourceDocumentPresentationData>
 ) {
   const [source, setSource] = useState<Source<T> | null>(null);
   useEffect(() => {
     let active = true;
     async function load() {
-      const bytes = await platform().fileAssociations.readPreviewBytes(path, maxBytes);
+      if (readPackage) {
+        const data = await readPackage();
+        if (active)
+          setSource({
+            path,
+            status: 'loaded',
+            document: fromPackage(data, path),
+            sha256: data.sourceSha256,
+          });
+        return;
+      }
+      const bytes = await platform().fs.readFileBounded(path, maxBytes);
+      if (bytes.length > maxBytes) throw new Error('File exceeds bounded read limit.');
       if (!active) return;
       const sha256 = await sha256Hex(bytes);
       if (!active) return;
@@ -37,7 +55,7 @@ export function usePreviewSource<T>(
     return () => {
       active = false;
     };
-  }, [path, maxBytes, decode]);
+  }, [path, maxBytes, decode, readPackage, fromPackage]);
   return source?.path === path ? source : null;
 }
 

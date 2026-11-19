@@ -164,7 +164,12 @@ function SequenceDocumentTabContent({ tab }: { tab: Tab }) {
     let cancelled = false;
     if (!ref) return;
     setState((current) => (current.status === 'ready' ? current : { status: 'loading' }));
-    void resolveSequenceDocument(ref)
+    const opening = tab.quickLookSource
+      ? import('../../external-preview/restore-quick-look-sequence').then(
+          ({ restoreQuickLookSequence }) => restoreQuickLookSequence(tab)
+        )
+      : resolveSequenceDocument(ref);
+    void opening
       .catch(async (error: unknown) => {
         if (!isHostedBrowserRuntime()) throw error;
         const { resolveHostedTabDocument } = await import('../../../hosted/hydrate-session');
@@ -190,6 +195,7 @@ function SequenceDocumentTabContent({ tab }: { tab: Tab }) {
         ({ resolved, authority }) => {
           if (cancelled) return;
           setState({ status: 'ready', document: resolved, authority });
+          if (tab.quickLookSource) return;
           if (resolved.name && resolved.name !== labelHintRef.current) {
             useCanvasStore.getState().updateTabByEntityId(tab.entityId, { label: resolved.name });
           }
@@ -207,7 +213,9 @@ function SequenceDocumentTabContent({ tab }: { tab: Tab }) {
           if (!cancelled) {
             setState({
               status: 'error',
-              message: toUserMessage(error, 'failure.the-sequence-document-could-not-open'),
+              message: tab.quickLookSource
+                ? 'This preview package could not be restored. Reopen the original file from File → Open.'
+                : toUserMessage(error, 'failure.the-sequence-document-could-not-open'),
             });
           }
         }
@@ -215,14 +223,19 @@ function SequenceDocumentTabContent({ tab }: { tab: Tab }) {
     return () => {
       cancelled = true;
     };
-  }, [ref, tab.entityId, tab.sourceFileName, hostedRetryKey]);
+  }, [
+    ref,
+    tab.entityId,
+    tab.sourceFileName,
+    tab.quickLookSource,
+    tab.previewReceipt,
+    hostedRetryKey,
+  ]);
 
   if (!ref || state.status === 'error') {
     return (
       <div className="h-full flex items-center justify-center p-6 text-sm text-fg-muted">
-        {state.status === 'error'
-          ? toUserMessage(state.message, 'operation.failed')
-          : 'The sequence document reference is missing.'}
+        {state.status === 'error' ? state.message : 'The sequence document reference is missing.'}
       </div>
     );
   }

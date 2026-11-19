@@ -12,19 +12,16 @@ const api = vi.hoisted(() => ({
   open: vi.fn(),
   exists: vi.fn(),
   registered: vi.fn(),
-  importNew: vi.fn(),
-  importExisting: vi.fn(),
+  save: vi.fn(),
   bytes: vi.fn(),
 }));
 vi.mock('../../platform', () => ({
   platform: () => ({
-    fileAssociations: { readPreviewBytes: api.bytes },
-    fs: { exists: api.exists },
+    fileAssociations: { savePreview: api.save },
+    fs: { exists: api.exists, readFileBounded: api.bytes },
     molecularDocuments: { resolveImportedCoordinate: api.resolve },
     workspace: {
       listRegisteredProjects: api.registered,
-      importFileAsNewWorkspace: api.importNew,
-      importFile: api.importExisting,
     },
   }),
 }));
@@ -75,7 +72,15 @@ afterEach(cleanup);
 it.each(['existing', 'new'])(
   'opens the canonical path returned by a %s project import in its original tab',
   async (kind) => {
-    const source: SourceFileView = {
+    const source: NonNullable<import('../canvas/types').Tab['sourceFileView']> = {
+      receipt: {
+        version: 1,
+        packageId: 'test',
+        sourcePath: '/external/structure.pdb',
+        sourceFileName: 'structure.pdb',
+        familyId: 'structure',
+        contentHash: digest,
+      },
       path: '/external/structure.pdb',
       format: 'structure',
       location: 'external',
@@ -94,8 +99,7 @@ it.each(['existing', 'new'])(
       const view = useCanvasStore((s) => s.panels.main.tabs[0].sourceFileView!);
       return <SourceFileViewer key={view.path} view={view} tabId={tabId} />;
     }
-    api.importNew.mockResolvedValue({ entryPath: product, repoPath: '/project' });
-    api.importExisting.mockResolvedValue({ destPath: product });
+    api.save.mockResolvedValue({ destPath: product, workspaceRoot: '/project', records: [] });
     render(<TabBody />);
     fireEvent.click(screen.getByRole('button', { name: 'Import to Project…' }));
     if (kind === 'existing') fireEvent.click(screen.getByText('Existing project'));
@@ -109,7 +113,12 @@ it.each(['existing', 'new'])(
         })
       )
     );
-    expect(kind === 'existing' ? api.importExisting : api.importNew).toHaveBeenCalledOnce();
+    expect(api.save).toHaveBeenCalledWith({
+      receipt: source.receipt,
+      destination: expect.objectContaining({
+        kind: kind === 'existing' ? 'existing-workspace' : 'new-workspace',
+      }),
+    });
     expect(api.resolve).not.toHaveBeenCalled();
     expect(api.bytes).not.toHaveBeenCalled();
   }

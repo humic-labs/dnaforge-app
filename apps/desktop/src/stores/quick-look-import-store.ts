@@ -14,12 +14,13 @@ type PromotionPhase = 'idle' | 'choosing' | 'promoting' | 'recoverable';
 
 interface QuickLookImportState {
   requestId: number;
+  tabId?: string;
   phase: PromotionPhase;
   begin: (requestId: number) => boolean;
   fail: (requestId: number) => void;
   request: QuickLookPackageReceipt | null;
   durablePromotion: DurableQuickLookPromotion | null;
-  open: (receipt: QuickLookPackageReceipt) => void;
+  open: (receipt: QuickLookPackageReceipt, tabId?: string) => void;
   close: (requestId?: number) => void;
   rememberPromotion: (
     receipt: QuickLookPackageReceipt,
@@ -44,9 +45,10 @@ export const useQuickLookImportStore = create<QuickLookImportState>((set, get) =
   },
   request: null,
   durablePromotion: null,
-  open: (request) =>
+  open: (request, tabId) =>
     set((state) => ({
       request,
+      tabId,
       requestId: state.requestId + 1,
       phase: 'choosing',
       durablePromotion:
@@ -77,6 +79,6 @@ export const useQuickLookImportStore = create<QuickLookImportState>((set, get) =
   },
 }));
 
-export function requestQuickLookImport(receipt: QuickLookPackageReceipt): void {
-  useQuickLookImportStore.getState().open(receipt);
+export function requestQuickLookImport(receipt: QuickLookPackageReceipt, tabId: string): void {
+  useQuickLookImportStore.getState().open(receipt, tabId);
 }

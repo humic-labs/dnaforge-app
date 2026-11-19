@@ -1,3 +1,4 @@
+import type { SourceDocumentPresentationData } from '../../shared/source-document-package';
 import { useMemo, useState } from 'react';
 import { parseFasta, type ParsedFastaSequence } from '@waypoint/plasmid-viewer/parsers';
 import { classifyMoleculeType, PARSER_DISPATCH_LIMITS } from '@waypoint/sequence-utils';
@@ -17,11 +18,16 @@ const alphabetLabel = {
 function FastaRecords({
   records,
   controls,
+  recordIndex,
+  onRecordChange,
 }: {
   records: ParsedFastaSequence[];
   controls?: PreviewProps['controls'];
+  recordIndex?: number;
+  onRecordChange?: (index: number) => void;
 }) {
-  const [ordinal, setOrdinal] = useState(0);
+  const [localOrdinal, setOrdinal] = useState(0);
+  const ordinal = Math.min(records.length - 1, Math.max(0, recordIndex ?? localOrdinal));
   const [page, setPage] = useState(0);
   const record = records[ordinal];
   const recordGroup = Math.floor(ordinal / RECORDS_PER_PAGE) * RECORDS_PER_PAGE;
@@ -39,6 +45,7 @@ function FastaRecords({
   );
   const selectRecord = (index: number) => {
     setOrdinal(index);
+    onRecordChange?.(index);
     setPage(0);
   };
   const start = page * SYMBOLS_PER_PAGE;
@@ -112,8 +119,27 @@ function decodeFasta(bytes: Uint8Array) {
   return parseFasta(new TextDecoder('utf-8', { fatal: true }).decode(bytes), { complete: true });
 }
 
-export function FastaPreview({ path, onSnapshot, controls }: PreviewProps) {
-  const state = usePreviewSource(path, PARSER_DISPATCH_LIMITS.fastaIndexedBytes, decodeFasta);
+function packageFasta(data: SourceDocumentPresentationData) {
+  if (data.familyId !== 'fasta' || data.records.length === 0)
+    throw new Error('The saved collection has no FASTA records.');
+  return [...data.records];
+}
+
+export function FastaPreview({
+  path,
+  onSnapshot,
+  controls,
+  readPackage,
+  recordIndex,
+  onRecordChange,
+}: PreviewProps) {
+  const state = usePreviewSource(
+    path,
+    PARSER_DISPATCH_LIMITS.fastaIndexedBytes,
+    decodeFasta,
+    packageFasta,
+    readPackage
+  );
   useDisplayedSnapshot(onSnapshot, state?.status === 'loaded' ? state.sha256 : null);
   if (state?.status !== 'loaded')
     return (
@@ -121,5 +147,13 @@ export function FastaPreview({ path, onSnapshot, controls }: PreviewProps) {
         <span role={state ? 'alert' : 'status'}>{state ? state.message : 'Reading FASTA…'}</span>
       </DocumentInfoRow>
     );
-  return <FastaRecords key={path} records={state.document} controls={controls} />;
+  return (
+    <FastaRecords
+      key={path}
+      records={state.document}
+      controls={controls}
+      recordIndex={recordIndex}
+      onRecordChange={onRecordChange}
+    />
+  );
 }

@@ -11,7 +11,7 @@ import { useQuickLookImportStore } from '../stores/quick-look-import-store';
 const mocks = vi.hoisted(() => ({
   createEmptyWorkspace: vi.fn(),
   findByMemberPath: vi.fn(),
-  promoteQuickLookPackage: vi.fn(),
+  savePreview: vi.fn(),
   readDir: vi.fn(),
 }));
 
@@ -19,7 +19,15 @@ vi.mock('../platform', () => ({
   platform: () => ({
     fs: { readDir: mocks.readDir },
     fileAssociations: {
-      promoteQuickLookPackage: mocks.promoteQuickLookPackage,
+      savePreview: mocks.savePreview,
+      adoptPreview: async ({ receipt }: { receipt: QuickLookPackageReceipt }) => ({
+        ...receipt,
+        packageId: 'preview',
+        version: 1,
+        sequence: receipt,
+      }),
+      syncPreviewTabs: vi.fn(),
+      releasePreview: vi.fn(),
     },
     workspace: {
       createEmptyWorkspace: mocks.createEmptyWorkspace,
@@ -97,7 +105,7 @@ describe('QuickLookImportHost', () => {
   beforeEach(() => {
     mocks.createEmptyWorkspace.mockReset();
     mocks.findByMemberPath.mockReset();
-    mocks.promoteQuickLookPackage.mockReset();
+    mocks.savePreview.mockReset();
     mocks.readDir.mockReset();
     mocks.readDir.mockResolvedValue([]);
     onDestinationCommit.mockReset();
@@ -107,7 +115,7 @@ describe('QuickLookImportHost', () => {
       displayName: 'pUC19',
       createdAt: 1,
     });
-    mocks.promoteQuickLookPackage.mockResolvedValue({
+    mocks.savePreview.mockResolvedValue({
       destPath: durableProductPath,
       relPath: 'pUC19/pUC19.gb',
       committed: true,
@@ -157,8 +165,8 @@ describe('QuickLookImportHost', () => {
     fireEvent.click(screen.getByTestId('quick-look-import-confirm'));
 
     await waitFor(() => expect(screen.queryByTestId('quick-look-import-dialog')).toBeNull());
-    expect(mocks.promoteQuickLookPackage).toHaveBeenCalledWith({
-      receipt,
+    expect(mocks.savePreview).toHaveBeenCalledWith({
+      receipt: expect.objectContaining({ packageId: 'preview', sequence: receipt }),
       destination: { kind: 'existing-workspace', rootPath: '/workspace' },
     });
     expect(useCanvasStore.getState().panels.main.tabs).toEqual([
@@ -186,7 +194,7 @@ describe('QuickLookImportHost', () => {
 
   it('can create a destination workspace without depending on a current project', async () => {
     const managedProductPath = '/managed/pUC19/pUC19/pUC19.gb';
-    mocks.promoteQuickLookPackage.mockResolvedValueOnce({
+    mocks.savePreview.mockResolvedValueOnce({
       destPath: managedProductPath,
       relPath: 'pUC19/pUC19.gb',
       committed: true,
@@ -208,8 +216,8 @@ describe('QuickLookImportHost', () => {
     fireEvent.click(screen.getByTestId('quick-look-import-confirm'));
 
     await waitFor(() => expect(screen.queryByTestId('quick-look-import-dialog')).toBeNull());
-    expect(mocks.promoteQuickLookPackage).toHaveBeenCalledWith({
-      receipt,
+    expect(mocks.savePreview).toHaveBeenCalledWith({
+      receipt: expect.objectContaining({ packageId: 'preview', sequence: receipt }),
       destination: { kind: 'new-workspace', name: 'pUC19' },
     });
     expect(useCanvasStore.getState().panels.main.tabs[0]).toMatchObject({
@@ -228,7 +236,7 @@ describe('QuickLookImportHost', () => {
 
   it('keeps the Quick Look tab read-only when the managed import fails', async () => {
     let rejectImport: ((error: Error) => void) | null = null;
-    mocks.promoteQuickLookPackage.mockImplementationOnce(
+    mocks.savePreview.mockImplementationOnce(
       () =>
         new Promise((_, reject) => {
           rejectImport = reject;
@@ -296,7 +304,7 @@ describe('QuickLookImportHost', () => {
     fireEvent.click(screen.getByTestId('quick-look-import-confirm'));
 
     await waitFor(() => expect(screen.queryByTestId('quick-look-import-dialog')).toBeNull());
-    expect(mocks.promoteQuickLookPackage).toHaveBeenCalledTimes(1);
+    expect(mocks.savePreview).toHaveBeenCalledTimes(1);
     expect(onDestinationCommit).toHaveBeenCalledTimes(2);
     expect(useCanvasStore.getState().panels.main.tabs[0]).toMatchObject({
       entityId: promotedDocument.packageId,
@@ -306,23 +314,21 @@ describe('QuickLookImportHost', () => {
   });
 
   it('retries a new-workspace promotion through the main-owned compensating lifecycle', async () => {
-    mocks.promoteQuickLookPackage
-      .mockRejectedValueOnce(new Error('disk full'))
-      .mockResolvedValueOnce({
-        destPath: '/managed/pUC19/pUC19/pUC19.gb',
-        relPath: 'pUC19/pUC19.gb',
-        committed: true,
-        workspaceRoot: '/managed/pUC19',
-        createdNewWorkspace: true,
-        createdWorkspaceName: 'pUC19',
-        records: [
-          {
-            recordId: receipt.records[0].recordId,
-            destPath: '/managed/pUC19/pUC19/pUC19.gb',
-            relPath: 'pUC19/pUC19.gb',
-          },
-        ],
-      });
+    mocks.savePreview.mockRejectedValueOnce(new Error('disk full')).mockResolvedValueOnce({
+      destPath: '/managed/pUC19/pUC19/pUC19.gb',
+      relPath: 'pUC19/pUC19.gb',
+      committed: true,
+      workspaceRoot: '/managed/pUC19',
+      createdNewWorkspace: true,
+      createdWorkspaceName: 'pUC19',
+      records: [
+        {
+          recordId: receipt.records[0].recordId,
+          destPath: '/managed/pUC19/pUC19/pUC19.gb',
+          relPath: 'pUC19/pUC19.gb',
+        },
+      ],
+    });
     useQuickLookImportStore.getState().open(receipt);
     render(<QuickLookImportHost onDestinationCommit={onDestinationCommit} />);
 
@@ -334,9 +340,9 @@ describe('QuickLookImportHost', () => {
     fireEvent.click(screen.getByTestId('quick-look-import-confirm'));
 
     await waitFor(() => expect(screen.queryByTestId('quick-look-import-dialog')).toBeNull());
-    expect(mocks.promoteQuickLookPackage).toHaveBeenCalledTimes(2);
-    expect(mocks.promoteQuickLookPackage).toHaveBeenLastCalledWith({
-      receipt,
+    expect(mocks.savePreview).toHaveBeenCalledTimes(2);
+    expect(mocks.savePreview).toHaveBeenLastCalledWith({
+      receipt: expect.objectContaining({ packageId: 'preview', sequence: receipt }),
       destination: { kind: 'new-workspace', name: 'pUC19' },
     });
   });

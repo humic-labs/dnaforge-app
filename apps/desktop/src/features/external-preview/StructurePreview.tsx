@@ -1,3 +1,5 @@
+import { coordinateStructureData } from '../../shared/binary-coordinates';
+import type { SourceDocumentPresentationData } from '../../shared/source-document-package';
 import { useCallback, useMemo, useState } from 'react';
 import { getStructureFileFormat } from '../../shared/scientific-file-types';
 import { SOFT_WARN_BYTES } from '../../shared/oversized-guard';
@@ -84,13 +86,28 @@ function CoordinateViewer({
   );
 }
 
+function packageCoordinates(data: SourceDocumentPresentationData) {
+  if (data.familyId !== 'structure') throw new Error('The saved document is not a structure.');
+  return {
+    data: coordinateStructureData(data.coordinates),
+    format: data.coordinates.format === 'pdb' ? ('pdb' as const) : ('mmcif' as const),
+  };
+}
+
 export function StructurePreview({
   path,
   onSnapshot,
   controls,
   expectedSourceSha256,
+  readPackage,
 }: PreviewProps & { expectedSourceSha256?: string }) {
-  const source = usePreviewSource(path, SOFT_WARN_BYTES, readCoordinates);
+  const source = usePreviewSource(
+    path,
+    SOFT_WARN_BYTES,
+    readCoordinates,
+    packageCoordinates,
+    readPackage
+  );
   useDisplayedSnapshot(source?.status === 'loaded' ? undefined : onSnapshot, null);
   if (source?.status !== 'loaded')
     return (
