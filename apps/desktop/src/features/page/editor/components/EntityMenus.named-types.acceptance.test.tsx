@@ -83,12 +83,11 @@ it('browses actual native types once and keeps the primer role out of the type l
       command={command}
     />
   );
-  await waitFor(() =>
-    expect(screen.getAllByTestId('mention-browse-category').map((row) => row.textContent)).toEqual([
-      'Molecular documents›',
-      'Designs›',
-    ])
-  );
+  const categories = await screen.findAllByTestId('mention-browse-category');
+  expect(categories.map((row) => row.textContent)).toEqual(['Molecular documents', 'Designs']);
+  for (const row of categories) {
+    expect(row.querySelector('svg[data-direction="right"]')).toBeInTheDocument();
+  }
   fireEvent.click(screen.getByRole('option', { name: 'Browse Molecular documents' }));
   expect(onBrowse).toHaveBeenCalledWith(
     expect.objectContaining({ filter: molecularDocuments.filter })
@@ -122,7 +121,7 @@ it('lists populated native types in the initial Entity column with their origina
     column
       .getAllByRole('button')
       .filter((button) => button !== link)
-      .map((button) => button.textContent?.replace(/›$/, ''))
+      .map((button) => button.textContent)
   ).toEqual(['Designs', 'Molecular documents', 'QA Lots']);
   fireEvent.click(row);
   expect(command).toHaveBeenCalledWith(
