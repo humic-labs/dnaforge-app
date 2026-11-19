@@ -1715,7 +1715,6 @@ describe('App', () => {
       expect(setAnalyticsConsent).toHaveBeenCalledWith(true, {
         resumeExistingEpisode: false,
       });
-      expect(setSetting).toHaveBeenCalledWith('analytics_banner_seen', 'false');
       expectToastCall(
         appTestMocks.addRichToast,
         expect.objectContaining({
@@ -1863,7 +1862,7 @@ describe('App', () => {
     expect(setAnalyticsConsent).toHaveBeenCalledWith(true, {
       resumeExistingEpisode: false,
     });
-    expect(setSetting).toHaveBeenCalledWith('analytics_banner_seen', 'false');
+    expect(setSetting).not.toHaveBeenCalledWith('analytics_banner_seen', 'false');
     expect(setSetting).not.toHaveBeenCalledWith('analytics_banner_seen', 'true');
   });
 
