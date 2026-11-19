@@ -24,6 +24,8 @@ describe('read hover', () => {
       width: 40,
       height: 10,
       scale: 1.25,
+      presentedWidth: 320,
+      presentedHeight: 200,
     });
   });
 
@@ -56,6 +58,30 @@ describe('read hover', () => {
     expect(readHoverCrop(backing, { ...bounds, left: 31.375 }, read, 2)).toBeNull();
     expect(readHoverCrop({ ...backing, width: 0 }, bounds, read, 2)).toBeNull();
     expect(readHoverCrop(backing, bounds, { ...read, width: Number.NaN }, 2)).toBeNull();
+  });
+
+  it.each([
+    { top: 126.25, presentedHeight: 551, patchTop: 274 },
+    { top: 126.5, presentedHeight: 550, patchTop: 273 },
+    { top: 126.75, presentedHeight: 550, patchTop: 273 },
+  ])(
+    'uses the snapped canvas height at a CSS origin of $top',
+    ({ top, presentedHeight, patchTop }) => {
+      const crop = readHoverCrop(
+        { width: 708, height: 551 },
+        { left: 268, top, width: 708, height: 550.5 },
+        { left: 339.296875, top: 273.4375, width: 26.546875, height: 2.390625 },
+        1,
+        1
+      );
+      expect(crop).toMatchObject({ top: patchTop, presentedHeight, presentedWidth: 708, scale: 1 });
+    }
+  );
+
+  it('preserves the native filter for a texture resize beyond edge rounding', () => {
+    expect(
+      readHoverCrop({ width: 256, height: 160 }, { ...bounds, height: 158 }, read, 1, 1)
+    ).toBeNull();
   });
 
   it('declines a browser without the requested color surface', () => {
