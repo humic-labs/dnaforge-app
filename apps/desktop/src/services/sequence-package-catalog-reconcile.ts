@@ -108,7 +108,7 @@ export async function reconcileSequencePackageCatalogEntity(input: {
     workspaceRoot: input.workspaceRoot,
     metadata: {
       ...existingMetadata(existing?.metadata ?? null),
-      [MANAGED_SEQUENCE_DOCUMENT_FIELD]: managedDocument,
+      [MANAGED_SEQUENCE_DOCUMENT_FIELD]: { ...managedDocument, productFile: document.product.file },
       packageKind: 'sequence',
     },
   });
