@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { documentLifecycle } from '../../shared/document-lifecycle';
 import { validateTrackViewDocument } from '../../shared/track-view';
 import { trackViewFixture } from '../../shared/track-view-fixture';
 import { useCanvasStore } from '../canvas/store';
@@ -16,7 +17,7 @@ vi.mock('../../stores/toast-store', () => ({
   useToastStore: { getState: () => ({ addToast: vi.fn() }) },
 }));
 
-async function fixture() {
+async function fixture(hasSavedIdentity = false) {
   const document = validateTrackViewDocument({
     ...trackViewFixture(),
     contactProjection: {
@@ -52,7 +53,11 @@ async function fixture() {
     entityId: document.id,
     label: document.name,
     sequenceDocument: { kind: 'indexed-sequence', documentId: document.id },
-    trackView: { document, revision: 'a'.repeat(64), path: '/project/view.json' },
+    trackView: {
+      document: hasSavedIdentity ? { ...document, portableReference } : document,
+      revision: 'a'.repeat(64),
+      path: '/project/view.json',
+    },
   });
   const owner = getTrackViewSession(tabId)!;
   const capturePortableReference = vi.fn(async () => portableReference);
@@ -62,7 +67,7 @@ async function fixture() {
     capture: () => document,
     capturePortableReference,
   });
-  return { owner, document, portableReference, capturePortableReference };
+  return { owner, document, portableReference, capturePortableReference, tabId };
 }
 
 beforeEach(() => {
@@ -105,6 +110,69 @@ describe('native contact Track view save with portable reference capture', () =>
         { dataTracks: [], bamTracks: [], outcomes: [] }
       ).contactProjection
     ).toEqual(document.contactProjection);
+  });
+
+  it.each(['unchanged', 'changed'] as const)(
+    'saves an edited camera with an offline %s native source during shutdown',
+    async (binding) => {
+      const { owner, document, portableReference, tabId, capturePortableReference } =
+        await fixture(true);
+      const projection = document.contactProjection!;
+      const edited = {
+        ...document,
+        contactProjection: {
+          ...projection,
+          project: binding === 'unchanged' ? projection.project : '/other-project',
+          camera: { ...projection.camera, xStart: 120 },
+        },
+      };
+      capturePortableReference.mockRejectedValue(new Error('Local reference index is offline.'));
+      boundary.read.mockRejectedValue(new Error('Contact source is offline.'));
+      owner.attachSource(Symbol(), {
+        referenceName: document.name,
+        readyForDirtyCheck: true,
+        capture: () => edited,
+        capturePortableReference,
+      });
+      const result = await documentLifecycle.save({ kind: 'tab', tabId }, tabId, 'all');
+      expect(result).toBe(binding === 'unchanged');
+      expect(capturePortableReference).not.toHaveBeenCalled();
+      if (binding === 'unchanged') {
+        expect(boundary.read).not.toHaveBeenCalled();
+        expect(boundary.save).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining({
+            document: expect.objectContaining({
+              portableReference,
+              contactProjection: edited.contactProjection,
+            }),
+          })
+        );
+      } else {
+        expect(boundary.read).toHaveBeenCalledExactlyOnceWith({
+          project: '/other-project',
+          source: projection.source,
+        });
+        expect(boundary.save).not.toHaveBeenCalled();
+      }
+    }
+  );
+
+  it('checks the reference again when its underlying identity changes during shutdown', async () => {
+    const { owner, document, tabId, capturePortableReference } = await fixture(true);
+    const edited = {
+      ...document,
+      reference: { ...document.reference, sourceFingerprint: 'd'.repeat(24) },
+    };
+    capturePortableReference.mockRejectedValue(new Error('Cannot verify the changed reference.'));
+    owner.attachSource(Symbol(), {
+      referenceName: document.name,
+      readyForDirtyCheck: true,
+      capture: () => edited,
+      capturePortableReference,
+    });
+    expect(await documentLifecycle.save({ kind: 'tab', tabId }, tabId, 'all')).toBe(false);
+    expect(capturePortableReference).toHaveBeenCalledOnce();
+    expect(boundary.save).not.toHaveBeenCalled();
   });
 
   it('does not write a view whose source project/hash is no longer available', async () => {
