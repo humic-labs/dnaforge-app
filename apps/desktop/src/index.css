@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+@starting-style {
+  .dev-scenarios-panel[data-open='true'] {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+}
+
 .windows-title-bar {
   margin-left: env(titlebar-area-x, 0px);
   width: env(titlebar-area-width, calc(100% - 138px));

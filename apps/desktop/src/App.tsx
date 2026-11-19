@@ -427,7 +427,8 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
   const [shellPrepared, setShellPrepared] = useState(() => isHostedBrowserRuntime());
   const [workspaceRestored, setWorkspaceRestored] = useState(() => isHostedBrowserRuntime());
   const [shellError, setShellError] = useState<string | null>(null);
-  const [isDevPanelOpen, setIsDevPanelOpen] = useState(false);
+  const [isDevPanelOpen, setIsDevPanelOpen] = useState<boolean | null>(null);
+  const toggleDevPanel = useCallback(() => setIsDevPanelOpen((open) => !open), []);
   const hostedFileInputRef = useRef<HTMLInputElement>(null);
   const [hostedHistoryOpen, setHostedHistoryOpen] = useState(false);
   const [hostedBrowserReadOpen, setHostedBrowserReadOpen] = useState(false);
@@ -1687,7 +1688,7 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
       void captureSnapshot();
     },
     handleCpuProfileToggle,
-    setIsDevPanelOpen,
+    toggleDevPanel,
     devShortcutsEnabled: DEV_SURFACES.devShortcuts,
   });
 
@@ -1835,8 +1836,8 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
             ActivityBarDevButtons && DEV_SURFACES.devScenarios ? (
               <Suspense fallback={null}>
                 <ActivityBarDevButtons
-                  onToggleDevPanel={() => setIsDevPanelOpen((prev) => !prev)}
-                  devPanelOpen={isDevPanelOpen}
+                  onToggleDevPanel={toggleDevPanel}
+                  devPanelOpen={isDevPanelOpen === true}
                 />
               </Suspense>
             ) : null
@@ -1948,9 +1949,13 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
 
       {}
       {DevPanel && DEV_SURFACES.devScenarios ? (
-        <Suspense fallback={null}>
-          <DevPanel isOpen={isDevPanelOpen} onClose={() => setIsDevPanelOpen(false)} />
-        </Suspense>
+        isDevPanelOpen === null ? (
+          <div data-testid="devpanel" data-open="false" hidden />
+        ) : (
+          <Suspense fallback={null}>
+            <DevPanel isOpen={isDevPanelOpen} onClose={() => setIsDevPanelOpen(false)} />
+          </Suspense>
+        )
       ) : null}
 
       {isHostedBrowserRuntime() ? (

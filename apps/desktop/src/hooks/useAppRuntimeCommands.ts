@@ -40,7 +40,7 @@ type AppRuntimeCommandsOptions = {
   readonly handleChatSnapshot: () => void;
   readonly captureSnapshot: () => void;
   readonly handleCpuProfileToggle: () => void;
-  readonly setIsDevPanelOpen: Dispatch<SetStateAction<boolean>>;
+  readonly toggleDevPanel: () => void;
   readonly devShortcutsEnabled: boolean;
 };
 
@@ -60,7 +60,7 @@ export function useAppRuntimeCommands({
   handleChatSnapshot,
   captureSnapshot,
   handleCpuProfileToggle,
-  setIsDevPanelOpen,
+  toggleDevPanel,
   devShortcutsEnabled,
 }: AppRuntimeCommandsOptions): void {
   const { dispatchCommand } = useCommandRegistry();
@@ -194,9 +194,7 @@ export function useAppRuntimeCommands({
           },
         ]
       : []),
-    ...(devShortcutsEnabled
-      ? [{ key: '.', cmd: true, shift: true, handler: () => setIsDevPanelOpen((prev) => !prev) }]
-      : []),
+    ...(devShortcutsEnabled ? [{ key: '.', cmd: true, shift: true, handler: toggleDevPanel }] : []),
   ]);
 
   useEffect(() => {
