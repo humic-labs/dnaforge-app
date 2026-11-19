@@ -300,11 +300,12 @@ vi.mock('./pixi-canvas', () => ({
     reason: string
   ) => {
     lifecycle.resizeCalls.push({ width, height, reason });
+    const backingChanged = app.canvas?.width !== width || app.canvas?.height !== height;
     if (app.canvas) {
       app.canvas.width = width;
       app.canvas.height = height;
     }
-    return { width, height, backingChanged: true };
+    return { width, height, backingChanged };
   },
 }));
 vi.mock('./pixi-theme', () => ({
@@ -1116,6 +1117,17 @@ describe('usePixiMap annotation/source lifecycle', () => {
 
     expect(lifecycle.renderNowCount).toBe(drawn);
     expect(lifecycle.resumeCount).toBe(resumed);
+  });
+
+  it('repaints a map shape change before paint when the canvas dimensions stay the same', async () => {
+    const source = genome('A');
+    const view = render(<Harness genome={source} width={800} height={500} morph={0} />);
+    await waitFor(() => expect(latestHandle?.getLinearRenderer()).not.toBeNull());
+    const drawn = lifecycle.renderNowCount;
+
+    view.rerender(<Harness genome={source} width={800} height={500} morph={1} />);
+
+    expect(lifecycle.renderNowCount).toBe(drawn + 1);
   });
 
   it('keeps the attached map handle when only the pane dimensions change', async () => {

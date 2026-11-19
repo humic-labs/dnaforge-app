@@ -437,34 +437,38 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
 
   useLayoutEffect(() => {
     if (frameCircuitIsOpen()) return;
+    const state = stateRef.current;
+    const geometryHeight = options.geometryHeight ?? options.height;
+    const morph = options.morph ?? 0;
+    const geometryChanged =
+      state.geometryHeight !== geometryHeight ||
+      state.morph !== morph ||
+      state.centerStadiumOverview !== options.centerStadiumOverview;
     pmark('sync-display-props', {
       w: options.width,
       h: options.height,
-      gh: options.geometryHeight ?? options.height,
-      morph: options.morph ?? 0,
+      gh: geometryHeight,
+      morph,
     });
     const backingChanged = mutateDisplayGeometryPreservingCenter(() => {
-      const s = stateRef.current;
-      s.centerStadiumOverview = options.centerStadiumOverview;
+      state.centerStadiumOverview = options.centerStadiumOverview;
+      state.geometryHeight = geometryHeight;
+      state.morph = morph;
       const app = appRef.current;
       if (app && options.width > 0 && options.height > 0) {
         const size = resizePixiCanvas(app, options.width, options.height, 'display-props');
-        s.width = size.width;
-        s.height = size.height;
-        s.geometryHeight = options.geometryHeight ?? options.height;
-        s.morph = options.morph ?? 0;
+        state.width = size.width;
+        state.height = size.height;
         return size.backingChanged;
-      } else {
-        s.width = options.width;
-        s.height = options.height;
       }
-      s.geometryHeight = options.geometryHeight ?? options.height;
-      s.morph = options.morph ?? 0;
+      state.width = options.width;
+      state.height = options.height;
       return false;
     });
-    invalidateRender();
-
-    if (backingChanged) renderLoopRef.current?.renderNow();
+    if (backingChanged || geometryChanged) {
+      invalidateRender();
+      renderLoopRef.current?.renderNow();
+    }
   }, [
     frameCircuitIsOpen,
     invalidateRender,
