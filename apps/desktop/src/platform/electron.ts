@@ -120,7 +120,8 @@ import {
 
 declare global {
   interface Window {
-    electronAPI: PlatformBridge & {
+    electronAPI: Omit<PlatformBridge, 'molecularDocuments'> & {
+      molecularDocuments: ClientOf<typeof molecularDocumentsContract>;
       notebook: ClientOf<typeof notebookContract>;
       workspace: ClientOf<typeof workspaceNativeDocumentsContract> &
         ClientOf<typeof workspaceContract>;
