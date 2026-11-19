@@ -1,3 +1,6 @@
+import type Database from 'better-sqlite3';
+import { publishTypedSavedText, savedFileWorkspace } from './saved-file-publication';
+import { captureSavedFileSource, recoverPendingSavedFileSources } from './saved-file-sources';
 import { createHash, randomUUID } from 'node:crypto';
 import { readdir } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
@@ -45,13 +48,14 @@ import type {
 } from '../shared/workspace-file-atomic';
 
 interface Dependencies {
+  database(): Database.Database;
   resolveProject(project: string): Promise<string>;
   capture(root: string, mutating: boolean): (() => void) | Promise<() => void>;
   assertWritable(root: string, path: string): Promise<void>;
   resolveTarget(documentId: string, root: string): Promise<SequenceDataLayerTargetSnapshot>;
   publish?(
     input: WorkspaceTextFileAtomicWriteInput,
-    assertCurrent: () => void
+    assertCurrent: (stagedPath: string) => void
   ): Promise<WorkspaceTextFileAtomicWriteResult>;
   onState?(state: GenomicLayerOperationState): void;
   now?(): string;
@@ -447,6 +451,16 @@ export class SequenceDataLayerCommands {
     alreadyPublished: boolean,
     warning?: string
   ): Promise<PublishedSequenceDataLayer> {
+    if (alreadyPublished || warning) {
+      const db = this.dependencies.database();
+      const owner = {
+        workspaceId: savedFileWorkspace(db, root)!.id,
+        entityId: result.document.id,
+        path: result.path,
+      };
+      await recoverPendingSavedFileSources(db, owner);
+      await captureSavedFileSource(db, { ...owner, expectedSha256: result.revision });
+    }
     return {
       status: 'published',
       project: root,
@@ -655,17 +669,25 @@ export class SequenceDataLayerCommands {
       try {
         const write =
           this.dependencies.publish ??
-          ((input: WorkspaceTextFileAtomicWriteInput, guard: () => void) =>
+          ((input: WorkspaceTextFileAtomicWriteInput, guard: (stagedPath: string) => void) =>
             writeWorkspaceTextFileAtomicInMain(input, { durable: true, beforePublish: guard }));
-        const result = await write(
-          {
-            workspaceRoot: root,
-            path,
-            content,
-            mode: 'create',
-            artifactNoun: 'sequence data layer',
-          },
-          assertCurrent
+        const result = await publishTypedSavedText(
+          this.dependencies.database(),
+          { workspaceRoot: root, entityId: id, path, content, expectedSha256: null },
+          (mark) =>
+            write(
+              {
+                workspaceRoot: root,
+                path,
+                content,
+                mode: 'create',
+                artifactNoun: 'sequence data layer',
+              },
+              (stagedPath) => {
+                assertCurrent();
+                mark(stagedPath);
+              }
+            )
         );
         const saved = await this.read(root, id);
         if (

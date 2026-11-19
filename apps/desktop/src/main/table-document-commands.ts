@@ -1,4 +1,3 @@
-import { retainTablePublication } from './retain-table-package';
 import type Database from 'better-sqlite3';
 import type { JSONContent } from '@tiptap/core';
 import { createHash, randomUUID } from 'node:crypto';
@@ -738,7 +737,7 @@ export class NativeTableDocumentCommands {
         { ...destination, head: parseTablePackageHead(intent.headText), mode: 'create' },
         {
           assertCurrent: authority.assertCurrent,
-          retain: retainTablePublication(this.options.db(), authority.assertCurrent),
+          db: this.options.db(),
           writeAtomic: this.options.io?.writeAtomic,
           syncDirectory: this.options.io?.syncDirectory,
         }

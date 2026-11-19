@@ -7,39 +7,38 @@ import {
 } from '../resolve-notebook-entity-targets';
 import { getDb } from './database';
 import {
-  assertRendererDatabaseStatementAllowed,
+  assertCommittedDatabaseReadAllowed,
   withRendererDatabaseRead,
+  type RendererDatabaseLifecycleSender,
 } from '../workspace-sync-database-fence';
 import { assertLimsSafetyNotQuarantined } from '../lims-safety-quarantine';
 
+function discoveryRead<T>(
+  sender: RendererDatabaseLifecycleSender,
+  read: (db: ReturnType<typeof getDb>, assertCurrent: () => void) => T
+) {
+  const db = getDb();
+  const assertCurrent = () => {
+    assertCommittedDatabaseReadAllowed(db);
+    assertLimsSafetyNotQuarantined(db);
+  };
+  return withRendererDatabaseRead(db, sender, () => {
+    assertCurrent();
+    return read(db, assertCurrent);
+  });
+}
+
 export function registerEntityDiscoveryHandlers(): void {
   handleGroup(entityDiscoveryContract, {
-    search: (event, request) => {
-      const db = getDb();
-      return withRendererDatabaseRead(db, event.sender, () => {
-        assertLimsSafetyNotQuarantined(db);
-        return searchNotebookEntityTargets(db, request, () => {
-          assertRendererDatabaseStatementAllowed(db, event.sender.id);
-          assertLimsSafetyNotQuarantined(db);
-        });
-      });
-    },
-    resolve: (event, request) => {
-      const db = getDb();
-      return withRendererDatabaseRead(db, event.sender, () => {
-        assertLimsSafetyNotQuarantined(db);
-        return resolveNotebookEntityTargets(db, request, () => {
-          assertRendererDatabaseStatementAllowed(db, event.sender.id);
-          assertLimsSafetyNotQuarantined(db);
-        });
-      });
-    },
-    types: (event, request) => {
-      const db = getDb();
-      return withRendererDatabaseRead(db, event.sender, () => {
-        assertLimsSafetyNotQuarantined(db);
-        return entityDiscoveryTypesInDb(db, request);
-      });
-    },
+    search: (event, request) =>
+      discoveryRead(event.sender, (db, assertCurrent) =>
+        searchNotebookEntityTargets(db, request, assertCurrent)
+      ),
+    resolve: (event, request) =>
+      discoveryRead(event.sender, (db, assertCurrent) =>
+        resolveNotebookEntityTargets(db, request, assertCurrent)
+      ),
+    types: (event, request) =>
+      discoveryRead(event.sender, (db) => entityDiscoveryTypesInDb(db, request)),
   });
 }

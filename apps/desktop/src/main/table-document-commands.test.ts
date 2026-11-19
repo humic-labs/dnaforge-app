@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { restoreSavedFileSource, listSavedFileVersions } from './saved-file-sources';
 import { tableCommandFixture, identityTestPaths } from './__tests__/table-command-fixture';
 import { NativeTableDocumentCommands } from './table-document-commands';
-import { publishTablePackageInMain, readTablePackageInMain } from './table-package';
+import { writeTablePackageFiles, readTablePackageInMain } from './table-package';
 import {
   parseTablePackageHead,
   parseTableSnapshot,
@@ -89,7 +89,7 @@ describe('native table document commands', () => {
       workspaceRoot: f.workspaceRoot,
       packageRoot: join(f.workspaceRoot, 'External table'),
     };
-    await publishTablePackageInMain({ ...location, head, mode: 'create' }, { assertCurrent() {} });
+    await writeTablePackageFiles({ ...location, head, mode: 'create' }, { assertCurrent() {} });
     const before = await readTablePackageInMain(location);
     await expect(f.commands.execute({ kind: 'open', location })).rejects.toThrow();
     await expect(access(join(f.workspaceRoot, '.forge', 'project.json'))).rejects.toThrow();

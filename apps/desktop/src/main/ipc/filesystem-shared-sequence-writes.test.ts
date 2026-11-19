@@ -75,9 +75,9 @@ vi.mock('../primer-artifact-files', async (original) => {
     ) =>
       actual.writeWorkspaceTextFileAtomicInMain(input, {
         ...fsOps,
-        beforePublish: () => {
+        beforePublish: (stagedPath) => {
           host.beforeTextPublication();
-          fsOps?.beforePublish?.();
+          fsOps?.beforePublish?.(stagedPath);
         },
       }),
   };

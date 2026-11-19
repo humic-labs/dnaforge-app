@@ -678,7 +678,7 @@ describe('recoverable native table promotion', () => {
         mode: 'replace',
         expectedContentHash: staged.headContentHash,
       },
-      { assertCurrent: t.f.options.captureWorkspace(t.root(), true) }
+      { db: t.f.db, assertCurrent: t.f.options.captureWorkspace(t.root(), true) }
     );
     const outside = await readTablePackageInMain(t.destination());
     const source = await t.load();

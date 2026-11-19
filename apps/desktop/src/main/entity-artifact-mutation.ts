@@ -1,4 +1,9 @@
-import { commitSavedFileSource, captureSavedFileMembers, prepareSavedFileSource, recordSavedFilePublicationWitness } from './saved-file-sources';
+import {
+  commitSavedFileSource,
+  captureSavedFileMembers,
+  prepareSavedFileSource,
+  recordSavedFilePublicationWitness,
+} from './saved-file-sources';
 import { assertSharedProjectContentWritable } from './shared-project-write-access';
 import { open, readFile } from 'node:fs/promises';
 import {
@@ -416,9 +421,16 @@ async function mutateLegacyEntityArtifact(request: Mutation): Promise<ArtifactMu
         }
       : {}),
   });
-  const source = {workspaceId: owner.workspaceId, entityId: input.id, path};
-  await captureSavedFileMembers(db, {...source,members:[{relativePath:'',bytes:Buffer.from(previousBytes)}]}, () => runDatabase(() => {}));
-  const candidate = await prepareSavedFileSource(db, {...source,members:[{relativePath:'',bytes:Buffer.from(nextBytes)}]});
+  const source = { workspaceId: owner.workspaceId, entityId: input.id, path };
+  await captureSavedFileMembers(
+    db,
+    { ...source, members: [{ relativePath: '', bytes: Buffer.from(previousBytes) }] },
+    () => runDatabase(() => {})
+  );
+  const candidate = await prepareSavedFileSource(db, {
+    ...source,
+    members: [{ relativePath: '', bytes: Buffer.from(nextBytes) }],
+  });
   const write = await writeWorkspaceTextFileAtomicInMain(
     {
       workspaceRoot,
@@ -445,7 +457,7 @@ async function mutateLegacyEntityArtifact(request: Mutation): Promise<ArtifactMu
                 'Relationship target changed during publication. Reconcile the project before editing.'
               );
           }
-          recordSavedFilePublicationWitness(db,candidate,stagedPath);
+          recordSavedFilePublicationWitness(db, candidate, stagedPath);
         }),
     }
   );
@@ -454,7 +466,7 @@ async function mutateLegacyEntityArtifact(request: Mutation): Promise<ArtifactMu
     result = runDatabase(() =>
       db.transaction(() => {
         const result = applyInsideTx();
-        commitSavedFileSource(db,candidate);
+        commitSavedFileSource(db, candidate);
         insertAuditEvent(db, {
           eventType: 'entity_artifact_saved',
           operationId: input.operationId,

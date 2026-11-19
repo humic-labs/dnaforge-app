@@ -1,4 +1,9 @@
-import { captureSavedFileSource, prepareSavedFileSource, recordSavedFilePublicationWitness, commitSavedFileSource } from './saved-file-sources';
+import {
+  captureSavedFileSource,
+  prepareSavedFileSource,
+  recordSavedFilePublicationWitness,
+  commitSavedFileSource,
+} from './saved-file-sources';
 import { assertCommittedDatabaseReadAllowed } from './workspace-sync-database-fence';
 import type Database from 'better-sqlite3';
 import { constants } from 'node:fs';
@@ -187,10 +192,17 @@ export async function upgradeLegacyRegistryArtifactInMain(request: {
       relationshipFingerprint(preview.outgoingLinks.map(({ link }) => link))
   )
     return { published: false };
-  const source = {workspaceId: preview.entity.workspaceId, entityId: document.id, path: input.path};
+  const source = {
+    workspaceId: preview.entity.workspaceId,
+    entityId: document.id,
+    path: input.path,
+  };
   const content = serializeEntityArtifact(document);
-  await captureSavedFileSource(db,{...source,expectedSha256:input.expectedContentHash});
-  const candidate = await prepareSavedFileSource(db,{...source,members:[{relativePath:'',bytes:Buffer.from(content)}]});
+  await captureSavedFileSource(db, { ...source, expectedSha256: input.expectedContentHash });
+  const candidate = await prepareSavedFileSource(db, {
+    ...source,
+    members: [{ relativePath: '', bytes: Buffer.from(content) }],
+  });
   await writeWorkspaceTextFileAtomicInMain(
     {
       workspaceRoot: input.workspaceRoot,
@@ -206,10 +218,10 @@ export async function upgradeLegacyRegistryArtifactInMain(request: {
         runDatabase(() => {
           if (!isDeepStrictEqual(checkedAuthority(db, input), authority))
             throw new Error('Registry format upgrade authority changed before publication.');
-          recordSavedFilePublicationWitness(db,candidate,stagedPath);
+          recordSavedFilePublicationWitness(db, candidate, stagedPath);
         }),
     }
   );
-  runDatabase(() => commitSavedFileSource(db,candidate));
+  runDatabase(() => commitSavedFileSource(db, candidate));
   return { published: true };
 }

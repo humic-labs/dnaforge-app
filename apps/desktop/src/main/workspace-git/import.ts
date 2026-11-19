@@ -1784,10 +1784,11 @@ export async function importQuickLookGenerationIntoWorkspaceRoot(
       }
       journal = { ...journal, committed };
       await writeQuickLookSetRecord(recordPath, journal);
+      const completedGroupRoot = journal.finalRoot;
       await retainImportedPackages(
         deps,
         targetRoot,
-        journal.records.map((record) => join(journal.finalRoot, record.childName))
+        journal.records.map((record) => join(completedGroupRoot, record.childName))
       );
       return quickLookSetResult(journal, targetRoot);
     } finally {

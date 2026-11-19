@@ -24,11 +24,20 @@ export async function runSavedFileSourceCommand(
       entityId: owner.entityId,
       assertCurrent: scope.assertCurrent,
     });
-    let { unavailable } = await backfillSavedFileSources(db, { ...owner, assertCurrent: scope.assertCurrent });
+    let { unavailable } = await backfillSavedFileSources(db, {
+      ...owner,
+      assertCurrent: scope.assertCurrent,
+    });
     try {
-      const {retainHistoricalRegistryFileSources}=await import('./entity-artifact-mutations');
-      await retainHistoricalRegistryFileSources(db,{...owner,assertCurrent:scope.assertCurrent});
-    } catch { scope.assertCurrent(); unavailable++; }
+      const { retainHistoricalRegistryFileSources } = await import('./entity-artifact-mutations');
+      await retainHistoricalRegistryFileSources(db, {
+        ...owner,
+        assertCurrent: scope.assertCurrent,
+      });
+    } catch {
+      scope.assertCurrent();
+      unavailable++;
+    }
     scope.assertCurrent();
     const versions = listSavedFileVersions(db, {
       ...owner,

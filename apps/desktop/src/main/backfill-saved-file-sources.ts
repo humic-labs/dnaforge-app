@@ -38,7 +38,7 @@ export async function backfillSavedFileSources(
     hash: string | null;
     fileKind: string;
     status: string;
-    updatedAt:number;
+    updatedAt: number;
     root: string | null;
   };
   let after = 0;
@@ -72,26 +72,59 @@ export async function backfillSavedFileSources(
         }
         if (row.root) assertWorkspaceProjectionPathSafe(row.root, row.path);
         const verified = row.hash?.match(/^(?:sha256:)?([a-f0-9]{64})$/)?.[1];
-        const historicalAt = row.status==='historical' ? row.updatedAt : undefined;
-        const packageKind=['waypoint-sequence','waypoint-notebook','waypoint-protocol','waypoint-protocol-run','dnaforge-table'].includes(row.fileKind);
-        if (row.status === 'current' || (historicalAt!==undefined && verified && !packageKind)) {
+        const historicalAt = row.status === 'historical' ? row.updatedAt : undefined;
+        const packageKind = [
+          'waypoint-sequence',
+          'waypoint-notebook',
+          'waypoint-protocol',
+          'waypoint-protocol-run',
+          'dnaforge-table',
+        ].includes(row.fileKind);
+        if (row.status === 'current' || (historicalAt !== undefined && verified && !packageKind)) {
           const leaf = await lstat(row.path).catch((e: NodeJS.ErrnoException) => {
             if (e.code === 'ENOENT') return null;
             throw e;
           });
           if (leaf?.isFile()) {
             let evidence = verified;
-            if (!evidence && row.fileKind==='waypoint-entity' && row.root) {
-              const {readCheckedEntityArtifactSnapshot}=await import('./entity-artifact-mutations');
-              const checked=await readCheckedEntityArtifactSnapshot({db, entityId:row.entityId, runDatabase: work => { assertSame(); return work(); }});
-              if(checked.owner.workspaceId!==input.workspaceId || join(checked.owner.workspacePath,checked.owner.relativePath)!==row.path) throw new Error('Former Registry file has a different owner.');
-              evidence=checked.sha256;
+            if (!evidence && row.fileKind === 'waypoint-entity' && row.root) {
+              const { readCheckedEntityArtifactSnapshot } =
+                await import('./entity-artifact-mutations');
+              const checked = await readCheckedEntityArtifactSnapshot({
+                db,
+                entityId: row.entityId,
+                runDatabase: (work) => {
+                  assertSame();
+                  return work();
+                },
+              });
+              if (
+                checked.owner.workspaceId !== input.workspaceId ||
+                join(checked.owner.workspacePath, checked.owner.relativePath) !== row.path
+              )
+                throw new Error('Former Registry file has a different owner.');
+              evidence = checked.sha256;
             }
-            if (!evidence && packageKind && row.status==='current' && row.root && !['waypoint-protocol','waypoint-protocol-run'].includes(row.fileKind)) {
-              const stage=await stageCatalogFileSource(db,{path:row.path,fileKind:row.fileKind,workspaceRoot:row.root,expectedPackageEntityId:row.entityId},assertSame);
+            if (
+              !evidence &&
+              packageKind &&
+              row.status === 'current' &&
+              row.root &&
+              !['waypoint-protocol', 'waypoint-protocol-run'].includes(row.fileKind)
+            ) {
+              const stage = await stageCatalogFileSource(
+                db,
+                {
+                  path: row.path,
+                  fileKind: row.fileKind,
+                  workspaceRoot: row.root,
+                  expectedPackageEntityId: row.entityId,
+                },
+                assertSame
+              );
               assertSame();
-              if(stage) {
-                stage({entityId:row.entityId,workspaceId:input.workspaceId});
+              if (stage) {
+                stage({ entityId: row.entityId, workspaceId: input.workspaceId });
                 totals.retained++;
                 continue;
               }
@@ -133,18 +166,14 @@ export async function backfillSavedFileSources(
               );
               assertSame();
               if (stage) {
-                stage({ entityId: row.entityId, workspaceId: input.workspaceId,historicalAt });
+                stage({ entityId: row.entityId, workspaceId: input.workspaceId, historicalAt });
                 totals.retained++;
                 continue;
               }
             }
           }
         }
-        if (
-          verified &&
-          isAbsolute(db.name) &&
-          !packageKind
-        ) {
+        if (verified && isAbsolute(db.name) && !packageKind) {
           const blob = await workspaceSyncBlobPath(
             verified,
             join(dirname(db.name), 'workspace-sync', 'blobs')
@@ -158,7 +187,8 @@ export async function backfillSavedFileSources(
               db,
               {
                 workspaceId: input.workspaceId,
-                entityId: row.entityId,historicalAt,
+                entityId: row.entityId,
+                historicalAt,
                 path: row.path,
                 members: [{ relativePath: '', sourcePath: blob, expectedSha256: verified }],
               },

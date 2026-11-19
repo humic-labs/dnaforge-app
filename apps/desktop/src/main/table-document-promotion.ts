@@ -514,7 +514,7 @@ async function stage(
     { ...location, head: parseTablePackageHead(intent.pendingHeadText), mode: 'create' },
     {
       assertCurrent: authority.assertCurrent,
-      retain: retainTablePublication(options.db(), authority.assertCurrent),
+      db: options.db(),
       writeAtomic: options.io?.writeAtomic,
       syncDirectory: options.io?.syncDirectory,
     }
@@ -599,7 +599,7 @@ async function resume(
       },
       {
         assertCurrent: authority.assertCurrent,
-        retain: retainTablePublication(options.db(), authority.assertCurrent),
+        db: options.db(),
         writeAtomic: options.io?.writeAtomic,
         syncDirectory: options.io?.syncDirectory,
       }

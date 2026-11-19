@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestDb } from './__tests__/test-db';
+import { backfillSavedFileSources } from './backfill-saved-file-sources';
 import { ensureSchema } from './schema';
 import { restoreSavedFileSource, listSavedFileVersions } from './saved-file-sources';
 import { createNativeFileDocuments } from './native-file-documents';
@@ -20,7 +21,11 @@ import {
   tablePackagePaths,
   tablePackageRevisionPath,
 } from '../shared/table-package';
-import { publishTablePackageInMain, readTablePackageInMain } from './table-package';
+import {
+  writeTablePackageFiles,
+  readTablePackageInMain,
+  readTableSnapshotInMain,
+} from './table-package';
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },
@@ -90,7 +95,7 @@ async function fixture() {
       );
       await writeFile(paths.headPath, serializeTablePackageHead(head));
     } else {
-      await publishTablePackageInMain(
+      await writeTablePackageFiles(
         { workspaceRoot: root, packageRoot, head, mode: 'create' },
         { assertCurrent() {} }
       );
@@ -178,6 +183,69 @@ describe('native managed table admission', () => {
     expect(
       await readFile(tablePackageRevisionPath(table.packageRoot, table.head.snapshotSha256), 'utf8')
     ).toBe(serializeTableSnapshot(table.head.snapshot));
+  });
+
+  it('adopts three existing revision files and preserves all pinned snapshots after directory loss', async () => {
+    const f = await fixture();
+    const table = await f.make();
+    const location = { workspaceRoot: f.root, packageRoot: table.packageRoot };
+    let current = await readTablePackageInMain(location);
+    const snapshots = [current];
+    for (const value of ['older change', 'current change']) {
+      const snapshot = { ...current.head.snapshot, title: value };
+      const snapshotSha256 = createHash('sha256')
+        .update(serializeTableSnapshot(snapshot))
+        .digest('hex');
+      current = await writeTablePackageFiles(
+        {
+          ...location,
+          head: { ...current.head, snapshot, snapshotSha256 },
+          mode: 'replace',
+          expectedContentHash: current.headContentHash,
+        },
+        { assertCurrent() {} }
+      );
+      snapshots.push(current);
+    }
+    const entity = registerCatalogEntityInDb(f.db, {
+      type: 'report',
+      name: 'Legacy table',
+      locator: `file://${table.path}`,
+      storageType: 'file',
+      workspaceRoot: f.root,
+    });
+    bindCatalogEntityFileInDb(f.db, {
+      entityId: entity.id,
+      path: table.path,
+      fileKind: 'dnaforge-table',
+      workspaceRoot: f.root,
+      contentHash: `sha256:${current.headContentHash}`,
+    });
+    expect(
+      listSavedFileVersions(f.db, { workspaceId: 7, entityId: entity.id, offset: 0, limit: 10 })
+        .versions
+    ).toHaveLength(0);
+    const imported = await backfillSavedFileSources(f.db, {
+      workspaceId: 7,
+      entityId: entity.id,
+      assertCurrent() {},
+    });
+    expect(imported.retained).toBe(1);
+    await rm(table.packageRoot, { recursive: true });
+    await restoreSavedFileSource(f.db, {
+      workspaceId: 7,
+      entityId: entity.id,
+      destination: table.packageRoot,
+    });
+    expect((await readTablePackageInMain(location)).headText).toBe(current.headText);
+    for (const revision of snapshots) {
+      const read = await readTableSnapshotInMain({
+        ...location,
+        documentId: table.head.id,
+        snapshotSha256: revision.head.snapshotSha256,
+      });
+      expect(read.snapshotText).toBe(revision.snapshotText);
+    }
   });
 
   it('keeps immutable revisions and project identity metadata outside ordinary file access', async () => {

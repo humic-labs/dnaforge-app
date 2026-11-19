@@ -20,6 +20,11 @@ import { DesktopSyncClientError } from './desktop-sync-client-errors';
 import { handoffWorkReminders, runRemoteReminderCommand } from './work-reminder-remote';
 import { withWorkspaceSyncDatabaseFence } from './workspace-sync-database-fence';
 
+import {
+  listSavedEntityRowVersions,
+  recoverSavedEntityRowVersion,
+} from './saved-entity-row-recovery';
+import { openFileTestDb } from './__tests__/test-db';
 vi.mock('electron', () => ({
   app: { getVersion: () => '1.0.0', getPath: () => join(tmpdir(), 'dnaforge-work-reminder-test') },
   dialog: { showErrorBox: vi.fn() },
@@ -69,6 +74,39 @@ it('retains inbox and OS intent independently and never resumes after an unknown
         start
       );
     });
+    const { id: savedRuleId } = f.db.prepare('SELECT id FROM scientific_work_rules').get() as {
+      id: string;
+    };
+    const rules = () =>
+      listSavedEntityRowVersions(f.db, {
+        source: 'scientific_work_rules',
+        identity: [savedRuleId],
+      });
+    const [rule] = rules();
+    expect(rule).toBeDefined();
+    f.db
+      .prepare('UPDATE scientific_work_rules SET scanned_at=scanned_at + 1 WHERE id=?')
+      .run(savedRuleId);
+    expect(rules()).toEqual([rule]);
+    const exported = recoverSavedEntityRowVersion(
+      f.db,
+      { source: 'scientific_work_rules', revisionId: rule.revisionId },
+      f.tmpDir,
+      openFileTestDb
+    );
+    const recovered = openFileTestDb(exported.path);
+    try {
+      expect(recovered.prepare('SELECT * FROM scientific_work_rules').get()).toMatchObject({
+        id: savedRuleId,
+        task_id: 'task',
+        role: 'deadline',
+        offset_ms: 0,
+        desktop_enabled: 1,
+        state: 'armed',
+      });
+    } finally {
+      recovered.close();
+    }
     const deliver = vi.fn();
     await withWorkspaceSyncDatabaseFence(f.db, async () => {
       scanLocalWorkReminders(f.db, project, fire, deliver);

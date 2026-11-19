@@ -17,16 +17,30 @@ import {
 import type { GenomicLayerOperationState } from '@waypoint/genome-data';
 import { canonicalJson } from '../shared/canonical-json';
 
+import { createFileTestDb } from './__tests__/test-db';
+import { ensureSchema } from './schema';
+import { listSavedFileVersions, restoreSavedFileSource } from './saved-file-sources';
+import { savedFileWorkspace } from './saved-file-publication';
+vi.mock('electron', () => ({
+  app: { getPath: () => '/tmp', getVersion: () => 'test' },
+  dialog: { showErrorBox: vi.fn() },
+}));
+vi.mock('./analytics', () => ({ trackEvent: vi.fn() }));
+const databases: Array<ReturnType<typeof createFileTestDb>> = [];
 const sequenceFingerprint = `sha256:${'a'.repeat(64)}`;
 const annotationFingerprint = `annotation-document-v1:sha256:${'b'.repeat(64)}`;
 const folders: string[] = [];
 afterEach(async () => {
+  for (const db of databases.splice(0)) db.cleanup();
   await Promise.all(folders.splice(0).map((path) => rm(path, { recursive: true, force: true })));
 });
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'dnaforge-layer-'));
   folders.push(root);
+  const database = createFileTestDb('retained-sequence-layer');
+  databases.push(database);
+  ensureSchema(database.db, database.dbPath);
   let target: SequenceDataLayerTargetSnapshot = {
     documentId: 'existing-sequence',
     sequenceFingerprint,
@@ -47,6 +61,7 @@ async function fixture() {
     if (revoked) throw new Error('PROJECT_READONLY');
   });
   const dependencies = {
+    database: () => database.db,
     resolveProject: async (project: string) => {
       if (project !== root) throw new Error('PROJECT_NOT_FOUND');
       return root;
@@ -97,6 +112,26 @@ async function fixture() {
     },
   };
 }
+
+it('restores the exact published layer and its embedded dataset under the original ID after project-file loss', async () => {
+  const f = await fixture();
+  const result = await f.commands.run(f.request);
+  if (result.status !== 'published') throw Error(JSON.stringify(result));
+  const db = f.dependencies.database();
+  const owner = { workspaceId: savedFileWorkspace(db, f.root)!.id, entityId: result.document.id };
+  const [version] = listSavedFileVersions(db, { ...owner, offset: 0, limit: 5 }).versions;
+  expect(version).toBeDefined();
+  const original = await readFile(result.path);
+  await rm(result.path);
+  await restoreSavedFileSource(db, { ...owner, revisionId: version.id, destination: result.path });
+  expect(await readFile(result.path)).toEqual(original);
+  expect(await f.commands.run(f.request)).toMatchObject({
+    status: 'published',
+    alreadyPublished: true,
+    revision: result.revision,
+    document: { id: result.document.id, source: result.document.source },
+  });
+});
 
 describe('native sequence data layer commands', () => {
   it('publishes a replayable immutable dataset through native atomic storage and its operation reducer', async () => {

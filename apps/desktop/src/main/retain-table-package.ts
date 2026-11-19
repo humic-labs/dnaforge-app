@@ -5,7 +5,7 @@ import { relative, sep } from 'node:path';
 import { tablePackagePaths, tablePackageRevisionPath } from '../shared/table-package';
 import {
   readTablePackageInMain,
-  readTableSnapshotInMain,
+  readVerifiedTableRevision,
   type TablePackageLocation,
   type ReadTablePackageResult,
 } from './table-package';
@@ -46,12 +46,7 @@ async function retainHead(
     const path = tablePackageRevisionPath(packageRoot, snapshotSha256);
     await record(path);
     if (snapshotSha256 !== head.snapshotSha256) {
-      await readTableSnapshotInMain({
-        workspaceRoot,
-        packageRoot,
-        documentId: head.id,
-        snapshotSha256,
-      });
+      await readVerifiedTableRevision({ workspaceRoot, packageRoot }, head.id, snapshotSha256);
     }
     members.push({
       relativePath: relative(packageRoot, path).split(sep).join('/'),

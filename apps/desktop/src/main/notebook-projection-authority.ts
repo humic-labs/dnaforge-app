@@ -199,6 +199,16 @@ export async function replaceNotebookProjectionFromFileInMain(
   const publish = async () => {
     const sources = await readNativeProjectionSources(owner);
     const source = await readNotebookProjectionSource(sources, input.sourcePath);
+    const documentContent = source.document.content;
+    if (
+      !documentContent ||
+      typeof documentContent !== 'object' ||
+      Array.isArray(documentContent) ||
+      !('type' in documentContent) ||
+      documentContent.type !== 'doc'
+    )
+      throw new Error('A notebook projection requires a saved document.');
+    const content = documentContent as import('@tiptap/core').JSONContent;
     const fingerprint = notebookProjectionFingerprint(
       source.document.title,
       source.document.content
@@ -252,7 +262,7 @@ export async function replaceNotebookProjectionFromFileInMain(
         replaceNotebookReferenceProjectionInDb(db, {
           documentId: input.pageId,
           sourceFingerprint: fingerprint,
-          content: source.document.content,
+          content,
         });
         writeEntityProjectionReceiptInDb(db, key, fingerprint);
         const written = readNotebookPageInDb(db, input.pageId)!;

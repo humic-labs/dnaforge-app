@@ -27,7 +27,7 @@ import { syncDirectory } from './fs-durability';
 import { assertWorkspaceProjectionPathSafe } from './workspace-projection-boundary';
 
 export const RETAINED_FILE_BLOB_DIRECTORY = 'retained-file-blobs';
-type Owner = { workspaceId: number | null; entityId: string; historicalAt?:number };
+type Owner = { workspaceId: number | null; entityId: string; historicalAt?: number };
 type Source = Owner & { path: string; blobRoot?: string };
 export type SavedFileSourceMember = { relativePath: string } & (
   | { bytes: Uint8Array }
@@ -159,9 +159,16 @@ function append(
       if (latest?.manifest_sha256 === hash && latest.manifest_json === json)
         return { id: latest.id };
     }
-    const latestTime = db.prepare("SELECT MAX(created_at) FROM retained_file_source_revisions WHERE workspace_id IS ? AND entity_id=? AND status IN ('prepared','committed')").pluck().get(input.workspaceId,input.entityId) as number|null;
-    const createdAt=input.historicalAt===undefined ? Math.max(Date.now(),(latestTime??0)+1) :
-      Math.min(input.historicalAt,latestTime===null ? Date.now() : latestTime-1);
+    const latestTime = db
+      .prepare(
+        "SELECT MAX(created_at) FROM retained_file_source_revisions WHERE workspace_id IS ? AND entity_id=? AND status IN ('prepared','committed')"
+      )
+      .pluck()
+      .get(input.workspaceId, input.entityId) as number | null;
+    const createdAt =
+      input.historicalAt === undefined
+        ? Math.max(Date.now(), (latestTime ?? 0) + 1)
+        : Math.min(input.historicalAt, latestTime === null ? Date.now() : latestTime - 1);
     const id = randomUUID();
     db.prepare(
       'INSERT INTO retained_file_source_revisions(id,workspace_id,entity_id,source_path,manifest_sha256,manifest_json,status,created_at) VALUES(?,?,?,?,?,?,?,?)'
@@ -326,9 +333,11 @@ export function recordSavedFilePublicationWitness(
   const stage = lstatSync(stagedPath, { bigint: true });
   if (!stage.isFile() && !stage.isDirectory())
     throw new Error('The publication witness must be a physical file or directory.');
-  const witness = db.prepare(
-    "INSERT INTO retained_file_publication_witnesses(revision_id,device,inode,birth_ns) SELECT id,?,?,? FROM retained_file_source_revisions WHERE id=? AND status='prepared'"
-  ).run(String(stage.dev), String(stage.ino), String(stage.birthtimeNs), receipt.id);
+  const witness = db
+    .prepare(
+      "INSERT INTO retained_file_publication_witnesses(revision_id,device,inode,birth_ns) SELECT id,?,?,? FROM retained_file_source_revisions WHERE id=? AND status='prepared'"
+    )
+    .run(String(stage.dev), String(stage.ino), String(stage.birthtimeNs), receipt.id);
   if (witness.changes !== 1) throw new Error('The saved source is no longer awaiting publication.');
 }
 export async function recoverPendingSavedFileSources(

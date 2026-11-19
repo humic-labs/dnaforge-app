@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 import { createHash } from 'node:crypto';
-import { lstatSync } from 'node:fs';
+import { lstatSync, type Stats } from 'node:fs';
 import { lstat, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseSequencePackageDocument, sequencePackageMetaPaths } from '../db/sequence-package';
@@ -49,7 +49,7 @@ export async function retainSequencePackage(
     ...document.members.map((member) => member.path),
   ];
   const members: SavedFileSourceMember[] = [];
-  const identities = [];
+  const identities: Array<{ path: string; stat: Stats }> = [];
   for (const member of new Set(paths)) {
     const path = join(packageRoot, member);
     await assertPhysicalPackageMember(packageRoot, path);

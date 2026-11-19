@@ -2,7 +2,11 @@ import { retainTablePackage } from './retain-table-package';
 import type Database from 'better-sqlite3';
 import { lstat, readFile } from 'node:fs/promises';
 import { parseNotebookPackageDocument } from '../db/notebook-package';
-import { scopedProjectionId, workspaceScopeKey, stripWorkspaceScope } from '../shared/workspace-scoped-identity';
+import {
+  scopedProjectionId,
+  workspaceScopeKey,
+  stripWorkspaceScope,
+} from '../shared/workspace-scoped-identity';
 import { retainNotebookPackage } from './retain-notebook-package';
 import { retainSequencePackage } from './retain-sequence-package';
 import { savedFileWorkspace } from './saved-file-publication';
@@ -64,21 +68,29 @@ export async function stageCatalogFileSource(
       if ((await hashWorkspaceSyncFileOnDisk(input.path)).sha256 !== verified)
         throw new Error('The bound package marker changed before its source could be retained.');
     }
-    if (input.workspaceRoot && (kind === 'waypoint-notebook' || kind === 'waypoint-sequence' || kind === 'dnaforge-table')) {
+    if (
+      input.workspaceRoot &&
+      (kind === 'waypoint-notebook' || kind === 'waypoint-sequence' || kind === 'dnaforge-table')
+    ) {
       const workspace = savedFileWorkspace(db, input.workspaceRoot);
       if (!workspace) throw new Error('The saved package is missing its owning project.');
       const source = { workspaceRoot: input.workspaceRoot, packageRoot: root };
       let entityId: string;
-      const expectedId = input.expectedPackageEntityId === undefined ? undefined : stripWorkspaceScope(input.expectedPackageEntityId);
+      const expectedId =
+        input.expectedPackageEntityId === undefined
+          ? undefined
+          : stripWorkspaceScope(input.expectedPackageEntityId);
       if (kind === 'waypoint-notebook') {
         const document = parseNotebookPackageDocument(await readFile(input.path, 'utf8'));
-        if (expectedId !== undefined && document.id !== expectedId) throw new Error('The notebook has a different saved identity.');
+        if (expectedId !== undefined && document.id !== expectedId)
+          throw new Error('The notebook has a different saved identity.');
         await retainNotebookPackage(db, source, document.id, 'published', assertCurrent);
         entityId = scopedProjectionId(
           workspaceScopeKey(workspace.repo_uuid, workspace.id),
           document.id
         );
-      } else if (kind === 'dnaforge-table') entityId = await retainTablePackage(db, source, expectedId, assertCurrent);
+      } else if (kind === 'dnaforge-table')
+        entityId = await retainTablePackage(db, source, expectedId, assertCurrent);
       else entityId = await retainSequencePackage(db, source, expectedId, assertCurrent);
       return stageRetainedSourceBinding(db, { entityId, workspaceId: workspace.id }, root);
     }

@@ -34,6 +34,7 @@ export const SAVED_ENTITY_ROW_SOURCES = [
   'scientific_revision_records',
   'scientific_revision_refs',
   'scientific_revision_blobs',
+  'scientific_work_rules',
 ] as const;
 
 export type SavedEntityRowSource = (typeof SAVED_ENTITY_ROW_SOURCES)[number];

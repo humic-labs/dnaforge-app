@@ -1,11 +1,10 @@
-import { retainTablePublication } from './retain-table-package';
 import { isForgePackageMetaPath } from '../shared/forge-package-path';
 import { parseTablePackageHead } from '../shared/table-package';
 import { publishTablePackageInMain, readTablePackageInMain } from './table-package';
 import { writeWithBoundFileRetention } from './saved-file-publication';
 import { resolveProjectFilePath } from '../shared/workspace-file-path';
 import { inferCatalogFileKind } from '../shared/catalog-file-kind';
-import { withCatalogFileSource } from './catalog-file-source-retention';
+import { stageCatalogFileSource, withCatalogFileSource } from './catalog-file-source-retention';
 import { assertCommittedDatabaseReadAllowed } from './workspace-sync-database-fence';
 import { registerWorkspaceFileInDb } from './catalog-entity-registration';
 import { createHash, randomUUID } from 'node:crypto';
@@ -329,9 +328,9 @@ export function createNativeFileDocuments(options: {
         ? (
             db
               .prepare(
-                'SELECT path,repo_uuid FROM workspaces WHERE path IS NOT NULL AND archived_at IS NULL AND trashed_at IS NULL'
+                'SELECT id,path,repo_uuid FROM workspaces WHERE path IS NOT NULL AND archived_at IS NULL AND trashed_at IS NULL'
               )
-              .all() as Array<{ path: string; repo_uuid: string | null }>
+              .all() as Array<{ id:number; path: string; repo_uuid: string | null }>
           ).find((row) => workspaceMutationRootIdentity(row.path) === root)
         : undefined;
       const storedPath = owner && root ? join(owner.path, relative(root, path)) : path;
@@ -358,6 +357,13 @@ export function createNativeFileDocuments(options: {
         documentId = row.id;
       }
       documentId ??= `file-document:${randomUUID()}`;
+      const workspaceId = owner?.id ?? null;
+      if (!db.prepare("SELECT 1 FROM retained_file_source_revisions WHERE workspace_id IS ? AND entity_id=? AND status='committed' LIMIT 1").get(workspaceId, documentId)) {
+        const assertCurrent = (owner && options.captureWorkspace?.(owner.path, false)) ?? (() => assertCommittedDatabaseReadAllowed(db));
+        const stage = await stageCatalogFileSource(db,{path:storedPath,workspaceRoot:owner?.path},assertCurrent);
+        assertCurrent();
+        stage?.({workspaceId,entityId:documentId});
+      }
       await publishIdentity({ documentId, path, dirty: false });
       return documentId;
     },
@@ -614,7 +620,7 @@ export function createNativeFileDocuments(options: {
               mode: 'replace',
               expectedContentHash: input.expectedContentHash?.replace(/^sha256:/, ''),
             },
-            { assertCurrent: admission.assertCurrent, retain: retainTablePublication(options.db(), admission.assertCurrent) }
+            { assertCurrent: admission.assertCurrent, db: options.db() }
           );
           return;
         }

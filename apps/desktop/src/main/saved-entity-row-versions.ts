@@ -99,7 +99,21 @@ function installHistory(db: Database.Database, captureBeforeUpgrade: boolean): v
     const capture = retainRowSql(table, columns, false);
     const triggers = (['INSERT', 'UPDATE'] as const).map((operation) => {
       const name = 'retain_' + table + '_' + operation.toLowerCase();
-      const sql = `CREATE TRIGGER ${name} AFTER ${operation} ON ${sqliteIdentifier(table)}
+      const changed =
+        operation === 'UPDATE' && table === 'scientific_work_rules'
+          ? ' WHEN ' +
+            columns
+              .filter((column) => column.name !== 'scanned_at')
+              .map(
+                (column) =>
+                  'NEW.' +
+                  sqliteIdentifier(column.name) +
+                  ' IS NOT OLD.' +
+                  sqliteIdentifier(column.name)
+              )
+              .join(' OR ')
+          : '';
+      const sql = `CREATE TRIGGER ${name} AFTER ${operation} ON ${sqliteIdentifier(table)}${changed}
         BEGIN
           ${capture.insert};
           SELECT CASE WHEN changes()=0 THEN CASE WHEN EXISTS(SELECT 1 ${capture.missing})

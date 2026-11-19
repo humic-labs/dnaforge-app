@@ -111,10 +111,17 @@ export async function writeWithBoundFileRetention<T>(
     .get(path) as
     | { id: string; entity_id: string; workspace_id: number | null; content_hash: string | null }
     | undefined;
-  if (!row && input.workspaceRoot && typeof input.content === 'string' &&
-      (path.toLowerCase().endsWith('.wpselection.json') || isEntityArtifactPath(path))) {
-    const id = isEntityArtifactPath(path) ? parseEntityArtifact(input.content).id
-      : (await import('@waypoint/workspace-editor/saved-residue-selection')).parseSavedResidueSelectionDocument(input.content).id;
+  if (
+    !row &&
+    input.workspaceRoot &&
+    typeof input.content === 'string' &&
+    (path.toLowerCase().endsWith('.wpselection.json') || isEntityArtifactPath(path))
+  ) {
+    const id = isEntityArtifactPath(path)
+      ? parseEntityArtifact(input.content).id
+      : (
+          await import('@waypoint/workspace-editor/saved-residue-selection')
+        ).parseSavedResidueSelectionDocument(input.content).id;
     return publishTypedSavedText(
       db,
       {

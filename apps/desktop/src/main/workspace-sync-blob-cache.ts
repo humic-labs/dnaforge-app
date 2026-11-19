@@ -105,6 +105,7 @@ async function publishCacheFile(
   }
   await syncDirectory(dirname(path));
   await syncDirectory(dirname(dirname(path)));
+  await syncDirectory(dirname(dirname(dirname(path))));
 }
 
 const REPLACE_REFUSED_CODES = new Set(['EPERM', 'EACCES', 'EEXIST', 'EBUSY']);

@@ -156,6 +156,15 @@ describe('native retained source recovery', () => {
     const owner = { workspaceId: 1, entityId: row.id },
       versions = () => listSavedFileVersions(db, { ...owner, limit: 20, offset: 0 });
     expect(versions().versions).toHaveLength(1);
+    const firstVersion = versions().versions[0].id;
+    for (const update of [
+      'DELETE FROM retained_file_source_revisions WHERE id=?',
+      "UPDATE retained_file_source_revisions SET source_path='/changed' WHERE id=?",
+      'INSERT OR REPLACE INTO retained_file_source_revisions SELECT * FROM retained_file_source_revisions WHERE id=?',
+    ])
+      expect(() => db.prepare(update).run(firstVersion)).toThrow();
+    expect(versions().versions[0].id).toBe(firstVersion);
+
     await writeWithBoundFileRetention(db, { path: source, content: 'edit' }, () =>
       writeFile(source, 'edit')
     );
@@ -199,6 +208,26 @@ describe('native retained source recovery', () => {
       { sha256: hash(cache), sizeBytes: cache.length },
       { cacheRoot: join(profile.tmpDir, 'workspace-sync', 'blobs') }
     );
+    const historicalPath = join(root, 'legacy-version.dat');
+    db.prepare(
+      "INSERT INTO catalog_entity_files(id,entity_id,workspace_id,path,file_kind,content_hash,status,created_at,updated_at) VALUES(?,?,1,?,'file',?,'historical',1,1)"
+    ).run('archived-' + row.id, row.id, historicalPath, 'sha256:' + hash(cache));
+    const withHistorical = await native().savedFileSource({
+      project: root,
+      operation: { kind: 'versions', entityId: row.id },
+    });
+    expect('versions' in withHistorical && withHistorical.versions).toHaveLength(5);
+    expect(versions().versions[0].id).toBe(candidate.id);
+    await native().savedFileSource({
+      project: root,
+      operation: {
+        kind: 'restore',
+        entityId: row.id,
+        revisionId: versions().versions.at(-1)!.id,
+        destination: 'historical-cache.dat',
+      },
+    });
+    expect(await readFile(join(root, 'historical-cache.dat'))).toEqual(cache);
     const result = await native().savedFileSource({
       project: root,
       operation: { kind: 'versions', entityId: legacy },

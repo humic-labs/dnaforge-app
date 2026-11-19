@@ -367,7 +367,7 @@ describe('checked main-owned Registry format reconstruction over real SQLite, fi
         (request, options) =>
           write(request, {
             ...options,
-            beforePublish: () => {
+            beforePublish: (stagedPath) => {
               if (race === 'workspace-owner')
                 fileDb.db.prepare("UPDATE workspaces SET repo_uuid='replacement' WHERE id=7").run();
               if (race === 'remote-owner')
@@ -380,7 +380,7 @@ describe('checked main-owned Registry format reconstruction over real SQLite, fi
                 fileDb.db
                   .prepare("UPDATE lims_entity SET name='Replacement projection' WHERE id=?")
                   .run(input.entityId);
-              options?.beforePublish?.();
+              options?.beforePublish?.(stagedPath);
             },
           })
       );

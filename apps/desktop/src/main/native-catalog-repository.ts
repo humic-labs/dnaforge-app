@@ -74,7 +74,8 @@ export function createNativeCatalogDatabase(
         db,
         request,
         () => bindCatalogEntityFileInDb(db, request, undefined, witness, fingerprint),
-        (row) => row.entity_id,options.assertCurrent
+        (row) => row.entity_id,
+        options.assertCurrent
       );
     }),
     ensureWorkspaceOwner: guarded((...args) => ensureWorkspaceOwnerInDb(db, ...args)),
@@ -88,7 +89,8 @@ export function createNativeCatalogDatabase(
         db,
         input,
         () => registerWorkspaceFileInDb(db, input, fingerprint, witness),
-        (row) => row.id,options.assertCurrent
+        (row) => row.id,
+        options.assertCurrent
       );
     }),
     setCatalogFileState: guarded((...args) => setCatalogFileStateInDb(db, ...args)),

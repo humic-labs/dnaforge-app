@@ -21,6 +21,7 @@ export function registerSequenceDataLayerIpcHandlers(): void {
     workspaceRoots: () => nativeDocuments.workspaces.readableRoots(),
   });
   const commands = new SequenceDataLayerCommands({
+    database: getDb,
     resolveProject: async (project) => {
       const roots = new Set(nativeDocuments.workspaces.readableRoots());
       const rows = getDb()
