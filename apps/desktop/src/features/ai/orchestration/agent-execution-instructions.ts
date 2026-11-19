@@ -1,6 +1,6 @@
 import {
   AGENT_PREFERENCE_MEMORY_INSTRUCTIONS,
-  DEFAULT_MOLECULAR_AGENT_INSTRUCTIONS,
+  DEFAULT_MOLECULAR_AGENT_GUIDANCE,
   type AgentPresentationInstructions,
 } from '../../../shared/agent-presentation-instructions';
 
@@ -16,10 +16,10 @@ export function buildAgentExecutionInstructions(
 ): string {
   if (preferences === null)
     return [AGENT_EXECUTION_INSTRUCTIONS, customInstructions].filter(Boolean).join('\n\n');
+  const guidance = preferences.molecularAgentInstructions ?? DEFAULT_MOLECULAR_AGENT_GUIDANCE.instructions;
   return [
     AGENT_EXECUTION_INSTRUCTIONS,
-    '**Configured molecular presentation guidance:**',
-    preferences.molecularAgentInstructions ?? DEFAULT_MOLECULAR_AGENT_INSTRUCTIONS,
+    guidance ? `**Configured molecular presentation guidance:**\n\n${guidance}` : '',
     AGENT_PREFERENCE_MEMORY_INSTRUCTIONS,
     preferences.rememberedAgentPreferences
       ? `**Remembered user preferences:**\n${preferences.rememberedAgentPreferences}`

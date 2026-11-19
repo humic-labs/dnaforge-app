@@ -449,6 +449,85 @@
           "description": "Required operations succeed under the current grant, or the result remains explicitly incomplete without substitute artifacts."
         }
       ]
+    },
+    {
+      "id": "structure-authoring",
+      "title": "Molecular structure authoring examples",
+      "mode": "reference",
+      "user_goal": "Open a coordinate model and author named overview and detail views in DNAForge with MolViewSpec.",
+      "steps": [
+        {
+          "id": "guidance",
+          "kind": "mcp_tool",
+          "execution_boundary": "app_service",
+          "tool": "administration",
+          "arguments": { "operation": { "kind": "inspect-structure-guidance" } },
+          "description": "Read the current structure guidance. The external session provides it on first structure use. Read it again if Settings > AI changes."
+        },
+        {
+          "id": "open",
+          "kind": "mcp_tool",
+          "execution_boundary": "ui_bridge",
+          "tool": "mol_open_tab",
+          "arguments": { "structure": { "kind": "file", "path": "example.cif" } },
+          "description": "Replace example.cif with the path of a real coordinate file inside the open project. Use mol_list_structures to find the exact structureViewId."
+        },
+        {
+          "id": "inspect",
+          "kind": "mcp_tool",
+          "execution_boundary": "ui_bridge",
+          "tool": "mol_get_scene",
+          "arguments": { "structureViewId": "<structureViewId from mol_list_structures>" },
+          "description": "Parse the returned scene JSON and preserve its coordinate resource URI, parse format, canvas background and metadata version. Use the native chain inventory to choose real chain and residue IDs."
+        },
+        {
+          "id": "apply",
+          "kind": "mcp_tool",
+          "execution_boundary": "ui_bridge",
+          "tool": "mol_apply_scene",
+          "arguments": {
+            "structureViewId": "<structureViewId from mol_list_structures>",
+            "viewAction": "add",
+            "scene": "<stringified single-view MolViewSpec scene with a descriptive metadata.title>"
+          },
+          "description": "Use edit-current for the active view and add for another named perspective. If a fresh external session returns STRUCTURE_GUIDANCE_REQUIRED, read that guidance before resubmitting the intended change."
+        },
+        {
+          "id": "verify",
+          "kind": "mcp_tool",
+          "execution_boundary": "ui_bridge",
+          "tool": "mol_capture_screenshot",
+          "description": "Use mol_select_story_step to inspect each perspective. Check the scene readback and screenshot, then use mol_save_view to pin the checked presentation."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Overview of a protein model",
+          "description": "Place this component under the existing structure node in the scene.",
+          "node": {
+            "kind": "component",
+            "params": { "selector": "protein" },
+            "children": [{ "kind": "representation", "params": { "type": "cartoon" } }]
+          }
+        },
+        {
+          "title": "Detail of a residue interval with protein context",
+          "description": "Add this component beside the overview component. Replace the chain and interval with the native label identifiers for the deciding evidence.",
+          "node": {
+            "kind": "component",
+            "params": {
+              "selector": { "label_asym_id": "A", "beg_label_seq_id": 30, "end_label_seq_id": 36 }
+            },
+            "children": [
+              {
+                "kind": "representation",
+                "params": { "type": "ball_and_stick" },
+                "children": [{ "kind": "color", "params": { "color": "#0f766e" } }]
+              }
+            ]
+          }
+        }
+      ]
     }
   ]
 }
