@@ -192,7 +192,7 @@ export function TrackViewActions({
           </div>
           {error && (
             <span role="alert" className="mt-2 block text-xs text-red-600">
-              {toUserMessage(error, 'tracks.loadFailed')}
+              {toUserMessage(error, 'document.saveFailed')}
             </span>
           )}
         </form>

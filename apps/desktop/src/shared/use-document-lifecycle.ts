@@ -39,7 +39,7 @@ export function useDocumentLifecycle(
         : undefined,
       tabId: initial.tabId,
       isDirty: () => current.current?.isDirty() ?? false,
-      save: () => current.current?.save() ?? Promise.resolve(false),
+      save: (scope) => current.current?.save(scope) ?? Promise.resolve(false),
       discard: async () => {
         await current.current?.discard();
       },

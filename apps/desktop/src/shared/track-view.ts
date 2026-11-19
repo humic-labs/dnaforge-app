@@ -736,6 +736,7 @@ const documentSchema = z
 
 export type TrackViewDocument = z.infer<typeof documentSchema>;
 export interface SavedTrackView {
+  reconciliation?: 'merged' | 'saved-copy';
   warning?: string;
   document: TrackViewDocument;
   revision: string;
@@ -747,6 +748,7 @@ export interface TrackViewList {
   errors: Array<{ name: string; message: string }>;
 }
 export interface SaveTrackViewRequest {
+  baseDocument?: TrackViewDocument;
   document: unknown;
   expectedRevision: string | null;
   destination?: { workspaceRoot: string; path: string };
