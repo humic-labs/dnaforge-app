@@ -54,6 +54,7 @@ vi.mock('../features/design/design-recovery', () => ({
   useDesignRecoveryStore: { subscribe: designMocks.subscribe },
 }));
 
+import { documentLifecycle } from './document-lifecycle';
 import { QUIT_LABEL_BY_TAB_TYPE, TAB_TYPES } from './tab-kind';
 import { initDirtyReporter } from './dirty-reporter';
 
@@ -82,6 +83,40 @@ describe('dirty reporter workspace inputs', () => {
     });
 
     unsubscribe();
+  });
+
+  it('reports owner replacement and subsequent edits without waiting for a tab change', () => {
+    mocks.pageState.dirtyIds.clear();
+    mocks.sequenceState.dirtyPaths = {};
+    const tabId = 'protein-tab';
+    const target = { kind: 'tab', tabId } as const;
+    const tab = { id: tabId, type: 'protein', entityId: 'protein-1', label: 'Protein' };
+    mocks.canvasState.panels.main.tabs = [tab];
+    const owner = { tabId, target, save: async () => true };
+    const draft = documentLifecycle.register({ ...owner, isDirty: () => true });
+    const unsubscribe = initDirtyReporter();
+    let edited = false;
+    const saved = documentLifecycle.register({ ...owner, isDirty: () => edited });
+    try {
+      expect(mocks.reportDirtyState).toHaveBeenLastCalledWith(
+        expect.objectContaining({ dirtyTabIds: [tabId] })
+      );
+      draft.release();
+      expect(mocks.reportDirtyState).toHaveBeenLastCalledWith(
+        expect.objectContaining({ hasDirtyWork: false, dirtyTabIds: [] })
+      );
+      edited = true;
+      saved.changed();
+      expect(mocks.reportDirtyState).toHaveBeenLastCalledWith(
+        expect.objectContaining({ hasDirtyWork: true, dirtyTabIds: [tabId] })
+      );
+      saved.changed();
+      expect(mocks.reportDirtyState).toHaveBeenCalledTimes(3);
+    } finally {
+      unsubscribe();
+      draft.release();
+      saved.release();
+    }
   });
 
   it('names each dirty tab type instead of collapsing them into documents', () => {
