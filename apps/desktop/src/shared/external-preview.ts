@@ -6,6 +6,8 @@ export interface SourceFileView {
   path: string;
   format: SourceViewerFormat;
   location: 'external' | 'project';
+  workspaceRoot?: string;
+  expectedSourceSha256?: string;
 }
 
 export function externalFormatForPath(path: string): HandlerFamilyId | null {

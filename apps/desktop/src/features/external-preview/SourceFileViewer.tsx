@@ -14,6 +14,7 @@ import { ImportDestinationPicker } from '../import-wizard/ImportDestinationPicke
 import type { ImportDestination } from '../workspace-loader/public/resolve-import-destination';
 import { FastaPreview } from './FastaPreview';
 import { StructurePreview } from './StructurePreview';
+import { ProjectStructureFile } from './ProjectStructureFile';
 import { ChromatogramPreview } from './ChromatogramPreview';
 import type { PreviewProps } from './use-preview-source';
 
@@ -40,7 +41,12 @@ export function SourceFileViewer({ view, tabId }: { view: SourceFileView; tabId:
   const [error, setError] = useState('');
   const folders = useWorkspaceStore((s) => s.folders);
   const Viewer = viewers[view.format];
-  if (view.location === 'project') return <Viewer path={view.path} />;
+  if (view.location === 'project')
+    return view.format === 'structure' ? (
+      <ProjectStructureFile view={view} tabId={tabId} />
+    ) : (
+      <Viewer path={view.path} />
+    );
 
   async function importFile() {
     if (!digest || !target || target.kind === 'registry' || inFlight.current) return;
@@ -81,7 +87,18 @@ export function SourceFileViewer({ view, tabId }: { view: SourceFileView; tabId:
           panel.id,
           tabId,
           { type: 'file', entityId: `source-view:project:${path}` },
-          { sourceFileView: { ...view, path, location: 'project' }, readOnly: true }
+          {
+            sourceFileView: {
+              ...view,
+              path,
+              location: 'project',
+              ...(view.format === 'structure' && {
+                workspaceRoot: detail.workspaceRoot ?? undefined,
+                expectedSourceSha256: digest,
+              }),
+            },
+            readOnly: true,
+          }
         );
       window.dispatchEvent(
         new CustomEvent<WorkspaceFilesChangedDetail>(WORKSPACE_FILES_CHANGED_EVENT, {

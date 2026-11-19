@@ -121,6 +121,7 @@ export async function openMolecularDocument(
     viewId?: string;
     snapshotIndex?: number;
     reference?: MolecularDocumentReference;
+    replaceProjectSource?: { tabId: string; sourcePath: string };
   }
 ): Promise<DocumentOpenResult> {
   if (request.signal?.aborted) return cancelledDocumentOpen();
@@ -250,6 +251,39 @@ export async function openMolecularDocument(
     updateOpenDocument(entityId, attrs, true);
   } else {
     updateOpenDocument(entityId, attrs, true);
+  }
+  if (request.replaceProjectSource) {
+    const { tabId, sourcePath } = request.replaceProjectSource;
+    const state = useCanvasStore.getState();
+    const panel = Object.values(state.panels).find((candidate) =>
+      candidate.tabs.some(
+        (tab) =>
+          tab.id === tabId &&
+          tab.type === 'file' &&
+          tab.sourceFileView?.format === 'structure' &&
+          tab.sourceFileView.location === 'project' &&
+          tab.sourceFileView.path === sourcePath
+      )
+    );
+    if (!panel || request.signal?.aborted) return cancelledDocumentOpen();
+    state.retargetTab(
+      panel.id,
+      tabId,
+      { type: 'structure', entityId },
+      {
+        initialStructureAttrs: attrs,
+        label: saved.document.name,
+        readOnly: false,
+      }
+    );
+    return {
+      status: 'presented',
+      panelId: panel.id,
+      tabId,
+      tabType: 'structure',
+      disposition: 'reused',
+      content: 'loading',
+    };
   }
   return presentDocument(
     {

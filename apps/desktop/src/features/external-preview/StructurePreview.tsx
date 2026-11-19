@@ -84,7 +84,12 @@ function CoordinateViewer({
   );
 }
 
-export function StructurePreview({ path, onSnapshot, controls }: PreviewProps) {
+export function StructurePreview({
+  path,
+  onSnapshot,
+  controls,
+  expectedSourceSha256,
+}: PreviewProps & { expectedSourceSha256?: string }) {
   const source = usePreviewSource(path, SOFT_WARN_BYTES, readCoordinates);
   useDisplayedSnapshot(source?.status === 'loaded' ? undefined : onSnapshot, null);
   if (source?.status !== 'loaded')
@@ -94,6 +99,12 @@ export function StructurePreview({ path, onSnapshot, controls }: PreviewProps) {
           {source ? source.message : 'Reading coordinates…'}
         </span>
       </DocumentInfoRow>
+    );
+  if (expectedSourceSha256 && source.sha256 !== expectedSourceSha256)
+    return (
+      <p role="alert" className="p-4 text-sm">
+        The project file has changed since import. Open the current file from Files.
+      </p>
     );
   return (
     <CoordinateViewer
