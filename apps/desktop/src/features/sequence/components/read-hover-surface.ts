@@ -102,49 +102,90 @@ function commonGridStep(outputPixels: number, layoutPixels: number) {
   return outputPixels / a;
 }
 
-export function readHoverCrop(backing: BackingSize, bounds: Rect, rect: Rect, layoutScale: number) {
+export function readHoverCrop(
+  backing: BackingSize,
+  bounds: Rect,
+  rect: Rect,
+  layoutScale: number,
+  outputScale = backing.width / bounds.width
+) {
   if (
     ![rect.left, rect.top, rect.width, rect.height].every(Number.isFinite) ||
     rect.width <= 0 ||
     rect.height <= 0 ||
+    backing.width <= 0 ||
+    backing.height <= 0 ||
     !(layoutScale > 0)
   )
     return null;
-  const scale = backing.width / bounds.width;
-  if (!Number.isFinite(scale) || scale <= 0 || scale !== backing.height / bounds.height)
-    return null;
-  const layoutWidth = bounds.width * layoutScale;
-  const layoutHeight = bounds.height * layoutScale;
+  const snap = (css: number) => Math.round(css * layoutScale);
+  const originX = snap(bounds.left);
+  const originY = snap(bounds.top);
+  const layoutWidth = snap(bounds.left + bounds.width) - originX;
+  const layoutHeight = snap(bounds.top + bounds.height) - originY;
   if (
+    ![layoutWidth, layoutHeight].every(Number.isSafeInteger) ||
+    layoutWidth <= 0 ||
+    layoutHeight <= 0
+  )
+    return null;
+  const nativeGrid = outputScale === layoutScale;
+  const scale = nativeGrid ? outputScale : backing.width / bounds.width;
+  if (!Number.isFinite(scale) || scale <= 0) return null;
+  if (nativeGrid) {
+    if (Math.abs(layoutWidth - backing.width) > 1 || Math.abs(layoutHeight - backing.height) > 1)
+      return null;
+  } else if (
+    scale !== backing.height / bounds.height ||
     ![
-      layoutWidth,
-      layoutHeight,
+      bounds.width * layoutScale,
+      bounds.height * layoutScale,
       bounds.left * layoutScale,
       bounds.top * layoutScale,
       bounds.left * scale,
       bounds.top * scale,
     ].every(Number.isSafeInteger)
-  )
+  ) {
     return null;
-  if (layoutWidth <= 0 || layoutHeight <= 0) return null;
-  const xStep = commonGridStep(backing.width, layoutWidth);
-  const yStep = commonGridStep(backing.height, layoutHeight);
-  const toOutput = (css: number) => (Math.round(css * layoutScale) / layoutScale) * scale;
-  const x = Math.floor(toOutput(rect.left));
-  const y = Math.floor(toOutput(rect.top));
+  }
+  const presentedWidth = nativeGrid ? layoutWidth : backing.width;
+  const presentedHeight = nativeGrid ? layoutHeight : backing.height;
+  const xStep = commonGridStep(presentedWidth, layoutWidth);
+  const yStep = commonGridStep(presentedHeight, layoutHeight);
+  const toOutput = (css: number) => (snap(css) / layoutScale) * scale;
+  const readX = (local: number) =>
+    nativeGrid ? snap(bounds.left + local) - originX : toOutput(local);
+  const readY = (local: number) =>
+    nativeGrid ? snap(bounds.top + local) - originY : toOutput(local);
+  const x = Math.floor(readX(rect.left));
+  const y = Math.floor(readY(rect.top));
   const w = toOutput(rect.width);
   const h = toOutput(rect.height);
-  const clipW = Math.ceil(toOutput(rect.left + rect.width)) - x;
-  const clipH = Math.ceil(toOutput(rect.top + rect.height)) - y;
+  const clipW = Math.ceil(readX(rect.left + rect.width)) - x;
+  const clipH = Math.ceil(readY(rect.top + rect.height)) - y;
   if (w <= 0 || h <= 0 || clipW <= 0 || clipH <= 0) return null;
   const left = Math.max(0, Math.floor(x / xStep) * xStep);
   const top = Math.max(0, Math.floor(y / yStep) * yStep);
-  const width = Math.min(backing.width, Math.ceil((x + w) / xStep) * xStep) - left;
-  const height = Math.min(backing.height, Math.ceil((y + h) / yStep) * yStep) - top;
+  const width = Math.min(presentedWidth, Math.ceil((x + w) / xStep) * xStep) - left;
+  const height = Math.min(presentedHeight, Math.ceil((y + h) / yStep) * yStep) - top;
   if (width <= 0 || height <= 0) return null;
-  if ((xStep === backing.width && w < xStep) || (yStep === backing.height && h < yStep))
+  if ((xStep === presentedWidth && w < xStep) || (yStep === presentedHeight && h < yStep))
     return null;
-  return { x: x - left, y: y - top, w, h, clipW, clipH, left, top, width, height, scale };
+  return {
+    x: x - left,
+    y: y - top,
+    w,
+    h,
+    clipW,
+    clipH,
+    left,
+    top,
+    width,
+    height,
+    scale,
+    presentedWidth,
+    presentedHeight,
+  };
 }
 
 export function createReadHoverSurface({
@@ -241,7 +282,13 @@ export function createReadHoverSurface({
     canvas,
     paint(source, rect, theme) {
       if (disposed || gl.isContextLost()) return hide();
-      const crop = readHoverCrop(source, source.getBoundingClientRect(), rect, layoutScale);
+      const crop = readHoverCrop(
+        source,
+        source.getBoundingClientRect(),
+        rect,
+        layoutScale,
+        source.ownerDocument.defaultView?.devicePixelRatio
+      );
       if (!crop || crop.width > textureLimit || crop.height > textureLimit) return hide();
       const { width, height, left, top, scale } = crop;
       if (allocatedWidth !== width || allocatedHeight !== height) {
@@ -262,7 +309,11 @@ export function createReadHoverSurface({
         allocatedWidth = width;
         allocatedHeight = height;
       }
-      scratch.drawImage(source, left, top, width, height, 0, 0, width, height);
+      if (source.width === crop.presentedWidth && source.height === crop.presentedHeight) {
+        scratch.drawImage(source, left, top, width, height, 0, 0, width, height);
+      } else {
+        scratch.drawImage(source, -left, -top, crop.presentedWidth, crop.presentedHeight);
+      }
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, input);
       gl.uniform4f(shape, crop.x, crop.y, crop.w, crop.h);
       gl.uniform2f(clipSize, crop.clipW, crop.clipH);
