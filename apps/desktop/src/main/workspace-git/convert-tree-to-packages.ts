@@ -44,12 +44,15 @@ const INDEXED_FASTA_SUFFIX = /\.(?:fa|fasta|fna|ffn|frn)$/iu;
 const REFERENCE_ANNOTATION_SUFFIX = /\.gff3?(?:\.gz)?$/iu;
 
 function referenceFastaMatcher(entries: Dirent[]): (name: string) => boolean {
-  const stems = new Set(
-    entries
-      .filter((entry) => entry.isFile() && REFERENCE_ANNOTATION_SUFFIX.test(entry.name))
-      .map((entry) => entry.name.replace(REFERENCE_ANNOTATION_SUFFIX, ''))
+  const files = new Set(entries.filter((entry) => entry.isFile()).map((entry) => entry.name));
+  const annotationStems = new Set(
+    [...files]
+      .filter((name) => REFERENCE_ANNOTATION_SUFFIX.test(name))
+      .map((name) => name.replace(REFERENCE_ANNOTATION_SUFFIX, ''))
   );
-  return (name) => INDEXED_FASTA_SUFFIX.test(name) && stems.has(basename(name, extname(name)));
+  return (name) =>
+    INDEXED_FASTA_SUFFIX.test(name) &&
+    (files.has(`${name}.fai`) || annotationStems.has(basename(name, extname(name))));
 }
 
 const MAX_DEPTH = 40;
