@@ -9,6 +9,7 @@ import type { DirtyWorkItem } from './dirty-work-state';
 import { isDesktopRuntime } from '../utils/environment';
 import { isTabDirty, saveTargetForTab } from '../features/canvas/artifact-document-lifecycle';
 import { documentLifecycle } from './document-lifecycle';
+import { classifyTabSession } from '../features/canvas/tab-document-session';
 import { useCanvasStore } from '../features/canvas/store';
 import { isKnownTabType, quitWorkPhrase, TAB_TYPES, type TabType } from './tab-kind';
 import {
@@ -130,7 +131,11 @@ export async function saveAllUnsavedWork(): Promise<void> {
     for (const tab of panel.tabs) {
       if (!isTabDirty(tab)) continue;
       const target = saveTargetForTab(tab);
-      if (target.kind === 'sequence-document') continue;
+      if (
+        target.kind === 'sequence-document' &&
+        classifyTabSession(tab).kind !== 'sequence-assembly'
+      )
+        continue;
       if (
         nativeDocumentsSettled &&
         target.kind === 'file' &&
