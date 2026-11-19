@@ -15,7 +15,10 @@ import { submitScientificWorkspace } from './scientific-workspace-service';
 import type Database from 'better-sqlite3';
 import type { NativeDocumentDispatcher } from './native-document-dispatcher';
 
-import { cp, lstat, rename, rm } from 'fs/promises';
+import { lstat } from 'fs/promises';
+import { movePathWithoutReplacement, PublishedMoveIncompleteError } from './move-path-exclusively';
+import { assertWorkspaceWriteAllowed } from './workspace-write-admission';
+import { assertKnownWorkspaceContentWritable } from './workspace-content-write-access';
 import { basename, isAbsolute, join, relative, resolve } from 'path';
 import { withSafeWritablePaths } from './ipc/path-allowlist';
 import {
@@ -43,7 +46,10 @@ import {
 import { withDeclaredRendererWorkspaceMutation } from './ipc/workspace-mutation-authority';
 import { assertWorkspaceMigrationActionsSettled } from './workspace-migration-admission';
 import { recoverNativeCatalogRecordPublications } from './native-catalog-record-mutations';
-import { assertRendererDatabaseStatementAllowed } from './workspace-sync-database-fence';
+import {
+  assertCommittedDatabaseReadAllowed,
+  assertRendererDatabaseStatementAllowed,
+} from './workspace-sync-database-fence';
 import {
   beginNativeWorkspaceManifestMove,
   completeNativeWorkspaceManifestMove,
@@ -263,18 +269,6 @@ export function createWorkspaceFileRelocator(options: {
     }
   }
 
-  async function moveFile(src: string, dest: string): Promise<void> {
-    try {
-      await rename(src, dest);
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EXDEV') {
-        throw err;
-      }
-      await cp(src, dest, { recursive: true, force: false, errorOnExist: true });
-      await rm(src, { recursive: true, force: true });
-    }
-  }
-
   async function pathExists(p: string): Promise<boolean> {
     try {
       await lstat(p);
@@ -392,15 +386,24 @@ export function createWorkspaceFileRelocator(options: {
       : null;
     assertEnrolledPrimerRelocationAllowed(getDb(), input);
     if (nativeManifestMove) await beginNativeWorkspaceManifestMove(nativeManifestMove);
+    const assertCurrent = () => {
+      assertCommittedDatabaseReadAllowed(db);
+      assertWorkspaceWriteAllowed(db, [oldPath, newPath]);
+      if (workspaceRoot) assertKnownWorkspaceContentWritable(db, workspaceRoot);
+    };
+    const recheckFileAuthority = () => assertEnrolledPrimerRelocationAllowed(db, input);
     const primerMove =
       workspaceRoot && !nativeManifestMove
         ? await preparePrimerFileMove(db, { workspaceRoot, oldPath, newPath, actor: input.actor })
         : null;
     try {
       try {
-        await moveFile(oldPath, newPath);
+        await movePathWithoutReplacement(oldPath, newPath, assertCurrent, recheckFileAuthority);
       } catch (error) {
-        if (nativeManifestMove) await completeNativeWorkspaceManifestMove(nativeManifestMove);
+        if (!(error instanceof PublishedMoveIncompleteError)) {
+          if (nativeManifestMove) await completeNativeWorkspaceManifestMove(nativeManifestMove);
+          if (primerMove) db.transaction(() => finishPrimerFileMoveInTx(db, primerMove))();
+        }
         throw error;
       }
 
@@ -463,7 +466,7 @@ export function createWorkspaceFileRelocator(options: {
         try {
           if (await pathExists(oldPath))
             throw new Error('The original location now has another occupant.');
-          await moveFile(newPath, oldPath);
+          await movePathWithoutReplacement(newPath, oldPath, assertCurrent, recheckFileAuthority);
         } catch (reverseErr) {
           throw new Error(
             `RELOCATE_SPLIT_STATE: the reference update failed (${(err as Error).message}) AND the file ` +

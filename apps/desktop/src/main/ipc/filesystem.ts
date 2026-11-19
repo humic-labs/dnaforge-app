@@ -13,23 +13,12 @@ import { app, BrowserWindow } from 'electron';
 import { assertKnownWorkspaceContentWritable } from '../workspace-content-write-access';
 import { createHash } from 'node:crypto';
 import { assertWorkspaceMigrationActionsSettled } from '../workspace-migration-admission';
-import {
-  open,
-  readFile,
-  writeFile,
-  readdir,
-  mkdir,
-  lstat,
-  stat,
-  access,
-  rename,
-  cp,
-  rm,
-} from 'fs/promises';
+import { open, readFile, writeFile, readdir, mkdir, lstat, stat, access } from 'fs/promises';
 import { createReadStream, watch, watchFile, unwatchFile, type FSWatcher } from 'fs';
 import { basename, isAbsolute, join } from 'path';
 import { HARD_CAP_BYTES, OversizedFileError } from '../../shared/oversized-guard';
 import { planMoveIntoDirectory } from '../move-path';
+import { movePathWithoutReplacement, renamePathWithoutReplacement } from '../move-path-exclusively';
 import { assertSafePath, withSafeWritablePath, withSafeWritablePaths } from './path-allowlist';
 import { createRegisteredSequencePackagePublicationContext } from '../sequence-package-registry-publication';
 import { acquireQuickLookRendererMutationLease } from '../workspace-git';
@@ -1100,10 +1089,15 @@ export function registerFilesystemHandlers(): void {
                     `[fs:rename] Refusing to rename through a symbolic link: ${safeOldPath}`
                   );
                 }
-                assertCurrent();
                 // workspace-entity-move: raw primitive; product callers use workspace:relocateEntityFile.
                 await nativeDocuments.fileDocuments.assertClean(safeOldPath);
-                await rename(safeOldPath, safeNewPath);
+                const { getDb } = await import('./database');
+                await assertUnversionedRendererFilesystemMutationAllowed(getDb(), event.sender.id, [
+                  safeOldPath,
+                  safeNewPath,
+                ]);
+                assertCurrent();
+                renamePathWithoutReplacement(safeOldPath, safeNewPath);
                 try {
                   await nativeDocuments.fileDocuments.relocate(safeOldPath, safeNewPath);
                 } catch (error) {
@@ -1151,45 +1145,14 @@ export function registerFilesystemHandlers(): void {
                     `[fs:move] Refusing to move through a symbolic link: ${safeSourcePath}`
                   );
                 }
-                let destExists = false;
-                try {
-                  await access(destPath);
-                  destExists = true;
-                } catch {
-                  destExists = false;
-                }
-                if (destExists) {
-                  throw new Error(
-                    `MOVE_EXISTS: an item named "${basename(destPath)}" already exists in that folder`
-                  );
-                }
-                assertCurrent();
-                try {
-                  // workspace-entity-move: raw primitive with no feature caller or reference-index update.
-                  await rename(safeSourcePath, destPath);
-                } catch (err) {
-                  if ((err as NodeJS.ErrnoException).code === 'EXDEV') {
-                    assertCurrent();
-                    await cp(safeSourcePath, destPath, {
-                      recursive: true,
-                      force: false,
-                      errorOnExist: true,
-                    });
-                    try {
-                      assertCurrent();
-                      await rm(safeSourcePath, { recursive: true, force: true });
-                    } catch (rmErr) {
-                      await rm(destPath, { recursive: true, force: true }).catch(() => {});
-                      throw new Error(
-                        `MOVE_FAILED: copied to the destination but could not remove the original (${
-                          (rmErr as Error).message
-                        })`
-                      );
-                    }
-                  } else {
-                    throw err;
-                  }
-                }
+                // workspace-entity-move: raw primitive with no feature caller or reference-index update.
+                const { getDb } = await import('./database');
+                await movePathWithoutReplacement(safeSourcePath, destPath, assertCurrent, () =>
+                  assertUnversionedRendererFilesystemMutationAllowed(getDb(), event.sender.id, [
+                    safeSourcePath,
+                    destPath,
+                  ])
+                );
                 try {
                   await nativeDocuments.fileDocuments.relocate(safeSourcePath, destPath);
                 } catch (error) {

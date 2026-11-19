@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import {
   cp,
@@ -13,7 +14,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -23,18 +24,43 @@ const host = vi.hoisted(() => ({
   publications: vi.fn(),
   beforeTextPublication: vi.fn(),
   revokeOnCrossDeviceRename: false,
+  crossDeviceSource: '',
+  partialRemoval: '',
+  beforePromotion: vi.fn(),
 }));
 vi.mock('node:fs/promises', async (original) => {
   const actual = await original<typeof import('node:fs/promises')>();
   return {
     ...actual,
     cp: vi.fn(actual.cp),
-    rename: async (...args: Parameters<typeof actual.rename>) => {
+    rm: async (...args: Parameters<typeof actual.rm>) => {
+      const target = String(args[0]);
+      if (
+        host.partialRemoval &&
+        (target === host.partialRemoval ||
+          (basename(target) === 'original' &&
+            dirname(dirname(target)) === dirname(host.partialRemoval)))
+      ) {
+        await actual.rm(join(target, 'sequence.gb'));
+        throw Object.assign(new Error('injected partial source removal'), { code: 'EIO' });
+      }
+      return actual.rm(...args);
+    },
+  };
+});
+vi.mock('../exclusive-path-promotion', async (original) => {
+  const actual = await original<typeof import('../exclusive-path-promotion')>();
+  return {
+    ...actual,
+    promotePathExclusively(source: string, destination: string) {
+      host.beforePromotion(source, destination);
       if (host.revokeOnCrossDeviceRename) {
         host.db?.prepare("UPDATE workspace_sync_bindings SET access_role='viewer'").run();
         throw Object.assign(new Error('Cross-device move'), { code: 'EXDEV' });
       }
-      return actual.rename(...args);
+      if (source === host.crossDeviceSource && basename(destination) !== 'original')
+        throw Object.assign(new Error('Cross-device move'), { code: 'EXDEV' });
+      return actual.promotePathExclusively(source, destination);
     },
   };
 });
@@ -153,6 +179,9 @@ afterAll(async () => {
 
 beforeEach(async () => {
   host.revokeOnCrossDeviceRename = false;
+  host.crossDeviceSource = '';
+  host.partialRemoval = '';
+  host.beforePromotion.mockReset();
   root = await realpath(await mkdtemp(join(tmpdir(), 'shared-sequence-publication-')));
   packageRoot = join(root, 'package');
   await mkdir(packageRoot);
@@ -358,6 +387,109 @@ describe('shared role admission at generic filesystem IPC owners', () => {
 });
 
 describe('generic filesystem authority remains current', () => {
+  it('preserves every copied member after partial cross-device source removal', async () => {
+    host.db!.prepare("UPDATE workspace_sync_bindings SET access_role='editor'").run();
+    const target = join(root, 'new');
+    await mkdir(target);
+    const move = new Map(vi.mocked(ipcMain.handle).mock.calls).get('fs:move')!;
+    host.crossDeviceSource = packageRoot;
+    host.partialRemoval = packageRoot;
+    await expect(move(event(), packageRoot, target)).rejects.toThrow(
+      'injected partial source removal'
+    );
+    await expect(stat(join(packageRoot, 'sequence.gb'))).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await readFile(join(target, 'package', 'sequence.gb'), 'utf8')).toBe('sequence bytes');
+    expect(await readFile(join(target, 'package', 'publication.marker'), 'utf8')).toBe('original');
+  });
+  it('preserves a concurrent destination claimant when the cross-device copy is ready to publish', async () => {
+    host.db!.prepare("UPDATE workspace_sync_bindings SET access_role='editor'").run();
+    const destination = join(root, 'new');
+    await mkdir(destination);
+    const occupied = join(destination, 'package');
+    host.crossDeviceSource = packageRoot;
+    host.beforePromotion.mockImplementation((from: string, to: string) => {
+      if (basename(from) === 'copy' && to === occupied) mkdirSync(occupied);
+    });
+    const move = new Map(vi.mocked(ipcMain.handle).mock.calls).get('fs:move')!;
+    await expect(move(event(), packageRoot, destination)).rejects.toThrow('MOVE_EXISTS');
+    expect(await readdir(occupied)).toEqual([]);
+    expect(await readFile(join(packageRoot, 'sequence.gb'), 'utf8')).toBe('sequence bytes');
+  });
+  it('rejects corrupt copied bytes before publication or source removal', async () => {
+    host.db!.prepare("UPDATE workspace_sync_bindings SET access_role='editor'").run();
+    host.crossDeviceSource = host.marker;
+    const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
+    vi.mocked(cp).mockImplementationOnce(async (source, target, options) => {
+      await actual.cp(source, target, options);
+      await writeFile(target, 'different');
+    });
+    await expect(invokeGeneric('move')).rejects.toThrow('differs from its source');
+    expect(await readFile(host.marker, 'utf8')).toBe('original');
+    await expect(stat(join(root, 'publication.marker'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+  it('preserves both copies when permission changes after destination publication', async () => {
+    host.db!.prepare("UPDATE workspace_sync_bindings SET access_role='editor'").run();
+    host.crossDeviceSource = host.marker;
+    host.beforePromotion.mockImplementation((_from: string, to: string) => {
+      if (basename(to) === 'original')
+        host.db!.prepare("UPDATE workspace_sync_bindings SET access_role='viewer'").run();
+    });
+    await expect(invokeGeneric('move')).rejects.toThrow(/shared project is view only/i);
+    expect(await readFile(host.marker, 'utf8')).toBe('original');
+    expect(await readFile(join(root, 'publication.marker'), 'utf8')).toBe('original');
+  });
+  it('preserves changed source bytes when a concurrent edit intervenes after copying', async () => {
+    host.db!.prepare("UPDATE workspace_sync_bindings SET access_role='editor'").run();
+    host.crossDeviceSource = host.marker;
+    host.beforePromotion.mockImplementation((from: string, to: string) => {
+      if (basename(to) === 'original') writeFileSync(from, 'a later edit');
+    });
+    await expect(invokeGeneric('move')).rejects.toThrow('differs from its source');
+    expect(await readFile(host.marker, 'utf8')).toBe('a later edit');
+    expect(await readFile(join(root, 'publication.marker'), 'utf8')).toBe('original');
+  });
+  it('preserves a replaced destination and the source after publication', async () => {
+    host.db!.prepare("UPDATE workspace_sync_bindings SET access_role='editor'").run();
+    const destination = join(root, 'publication.marker');
+    const retainedCopy = join(root, 'retained.marker');
+    host.crossDeviceSource = host.marker;
+    host.beforePromotion.mockImplementation((_from: string, to: string) => {
+      if (basename(to) === 'original') {
+        renameSync(destination, retainedCopy);
+        writeFileSync(destination, 'replacement');
+      }
+    });
+    await expect(invokeGeneric('move')).rejects.toThrow(/source or destination was replaced/);
+    expect(await readFile(host.marker, 'utf8')).toBe('original');
+    expect(await readFile(destination, 'utf8')).toBe('replacement');
+    expect(await readFile(retainedCopy, 'utf8')).toBe('original');
+  });
+  it('finishes an admitted cross-device move with its nested members and relative links intact', async () => {
+    host.db!.prepare("UPDATE workspace_sync_bindings SET access_role='editor'").run();
+    const target = join(root, 'new');
+    await mkdir(target);
+    await mkdir(join(packageRoot, 'empty'));
+    if (process.platform !== 'win32') await symlink('sequence.gb', join(packageRoot, 'alias'));
+    const move = new Map(vi.mocked(ipcMain.handle).mock.calls).get('fs:move')!;
+    host.crossDeviceSource = packageRoot;
+    expect(await move(event(), packageRoot, target)).toMatchObject({
+      destPath: join(target, 'package'),
+    });
+    expect(await readFile(join(target, 'package', 'sequence.gb'), 'utf8')).toBe('sequence bytes');
+    expect(await readdir(join(target, 'package', 'empty'))).toEqual([]);
+    if (process.platform !== 'win32')
+      expect(await readFile(join(target, 'package', 'alias'), 'utf8')).toBe('sequence bytes');
+    await expect(stat(packageRoot)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await readdir(target)).toEqual(['package']);
+  });
+  it('preserves the occupied destination of a raw rename', async () => {
+    host.db!.prepare("UPDATE workspace_sync_bindings SET access_role='editor'").run();
+    const target = join(root, 'renamed.marker');
+    await writeFile(target, 'occupied');
+    await expect(invokeGeneric('rename')).rejects.toThrow();
+    expect(await readFile(target, 'utf8')).toBe('occupied');
+    expect(await readFile(host.marker, 'utf8')).toBe('original');
+  });
   it('refuses the copy fallback when access is revoked during a cross-device rename', async () => {
     host.db!.prepare("UPDATE workspace_sync_bindings SET access_role='editor'").run();
     host.revokeOnCrossDeviceRename = true;
