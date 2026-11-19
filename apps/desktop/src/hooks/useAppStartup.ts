@@ -14,7 +14,8 @@ import {
   DESKTOP_ANALYTICS_OPT_IN_MESSAGE,
   DESKTOP_ANALYTICS_TOAST_MESSAGE,
 } from '@waypoint/analytics-policy';
-import { getSetting, setSetting } from '../db';
+import { getSetting } from '../db';
+import { readNoticeVersion, rememberNotice } from '../lib/desktop-notice-history';
 import { useToastStore } from '../stores/toast-store';
 import {
   PRIVACY_POLICY_UPDATED_MESSAGE,
@@ -50,6 +51,10 @@ type AppStartupOptions = {
   readonly devScenarioReplayEpoch: number;
   readonly getE2E: () => { e2e?: boolean };
 };
+
+function acknowledgeAnalyticsNotice(): Promise<void> {
+  return rememberNotice('usage-analytics', 'true');
+}
 
 export function useAppStartup({
   shellPrepared,
@@ -143,8 +148,8 @@ export function useAppStartup({
     if (!shellPrepared) return;
 
     async function showPrivacyPolicyUpdateOnce(): Promise<void> {
-      if ((await getSetting('privacy_policy_update_seen')) === PRIVACY_POLICY_UPDATED_ON) return;
-      await setSetting('privacy_policy_update_seen', PRIVACY_POLICY_UPDATED_ON);
+      if ((await readNoticeVersion('privacy-policy')) === PRIVACY_POLICY_UPDATED_ON) return;
+      await rememberNotice('privacy-policy', PRIVACY_POLICY_UPDATED_ON);
       useToastStore.getState().addRichToast({
         definition: 'privacy-policy-updated',
         message: toUserMessage(PRIVACY_POLICY_UPDATED_MESSAGE),
@@ -168,7 +173,7 @@ export function useAppStartup({
           await failClosedAnalyticsForSession();
           return;
         }
-        const bannerSeen = await getSetting('analytics_banner_seen');
+        const bannerSeen = (await readNoticeVersion('usage-analytics')) === 'true';
         console.log(
           `[Analytics] Policy resolved: enabled=${decision.enabled}, disclosure=${decision.needsDisclosure}`
         );
@@ -176,15 +181,15 @@ export function useAppStartup({
         if (getE2E().e2e) {
           console.log('[Analytics] Non-telemetry E2E launch — resolving consent off');
           await setAnalyticsConsent(false);
-          await setSetting('analytics_banner_seen', 'true');
+          await acknowledgeAnalyticsNotice();
           return;
         }
 
         try {
-          if (decision.consent === 'true' && (bannerSeen === 'true' || !decision.needsDisclosure)) {
+          if (decision.consent === 'true' && (bannerSeen || !decision.needsDisclosure)) {
             await showPrivacyPolicyUpdateOnce();
           } else {
-            await setSetting('privacy_policy_update_seen', PRIVACY_POLICY_UPDATED_ON);
+            await rememberNotice('privacy-policy', PRIVACY_POLICY_UPDATED_ON);
           }
         } catch (noticeError) {
           console.error('[Privacy] Policy update notice failed:', noticeError);
@@ -194,17 +199,19 @@ export function useAppStartup({
           await setAnalyticsConsent(true, {
             resumeExistingEpisode: !decision.needsDisclosure,
           });
-          if (bannerSeen !== 'true' && (await hasTelemetryDestination())) {
-            try {
-              await setSetting('analytics_banner_seen', 'false');
-            } catch (disclosureError) {
-              console.error('[Analytics] Failed to mark privacy toast pending:', disclosureError);
+          if (!bannerSeen && (await hasTelemetryDestination())) {
+            if (
+              !decision.needsDisclosure &&
+              (await getSetting('analytics_consent_basis')) === 'explicit'
+            ) {
+              await acknowledgeAnalyticsNotice();
+              return;
             }
             try {
               useToastStore.getState().addRichToast({
                 definition: 'data-privacy',
                 message: toUserMessage(DESKTOP_ANALYTICS_TOAST_MESSAGE),
-                onDismiss: () => setSetting('analytics_banner_seen', 'true'),
+                onDismiss: acknowledgeAnalyticsNotice,
                 actions: [
                   {
                     label: 'Privacy details',
@@ -225,10 +232,11 @@ export function useAppStartup({
         }
 
         await failClosedAnalyticsForSession();
-        if (decision.needsDisclosure && (await hasTelemetryDestination())) {
+        if (!bannerSeen && decision.needsDisclosure && (await hasTelemetryDestination())) {
           useToastStore.getState().addRichToast({
             definition: 'data-privacy-opt-in',
             message: toUserMessage(DESKTOP_ANALYTICS_OPT_IN_MESSAGE),
+            onDismiss: acknowledgeAnalyticsNotice,
             actions: [
               {
                 label: 'Share',
