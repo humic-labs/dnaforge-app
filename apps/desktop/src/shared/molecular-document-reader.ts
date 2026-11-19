@@ -120,8 +120,8 @@ export async function validateMolecularDocumentForOpen(document: MolecularDocume
         });
         hasModel = true;
       }
-      if ('children' in node)
-        for (const child of node.children ?? []) {
+      if ('children' in node && Array.isArray(node.children))
+        for (const child of node.children) {
           if (await checkScene(child, source)) hasModel = true;
         }
       return hasModel;
