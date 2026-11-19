@@ -1,7 +1,15 @@
-import { actOnAcceptedScientificEntity } from './scientific-resource-lifecycle';
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { mkdir, readFile, rename, rm, symlink, unlink, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import {
+  mkdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  symlink,
+  unlink,
+  writeFile,
+} from 'node:fs/promises';
 import { join, resolve, relative } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -28,7 +36,8 @@ import { submitScientificWorkspace } from './scientific-workspace-service';
 import { reconcileScientificNativeProjectionsInsideTx } from './scientific-native-projection';
 import { actOnAcceptedScientificEntity } from './scientific-resource-lifecycle';
 import { scientificCopyResourceId } from './scientific-resource-operations';
-import { runWorkspaceFileTrash } from './workspace-file-trash';
+import { runWorkspaceFileTrash, workspaceMoveTreeDigest } from './workspace-file-trash';
+import { workspaceEntityOwnsPath } from './saved-entity-file-retention';
 import { allocatePrimerCatalogNumberInDb } from './primer-projection';
 import { repairAcceptedSequencePackageCaches } from './scientific-package-cache-migration';
 import { materializeScientificWorkspace } from './scientific-object-materializer';
@@ -152,19 +161,7 @@ async function missingNativeHistoryFixture() {
     })
   ).toMatchObject({ acceptance: { kind: 'changed' }, delivery: { kind: 'complete' } });
   const baseline = f.store.read();
-  const inspected = await runWorkspaceFileTrash({
-    kind: 'inspect',
-    workspaceRoot: f.root,
-    path: join(f.root, path),
-  });
-  if (inspected.kind !== 'inspect') throw new Error('Native primer inspection failed.');
-  const trashed = await runWorkspaceFileTrash({
-    kind: 'trash',
-    workspaceRoot: f.root,
-    path: join(f.root, path),
-    expectedRevision: inspected.source.revision,
-  });
-  expect(trashed).toMatchObject({ kind: 'trash', changed: true });
+  await unlink(join(f.root, path));
   await expect(readFile(join(f.root, path))).rejects.toMatchObject({ code: 'ENOENT' });
   expect(f.store.read().reader.current(id(resourceId))).toEqual(
     baseline.reader.current(id(resourceId))
@@ -341,9 +338,6 @@ describe('scientific workspace operation owner', () => {
         delivery: { kind: 'complete' },
       });
       expect(await readFile(join(f.root, f.path), 'utf8')).toBe(f.text);
-      expect(await runWorkspaceFileTrash({ kind: 'list', workspaceRoot: f.root })).toMatchObject({
-        entries: [expect.objectContaining({ originalPath: f.path })],
-      });
     }
   );
 
@@ -364,13 +358,40 @@ describe('scientific workspace operation owner', () => {
       });
       if (inspected.kind !== 'inspect') throw new Error('The native file was not inspected.');
       expect(
-        await runWorkspaceFileTrash({
-          kind: 'trash',
-          workspaceRoot: f.root,
-          path,
-          expectedRevision: inspected.source.revision,
+        await runWorkspaceFileTrash(
+          {
+            kind: 'trash',
+            workspaceRoot: f.root,
+            path,
+            expectedRevision: inspected.source.revision,
+          },
+          undefined,
+          undefined,
+          undefined,
+          (file) => workspaceEntityOwnsPath(f.db, f.root, file)
+        )
+      ).toMatchObject({ kind: 'failed', code: 'SAVED_ENTITY_CONTENT', stateChanged: false });
+      expect(await readFile(path, 'utf8')).toBe(original);
+      const entry = randomUUID();
+      const legacyDirectory = join(f.root, '.git', 'dnaforge-file-trash', entry);
+      await mkdir(legacyDirectory, { recursive: true });
+      const contentDigest = await workspaceMoveTreeDigest(path);
+      await rename(path, join(legacyDirectory, 'payload'));
+      await writeFile(
+        join(legacyDirectory, 'record.json'),
+        JSON.stringify({
+          schema: 'dnaforge.file-trash.v1',
+          id: entry,
+          workspaceRoot: await realpath(f.root),
+          originalPath: 'p.json',
+          trashedAt: new Date().toISOString(),
+          type: 'file',
+          contentDigest,
         })
-      ).toMatchObject({ kind: 'trash', changed: true });
+      );
+      expect(await runWorkspaceFileTrash({ kind: 'list', workspaceRoot: f.root })).toMatchObject({
+        entries: [expect.objectContaining({ originalPath: 'p.json' })],
+      });
       expect(await readFile(path).catch(() => null)).toBeNull();
       expect(f.store.read().reader.current(id('p'))?.document).toEqual(primer);
       if (laterEdits)
@@ -2581,27 +2602,40 @@ describe('scientific workspace operation owner', () => {
     expect(JSON.parse(await readFile(join(f.root, 'product.json'), 'utf8'))).toEqual(
       oldProduct.document
     );
-    const removed = await submitScientificWorkspace({
+    await expect(
+      submitScientificWorkspace({
+        db,
+        workspaceId: f.workspaceId,
+        request: {
+          operationId: 'remove-primer-before-restore',
+          expectedHead: restoredState.head,
+          source: {
+            kind: 'documents',
+            entries: new ScientificObjectStore(db, f.workspaceId)
+              .catalog()
+              .entries.filter((slot) => !slot.tombstone && slot.path && slot.resourceId !== id('p'))
+              .flatMap((slot) => {
+                const snapshot = restoredState.reader.current(slot.resourceId);
+                return snapshot && slot.path
+                  ? [{ resourceId: slot.resourceId, path: slot.path, document: snapshot.document }]
+                  : [];
+              }),
+          },
+        },
+      })
+    ).rejects.toThrow('SAVED_ENTITY_CONTENT');
+    expect(new ScientificObjectStore(db, f.workspaceId).read().head).toBe(restoredState.head);
+    const archived = await submitScientificWorkspace({
       db,
       workspaceId: f.workspaceId,
+      archiveResourceId: oldPrimer.resourceId,
       request: {
-        operationId: 'remove-primer-before-restore',
+        operationId: 'archive-primer-before-restore',
         expectedHead: restoredState.head,
-        source: {
-          kind: 'documents',
-          entries: new ScientificObjectStore(db, f.workspaceId)
-            .catalog()
-            .entries.filter((slot) => !slot.tombstone && slot.path && slot.resourceId !== id('p'))
-            .flatMap((slot) => {
-              const snapshot = restoredState.reader.current(slot.resourceId);
-              return snapshot && slot.path
-                ? [{ resourceId: slot.resourceId, path: slot.path, document: snapshot.document }]
-                : [];
-            }),
-        },
+        source: { kind: 'delete', sourcePath: 'p.json' },
       },
     });
-    expect(removed).toMatchObject({
+    expect(archived).toMatchObject({
       acceptance: { kind: 'changed' },
       delivery: { kind: 'complete' },
     });

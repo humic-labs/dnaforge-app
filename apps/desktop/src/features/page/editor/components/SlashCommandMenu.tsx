@@ -1,16 +1,8 @@
 'use client';
-import { MenuRow, MenuSurface } from '@waypoint/ui-components';
+import { MenuRow, MenuSurface, useMenu, type MenuCloseReason } from '@waypoint/ui-components';
 import { useMenuPointerSelection } from './use-menu-pointer-selection';
 
-import {
-  Fragment,
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { Fragment, forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { Button } from '../../../../components/ui';
 import { cn } from '@/shared/lib/cn';
 
@@ -18,6 +10,7 @@ import type { SlashCommand } from '../lib/commands';
 import { groupCommandsByCategory } from '../lib/commands';
 
 export interface SlashCommandMenuRef {
+  close: (reason: MenuCloseReason) => void;
   onKeyDown: (props: { event: KeyboardEvent }) => boolean;
 }
 
@@ -30,8 +23,6 @@ export interface SlashCommandMenuProps {
 
 export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenuProps>(
   function SlashCommandMenu({ items, command, error, onRetry }, ref) {
-    const [selectedName, setSelectedName] = useState<string | null>(null);
-    const pointerSelection = useMenuPointerSelection(setSelectedName);
     const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
     const columns = useMemo(() => {
       const grouped = groupCommandsByCategory(items);
@@ -47,6 +38,27 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
         { key: 'entity' as const, label: 'Entity', commands: grouped.entity },
       ].filter((column) => column.commands.length);
     }, [items]);
+    const menuItems = useMemo(
+      () =>
+        columns.flatMap((column) =>
+          column.commands.map((item) => ({
+            id: item.name,
+            textValue: item.label,
+            closeOnActivate: false,
+          }))
+        ),
+      [columns]
+    );
+    const menu = useMenu({
+      items: menuItems,
+      defaultOpen: true,
+      onActivate: (id) => {
+        const selected = items.find((item) => item.name === id);
+        if (selected) command(selected);
+      },
+    });
+    const selectedName = menu.activeId;
+    const pointerSelection = useMenuPointerSelection(menu.point);
     const selectedColumn =
       columns.find((column) => column.commands.some((item) => item.name === selectedName)) ??
       columns[0];
@@ -57,21 +69,27 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
     const selectedCommandName = selectedColumn?.commands[selectedRow]?.name ?? null;
 
     useEffect(() => {
-      setSelectedName(selectedCommandName);
       if (selectedCommandName)
         itemRefs.current.get(selectedCommandName)?.scrollIntoView({ block: 'nearest' });
     }, [selectedCommandName]);
 
     useImperativeHandle(ref, () => ({
+      close: menu.close,
       onKeyDown: ({ event }) => {
-        if (event.isComposing || event.keyCode === 229 || !selectedColumn) return false;
+        if (
+          !menu.isOpen ||
+          event.defaultPrevented ||
+          event.isComposing ||
+          event.keyCode === 229 ||
+          !selectedColumn
+        )
+          return false;
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           event.preventDefault();
-          const direction = event.key === 'ArrowDown' ? 1 : -1;
-          const row =
-            (selectedRow + direction + selectedColumn.commands.length) %
-            selectedColumn.commands.length;
-          setSelectedName(selectedColumn.commands[row].name);
+          menu.move(event.key === 'ArrowDown' ? 'next' : 'previous', 'root', {
+            wrap: true,
+            itemIds: selectedColumn.commands.map((item) => item.name),
+          });
           return true;
         }
         if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
@@ -79,13 +97,13 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
           const index = columns.indexOf(selectedColumn);
           const direction = event.key === 'ArrowRight' ? 1 : -1;
           const next = columns[(index + direction + columns.length) % columns.length];
-          setSelectedName(next.commands[Math.min(selectedRow, next.commands.length - 1)].name);
+          menu.point(next.commands[Math.min(selectedRow, next.commands.length - 1)].name);
           return true;
         }
         if (event.key === 'Enter') {
           event.preventDefault();
           const selected = selectedColumn.commands[selectedRow];
-          if (selected) command(selected);
+          if (selected) menu.activate(selected.name);
           return true;
         }
         return false;
@@ -94,6 +112,9 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
 
     return (
       <MenuSurface
+        role="listbox"
+        aria-label="Notebook commands"
+        ref={menu.bindSurface}
         surface="inline-workspace"
         selection={false}
         icons
@@ -168,7 +189,9 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
                         onMouseDown={(event) => event.preventDefault()}
                         onMouseEnter={(event) => pointerSelection(event, cmd.name)}
                         onMouseMove={(event) => pointerSelection(event, cmd.name)}
-                        onClick={() => command(cmd)}
+                        role="option"
+                        aria-selected={selectedCommandName === cmd.name}
+                        onClick={() => menu.activate(cmd.name)}
                         active={selectedColumn?.key === column.key && selectedRow === row}
                         icon={cmd.icon}
                         submenu={column.key === 'entity' && cmd.name !== 'entity-link'}

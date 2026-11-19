@@ -33,12 +33,12 @@ it('puts Format, Embed and Entity actions in three separately labelled columns',
   const format = screen.getByRole('group', { name: 'Format' });
   const embed = screen.getByRole('group', { name: 'Embed' });
   const entity = screen.getByRole('group', { name: 'Entity' });
-  expect(within(format).getAllByRole('button')).toHaveLength(1);
-  expect(within(embed).getAllByRole('button')).toHaveLength(1);
-  expect(within(entity).getAllByRole('button')).toHaveLength(1);
-  expect(within(format).getByRole('button', { name: /Heading 1$/ })).toBeVisible();
-  expect(within(embed).getByRole('button', { name: /Table$/ })).toBeVisible();
-  fireEvent.click(within(entity).getByRole('button', { name: /Link an entity$/ }));
+  expect(within(format).getAllByRole('option')).toHaveLength(1);
+  expect(within(embed).getAllByRole('option')).toHaveLength(1);
+  expect(within(entity).getAllByRole('option')).toHaveLength(1);
+  expect(within(format).getByRole('option', { name: /Heading 1$/ })).toBeVisible();
+  expect(within(embed).getByRole('option', { name: /Table$/ })).toBeVisible();
+  fireEvent.click(within(entity).getByRole('option', { name: /Link an entity$/ }));
   expect(command).toHaveBeenCalledWith(commands[2]);
 });
 it('moves across all three columns with the keyboard and inserts the chosen entity action', () => {

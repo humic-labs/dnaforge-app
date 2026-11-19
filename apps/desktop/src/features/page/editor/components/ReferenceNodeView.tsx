@@ -1,3 +1,4 @@
+import { safeFocus } from '../../../../shared/utils/safeFocus';
 import { TextField } from '../../../../components/ui';
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { useLayoutEffect, useRef, useState } from 'react';
@@ -34,8 +35,7 @@ function ReferenceDraft({ editor, node, getPos, extension }: NodeViewProps) {
       onDismiss: () => finishReferenceEdit(editor, getPos(), false),
     });
     popup.current = instance;
-    input.current.focus({ preventScroll: true });
-    input.current.select();
+    if (safeFocus(input.current, { preventScroll: true })) input.current.select();
     return () => {
       popup.current = null;
       instance.destroy();

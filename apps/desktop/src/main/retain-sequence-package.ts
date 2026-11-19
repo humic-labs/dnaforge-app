@@ -3,7 +3,11 @@ import { createHash } from 'node:crypto';
 import { lstatSync, type Stats } from 'node:fs';
 import { lstat, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { parseSequencePackageDocument, sequencePackageMetaPaths } from '../db/sequence-package';
+import {
+  parseSequencePackageDocument,
+  sequencePackageMetaPaths,
+  sequencePrimerArtifactLookupPaths,
+} from '../db/sequence-package';
 import { captureSavedFileMembers, type SavedFileSourceMember } from './saved-file-sources';
 import { savedFileWorkspace } from './saved-file-publication';
 import { assertPhysicalPackageMember } from './workspace-git/package-member-boundary';
@@ -19,6 +23,22 @@ async function sequenceMarkers(packageRoot: string): Promise<string[]> {
     }
   }
   return markers;
+}
+
+async function existingPrimerExportPaths(root: string, declared: string): Promise<string[]> {
+  const members = [];
+  for (const name of new Set([declared, ...sequencePrimerArtifactLookupPaths(declared)])) {
+    const path = join(root, name);
+    await assertPhysicalPackageMember(root, path);
+    try {
+      await lstat(path);
+      members.push(name);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+  }
+  if (!members.length) throw new Error(`A declared primer export is missing: ${declared}`);
+  return members;
 }
 
 export async function retainSequencePackage(
@@ -43,11 +63,14 @@ export async function retainSequencePackage(
   const document = parseSequencePackageDocument(raw.toString('utf8'));
   if (expectedPackageId !== undefined && document.id !== expectedPackageId)
     throw new Error('The package identity changed during publication.');
-  const paths = [
-    markerMember,
-    document.product.file,
-    ...document.members.map((member) => member.path),
-  ];
+  const paths = [markerMember, document.product.file];
+  for (const member of document.members) {
+    if (member.role === 'primer-export') {
+      paths.push(...(await existingPrimerExportPaths(packageRoot, member.path)));
+    } else {
+      paths.push(member.path);
+    }
+  }
   const members: SavedFileSourceMember[] = [];
   const identities: Array<{ path: string; stat: Stats }> = [];
   for (const member of new Set(paths)) {

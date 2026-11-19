@@ -42,7 +42,7 @@ it('keeps the full formatting order before the retained section-layout commands'
   render(<SlashCommandMenu items={builtInCommands} command={vi.fn()} />);
   const format = screen.getByRole('group', { name: 'Format' });
   const labels = within(format)
-    .getAllByRole('button')
+    .getAllByRole('option')
     .map(
       (button) => builtInCommands.find((item) => button.textContent?.endsWith(item.label))?.label
     );
@@ -68,8 +68,8 @@ it('labels the Layout section below the formatting actions without another colum
   render(<SlashCommandMenu items={builtInCommands} command={vi.fn()} />);
   const format = screen.getByRole('group', { name: 'Format' });
   const layout = within(format).getByText('Layout');
-  const divider = within(format).getByRole('button', { name: /Divider$/ });
-  const twoColumns = within(format).getByRole('button', { name: /Two columns$/ });
+  const divider = within(format).getByRole('option', { name: /Divider$/ });
+  const twoColumns = within(format).getByRole('option', { name: /Two columns$/ });
   expect(divider.compareDocumentPosition(layout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(
     layout.compareDocumentPosition(twoColumns) & Node.DOCUMENT_POSITION_FOLLOWING
@@ -122,7 +122,7 @@ it.each(layoutCases)(
   '$label depicts its actual column count and left-to-right width proportions',
   ({ label, weights }) => {
     render(<SlashCommandMenu items={builtInCommands} command={vi.fn()} />);
-    const row = screen.getByRole('button', { name: new RegExp(`${label}$`) });
+    const row = screen.getByRole('option', { name: new RegExp(`${label}$`) });
     const svg = row.querySelector('svg');
     expect(svg, `${label} needs a real layout diagram, not a font glyph`).not.toBeNull();
     if (!svg) return;
@@ -201,7 +201,7 @@ it.each(layoutCases)(
         }}
       />
     );
-    act(() => fireEvent.click(screen.getByRole('button', { name: new RegExp(`${label}$`) })));
+    act(() => fireEvent.click(screen.getByRole('option', { name: new RegExp(`${label}$`) })));
     expect(getNotebookLayout(editor.state)).toBe(id);
     const after: unknown[] = [];
     editor.state.doc.descendants((node) => {
@@ -235,6 +235,6 @@ it.each([
 ])('uses the canonical icon for $label embeds', ({ definition, icon }) => {
   expect(renderToStaticMarkup(<>{definition.icon}</>)).toBe(renderToStaticMarkup(<>{icon}</>));
   render(<SlashCommandMenu items={embedRegistry.getSlashCommands()} command={vi.fn()} />);
-  const row = screen.getByRole('button', { name: new RegExp(`${definition.label}$`) });
+  const row = screen.getByRole('option', { name: new RegExp(`${definition.label}$`) });
   expect(row.querySelector('svg')?.outerHTML).toBe(renderToStaticMarkup(<>{icon}</>));
 });

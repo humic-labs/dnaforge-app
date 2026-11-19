@@ -46483,6 +46483,18 @@
               "totalCount": { "$ref": "#/properties/result/properties/eventSeq" },
               "limit": { "$ref": "#/properties/result/properties/eventSeq" },
               "offset": { "$ref": "#/properties/result/properties/eventSeq" },
+              "availableKinds": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": { "type": "string" },
+                    "count": { "$ref": "#/properties/result/properties/eventSeq" }
+                  },
+                  "required": ["kind", "count"],
+                  "additionalProperties": false
+                }
+              },
               "availableOrganisms": {
                 "type": "array",
                 "items": {

@@ -143,7 +143,7 @@ function mentions() {
 }
 async function chooseSlashPrimer() {
   insert('/primer');
-  fireEvent.click(await screen.findByRole('button', { name: /Primer$/i }));
+  fireEvent.click(await screen.findByRole('option', { name: /Primer$/i }));
   await screen.findByTestId('mention-active-category');
 }
 it.each(['@', '/'] as const)(
@@ -221,14 +221,14 @@ it('keeps the query in editable prose with only an ephemeral theme decoration', 
 it('keeps the primer role shortcut out of the default type list and exposes it on search', async () => {
   mount();
   insert('/');
-  expect(await screen.findByRole('button', { name: /Link an entity$/ })).toBeVisible();
+  expect(await screen.findByRole('option', { name: /Link an entity$/ })).toBeVisible();
   expect(screen.getByRole('group', { name: 'Format' })).toBeVisible();
   expect(screen.getByRole('group', { name: 'Embed' })).toBeVisible();
   const entity = screen.getByRole('group', { name: 'Entity' });
-  expect(within(entity).getAllByRole('button')).toHaveLength(1);
-  expect(screen.queryByRole('button', { name: /^Link primer$/i })).toBeNull();
+  expect(within(entity).getAllByRole('option')).toHaveLength(1);
+  expect(screen.queryByRole('option', { name: /^Link primer$/i })).toBeNull();
   insert('primer');
-  expect(await screen.findByRole('button', { name: /^Link primer$/i })).toBeVisible();
+  expect(await screen.findByRole('option', { name: /^Link primer$/i })).toBeVisible();
 });
 it('deletes a nonempty query normally without leaving its category', async () => {
   mount();
@@ -253,7 +253,7 @@ it('backs out of an empty slash category to its original query without deleting 
   await chooseSlashPrimer();
   expect(editor!.getText()).toBe('Protected prose @');
   expect(backspace()).toBe(true);
-  expect(await screen.findByRole('button', { name: /^Link primer$/i })).toBeVisible();
+  expect(await screen.findByRole('option', { name: /^Link primer$/i })).toBeVisible();
   expect(editor!.getText()).toBe('Protected prose /primer');
   expect(screen.queryByTestId('mention-menu')).toBeNull();
 });
@@ -279,25 +279,25 @@ it.each(['', 'Protected prose '])(
       content: [{ type: 'paragraph', content: prose ? [{ type: 'text', text: prose }] : [] }],
     });
     insert('/');
-    await screen.findByRole('button', { name: /Link an entity$/ });
+    await screen.findByRole('option', { name: /Link an entity$/ });
     expect(backspace()).toBe(true);
     expect(editor!.getText()).toBe(prose);
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /Link an entity$/ })).toBeNull()
+      expect(screen.queryByRole('option', { name: /Link an entity$/ })).toBeNull()
     );
   }
 );
 it('returns generic entity search to its empty slash parent then cancels the slash', async () => {
   mount();
   insert('/');
-  fireEvent.click(await screen.findByRole('button', { name: /Link an entity$/ }));
+  fireEvent.click(await screen.findByRole('option', { name: /Link an entity$/ }));
   await screen.findByTestId('mention-menu');
   expect(backspace()).toBe(true);
-  expect(await screen.findByRole('button', { name: /Link an entity$/ })).toBeVisible();
+  expect(await screen.findByRole('option', { name: /Link an entity$/ })).toBeVisible();
   expect(editor!.getText()).toBe('Protected prose /');
   expect(backspace()).toBe(true);
   expect(editor!.getText()).toBe('Protected prose ');
-  await waitFor(() => expect(screen.queryByRole('button', { name: /Link an entity$/ })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole('option', { name: /Link an entity$/ })).toBeNull());
 });
 it('replaces only the query and preserves surrounding prose and an existing saved chip through JSON roundtrip and edits', async () => {
   const ed = mount({

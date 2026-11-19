@@ -144,7 +144,7 @@ it('uses the same inline picker for /primer and inserts the exact project refere
   act(() => {
     editor!.commands.insertContent('/primer');
   });
-  expect(await screen.findByRole('button', { name: /^Link primer$/i })).toBeVisible();
+  expect(await screen.findByRole('option', { name: /^Link primer$/i })).toBeVisible();
   fireEvent.keyDown(editor!.view.dom, { key: 'Enter' });
   expect(await screen.findByTestId('mention-active-category')).toHaveTextContent('Primer');
   expect(screen.queryByRole('dialog')).toBeNull();

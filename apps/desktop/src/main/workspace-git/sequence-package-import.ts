@@ -1412,7 +1412,8 @@ async function overwriteImportedSequencePackage(
       await writeFileExclusive(stagedPaths.productPath, claimedPrepared.content);
     }
 
-    const preserved: Record<string, unknown> = { ...current };
+    const retainedMembers = current.members.filter((member) => member.role !== 'primer-export');
+    const preserved: Record<string, unknown> = { ...current, members: retainedMembers };
     delete preserved.assembly;
     delete preserved.product;
     delete preserved.updatedAt;
@@ -1427,7 +1428,7 @@ async function overwriteImportedSequencePackage(
       await fs.mkdir(stagedPaths.contentsDir, { recursive: true });
       await writeFileExclusive(evidenceMove.staged, original.bytes);
       preserved.members = [
-        ...current.members,
+        ...retainedMembers,
         {
           id: memberId,
           role: 'evidence-input',

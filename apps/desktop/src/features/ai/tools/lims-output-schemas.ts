@@ -277,6 +277,7 @@ export const limsQueryRegistrySummariesOutputSchema = z.object({
   totalCount: count,
   limit: count,
   offset: count,
+  availableKinds: z.array(z.object({ kind: z.string(), count })).optional(),
   availableOrganisms: z
     .array(
       z.object({

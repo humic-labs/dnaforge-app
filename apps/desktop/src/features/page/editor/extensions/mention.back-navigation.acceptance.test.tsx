@@ -141,7 +141,7 @@ async function goBack(method: 'pointer' | 'Backspace') {
 
 async function openSlashPrimer() {
   insert('/primer');
-  fireEvent.click(await screen.findByRole('button', { name: /^Link primer$/i }));
+  fireEvent.click(await screen.findByRole('option', { name: /^Link primer$/i }));
   expect(await screen.findByTestId('mention-active-category')).toHaveTextContent('Primer');
   expectProse('@');
 }
@@ -164,7 +164,7 @@ it('keeps the notebook caret and live filtered results together after picking a 
   }));
   mount();
   insert('/');
-  fireEvent.click(await screen.findByRole('button', { name: 'Sequences' }));
+  fireEvent.click(await screen.findByRole('option', { name: 'Sequences' }));
   const menu = await screen.findByTestId('mention-menu');
   for (const char of 'pUC') insert(char);
   expect(await within(menu).findByText('pUC19')).toBeVisible();
@@ -220,11 +220,11 @@ it('does not show a parent Back action for a directly typed root picker', async 
 it('shows Back on entity home when its actual parent is the slash menu', async () => {
   mount();
   insert('/');
-  fireEvent.click(await screen.findByRole('button', { name: /Link an entity$/ }));
+  fireEvent.click(await screen.findByRole('option', { name: /Link an entity$/ }));
   await screen.findByRole('option', { name: 'Browse types' });
   expect(backButton()).toBeVisible();
   await goBack('pointer');
-  expect(await screen.findByRole('button', { name: /Link an entity$/ })).toBeVisible();
+  expect(await screen.findByRole('option', { name: /Link an entity$/ })).toBeVisible();
   expect(screen.queryByTestId('mention-menu')).toBeNull();
   expectProse('/');
 });
@@ -235,7 +235,7 @@ it.each(['pointer', 'Backspace'] as const)(
     mount();
     insert('/');
     const column = within(await screen.findByRole('group', { name: 'Entity' }));
-    fireEvent.click(await column.findByRole('button', { name: 'Sequences' }));
+    fireEvent.click(await column.findByRole('option', { name: 'Sequences' }));
     expect(await screen.findByTestId('mention-active-category')).toHaveTextContent('Sequences');
     await waitFor(() =>
       expect(fixtures.search).toHaveBeenLastCalledWith(
@@ -243,7 +243,7 @@ it.each(['pointer', 'Backspace'] as const)(
       )
     );
     await goBack(method);
-    expect(await screen.findByRole('button', { name: 'Sequences' })).toBeVisible();
+    expect(await screen.findByRole('option', { name: 'Sequences' })).toBeVisible();
     expect(screen.queryByTestId('mention-menu')).toBeNull();
     expectProse('/');
   }
@@ -255,7 +255,7 @@ it.each(['pointer', 'Backspace'] as const)(
     mount();
     await openSlashPrimer();
     await goBack(method);
-    expect(await screen.findByRole('button', { name: /^Link primer$/i })).toBeVisible();
+    expect(await screen.findByRole('option', { name: /^Link primer$/i })).toBeVisible();
     expect(screen.queryByTestId('mention-menu')).toBeNull();
     expectProse('/primer');
   }
@@ -303,7 +303,7 @@ it.each(['@', '/'] as const)(
     insert(prefix);
     if (prefix === '@')
       fireEvent.click(await screen.findByRole('option', { name: 'Browse types' }));
-    const type = await screen.findByRole(prefix === '@' ? 'option' : 'button', {
+    const type = await screen.findByRole('option', {
       name: prefix === '@' ? 'Browse Sequences' : 'Sequences',
     });
     const popup = type.closest('[data-tippy-root]');

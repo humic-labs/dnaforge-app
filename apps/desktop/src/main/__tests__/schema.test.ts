@@ -318,6 +318,14 @@ describe('ensureSchema', () => {
 
     ensureSchema(db, ':memory:');
 
+    expect(
+      db
+        .prepare('SELECT reason FROM notebook_saved_reference_retention WHERE reference_id=?')
+        .get('v18-ref')
+    ).toEqual({ reason: 'legacy-unknown' });
+    expect(() => db.prepare('DELETE FROM entity_references WHERE id=?').run('v18-ref')).toThrow(
+      /must be retained/
+    );
     expect(getColumnNames(db, 'entity_references')).toContain('workspace_scope');
     expect(getColumnNames(db, 'entity_references')).toContain('workspace_root_path');
     expect(

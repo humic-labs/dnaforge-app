@@ -3,12 +3,21 @@ import {
   reportPrimerReconcileFailures,
   reportPrimerRecoveryInventory,
 } from './workspace-reconcile-report';
-import { getLatestPrimerRecoveryInventory } from '../features/primers/public/primer-recovery-report';
+import {
+  getLatestPrimerRecoveryInventory,
+  refreshPrimerRecoveryInventory,
+} from '../features/primers/public/primer-recovery-report';
 import { useToastStore } from '../stores/toast-store';
 import type { PrimerRecoveryInventory } from '../features/primers/public/primer-recovery-report';
 
 vi.mock('../features/primers/public/primer-recovery-report', () => ({
   getLatestPrimerRecoveryInventory: vi.fn(() => null),
+  refreshPrimerRecoveryInventory: vi.fn(),
+}));
+
+const restore = vi.hoisted(() => vi.fn());
+vi.mock('../features/primers/primer-artifact-service', () => ({
+  restoreSavedPrimerDocument: restore,
 }));
 
 const unresolved = {
@@ -127,4 +136,37 @@ it('suppresses the ownership prompt for 375 primers, preserving unrelated failur
   expect(failures).toHaveLength(1);
   expect(failures[0].message).not.toContain('POP5_R');
   expect(failures[0].message).toContain('1 issue');
+});
+
+it('keeps one actionable notice for a failed restore and clears it when retry succeeds', async () => {
+  const selection = {
+    id: 'retry-target',
+    root: '/project',
+    relativePath: 'primer.json',
+    sha256: 'a'.repeat(64),
+  };
+  const missing = {
+    ...orphan,
+    id: selection.id,
+    workspaceId: 4,
+    name: 'Retry target',
+    restore: selection,
+  };
+  const current = () => useToastStore.getState().toasts;
+  const report = inventory([missing]);
+  restore.mockRejectedValueOnce(new Error('occupied')).mockResolvedValueOnce(undefined);
+  vi.mocked(refreshPrimerRecoveryInventory)
+    .mockResolvedValueOnce(report)
+    .mockResolvedValueOnce(inventory([{ ...missing, status: 'document-backed' }]));
+  reportPrimerRecoveryInventory(report);
+  expect(current()).toHaveLength(1);
+  useToastStore.getState().invokeToastAction(current()[0].id, 0);
+  await vi.waitFor(() => {
+    expect(current()).toHaveLength(1);
+    expect(current()[0].message).toContain('could not be restored');
+    expect(current()[0].actions?.[0].label).toBe('Restore saved copies');
+  });
+  useToastStore.getState().invokeToastAction(current()[0].id, 0);
+  await vi.waitFor(() => expect(current()).toHaveLength(0));
+  expect(restore).toHaveBeenCalledTimes(2);
 });

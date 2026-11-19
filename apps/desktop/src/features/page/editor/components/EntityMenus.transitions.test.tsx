@@ -81,7 +81,7 @@ it.each(['pointer', 'keyboard'] as const)(
     const view = render(
       <EntitySlashCommandMenu ref={ref} query="" items={commands} command={command} />
     );
-    const row = screen.getByRole('button', { name: /Link an entity/ });
+    const row = screen.getByRole('option', { name: /Link an entity/ });
     if (input === 'pointer') fireEvent.mouseEnter(row);
     else
       act(() => {

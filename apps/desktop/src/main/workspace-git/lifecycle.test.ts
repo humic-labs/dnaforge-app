@@ -59,10 +59,7 @@ describe('managed workspace lifecycle transitions', () => {
         transitionManagedWorkspaceLifecycle(db, { action: 'archive-by-path', repoPath })
       ).resolves.toEqual({ changed: 1 });
       await expect(
-        transitionManagedWorkspaceLifecycle(db, {
-          action: 'trash-by-uuid',
-          repoUuid: 'workspace-a',
-        })
+        transitionManagedWorkspaceLifecycle(db, { action: 'trash-by-path', repoPath })
       ).rejects.toThrow('SAVED_ENTITY_CONTENT');
       await expect(
         transitionManagedWorkspaceLifecycle(db, { action: 'restore-archive-by-path', repoPath })

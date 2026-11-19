@@ -559,13 +559,18 @@ export class NativeNotebookWorkingCopyOwner {
     previousContent: JSONContent,
     copy: NotebookCopy
   ) {
-    const legacy =
-      normalizeNotebookReferenceOccurrences(previousContent, { documentId: scope.documentId }) !==
-      previousContent;
-    content = normalizeNotebookReferenceOccurrences(content, {
-      documentId: scope.documentId,
-      ...(legacy ? {} : { createId: randomUUID }),
-    });
+    if (
+      content !== previousContent &&
+      canonicalNotebookJson(content) !== canonicalNotebookJson(previousContent)
+    ) {
+      const legacy =
+        normalizeNotebookReferenceOccurrences(previousContent, { documentId: scope.documentId }) !==
+        previousContent;
+      content = normalizeNotebookReferenceOccurrences(content, {
+        documentId: scope.documentId,
+        ...(legacy ? {} : { createId: randomUUID }),
+      });
+    }
     if (this.options.prepareResourceReferences)
       return this.options.prepareResourceReferences(
         scope,

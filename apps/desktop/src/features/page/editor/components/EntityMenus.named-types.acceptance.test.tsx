@@ -114,12 +114,12 @@ it('lists populated native types in the initial Entity column with their origina
   const command = vi.fn();
   render(<EntitySlashCommandMenu items={[]} query="" command={command} />);
   const column = within(screen.getByRole('group', { name: 'Entity' }));
-  const row = await column.findByRole('button', { name: 'QA Lots' });
-  const link = column.getByRole('button', { name: 'Link an entity' });
+  const row = await column.findByRole('option', { name: 'QA Lots' });
+  const link = column.getByRole('option', { name: 'Link an entity' });
   expect(link).toHaveTextContent(/^@$/);
   expect(
     column
-      .getAllByRole('button')
+      .getAllByRole('option')
       .filter((button) => button !== link)
       .map((button) => button.textContent)
   ).toEqual(['Designs', 'Molecular documents', 'QA Lots']);
@@ -137,7 +137,7 @@ it('lists populated native types in the initial Entity column with their origina
 
 it('offers the named molecular-document slash command without a synthetic Structures group', async () => {
   render(<EntitySlashCommandMenu items={[]} query="molecular" command={vi.fn()} />);
-  expect(await screen.findByRole('button', { name: 'Molecular documents' })).toBeVisible();
+  expect(await screen.findByRole('option', { name: 'Molecular documents' })).toBeVisible();
   expect(screen.queryByText('Link structures')).toBeNull();
 });
 

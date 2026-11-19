@@ -460,7 +460,6 @@ export function ensureSchema(
     if (version < 47) ensureWorkspaceSyncOperationIdentityColumns(db);
     if (version < 48) migrateAgentSessionStopStates(db);
     if (version < 49) createNotebookReferenceProjectionTables(db);
-    if (version < 50) createNotebookSavedReferenceRetention(db);
 
     repairCurrentSchemaWithLimsWriteGuards(db, version < 26, isVirginDatabase);
   } catch (err) {
@@ -590,6 +589,7 @@ function repairCurrentSchema(db: Database.Database): void {
   createAgentProviderSessionControlTables(db);
   createEntityProjectionSourcesTable(db);
   createNotebookReferenceProjectionTables(db);
+  createNotebookAndReferenceTables(db);
   createNotebookSavedReferenceRetention(db);
   createGraphPersistenceTables(db);
   createComputeJobTables(db);
@@ -1114,6 +1114,38 @@ function ensureEntityReferenceWorkspaceScope(db: Database.Database): void {
   );
 }
 
+function createNotebookAndReferenceTables(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pages (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      date INTEGER,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS entity_references (
+      id TEXT PRIMARY KEY,
+      entity_type TEXT NOT NULL,
+      display_label TEXT NOT NULL,
+      locator TEXT NOT NULL,
+      deep_link_params TEXT,
+      data TEXT,
+      source TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'created',
+      workspace_scope TEXT,
+      workspace_root_path TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+  ensureEntityReferenceWorkspaceScope(db);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_entity_refs_locator ON entity_references(locator)`);
+}
+
 function migrateToV1(db: Database.Database): void {
   migratePrimerSchema(db);
 
@@ -1168,16 +1200,7 @@ function migrateToV1(db: Database.Database): void {
       )
     `);
 
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS pages (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        content TEXT NOT NULL,
-        date INTEGER,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    `);
+    createNotebookAndReferenceTables(db);
 
     createCatalogTables(db);
 
@@ -1213,25 +1236,6 @@ function migrateToV1(db: Database.Database): void {
     `);
 
     createAgentSessionTables(db);
-
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS entity_references (
-        id TEXT PRIMARY KEY,
-        entity_type TEXT NOT NULL,
-        display_label TEXT NOT NULL,
-        locator TEXT NOT NULL,
-        deep_link_params TEXT,
-        data TEXT,
-        source TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'created',
-        workspace_scope TEXT,
-        workspace_root_path TEXT,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    `);
-    safeAddColumn(db, 'entity_references', 'workspace_scope', 'TEXT');
-    safeAddColumn(db, 'entity_references', 'workspace_root_path', 'TEXT');
 
     db.exec(`
       CREATE TABLE IF NOT EXISTS entity_reference_revisions (
@@ -1316,10 +1320,6 @@ function migrateToV1(db: Database.Database): void {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id)`);
     db.exec(
       `CREATE INDEX IF NOT EXISTS idx_conversations_workspace ON conversations(workspace_path)`
-    );
-    db.exec(`CREATE INDEX IF NOT EXISTS idx_entity_refs_locator ON entity_references(locator)`);
-    db.exec(
-      `CREATE INDEX IF NOT EXISTS idx_entity_refs_workspace_scope ON entity_references(workspace_scope)`
     );
     db.exec(
       `CREATE INDEX IF NOT EXISTS idx_entity_ref_revisions ON entity_reference_revisions(reference_id)`

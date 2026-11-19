@@ -3,6 +3,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { EditorContent } from '@tiptap/react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, expect, it, vi } from 'vitest';
+import { installVisibleEditorGeometry } from '../../../../test/visible-editor-geometry';
 import { EmbedNode } from './embed-node';
 import { SlashCommandsExtension } from './slash-commands';
 import { embedRegistry } from '../../embeds/registry';
@@ -25,6 +26,7 @@ vi.mock('../../../canvas/public/store', async () => {
 });
 
 let editor: Editor | null = null;
+let restoreGeometry: () => void;
 const scrollIntoView = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView');
 const getClientRects = Object.getOwnPropertyDescriptor(Range.prototype, 'getClientRects');
 const getBoundingClientRect = Object.getOwnPropertyDescriptor(
@@ -33,6 +35,7 @@ const getBoundingClientRect = Object.getOwnPropertyDescriptor(
 );
 
 beforeAll(() => {
+  restoreGeometry = installVisibleEditorGeometry();
   Object.defineProperty(Element.prototype, 'scrollIntoView', {
     configurable: true,
     value: vi.fn(),
@@ -44,6 +47,7 @@ beforeAll(() => {
   });
 });
 afterAll(() => {
+  restoreGeometry();
   for (const [target, key, descriptor] of [
     [Element.prototype, 'scrollIntoView', scrollIntoView],
     [Range.prototype, 'getClientRects', getClientRects],

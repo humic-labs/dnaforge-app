@@ -189,16 +189,23 @@ function showPrimerRecoveryFailures(inventory: PrimerFailure[]): void {
         onClick: async () => {
           const { restoreSavedPrimerDocument } =
             await import('../features/primers/primer-artifact-service');
-          let failed = false;
+          const failed = new Set<string>();
           for (const selection of restore) {
             try {
               await restoreSavedPrimerDocument(selection);
             } catch {
-              failed = true;
+              failed.add(selection.id);
             }
           }
-          reportPrimerRecoveryInventory(await refreshPrimerRecoveryInventory());
-          if (failed) store.addToast(userMessage('primer.recoveryRestoreFailed'), 'error');
+          const report = await refreshPrimerRecoveryInventory();
+          reportPrimerRecoveryInventory({
+            ...report,
+            entries: report.entries.map((entry) =>
+              failed.has(entry.id) && entry.status === 'needs-review'
+                ? { ...entry, message: userMessage('primer.recoveryRestoreFailed') }
+                : entry
+            ),
+          });
         },
       },
     ],

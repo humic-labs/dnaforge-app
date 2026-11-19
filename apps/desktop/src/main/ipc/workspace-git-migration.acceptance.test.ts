@@ -1,3 +1,4 @@
+import { actOnAcceptedScientificEntity } from '../scientific-resource-lifecycle';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -171,11 +172,13 @@ async function enrolledProject() {
       entry: nativeSequence('deleted-sequence', 'Deleted'),
     },
   });
-  await submit({
-    operationId: 'tombstone-target',
-    expectedHead: store.read().head,
-    source: { kind: 'delete', sourcePath: 'Deleted' },
-  });
+  expect(
+    await actOnAcceptedScientificEntity({
+      db: f.db,
+      action: 'archive',
+      input: { id: 'deleted-sequence', operationId: 'tombstone-target' },
+    })
+  ).not.toBeNull();
   await initManagedRepo(root);
   writeFileSync(join(root, 'dirty.txt'), 'original dirty file\n');
   writeFileSync(join(root, 'staged.txt'), 'original staged file\n');
