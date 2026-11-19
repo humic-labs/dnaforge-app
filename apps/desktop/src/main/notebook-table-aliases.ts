@@ -31,6 +31,7 @@ interface PreparedAliases {
   verify(): Promise<void>;
 }
 
+const directoryReadConcurrency = 16;
 const protectedNames = new Set(['.git', '.forge', '.dnaforge', '.waypoint', 'node_modules']);
 
 function refuse(message: string): never {
@@ -70,25 +71,24 @@ async function packages(scope: NativeNotebookScope): Promise<ReadTablePackageRes
         isFile: entry.isFile(),
       })),
   };
-  while (pending.length) {
-    if (++count > 20000) refuse('This project exceeds the safe table alias scan size.');
-    const directory = pending.pop()!;
-    scope.assertCurrent();
+  const visit = async (
+    directory: string
+  ): Promise<{ children: string[]; table?: ReadTablePackageResult }> => {
     await assertDirectory(scope.workspaceRoot, directory);
     const marker = join(directory, '.forge');
     if (await existing(marker)) {
       await assertDirectory(scope.workspaceRoot, marker);
       if (await existing(join(marker, 'table.json'))) {
-        result.push(
-          await readTablePackageInMain({
-            workspaceRoot: scope.workspaceRoot,
-            packageRoot: directory,
-          })
-        );
-        continue;
+        scope.assertCurrent();
+        const table = await readTablePackageInMain({
+          workspaceRoot: scope.workspaceRoot,
+          packageRoot: directory,
+        });
+        return { children: [], table };
       }
-      if (await detectDocumentPackage(directory, io)) continue;
+      if (await detectDocumentPackage(directory, io)) return { children: [] };
     }
+    const children: string[] = [];
     for (const entry of await readdir(directory, { withFileTypes: true }))
       if (
         entry.isDirectory() &&
@@ -96,7 +96,20 @@ async function packages(scope: NativeNotebookScope): Promise<ReadTablePackageRes
         !entry.name.startsWith('.') &&
         !protectedNames.has(entry.name.toLowerCase())
       )
-        pending.push(join(directory, entry.name));
+        children.push(join(directory, entry.name));
+    return { children };
+  };
+  while (pending.length) {
+    const directories = pending.splice(-directoryReadConcurrency);
+    count += directories.length;
+    if (count > 20000) refuse('This project exceeds the safe table alias scan size.');
+    scope.assertCurrent();
+    const visited = await Promise.allSettled(directories.map(visit));
+    for (const entry of visited) {
+      if (entry.status === 'rejected') throw entry.reason;
+      if (entry.value.table) result.push(entry.value.table);
+      for (const child of entry.value.children) pending.push(child);
+    }
   }
   scope.assertCurrent();
   return result;

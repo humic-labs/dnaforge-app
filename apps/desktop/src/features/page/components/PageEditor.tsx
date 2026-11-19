@@ -363,6 +363,7 @@ function PageEditorInner({
   const {
     saveStatus,
     markDirty,
+    ensureDirtySaveScheduled,
     saveNow,
     discardPendingChanges,
     acceptOwnerClean,
@@ -490,13 +491,20 @@ function PageEditorInner({
       if (nativeNotebook.saving) return;
       if (nativeNotebook.dirty) {
         if (!usePageStore.getState().dirtyIds.has(pageId)) handleDirtyTransition(pageId);
-        if (!snapshot.recovery && !nativeNotebook.lastCommandError) markDirty();
+        if (!snapshot.recovery && !nativeNotebook.lastCommandError) ensureDirtySaveScheduled();
       } else {
         acceptOwnerClean();
         handleSaved(pageId);
       }
     });
-  }, [nativeNotebook, pageId, handleSaved, handleDirtyTransition, markDirty, acceptOwnerClean]);
+  }, [
+    nativeNotebook,
+    pageId,
+    handleSaved,
+    handleDirtyTransition,
+    ensureDirtySaveScheduled,
+    acceptOwnerClean,
+  ]);
 
   useEffect(() => {
     const root = referenceContext?.owningRoot;

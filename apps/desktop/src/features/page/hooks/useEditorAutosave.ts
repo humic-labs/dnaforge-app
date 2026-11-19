@@ -29,6 +29,7 @@ export interface UseEditorAutosaveReturn {
   saveStatus: SaveStatus;
 
   markDirty: () => void;
+  ensureDirtySaveScheduled: () => void;
 
   saveNow: () => Promise<boolean>;
 
@@ -219,6 +220,10 @@ export function useEditorAutosave({
     }
   }, [debounceMs, performSave]);
 
+  const ensureDirtySaveScheduled = useCallback(() => {
+    if (!timerRef.current && !inFlightRef.current) markDirty();
+  }, [markDirty]);
+
   const saveNow = useCallback(async () => {
     const scope = { ...scopeRef.current };
     const epoch = discardEpochRef.current;
@@ -316,6 +321,7 @@ export function useEditorAutosave({
   return {
     saveStatus,
     markDirty,
+    ensureDirtySaveScheduled,
     saveNow,
     discardPendingChanges,
     acceptOwnerClean,
