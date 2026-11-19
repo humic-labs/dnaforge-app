@@ -1,7 +1,11 @@
 import { useEffect, useState, type RefObject } from 'react';
 import { platform } from '../../../platform';
 import type { WindowDisplayColorSpace } from '../../../shared/ipc/window.contract';
-import { createReadHoverSurface, type ReadHoverSurface } from './read-hover-surface';
+import {
+  createReadHoverSurface,
+  readHoverLayoutScale,
+  type ReadHoverSurface,
+} from './read-hover-surface';
 
 export function useReadHoverSurface(containerRef: RefObject<HTMLDivElement>, enabled: boolean) {
   const [surface, setSurface] = useState<ReadHoverSurface | null>(null);
@@ -54,9 +58,12 @@ export function useReadHoverSurface(containerRef: RefObject<HTMLDivElement>, ena
       const pixels = entry?.devicePixelContentBoxSize?.[0];
       const box = entry?.contentBoxSize?.[0];
       if (!pixels || !box) return;
-      const widthScale = pixels.inlineSize / box.inlineSize;
-      const heightScale = pixels.blockSize / box.blockSize;
-      layoutScale = Number.isFinite(widthScale) && widthScale === heightScale ? widthScale : 0;
+      layoutScale = readHoverLayoutScale(
+        container.getBoundingClientRect(),
+        box,
+        pixels,
+        ownerDocument.defaultView?.devicePixelRatio ?? 0
+      );
       update();
     });
     observer.observe(container, { box: 'device-pixel-content-box' });
