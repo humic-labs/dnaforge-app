@@ -73,3 +73,13 @@ workspace.
 
 `apps/desktop/scripts/palette-enzyme-journey.mjs` attaches through Playwright to
 the debug port in the checkout's settings. Run it with Node as shown above.
+
+## Chat pane resizing
+
+With the isolated scenario app running, use
+`node apps/desktop/scripts/check-chat-pane-layout.mjs "$HOME/DNAForge-proof/chat-layout"`.
+The inline entity chips scenario opens a notebook beside a chat transcript. The
+check drags the divider to give chat 260 px, expands it to 600 px, and captures
+both views. It checks for overlapping buttons and text outside its control,
+opens the route picker, and checks that Send stays in view. When the route can
+send, it also checks that the button accepts a click with a draft.
