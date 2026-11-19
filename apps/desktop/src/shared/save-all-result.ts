@@ -2,7 +2,15 @@ import type { NativeDirtySettlementResult } from './native-dirty-documents';
 
 export type SaveAllResult =
   | { status: 'saved' }
+  | { status: 'cancelled' }
   | { status: 'failed'; failures: NativeDirtySettlementResult['failures'] };
+
+export class SaveAllCancelled extends Error {
+  constructor() {
+    super('Saving the edited copy was cancelled.');
+    this.name = 'SaveAllCancelled';
+  }
+}
 
 export class SaveAllError extends Error {
   constructor(readonly failures: NativeDirtySettlementResult['failures']) {
