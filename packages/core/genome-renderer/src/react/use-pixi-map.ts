@@ -1055,8 +1055,9 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
 
     const resizeCallbackAuthority = createDisposableCallbackAuthority<
       Parameters<ResizeObserverCallback>
-    >(() => {
+    >(([entry] = []) => {
       if (portalResizeSettling) return;
+      if (entry && (entry.contentRect.width <= 0 || entry.contentRect.height <= 0)) return;
       if (app && initLifecycle === 'ready') {
         resumeLiveApp('container-resize-observer');
       } else if (visibleRef.current && !destroyed) {

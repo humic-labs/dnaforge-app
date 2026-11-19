@@ -61,7 +61,7 @@ const lifecycle = vi.hoisted(() => ({
   hoverHitTestInvalidationCount: 0,
   intersectionCallbacks: [] as Array<(entries: Array<{ isIntersecting: boolean }>) => void>,
   geometryDependentCamera: false,
-  resizeCallbacks: [] as Array<() => void>,
+  resizeCallbacks: [] as Array<(entries?: Pick<ResizeObserverEntry, 'contentRect'>[]) => void>,
   resizeCalls: [] as Array<{ width: number; height: number; reason: string }>,
   loadGates: new Map<string, Deferred[]>(),
   mutateBeforeLoadAwait: false,
@@ -503,7 +503,7 @@ describe('usePixiMap annotation/source lifecycle', () => {
     vi.stubGlobal(
       'ResizeObserver',
       class {
-        constructor(callback: () => void) {
+        constructor(callback: (entries?: Pick<ResizeObserverEntry, 'contentRect'>[]) => void) {
           lifecycle.resizeCallbacks.push(callback);
         }
         observe() {}
@@ -1127,6 +1127,19 @@ describe('usePixiMap annotation/source lifecycle', () => {
     view.rerender(<Harness genome={source} width={1_200} height={600} />);
 
     expect(latestHandle).toBe(attached);
+  });
+
+  it('leaves an occluded map idle when its host reports a zero-sized resize', async () => {
+    render(<Harness genome={genome('A')} />);
+    await waitFor(() => expect(latestHandle?.getLinearRenderer()).not.toBeNull());
+    act(() => lifecycle.intersections[0]?.(false));
+    const drawn = lifecycle.renderNowCount;
+    const resumed = lifecycle.resumeCount;
+
+    act(() => lifecycle.resizeCallbacks[0]?.([{ contentRect: new DOMRectReadOnly(0, 0, 0, 0) }]));
+
+    expect(lifecycle.renderNowCount).toBe(drawn);
+    expect(lifecycle.resumeCount).toBe(resumed);
   });
 
   it('preserves the biological camera center across live container resume geometry', async () => {
