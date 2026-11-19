@@ -1,6 +1,46 @@
 import type { PileupRecord } from '@waypoint/genome-data';
 
+const READ_BLOCK_SIZE = 256;
+interface ReadBlock {
+  minStart: number;
+  maxEnd: number;
+}
+const readBlocks = new WeakMap<ReadonlyArray<PileupRecord>, ReadBlock[]>();
+
+export function indexImmutablePileupReads(records: PileupRecord[]): PileupRecord[] {
+  if (records.length < READ_BLOCK_SIZE) return records;
+  const blocks: ReadBlock[] = [];
+  for (let first = 0; first < records.length; first += READ_BLOCK_SIZE) {
+    const limit = Math.min(first + READ_BLOCK_SIZE, records.length);
+    let minStart = Infinity;
+    let maxEnd = -Infinity;
+    for (let index = first; index < limit; index++) {
+      minStart = Math.min(minStart, records[index].start);
+      maxEnd = Math.max(maxEnd, records[index].end);
+    }
+    blocks.push({ minStart, maxEnd });
+  }
+  readBlocks.set(records, blocks);
+  return records;
+}
+
+function readScanRange(records: ReadonlyArray<PileupRecord>, startBp: number, endBp: number) {
+  const blocks = readBlocks.get(records);
+  if (!blocks) return { first: 0, limit: records.length };
+  const outside = (block: ReadBlock) => block.maxEnd <= startBp || block.minStart >= endBp;
+  let first = 0;
+  let limit = blocks.length;
+  while (first < limit && outside(blocks[first])) first++;
+  while (limit > first && outside(blocks[limit - 1])) limit--;
+  return {
+    first: Math.min(first * READ_BLOCK_SIZE, records.length),
+    limit: Math.min(limit * READ_BLOCK_SIZE, records.length),
+  };
+}
+
 export interface ReadVisibleMembershipJob {
+  readonly candidateLimit: number;
+  readonly incomingLimit: number;
   readonly candidate: ReadonlyArray<PileupRecord>;
   readonly incoming: ReadonlyArray<PileupRecord>;
   readonly candidateRows: Int32Array | null;
@@ -28,14 +68,18 @@ export function beginReadVisibleMembershipJob(
     Number.isFinite(endBp) &&
     endBp > startBp &&
     (candidateRows === null || candidateRows.length === candidate.length);
+  const candidateRange = readScanRange(candidate, startBp, endBp);
+  const incomingRange = readScanRange(incoming, startBp, endBp);
   return {
     candidate,
     incoming,
     candidateRows,
     startBp,
     endBp,
-    candidateCursor: 0,
-    incomingCursor: 0,
+    candidateCursor: candidateRange.first,
+    incomingCursor: incomingRange.first,
+    candidateLimit: candidateRange.limit,
+    incomingLimit: incomingRange.limit,
     candidateNext: null,
     incomingNext: null,
     candidateDone: false,
@@ -65,7 +109,7 @@ export function advanceReadVisibleMembershipJob(
       if (now() - startedAt >= workBudgetMs) break;
     }
     if (job.candidateNext === null && !job.candidateDone) {
-      if (job.candidateCursor < job.candidate.length) {
+      if (job.candidateCursor < job.candidateLimit) {
         const index = job.candidateCursor++;
         const record = job.candidate[index];
         if (record.end > job.startBp && record.start < job.endBp) {
@@ -80,7 +124,7 @@ export function advanceReadVisibleMembershipJob(
       job.candidateDone = true;
     }
     if (job.incomingNext === null && !job.incomingDone) {
-      if (job.incomingCursor < job.incoming.length) {
+      if (job.incomingCursor < job.incomingLimit) {
         const record = job.incoming[job.incomingCursor++];
         if (record.end > job.startBp && record.start < job.endBp) job.incomingNext = record;
         consumed += 1;

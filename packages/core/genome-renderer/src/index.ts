@@ -770,6 +770,7 @@ export {
   PersistentRowLayout,
   pileupReadPlacementKey,
 } from './renderers/pixi/linear-tracks/pileup-row-layout';
+export { indexImmutablePileupReads } from './renderers/pixi/linear-tracks/pileup-read-visible-membership';
 export type { PileupRowLayout } from './renderers/pixi/linear-tracks/pileup-row-layout';
 
 export { decideTrackLod } from './renderers/pixi/lod/lod-policy';
