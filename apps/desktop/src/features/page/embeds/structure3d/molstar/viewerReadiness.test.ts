@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MolstarPlugin } from './cache';
 import {
   STRUCTURE_INTERACTION_SETTLE_TIMEOUT_MESSAGE,
+  waitForDimensions,
   waitForPluginInteractionReady,
 } from './viewerReadiness';
 
@@ -49,6 +50,57 @@ async function advance(ms: number): Promise<void> {
   await vi.advanceTimersByTimeAsync(ms);
   await Promise.resolve();
 }
+
+function setLayoutSize(element: HTMLElement, width: number, height: number): void {
+  Object.defineProperty(element, 'offsetWidth', { configurable: true, value: width });
+  Object.defineProperty(element, 'offsetHeight', { configurable: true, value: height });
+}
+
+describe('waitForDimensions', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    document.body.replaceChildren();
+  });
+
+  it('uses the fallback size at once when presentation hides an attached container', async () => {
+    vi.useFakeTimers();
+    const container = document.body.appendChild(document.createElement('div'));
+    container.checkVisibility = () => false;
+    const canvas = container.appendChild(document.createElement('canvas'));
+    let settled = false;
+    void waitForDimensions(container, canvas, 420, () => {}).then(() => {
+      settled = true;
+    });
+
+    await advance(0);
+
+    expect(settled).toBe(true);
+    expect([canvas.width, canvas.height]).toEqual([600, 420]);
+  });
+
+  it('keeps waiting for a container that is still being attached', async () => {
+    vi.useFakeTimers();
+    const container = document.createElement('div');
+    container.checkVisibility = () => false;
+    const canvas = container.appendChild(document.createElement('canvas'));
+    let settled = false;
+    void waitForDimensions(container, canvas, 420, () => {}).then(() => {
+      settled = true;
+    });
+
+    await advance(100);
+    expect(settled).toBe(false);
+
+    document.body.append(container);
+    container.checkVisibility = () => true;
+    setLayoutSize(container, 800, 500);
+    setLayoutSize(canvas, 800, 500);
+    await advance(50);
+
+    expect(settled).toBe(true);
+    expect([canvas.width, canvas.height]).toEqual([800, 500]);
+  });
+});
 
 describe('waitForPluginInteractionReady', () => {
   afterEach(() => {

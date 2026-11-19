@@ -18,6 +18,7 @@ import {
   acquireStructureFileSnapshotLease,
   type StructureFileSnapshot,
 } from './structure-file-snapshots';
+import { useStructureRendererHostId } from '../page/public/embeds/structure3d/agentStructureRenderers';
 
 export function StructureFileTabContent({
   tab,
@@ -26,6 +27,7 @@ export function StructureFileTabContent({
   tab: Tab;
   rendererHostId?: string;
 }) {
+  const viewerRendererHostId = useStructureRendererHostId(rendererHostId);
   const attrs = tab.initialStructureAttrs;
   const workspaceFolders = useWorkspaceStore((state) => state.folders);
   const [retryRevision, setRetryRevision] = useState(0);
@@ -214,7 +216,7 @@ export function StructureFileTabContent({
       structureData={snapshot.data}
       structureDataFormat={snapshot.parser}
       viewerInstanceId={viewerInstanceId}
-      rendererHostId={rendererHostId}
+      rendererHostId={viewerRendererHostId}
       onLoad={handleLoad}
       onError={handleViewerError}
     />

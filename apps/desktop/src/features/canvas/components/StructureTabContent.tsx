@@ -15,6 +15,7 @@ import {
   markStructureViewHostInteractive,
   markStructureViewHostReleased,
 } from '../../structure-drawer/public/state/structure-view-handoff';
+import { useStructureRendererHostId } from '../../page/public/embeds/structure3d/agentStructureRenderers';
 
 export function StructureTabContent({
   tab,
@@ -32,6 +33,9 @@ export function StructureTabContent({
     molecularViewReferenceId,
     predictionResult,
   } = tab;
+  const paneRendererHostId = `pane:${panelId}`;
+  const rendererHostId = useStructureRendererHostId(paneRendererHostId);
+  const rendered = isActive || rendererHostId !== paneRendererHostId;
   const opening = useMemo(
     () => ({ current: false }),
     [
@@ -99,7 +103,7 @@ export function StructureTabContent({
       : undefined;
   useEffect(() => {
     if (
-      !isActive ||
+      !rendered ||
       (!nativePointer && (tab.initialStructureAttrs || !tab.entityId.startsWith('saved-view:')))
     )
       return;
@@ -166,7 +170,7 @@ export function StructureTabContent({
     return () => {
       cancelled = true;
     };
-  }, [tab.entityId, tab.id, tab.initialStructureAttrs, nativePointer, panelId, isActive, opening]);
+  }, [tab.entityId, tab.id, tab.initialStructureAttrs, nativePointer, panelId, rendered, opening]);
   const restoredView = restored?.opening === opening ? restored : undefined;
   const readError = tab.predictionResult
     ? prediction?.error && toUserMessage(prediction.error, 'structure.failed')
@@ -262,7 +266,7 @@ export function StructureTabContent({
       bindingId={bindingId}
       initialStructureAttrs={structureAttrs}
       viewerInstanceId={viewerInstanceId}
-      rendererHostId={`pane:${panelId}`}
+      rendererHostId={rendererHostId}
       navigationAccessory={
         tab.entityId.startsWith('saved-view:') ? (
           <ProteinRunStructureSwitcher

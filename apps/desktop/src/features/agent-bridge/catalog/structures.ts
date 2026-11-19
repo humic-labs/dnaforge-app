@@ -250,7 +250,7 @@ export const structuresTools = defineRendererToolCatalog({
   mol_activate_view: {
     name: 'mol_activate_view',
     description:
-      'Select one already-open structure tab by viewHandle or structureViewId without raising the app window. Check viewerStatus before making scene changes.',
+      'Show one already-open structure tab to the person by selecting it, by viewHandle or structureViewId, without raising the app window. Scene commands, readback and screenshots work on unselected tabs without selecting them.',
     shape: 'viz-tab-action',
     required_capabilities: ['modify-tabs'],
     conditional_required_capabilities: [],
