@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createReadHoverSurface,
   readHoverCrop,
+  readHoverLayoutScale,
   READ_HOVER_FILTERS,
   READ_SELECTION_FILTERS,
 } from './read-hover-surface';
@@ -10,6 +11,22 @@ const bounds = { left: 32, top: 16, width: 256, height: 160 };
 const read = { left: 83.296875, top: 82.6875, width: 26.546875, height: 2.390625 };
 
 describe('read hover', () => {
+  it('uses the actual device scale when the browser snaps fractional layout edges', () => {
+    const css = { inlineSize: 708, blockSize: 550.5 };
+    const pixels = { inlineSize: 708, blockSize: 551 };
+    const canvas = { left: 268, top: 126.25, width: 708, height: 550.5 };
+    expect(readHoverLayoutScale(canvas, css, pixels, 1)).toBe(1);
+    expect(
+      readHoverLayoutScale({ ...canvas, top: 126.5 }, css, { ...pixels, blockSize: 550 }, 1)
+    ).toBe(1);
+    expect(readHoverLayoutScale(canvas, css, { ...pixels, blockSize: 549 }, 1)).toBe(0);
+  });
+
+  it('retains a measured physical layout scale for an emulated viewport', () => {
+    const css = { inlineSize: 256, blockSize: 160 };
+    expect(readHoverLayoutScale(bounds, css, { inlineSize: 512, blockSize: 320 }, 1.25)).toBe(2);
+  });
+
   it('captures a small aligned patch for a fractional read', () => {
     const crop = readHoverCrop({ width: 320, height: 200 }, bounds, read, 2);
     expect(crop).toEqual({

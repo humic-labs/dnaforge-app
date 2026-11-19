@@ -102,6 +102,27 @@ function commonGridStep(outputPixels: number, layoutPixels: number) {
   return outputPixels / a;
 }
 
+export function readHoverLayoutScale(
+  bounds: Rect,
+  css: ResizeObserverSize,
+  pixels: ResizeObserverSize,
+  deviceScale: number
+): number {
+  if (css.inlineSize <= 0 || css.blockSize <= 0) return 0;
+  const snap = (position: number) => Math.round(position * deviceScale);
+  if (
+    deviceScale > 0 &&
+    css.inlineSize === bounds.width &&
+    css.blockSize === bounds.height &&
+    snap(bounds.left + bounds.width) - snap(bounds.left) === pixels.inlineSize &&
+    snap(bounds.top + bounds.height) - snap(bounds.top) === pixels.blockSize
+  )
+    return deviceScale;
+
+  const scale = pixels.inlineSize / css.inlineSize;
+  return Number.isFinite(scale) && scale === pixels.blockSize / css.blockSize ? scale : 0;
+}
+
 export function readHoverCrop(
   backing: BackingSize,
   bounds: Rect,
