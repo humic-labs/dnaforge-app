@@ -12,7 +12,7 @@ import { getUserFolders } from './path-utils';
 const PROVIDERS = ['codex-sdk', 'claude-agent-sdk', 'grok-acp'] as const;
 const DEFAULT_LIMIT = 8;
 export const SEARCH_SKILLS_DESCRIPTION =
-  'Search enabled DNAForge-managed skills on demand. Supply query (the task description) and provider (codex-sdk, claude-agent-sdk, or grok-acp for the current AI route), with optional limit. For Codex CLI use provider: "codex-sdk". Returns bounded descriptions, provenance, and current skill:// locators for the requested host and workspace, never skill bodies or private paths. Read a selected locator with read_file before applying it.';
+  'Search enabled DNAForge-managed skills on demand. Supply query (the task description) and provider (codex-sdk, claude-agent-sdk, or grok-acp for the current AI route), with optional limit. For Codex CLI use provider: "codex-sdk". Returns bounded descriptions, provenance, and current skill:// locators for the requested host and workspace, never skill bodies or private paths. Read a selected locator with read_file before applying it. A zero count distinguishes no enabled managed skills from no match. Built-in workflow guides are discoverable as MCP resources.';
 
 export { searchSkillsOutputSchema } from './search-skills-output';
 
@@ -77,7 +77,9 @@ export function createSearchSkillsTool(
 
 
       const uniqueSkills = [...new Map(discovered.map(({ skill }) => [skill.id, skill])).values()];
-      const ids = await rank(query, uniqueSkills.map(({ id, name, description }) => ({ id, name, description })), abortSignal);
+      const ids = uniqueSkills.length
+        ? await rank(query, uniqueSkills.map(({ id, name, description }) => ({ id, name, description })), abortSignal)
+        : [];
       abortSignal?.throwIfAborted();
 
 
@@ -113,7 +115,8 @@ export function createSearchSkillsTool(
           locator: managedSkillLocator(skill, { provider, snapshotId }),
         }));
 
-      return toolSuccess({ query, count: matches.length, matches });
+      const status = matches.length ? 'matched' : uniqueSkills.length ? 'no-match' : 'no-enabled-skills';
+      return toolSuccess({ query, status, count: matches.length, matches });
     },
   });
 }
