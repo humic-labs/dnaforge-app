@@ -40,20 +40,18 @@ const MENU_MARGIN = 8;
 
 function tabDestination(
   anchor: HTMLElement | null,
-  menu: HTMLElement | null,
+  scope: ParentNode | null | undefined,
   backwards: boolean,
-  containsTarget: (target: Node) => boolean
+  exclude?: (target: Node) => boolean
 ): HTMLElement | null {
-  if (!anchor || !menu) return null;
-  const scope = anchor.closest('dialog[open]') ?? anchor.ownerDocument;
+  if (!anchor || !scope) return null;
   const candidates = Array.from(
     scope.querySelectorAll<HTMLElement>(
       'a[href],button,input,select,textarea,[tabindex],[contenteditable="true"],audio[controls],video[controls],summary'
     )
   )
     .filter((element) => {
-      if (element.tabIndex < 0 || element.matches(':disabled') || containsTarget(element))
-        return false;
+      if (element.tabIndex < 0 || element.matches(':disabled') || exclude?.(element)) return false;
       for (let current: HTMLElement | null = element; current; current = current.parentElement) {
         if (current.hidden || current.inert || current.hasAttribute('inert')) return false;
         const style = getComputedStyle(current);
@@ -483,14 +481,21 @@ function BoundPortalMenu({
       )
         return;
       if (menuId !== 'root') return;
-      if (role === 'dialog') {
+      const active = document.activeElement;
+      if (
+        role === 'dialog' &&
+        (!(active instanceof HTMLElement) ||
+          !menuRef.current?.contains(active) ||
+          tabDestination(active, menuRef.current, e.shiftKey))
+      ) {
         dialogTabPending = true;
         return;
       }
-      if (controllerRef.current.containsTarget(document.activeElement)) {
+      if (controllerRef.current.containsTarget(active)) {
+        const anchor = anchorRef?.current ?? returnAnchorRef.current;
         const destination = tabDestination(
-          anchorRef?.current ?? returnAnchorRef.current,
-          menuRef.current,
+          anchor,
+          anchor?.closest('dialog[open]') ?? anchor?.ownerDocument,
           e.shiftKey,
           (target) =>
             controllerRef.current.containsTarget(target) ||
@@ -499,6 +504,9 @@ function BoundPortalMenu({
         if (destination) {
           tabTargetRef.current = destination;
           e.preventDefault();
+        } else if (role === 'dialog') {
+          dialogTabPending = true;
+          return;
         }
       }
       requestClose('tab', session);

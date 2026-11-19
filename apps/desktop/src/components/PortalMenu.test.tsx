@@ -299,6 +299,23 @@ function openFocusMenu() {
 }
 
 describe('PortalMenu close focus', () => {
+  it.each([false, true])(
+    'resumes the opening control’s Tab order at the dialog boundary (backwards=%s)',
+    async (backwards) => {
+      const onClose = vi.fn();
+      render(<FocusHarness onClose={onClose} role="dialog" />);
+      const { option } = openFocusMenu();
+      const boundary = backwards
+        ? option
+        : screen.getByRole('textbox', { name: 'Additional details' });
+      act(() => boundary.focus());
+      fireEvent.keyDown(boundary, { key: 'Tab', shiftKey: backwards });
+      await act(async () => {});
+      expect(screen.getByTestId(backwards ? 'before-menu' : 'after-menu')).toHaveFocus();
+      expect(onClose).toHaveBeenCalledExactlyOnceWith('tab');
+    }
+  );
+
   it('keeps dialog Tab native inside the form and closes without restoring after focus leaves', async () => {
     const onClose = vi.fn();
     render(<FocusHarness onClose={onClose} role="dialog" />);
