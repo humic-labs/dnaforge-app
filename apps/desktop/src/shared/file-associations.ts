@@ -1,3 +1,4 @@
+import externalPreviews from '../../resources/external-previews.json';
 import registryJson from '../../resources/file-associations.json';
 
 export type FileAssociationFamilyId = 'genbank' | 'snapgene';
@@ -13,8 +14,6 @@ export interface FileAssociationFamily {
   readonly documentDescription: string;
   readonly extensions: readonly string[];
   readonly capability: FileAssociationCapability;
-  readonly promptReady: boolean;
-  readonly readinessBlocker?: string;
   readonly parser: 'genbank' | 'snapgene';
   readonly documentIcons: {
     readonly macos: string;
@@ -22,6 +21,7 @@ export interface FileAssociationFamily {
   };
   readonly macos: {
     readonly contentType: string;
+    readonly aliases: readonly string[];
     readonly ownership: 'exported' | 'imported';
     readonly conformsTo: readonly string[];
     readonly mimeTypes: readonly string[];
@@ -78,9 +78,6 @@ function parseFamily(value: unknown, index: number): FileAssociationFamily {
       throw new Error(`File association registry ${id} has invalid extension ${extension}.`);
     }
   }
-  if (typeof record.promptReady !== 'boolean') {
-    throw new Error(`File association registry ${id}.promptReady must be boolean.`);
-  }
   const icons = record.documentIcons;
   const macos = record.macos;
   const windows = record.windows;
@@ -118,15 +115,6 @@ function parseFamily(value: unknown, index: number): FileAssociationFamily {
     ),
     extensions,
     capability,
-    promptReady: record.promptReady,
-    ...(record.readinessBlocker === undefined
-      ? {}
-      : {
-          readinessBlocker: requireString(
-            record.readinessBlocker,
-            `families[${index}].readinessBlocker`
-          ),
-        }),
     parser,
     documentIcons: {
       macos: requireString(iconRecord.macos, `families[${index}].documentIcons.macos`),
@@ -134,6 +122,7 @@ function parseFamily(value: unknown, index: number): FileAssociationFamily {
     },
     macos: {
       contentType: requireString(macRecord.contentType, `families[${index}].macos.contentType`),
+      aliases: requireStringArray(macRecord.aliases, `families[${index}].macos.aliases`),
       ownership,
       conformsTo: requireStringArray(macRecord.conformsTo, `families[${index}].macos.conformsTo`),
       mimeTypes: Array.isArray(macRecord.mimeTypes)
@@ -196,6 +185,31 @@ export function associationFamilyForPath(path: string): FileAssociationFamily | 
   return FAMILIES_BY_EXTENSION.get(name.slice(lastDot + 1).toLowerCase()) ?? null;
 }
 
-export function associationPromptReady(id: FileAssociationFamilyId): boolean {
-  return fileAssociationFamily(id).promptReady;
+export type HandlerFamilyId = FileAssociationFamilyId | 'fasta' | 'structure' | 'chromatogram';
+
+export interface HandlerFamily {
+  readonly id: HandlerFamilyId;
+  readonly displayName: string;
+  readonly extensions: readonly string[];
+  readonly windows: { readonly progId: string };
+  readonly macTypeIds: readonly string[];
+}
+
+export const HANDLER_FAMILIES: readonly HandlerFamily[] = [
+  ...FILE_ASSOCIATION_FAMILIES.map((family) => ({
+    ...family,
+    macTypeIds: [family.macos.contentType, ...family.macos.aliases],
+  })),
+  ...externalPreviews.families.map((family): HandlerFamily => {
+    if (family.id !== 'fasta' && family.id !== 'structure' && family.id !== 'chromatogram') {
+      throw new Error(`Unknown external preview family: ${family.id}`);
+    }
+    return { ...family, id: family.id, macTypeIds: family.macosTypes.map((type) => type.id) };
+  }),
+];
+
+export function handlerFamily(id: unknown): HandlerFamily {
+  const family = HANDLER_FAMILIES.find((entry) => entry.id === id);
+  if (!family) throw new Error('Unknown file association family.');
+  return family;
 }

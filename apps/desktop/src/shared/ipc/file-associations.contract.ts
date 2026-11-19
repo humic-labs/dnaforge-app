@@ -8,7 +8,7 @@ import type {
   PromoteQuickLookPackageResult,
   QuickLookPackageReceipt,
 } from '../file-association-ipc';
-import type { FileAssociationFamilyId } from '../file-associations';
+import type { HandlerFamilyId } from '../file-associations';
 import { defineGroup, invoke, event } from './contract';
 
 export const fileAssociationsContract = defineGroup('fileAssociations', {
@@ -23,10 +23,7 @@ export const fileAssociationsContract = defineGroup('fileAssociations', {
     PromoteQuickLookPackageResult
   >(),
   queryHandlers: invoke<[], FileAssociationHandlerStatus[]>(),
-  requestDefault: invoke<
-    [familyId: FileAssociationFamilyId],
-    FileAssociationDefaultRequestResult
-  >(),
+  requestDefault: invoke<[familyId: HandlerFamilyId], FileAssociationDefaultRequestResult>(),
   onOpenFiles: event<[deliveries: FileActivationDelivery[]]>().channel(
     'file-association:open-files'
   ),

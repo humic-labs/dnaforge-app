@@ -13,30 +13,45 @@ static void PrintJSON(NSDictionary *payload) {
   fputc('\n', stdout);
 }
 
+static NSDictionary *HandlerInfo(NSURL *applicationURL) {
+  if (applicationURL == nil) return nil;
+  NSBundle *bundle = [NSBundle bundleWithURL:applicationURL];
+  NSString *name = [bundle objectForInfoDictionaryKey:@"CFBundleDisplayName"];
+  if (name.length == 0) name = [bundle objectForInfoDictionaryKey:@"CFBundleName"];
+  if (name.length == 0) name = applicationURL.lastPathComponent.stringByDeletingPathExtension;
+  return @{
+    @"bundleId": bundle.bundleIdentifier ?: @"",
+    @"name": name ?: @"",
+    @"path": applicationURL.path ?: @""
+  };
+}
+
 static int PrintHandlerForType(UTType *contentType) {
   if (contentType == nil) {
     PrintJSON(@{ @"ok": @NO, @"error": @"Unknown content type." });
     return 2;
   }
-  NSURL *applicationURL =
-      [[NSWorkspace sharedWorkspace] URLForApplicationToOpenContentType:contentType];
-  if (applicationURL == nil) {
-    PrintJSON(@{ @"ok": @YES, @"handler": [NSNull null] });
-    return 0;
+  NSURL *url = [[NSWorkspace sharedWorkspace] URLForApplicationToOpenContentType:contentType];
+  PrintJSON(@{ @"ok": @YES, @"handler": HandlerInfo(url) ?: [NSNull null] });
+  return 0;
+}
+
+static int InspectFile(NSString *path) {
+  NSURL *url = [NSURL fileURLWithPath:path];
+  UTType *type = nil;
+  NSError *error = nil;
+  if (![url getResourceValue:&type forKey:NSURLContentTypeKey error:&error] || !type) {
+    PrintJSON(@{ @"ok": @NO, @"error": error.localizedDescription ?: @"Unknown file type." });
+    return 2;
   }
-  NSBundle *bundle = [NSBundle bundleWithURL:applicationURL];
-  NSString *bundleIdentifier = bundle.bundleIdentifier ?: @"";
-  NSString *name = [bundle objectForInfoDictionaryKey:@"CFBundleDisplayName"];
-  if (name.length == 0) name = [bundle objectForInfoDictionaryKey:@"CFBundleName"];
-  if (name.length == 0) name = applicationURL.lastPathComponent.stringByDeletingPathExtension;
-  PrintJSON(@{
-    @"ok": @YES,
-    @"handler": @{
-      @"bundleId": bundleIdentifier,
-      @"name": name ?: @"",
-      @"path": applicationURL.path ?: @""
-    }
-  });
+  NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
+  NSMutableArray *candidates = [NSMutableArray array];
+  for (NSURL *candidate in [workspace URLsForApplicationsToOpenURL:url]) {
+    [candidates addObject:HandlerInfo(candidate)];
+  }
+  PrintJSON(@{ @"ok": @YES, @"contentType": type.identifier,
+               @"handler": HandlerInfo([workspace URLForApplicationToOpenURL:url]) ?: [NSNull null],
+               @"candidates": candidates });
   return 0;
 }
 
@@ -79,7 +94,6 @@ static int SetHandler(NSString *identifier, NSString *applicationPath) {
     PrintJSON(@{ @"ok": @NO, @"error": operationError.localizedDescription ?: @"Request failed." });
     return 4;
   }
-  PrintJSON(@{ @"ok": @YES });
   return 0;
 }
 
@@ -88,7 +102,7 @@ int main(int argc, const char *argv[]) {
     if (argc < 3) {
       fprintf(
           stderr,
-          "Usage: dnaforge-file-association query <uti> | query-extension <ext> | set <uti> <app-path>\n"
+          "Usage: dnaforge-file-association query <uti> | query-extension <ext> | inspect-file <path> | set-extensions <app> <allowed-types> <extensions...> | set <uti> <app-path>\n"
       );
       return 64;
     }
@@ -96,8 +110,47 @@ int main(int argc, const char *argv[]) {
     NSString *identifier = [NSString stringWithUTF8String:argv[2]];
     if ([command isEqualToString:@"query"]) return QueryHandler(identifier);
     if ([command isEqualToString:@"query-extension"]) return QueryHandlerForExtension(identifier);
+    if ([command isEqualToString:@"query-extensions"]) {
+      NSMutableSet *handlers = [NSMutableSet set];
+      for (int index = 2; index < argc; index++) {
+        UTType *type = [UTType typeWithFilenameExtension:[NSString stringWithUTF8String:argv[index]]];
+        if (type == nil) {
+          PrintJSON(@{ @"ok": @NO, @"error": @"Unknown filename extension." });
+          return 2;
+        }
+        NSURL *url = [[NSWorkspace sharedWorkspace] URLForApplicationToOpenContentType:type];
+        [handlers addObject:HandlerInfo(url) ?: [NSNull null]];
+      }
+      id handler = handlers.count == 1 ? handlers.anyObject : @{ @"name": @"Multiple applications" };
+      PrintJSON(@{ @"ok": @YES, @"handler": handler });
+      return 0;
+    }
+    if ([command isEqualToString:@"inspect-file"] && argc == 3) return InspectFile(identifier);
+    if ([command isEqualToString:@"set-extensions"] && argc >= 5) {
+      NSArray *allowedTypes = [[NSString stringWithUTF8String:argv[3]] componentsSeparatedByString:@","];
+      NSMutableOrderedSet *types = [NSMutableOrderedSet orderedSet];
+      for (int index = 4; index < argc; index++) {
+        NSString *extension = [NSString stringWithUTF8String:argv[index]];
+        UTType *type = [UTType typeWithFilenameExtension:extension];
+        if (!type || ![allowedTypes containsObject:type.identifier]) {
+          NSString *error = [NSString stringWithFormat:
+            @"macOS identifies .%@ as %@. Use Finder’s Get Info to choose its app.", extension, type.identifier ?: @"unknown"];
+          PrintJSON(@{ @"ok": @NO, @"error": error });
+          return 2;
+        }
+        [types addObject:type.identifier];
+      }
+      for (NSString *type in types) {
+        int code = SetHandler(type, identifier);
+        if (code != 0) return code;
+      }
+      PrintJSON(@{ @"ok": @YES });
+      return 0;
+    }
     if ([command isEqualToString:@"set"] && argc == 4) {
-      return SetHandler(identifier, [NSString stringWithUTF8String:argv[3]]);
+      int code = SetHandler(identifier, [NSString stringWithUTF8String:argv[3]]);
+      if (code == 0) PrintJSON(@{ @"ok": @YES });
+      return code;
     }
     fprintf(stderr, "Unsupported command.\n");
     return 64;

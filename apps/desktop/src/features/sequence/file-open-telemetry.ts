@@ -10,7 +10,6 @@ import type {
   SafeOperationErrorClass,
   SafeSourceSurface,
 } from '@waypoint/analytics-policy';
-import type { FileAssociationFamilyId } from '../../shared/file-associations';
 
 export type FileOpenSourceSurface = SafeSourceSurface;
 export type FileTypeCategory = SafeFileTypeCategory;
@@ -24,7 +23,6 @@ interface PendingFileOpenInput {
   sourceSurface: FileOpenSourceSurface;
   sizeBucket: FileSizeBucket;
   fileSizeBytes: number;
-  associationFamilyId?: FileAssociationFamilyId;
   importOperationId?: string;
   importOperationIds?: Iterable<string>;
 }
@@ -37,13 +35,6 @@ interface PendingFileOpen extends Omit<
 }
 
 const pendingByDocument = new Map<string, PendingFileOpen>();
-
-export interface VisibleFileOpen {
-  readonly filePath: string;
-  readonly associationFamilyId?: FileAssociationFamilyId;
-}
-
-const visibleFileOpenListeners = new Set<(event: VisibleFileOpen) => void>();
 
 useCanvasStore.subscribe((state) => {
   const tabExists = (tabId: string) =>
@@ -76,7 +67,6 @@ export function registerPendingFileOpen(input: PendingFileOpenInput): void {
     sourceSurface: input.sourceSurface,
     sizeBucket: input.sizeBucket,
     fileSizeBytes: input.fileSizeBytes,
-    associationFamilyId: input.associationFamilyId,
     importOperationIds,
   });
 }
@@ -116,18 +106,7 @@ function commitPendingFileOpen(documentId: string): boolean {
   safeObserveVisibleContentOpen();
   const loaded = useSequenceStore.getState().sequences[documentId];
   if (loaded) void observeSequenceSavedReopen(documentId, pending.filePath, loaded);
-  for (const listener of visibleFileOpenListeners) {
-    listener({
-      filePath: pending.filePath,
-      associationFamilyId: pending.associationFamilyId,
-    });
-  }
   return true;
-}
-
-export function subscribeVisibleFileOpen(listener: (event: VisibleFileOpen) => void): () => void {
-  visibleFileOpenListeners.add(listener);
-  return () => visibleFileOpenListeners.delete(listener);
 }
 
 export function commitVisibleFileOpen(documentId: string): boolean {
@@ -221,7 +200,6 @@ export function fileSizeBucket(sizeBytes: number): FileSizeBucket {
 
 export function __resetFileOpenTelemetryForTests(): void {
   pendingByDocument.clear();
-  visibleFileOpenListeners.clear();
 }
 
 export function __pendingFileOpenCountForTests(): number {

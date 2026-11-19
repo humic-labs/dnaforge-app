@@ -67,6 +67,7 @@ const USER_DATA = '/user-data';
 const PROMOTIONS = join(USER_DATA, QUICK_LOOK_PACKAGE_STORE_DIRECTORY, '.promotions');
 const PREPARATIONS = join(PROMOTIONS, 'workspace-preparations');
 const CONFIGURATION = {
+  allowDefaultChanges: false,
   userDataPath: USER_DATA,
   helperSourcePath: '/helpers/association.m',
   openExternal: mocks.openExternal,

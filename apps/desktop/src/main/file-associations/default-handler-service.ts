@@ -5,9 +5,9 @@ import type {
   FileAssociationHandlerStatus,
 } from '../../shared/file-association-ipc';
 import {
-  FILE_ASSOCIATION_FAMILIES,
-  fileAssociationFamily,
-  type FileAssociationFamilyId,
+  HANDLER_FAMILIES,
+  handlerFamily,
+  type HandlerFamilyId,
 } from '../../shared/file-associations';
 
 export interface MacHandlerIdentity {
@@ -19,24 +19,25 @@ export interface MacHandlerIdentity {
 export interface DefaultHandlerServiceDependencies {
   readonly platform: NodeJS.Platform;
   readonly appBundleId: string;
-  readonly queryMacHandler: (contentType: string) => Promise<MacHandlerIdentity | null>;
+  readonly queryMacHandler: (familyId: HandlerFamilyId) => Promise<MacHandlerIdentity | null>;
   readonly setMacHandler: (
-    contentType: string
+    familyId: HandlerFamilyId
   ) => Promise<{ readonly ok: boolean; readonly detail: string | null }>;
-  readonly queryWindowsProgId: (extension: string) => Promise<string | null>;
+  readonly queryWindowsProgIds: () => Promise<Readonly<Record<string, string | null>>>;
   readonly openWindowsDefaultApps: () => Promise<void>;
+  readonly windowsDefaultAction?: FileAssociationDefaultAction;
   readonly macDefaultAction?: FileAssociationDefaultAction;
 }
 
 export interface DefaultHandlerService {
   readonly queryAll: () => Promise<FileAssociationHandlerStatus[]>;
   readonly requestDefault: (
-    familyId: FileAssociationFamilyId
+    familyId: HandlerFamilyId
   ) => Promise<FileAssociationDefaultRequestResult>;
 }
 
 function unavailableStatus(
-  familyId: FileAssociationFamilyId,
+  familyId: HandlerFamilyId,
   detail: string,
   defaultAction: FileAssociationDefaultAction = 'none'
 ): FileAssociationHandlerStatus {
@@ -51,13 +52,13 @@ function unavailableStatus(
 }
 
 async function queryMacFamily(
-  familyId: FileAssociationFamilyId,
+  familyId: HandlerFamilyId,
   dependencies: DefaultHandlerServiceDependencies
 ): Promise<FileAssociationHandlerStatus> {
-  const family = fileAssociationFamily(familyId);
+  const family = handlerFamily(familyId);
   const defaultAction = dependencies.macDefaultAction ?? 'native';
   try {
-    const handler = await dependencies.queryMacHandler(family.macos.contentType);
+    const handler = await dependencies.queryMacHandler(family.id);
     if (!handler) {
       return {
         familyId,
@@ -88,17 +89,21 @@ async function queryMacFamily(
   }
 }
 
-async function queryWindowsFamily(
-  familyId: FileAssociationFamilyId,
-  dependencies: DefaultHandlerServiceDependencies
-): Promise<FileAssociationHandlerStatus> {
-  const family = fileAssociationFamily(familyId);
+function queryWindowsFamily(
+  familyId: HandlerFamilyId,
+  dependencies: DefaultHandlerServiceDependencies,
+  defaults: Readonly<Record<string, string | null>>
+): FileAssociationHandlerStatus {
+  const family = handlerFamily(familyId);
   try {
-    const progIds = await Promise.all(
-      family.extensions.map((extension) => dependencies.queryWindowsProgId(extension))
+    const progIds = family.extensions.map((extension) => {
+      if (!(extension in defaults)) throw new Error(`No Windows query result for .${extension}.`);
+      return defaults[extension] ?? null;
+    });
+    const unique = new Set(progIds.map((value) => value?.toLowerCase() ?? null));
+    const allDnaForge = progIds.every(
+      (progId) => progId?.toLowerCase() === family.windows.progId.toLowerCase()
     );
-    const unique = new Set(progIds);
-    const allDnaForge = progIds.every((progId) => progId === family.windows.progId);
     const allUnset = progIds.every((progId) => progId === null);
     const mixed = unique.size > 1;
     return {
@@ -110,7 +115,7 @@ async function queryWindowsFamily(
           ? 'Multiple applications'
           : (progIds[0] ?? null),
       handlerPath: null,
-      defaultAction: 'system-settings',
+      defaultAction: dependencies.windowsDefaultAction ?? 'system-settings',
       detail: mixed
         ? `The registered ${family.displayName} extensions use different default applications.`
         : null,
@@ -130,15 +135,25 @@ export function createDefaultHandlerService(
     queryAll: async () => {
       if (dependencies.platform === 'darwin') {
         return Promise.all(
-          FILE_ASSOCIATION_FAMILIES.map((family) => queryMacFamily(family.id, dependencies))
+          HANDLER_FAMILIES.map((family) => queryMacFamily(family.id, dependencies))
         );
       }
       if (dependencies.platform === 'win32') {
-        return Promise.all(
-          FILE_ASSOCIATION_FAMILIES.map((family) => queryWindowsFamily(family.id, dependencies))
-        );
+        try {
+          const defaults = await dependencies.queryWindowsProgIds();
+          return HANDLER_FAMILIES.map((family) =>
+            queryWindowsFamily(family.id, dependencies, defaults)
+          );
+        } catch (error) {
+          return HANDLER_FAMILIES.map((family) =>
+            unavailableStatus(
+              family.id,
+              error instanceof Error ? error.message : 'Windows handler query failed.'
+            )
+          );
+        }
       }
-      return FILE_ASSOCIATION_FAMILIES.map((family) => ({
+      return HANDLER_FAMILIES.map((family) => ({
         familyId: family.id,
         state: 'unsupported' as const,
         handlerName: null,
@@ -148,9 +163,9 @@ export function createDefaultHandlerService(
       }));
     },
     requestDefault: async (familyId) => {
-      const family = fileAssociationFamily(familyId);
+      const family = handlerFamily(familyId);
       if (dependencies.platform === 'darwin') {
-        const result = await dependencies.setMacHandler(family.macos.contentType);
+        const result = await dependencies.setMacHandler(family.id);
         return {
           familyId,
           outcome: result.ok ? 'requested' : 'instructions',
@@ -158,6 +173,13 @@ export function createDefaultHandlerService(
         };
       }
       if (dependencies.platform === 'win32') {
+        if (dependencies.windowsDefaultAction === 'none') {
+          return {
+            familyId,
+            outcome: 'unavailable',
+            detail: 'Use installed DNAForge to change default applications.',
+          };
+        }
         try {
           await dependencies.openWindowsDefaultApps();
           return { familyId, outcome: 'opened-settings', detail: null };

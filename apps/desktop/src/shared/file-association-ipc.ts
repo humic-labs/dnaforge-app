@@ -1,9 +1,9 @@
-import type { FileAssociationFamilyId } from './file-associations';
+import type { FileAssociationFamilyId, HandlerFamilyId } from './file-associations';
 
 export interface FileActivationDelivery {
   readonly deliveryId: string;
   readonly path: string;
-  readonly familyId: FileAssociationFamilyId;
+  readonly familyId: HandlerFamilyId;
 }
 
 export type FileAssociationHandlerState =
@@ -16,7 +16,7 @@ export type FileAssociationHandlerState =
 export type FileAssociationDefaultAction = 'native' | 'system-settings' | 'instructions' | 'none';
 
 export interface FileAssociationHandlerStatus {
-  readonly familyId: FileAssociationFamilyId;
+  readonly familyId: HandlerFamilyId;
   readonly state: FileAssociationHandlerState;
   readonly handlerName: string | null;
   readonly handlerPath: string | null;
@@ -25,7 +25,7 @@ export interface FileAssociationHandlerStatus {
 }
 
 export interface FileAssociationDefaultRequestResult {
-  readonly familyId: FileAssociationFamilyId;
+  readonly familyId: HandlerFamilyId;
   readonly outcome: 'requested' | 'opened-settings' | 'instructions' | 'unavailable';
   readonly detail: string | null;
 }

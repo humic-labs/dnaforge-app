@@ -26,41 +26,37 @@ describe(' packaging projections', () => {
   it('projects editor/viewer macOS roles with alternate handler rank and icons', () => {
     const projected = projectMacAssociationMetadata(registry);
 
-    assert.deepEqual(projected.documentTypes, [
-      {
-        CFBundleTypeName: 'GenBank DNA sequence',
-        CFBundleTypeIconFile: 'icon.icns',
-        CFBundleTypeRole: 'Editor',
-        LSHandlerRank: 'Alternate',
-        LSItemContentTypes: ['com.dnaforge.genbank'],
-      },
-      {
-        CFBundleTypeName: 'SnapGene DNA document',
-        CFBundleTypeIconFile: 'icon.icns',
-        CFBundleTypeRole: 'Viewer',
-        LSHandlerRank: 'Alternate',
-        LSItemContentTypes: ['com.snapgene.dna'],
-      },
+    const types = Object.fromEntries(
+      projected.documentTypes.map((type) => [type.CFBundleTypeName, type.LSItemContentTypes])
+    );
+    assert.deepEqual(types['GenBank DNA sequence'], [
+      'biosequence.genbank',
+      'com.dnaforge.genbank',
     ]);
-    assert.deepEqual(projected.exportedTypes, [
-      {
-        UTTypeIdentifier: 'com.dnaforge.genbank',
-        UTTypeDescription: 'GenBank DNA sequence',
-        UTTypeConformsTo: ['public.plain-text'],
-        UTTypeTagSpecification: {
-          'public.filename-extension': ['gb', 'gbk', 'gbff', 'genbank'],
-          'public.mime-type': ['chemical/seq-na-genbank'],
-        },
-      },
+    assert.deepEqual(types['SnapGene DNA document'], ['com.gslbiotech.dna', 'com.snapgene.dna']);
+    assert.deepEqual(types['FASTA sequences'], ['biosequence.fasta']);
+    assert.deepEqual(types['Sanger chromatograms'], ['biosequence.abi']);
+    assert.deepEqual(types['Molecular structures'], [
+      'com.dnaforge.pdb',
+      'com.dnaforge.mmcif',
+      'com.dnaforge.bcif',
     ]);
-    assert.deepEqual(projected.importedTypes, [
-      {
-        UTTypeIdentifier: 'com.snapgene.dna',
-        UTTypeDescription: 'SnapGene DNA document',
-        UTTypeConformsTo: ['public.data'],
-        UTTypeTagSpecification: { 'public.filename-extension': ['dna'] },
-      },
-    ]);
+    assert.ok(
+      projected.documentTypes.every(
+        (type) => type.LSHandlerRank === 'Alternate' && type.CFBundleTypeIconFile === 'icon.icns'
+      )
+    );
+    const imported = Object.fromEntries(
+      projected.importedTypes.map((type) => [
+        type.UTTypeIdentifier,
+        type.UTTypeTagSpecification['public.filename-extension'],
+      ])
+    );
+    assert.deepEqual(imported['com.gslbiotech.dna'], ['dna']);
+    assert.deepEqual(imported['biosequence.genbank'], ['gb', 'gbk', 'gbff', 'genbank']);
+    assert.deepEqual(imported['com.dnaforge.bcif'], ['bcif']);
+    assert.deepEqual(imported['com.dnaforge.mmcif'], ['cif', 'mmcif', 'mcif']);
+    assert.deepEqual(projected.exportedTypes, []);
   });
 
   it('generates per-user Windows capabilities without taking the current default', () => {
@@ -165,6 +161,31 @@ describe(' packaging projections', () => {
       )
     );
     assert.match(afterPack, /injectMacAssociationMetadata\(context, associationRegistry\)/);
+  });
+
+  it('keeps a separate validation build out of Open With and the default settings', () => {
+    const values = [];
+    injectMacAssociationMetadata(
+      {
+        electronPlatformName: 'darwin',
+        appOutDir: '/tmp/build',
+        packager: { appInfo: { productFilename: 'DNAForge Validation' } },
+      },
+      registry,
+      (_command, args) => {
+        values.push(JSON.parse(args[3]));
+        return { status: 0 };
+      }
+    );
+    assert.deepEqual(values, [[], [], []]);
+    for (const macro of [
+      'DNAForgeRegisterFileAssociations',
+      'DNAForgeUnregisterFileAssociations',
+    ]) {
+      assert.ok(
+        installer.includes('!if "${PRODUCT_NAME}" == "DNAForge"\n    !insertmacro ' + macro)
+      );
+    }
   });
 
   it('builds the macOS 12 NSWorkspace helper into Contents/Helpers before signing', () => {

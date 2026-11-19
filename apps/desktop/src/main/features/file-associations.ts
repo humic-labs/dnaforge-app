@@ -26,6 +26,7 @@ import {
 import type { MainFeature } from './main-feature';
 
 export interface FileAssociationsConfiguration {
+  readonly allowDefaultChanges: boolean;
   readonly userDataPath: string;
   readonly helperSourcePath: string;
   readonly openExternal: (url: string) => Promise<void>;
@@ -43,6 +44,7 @@ export function createFileAssociations() {
   let configured: ConfiguredFileAssociations | null = null;
 
   function configure({
+    allowDefaultChanges,
     userDataPath,
     helperSourcePath,
     openExternal,
@@ -61,6 +63,7 @@ export function createFileAssociations() {
           platform: process.platform,
           appBundleId: 'com.dnaforge.desktop',
           isPackaged: app.isPackaged,
+          allowDefaultChanges,
           resourcesPath: process.resourcesPath,
           execPath: process.execPath,
           helperSourcePath,

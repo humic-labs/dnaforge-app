@@ -143,6 +143,9 @@ dmg:
       type: link
       path: /Applications
 win:
+  extraResources:
+    - from: resources/helpers-src/query-windows-associations.ps1
+      to: query-windows-associations.ps1
   target:
     - nsis
   icon: resources/icon.ico

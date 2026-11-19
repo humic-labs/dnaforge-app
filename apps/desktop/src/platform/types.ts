@@ -177,7 +177,7 @@ import type {
   PromoteQuickLookPackageResult,
   QuickLookPackageReceipt,
 } from '../shared/file-association-ipc';
-import type { FileAssociationFamilyId } from '../shared/file-associations';
+import type { HandlerFamilyId } from '../shared/file-associations';
 
 import type { AdmittedTextFileReadRequest } from '../shared/admitted-file-read';
 import type { UpdateInstallResult, UpdateSimulationArguments } from '../shared/update-ipc';
@@ -620,7 +620,7 @@ export interface PlatformBridge {
     ): Promise<PromoteQuickLookPackageResult>;
     onOpenFiles(callback: (deliveries: FileActivationDelivery[]) => void): () => void;
     queryHandlers(): Promise<FileAssociationHandlerStatus[]>;
-    requestDefault(familyId: FileAssociationFamilyId): Promise<FileAssociationDefaultRequestResult>;
+    requestDefault(familyId: HandlerFamilyId): Promise<FileAssociationDefaultRequestResult>;
   };
   db: ArtifactDatabase &
     import('../shared/ipc/contract').ClientOf<

@@ -389,6 +389,8 @@ if (scenarioProfileAdmissionDiagnostic) {
 nativeDocuments.bindProfile(app.getPath('userData'));
 
 fileAssociations.configure({
+  allowDefaultChanges:
+    app.isPackaged && startupProfile.kind === 'release-shared' && app.getName() === 'DNAForge',
   userDataPath: app.getPath('userData'),
   helperSourcePath: join(__dirname, '../../resources/helpers-src/dnaforge-file-association.m'),
   openExternal: (url) => shell.openExternal(url),

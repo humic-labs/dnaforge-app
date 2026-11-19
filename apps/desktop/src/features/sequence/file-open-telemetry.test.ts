@@ -5,7 +5,6 @@ import {
   commitVisibleFileOpen,
   failPendingFileOpen,
   registerPendingFileOpen,
-  subscribeVisibleFileOpen,
   __resetFileOpenTelemetryForTests,
 } from './file-open-telemetry';
 
@@ -55,8 +54,6 @@ describe('file-open telemetry parse/visible commit join', () => {
   });
 
   it('emits once only after parsed state exists and the originating tab still exists', () => {
-    const visibleListener = vi.fn();
-    const unsubscribe = subscribeVisibleFileOpen(visibleListener);
     registerPendingFileOpen({
       filePath: '/workspace/pUC19.gb',
       tabId: 'tab-1',
@@ -82,26 +79,6 @@ describe('file-open telemetry parse/visible commit join', () => {
       action: 'open',
       status: 'viewed',
     });
-    expect(visibleListener).toHaveBeenCalledOnce();
-    expect(visibleListener).toHaveBeenCalledWith({ filePath: '/workspace/pUC19.gb' });
-    unsubscribe();
-  });
-
-  it('stops notifying a visible-open listener after unsubscribe', () => {
-    const visibleListener = vi.fn();
-    const unsubscribe = subscribeVisibleFileOpen(visibleListener);
-    unsubscribe();
-    registerPendingFileOpen({
-      filePath: '/workspace/pUC19.gb',
-      tabId: 'tab-1',
-      fileTypeCategory: 'dna',
-      sourceSurface: 'file_tree',
-      sizeBucket: '1_10kb',
-      fileSizeBytes: 4,
-    });
-
-    expect(commitVisibleFileOpen('/workspace/pUC19.gb')).toBe(true);
-    expect(visibleListener).not.toHaveBeenCalled();
   });
 
   it('settles a parsed open even if the user changes focus before parsing finishes', () => {

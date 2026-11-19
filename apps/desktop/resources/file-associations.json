@@ -7,15 +7,15 @@
       "documentDescription": "GenBank DNA sequence",
       "extensions": ["gb", "gbk", "gbff", "genbank"],
       "capability": "editor",
-      "promptReady": true,
       "parser": "genbank",
       "documentIcons": {
         "macos": "icon.icns",
         "windows": "DNAForge.exe"
       },
       "macos": {
-        "contentType": "com.dnaforge.genbank",
-        "ownership": "exported",
+        "contentType": "biosequence.genbank",
+        "aliases": ["com.dnaforge.genbank"],
+        "ownership": "imported",
         "conformsTo": ["public.plain-text"],
         "mimeTypes": ["chemical/seq-na-genbank"],
         "role": "Editor",
@@ -31,15 +31,14 @@
       "documentDescription": "SnapGene DNA document",
       "extensions": ["dna"],
       "capability": "viewer",
-      "promptReady": false,
-      "readinessBlocker": "format-validation-pending",
       "parser": "snapgene",
       "documentIcons": {
         "macos": "icon.icns",
         "windows": "DNAForge.exe"
       },
       "macos": {
-        "contentType": "com.snapgene.dna",
+        "contentType": "com.gslbiotech.dna",
+        "aliases": ["com.snapgene.dna"],
         "ownership": "imported",
         "conformsTo": ["public.data"],
         "mimeTypes": [],

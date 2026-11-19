@@ -217,68 +217,6 @@ export const TOAST_DEFINITIONS = {
     group: 'update-error',
     requiresVariant: true,
   }),
-  'use-file-association-opportunities-dnaforge-is-now-the-default-app-for-these-files': defineToast(
-    {
-      category: 'use file association opportunities',
-      source: 'hooks/use-file-association-opportunities.ts',
-      type: 'success',
-      message: userMessage('notice.dnaforge-is-now-the-default-app-for-these-files'),
-    }
-  ),
-  'use-file-association-opportunities-choose-dnaforge-in-windows-default-apps-then-return-here':
-    defineToast({
-      category: 'use file association opportunities',
-      source: 'hooks/use-file-association-opportunities.ts',
-      type: 'info',
-      message: userMessage('notice.choose-dnaforge-in-windows-default-apps-then-return-here'),
-      timing: 'notice',
-    }),
-  'use-file-association-opportunities-change-the-default-app-in-system-settings': defineToast({
-    category: 'use file association opportunities',
-    source: 'hooks/use-file-association-opportunities.ts',
-    type: 'info',
-    message: userMessage('notice.change-the-default-app-in-system-settings'),
-    timing: 'notice',
-  }),
-  'use-file-association-opportunities-the-request-completed-but-the-system-did-not-report-dnaforge-as-default':
-    defineToast({
-      category: 'use file association opportunities',
-      source: 'hooks/use-file-association-opportunities.ts',
-      type: 'warning',
-      message: userMessage(
-        'notice.the-request-completed-but-the-system-did-not-report-dnaforge-as-defaul'
-      ),
-    }),
-  'use-file-association-opportunities-default-app-controls-are-unavailable': defineToast({
-    category: 'use file association opportunities',
-    source: 'hooks/use-file-association-opportunities.ts',
-    type: 'error',
-    message: userMessage('failure.default-app-controls-are-unavailable'),
-  }),
-  'use-file-association-opportunities-could-not-save-the-default-app-prompt-preference':
-    defineToast({
-      category: 'use file association opportunities',
-      source: 'hooks/use-file-association-opportunities.ts',
-      type: 'error',
-      message: userMessage('notice.could-not-save-the-default-app-prompt-preference'),
-    }),
-  'use-file-association-opportunities-make-dnaforge-the-default-app-for-example-files': defineToast(
-    {
-      category: 'use file association opportunities',
-      source: 'hooks/use-file-association-opportunities.ts',
-      type: 'info',
-      message: userMessage('notice.make-dnaforge-the-default-app-for-example-files'),
-      timing: 'persistent',
-      dismissOn: 'control',
-      actionLabels: ['Make DNAForge default', 'Not now', "Don't ask again"],
-    }
-  ),
-  'use-file-association-opportunities-could-not-change-the-default-app-example-error': defineToast({
-    category: 'use file association opportunities',
-    source: 'hooks/use-file-association-opportunities.ts',
-    type: 'error',
-    message: userMessage('notice.could-not-change-the-default-app-example-error'),
-  }),
   'post-update': defineToast({
     category: 'use Post Update Toast',
     source: 'hooks/usePostUpdateToast.ts',

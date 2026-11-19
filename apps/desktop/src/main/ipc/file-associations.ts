@@ -7,7 +7,7 @@ import type {
   PromoteQuickLookPackageResult,
   QuickLookPackageReceipt,
 } from '../../shared/file-association-ipc';
-import type { FileAssociationFamilyId } from '../../shared/file-associations';
+import { handlerFamily, type FileAssociationFamilyId } from '../../shared/file-associations';
 import type { DefaultHandlerService } from '../file-associations/default-handler-service';
 import { assertSafePath } from './path-allowlist';
 import { fileAssociationsContract } from '../../shared/ipc/file-associations.contract';
@@ -167,6 +167,6 @@ export function registerFileAssociationHandlers(deps: RegisterFileAssociationHan
       deps.promoteQuickLookPackage(parsePromoteQuickLookRequest(request)),
     queryHandlers: () => deps.defaultHandler.queryAll(),
     requestDefault: (_event, familyId: unknown) =>
-      deps.defaultHandler.requestDefault(parseFamilyId(familyId)),
+      deps.defaultHandler.requestDefault(handlerFamily(familyId).id),
   });
 }

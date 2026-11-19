@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { FILE_ASSOCIATION_FAMILIES } from '../../shared/file-associations';
+import { HANDLER_FAMILIES, handlerFamily } from '../../shared/file-associations';
 import type {
   DefaultHandlerServiceDependencies,
   MacHandlerIdentity,
@@ -24,6 +24,7 @@ export interface NativeDefaultHandlerOptions {
   readonly platform: NodeJS.Platform;
   readonly appBundleId: string;
   readonly isPackaged: boolean;
+  readonly allowDefaultChanges?: boolean;
   readonly resourcesPath: string;
   readonly execPath: string;
   readonly userDataPath?: string;
@@ -35,15 +36,20 @@ export interface NativeDefaultHandlerOptions {
 
 function defaultRunCommand(command: string, args: readonly string[]): Promise<NativeCommandResult> {
   return new Promise((resolve) => {
-    execFile(command, [...args], { encoding: 'utf8' }, (error, stdout, stderr) => {
-      const code =
-        error && typeof (error as NodeJS.ErrnoException & { code?: unknown }).code === 'number'
-          ? ((error as NodeJS.ErrnoException & { code: number }).code ?? 1)
-          : error
-            ? 1
-            : 0;
-      resolve({ code, stdout: String(stdout), stderr: String(stderr) });
-    });
+    execFile(
+      command,
+      [...args],
+      { encoding: 'utf8', windowsHide: true },
+      (error, stdout, stderr) => {
+        const code =
+          error && typeof (error as NodeJS.ErrnoException & { code?: unknown }).code === 'number'
+            ? ((error as NodeJS.ErrnoException & { code: number }).code ?? 1)
+            : error
+              ? 1
+              : 0;
+        resolve({ code, stdout: String(stdout), stderr: String(stderr) });
+      }
+    );
   });
 }
 
@@ -77,11 +83,6 @@ export function parseMacHandlerResponse(stdout: string): MacHandlerIdentity | nu
   };
 }
 
-export function parseWindowsProgId(stdout: string): string | null {
-  const match = /^\s*ProgId\s+REG_SZ\s+(.+?)\s*$/imu.exec(stdout);
-  return match?.[1]?.trim() || null;
-}
-
 export function resolveMacDefaultHandlerHelperPath(input: {
   readonly isPackaged: boolean;
   readonly resourcesPath: string;
@@ -99,20 +100,6 @@ function clangArch(nodeArch: string): 'arm64' | 'x86_64' | null {
   if (nodeArch === 'arm64') return 'arm64';
   if (nodeArch === 'x64') return 'x86_64';
   return null;
-}
-
-function identityKey(identity: MacHandlerIdentity | null): string {
-  if (!identity) return 'none';
-  return `${identity.bundleId ?? ''}|${identity.path ?? ''}|${identity.name ?? ''}`;
-}
-
-function mergeMacHandlerIdentities(
-  identities: readonly (MacHandlerIdentity | null)[]
-): MacHandlerIdentity | null {
-  if (identities.length === 0) return null;
-  const keys = new Set(identities.map(identityKey));
-  if (keys.size === 1) return identities[0] ?? null;
-  return { bundleId: null, name: 'Multiple applications', path: null };
 }
 
 function macApplicationBundlePath(execPath: string): string {
@@ -180,42 +167,34 @@ export function createNativeDefaultHandlerDependencies(
     return unpackagedHelperPromise;
   };
 
+  const allowDefaultChanges = options.isPackaged && options.allowDefaultChanges === true;
   return {
     platform: options.platform,
     appBundleId: options.appBundleId,
-    macDefaultAction: packagedHelperPath ? 'native' : 'instructions',
-    queryMacHandler: async (contentType) => {
-      if (packagedHelperPath) {
-        return runHelperQuery(runCommand, packagedHelperPath, ['query', contentType]);
-      }
-      const family = FILE_ASSOCIATION_FAMILIES.find(
-        (candidate) => candidate.macos.contentType === contentType
-      );
-      if (!family) throw new Error(`Unknown content type ${contentType}.`);
-      const helperPath = await ensureUnpackagedQueryHelper();
+    windowsDefaultAction: allowDefaultChanges ? 'system-settings' : 'none',
+    macDefaultAction: allowDefaultChanges ? 'native' : 'instructions',
+    queryMacHandler: async (familyId) => {
+      const family = handlerFamily(familyId);
+      const helperPath = packagedHelperPath ?? (await ensureUnpackagedQueryHelper());
       if (!helperPath) {
         throw new Error('Could not read the current default app from macOS.');
       }
-      const identities = [];
-      for (const extension of family.extensions) {
-        identities.push(
-          await runHelperQuery(runCommand, helperPath, ['query-extension', extension])
-        );
-      }
-      return mergeMacHandlerIdentities(identities);
+      return runHelperQuery(runCommand, helperPath, ['query-extensions', ...family.extensions]);
     },
-    setMacHandler: async (contentType) => {
-      if (!packagedHelperPath) {
+    setMacHandler: async (familyId) => {
+      if (!packagedHelperPath || !allowDefaultChanges) {
         return {
           ok: false,
           detail:
             'This development window cannot register itself as the default app. Install packaged DNAForge, then use Finder → Get Info → Open with → Change All.',
         };
       }
+      const family = handlerFamily(familyId);
       const result = await runCommand(packagedHelperPath, [
-        'set',
-        contentType,
+        'set-extensions',
         macApplicationBundlePath(options.execPath),
+        family.macTypeIds.join(','),
+        ...family.extensions,
       ]);
       if (result.stdout.trim() !== '') {
         const response = parseObject(result.stdout);
@@ -227,13 +206,38 @@ export function createNativeDefaultHandlerDependencies(
         detail: result.stderr.trim() || 'The macOS default-app request failed.',
       };
     },
-    queryWindowsProgId: async (extension) => {
-      const key =
-        'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts' +
-        `\\.${extension}\\UserChoice`;
-      const result = await runCommand('reg.exe', ['query', key, '/v', 'ProgId']);
-      if (result.code !== 0) return null;
-      return parseWindowsProgId(result.stdout);
+    queryWindowsProgIds: async () => {
+      const script = options.isPackaged
+        ? path.join(options.resourcesPath, 'query-windows-associations.ps1')
+        : path.join(path.dirname(options.helperSourcePath ?? ''), 'query-windows-associations.ps1');
+      const extensions = HANDLER_FAMILIES.flatMap((family) => family.extensions);
+      const executable = path.win32.join(
+        process.env.SystemRoot ?? 'C:\\Windows',
+        'System32',
+        'WindowsPowerShell',
+        'v1.0',
+        'powershell.exe'
+      );
+      const result = await runCommand(executable, [
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-File',
+        script,
+        '-Extensions',
+        extensions.join(','),
+      ]);
+      if (result.code !== 0)
+        throw new Error(result.stderr.trim() || 'Windows default-app query failed.');
+      const raw = parseObject(result.stdout);
+      const defaults: Record<string, string | null> = {};
+      for (const extension of extensions) {
+        const value = raw[extension];
+        if (value !== null && typeof value !== 'string')
+          throw new Error(`Invalid Windows handler for .${extension}.`);
+        defaults[extension] = value;
+      }
+      return defaults;
     },
     openWindowsDefaultApps: async () => {
       await options.openExternal('ms-settings:defaultapps?registeredAppUser=DNAForge');

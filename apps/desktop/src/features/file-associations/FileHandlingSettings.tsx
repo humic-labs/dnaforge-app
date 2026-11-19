@@ -8,19 +8,18 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SETTINGS_CARD_CLASS, SettingsButton } from '../../components/SettingsSubsection';
 import { platform } from '../../platform';
-import { openQuickLookSource } from '../../lib/open-quick-look-source';
+import { externalFormatForPath } from '../../shared/external-preview';
+import { openExternalPreview } from '../../lib/open-external-preview';
 import type { FileAssociationHandlerStatus } from '../../shared/file-association-ipc';
 import {
-  associationFamilyForPath,
-  FILE_ASSOCIATION_FAMILIES,
-  type FileAssociationFamily,
-  type FileAssociationFamilyId,
+  HANDLER_FAMILIES,
+  type HandlerFamily,
+  type HandlerFamilyId,
 } from '../../shared/file-associations';
 import { useToastStore } from '../../stores/toast-store';
 import {
   queryFileAssociationHandlers,
   requestFileAssociationDefault,
-  REVEAL_OPEN_DOCUMENT_EVENT,
 } from './handler-status-source';
 
 function handlerSummary(status: FileAssociationHandlerStatus | undefined): UserMessage {
@@ -48,7 +47,7 @@ const DEFAULT_APP_STEPS = [
   'Under Open with, choose the installed DNAForge app, then Change All.',
 ] as const;
 
-type PendingAction = { familyId: FileAssociationFamilyId; kind: 'default' | 'preview' };
+type PendingAction = { familyId: HandlerFamilyId; kind: 'default' | 'preview' };
 
 function FamilyRow({
   family,
@@ -58,12 +57,12 @@ function FamilyRow({
   onRequest,
   onPreview,
 }: {
-  readonly family: FileAssociationFamily;
+  readonly family: HandlerFamily;
   readonly status: FileAssociationHandlerStatus | undefined;
   readonly pendingAction: PendingAction | null;
   readonly refreshing: boolean;
-  readonly onRequest: (familyId: FileAssociationFamilyId) => void;
-  readonly onPreview: (familyId: FileAssociationFamilyId) => void;
+  readonly onRequest: (familyId: HandlerFamilyId) => void;
+  readonly onPreview: (familyId: HandlerFamilyId) => void;
 }) {
   const label = actionLabel(status);
   const activeAction = pendingAction?.familyId === family.id ? pendingAction.kind : null;
@@ -75,7 +74,7 @@ function FamilyRow({
           <h3 className="text-sm font-semibold text-fg">{family.displayName}</h3>
           <p className="mt-1 text-xs text-fg-muted">
             {family.extensions.map((extension) => `.${extension}`).join(', ')}
-            {family.parser === 'snapgene' ? ' · Imports as GenBank' : ''}
+            {family.id === 'snapgene' ? ' · Imports as GenBank' : ''}
           </p>
           <p
             className="mt-3 text-sm text-fg"
@@ -85,12 +84,6 @@ function FamilyRow({
           >
             {handlerSummary(status)}
           </p>
-          {!family.promptReady ? (
-            <p className="mt-2 max-w-2xl text-xs leading-5 text-fg-muted">
-              DNAForge won’t prompt to become the default while format compatibility is under
-              review.
-            </p>
-          ) : null}
         </div>
         <div className="flex flex-wrap items-start gap-2">
           {label && status?.defaultAction !== 'instructions' ? (
@@ -129,7 +122,7 @@ export function FileHandlingSettings() {
       return version === queryVersion.current ? latest : null;
     } catch (error) {
       const detail = toUserMessage(error, 'fileAssociations.unavailable');
-      const unavailable = FILE_ASSOCIATION_FAMILIES.map((family) => ({
+      const unavailable = HANDLER_FAMILIES.map((family) => ({
         familyId: family.id,
         state: 'unavailable' as const,
         handlerName: null,
@@ -163,8 +156,8 @@ export function FileHandlingSettings() {
   );
 
   const requestDefault = useCallback(
-    async (familyId: FileAssociationFamilyId) => {
-      const family = FILE_ASSOCIATION_FAMILIES.find((candidate) => candidate.id === familyId);
+    async (familyId: HandlerFamilyId) => {
+      const family = HANDLER_FAMILIES.find((candidate) => candidate.id === familyId);
       if (!family) return;
       setPendingAction({ familyId, kind: 'default' });
       try {
@@ -226,8 +219,8 @@ export function FileHandlingSettings() {
     [refresh]
   );
 
-  const previewFile = useCallback(async (familyId: FileAssociationFamilyId) => {
-    const family = FILE_ASSOCIATION_FAMILIES.find((candidate) => candidate.id === familyId);
+  const previewFile = useCallback(async (familyId: HandlerFamilyId) => {
+    const family = HANDLER_FAMILIES.find((candidate) => candidate.id === familyId);
     if (!family) return;
     setPendingAction({ familyId, kind: 'preview' });
     try {
@@ -237,8 +230,7 @@ export function FileHandlingSettings() {
       });
       const sourcePath = Array.isArray(picked) ? picked[0] : picked;
       if (typeof sourcePath !== 'string') return;
-      const matched = associationFamilyForPath(sourcePath);
-      if (matched?.id !== family.id) {
+      if (externalFormatForPath(sourcePath) !== family.id) {
         const extensions = family.extensions.map((ext) => `.${ext}`).join(', ');
         useToastStore.getState().addToast(
           userMessageWithValues('notice.choose-a-value-file-value', {
@@ -251,12 +243,7 @@ export function FileHandlingSettings() {
         );
         return;
       }
-      const tabId = await openQuickLookSource({
-        sourcePath,
-        familyId: family.id,
-        sourceSurface: 'menu',
-      });
-      if (tabId) window.dispatchEvent(new Event(REVEAL_OPEN_DOCUMENT_EVENT));
+      await openExternalPreview(sourcePath);
     } catch (error) {
       useToastStore.getState().addToast(toUserMessage(error, 'file.previewFailed'), {
         definition: 'file-handling-settings-could-not-preview-the-file-example-error',
@@ -269,10 +256,11 @@ export function FileHandlingSettings() {
   return (
     <div className="space-y-3" data-testid="file-handling-settings">
       <p className="mb-5 max-w-2xl text-sm leading-5 text-fg-muted">
-        Preview files without changing the originals. Use Import to Edit to copy them into a
-        project.
+        GenBank and SnapGene previews keep a read-only copy in this app profile after you close the
+        tab (up to 2 GiB total). Other previews read the original file each time. Import to Edit
+        saves a copy in a project.
       </p>
-      {FILE_ASSOCIATION_FAMILIES.map((family) => (
+      {HANDLER_FAMILIES.map((family) => (
         <FamilyRow
           key={family.id}
           family={family}

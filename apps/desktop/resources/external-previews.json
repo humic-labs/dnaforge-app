@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "families": [
+    {
+      "id": "fasta",
+      "displayName": "FASTA sequences",
+      "extensions": ["fa", "fasta", "fas", "fna", "ffn", "faa", "dnas"],
+      "windows": { "progId": "DNAForge.FASTA" },
+      "macosTypes": [{ "id": "biosequence.fasta", "conformsTo": "public.plain-text" }]
+    },
+    {
+      "id": "structure",
+      "displayName": "Molecular structures",
+      "extensions": ["pdb", "cif", "mmcif", "mcif", "bcif"],
+      "windows": { "progId": "DNAForge.MolecularStructure" },
+      "macosTypes": [
+        { "id": "com.dnaforge.pdb", "conformsTo": "public.plain-text", "extensions": ["pdb"] },
+        {
+          "id": "com.dnaforge.mmcif",
+          "conformsTo": "public.plain-text",
+          "extensions": ["cif", "mmcif", "mcif"]
+        },
+        { "id": "com.dnaforge.bcif", "conformsTo": "public.data", "extensions": ["bcif"] }
+      ]
+    },
+    {
+      "id": "chromatogram",
+      "displayName": "Sanger chromatograms",
+      "extensions": ["ab1", "abi"],
+      "windows": { "progId": "DNAForge.Chromatogram" },
+      "macosTypes": [{ "id": "biosequence.abi", "conformsTo": "public.data" }]
+    }
+  ]
+}

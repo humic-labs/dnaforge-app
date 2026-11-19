@@ -1,3 +1,4 @@
+import { HANDLER_FAMILIES } from '../shared/file-associations';
 import type { AuthorizedProjectFolder } from '../shared/agent-project-scope';
 import { registryConfidenceLabel } from '../shared/strain-genome-evidence';
 import { UserMessageError } from '@waypoint/user-messages';
@@ -375,24 +376,15 @@ export const browserMockBridge: PlatformBridge = {
       };
     },
     onOpenFiles: () => () => undefined,
-    queryHandlers: async () => [
-      {
-        familyId: 'genbank',
+    queryHandlers: async () =>
+      HANDLER_FAMILIES.map((family) => ({
+        familyId: family.id,
         state: 'unsupported',
         handlerName: null,
         handlerPath: null,
         defaultAction: 'none',
         detail: 'Desktop file associations are available in the desktop app.',
-      },
-      {
-        familyId: 'snapgene',
-        state: 'unsupported',
-        handlerName: null,
-        handlerPath: null,
-        defaultAction: 'none',
-        detail: 'Desktop file associations are available in the desktop app.',
-      },
-    ],
+      })),
     requestDefault: async (familyId) => ({
       familyId,
       outcome: 'unavailable',
