@@ -1,3 +1,5 @@
+import { isSequencePackageFileKind } from '../../../db/sequence-package-contract';
+import type { ManagedSequenceDocumentRef } from '../../../shared/managed-sequence-document';
 import {
   isSafeWorkspaceRelativePath,
   pathIsAtOrUnder,
@@ -21,7 +23,12 @@ export interface ItemRecord {
 export interface CatalogFileLookup {
   (
     entityId: string
-  ): Promise<{ path: string; relative_path: string | null; content_hash: string | null } | null>;
+  ): Promise<{
+    path: string;
+    relative_path: string | null;
+    content_hash: string | null;
+    file_kind?: string;
+  } | null>;
 }
 
 const EMPTY: ItemRecord = { path: null, contentHash: null };
@@ -43,6 +50,7 @@ export async function resolveItemRecord(
     catalogHash: resolved.catalogHash,
     workspaceRoot: root,
     workspaceRelativePath: resolved.path,
+    managedDocument: resolved.managedDocument,
     contentHash: deps.contentHash,
   });
 
@@ -53,7 +61,11 @@ async function resolvePath(
   entityId: string,
   root: string,
   lookupCatalogFile: CatalogFileLookup
-): Promise<{ path: string; catalogHash: string | null } | null> {
+): Promise<{
+  path: string;
+  catalogHash: string | null;
+  managedDocument?: ManagedSequenceDocumentRef;
+} | null> {
   let file: Awaited<ReturnType<CatalogFileLookup>>;
   try {
     file = await lookupCatalogFile(entityId);
@@ -71,7 +83,13 @@ async function resolvePath(
   const relative = file.relative_path ?? pathRelativeToBoundary(file.path, root);
   if (!relative || !isSafeWorkspaceRelativePath(relative)) return null;
 
-  return { path: relative, catalogHash: file.content_hash };
+  return {
+    path: relative,
+    catalogHash: file.content_hash,
+    managedDocument: isSequencePackageFileKind(file.file_kind)
+      ? { kind: 'managed-sequence', packageId: entityId, packageRoot: file.path }
+      : undefined,
+  };
 }
 
 export function looksLikeWorkspacePath(candidate: string): boolean {

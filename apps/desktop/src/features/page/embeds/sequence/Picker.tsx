@@ -16,6 +16,7 @@ interface SequenceItem {
   path: string;
   contentHash: string | null;
   objectUuid: string | null;
+  sequenceDocument: CatalogReferenceCandidate['sequenceDocument'];
 }
 
 function candidateToItem(candidate: CatalogReferenceCandidate): SequenceItem {
@@ -25,6 +26,7 @@ function candidateToItem(candidate: CatalogReferenceCandidate): SequenceItem {
     path: candidate.workspaceRelativePath,
     contentHash: candidate.contentHash,
     objectUuid: candidate.objectUuid,
+    sequenceDocument: candidate.sequenceDocument,
   };
 }
 
@@ -82,6 +84,7 @@ export function SequencePicker({ onAdvance, onCancel }: PickerStageProps) {
         path: selected.path,
         contentHash: selected.contentHash,
         objectUuid: selected.objectUuid,
+        sequenceDocument: selected.sequenceDocument,
         owningRoot: referenceContext?.owningRoot ?? null,
       });
     }

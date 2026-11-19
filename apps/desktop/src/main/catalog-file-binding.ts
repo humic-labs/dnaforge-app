@@ -125,9 +125,9 @@ export function catalogFileBindingAdmissionWitnessInDb(
   });
 }
 
-function canonicalSequencePackageBindingSource(input: CatalogFileBindingRequest) {
-  if (!input.workspaceRoot)
-    throw new Error('Sequence package binding requires its exact project owner.');
+function canonicalSequencePackageMarker(
+  input: CatalogFileBindingRequest & { workspaceRoot: string }
+) {
   const directory = lstatSync(input.path);
   if (!directory.isDirectory() || directory.isSymbolicLink())
     throw new Error('Sequence package source must be an exact physical directory.');
@@ -147,14 +147,49 @@ function canonicalSequencePackageBindingSource(input: CatalogFileBindingRequest)
   );
   if (document.id !== input.entityId)
     throw new Error('Sequence package marker identity does not match its catalog entity.');
-  const productPath = fromPackageRelative(document.product.file, input.path);
+  return { document, markerPath: markers[0] };
+}
+
+function canonicalSequencePackageBindingSource(input: CatalogFileBindingRequest) {
+  if (!input.workspaceRoot)
+    throw new Error('Sequence package binding requires its exact project owner.');
+  const marker = canonicalSequencePackageMarker({ ...input, workspaceRoot: input.workspaceRoot });
+  const productPath = fromPackageRelative(marker.document.product.file, input.path);
   const product = parseSequenceFileAsDocument(
     readClassificationFile(input.workspaceRoot, productPath, HARD_CAP_BYTES).toString('utf8'),
     productPath
   );
   if (!product.sequence.length)
     throw new Error('Sequence package product has no canonical scientific content.');
-  return { document, markerPath: markers[0] };
+  return marker;
+}
+
+function previousPackageBinding(
+  db: Database.Database,
+  input: CatalogFileBindingRequest,
+  workspaceId: number | null,
+  current: CatalogFileBindingRow[]
+): CatalogFileBindingRow | undefined {
+  if (!workspaceId || !input.workspaceRoot || !isSequencePackageFileKind(input.fileKind)) return;
+  const candidates = current.length
+    ? current
+    : (db
+        .prepare(
+          "SELECT * FROM catalog_entity_files WHERE entity_id=? AND workspace_id=? AND status='missing' AND object_uuid IS NOT NULL"
+        )
+        .all(input.entityId, workspaceId) as CatalogFileBindingRow[]);
+  if (candidates.length !== 1) return;
+  const previous = candidates[0];
+  if (
+    previous.workspace_id !== workspaceId ||
+    previous.path === input.path ||
+    !isSequencePackageFileKind(previous.file_kind) ||
+    !previous.object_uuid ||
+    existsSync(previous.path)
+  )
+    return;
+  canonicalSequencePackageMarker({ ...input, workspaceRoot: input.workspaceRoot });
+  return previous;
 }
 
 function adoptLegacyPackageBinding(
@@ -344,9 +379,14 @@ export function bindCatalogEntityFileInDb(
         : [];
     const moved = input.supersedesMovedPath
       ? siblings.find((file) => file.path === input.supersedesMovedPath)
-      : undefined;
+      : !existing?.object_uuid && !input.objectUuid && (input.status ?? 'current') === 'current'
+        ? previousPackageBinding(db, input, workspaceId, siblings)
+        : undefined;
     const inheritedObjectUuid =
-      !existing && !input.objectUuid && moved && !existsSync(moved.path) ? moved.object_uuid : null;
+      !existing?.object_uuid && !input.objectUuid && moved && !existsSync(moved.path)
+        ? moved.object_uuid
+        : null;
+    if (inheritedObjectUuid && moved?.status === 'missing') siblings.push(moved);
     if (
       moved &&
       !existsSync(moved.path) &&
