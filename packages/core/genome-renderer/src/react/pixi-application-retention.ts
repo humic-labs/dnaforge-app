@@ -72,6 +72,7 @@ function isReusablePixiApplication(target: Application): boolean {
     !destroyedPixiApplications.has(target) &&
     target.renderer !== null &&
     target.renderer !== undefined &&
+    !('gl' in target.renderer && target.renderer.gl.isContextLost()) &&
     stage !== null &&
     stage !== undefined &&
     !stage.destroyed &&

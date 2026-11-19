@@ -746,7 +746,8 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     const IDLE_RELEASE_MS = hiddenMapIdlePolicy === 'bounded-lru' ? 60_000 : 3_000;
     const idleReleaseReason = hiddenMapIdlePolicy === 'bounded-lru' ? 'idle-release' : 'idle-hide';
 
-    const reusesPixiApplications = hiddenMapIdlePolicy !== 'short-timeout';
+    const reusesPixiApplications =
+      options.rendererKind === 'indexed' || hiddenMapIdlePolicy !== 'short-timeout';
 
     let portalResizeSettling = false;
     let portalResizeStability: PortalWidthStability = INITIAL_PORTAL_WIDTH_STABILITY;
@@ -1505,6 +1506,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     mutateDisplayGeometryPreservingCenter,
     options.circular,
     options.hiddenMapIdlePolicy,
+    options.rendererKind,
     options.performanceMode,
     options.antialias,
     options.resolution,
