@@ -279,7 +279,7 @@ export function SequenceTab({
               (t) =>
                 t.id === tabId &&
                 t.quickLookSource === quickLookSource &&
-                t.sequenceDocument === documentRef
+                t.entityId === sequenceDocumentId
             )
           );
           if (panel)
@@ -304,7 +304,7 @@ export function SequenceTab({
         }
       })();
     },
-    [documentRef, quickLookSource, selectedQuickLookRecord?.recordId, tabId]
+    [sequenceDocumentId, quickLookSource, selectedQuickLookRecord?.recordId, tabId]
   );
 
   useExternalResourceInvalidationListener();
