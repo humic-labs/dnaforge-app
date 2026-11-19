@@ -129,6 +129,10 @@ function retargetTabDocument(tab: Tab, identity: CanvasTabIdentity, updates: Tab
       : {}),
     type: identity.type,
     entityId,
+    structureRenderError:
+      tab.type === identity.type && tab.entityId === entityId
+        ? tab.structureRenderError
+        : undefined,
     sequenceDocument: identity.type === 'sequence' ? identity.sequenceDocument : undefined,
     assemblyEditDesignId:
       tab.type === identity.type && tab.entityId === entityId
@@ -148,7 +152,12 @@ function pushRecentlyClosed(
   entries: RecentlyClosedTab[]
 ): RecentlyClosedTab[] {
   const base = existing ?? [];
-  const recoverableEntries = entries.filter((entry) => shouldRememberClosedTab(entry.tab));
+  const recoverableEntries = entries
+    .filter((entry) => shouldRememberClosedTab(entry.tab))
+    .map(({ tab: { structureRenderError: _renderError, ...tab }, ...entry }) => ({
+      ...entry,
+      tab,
+    }));
   if (recoverableEntries.length === 0) return base;
   const next = [...base, ...recoverableEntries];
   return next.length > MAX_RECENTLY_CLOSED ? next.slice(next.length - MAX_RECENTLY_CLOSED) : next;
@@ -417,7 +426,8 @@ export function partializeCanvasState(
       id,
       {
         ...panel,
-        tabs: panel.tabs.map(({ assemblyEditDesignId: _editMode, ...tab }) => {
+        tabs: panel.tabs.map(({ assemblyEditDesignId: _editMode, ...entry }) => {
+          const { structureRenderError: _renderError, ...tab } = entry;
           if (tab.type !== 'structure') return tab;
           const attrs = tab.initialStructureAttrs;
           if (attrs?.molecularDocumentPath)
