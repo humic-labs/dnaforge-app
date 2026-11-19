@@ -168,14 +168,14 @@ try {
   await page.getByTestId(`tab-${text.id}`).click({ button: 'right' });
   await page
     .getByTestId('tab-context-menu')
-    .getByRole('button', { name: 'Split Right', exact: true })
+    .getByRole('menuitem', { name: 'Split Right', exact: true })
     .click();
   await expect.poll(async () => Object.keys((await snapshot()).panels).length).toBe(2);
   await step('split-text-into-second-pane');
   await page.getByTestId(`tab-${text.id}`).click({ button: 'right' });
   await page
     .getByTestId('tab-context-menu')
-    .getByRole('button', { name: 'Join All Panes', exact: true })
+    .getByRole('menuitem', { name: 'Join All Panes', exact: true })
     .click();
   await expect.poll(async () => Object.keys((await snapshot()).panels).length).toBe(1);
   await page
