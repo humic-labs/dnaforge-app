@@ -6,7 +6,13 @@ import {
 } from '@waypoint/user-messages';
 import type { TerminalPort } from '../../shared/terminal-port';
 import { safeFocus } from '../../shared/utils/safeFocus';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
@@ -119,7 +125,7 @@ export function TerminalPane({
   onResize(id: string, direction: TerminalResizeDirection, pixels: number): void;
   onMove(source: string, target: string, side: 'before' | 'after'): void;
   direction: 'horizontal' | 'vertical';
-  onContextMenu(id: string, x: number, y: number): void;
+  onContextMenu(id: string, event: ReactMouseEvent<HTMLElement>): void;
   running: boolean;
   canSuggest: boolean;
   fixedDimensions?: TerminalFixedDimensions;
@@ -1120,7 +1126,7 @@ export function TerminalPane({
             .catch((error: unknown) => onError(String(error)));
         else if (behavior === 'copyPaste' || behavior === 'paste')
           void pane.paste().catch((error: unknown) => onError(String(error)));
-        else onContextMenu(id, event.clientX, event.clientY);
+        else onContextMenu(id, event);
       }}
       onDragOver={(event) => {
         if (
