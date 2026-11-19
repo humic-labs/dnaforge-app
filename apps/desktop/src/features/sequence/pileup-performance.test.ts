@@ -710,6 +710,31 @@ describe('saved pileup performance qualification', () => {
     expect(classifyPileupPerformance(input).status).toBe('pass');
   });
 
+  it.each([false, true])(
+    'keeps the verdict independent of receipt attribution (slow: %s)',
+    (slow) => {
+      const input = report();
+      if (slow) input.phases[1].elapsedMs = 1_001;
+      const original = classifyPileupPerformance(input);
+      Object.assign(input.phases[1], { lastInputToAllAcknowledgedMs: 2_500 });
+      Object.assign(input.phases[1].cadence, {
+        wheel: { firstTrustedEventMs: 5, lastTrustedEventMs: 1_200 },
+      });
+      Object.assign(input.phases[1].cadence, {
+        longAnimationFrames: {
+          status: 'available',
+          entries: [{ durationMs: 120 }],
+          omittedEntries: 0,
+        },
+      });
+      expect(classifyPileupPerformance(input)).toEqual(original);
+      Object.assign(input.phases[1].cadence, {
+        longAnimationFrames: { status: 'unsupported', entries: [], omittedEntries: 0 },
+      });
+      expect(classifyPileupPerformance(input)).toEqual(original);
+    }
+  );
+
   it.each([
     ['long animation gap', (r: Report) => (r.phases[1].cadence.rafIntervalsMs[10] = 51)],
     ['long task', (r: Report) => r.phases[1].cadence.longTaskDurationsMs.push(51)],
