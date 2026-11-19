@@ -13,11 +13,26 @@ import {
 import { stripTrailingSep } from '../../../shared/path-boundary';
 import { resultTool, toolFailure, toolSuccess } from '../../agent-bridge/public/tool-result';
 
-export const entityDiscoveryToolSchema = z.discriminatedUnion('operation', [
-  entityDiscoveryRequestSchema.extend({ operation: z.literal('search') }),
-  entityDiscoveryResolveRequestSchema.extend({ operation: z.literal('resolve') }),
-  entityDiscoveryTypesRequestSchema.extend({ operation: z.literal('types') }),
-]);
+const discoveryRequests = {
+  search: entityDiscoveryRequestSchema,
+  resolve: entityDiscoveryResolveRequestSchema,
+  types: entityDiscoveryTypesRequestSchema,
+} as const;
+
+export const entityDiscoveryToolSchema = entityDiscoveryRequestSchema
+  .partial({ query: true })
+  .extend({
+    operation: z.enum(['search', 'resolve', 'types']).describe(
+      'Use search with query and optional filters, resolve with ids, or types to list available entity types. All operations accept scope.'
+    ),
+    ids: entityDiscoveryResolveRequestSchema.shape.ids.optional(),
+  })
+  .superRefine(({ operation, ...request }, context) => {
+    const result = discoveryRequests[operation].safeParse(request);
+    if (!result.success) {
+      for (const issue of result.error.issues) context.addIssue(issue);
+    }
+  });
 
 export const entityDiscoveryToolOutputSchema = z.union([
   entityDiscoveryPageSchema.extend({ ok: z.literal(true), operation: z.literal('search') }),
@@ -54,8 +69,10 @@ export function createEntityDiscoveryTool(authorization: AgentProjectScope) {
             ...(await platform().entityDiscovery.search({ ...parsed, scope })),
           });
         }
-        if (operation === 'types')
+        if (operation === 'types') {
+          entityDiscoveryTypesRequestSchema.parse(request);
           return toolSuccess({ operation, ...(await platform().entityDiscovery.types({ scope })) });
+        }
         const parsed = entityDiscoveryResolveRequestSchema.parse(request);
         return toolSuccess({
           operation,

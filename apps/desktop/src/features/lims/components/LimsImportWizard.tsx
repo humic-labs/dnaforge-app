@@ -1,5 +1,4 @@
 import {
-  entityKindNoun,
   entityKindPluralLabel,
   schemaEntityTypeLabel,
 } from '@waypoint/scientific-artifacts/shared/entity-types';
@@ -35,6 +34,7 @@ import {
   type LimsImportPlan,
   type LimsSchemaDefinitionView,
 } from '../../../shared/lims';
+import { registryImportKindNoun } from '../../../shared/registry-artifacts/open-sequence-kind';
 import { isRegisterableOpenSequenceKind } from '../register-open-sequence';
 import type { WorkbookSheetPreview } from '../ingress';
 import { XIcon, CheckIcon } from '../../../components/icons/glyphs';
@@ -84,7 +84,7 @@ function kindNoun(
 ): string {
   const custom = schemas.find((schema) => schema.entityKind === kind && !schema.builtin);
   if (custom) return plural ? `${custom.displayName} records` : custom.displayName;
-  return entityKindNoun(kind, plural);
+  return registryImportKindNoun(kind, plural);
 }
 
 export type WizardStep = 'type' | 'file' | 'destination' | 'review';

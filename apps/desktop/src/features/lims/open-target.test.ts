@@ -114,6 +114,7 @@ describe('LIMS entity open target resolver', () => {
       fields: {
         sequence: {
           mode: 'file',
+          documentId: 'demo-dna509-plasmid-puc19',
           relPath: '/fixtures/pUC19.gb',
           topology: 'circular',
           length: 2686,
@@ -129,6 +130,7 @@ describe('LIMS entity open target resolver', () => {
 
     expect(target).toMatchObject({
       kind: 'sequence_file',
+      documentId: 'demo-dna509-plasmid-puc19',
       entityId: 'demo-dna509-plasmid-puc19',
       entityKind: 'plasmid',
       label: 'pUC19',
@@ -243,6 +245,7 @@ describe('LIMS entity open target resolver', () => {
       fields: {
         sequence: {
           mode: 'file',
+          documentId: 'demo-dna509-plasmid-puc19',
           relPath: '/fixtures/pUC19.gb',
           topology: 'circular',
           length: 2686,
@@ -254,15 +257,40 @@ describe('LIMS entity open target resolver', () => {
     mocks.queryLimsEntities.mockResolvedValue([plasmid]);
 
     const entity = await getLimsEntityById('demo-dna509-plasmid-puc19');
-    const target = await resolveLimsEntityOpenTarget('demo-dna509-plasmid-puc19');
-
     expect(entity).toBe(plasmid);
-    expect(target.kind).toBe('sequence_file');
+    mocks.queryLimsEntities.mockClear();
+
+    const target = await resolveLimsEntityOpenTarget('demo-dna509-plasmid-puc19');
+    expect(target).toMatchObject({
+      kind: 'sequence_file',
+      documentId: 'demo-dna509-plasmid-puc19',
+    });
+    expect(mocks.queryLimsEntities).toHaveBeenCalledTimes(1);
     expect(mocks.queryLimsEntities).toHaveBeenCalledWith({
       id: 'demo-dna509-plasmid-puc19',
       includeArchived: true,
       limit: 1,
     });
+  });
+
+  it('keeps a path-only sequence available in Details without advertising an openable file', () => {
+    const record = makeEntity({
+      kind: 'plasmid',
+      fields: {
+        sequence: {
+          mode: 'file',
+          relPath: '/fixtures/pUC19.gb',
+          length: 2686,
+          topology: 'circular',
+        },
+      },
+    });
+    expect(resolveLimsEntityOpenTargetFromEntity(record)).toMatchObject({
+      kind: 'record_detail',
+      reason: 'unresolved_sequence',
+      entityId: record.id,
+    });
+    expect(hasOpenableFileRepresentation(record)).toBe(false);
   });
 
   it('returns a missing target for unknown entity ids', async () => {

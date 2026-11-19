@@ -1,7 +1,4 @@
-import {
-  entityKindLabel,
-  entityKindNoun,
-} from '@waypoint/scientific-artifacts/shared/entity-types';
+import { entityKindLabel } from '@waypoint/scientific-artifacts/shared/entity-types';
 import { iconForEntityKind } from '../../../components/icons';
 import { RegistryOpenButton } from './registry/RegistryOpenButton';
 import type { ProjectableEntitySchemaRevisionSnapshot } from '../../../shared/entity-schema';
@@ -340,4 +337,4 @@ export function iconForLimsKind(kind: string, className = 'h-3.5 w-3.5 flex-shri
 }
 
 export const registryTypeLabel = entityKindLabel;
-export const singularKindLabel = entityKindNoun;
+export { registryImportKindNoun as singularKindLabel } from '../../../shared/registry-artifacts/open-sequence-kind';

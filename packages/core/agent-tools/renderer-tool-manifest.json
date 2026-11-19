@@ -44913,115 +44913,71 @@
       "name": "entity_discovery",
       "description": "Search every eligible linkable entity with complete pagination, or resolve exact saved IDs. Uses the same native database discovery owner as notebook linking.",
       "inputSchema": {
-        "anyOf": [
-          {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "maxLength": 1000 },
+          "scope": {
             "type": "object",
             "properties": {
-              "query": { "type": "string", "maxLength": 1000 },
-              "scope": {
-                "type": "object",
-                "properties": {
-                  "projectId": { "type": "string", "minLength": 1, "maxLength": 500 },
-                  "projectRoot": { "type": "string", "minLength": 1, "maxLength": 8192 },
-                  "projectRoots": {
-                    "type": "array",
-                    "items": { "type": "string", "minLength": 1, "maxLength": 8192 },
-                    "maxItems": 128
-                  },
-                  "includeArchived": { "type": "boolean" }
-                },
-                "additionalProperties": false
-              },
-              "filter": {
-                "type": "object",
-                "properties": {
-                  "namedTypeKey": { "type": "string", "minLength": 1, "maxLength": 1000 },
-                  "category": {
-                    "type": "string",
-                    "enum": [
-                      "sequences",
-                      "primers",
-                      "notebooks",
-                      "structures",
-                      "tables",
-                      "records",
-                      "files"
-                    ]
-                  },
-                  "entityTypes": {
-                    "type": "array",
-                    "items": { "type": "string", "minLength": 1, "maxLength": 100 },
-                    "maxItems": 100
-                  },
-                  "registryKinds": {
-                    "type": "array",
-                    "items": { "type": "string", "minLength": 1, "maxLength": 100 },
-                    "maxItems": 100
-                  },
-                  "schemaId": { "type": "string", "minLength": 1, "maxLength": 500 },
-                  "role": { "type": "string", "const": "primer" }
-                },
-                "additionalProperties": false
-              },
-              "preferredProjectId": { "type": "string", "minLength": 1, "maxLength": 500 },
-              "preferredProjectRoot": { "type": "string", "minLength": 1, "maxLength": 8192 },
-              "cursor": { "type": "string", "minLength": 1, "maxLength": 8192 },
-              "limit": { "type": "integer", "minimum": 1, "maximum": 200 },
-              "operation": { "type": "string", "const": "search" }
-            },
-            "required": ["query", "operation"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "ids": {
+              "projectId": { "type": "string", "minLength": 1, "maxLength": 500 },
+              "projectRoot": { "type": "string", "minLength": 1, "maxLength": 8192 },
+              "projectRoots": {
                 "type": "array",
-                "items": { "type": "string", "minLength": 1, "maxLength": 500 },
-                "maxItems": 1000
+                "items": { "type": "string", "minLength": 1, "maxLength": 8192 },
+                "maxItems": 128
               },
-              "scope": {
-                "type": "object",
-                "properties": {
-                  "projectId": { "type": "string", "minLength": 1, "maxLength": 500 },
-                  "projectRoot": { "type": "string", "minLength": 1, "maxLength": 8192 },
-                  "projectRoots": {
-                    "type": "array",
-                    "items": { "type": "string", "minLength": 1, "maxLength": 8192 },
-                    "maxItems": 128
-                  },
-                  "includeArchived": { "type": "boolean" }
-                },
-                "additionalProperties": false
-              },
-              "operation": { "type": "string", "const": "resolve" }
+              "includeArchived": { "type": "boolean" }
             },
-            "required": ["ids", "operation"],
             "additionalProperties": false
           },
-          {
+          "filter": {
             "type": "object",
             "properties": {
-              "scope": {
-                "type": "object",
-                "properties": {
-                  "projectId": { "type": "string", "minLength": 1, "maxLength": 500 },
-                  "projectRoot": { "type": "string", "minLength": 1, "maxLength": 8192 },
-                  "projectRoots": {
-                    "type": "array",
-                    "items": { "type": "string", "minLength": 1, "maxLength": 8192 },
-                    "maxItems": 128
-                  },
-                  "includeArchived": { "type": "boolean" }
-                },
-                "additionalProperties": false
+              "namedTypeKey": { "type": "string", "minLength": 1, "maxLength": 1000 },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "sequences",
+                  "primers",
+                  "notebooks",
+                  "structures",
+                  "tables",
+                  "records",
+                  "files"
+                ]
               },
-              "operation": { "type": "string", "const": "types" }
+              "entityTypes": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "maxItems": 100
+              },
+              "registryKinds": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "maxItems": 100
+              },
+              "schemaId": { "type": "string", "minLength": 1, "maxLength": 500 },
+              "role": { "type": "string", "const": "primer" }
             },
-            "required": ["operation"],
             "additionalProperties": false
+          },
+          "preferredProjectId": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "preferredProjectRoot": { "type": "string", "minLength": 1, "maxLength": 8192 },
+          "cursor": { "type": "string", "minLength": 1, "maxLength": 8192 },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 200 },
+          "operation": {
+            "type": "string",
+            "enum": ["search", "resolve", "types"],
+            "description": "Use search with query and optional filters, resolve with ids, or types to list available entity types. All operations accept scope."
+          },
+          "ids": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 500 },
+            "maxItems": 1000
           }
-        ]
+        },
+        "required": ["operation"],
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -45088,6 +45044,17 @@
                             "text",
                             "table"
                           ]
+                        },
+                        "iconContext": {
+                          "type": "object",
+                          "properties": {
+                            "kind": { "type": "string" },
+                            "molecule": { "type": "string" },
+                            "path": { "type": "string" },
+                            "packageKind": { "type": "string" },
+                            "isDirectory": { "type": "boolean" }
+                          },
+                          "additionalProperties": false
                         },
                         "kindLabel": { "type": "string" },
                         "path": { "type": ["string", "null"] },
@@ -45245,6 +45212,9 @@
                             "text",
                             "table"
                           ]
+                        },
+                        "iconContext": {
+                          "$ref": "#/properties/result/anyOf/0/properties/items/items/properties/iconContext"
                         },
                         "count": { "type": "integer", "minimum": 0 }
                       },
@@ -46079,7 +46049,27 @@
                       "description": "Values keyed by the field definitions of this record's immutable schema revision."
                     },
                     "schemaDisplayName": { "type": "string" },
-                    "schemaIconKind": { "type": "string" },
+                    "schemaIconKind": {
+                      "type": "string",
+                      "enum": [
+                        "molecular-document",
+                        "notebook",
+                        "sequence",
+                        "annotation",
+                        "alignment",
+                        "primer",
+                        "design",
+                        "protein",
+                        "strain",
+                        "record",
+                        "structure",
+                        "genome",
+                        "chat",
+                        "folder",
+                        "text",
+                        "table"
+                      ]
+                    },
                     "eventSeq": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
                     "name": { "type": "string" },
                     "registryId": { "type": ["string", "null"] },
@@ -46696,7 +46686,27 @@
                     "$ref": "#/properties/result/properties/entity/properties/fields"
                   },
                   "schemaDisplayName": { "type": "string" },
-                  "schemaIconKind": { "type": "string" },
+                  "schemaIconKind": {
+                    "type": "string",
+                    "enum": [
+                      "molecular-document",
+                      "notebook",
+                      "sequence",
+                      "annotation",
+                      "alignment",
+                      "primer",
+                      "design",
+                      "protein",
+                      "strain",
+                      "record",
+                      "structure",
+                      "genome",
+                      "chat",
+                      "folder",
+                      "text",
+                      "table"
+                    ]
+                  },
                   "eventSeq": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
                   "name": { "type": "string" },
                   "registryId": { "type": ["string", "null"] },
