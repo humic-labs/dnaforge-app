@@ -48,7 +48,7 @@ export function SourceFileViewer({ view, tabId }: { view: SourceViewerTab; tabId
   const saved = useRef<PromoteQuickLookPackageResult | null>(null);
   const Viewer = viewers[view.format];
   const receipt = view.receipt;
-  const { workspaceRoot, path, projectPackageId } = view;
+  const { workspaceRoot, path, projectPackageId, expectedSourceSha256 } = view;
   const read = useCallback(async () => {
     if (receipt) {
       return readRetainedPreview(receipt);
@@ -58,8 +58,9 @@ export function SourceFileViewer({ view, tabId }: { view: SourceViewerTab; tabId
       workspaceRoot,
       path,
       expectedPackageId: projectPackageId,
+      expectedSourceSha256,
     });
-  }, [receipt, projectPackageId, path, workspaceRoot]);
+  }, [receipt, projectPackageId, path, workspaceRoot, expectedSourceSha256]);
   function selectRecord(index: number) {
     const state = useCanvasStore.getState();
     const panel = Object.values(state.panels).find((p) => p.tabs.some((tab) => tab.id === tabId));
@@ -73,7 +74,7 @@ export function SourceFileViewer({ view, tabId }: { view: SourceViewerTab; tabId
     onRecordChange: selectRecord,
   };
   if (view.location === 'project')
-    return view.format === 'structure' ? (
+    return view.format === 'structure' && !projectPackageId ? (
       <ProjectStructureFile view={view} tabId={tabId} />
     ) : (
       <Viewer {...props} />

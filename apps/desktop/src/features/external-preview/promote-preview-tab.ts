@@ -3,7 +3,7 @@ import type {
   ExternalPreviewReceipt,
   PromoteQuickLookPackageResult,
 } from '../../shared/file-association-ipc';
-import { sourceViewerTabId } from '../../lib/open-external-preview';
+import { projectSourceView, sourceViewerTabId } from '../../lib/open-external-preview';
 import { platform } from '../../platform';
 import { useCanvasStore } from '../canvas/public/store';
 import type { Tab } from '../canvas/public/types';
@@ -45,17 +45,8 @@ export async function promotePreviewTab(
         workspaceRoot: result.workspaceRoot,
         path,
       });
-      if (doc.familyId !== 'fasta' && doc.familyId !== 'chromatogram')
-        throw new Error('Unrecognized saved source package.');
-      const sourceFileView = {
-        location: 'project' as const,
-        path: doc.entryPath,
-        sourceFileName: doc.sourceFileName,
-        format: doc.familyId,
-        workspaceRoot: result.workspaceRoot,
-        projectPackageId: doc.packageId,
-        selectedRecord: ordinal,
-      };
+      const sourceFileView = projectSourceView(doc, result.workspaceRoot);
+      if (sourceFileView.format === 'fasta') sourceFileView.selectedRecord = ordinal;
       return {
         identity: { type: 'file' as const, entityId: sourceViewerTabId(sourceFileView) },
         updates: { sourceFileView, label: doc.sourceFileName, readOnly: true },

@@ -1,7 +1,10 @@
 import { coordinateStructureData } from '../../shared/binary-coordinates';
 import type { SourceDocumentPresentationData } from '../../shared/source-document-package';
 import { useCallback, useMemo, useState } from 'react';
-import { getStructureFileFormat } from '../../shared/scientific-file-types';
+import {
+  getStructureFileFormat,
+  type StructureFileFormat,
+} from '../../shared/scientific-file-types';
 import { SOFT_WARN_BYTES } from '../../shared/oversized-guard';
 import { LazyMolstarViewer } from '../page/public/embeds/structure3d/LazyMolstarViewer';
 import type { MolstarPlugin } from '../page/public/embeds/structure3d/molstar/cache';
@@ -11,6 +14,10 @@ import { useDisplayedSnapshot, usePreviewSource, type PreviewProps } from './use
 function readCoordinates(bytes: Uint8Array, path: string) {
   const format = getStructureFileFormat(path);
   if (!format) throw new Error('Unrecognized coordinate file format.');
+  return decodeCoordinates(bytes, format);
+}
+
+function decodeCoordinates(bytes: Uint8Array, format: StructureFileFormat) {
   if (!bytes.length) throw new Error('The coordinate file is empty.');
   const data =
     format.encoding === 'binary' ? bytes : new TextDecoder('utf-8', { fatal: true }).decode(bytes);
@@ -88,6 +95,15 @@ function CoordinateViewer({
 
 function packageCoordinates(data: SourceDocumentPresentationData) {
   if (data.familyId !== 'structure') throw new Error('The saved document is not a structure.');
+  if ('coordinateAsset' in data) {
+    const { bytes, format } = data.coordinateAsset;
+    return decodeCoordinates(
+      bytes,
+      format === 'pdb'
+        ? { parser: 'pdb', encoding: 'text' }
+        : { parser: 'mmcif', encoding: format === 'bcif' ? 'binary' : 'text' }
+    );
+  }
   return {
     data: coordinateStructureData(data.coordinates),
     format: data.coordinates.format === 'pdb' ? ('pdb' as const) : ('mmcif' as const),

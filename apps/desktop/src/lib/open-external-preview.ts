@@ -12,7 +12,7 @@ import { openDocument } from '../features/document-opening/public/open-document'
 import type { FileOpenSourceSurface } from '../features/sequence/public/file-open-telemetry';
 import { platform } from '../platform';
 import { externalFormatForPath } from '../shared/external-preview';
-import type { ExternalPreviewReceipt } from '../shared/file-association-ipc';
+import type { ExternalPreviewReceipt, ProjectPreviewPackage } from '../shared/file-association-ipc';
 import { findWorkspaceRootForPath } from '../db/workspace-catalog';
 import { useWorkspaceStore } from '../stores/workspaceStore';
 import { useToastStore } from '../stores/toast-store';
@@ -72,19 +72,28 @@ export async function openProjectSourcePackage(
       source: 'file_tree',
     });
   }
-  if (doc.familyId !== 'fasta' && doc.familyId !== 'chromatogram')
+  return openSourceViewer(projectSourceView(doc, root), placement);
+}
+
+export function projectSourceView(
+  doc: Omit<ProjectPreviewPackage, 'bytes'>,
+  workspaceRoot: string
+): SourceViewerTab {
+  if (
+    !(doc.familyId === 'fasta' && doc.presentation === 'fasta-collection') &&
+    !(doc.familyId === 'structure' && doc.presentation === 'coordinate-asset') &&
+    !(doc.familyId === 'chromatogram' && doc.presentation === 'chromatogram')
+  )
     throw new Error('Unrecognized project source document.');
-  return openSourceViewer(
-    {
-      path: doc.entryPath,
-      format: doc.familyId,
-      location: 'project',
-      workspaceRoot: root,
-      projectPackageId: doc.packageId,
-      sourceFileName: doc.sourceFileName,
-    },
-    placement
-  );
+  return {
+    path: doc.entryPath,
+    format: doc.familyId,
+    location: 'project',
+    workspaceRoot,
+    projectPackageId: doc.packageId,
+    expectedSourceSha256: doc.contentHash,
+    sourceFileName: doc.sourceFileName,
+  };
 }
 
 export function sourceViewForReceipt(receipt: ExternalPreviewReceipt): SourceViewerTab {
