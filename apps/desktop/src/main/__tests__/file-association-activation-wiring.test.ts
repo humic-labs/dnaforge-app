@@ -1,5 +1,10 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { expectTypeOf } from 'vitest';
+import type { FileAssociationDefaultRequestResult } from '../../shared/file-association-ipc';
+import type { HandlerFamilyId } from '../../shared/file-associations';
+import type { ClientOf } from '../../shared/ipc/contract';
+import type { fileAssociationsContract } from '../../shared/ipc/file-associations.contract';
 
 const desktopRoot = path.resolve(__dirname, '../../..');
 const mainSource = readFileSync(path.join(desktopRoot, 'src/main/index.ts'), 'utf8');
@@ -67,9 +72,10 @@ describe(' activation wiring', () => {
 
   it('exposes effective-handler query and explicit default-request IPC', () => {
     expect(contractSource).toContain('queryHandlers: invoke<[], FileAssociationHandlerStatus[]>()');
-    expect(contractSource).toMatch(
-      /requestDefault: invoke<\s*\[familyId: FileAssociationFamilyId\]/
-    );
+    type Client = ClientOf<typeof fileAssociationsContract>;
+    expectTypeOf<Client['requestDefault']>().toEqualTypeOf<
+      (familyId: HandlerFamilyId) => Promise<FileAssociationDefaultRequestResult>
+    >();
     expect(featureSource).toContain('defaultHandler: createDefaultHandlerService(');
     expect(featureSource).toMatch(/takePendingAndMarkReady[^\n]*\n\s*defaultHandler,/);
   });

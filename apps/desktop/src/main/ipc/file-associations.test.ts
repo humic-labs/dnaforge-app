@@ -39,6 +39,23 @@ async function materializeHandler(): Promise<(...args: unknown[]) => unknown> {
   return handler;
 }
 
+describe('fileAssociations:requestDefault', () => {
+  it.each(['genbank', 'snapgene', 'fasta', 'structure', 'chromatogram'])(
+    'forwards a request for %s to the native handler service',
+    async (familyId) => {
+      const dependencies = deps();
+      const { registerFileAssociationHandlers } = await import('./file-associations');
+      registerFileAssociationHandlers(dependencies);
+      const handler = ipcHandlers.get('fileAssociations:requestDefault');
+      if (!handler) throw new Error('Default request handler was not registered.');
+
+      await handler({}, familyId);
+
+      expect(dependencies.defaultHandler.requestDefault).toHaveBeenCalledWith(familyId);
+    }
+  );
+});
+
 describe('fileAssociations:materializeQuickLookPackage', () => {
   beforeEach(() => {
     ipcHandlers.clear();
