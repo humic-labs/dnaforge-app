@@ -110,6 +110,10 @@ export interface TabViewState {
   } | null;
 
   indexedGenomeViewRestoreCommand?: IndexedGenomeViewRestoreCommand | null;
+  indexedAnnotationDraft?: Pick<
+    IndexedGenomeViewRestoreCommand,
+    'id' | 'annotationPolicy' | 'visibleAnnotationTrackIds' | 'orderedAnnotationTrackIds'
+  >;
 
   sequenceNavigationRequestId?: number | string | null;
 

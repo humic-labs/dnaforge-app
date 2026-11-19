@@ -224,7 +224,7 @@ export function PrimerCreationTab({ tab, panelId }: PrimerCreationTabProps) {
         : undefined,
     [context, draftName, oligoKindLabel, orderType, sequence]
   );
-  useUnsavedDraftRecovery<NewDraftPayload>({
+  const { completePublishedDraft } = useUnsavedDraftRecovery<NewDraftPayload>({
     key: !context
       ? null
       : isNewDraft
@@ -353,6 +353,7 @@ export function PrimerCreationTab({ tab, panelId }: PrimerCreationTabProps) {
       ...input,
       origin: 'manual',
     });
+    if (!(await completePublishedDraft())) return false;
     window.dispatchEvent(
       new CustomEvent('waypoint:workspace-files-changed', {
         detail: { workspaceRoot: input.workspaceRoot, revealPath: saved.artifactPath },

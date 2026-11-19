@@ -32,6 +32,34 @@ describe('managed view recovery projection', () => {
     expect(recovered.userAnnotations).toEqual(document.userAnnotations);
   });
 
+  it('round-trips local aligned reads and their display settings without a portable admission', async () => {
+    const base = await managedSshViewFixture();
+    const file = { size: 4096, mtimeNs: '17', ctimeNs: '21' };
+    const source = {
+      bamPath: '/data/sample.bam',
+      indexPath: '/data/sample.bam.bai',
+      generation: {
+        contract: 'aligned-read-source-generation.v1',
+        alignment: { ...file, canonicalPath: '/data/sample.bam' },
+        index: { ...file, canonicalPath: '/data/sample.bam.bai' },
+      },
+    };
+    const document = validateTrackViewDocument({
+      ...base,
+      bamTracks: [{ ...base.bamTracks[0], coverageCutoffDepth: 27, source }],
+    });
+    const plan = await trackViewRecoveryDocument(document);
+    expect(plan.reference).toEqual(document.portableReference);
+    expect(plan.tracks).toEqual([]);
+    const restored = managedRestoredTracks(document, {
+      dataTracks: [],
+      bamTracks: [],
+      outcomes: [],
+    });
+    expect(restored.bamTracks).toEqual(document.bamTracks);
+    expect(restored.signalReadPileupViews).toEqual(document.signalReadPileupViews);
+  });
+
   it('rejects a mismatched SSH signal receipt before projecting the recovery plan', async () => {
     const document = await managedSshViewFixture();
     const invalid = {
