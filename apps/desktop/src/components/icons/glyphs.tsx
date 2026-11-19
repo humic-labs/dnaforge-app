@@ -1102,7 +1102,7 @@ export function GenomeAssemblyIcon({
       fill="currentColor"
       stroke="none"
       className={className}
-      data-entity-color-family={colorFamily ?? 'dna'}
+      data-entity-color-family={colorFamily}
       data-icon="genome-assembly"
     >
       <path d={pinchedChromosomePath(5, 9)} />

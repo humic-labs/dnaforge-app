@@ -25,6 +25,14 @@ function glyphSignature(node: React.ReactNode): string {
 }
 
 describe('entity icon registry', () => {
+  it('uses the DNA color for genome entities', () => {
+    const { container } = render(<>{iconForEntityKind('genome')}</>);
+    expect(container.querySelector('[data-icon="genome-assembly"]')).toHaveAttribute(
+      'data-entity-color-family',
+      'dna'
+    );
+  });
+
   it('resolves a glyph for every declared kind', () => {
     for (const kind of ENTITY_ICON_KINDS) {
       expect(iconForEntityKind(kind), `no glyph for ${kind}`).not.toBeNull();
