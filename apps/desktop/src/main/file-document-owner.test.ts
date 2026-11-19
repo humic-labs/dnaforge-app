@@ -18,6 +18,9 @@ async function fixture(name: string, content: string, pause?: () => Promise<void
   const path = join(root, name);
   await writeFile(path, content);
   const records = new Map<string, NativeFileDocumentRecord>();
+  const storeRecord = vi.fn(async (record: NativeFileDocumentRecord) => {
+    records.set(record.path, structuredClone(record));
+  });
   const owner = new NativeFileDocumentOwner({
     admit: async (path) => ({ path, workspaceRoot: root, readOnly: false, assertCurrent() {} }),
     read: async (path) => readFile(path),
@@ -26,9 +29,7 @@ async function fixture(name: string, content: string, pause?: () => Promise<void
       await writeTextFileAtomicInMain(input);
     },
     loadRecord: async (path) => records.get(path),
-    storeRecord: async (record) => {
-      records.set(record.path, structuredClone(record));
-    },
+    storeRecord,
   });
   const inspect = () =>
     owner.execute({
@@ -49,10 +50,29 @@ async function fixture(name: string, content: string, pause?: () => Promise<void
       expectedRevision: snapshot.revision,
       operation,
     });
-  return { root, path, owner, records, inspect, command };
+  return { root, path, owner, records, inspect, command, storeRecord };
 }
 
 describe('native file working copies without a view', () => {
+  it('cannot publish an edit whose recovery write was refused', async () => {
+    const f = await fixture('notes.txt', 'original');
+    const first = await f.inspect();
+    const edit = (oldText: string, newText: string) =>
+      ({ kind: 'replace-string', oldText, newText }) as const;
+    const accepted = await f.command(first, edit('original', 'accepted'));
+    f.storeRecord.mockRejectedValueOnce(new Error('recovery unavailable'));
+    await expect(f.command(accepted, edit('accepted', 'refused'))).rejects.toThrow(
+      'recovery unavailable'
+    );
+    expect(await f.inspect()).toMatchObject({
+      revision: accepted.revision,
+      content: 'accepted',
+      dirty: true,
+    });
+    await f.command(accepted, { kind: 'save' });
+    expect(await readFile(f.path, 'utf8')).toBe('accepted');
+  });
+
   it.each([
     [
       '\uFEFFprint("agent draft")\r\n',
@@ -164,6 +184,40 @@ describe('native file working copies without a view', () => {
     expect(await readFile(f.path, 'utf8')).toBe('\uFEFFprint("agent durable")\r\n');
   });
 
+  it('settles an earlier save while a later refused recovery write remains isolated', async () => {
+    const write = Promise.withResolvers<void>();
+    const noteAttempt = Promise.withResolvers<void>();
+    const recovery = Promise.withResolvers<void>();
+    const f = await fixture('captured.txt', 'original', () => write.promise);
+    const first = await f.inspect();
+    const edit = await f.command(first, {
+      kind: 'replace-string',
+      oldText: 'original',
+      newText: 'accepted',
+    });
+    const inFlight = await f.command(edit, { kind: 'capture-save' });
+    f.storeRecord.mockImplementationOnce(async () => {
+      noteAttempt.resolve();
+      await recovery.promise;
+    });
+    const refused = f.command(inFlight, {
+      kind: 'replace-string',
+      oldText: 'accepted',
+      newText: 'refused',
+    });
+    await noteAttempt.promise;
+    write.resolve();
+    const rejection = expect(refused).rejects.toThrow('record unavailable');
+    recovery.reject(new Error('record unavailable'));
+    await rejection;
+    await f.owner.execute({
+      target: { documentId: first.documentId },
+      operation: { kind: 'await-save', saveCaptureId: inFlight.saveCaptureId! },
+    });
+    expect(await f.inspect()).toMatchObject({ content: 'accepted', dirty: false });
+    expect(f.records.get(f.path)).toMatchObject({ content: 'accepted', dirty: false });
+    expect(await readFile(f.path, 'utf8')).toBe('accepted');
+  });
   it('acknowledges a private save capture while retaining later typing before disk completion', async () => {
     const gate = Promise.withResolvers<void>();
     const f = await fixture('capture.py', 'before', () => gate.promise);

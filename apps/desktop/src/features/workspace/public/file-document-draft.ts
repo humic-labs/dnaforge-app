@@ -1,1 +1,5 @@
-export { FileDocumentDraft, waitForFileDocumentSaves } from '../file-document-draft';
+export {
+  FileDocumentDraft,
+  saveCurrentFileEdits,
+  waitForFileDocumentSaves,
+} from '../file-document-draft';

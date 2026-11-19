@@ -6,6 +6,7 @@ import { useSequenceStore } from './store';
 
 const mocks = vi.hoisted(() => ({
   importFileFromContent: vi.fn(),
+  importSequenceFromContent: vi.fn(),
   openSequenceFile: vi.fn(),
   namespace: vi.fn(),
   publish: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock('../../platform', () => ({
   platform: () => ({
     workspace: {
       importFileFromContent: mocks.importFileFromContent,
+      importSequenceFromContent: mocks.importSequenceFromContent,
     },
     fs: { exists: mocks.exists },
     db: { select: mocks.select },
@@ -100,6 +102,42 @@ describe('createEmptyDnaSequence', () => {
     mocks.gitCommit.mockResolvedValue('commit');
   });
 
+  it('requires the exact chosen package path in historical projects and refuses collisions inside the writer', async () => {
+    mocks.namespace.mockResolvedValue(null);
+    const filePath = '/managed/project/nested/Copy.v2/Copy.v2.gb';
+    const content = serializeGenBank({
+      id: 's',
+      name: 'Annotated',
+      sequence: 'ACGT',
+      length: 4,
+      annotations: [],
+    });
+    const input = {
+      destinationPath: '/managed/project/nested',
+      name: 'Copy.v2',
+      content,
+      exactPackageName: true,
+      open: false,
+    };
+    mocks.importSequenceFromContent.mockResolvedValueOnce({
+      kind: 'imported',
+      packageProductPaths: [filePath],
+      committed: true,
+    });
+    expect(await createDnaSequencePackage(input)).toMatchObject({ filePath });
+    expect(mocks.importSequenceFromContent).toHaveBeenCalledWith({
+      targetRoot: '/managed/project',
+      relativePath: 'nested/Copy.v2.gb',
+      content,
+      collisionPolicy: 'refuse',
+    });
+    mocks.importSequenceFromContent.mockResolvedValueOnce({
+      kind: 'refused',
+      error: 'target already exists',
+    });
+    await expect(createDnaSequencePackage(input)).rejects.toThrow('target already exists');
+    expect(mocks.importFileFromContent).not.toHaveBeenCalled();
+  });
   it('accepts the exact package with a stable identity before catalog verification, owned Git history and normal opening', async () => {
     mocks.namespace.mockResolvedValue(namespace());
     mocks.gitStatus

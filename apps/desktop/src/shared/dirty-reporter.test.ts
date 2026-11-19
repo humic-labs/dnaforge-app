@@ -92,7 +92,7 @@ describe('dirty reporter workspace inputs', () => {
     const target = { kind: 'tab', tabId } as const;
     const tab = { id: tabId, type: 'protein', entityId: 'protein-1', label: 'Protein' };
     mocks.canvasState.panels.main.tabs = [tab];
-    const owner = { tabId, target, save: async () => true };
+    const owner = { tabId, target, readRevision: () => 1, save: async () => true };
     const draft = documentLifecycle.register({ ...owner, isDirty: () => true });
     const unsubscribe = initDirtyReporter();
     let edited = false;

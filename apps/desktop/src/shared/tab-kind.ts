@@ -89,7 +89,10 @@ export const TAB_DOCUMENT_OWNER_MODULES = {
   'scientific-document': ['features/scientific-document/ScientificDocumentTab.tsx'],
   record: ['features/lims/components/EntityRecordTab.tsx'],
   page: ['features/page/hooks/useNotebookCloseRequests.ts'],
-  table: ['components/TabularFileViewerTab.tsx'],
+  table: [
+    'components/TabularFileViewerTab.tsx',
+    'features/page/embeds/table/components/TablePanel.tsx',
+  ],
   design: ['features/design/components/useDesignSaveOwner.ts'],
   primer: [
     'features/primers/components/PrimerCreationTab.tsx',

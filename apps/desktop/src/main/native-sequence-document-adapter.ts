@@ -14,15 +14,22 @@ export function nativeSequenceDocumentAdapter(
 ): NativeScientificDocumentAdapter {
   const project = (snapshot: SequenceDocumentSnapshot): FileDocumentSnapshot => {
     const { copy: _copy, ...sequence } = snapshot;
+    const lifecycle = documentLifecycleCapabilities({
+      readOnly: snapshot.readOnly,
+      commands: snapshot.capabilities,
+    });
+    if (snapshot.saveDestinationRequired)
+      lifecycle.save = {
+        availability: 'editing-client',
+        commands: ['save-as'],
+        reason: 'Choose a destination for an edited GenBank copy in the editing client.',
+      };
     return {
       ...sequence,
       type: 'sequence',
       kind: 'sequence',
       owner: { kind: 'sequence', runtime: 'native' },
-      lifecycle: documentLifecycleCapabilities({
-        readOnly: snapshot.readOnly,
-        commands: snapshot.capabilities,
-      }),
+      lifecycle,
       sequence,
       content: null,
       persistedContent: null,

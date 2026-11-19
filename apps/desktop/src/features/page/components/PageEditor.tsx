@@ -219,6 +219,7 @@ function PageEditorInner({
   const startFlowRef = useStableRef(startFlow);
 
   const contentRef = useRef<JSONContent | null>(page?.content ?? null);
+  const inputRevision = useRef(0);
   const editorRef = useRef<Editor | null>(null);
   const refreshBenchlingMarkersRef = useRef<() => void>(() => undefined);
   const referenceRepairPromiseRef = useRef<Promise<void>>(Promise.resolve());
@@ -438,6 +439,7 @@ function PageEditorInner({
     },
     onUpdate: ({ editor, transaction }) => {
       if (nativeNotebookRef.current && !nativeNotebookRef.current.ready) return;
+      inputRevision.current++;
       notebookWatcher.recordLocalEdit();
       contentRef.current = editor.getJSON();
       captureNotebookDocumentUpdate({
@@ -573,6 +575,7 @@ function PageEditorInner({
     tabId: canvasTabId,
     owner: editor,
     contentRef,
+    readRevision: nativeNotebook?.readRevision ?? (() => inputRevision.current),
     saveNow,
     onDiscard: discardNotebookChanges,
   });

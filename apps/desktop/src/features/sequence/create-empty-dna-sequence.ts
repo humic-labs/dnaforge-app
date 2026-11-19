@@ -67,6 +67,7 @@ export class SequenceCreationCollisionError extends Error {}
 
 export interface CreateDnaSequencePackageRequest extends CreateEmptyDnaSequenceRequest {
   content: string;
+  exactPackageName?: boolean;
   open?: boolean;
   requireAccepted?: boolean;
 
@@ -82,8 +83,11 @@ export interface CreateDnaSequencePackageResult extends CreateEmptyDnaSequenceRe
 }
 
 export function normalizeEmptyDnaSequenceName(input: string): string {
-  const withoutExtension = input.trim().replace(GENBANK_EXTENSION, '').trim();
-  const printableName = Array.from(withoutExtension, (character) =>
+  return normalizeSequencePackageName(input.trim().replace(GENBANK_EXTENSION, ''));
+}
+
+export function normalizeSequencePackageName(input: string): string {
+  const printableName = Array.from(input.trim(), (character) =>
     character.charCodeAt(0) < 32 ? '-' : character
   ).join('');
   const sanitized = printableName
@@ -121,7 +125,11 @@ export async function createDnaSequencePackage(
   request: CreateDnaSequencePackageRequest
 ): Promise<CreateDnaSequencePackageResult> {
   request = structuredClone(request);
-  const name = normalizeEmptyDnaSequenceName(request.name);
+  const name = request.exactPackageName
+    ? normalizeSequencePackageName(request.name)
+    : normalizeEmptyDnaSequenceName(request.name);
+  if (request.exactPackageName && name !== request.name)
+    throw new Error('Choose a valid name for the new sequence package.');
   const workspaceRoot = findWorkspaceRootForPath(
     useWorkspaceStore.getState().folders,
     request.destinationPath
@@ -250,6 +258,24 @@ export async function createDnaSequencePackage(
       }
     });
     filePath = paths.productPath;
+  } else if (request.exactPackageName) {
+    if (!workspaceRoot) throw new Error('Choose an open project for the new sequence package.');
+    const relativePath = pathRelativeToBoundary(
+      request.destinationPath.replace(/[\\/]+$/u, '') + '/' + internalProductFileName,
+      workspaceRoot
+    );
+    if (!relativePath) throw new Error('Choose a folder in the destination project.');
+    const write = await platform().workspace.importSequenceFromContent({
+      targetRoot: workspaceRoot,
+      relativePath,
+      content,
+      collisionPolicy: 'refuse',
+    });
+    if (write.kind !== 'imported') throw new Error(write.error);
+    if (write.packageProductPaths.length !== 1)
+      throw new Error('The new sequence package was not confirmed.');
+    filePath = write.packageProductPaths[0];
+    committed = write.committed;
   } else {
     const write = await platform().workspace.importFileFromContent({
       targetRoot: request.destinationPath,

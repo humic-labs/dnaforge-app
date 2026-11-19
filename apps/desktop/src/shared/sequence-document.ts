@@ -137,6 +137,7 @@ export type SequenceDocumentRequest = Omit<SequenceDocumentAgentRequest, 'operat
   projection?: 'document' | 'inspection';
 };
 export interface SequenceDocumentSnapshot {
+  saveDestinationRequired?: true;
   bindingIdentity?: string;
   requiresManagedAnnotationStamp?: boolean;
   stampingManagedAnnotations?: boolean;

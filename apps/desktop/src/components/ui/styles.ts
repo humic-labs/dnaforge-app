@@ -5,6 +5,7 @@ export const UI_SUBSECTION_TITLE_CLASS = 'text-xl font-semibold tracking-tight t
 export const UI_SUBSECTION_DESCRIPTION_CLASS = 'mt-1.5 text-sm leading-5 text-fg-muted';
 export const UI_CONTENT_WIDTH_CLASS = 'box-content max-w-[760px]';
 export const UI_FORM_WIDTH_CLASS = 'w-full min-w-0';
+export const UI_INLINE_FIELD_HINT_CLASS = 'ml-2 font-normal text-[10px] text-fg-muted';
 export const UI_FORM_LONE_FIELD_SPAN_CLASS = 'sm:[&>*:last-child:nth-child(odd)]:col-span-2';
 export const UI_FORM_GRID_CLASS = `grid grid-cols-1 sm:grid-cols-2 ${UI_FORM_LONE_FIELD_SPAN_CLASS}`;
 export const UI_FIELD_CLASS =
