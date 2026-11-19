@@ -368,7 +368,8 @@ export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function
                   data-entity-type={entity?.type}
                   data-category-key={category?.key}
                   onMouseDown={keepEditorFocus}
-                  {...pointerSelection(key)}
+                  onMouseEnter={(event) => pointerSelection(event, key)}
+                  onMouseMove={(event) => pointerSelection(event, key)}
                   onClick={() => choose(choice)}
                   active={selected}
                   icon={icon}

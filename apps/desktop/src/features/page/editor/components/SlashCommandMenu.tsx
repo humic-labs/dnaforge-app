@@ -166,7 +166,8 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
                         aria-label={cmd.name === 'entity-link' ? cmd.label : undefined}
                         title={cmd.name === 'entity-link' ? cmd.label : undefined}
                         onMouseDown={(event) => event.preventDefault()}
-                        {...pointerSelection(cmd.name)}
+                        onMouseEnter={(event) => pointerSelection(event, cmd.name)}
+                        onMouseMove={(event) => pointerSelection(event, cmd.name)}
                         onClick={() => command(cmd)}
                         active={selectedColumn?.key === column.key && selectedRow === row}
                         icon={cmd.icon}
