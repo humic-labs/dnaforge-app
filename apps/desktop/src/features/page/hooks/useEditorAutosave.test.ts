@@ -55,6 +55,21 @@ function setupHook(opts: {
 }
 
 describe('useEditorAutosave', () => {
+  it('starts a save after typing stops even while native edit acknowledgements continue', async () => {
+    const { result } = setupHook({ initialContent: { type: 'doc' }, nativeOwner: true });
+    act(() => result.current.api.markDirty());
+    await act(async () => vi.advanceTimersByTimeAsync(650));
+    act(() => result.current.api.markDirty());
+    await act(async () => vi.advanceTimersByTimeAsync(650));
+    act(() => result.current.api.ensureDirtySaveScheduled());
+    await act(async () => vi.advanceTimersByTimeAsync(349));
+    expect(result.current.onSave).not.toHaveBeenCalled();
+    act(() => result.current.api.ensureDirtySaveScheduled());
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(result.current.onSave).toHaveBeenCalledExactlyOnceWith({ type: 'doc' }, 'page-1');
+    expect(result.current.api.saveStatus).toBe('clean');
+  });
+
   it('retires a failed native autosave retry without discarding content or flushing again on unmount', async () => {
     const failure = new Error('Original publication failure');
     const onSave = vi.fn().mockRejectedValue(failure);
