@@ -11,7 +11,7 @@ import { PrimerFormMetricsStrip } from './PrimerFormMetricsStrip';
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { EditIcon } from '../../../components/icons';
 import { Button } from '../../../components/ui';
-import { SETTINGS_FIELD_CLASS } from '../../../components/SettingsSubsection';
+import { UI_FIELD_CLASS, UI_INLINE_FIELD_HINT_CLASS } from '../../../components/ui/styles';
 import { calculateGcContent } from '../../design/public/algorithms/tm-calculator';
 import { usePrimerTm } from '../hooks/usePrimerTm';
 import { useSettingsStore } from '../../junction-workbench/public/settings';
@@ -984,7 +984,7 @@ export function PrimerCreationForm({
           <label htmlFor="primer-name-input" className={LABEL_CLASS}>
             Name <span className="font-normal text-error">*</span>
             {!trimmedName && suggestedName && (
-              <span className="ml-2 font-normal text-[10px] text-fg-muted">
+              <span className={UI_INLINE_FIELD_HINT_CLASS}>
                 press <kbd className="rounded bg-bg-muted px-1">Tab</kbd> to use suggestion
               </span>
             )}
@@ -1004,7 +1004,7 @@ export function PrimerCreationForm({
               }
             }}
             placeholder={suggestedName}
-            className={`${SETTINGS_FIELD_CLASS} placeholder:text-fg-muted/50`}
+            className={UI_FIELD_CLASS}
           />
         </div>
 
