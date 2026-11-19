@@ -16,7 +16,10 @@ import {
   molecularRepresentationVisible,
   type SelectionDesignation,
 } from './molecularDisplayGroups';
-import { molecularPresentationOverrideSchema } from './molecularPresentationPreferences';
+import {
+  molecularPresentationOverrideSchema,
+  POLYMER_CONTEXT_OMISSION_GUIDANCE,
+} from '../../../../../shared/molecular-presentation-override';
 import { molecularAtomSelector } from './molecularConnections';
 
 export function molecularSceneSelections(source: Structure) {
@@ -393,7 +396,7 @@ export function requirePreservedPolymerContext(
     const actual = coverage(root);
     if ([...expected].some((trace) => !actual.has(trace))) {
       const error = new Error(
-        `Story step ${index + 1} removes existing polymer context. Retain its cartoon/backbone/surface coverage or record a scientific reason with a preservePolymerContext presentation override.`
+        `Story step ${index + 1} removes existing polymer context. Retain its cartoon, backbone or surface coverage. ${POLYMER_CONTEXT_OMISSION_GUIDANCE}`
       );
       Object.assign(error, { code: 'MVS_POLYMER_CONTEXT_REQUIRED' });
       throw error;
