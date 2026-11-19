@@ -18,6 +18,7 @@ type RecoveryOptions = { nativeOwnerInstanceId: string; profileKey: string; owne
 const mocks = vi.hoisted(() => ({
   handlers: new Map<string, Handler>(),
   registeredRoots: [] as string[],
+  readOnlyRoots: new Set<string>(),
   owners: [] as OwnerOptions[],
   recoveries: [] as Array<{
     options: RecoveryOptions;
@@ -47,6 +48,11 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../analytics', () => ({ trackEvent: mocks.saveTelemetry }));
 vi.mock('../boot-log', () => ({ appendBootLog: mocks.bootLog }));
+vi.mock('../notebook-reference-insertion', () => ({
+  prepareNotebookReferenceInsertion: vi.fn(() => {
+    throw new Error('Unexpected notebook reference insertion.');
+  }),
+}));
 
 vi.mock('../registered-project-authority', () => ({
   withAgentProjectScope: (_scope: unknown, operation: () => unknown) => operation(),
@@ -58,16 +64,24 @@ vi.mock('../registered-project-authority', () => ({
         name: 'Alpha',
         path,
         accessMode: 'writable',
-        pinned: false,
+        pinned: mocks.readOnlyRoots.has(path),
       }));
     return {
       list,
       resolve: (reference: string) =>
         list().find((project) => project.path === reference || project.projectId === reference) ??
         null,
-      capture: (projectId: string) => () => {
-        if (!list().some((project) => project.projectId === projectId))
-          throw new Error('PROJECT_ACCESS_CHANGED: The registered project authority changed.');
+      capture: (projectId: string, mutating = false) => {
+        const permitted = () =>
+          list().some(
+            (project) => project.projectId === projectId && (!mutating || !project.pinned)
+          );
+        if (!permitted())
+          throw new Error('PROJECT_ACCESS_DENIED: The registered project is unavailable.');
+        return () => {
+          if (!permitted())
+            throw new Error('PROJECT_ACCESS_CHANGED: The registered project authority changed.');
+        };
       },
     };
   },
@@ -175,6 +189,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.handlers.clear();
   mocks.registeredRoots.length = 0;
+  mocks.readOnlyRoots.clear();
   mocks.owners.length = 0;
   mocks.recoveries.length = 0;
   mocks.authority.value = AUTHORITY;
@@ -229,6 +244,41 @@ describe('native documents main feature', () => {
     } finally {
       documents.stopRendererPublisher();
       nativeClose.mockRestore();
+    }
+  });
+
+  it('keeps viewer projects enrolled for annotation inspection', async () => {
+    mocks.registeredRoots.push(ROOT);
+    mocks.readOnlyRoots.add(ROOT);
+    const { documents, start } = started('none');
+    await start;
+    expect(documents.workspaces.readableRoots()).toEqual([ROOT]);
+    expect(documents.workspaces.roots()).toEqual([]);
+    expect(owner().workspaceRoots()).toEqual([ROOT]);
+  });
+
+  it('keeps annotation writes blocked until promotion and rechecks demotion', async () => {
+    mocks.registeredRoots.push(ROOT);
+    mocks.readOnlyRoots.add(ROOT);
+    const { documents, start } = started('none');
+    await start;
+    const protection = vi
+      .spyOn(documents.sequenceDocuments, 'protectCleanDocument')
+      .mockResolvedValue({ assertCurrent: vi.fn(), finish: vi.fn(async () => {}), abort: vi.fn() });
+    try {
+      await expect(owner().prepare('viewer-action', DOCUMENT)).rejects.toThrow(
+        'PROJECT_ACCESS_DENIED'
+      );
+      expect(protection).not.toHaveBeenCalled();
+      mocks.readOnlyRoots.delete(ROOT);
+      const barrier = await owner().prepare('editor-action', DOCUMENT);
+      expect(protection).toHaveBeenCalledExactlyOnceWith(DOCUMENT.documentId, DOCUMENT.sourcePath);
+      expect(() => barrier.assertCurrent()).not.toThrow();
+      mocks.readOnlyRoots.add(ROOT);
+      expect(() => barrier.assertCurrent()).toThrow('PROJECT_ACCESS_CHANGED');
+      barrier.abort('unchanged');
+    } finally {
+      protection.mockRestore();
     }
   });
 
