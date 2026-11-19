@@ -52,8 +52,9 @@ export interface NotebookPackageDirectoryEntry {
   isSymbolicLink?: boolean;
 }
 
+export type RetainNotebookSource = (id: string, stage: 'before' | 'published') => Promise<void>;
+
 export interface NotebookPackageFileOps {
-  retainNotebookSource?(id: string, stage: 'before' | 'published'): Promise<void>;
   exists(path: string): Promise<boolean>;
   mkdir(path: string, options?: { recursive?: boolean }): Promise<void>;
   readTextFile(path: string): Promise<string>;
@@ -279,12 +280,13 @@ export async function readNotebookPackageV2(
   ops: NotebookPackageFileOps,
   packageRoot: string,
   metadataRaw?: string,
-  recoveryInput?: RecoverNotebookPackageRenameInput
+  recoveryInput?: RecoverNotebookPackageRenameInput,
+  retainSource?: RetainNotebookSource
 ): Promise<ReadNotebookPackageV2Result> {
   const recoveredRename =
     ops.recoverNotebookPackageRenameIfNeededInMain && !recoveryInput
       ? null
-      : await recoverNotebookPackageRenameIfNeeded(ops, recoveryInput ?? packageRoot);
+      : await recoverNotebookPackageRenameIfNeeded(ops, recoveryInput ?? packageRoot, retainSource);
   const paths = notebookPackagePaths(packageRoot);
   return readCanonicalNotebookPackage(
     ops,
@@ -354,20 +356,27 @@ function renameJournalBytes(journal: NotebookRenameJournal): string {
 
 export async function prepareNotebookPackageRename(
   ops: NotebookPackageFileOps,
-  input: PrepareNotebookPackageRenameInput
+  input: PrepareNotebookPackageRenameInput,
+  retainSource?: RetainNotebookSource
 ): Promise<void> {
   if (ops.prepareNotebookPackageRenameInMain && !input.now) {
     await ops.prepareNotebookPackageRenameInMain(input);
     return;
   }
-  const current = await readNotebookPackageV2(ops, input.packageRoot);
+  const current = await readNotebookPackageV2(
+    ops,
+    input.packageRoot,
+    undefined,
+    undefined,
+    retainSource
+  );
   if (
     input.expectedCanonicalFingerprint !== undefined &&
     contentFingerprint(current.markdown) !== input.expectedCanonicalFingerprint
   ) {
     throw new NotebookExternalConflictError(notebookPackagePaths(input.packageRoot).markdownPath);
   }
-  await ops.retainNotebookSource?.(current.metadata.id, 'before');
+  await retainSource?.(current.metadata.id, 'before');
   const paths = notebookPackagePaths(input.packageRoot);
   const journal: NotebookRenameJournal = {
     schema: 'waypoint.notebook-rename.v1',
@@ -386,7 +395,8 @@ export async function prepareNotebookPackageRename(
 
 export async function recoverNotebookPackageRenameIfNeeded(
   ops: NotebookPackageFileOps,
-  input: string | RecoverNotebookPackageRenameInput
+  input: string | RecoverNotebookPackageRenameInput,
+  retainSource?: RetainNotebookSource
 ): Promise<PublishNotebookPackageResult | null> {
   const packageRoot = typeof input === 'string' ? input : input.packageRoot;
   if (ops.recoverNotebookPackageRenameIfNeededInMain) {
@@ -418,29 +428,27 @@ export async function recoverNotebookPackageRenameIfNeeded(
   const metadata = parseNotebookPackageMetadata(metadataRaw);
   const markdown = await ops.readTextFile(paths.markdownPath);
   const parsed = await parseCanonical(ops, packageRoot, markdown, metadata.id, metadata.title);
-  const recoveredOps: NotebookPackageFileOps = {
-    ...ops,
-    retainNotebookSource: (id, stage) =>
-      stage === 'published' && ops.retainNotebookSource
-        ? ops.retainNotebookSource(id, stage)
-        : Promise.resolve(),
-  };
-  const published = await publishNotebookPackageV2(recoveredOps, {
-    packageRoot,
-    workspaceRoot: workspaceRootFromPackageDepth(
+  const published = await publishNotebookPackageV2(
+    ops,
+    {
       packageRoot,
-      journal.packageDepthFromWorkspaceRoot
-    ),
-    id: metadata.id,
-    title: journal.title,
-    content: parsed.content,
-    sourceShape: 'v2-package',
-    existingMetadataRaw: metadataRaw,
-    formerAuthorityRaw: null,
-    preservedPreamble: parsed.preservedPreamble,
-    preservedTitleProjection: parsed.preservedTitleProjection,
-    expectedCanonicalFingerprint: contentFingerprint(markdown),
-  });
+      workspaceRoot: workspaceRootFromPackageDepth(
+        packageRoot,
+        journal.packageDepthFromWorkspaceRoot
+      ),
+      id: metadata.id,
+      title: journal.title,
+      content: parsed.content,
+      sourceShape: 'v2-package',
+      existingMetadataRaw: metadataRaw,
+      formerAuthorityRaw: null,
+      preservedPreamble: parsed.preservedPreamble,
+      preservedTitleProjection: parsed.preservedTitleProjection,
+      expectedCanonicalFingerprint: contentFingerprint(markdown),
+    },
+    retainSource &&
+      ((id, stage) => (stage === 'published' ? retainSource(id, stage) : Promise.resolve()))
+  );
   await writeAtomic(
     ops,
     paths.renameJournalPath,
@@ -451,7 +459,8 @@ export async function recoverNotebookPackageRenameIfNeeded(
 
 export async function migrateNotebookPackageAtPath(
   ops: NotebookPackageFileOps,
-  input: MigrateNotebookPackageAtPathInput
+  input: MigrateNotebookPackageAtPathInput,
+  retainSource?: RetainNotebookSource
 ): Promise<PublishNotebookPackageResult | null> {
   if (ops.migrateNotebookPackageAtPathInMain) {
     return ops.migrateNotebookPackageAtPathInMain(input);
@@ -485,18 +494,22 @@ export async function migrateNotebookPackageAtPath(
   if (await ops.exists(paths.markdownPath)) {
     preservedPreamble = notebookMarkdownPreamble(await ops.readTextFile(paths.markdownPath));
   }
-  return publishNotebookPackageV2(ops, {
-    packageRoot: input.packageRoot,
-    workspaceRoot: input.workspaceRoot,
-    id: legacy.id,
-    title: legacy.title,
-    content: legacy.content as JSONContent,
-    sourceShape: 'v1-package',
-    existingMetadataRaw: metadataRaw,
-    formerAuthorityRaw: metadataRaw,
-    preservedPreamble,
-    updatedAt: legacy.updatedAt,
-  });
+  return publishNotebookPackageV2(
+    ops,
+    {
+      packageRoot: input.packageRoot,
+      workspaceRoot: input.workspaceRoot,
+      id: legacy.id,
+      title: legacy.title,
+      content: legacy.content as JSONContent,
+      sourceShape: 'v1-package',
+      existingMetadataRaw: metadataRaw,
+      formerAuthorityRaw: metadataRaw,
+      preservedPreamble,
+      updatedAt: legacy.updatedAt,
+    },
+    retainSource
+  );
 }
 
 function journalBytes(journal: NotebookMigrationJournal): string {
@@ -563,15 +576,16 @@ async function writePackageMetadata(
 
 export async function publishNotebookPackageV2(
   ops: NotebookPackageFileOps,
-  input: PublishNotebookPackageInput
+  input: PublishNotebookPackageInput,
+  retainSource?: RetainNotebookSource
 ): Promise<PublishNotebookPackageResult> {
   if (ops.publishNotebookPackageV2InMain && !input.now && !input.interruptAt) {
     return ops.publishNotebookPackageV2InMain(input);
   }
   return withNotebookPackageAuthorityLock(input.packageRoot, async () => {
-    await ops.retainNotebookSource?.(input.id, 'before');
+    await retainSource?.(input.id, 'before');
     const result = await publishNotebookPackageV2Unlocked(ops, input);
-    await ops.retainNotebookSource?.(result.metadata.id, 'published');
+    await retainSource?.(result.metadata.id, 'published');
     return result;
   });
 }

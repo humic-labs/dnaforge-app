@@ -13,6 +13,7 @@ import {
   type PrepareNotebookPackageRenameInput,
   type PublishNotebookPackageResult,
   type RecoverNotebookPackageRenameInput,
+  type RetainNotebookSource,
   type SerializablePublishNotebookPackageInput,
 } from '../db/notebook-package-migration';
 import {
@@ -31,6 +32,10 @@ function isContained(root: string, candidate: string): boolean {
   return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
 }
 
+type NativePackageOps = NotebookPackageFileOps & {
+  retainSource: RetainNotebookSource;
+};
+
 async function createPackageFileOps(
   input: {
     workspaceRoot: string;
@@ -38,7 +43,7 @@ async function createPackageFileOps(
   },
   authority?: NotebookPublicationAuthority,
   db?: Database.Database
-): Promise<NotebookPackageFileOps> {
+): Promise<NativePackageOps> {
   const lexicalPackageRoot = resolve(input.packageRoot);
 
   async function canonicalMember(path: string, allowMissing: boolean): Promise<string> {
@@ -65,7 +70,7 @@ async function createPackageFileOps(
   }
 
   return {
-    async retainNotebookSource(id, stage) {
+    async retainSource(id, stage) {
       const database = db ?? (await import('./ipc/database')).getDb();
       await retainNotebookPackage(database, input, id, stage, authority?.assertCurrent);
     },
@@ -127,7 +132,7 @@ async function withNotebookPublication<T>(
   input: { workspaceRoot: string; packageRoot: string },
   publicationPath: string,
   assertCurrent: (() => void) | undefined,
-  operation: (ops: NotebookPackageFileOps) => Promise<T>,
+  operation: (ops: NativePackageOps) => Promise<T>,
   db?: Database.Database
 ): Promise<T> {
   let state: { kind: 'pending' } | { kind: 'refused'; error: unknown } | { kind: 'published' } = {
@@ -168,7 +173,7 @@ export async function publishNotebookPackageV2InMain(
     input,
     notebookPackagePaths(input.packageRoot).markdownPath,
     assertCurrent,
-    (ops) => publishNotebookPackageV2(ops, input),
+    (ops) => publishNotebookPackageV2(ops, input, ops.retainSource),
     db
   );
 }
@@ -178,7 +183,7 @@ export async function migrateNotebookPackageAtPathInMain(
   db?: Database.Database
 ): Promise<PublishNotebookPackageResult | null> {
   const ops = await createPackageFileOps(input, undefined, db);
-  return migrateNotebookPackageAtPath(ops, input);
+  return migrateNotebookPackageAtPath(ops, input, ops.retainSource);
 }
 
 export async function prepareNotebookPackageRenameInMain(
@@ -190,7 +195,7 @@ export async function prepareNotebookPackageRenameInMain(
     input,
     notebookPackagePaths(input.packageRoot).renameJournalPath,
     assertCurrent,
-    (ops) => prepareNotebookPackageRename(ops, input),
+    (ops) => prepareNotebookPackageRename(ops, input, ops.retainSource),
     db
   );
 }
@@ -200,5 +205,5 @@ export async function recoverNotebookPackageRenameIfNeededInMain(
   db?: Database.Database
 ): Promise<PublishNotebookPackageResult | null> {
   const ops = await createPackageFileOps(input, undefined, db);
-  return recoverNotebookPackageRenameIfNeeded(ops, input.packageRoot);
+  return recoverNotebookPackageRenameIfNeeded(ops, input.packageRoot, ops.retainSource);
 }

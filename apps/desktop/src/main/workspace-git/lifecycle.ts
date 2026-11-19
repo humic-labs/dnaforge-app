@@ -29,7 +29,7 @@ export async function transitionManagedWorkspaceLifecycle(
   const releaseMutation = await acquireWorkspaceSyncMutationLease(row.path);
   try {
     await assertWorkspaceMigrationActionsSettled(row.path);
-    const trash = request.action === 'trash-by-path' || request.action === 'trash-by-uuid';
+    const trash = request.action === 'trash-by-path';
     if (trash) await assertProjectTrashAllowed(db, row.id, row.path);
     const result = db.transaction(() => {
       if (trash) assertProjectHasNoSavedOwners(db, row.id, row.path);

@@ -120,14 +120,19 @@ export function mutateLegacyNotebookPageInDb(
         !requireText(input.expectedProjectionFingerprint))
     )
       throw new Error('Legacy notebook content or revision is invalid.');
-    if (projectionFingerprint(existing) !== input.expectedProjectionFingerprint)
-      throw new Error('Notebook projection changed before its legacy mutation.');
-    if (input.operation === 'create' && existing)
-      throw new Error('Notebook projection already exists.');
     const normalized = normalizeNotebookReferenceOccurrences(input.content, {
       documentId: input.id,
     });
     const content = JSON.stringify(normalized);
+    const sameUpsert =
+      input.operation === 'upsert' &&
+      existing?.title === input.title &&
+      existing.content === content &&
+      existing.updated_at <= input.updatedAt;
+    if (!sameUpsert && projectionFingerprint(existing) !== input.expectedProjectionFingerprint)
+      throw new Error('Notebook projection changed before its legacy mutation.');
+    if (input.operation === 'create' && existing)
+      throw new Error('Notebook projection already exists.');
     JSON.parse(content);
     db.prepare(
       `INSERT INTO pages(id,title,content,date,created_at,updated_at) VALUES(?,?,?,NULL,?,?)
