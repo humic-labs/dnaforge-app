@@ -138,29 +138,45 @@ describe('useNotebookFileWatcher', () => {
     await waitFor(() => expect(onReload).toHaveBeenCalledOnce());
   });
 
-  it('keeps the observed external revision when the catalog republishes the same notebook', async () => {
-    const onKeepLocal = vi.fn().mockResolvedValue(undefined);
-    const { result } = renderHook(() =>
-      useNotebookFileWatcher({
-        pageId: 'page-1',
-        workspaceRoot: '/workspace',
-        isDirty: true,
-        onKeepLocal,
-      })
-    );
-    await waitFor(() =>
-      expect(result.current.expectedCanonicalFingerprint()).toBe(contentFingerprint(markdown))
-    );
-    markdown = 'external edit';
-    act(() => listeners.forEach((listener) => listener('/workspace/Notebook/Notebook.md')));
-    await waitFor(() => expect(result.current.state).toBe('conflict'));
-    await act(async () => bumpReferenceGeneration());
-    await waitFor(() => expect(getCurrentCatalogFileForEntity).toHaveBeenCalledTimes(2));
-    act(() => result.current.dismissExternalChange());
-    await waitFor(() => expect(result.current.state).toBe('current'));
-    expect(onKeepLocal).toHaveBeenCalledWith(contentFingerprint(markdown));
-    expect(watchFile).toHaveBeenCalledOnce();
-  });
+  it.each([false, true])(
+    'keeps the external conflict decision when the catalog republishes the same notebook (pending read: %s)',
+    async (hasPendingRead) => {
+      const onKeepLocal = vi.fn().mockResolvedValue(undefined);
+      const { result } = renderHook(() =>
+        useNotebookFileWatcher({
+          pageId: 'page-1',
+          workspaceRoot: '/workspace',
+          isDirty: true,
+          onKeepLocal,
+        })
+      );
+      await waitFor(() =>
+        expect(result.current.expectedCanonicalFingerprint()).toBe(contentFingerprint(markdown))
+      );
+      markdown = 'external edit';
+      act(() => listeners.forEach((listener) => listener('/workspace/Notebook/Notebook.md')));
+      await waitFor(() => expect(result.current.state).toBe('conflict'));
+      const pending = hasPendingRead ? Promise.withResolvers<string>() : null;
+      if (pending) {
+        readTextFile.mockReturnValueOnce(pending.promise);
+        act(() => listeners.forEach((listener) => listener('/workspace/Notebook/Notebook.md')));
+      }
+      await act(async () => bumpReferenceGeneration());
+      await waitFor(() => expect(getCurrentCatalogFileForEntity).toHaveBeenCalledTimes(2));
+      if (pending) {
+        await waitFor(() => expect(watchFile).toHaveBeenCalledTimes(2));
+        await act(async () => {
+          pending.reject(new Error('Superseded file read'));
+          await pending.promise.catch(() => undefined);
+        });
+      }
+      expect(result.current.state).toBe('conflict');
+      act(() => result.current.dismissExternalChange());
+      await waitFor(() => expect(result.current.state).toBe('current'));
+      expect(onKeepLocal).toHaveBeenCalledWith(contentFingerprint(markdown));
+      expect(watchFile).toHaveBeenCalledTimes(hasPendingRead ? 2 : 1);
+    }
+  );
 
   it('keeps watching the flat legacy authority until package cutover completes', async () => {
     getCurrentCatalogFileForEntity.mockResolvedValue({
@@ -613,9 +629,14 @@ describe('useNotebookFileWatcher', () => {
     expect(readTextFile).not.toHaveBeenCalled();
   });
 
-  it.each(['fulfilled', 'rejected'] as const)(
-    'ignores a %s file read from the previous notebook binding',
-    async (outcome) => {
+  it.each([
+    { outcome: 'fulfilled', nextRoot: '/workspace/Renamed' },
+    { outcome: 'rejected', nextRoot: '/workspace/Renamed' },
+    { outcome: 'fulfilled', nextRoot: '/workspace/Notebook' },
+    { outcome: 'rejected', nextRoot: '/workspace/Notebook' },
+  ])(
+    'ignores a $outcome file read superseded by reconciliation at $nextRoot',
+    async ({ outcome, nextRoot }) => {
       const onReload = vi.fn();
       const { result } = renderHook(() =>
         useNotebookFileWatcher({
@@ -633,7 +654,7 @@ describe('useNotebookFileWatcher', () => {
       expect(readTextFile).toHaveBeenCalledWith('/workspace/Notebook/Notebook.md');
 
       getCurrentCatalogFileForEntity.mockResolvedValue({
-        path: '/workspace/Renamed',
+        path: nextRoot,
         file_kind: 'waypoint-notebook',
       });
       markdown = 'current notebook markdown';
@@ -642,7 +663,11 @@ describe('useNotebookFileWatcher', () => {
       await waitFor(() =>
         expect(onReload).toHaveBeenLastCalledWith(notebookContent('current notebook markdown'))
       );
-      expect(watchFile).toHaveBeenCalledWith('/workspace/Renamed/Renamed.md');
+      expect(watchFile).toHaveBeenLastCalledWith(
+        nextRoot === '/workspace/Notebook'
+          ? '/workspace/Notebook/Notebook.md'
+          : '/workspace/Renamed/Renamed.md'
+      );
       expect(resolveArtifactFile).toHaveBeenCalledTimes(2);
 
       await act(async () => {
@@ -658,6 +683,7 @@ describe('useNotebookFileWatcher', () => {
       expect(resolveArtifactFile).toHaveBeenCalledTimes(2);
       expect(onReload).toHaveBeenCalledTimes(2);
       expect(trackRendererEvent).not.toHaveBeenCalled();
+      expect(watchFile).toHaveBeenCalledTimes(2);
     }
   );
 
