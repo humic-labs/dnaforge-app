@@ -26,7 +26,6 @@ import { isHostedBrowserRuntime } from '../utils/environment';
 import { isSupportedSequencePath } from '../shared/scientific-file-types';
 import { isTypedDocumentCandidate } from '../shared/document-availability';
 import { useDocumentAvailability } from '../features/document-opening/useDocumentAvailability';
-import { userMessage } from '@waypoint/user-messages';
 
 interface FileTreeItemProps {
   entry: FileBrowserTreeEntry;
@@ -261,14 +260,7 @@ function FilesystemTreeItem({
     !entry.isDirectory && (Boolean(entry.packageKind) || isTypedDocumentCandidate(entry.path));
   const availability = useDocumentAvailability(rootPath, typedCandidate ? entry.path : undefined);
   const showNeutralIcon = availability?.state === 'checking' || availability?.state === 'blocked';
-  const availabilityDetail =
-    availability?.state === 'blocked'
-      ? availability.reason
-      : availability?.state === 'checking'
-        ? userMessage('document.checking')
-        : availability?.state === 'unchecked'
-          ? userMessage('document.checkOnOpen')
-          : undefined;
+  const blockedReason = availability?.state === 'blocked' ? availability.reason : undefined;
   const [renameValue, setRenameValue] = useState(() => renameStem(entry));
   const inputRef = useRef<HTMLInputElement>(null);
   const itemRef = useRef<HTMLDivElement>(null);
@@ -315,22 +307,22 @@ function FilesystemTreeItem({
       if (entry.isDirectory) {
         if (e.shiftKey || e.metaKey || e.ctrlKey) return;
         onToggle(entry.path);
-      } else if (isHostedBrowserRuntime()) {
+      } else if (!blockedReason && isHostedBrowserRuntime()) {
         onOpen(entry);
       }
     },
-    [entry, onToggle, onSelect, onOpen, isRenaming]
+    [entry, onToggle, onSelect, onOpen, isRenaming, blockedReason]
   );
 
   const handleDoubleClick = useCallback(
     (e: MouseEvent<HTMLDivElement>) => {
       if (isRenaming) return;
       if (entry.isPending) return;
-      if (entry.isDirectory) return;
+      if (entry.isDirectory || blockedReason) return;
       e.preventDefault();
       onOpen(entry);
     },
-    [entry, onOpen, isRenaming]
+    [entry, onOpen, isRenaming, blockedReason]
   );
 
   const handleContextMenu = useCallback(
@@ -402,9 +394,9 @@ function FilesystemTreeItem({
         onDelete(entry.path);
         return;
       }
-      onKeyNavigate(entry, e);
+      onKeyNavigate(availability ? { ...entry, documentAvailability: availability } : entry, e);
     },
-    [entry, isRenaming, onDelete, onKeyNavigate]
+    [entry, isRenaming, onDelete, onKeyNavigate, availability]
   );
 
   const isExpanded = expandedPaths.has(entry.path);
@@ -499,6 +491,7 @@ function FilesystemTreeItem({
         aria-level={depth + 1}
         aria-selected={isSelected}
         aria-expanded={entry.isDirectory ? isExpanded : undefined}
+        aria-description={blockedReason}
         tabIndex={isFocusable ? 0 : -1}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
@@ -511,7 +504,7 @@ function FilesystemTreeItem({
           startFileDrag(entry.path, entry.name, e);
         }}
         title={
-          availabilityDetail ??
+          blockedReason ??
           (isDesign ? displayName(entry) : entry.isBiologyFile ? entry.name : entry.path)
         }
         isSelected={isSelected}
@@ -531,7 +524,7 @@ function FilesystemTreeItem({
         labelTitle={
           isRenaming
             ? undefined
-            : (availabilityDetail ??
+            : (blockedReason ??
               (isDesign ? displayName(entry) : (entry.displayName ?? entry.name)))
         }
         label={
@@ -553,14 +546,7 @@ function FilesystemTreeItem({
               className="w-full min-w-0 select-text px-1 py-0.5 text-sm bg-bg border border-accent rounded outline-none"
             />
           ) : (
-            <>
-              {displayName(entry)}
-              {availabilityDetail && (
-                <span className="block whitespace-normal text-xs leading-tight text-fg-subtle">
-                  {availabilityDetail}
-                </span>
-              )}
-            </>
+            displayName(entry)
           )
         }
         trailing={

@@ -325,9 +325,6 @@ function ContextMenuWithGit({
       gitInitInProgress={initializing}
       onClose={onClose}
       onOpen={onOpen}
-      checkBeforeOpen={Boolean(
-        contextMenu.documentAvailability && contextMenu.documentAvailability.state !== 'ready'
-      )}
       onOpenInNewPanel={onOpenInNewPanel}
       onRename={onRename}
       onDuplicate={onDuplicate}
@@ -1990,8 +1987,17 @@ export function FileBrowser({
             setContextMenu(null);
             setAddPickerLaunch(null);
           }}
-          onOpen={filesystemContextMenu.isDirectory ? undefined : handleContextMenuOpen}
-          onOpenInNewPanel={onOpenInNewPanel ? handleContextMenuOpenInNewPanel : undefined}
+          onOpen={
+            filesystemContextMenu.isDirectory ||
+            filesystemContextMenu.documentAvailability?.state === 'blocked'
+              ? undefined
+              : handleContextMenuOpen
+          }
+          onOpenInNewPanel={
+            onOpenInNewPanel && filesystemContextMenu.documentAvailability?.state !== 'blocked'
+              ? handleContextMenuOpenInNewPanel
+              : undefined
+          }
           onRename={
             contextAllowsWrites && !filesystemContextMenu.isRootFolder
               ? handleStartRename

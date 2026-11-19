@@ -21,7 +21,6 @@ interface FileContextMenuProps {
   gitInitInProgress?: boolean;
   onClose: () => void;
   onOpen?: () => void;
-  checkBeforeOpen?: boolean;
   onOpenInNewPanel?: () => void;
   onRename?: () => void;
 
@@ -99,7 +98,6 @@ export function FileContextMenu({
   gitInitInProgress,
   onClose,
   onOpen,
-  checkBeforeOpen,
   onOpenInNewPanel,
   onRename,
   onDuplicate,
@@ -128,13 +126,13 @@ export function FileContextMenu({
     if (onOpen) {
       items.push({
         id: 'open',
-        label: checkBeforeOpen ? 'Check and Open' : 'Open',
+        label: 'Open',
         shortcut: shortcutChord('files.open'),
         action: onOpen,
       });
     }
 
-    if (!isDirectory && !checkBeforeOpen && onOpenInNewPanel) {
+    if (!isDirectory && onOpenInNewPanel) {
       items.push({
         id: 'open-panel',
         label: 'Open in New Panel',
@@ -356,7 +354,6 @@ export function FileContextMenu({
     isDirectory,
     isRootFolder,
     onOpen,
-    checkBeforeOpen,
     onOpenInNewPanel,
     onCopyPath,
     onCopyRelativePath,

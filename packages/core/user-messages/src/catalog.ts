@@ -890,9 +890,6 @@ export const USER_MESSAGES = {
   'file.moveDestinationExists': 'An item with that name already exists in that folder.',
   'document.quickLookTooLarge': 'The file is too large for Quick Look.',
   'document.openFailed': 'We couldn’t open this file. Try again.',
-  'document.checking': 'Checking…',
-  'document.checkOnOpen': 'Check on open',
-  'document.cannotOpen': 'Can’t open',
   'document.readDamaged': 'This file is damaged or incomplete. Try another copy.',
   'document.readCoordinates':
     'The saved coordinates could not be loaded. Try another copy of the structure.',
