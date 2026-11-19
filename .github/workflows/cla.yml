@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   sign-off:
@@ -32,6 +33,7 @@ jobs:
 
       - name: Check contributor identities with the trusted workflow checker
         env:
+          GH_TOKEN: ${{ github.token }}
           BASE: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.merge_group.head_sha || github.event.pull_request.head.sha }}
         run: |

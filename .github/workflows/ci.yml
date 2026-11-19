@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main, staging, prod]
   merge_group:
-    branches: [staging, prod]
+    branches: [main, staging, prod]
     types:
       - checks_requested
   push:
@@ -21,6 +21,8 @@ concurrency:
 jobs:
   plan:
     name: Qualification plan
+    env:
+      CI_BOOTSTRAP_MAIN: ${{ github.ref == 'refs/heads/main' || github.event.pull_request.base.ref == 'main' || github.event.merge_group.base_ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -37,7 +39,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ (github.ref == 'refs/heads/main' || github.event.pull_request.base.ref == 'main') && github.workflow_sha || 'dev' }}
+          ref: ${{ env.CI_BOOTSTRAP_MAIN == 'true' && github.workflow_sha || 'dev' }}
           path: .ci-control
           persist-credentials: false
       - &a2
@@ -48,7 +50,6 @@ jobs:
         name: Bind selection to source and trusted control
         env:
           BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha }}
-          CI_BOOTSTRAP_MAIN: ${{ github.ref == 'refs/heads/main' || github.event.pull_request.base.ref == 'main' }}
         run: node .ci-control/scripts/ci/qualification.mjs plan --root "$GITHUB_WORKSPACE" --base "${BASE_SHA:-$(git rev-parse HEAD^1)}" --out "$RUNNER_TEMP/candidate/manifest.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()

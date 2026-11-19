@@ -8,6 +8,7 @@ import {
   createAssemblyCoverageTileSource,
   globalRangeToSegments,
   httpTileTransport,
+  indexImmutablePileupReads,
   maxAlternateGuideLevel,
   maxReadAlignmentLevel,
   maxLevelForAssembly,
@@ -2934,7 +2935,11 @@ export class TileEngineDriver {
     }
     const composed = {
       level,
-      records: subsampleUniform(records, READS_DISPLAY_MAX_RECORDS),
+      records: indexImmutablePileupReads(
+        records.length > READS_DISPLAY_MAX_RECORDS
+          ? subsampleUniform(records, READS_DISPLAY_MAX_RECORDS)
+          : records
+      ),
       alternateColumns,
       supportRanges,
       windowStartBp,
