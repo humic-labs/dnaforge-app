@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   molecularViewSchema,
+  PINNED_MOLECULAR_ASSET_NAME,
   validateMolecularViewCoordinates,
   type MolecularView,
 } from './molecular-view';
@@ -11,6 +12,16 @@ import {
   MolecularDocumentCompatibilityError,
 } from './molecular-document-extensions';
 import {
+  assertMolecularCoordinateSize,
+  assertMolecularDocumentSize,
+  jsonStringByteLength,
+  MolecularStorageError,
+  MOLECULAR_COORDINATE_MAX_BYTES,
+  MOLECULAR_DOCUMENT_MAX_BYTES,
+  utf8ByteLength,
+  type MolecularCoordinateText,
+} from './molecular-storage';
+import {
   parseSavedResidueSelectionDocument,
   type SavedResidueSelectionDocument,
 } from '@waypoint/workspace-editor/saved-residue-selection';
@@ -19,7 +30,7 @@ export const MOLECULAR_DOCUMENT_LEGACY_SCHEMA = 'dnaforge.molecular-document.v1'
 export const MOLECULAR_DOCUMENT_SCHEMA = 'dnaforge.molecular-document.v2' as const;
 export const MOLECULAR_DOCUMENT_SUFFIX = MOLECULAR_DOCUMENT_FILE_SUFFIX;
 export const MOLECULAR_DOCUMENT_FILE_KIND = 'dnaforge-molecular-document' as const;
-export const MOLECULAR_DOCUMENT_MAX_BYTES = 128 * 1024 * 1024;
+export { MOLECULAR_DOCUMENT_MAX_BYTES } from './molecular-storage';
 
 const documentIdentity = {
   schema: z.literal(MOLECULAR_DOCUMENT_SCHEMA),
@@ -195,8 +206,7 @@ const coordinatePointerSchema = z
   })
   .strict();
 const pinnedPointerSchema = coordinatePointerSchema.extend({
-  format: z.enum(['pdb', 'cif']),
-  name: z.string(),
+  name: z.string().regex(PINNED_MOLECULAR_ASSET_NAME),
   label: z.string(),
   sourceReferenceId: z.string().uuid(),
 });
@@ -218,6 +228,7 @@ const storedDocumentSchema = z
     selections: z.array(z.unknown()).optional(),
   })
   .strict();
+export type StoredMolecularDocument = z.infer<typeof storedDocumentSchema>;
 
 export function getCurrentMolecularSnapshot(document: MolecularDocument): MolecularView {
   const entry = document.history.find((entry) => entry.referenceId === document.currentReferenceId);
@@ -237,7 +248,7 @@ export function molecularDocumentSummary(document: MolecularDocument) {
   };
 }
 
-export function serializeMolecularDocument(value: unknown): string {
+export function packMolecularDocument(value: unknown): StoredMolecularDocument {
   const { selections, ...document } = molecularDocumentSchema.parse(value);
   const hasSelections = (selections?.length ?? 0) > 0;
   const coordinateAssets: Record<string, string> = {};
@@ -260,24 +271,24 @@ export function serializeMolecularDocument(value: unknown): string {
           }
         : { ...snapshot, coordinates: pool(snapshot.coordinates) },
   }));
-  return (
-    JSON.stringify(
-      {
-        ...document,
-        coordinateAssets: Object.fromEntries(
-          Object.entries(coordinateAssets).sort(([a], [b]) => a.localeCompare(b))
-        ),
-        history,
-        ...(hasSelections ? { selections } : {}),
-      },
-      null,
-      2
-    ) + '\n'
-  );
+  return {
+    ...document,
+    coordinateAssets: Object.fromEntries(
+      Object.entries(coordinateAssets).sort(([a], [b]) => a.localeCompare(b))
+    ),
+    history,
+    ...(hasSelections ? { selections } : {}),
+  };
 }
 
-export function parseMolecularDocument(bytes: string): MolecularDocument {
-  const stored = storedDocumentSchema.parse(migrateMolecularDocument(JSON.parse(bytes)));
+export function serializeMolecularDocument(value: unknown): string {
+  const content = JSON.stringify(packMolecularDocument(value), null, 2) + '\n';
+  assertMolecularDocumentSize(utf8ByteLength(content));
+  return content;
+}
+
+export function unpackMolecularDocument(value: unknown): MolecularDocument {
+  const stored = storedDocumentSchema.parse(migrateMolecularDocument(value));
   const used = new Set<string>();
   const restore = <T extends { sha256: string }>(pointer: T) => {
     const text = stored.coordinateAssets[pointer.sha256];
@@ -309,10 +320,64 @@ export function parseMolecularDocument(bytes: string): MolecularDocument {
   });
 }
 
+export function parseMolecularDocument(bytes: string): MolecularDocument {
+  return unpackMolecularDocument(JSON.parse(bytes));
+}
+
+export function packedMolecularDocumentByteLength(document: StoredMolecularDocument): number {
+  const { coordinateAssets, ...metadata } = document;
+  const emptyPool = Object.fromEntries(Object.keys(coordinateAssets).map((key) => [key, '']));
+  const envelope = JSON.stringify({ ...metadata, coordinateAssets: emptyPool }, null, 2) + '\n';
+  return (
+    utf8ByteLength(envelope) +
+    Object.values(coordinateAssets).reduce((sum, text) => sum + jsonStringByteLength(text) - 2, 0)
+  );
+}
+
+export function assertMolecularDocumentStorage(
+  assets: readonly MolecularCoordinateText[],
+  previous?: MolecularDocument
+): number {
+  for (const asset of assets) assertMolecularCoordinateSize(asset);
+  const packed = previous && packMolecularDocument(previous);
+  const retained = new Set(Object.values(packed?.coordinateAssets ?? {}));
+  let minimumBytes = packed ? packedMolecularDocumentByteLength(packed) : 0;
+  assertMolecularDocumentSize(minimumBytes);
+  for (const text of new Set(assets.map((asset) => asset.text))) {
+    if (!retained.has(text)) {
+      minimumBytes += jsonStringByteLength(text);
+      assertMolecularDocumentSize(minimumBytes);
+    }
+  }
+  return minimumBytes;
+}
+
+export function molecularDocumentStorageStatus(
+  assets: readonly MolecularCoordinateText[],
+  previous?: MolecularDocument
+) {
+  const limits = {
+    maxCoordinateBytes: MOLECULAR_COORDINATE_MAX_BYTES,
+    maxDocumentBytes: MOLECULAR_DOCUMENT_MAX_BYTES,
+  };
+  try {
+    return {
+      ...limits,
+      status: 'available' as const,
+      minimumDocumentBytes: assertMolecularDocumentStorage(assets, previous),
+    };
+  } catch (error) {
+    if (!(error instanceof MolecularStorageError)) throw error;
+    return { ...limits, status: 'over-limit' as const, code: error.code, message: error.message };
+  }
+}
+
 export async function validateMolecularDocumentCoordinates(
   document: MolecularDocument
 ): Promise<void> {
-  for (const entry of document.history) await validateMolecularViewCoordinates(entry.snapshot);
+  const validated = new Map<string, MolecularView['coordinates']>();
+  for (const entry of document.history)
+    await validateMolecularViewCoordinates(entry.snapshot, validated);
 }
 
 export function savedSelectionRefsForDocument(saved: {

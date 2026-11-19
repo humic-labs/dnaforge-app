@@ -11,8 +11,10 @@ import { molecularDocumentOwner } from '../../../shared/molecular-document-owner
 import { molecularDocumentReferenceFor } from '../../../shared/molecular-document-reference';
 import {
   molecularDocumentSchema,
+  molecularDocumentStorageStatus,
   MOLECULAR_DOCUMENT_SCHEMA,
 } from '../../../shared/molecular-document';
+import { MOLECULAR_COORDINATE_MAX_BYTES } from '../../../shared/molecular-storage';
 import { coordinateDigest, type MolecularView } from '../../../shared/molecular-view';
 import {
   handleMolGetScene,
@@ -86,6 +88,7 @@ const readback = vi.hoisted(() => {
     inspectionReady: false,
     withPlugin: vi.fn(),
     scene: vi.fn(),
+    coordinateAssets: vi.fn(),
     capture: vi.fn(),
     ready: vi.fn(),
     validateGeometry: vi.fn(),
@@ -196,6 +199,7 @@ vi.mock('../../page/public/embeds/structure3d/molstar/molViewSpec', async (impor
   activeMolViewSpecScene: () => readback.sceneResult.scene,
   sameLoadedMolViewSpecScene: () => true,
   getMolViewSpecScene: () => readback.scene(),
+  activeMolViewSpecCoordinateAssets: readback.coordinateAssets,
   captureMolViewSpecView: readback.capture,
   waitForMolViewSpecViewReady: readback.ready,
   validateMolViewSpecViewGeometry: readback.validateGeometry,
@@ -209,9 +213,10 @@ vi.mock('../../../db/entity-references', async (importOriginal) => ({
 }));
 vi.mock('../../molecular-documents/public/services', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../molecular-documents/public/services')>()),
-  inspectMolecularDocumentBinding: vi.fn(async (attrs) => ({
+  inspectMolecularDocumentBinding: vi.fn(async (attrs, assets) => ({
     documentOwner: molecularDocumentOwner(attrs),
     documentReference: attrs.molecularDocumentReference,
+    ...(assets ? { documentStorage: molecularDocumentStorageStatus(assets) } : {}),
   })),
   saveMolecularDocumentSnapshot: (...args: unknown[]) => savedReferences.create(...args),
 }));
@@ -306,6 +311,10 @@ describe('molecular MCP readback integration', () => {
     );
     savedReferences.create.mockImplementation(savedDocumentResult);
     readback.scene.mockReturnValue(readback.sceneResult);
+    readback.coordinateAssets.mockReturnValue({
+      coordinates: { format: 'pdb', text: 'ATOM' },
+      pinnedAssets: [],
+    });
     readback.capture.mockImplementation(() => {
       throw Object.assign(new Error('Capture boundary reached'), { code: 'TEST_CAPTURE_BOUNDARY' });
     });
@@ -414,6 +423,29 @@ describe('molecular MCP readback integration', () => {
     assertMcpOutput(molListStructuresOutputSchema, result);
     expect(readback.scene).not.toHaveBeenCalled();
   });
+
+  it('reports an oversized coordinate source before scene authoring or save capture', async () => {
+    readback.coordinateAssets.mockReturnValue({
+      coordinates: { format: 'cif', text: 'x'.repeat(MOLECULAR_COORDINATE_MAX_BYTES + 1) },
+      pinnedAssets: [],
+    });
+    const scene = await handleMolGetScene({ structureViewId: 'view-a' });
+    assertMcpOutput(molGetSceneOutputSchema, scene);
+    expect(scene).toMatchObject({
+      ok: true,
+      documentStorage: { status: 'over-limit', code: 'MVS_VIEW_TOO_LARGE' },
+    });
+    const save = await handleMolSaveView({
+      structureViewId: 'view-a',
+      title: 'Large structure',
+      caption: '',
+      evidence: [],
+    });
+    expect(save).toMatchObject({ ok: false, code: 'MVS_VIEW_TOO_LARGE', stateChanged: false });
+    expect(readback.capture).not.toHaveBeenCalled();
+    expect(savedReferences.create).not.toHaveBeenCalled();
+  });
+
   it('returns validated saved-view, screenshot and story-step receipts from canonical handlers', async () => {
     allowSuccessfulCapture();
     const screenshot = await handleMolCaptureScreenshot({ structureViewId: 'view-a' });

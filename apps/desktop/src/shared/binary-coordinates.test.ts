@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-  BINARY_COORDINATE_TEXT,
+  isBinaryCoordinateText,
   binaryCoordinateBytes,
   binaryCoordinateText,
   coordinateStructureData,
@@ -16,7 +16,7 @@ const BCIF = new Uint8Array(
 describe('binary coordinates in molecular views ', () => {
   it('round-trips the exact bytes of a real binary CIF through base64 text', () => {
     const text = binaryCoordinateText(BCIF);
-    expect(BINARY_COORDINATE_TEXT.test(text)).toBe(true);
+    expect(isBinaryCoordinateText(text)).toBe(true);
     expect(binaryCoordinateBytes(text)).toEqual(BCIF);
     const everyByte = Uint8Array.from({ length: 256 }, (_, index) => index);
     expect(binaryCoordinateBytes(binaryCoordinateText(everyByte))).toEqual(everyByte);

@@ -33,6 +33,7 @@ import type { ComputeJobRegistry } from '../compute/jobs';
 import { canonicalWorkspacePath } from '../primer-artifact-files';
 import {
   MOLECULAR_DOCUMENT_SUFFIX,
+  MOLECULAR_DOCUMENT_MAX_BYTES,
   getCurrentMolecularSnapshot,
   parseMolecularDocument,
 } from '../../shared/molecular-document';
@@ -99,8 +100,15 @@ export class MolecularCatalogService implements MolecularCatalogAPI {
     let generation: { dev: number; ino: number; size: number; mtimeMs: number; ctimeMs: number };
     try {
       generation = await handle.stat();
-      if (!generation.size || generation.size > MOLECULAR_CATALOG_MAX_COORDINATE_BYTES)
-        throw new Error('Coordinate files must be between 1 byte and 64 MiB.');
+      const maxBytes = packaged
+        ? MOLECULAR_DOCUMENT_MAX_BYTES
+        : MOLECULAR_CATALOG_MAX_COORDINATE_BYTES;
+      if (!generation.size || generation.size > maxBytes)
+        throw new Error(
+          packaged
+            ? 'Molecular documents must be between 1 byte and 128 MiB.'
+            : 'Coordinate files must be between 1 byte and 64 MiB.'
+        );
 
       bytes = Buffer.alloc(generation.size);
       let offset = 0;

@@ -3,7 +3,7 @@ import { ENCODED_SEQUENCE_MAX_LENGTH, type EncodedMolecule } from './encoded-mol
 import type { FrozenComputeRequest, ProviderReportedComputeRequest } from './compute-request';
 
 export const MOLECULAR_CATALOG_NORMALIZER_VERSION = 1;
-export const MOLECULAR_CATALOG_MAX_COORDINATE_BYTES = 64 * 1024 * 1024;
+export { MOLECULAR_COORDINATE_MAX_BYTES as MOLECULAR_CATALOG_MAX_COORDINATE_BYTES } from './molecular-storage';
 export const molecularCatalogFormatSchema = z.enum(['pdb', 'cif', 'bcif']);
 export type MolecularCatalogFormat = z.infer<typeof molecularCatalogFormatSchema>;
 const identifier = z.string().min(1).max(4096);

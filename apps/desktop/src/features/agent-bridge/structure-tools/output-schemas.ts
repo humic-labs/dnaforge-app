@@ -477,11 +477,32 @@ export const molGetSceneOutputSchema = z.object({
   scientificReviewInventory: scientificInventory.optional(),
   featureExposureNotes: z.string().optional(),
   namedColorGroupSelections: z.array(namedGroupSelection).optional(),
+  documentStorage: z
+    .discriminatedUnion('status', [
+      z.object({
+        status: z.literal('available'),
+        maxCoordinateBytes: count,
+        maxDocumentBytes: count,
+        minimumDocumentBytes: count,
+      }),
+      z.object({
+        status: z.literal('over-limit'),
+        maxCoordinateBytes: count,
+        maxDocumentBytes: count,
+        code: z.enum(['MVS_VIEW_TOO_LARGE', 'MVS_DOCUMENT_TOO_LARGE']),
+        message: z.string(),
+      }),
+    ])
+    .optional()
+    .describe(
+      'Storage limits before authoring. The finished scene and preview also count toward the document limit.'
+    ),
 });
 export const molApplySceneOutputSchema = molGetSceneOutputSchema
   .omit({
     documentOwner: true,
     documentReference: true,
+    documentStorage: true,
   })
   .extend({
     rendered: z.literal(true),

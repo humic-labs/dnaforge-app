@@ -18,6 +18,7 @@ import {
 } from '../../shared/molecular-document';
 import { binaryCoordinateBytes } from '../../shared/binary-coordinates';
 import { isDefaultMolecularScene } from '../../shared/default-molecular-view';
+import { MOLECULAR_COORDINATE_MAX_BYTES } from '../../shared/molecular-storage';
 
 const PDB =
   'HEADER    TEST PROTEIN\nATOM      1  CA  ALA A   1      11.104  13.207   2.100  1.00 20.00           C\nEND\n';
@@ -108,13 +109,23 @@ describe('coordinate files become molecular view packages ', () => {
 
   it('keeps a coordinate file too large for a view and reports why', async () => {
     const path = join(tmp, 'huge.pdb');
-    writeFileSync(path, 'A'.repeat(8_000_001));
+    writeFileSync(path, Buffer.alloc(MOLECULAR_COORDINATE_MAX_BYTES + 1, 'A'));
     const removeSource = vi.fn();
     const result = await materializeCoordinatePackage(path, { removeSource });
     expect(result.converted).toBe(false);
-    expect(result).toHaveProperty('skippedReason', expect.stringMatching(/larger/i));
+    expect(result).toHaveProperty('skippedReason', expect.stringMatching(/64 MiB/i));
     expect(removeSource).not.toHaveBeenCalled();
     expect(existsSync(path)).toBe(true);
+  });
+
+  it('keeps a text coordinate file whose original bytes cannot be preserved in UTF-8', async () => {
+    const path = join(tmp, 'invalid.cif');
+    const bytes = Buffer.from([0xff, 0xfe]);
+    writeFileSync(path, bytes);
+    const removeSource = vi.fn();
+    expect((await materializeCoordinatePackage(path, { removeSource })).converted).toBe(false);
+    expect(removeSource).not.toHaveBeenCalled();
+    expect(readFileSync(path)).toEqual(bytes);
   });
 });
 

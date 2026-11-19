@@ -39101,6 +39101,58 @@
                   "required": ["label", "color", "selectable", "frontmostAtSampledCenters"],
                   "additionalProperties": false
                 }
+              },
+              "documentStorage": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": { "type": "string", "const": "available" },
+                      "maxCoordinateBytes": {
+                        "$ref": "#/properties/result/properties/story/properties/activeIndex"
+                      },
+                      "maxDocumentBytes": {
+                        "$ref": "#/properties/result/properties/story/properties/activeIndex"
+                      },
+                      "minimumDocumentBytes": {
+                        "$ref": "#/properties/result/properties/story/properties/activeIndex"
+                      }
+                    },
+                    "required": [
+                      "status",
+                      "maxCoordinateBytes",
+                      "maxDocumentBytes",
+                      "minimumDocumentBytes"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": { "type": "string", "const": "over-limit" },
+                      "maxCoordinateBytes": {
+                        "$ref": "#/properties/result/properties/story/properties/activeIndex"
+                      },
+                      "maxDocumentBytes": {
+                        "$ref": "#/properties/result/properties/story/properties/activeIndex"
+                      },
+                      "code": {
+                        "type": "string",
+                        "enum": ["MVS_VIEW_TOO_LARGE", "MVS_DOCUMENT_TOO_LARGE"]
+                      },
+                      "message": { "type": "string" }
+                    },
+                    "required": [
+                      "status",
+                      "maxCoordinateBytes",
+                      "maxDocumentBytes",
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                ],
+                "description": "Storage limits before authoring. The finished scene and preview also count toward the document limit."
               }
             },
             "required": [
@@ -39249,7 +39301,7 @@
     },
     {
       "name": "mol_save_view",
-      "description": "Before saving, use mol_activate_view for the exact structureViewId and confirm viewerStatus active through mol_get_state. Supply title, caption and evidence on every call. Evidence accepts actual public HTTP(S) URLs only; describe local-file evidence in the caption and use evidence: [] when none are available. Supply exactly one target identifier. Each save durably updates the owning molecular document and appends an immutable revision. A new unsaved document acquires a project file automatically. newPresentation:true explicitly creates a separate document copy. Old document references retain their exact revisions. Use changeSummary to describe a revision. Saving captures all named perspectives, not just the active one. Use mol_save_to_notebook with the returned documentReference to record that exact save in a notebook. Save the current authored MolViewSpec document or story to its owning project file and return a clickable document reference with native preview, active camera, pinned coordinates, caption and evidence URLs. Before authoring, name every view by what it shows. Supply a descriptive title and set metadata.title on every story snapshot; a collection title does not name its steps. Saving fails with MVS_VIEW_NAME_REQUIRED for missing or generic numbered names. Apply and verify the scene first. Required attachment-bond and geometry checks must pass; trial saves also require scientificReview from the final mol_get_scene.scientificReviewInventory. Inspect every final step and capture its screenshot through mol_capture_screenshot; use the returned scientificReviewScreenshot.id. Record the original question, each distinct step claim and selected evidence, its limitation, every exact visible group ID and biological role, cross-step continuity, and revision:{findings:[],changes:[],unresolved:[]} with concrete review outcomes. Changed scenes or cameras invalidate earlier receipts. Complete coverage enforces review accountability; it does not certify biological truth. Returns documentReference, revisionId, inlineLink, per-view document references and a derived referenceId when its cache is available. Chat and notebooks materialize native document chips automatically. Older attachments retain their original scene. Text PDB/mmCIF coordinates up to 8 MB per pinned resource are supported; story steps may use the listed pinned resources. Unsupported coordinates and unauthored legacy appearances fail explicitly. Do not print private locators or reference tokens in prose.",
+      "description": "Before saving, use mol_activate_view for the exact structureViewId and confirm viewerStatus active through mol_get_state. Supply title, caption and evidence on every call. Evidence accepts actual public HTTP(S) URLs only; describe local-file evidence in the caption and use evidence: [] when none are available. Supply exactly one target identifier. Each save durably updates the owning molecular document and appends an immutable revision. A new unsaved document acquires a project file automatically. newPresentation:true explicitly creates a separate document copy. Old document references retain their exact revisions. Use changeSummary to describe a revision. Saving captures all named perspectives, not just the active one. Use mol_save_to_notebook with the returned documentReference to record that exact save in a notebook. Save the current authored MolViewSpec document or story to its owning project file and return a clickable document reference with native preview, active camera, pinned coordinates, caption and evidence URLs. Before authoring, name every view by what it shows. Supply a descriptive title and set metadata.title on every story snapshot; a collection title does not name its steps. Saving fails with MVS_VIEW_NAME_REQUIRED for missing or generic numbered names. Apply and verify the scene first. Required attachment-bond and geometry checks must pass; trial saves also require scientificReview from the final mol_get_scene.scientificReviewInventory. Inspect every final step and capture its screenshot through mol_capture_screenshot; use the returned scientificReviewScreenshot.id. Record the original question, each distinct step claim and selected evidence, its limitation, every exact visible group ID and biological role, cross-step continuity, and revision:{findings:[],changes:[],unresolved:[]} with concrete review outcomes. Changed scenes or cameras invalidate earlier receipts. Complete coverage enforces review accountability; it does not certify biological truth. Returns documentReference, revisionId, inlineLink, per-view document references and a derived referenceId when its cache is available. Chat and notebooks materialize native document chips automatically. Older attachments retain their original scene. Check mol_get_scene.documentStorage before authoring. PDB, mmCIF and BinaryCIF sources can each hold up to 64 MiB of original coordinates. The 128 MiB document limit includes encoded coordinates, scenes, previews and saved revisions. Unsupported coordinates and unauthored legacy appearances fail explicitly. Do not print private locators or reference tokens in prose.",
       "inputSchema": {
         "type": "object",
         "properties": {

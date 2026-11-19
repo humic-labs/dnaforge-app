@@ -49,7 +49,7 @@ export async function validateMolecularViewCoordinates(view: MolecularView): Pro
   if (view.version === 2) {
     const { validateMolViewSpecScene } = await import('../molstar/molViewSpec');
     validateMolViewSpecScene(view.scene, [
-      view.coordinates.format === 'cif' ? 'structure.cif' : 'structure.pdb',
+      `structure.${view.coordinates.format}`,
       ...view.pinnedAssets.map((asset) => asset.name),
     ]);
   }

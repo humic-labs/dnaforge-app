@@ -3,8 +3,10 @@ import { molecularScientificReviewSchema } from './molecular-scientific-review';
 import {
   molecularViewSchema as legacyMolecularViewSchema,
   molecularViewEvidenceSchema,
+  molecularCoordinatesSchema,
 } from './molecular-view-schema';
-import { BINARY_COORDINATE_TEXT } from './binary-coordinates';
+import { binaryCoordinateBytes, isBinaryCoordinateText } from './binary-coordinates';
+import { assertMolecularCoordinateSize } from './molecular-storage';
 import {
   molecularDataDigest,
   validateMolecularDataMapping,
@@ -21,15 +23,7 @@ export {
   type MolecularComparison,
 } from './molecular-view-schema';
 
-export const MOLECULAR_VIEW_MAX_COORDINATE_BYTES = 8_000_000;
-
-const coordinateSchema = z
-  .object({
-    format: z.enum(['pdb', 'cif', 'bcif']),
-    text: z.string().min(1).max(MOLECULAR_VIEW_MAX_COORDINATE_BYTES),
-    sha256: z.string().regex(/^[0-9a-f]{64}$/),
-  })
-  .strict();
+export { MOLECULAR_COORDINATE_MAX_BYTES as MOLECULAR_VIEW_MAX_COORDINATE_BYTES } from './molecular-storage';
 
 const molecularViewBaseSchema = z
   .object({
@@ -39,7 +33,7 @@ const molecularViewBaseSchema = z
     scene: z.string().min(1).max(500_000),
     initialSnapshotIndex: z.number().int().nonnegative().optional(),
     cameraSnapshot: z.string().max(10_000).optional(),
-    coordinates: coordinateSchema,
+    coordinates: molecularCoordinatesSchema,
     source: legacyMolecularViewSchema.shape.source.extend({
       artifactEntityId: z.string().min(1).max(500).optional(),
       artifactRevisionId: z.string().min(1).max(500).optional(),
@@ -64,9 +58,9 @@ const molecularViewBaseSchema = z
       .optional(),
   })
   .strict();
-const pinnedAssetSchema = coordinateSchema.extend({
-  format: z.enum(['pdb', 'cif']),
-  name: z.string().regex(/^asset-[2-4]\.(?:pdb|cif)$/),
+export const PINNED_MOLECULAR_ASSET_NAME = /^asset-[2-4]\.(?:pdb|cif|bcif)$/;
+const pinnedAssetSchema = molecularCoordinatesSchema.extend({
+  name: z.string().regex(PINNED_MOLECULAR_ASSET_NAME),
   label: z.string().min(1).max(200),
   sourceReferenceId: z.string().uuid(),
 });
@@ -129,13 +123,14 @@ export function molecularViewFromReferenceData(data: string | null): MolecularVi
   }
 }
 
-export async function coordinateDigest(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+export async function coordinateDigest(value: string | BufferSource): Promise<string> {
+  const bytes = typeof value === 'string' ? new TextEncoder().encode(value) : value;
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 export function molecularViewSourceDigests(view: MolecularView): string[] {
-  const primary = view.coordinates.format === 'cif' ? 'structure.cif' : 'structure.pdb';
+  const primary = `structure.${view.coordinates.format}`;
   const digests = new Map([
     [primary, view.coordinates.sha256],
     ...(view.version === 2
@@ -157,7 +152,10 @@ export function molecularViewSourceDigests(view: MolecularView): string[] {
   return [...used];
 }
 
-export async function validateMolecularViewCoordinates(view: MolecularView): Promise<void> {
+export async function validateMolecularViewCoordinates(
+  view: MolecularView,
+  validated = new Map<string, MolecularView['coordinates']>()
+): Promise<void> {
   if (
     view.scientificReview &&
     (await coordinateDigest(view.scene)) !== view.scientificReview.savedSceneDigestSha256
@@ -165,12 +163,14 @@ export async function validateMolecularViewCoordinates(view: MolecularView): Pro
     throw new Error('Saved scientific review digest does not match its exact scene.');
   const assets = [view.coordinates, ...(view.version === 2 ? view.pinnedAssets : [])];
   for (const asset of assets) {
-    if (new TextEncoder().encode(asset.text).byteLength > MOLECULAR_VIEW_MAX_COORDINATE_BYTES)
-      throw new Error('Saved molecular coordinates exceed the snapshot size limit.');
+    const previous = validated.get(asset.sha256);
+    if (previous?.format === asset.format && previous.text === asset.text) continue;
+    assertMolecularCoordinateSize(asset);
+    if (asset.format === 'bcif' && !isBinaryCoordinateText(asset.text))
+      throw new Error('Saved binary coordinates are not valid base64.');
     if ((await coordinateDigest(asset.text)) !== asset.sha256)
       throw new Error('Saved molecular coordinate digest does not match its pinned bytes.');
-    if (asset.format === 'bcif' && !BINARY_COORDINATE_TEXT.test(asset.text))
-      throw new Error('Saved binary coordinates are not valid base64.');
+    validated.set(asset.sha256, asset);
   }
   if (view.molecularData) {
     for (const dataset of view.molecularData.datasets) {
@@ -227,11 +227,8 @@ export async function validateMolecularViewCoordinates(view: MolecularView): Pro
     if (comparison.coordinateSha256 !== view.coordinates.sha256)
       throw new Error('Saved comparison provenance names different molecular coordinates.');
     for (const input of [comparison.reference, comparison.alternate]) {
-      if (
-        new TextEncoder().encode(input.coordinates.text).length >
-          MOLECULAR_VIEW_MAX_COORDINATE_BYTES ||
-        (await coordinateDigest(input.coordinates.text)) !== input.coordinates.sha256
-      )
+      assertMolecularCoordinateSize(input.coordinates);
+      if ((await coordinateDigest(input.coordinates.text)) !== input.coordinates.sha256)
         throw new Error('A saved comparison source does not match its pinned coordinate bytes.');
       if (
         input.prediction &&
@@ -265,7 +262,10 @@ export async function validateMolecularViewCoordinates(view: MolecularView): Pro
     throw new Error('Saved prediction provenance names different molecular coordinates.');
   if (
     view.source.catalogObservation &&
-    view.source.catalogObservation.coordinateSha256 !== view.coordinates.sha256
+    view.source.catalogObservation.coordinateSha256 !== view.coordinates.sha256 &&
+    (view.coordinates.format !== 'bcif' ||
+      view.source.catalogObservation.coordinateSha256 !==
+        (await coordinateDigest(binaryCoordinateBytes(view.coordinates.text))))
   )
     throw new Error('Saved structure provenance names different molecular coordinates.');
 
