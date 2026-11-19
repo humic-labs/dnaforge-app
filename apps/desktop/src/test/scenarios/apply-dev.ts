@@ -1299,7 +1299,9 @@ async function applyMaterializedScenario(
         },
         { inPlace: true }
       );
-      await reconcileWorkspaceAfterFilesChanged({ workspaceRoot: folder.path, strict: true });
+      if (!folder.pinned) {
+        await reconcileWorkspaceAfterFilesChanged({ workspaceRoot: folder.path, strict: true });
+      }
     }
     if (runtimeScenario.workspace?.selectedPath) {
       useWorkspaceStore.getState().revealPath(runtimeScenario.workspace.selectedPath);

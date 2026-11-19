@@ -1285,9 +1285,18 @@ describe('applyScenarioDev', () => {
       expect.objectContaining({ name: 'test-fixtures', pinned: true }),
       { inPlace: true }
     );
-    expect(
-      useWorkspaceStore.getState().folders.find((folder) => folder.name === 'test-fixtures')?.pinned
-    ).toBe(true);
+    const folders = useWorkspaceStore.getState().folders;
+    const reference = folders.find((folder) => folder.name === 'test-fixtures');
+    const writable = folders.find((folder) => folder.name === 'Writable project');
+    expect(reference?.pinned).toBe(true);
+    expect(writable).toBeDefined();
+    expect(reconcileWorkspaceAfterFilesChangedMock).toHaveBeenCalledWith({
+      workspaceRoot: writable!.path,
+      strict: true,
+    });
+    expect(reconcileWorkspaceAfterFilesChangedMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceRoot: reference!.path })
+    );
   });
 
   it('stages reference fixtures without writing through a registered read-only owner', async () => {
