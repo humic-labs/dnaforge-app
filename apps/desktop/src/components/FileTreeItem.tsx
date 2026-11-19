@@ -517,9 +517,7 @@ function FilesystemTreeItem({
         isSelected={isSelected}
         isExpanded={entry.isDirectory ? isExpanded : undefined}
         isLoading={entry.isDirectory ? entry.isLoading : undefined}
-        className={[entry.isBiologyFile ? 'font-medium' : '', isRenaming ? 'bg-bg-muted' : '']
-          .filter(Boolean)
-          .join(' ')}
+        className={`${entry.isBiologyFile ? 'font-medium' : ''}${isRenaming ? ' bg-bg-muted' : ''}`}
         icon={
           entry.isDirectory ? (
             <FolderIcon expanded={isExpanded} className="w-4 h-4 flex-shrink-0" />

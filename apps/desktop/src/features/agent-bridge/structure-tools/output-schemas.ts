@@ -642,7 +642,8 @@ export const molSaveViewOutputSchema = z.object({
   structureViewId: z.string(),
   documentReference: molecularDocumentReferenceSchema,
   activeViewReference: molecularDocumentReferenceSchema,
-  inlineLink: z.string(),
+  // External clients receive the document reference without the in-app link.
+  inlineLink: z.string().optional(),
   molecularDocumentId: z.string().uuid(),
   molecularDocumentReference: molecularDocumentReferenceSchema,
   molecularDocumentProjectId: z.string(),

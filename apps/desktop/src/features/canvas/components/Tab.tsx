@@ -3,6 +3,7 @@ import type { TabType } from '../types';
 import type { TabStripPresentation } from '../tab-menu-presentation';
 import { stripDisplayExtension } from '../../../utils/fileTypes';
 import { entityColorFamily, type EntityColorContext } from '../../../shared/entity-color-family';
+import { userMessage } from '@waypoint/user-messages';
 
 const TAB_TYPES_SHOWING_RAW_LABEL: ReadonlySet<TabType> = new Set(['sequence', 'chat', 'record']);
 import type { GitFileStatus } from '../../workspace/public/git';
@@ -106,6 +107,7 @@ export function getTabIconForTab(
   tab: TabStripPresentation,
   className = 'w-3.5 h-3.5 flex-shrink-0'
 ) {
+  if (tab.molecularDocumentStatus) return getTabIcon('file', className);
   if (tab.type === 'structure' && tab.isMolecularDocument)
     return iconForEntityKind('molecular-document', className, {
       ...tab.iconContext,
@@ -357,6 +359,16 @@ export const Tab = React.memo(function Tab({
             {TAB_TYPES_SHOWING_RAW_LABEL.has(tab.type)
               ? tab.label
               : stripDisplayExtension(tab.label)}
+          </span>
+        )}
+        {!isEditing && tab.molecularDocumentStatus && (
+          <span
+            data-document-availability={tab.molecularDocumentStatus}
+            className="flex-shrink-0 whitespace-nowrap text-xs text-fg-subtle"
+          >
+            {userMessage(
+              tab.molecularDocumentStatus === 'checking' ? 'document.checking' : 'document.cannotOpen'
+            )}
           </span>
         )}
         {!isEditing && (

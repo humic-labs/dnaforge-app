@@ -122,6 +122,59 @@ def test_external_reference_results_publish_the_qualified_public_link():
     assert body["result"]["inlineLink"] == private
 
 
+def test_external_molecular_save_returns_a_valid_receipt_without_an_in_app_link():
+    from jsonschema import Draft202012Validator
+    from src.concurrency.renderer_bridge import load_renderer_tool_manifest
+
+    reference = {
+        "kind": "molecular-document",
+        "version": 1,
+        "projectId": "fixture-project",
+        "documentId": "11111111-1111-4111-8111-111111111111",
+        "revisionId": "22222222-2222-4222-8222-222222222222",
+        "revisionSha256": "a" * 64,
+    }
+    saved = {
+        "ok": True,
+        "referenceId": reference["revisionId"],
+        "revisionId": reference["revisionId"],
+        "structureViewId": "saved-structure",
+        "documentReference": reference,
+        "activeViewReference": reference,
+        "inlineLink": "dnaforge-chat://molecular-document/fixture-project",
+        "molecularDocumentId": reference["documentId"],
+        "molecularDocumentReference": reference,
+        "molecularDocumentProjectId": reference["projectId"],
+        "molecularDocumentPath": "/fixture/Example.dnaforge-molecular.json",
+        "molecularDocumentRevision": "b" * 64,
+        "molecularDocumentSavedReferenceId": reference["revisionId"],
+        "title": "Example",
+        "caption": "",
+        "evidence": [],
+        "coordinateDigestSha256": "c" * 64,
+        "format": "mvsj",
+        "message": "Saved the molecular document.",
+    }
+    receipt = project_call_result(
+        200,
+        {
+            "ok": True,
+            "jobId": "save-job",
+            "status": "completed",
+            "result": {"ok": True, "result": saved},
+        },
+    )
+    tool = next(
+        tool
+        for tool in load_renderer_tool_manifest()["tools"]
+        if tool["name"] == "mol_save_view"
+    )
+    assert receipt.is_error is False
+    assert receipt.structured_content["result"]["documentReference"] == reference
+    assert "inlineLink" not in receipt.structured_content["result"]
+    Draft202012Validator(tool["outputSchema"]).validate(receipt.structured_content)
+
+
 def test_external_results_preserve_notebook_content_and_remove_unqualified_links():
     private = "dnaforge-chat://reference/ref-1"
     document = {

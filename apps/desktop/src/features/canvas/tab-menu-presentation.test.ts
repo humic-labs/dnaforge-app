@@ -5,6 +5,7 @@ import {
   type TabMenuPresentation,
   type TabStripPresentation,
 } from './tab-menu-presentation';
+import type { Tab } from './types';
 
 describe('tab menu projection', () => {
   it('preserves a protein entity color when its editor is a record', () => {
@@ -51,6 +52,24 @@ describe('tab menu projection', () => {
     });
     expect(tab).toMatchObject({ isMolecularDocument: true });
     expect(tab).not.toHaveProperty('initialStructureAttrs');
+  });
+  it('keeps a restored molecular tab checking until it loads or reports a read failure', () => {
+    const saved: Tab = {
+      id: 'molecular-tab',
+      type: 'structure',
+      entityId: 'molecular:one',
+      label: 'Molecular view',
+      initialStructureAttrs: {
+        source: 'file',
+        molecularDocumentId: 'document-one',
+        molecularDocumentPath: '/fixture/Molecular view.dnaforge-molecular.json',
+      },
+    };
+    expect(projectTabStripTab(saved).molecularDocumentStatus).toBe('checking');
+    expect(
+      projectTabStripTab({ ...saved, structureRenderError: 'The saved file is damaged.' })
+        .molecularDocumentStatus
+    ).toBe('blocked');
   });
   it('projects tab identity and color context without source authority', () => {
     expect(
