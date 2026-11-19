@@ -1,6 +1,9 @@
 import { platform } from '../../platform';
 import type { HandlerFamilyId } from '../../shared/file-associations';
-import type { ExternalPreviewReceipt } from '../../shared/file-association-ipc';
+import type {
+  ExternalPreviewReceipt,
+  PromoteQuickLookPackageRequest,
+} from '../../shared/file-association-ipc';
 import type { DedupPreviewItem } from '../../shared/import-dedup';
 import type { ImportFileRequest, ImportFileResult } from '../../shared/workspace-git-types';
 
@@ -62,15 +65,30 @@ export class ImportPackageSession {
         sourcePath: await this.verifiedInput(request.sourcePath),
       });
     }
-    const result = await platform().fileAssociations.savePreview({
-      receipt: source.receipt,
-      destination: { kind: 'existing-workspace', rootPath: request.targetRoot },
-    });
+    return (
+      await this.save(source.receipt, { kind: 'existing-workspace', rootPath: request.targetRoot })
+    ).file;
+  }
+
+  async importNewWorkspace(sourcePath: string, name: string) {
+    const source = await this.sources.get(sourcePath);
+    if (!source) throw new Error('The reviewed file package is unavailable.');
+    return this.save(source.receipt, { kind: 'new-workspace', name });
+  }
+
+  private async save(
+    receipt: ExternalPreviewReceipt,
+    destination: PromoteQuickLookPackageRequest['destination']
+  ) {
+    const result = await platform().fileAssociations.savePreview({ receipt, destination });
     return {
-      destPath: result.destPath,
-      relPath: result.relPath,
-      committed: result.committed,
-      packageProductPaths: result.records.map((record) => record.destPath),
+      workspaceRoot: result.workspaceRoot,
+      file: {
+        destPath: result.destPath,
+        relPath: result.relPath,
+        committed: result.committed,
+        packageProductPaths: result.records.map((record) => record.destPath),
+      },
     };
   }
 

@@ -124,6 +124,7 @@ export function useImportWizard(): ImportWizardController {
           importFolder: (r) => platform().workspace.importFolder(r),
           importManaged: (r) => platform().workspace.importManaged({ sourcePath: r.sourcePath }),
           importFileAsNewWorkspace: (r) => platform().workspace.importFileAsNewWorkspace(r),
+          importCapturedFileAsNewWorkspace: packages?.importNewWorkspace.bind(packages),
           createEmptyWorkspace: (r) => platform().workspace.createEmptyWorkspace(r),
           registerImportedSequence: async (r) =>
             platform().workspace.registerImportedSequence({
