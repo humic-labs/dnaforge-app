@@ -40,6 +40,10 @@ import {
 
 const EXCLUDED_DIRS = new Set(['.git', 'node_modules', '.svn', '.hg', '__pycache__']);
 
+function isComputeResultDirectory(name: string): boolean {
+  return name === 'compute' || isRecoveredComputeResultDirectory(name);
+}
+
 const INDEXED_FASTA_SUFFIX = /\.(?:fa|fasta|fna|ffn|frn)$/iu;
 const REFERENCE_ANNOTATION_SUFFIX = /\.gff3?(?:\.gz)?$/iu;
 
@@ -257,6 +261,7 @@ async function containedWorkspaceFile(rootDir: string, sourcePath: string): Prom
 
 export type LooseSequenceFileInspection =
   | { state: 'not-sequence'; reason: string | null }
+  | { state: 'owned'; reason: null }
   | { state: 'convertible'; reason: null }
   | {
       state: 'recoverable';
@@ -279,6 +284,8 @@ export async function inspectLooseSequenceFile(
 ): Promise<LooseSequenceFileInspection> {
   const sourcePath = await containedWorkspaceFile(rootDir, requestedPath);
   if (!isConstructSequenceFile(sourcePath)) return { state: 'not-sequence', reason: null };
+  if (isComputeResultDirectory(relative(rootDir, sourcePath).split(sep)[0]))
+    return { state: 'owned', reason: null };
   const preview = await previewImportedSequencePackages(sourcePath);
   if (preview.kind === 'ready') return { state: 'convertible', reason: null };
   if (preview.canConfirmDnaIdentity && preview.sourceSha256) {
@@ -316,6 +323,8 @@ export async function convertLooseSequenceFile(
       disposition: 'source-only',
     };
   }
+  if (isComputeResultDirectory(relative(rootDir, sourcePath).split(sep)[0]))
+    return { converted: false, packageRoots: [], reason: null, disposition: 'owned' };
   const protectedPaths = options.automatic
     ? [...(options.protectedPaths ?? []), ...(await declaredNativeMigrationPaths(rootDir))]
     : options.protectedPaths;
@@ -630,12 +639,7 @@ async function collectConstructFiles(
           await recoverInterruptedConversion(join(dirPath, entry.name), isReferenceFasta);
           continue;
         }
-        if (
-          depth === 0 &&
-          (entry.name === 'compute' ||
-            entry.name === 'test-fixtures' ||
-            isRecoveredComputeResultDirectory(entry.name))
-        )
+        if (depth === 0 && (entry.name === 'test-fixtures' || isComputeResultDirectory(entry.name)))
           continue;
         if (EXCLUDED_DIRS.has(entry.name) || entry.name.startsWith('.')) continue;
         await walk(join(dirPath, entry.name), depth + 1);

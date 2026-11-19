@@ -24,6 +24,7 @@ export interface InspectLooseSequenceFileRequest {
 
 export type InspectLooseSequenceFileResponse =
   | { readonly state: 'not-sequence'; readonly reason: string | null }
+  | { readonly state: 'owned'; readonly reason: null }
   | { readonly state: 'convertible'; readonly reason: null }
   | {
       readonly state: 'recoverable';

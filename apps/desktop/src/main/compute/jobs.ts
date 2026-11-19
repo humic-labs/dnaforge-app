@@ -213,6 +213,10 @@ export class ComputeJobRegistry {
   private timer: { cancel: () => void } | null = null;
   private polling = false;
   private stopped = false;
+  private readonly activeRecoveries = new Map<
+    string,
+    { db: Database.Database; result: Promise<ComputeRecoveryResult> }
+  >();
   private readonly recoveringResults = new Set<string>();
   private readonly requestedRecoveryRetries = new Set<string>();
   private readonly recoveryTails = new Map<string, Promise<void>>();
@@ -598,9 +602,29 @@ export class ComputeJobRegistry {
     }
   }
 
-  private recoverImportedResult(job: ComputeJobRecord): void {
+  async recoverLegacyResult(job: ComputeJobRecord): Promise<ComputeRecoveryResult> {
     const recover = this.deps.recoverLegacyResult;
-    if (!recover || this.stopped || !job.workspaceRoot || !job.remoteId) return;
+    if (!recover) throw new Error('Compute recovery is unavailable.');
+    const db = this.deps.db();
+    const assertCurrent = () => {
+      if (this.stopped || this.deps.db() !== db) throw new Error('COMPUTE_MIGRATION_OWNER_CHANGED');
+    };
+    assertCurrent();
+    const active = this.activeRecoveries.get(job.id);
+    if (active?.db === db) return active.result;
+    const result = recover(job, assertCurrent);
+    this.activeRecoveries.set(job.id, { db, result });
+    try {
+      return await result;
+    } finally {
+      if (this.activeRecoveries.get(job.id)?.result === result)
+        this.activeRecoveries.delete(job.id);
+    }
+  }
+
+  private recoverImportedResult(job: ComputeJobRecord): void {
+    if (!this.deps.recoverLegacyResult || this.stopped || !job.workspaceRoot || !job.remoteId)
+      return;
     const root = job.workspaceRoot;
     const source = `${root.replace(/\\/g, '/').replace(/\/+$/, '')}/compute/${job.provider}/${job.remoteId}/`;
     if (
@@ -627,7 +651,7 @@ export class ComputeJobRegistry {
         !current.importedPaths.some((path) => path.replace(/\\/g, '/').startsWith(source))
       )
         return;
-      await recover(current, assertCurrent);
+      await this.recoverLegacyResult(current);
       assertCurrent();
       db.prepare(
         "UPDATE compute_jobs SET last_error=NULL WHERE id=? AND state='imported' AND last_error LIKE 'Automatic result conversion remains pending:%'"
