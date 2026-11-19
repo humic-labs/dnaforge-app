@@ -58,14 +58,12 @@ export function advanceReadVisibleMembershipJob(
   const now = options?.now ?? monotonicNow;
   const startedAt = workBudgetMs === undefined ? 0 : now();
   let consumed = 0;
+  let budgetCheckedItems = 0;
   while (!job.complete && consumed < maxItems) {
-    if (
-      workBudgetMs !== undefined &&
-      consumed > 0 &&
-      consumed % 4 === 0 &&
-      now() - startedAt >= workBudgetMs
-    )
-      break;
+    if (workBudgetMs !== undefined && consumed - budgetCheckedItems >= 4) {
+      budgetCheckedItems = consumed;
+      if (now() - startedAt >= workBudgetMs) break;
+    }
     if (job.candidateNext === null && !job.candidateDone) {
       if (job.candidateCursor < job.candidate.length) {
         const index = job.candidateCursor++;

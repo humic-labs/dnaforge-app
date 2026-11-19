@@ -85,4 +85,34 @@ describe('current visible read membership', () => {
     expect(compare([read(0, 10)], [read(200, 210)])).toBe(true);
     expect(compare([], [], 200, 100)).toBe(false);
   });
+
+  it('does not read the clock again without consuming more input', () => {
+    const shared = Array.from({ length: 32 }, (_, i) => read(100 + i, 200 + i));
+    const job = beginReadVisibleMembershipJob(shared, [...shared], 100, 400);
+    const checkedItems: number[] = [];
+    advanceReadVisibleMembershipJob(job, Number.POSITIVE_INFINITY, {
+      workBudgetMs: 2,
+      now: () => {
+        checkedItems.push(job.candidateCursor + job.incomingCursor);
+        return 0;
+      },
+    });
+    expect(checkedItems).toEqual(Array.from({ length: 17 }, (_, i) => i * 4));
+    expect(finishReadVisibleMembershipJob(job)).toBe(true);
+  });
+
+  it.each([100, 2000])('yields long matching scans with viewport starting at %i', (start) => {
+    const shared = Array.from({ length: 1000 }, (_, i) => read(100 + i, 200 + i));
+    const job = beginReadVisibleMembershipJob(shared, [...shared], start, start + 1400);
+    let checks = 0;
+    const consumed = advanceReadVisibleMembershipJob(job, Number.POSITIVE_INFINITY, {
+      workBudgetMs: 2,
+      now: () => checks++,
+    });
+    expect(consumed).toBe(8);
+    expect(job.candidateCursor + job.incomingCursor).toBe(8);
+    expect(isReadVisibleMembershipJobComplete(job)).toBe(false);
+    advanceReadVisibleMembershipJob(job, Number.POSITIVE_INFINITY);
+    expect(finishReadVisibleMembershipJob(job)).toBe(true);
+  });
 });
