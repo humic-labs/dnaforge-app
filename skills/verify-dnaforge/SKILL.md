@@ -8,6 +8,8 @@ description:
 
 # Verify DNAForge desktop workflows
 
+For release and usage analytics notices, follow the [desktop relaunch checks](features/desktop-notices.md).
+
 Choose the [saved pileup map](features/saved-pileup.md) for read loading,
 annotations, zoom transitions and performance. Its source-start command owns
 launch, readiness checks and cleanup. Choose the
