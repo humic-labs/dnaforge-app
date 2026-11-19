@@ -2,6 +2,7 @@ name: Contributor License Agreement
 
 on:
   pull_request:
+  merge_group:
 
 permissions:
   contents: read
@@ -14,15 +15,20 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Fetch the pull request's commits as data
         env:
           PR: ${{ github.event.pull_request.number }}
+          QUEUE_REF: ${{ github.event.merge_group.head_ref }}
           TOKEN: ${{ github.token }}
         run: |
+          if [ -z "$PR" ]; then
+            PR=$(printf '%s' "$QUEUE_REF" | sed -nE 's#^refs/heads/gh-readonly-queue/[^/]+/pr-([0-9]+)-[0-9a-f]+$#\1#p')
+          fi
+          [[ "$PR" =~ ^[0-9]+$ ]]
           AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
           git -c "http.https://github.com/.extraheader=$AUTH" fetch --no-tags origin "+refs/pull/${PR}/head:refs/remotes/pull/head"
 
@@ -32,6 +38,6 @@ jobs:
 
       - name: Check Signed-off-by lines with the base branch's checker
         env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: node .github/scripts/check-cla-sign-off.mjs "$BASE" "$HEAD"
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node .github/scripts/check-cla-sign-off.mjs "$BASE" "${HEAD_SHA:-$(git rev-parse refs/remotes/pull/head)}"
