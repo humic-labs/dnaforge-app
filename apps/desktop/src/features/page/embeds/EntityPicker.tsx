@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/shared/components/Button';
+import { Button as ActionButton } from '../../../components/ui';
 import { Input } from '@/shared/components/Input';
 import { MenuRow, MenuSurface } from '@waypoint/ui-components';
 import {
@@ -161,16 +162,18 @@ export function EntityPicker({
       {(error || discovery.error) && (
         <div role="alert" className="text-sm text-fg-muted">
           {error ?? discovery.error}
-          <button
-            type="button"
-            className="ml-2 text-fg underline"
-            onClick={() => {
-              setError(null);
-              discovery.retry();
-            }}
-          >
-            Refresh
-          </button>
+          <span className="ml-2 text-fg">
+            <ActionButton
+              type="button"
+              variant="link"
+              onClick={() => {
+                setError(null);
+                discovery.retry();
+              }}
+            >
+              Refresh
+            </ActionButton>
+          </span>
         </div>
       )}
       <div className="flex justify-end gap-2">

@@ -1,4 +1,3 @@
-import type { IconProps } from '../../../components/icons/types';
 import type { NotebookLayoutChoice } from '../editor/extensions/notebook-layout';
 
 const DIVIDERS: Readonly<Record<NotebookLayoutChoice, readonly number[]>> = {
@@ -12,8 +11,10 @@ const DIVIDERS: Readonly<Record<NotebookLayoutChoice, readonly number[]>> = {
 export function NotebookLayoutIcon({
   layout,
   size = 16,
-  className,
-}: IconProps & { layout: NotebookLayoutChoice }) {
+}: {
+  size?: number;
+  layout: NotebookLayoutChoice;
+}) {
   return (
     <svg
       width={size}
@@ -25,7 +26,6 @@ export function NotebookLayoutIcon({
       strokeWidth="1.7"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={className}
       aria-hidden="true"
       focusable="false"
     >

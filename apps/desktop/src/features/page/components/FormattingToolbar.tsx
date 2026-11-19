@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { ColorPalette } from './ColorPalette';
+import { Button, UI_TOOLBAR_CODE_CLASS } from '../../../components/ui';
 import { NotebookLayoutControl } from './NotebookLayoutControl';
 import { FORMATTING_ICONS } from '../editor/lib/formatting-icons';
 import type { Editor } from '@tiptap/react';
@@ -145,7 +146,7 @@ export function FormattingToolbar({ editor }: FormattingToolbarProps) {
           tooltip="Inline Code"
           shortcut={formatShortcut(['cmd', 'e'])}
         >
-          <span className="font-mono text-[10px]">&lt;/&gt;</span>
+          <span className={UI_TOOLBAR_CODE_CLASS}>&lt;/&gt;</span>
         </ToolbarButton>
         <ColorControl
           kind="highlight"
@@ -249,7 +250,7 @@ export function FormattingToolbar({ editor }: FormattingToolbarProps) {
           tooltip="Code Block"
           shortcut={formatShortcut(['cmd', 'alt', 'c'])}
         >
-          <span className="font-mono text-[10px]">{FORMATTING_ICONS.code}</span>
+          <span className={UI_TOOLBAR_CODE_CLASS}>{FORMATTING_ICONS.code}</span>
         </ToolbarButton>
       </ToolbarGroup>
 
@@ -288,14 +289,12 @@ function ColorControl({
   return (
     <div className="flex items-center">
       <Tooltip content={shortcut ? `${label} (${shortcut})` : label}>
-        <button
+        <Button
           type="button"
           data-testid={`toolbar-${kind}`}
           aria-pressed={isActive}
           onClick={onToggle}
-          className={`px-1.5 py-0.5 rounded text-xs transition-none ${
-            isActive ? 'bg-accent text-accent-fg' : 'wp-interactive'
-          }`}
+          variant="toolbar-color"
         >
           <span
             className="px-0.5 rounded-[2px]"
@@ -307,7 +306,7 @@ function ColorControl({
           >
             A
           </span>
-        </button>
+        </Button>
       </Tooltip>
       <ColorPalette
         label={isHighlight ? `${label} color` : label}
@@ -333,20 +332,16 @@ function ToolbarButton({ isActive, onClick, tooltip, shortcut, children }: Toolb
 
   return (
     <Tooltip content={label} side="bottom">
-      <button
+      <Button
         type="button"
         onMouseDown={(event) => event.preventDefault()}
         onClick={onClick}
         aria-pressed={isActive}
         aria-label={tooltip}
-        className={`
-          w-7 h-7 flex items-center justify-center rounded text-xs
-          transition-none
-          ${isActive ? 'bg-accent text-accent-fg' : 'text-fg wp-interactive'}
-        `}
+        variant="toolbar-toggle"
       >
         {children}
-      </button>
+      </Button>
     </Tooltip>
   );
 }

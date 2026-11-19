@@ -25,6 +25,9 @@ import {
   UI_FIELD_CLASS,
   UI_ICON_BUTTON_CLASS,
   UI_LINK_BUTTON_CLASS,
+  UI_LIST_ACTION_CLASS,
+  UI_TOOLBAR_SELECT_TRIGGER_CLASS,
+  toolbarToggleClass,
   UI_PRIMARY_BUTTON_CLASS,
   UI_PROSE_WRAP_CLASS,
   UI_READONLY_FIELD_CLASS,
@@ -85,15 +88,22 @@ export function ColumnResizeHandle({
 
 export const TextField = forwardRef<
   HTMLInputElement,
-  Omit<ComponentPropsWithoutRef<'input'>, 'className' | 'style'> & { monospace?: boolean }
->(function TextField({ monospace = false, ...props }, ref) {
+  Omit<ComponentPropsWithoutRef<'input'>, 'className' | 'style'> & {
+    monospace?: boolean;
+    variant?: 'field' | 'inline-reference';
+  }
+>(function TextField({ monospace = false, variant = 'field', ...props }, ref) {
   return (
     <input
       {...withoutAppearance(props)}
       ref={ref}
       data-ui-control="input"
       data-settings-control="input"
-      className={`${props.readOnly ? UI_READONLY_FIELD_CLASS : UI_FIELD_CLASS}${monospace ? ' font-mono' : ''}`}
+      className={
+        variant === 'inline-reference'
+          ? 'notebook-reference-input'
+          : `${props.readOnly ? UI_READONLY_FIELD_CLASS : UI_FIELD_CLASS}${monospace ? ' font-mono' : ''}`
+      }
     />
   );
 });
@@ -115,10 +125,25 @@ export function TextArea({
 export const Button = forwardRef<
   HTMLButtonElement,
   Omit<ComponentPropsWithoutRef<'button'>, 'className' | 'style'> & {
-    variant?: 'primary' | 'secondary' | 'danger' | 'icon' | 'link' | 'appbar';
+    variant?:
+      | 'primary'
+      | 'secondary'
+      | 'danger'
+      | 'icon'
+      | 'link'
+      | 'appbar'
+      | 'list-action'
+      | 'toolbar'
+      | 'toolbar-toggle'
+      | 'toolbar-color';
   }
 >(function Button({ variant = 'secondary', type = 'button', ...props }, ref) {
+  const pressed = props['aria-pressed'] === true || props['aria-pressed'] === 'true';
   const styles = {
+    'list-action': UI_LIST_ACTION_CLASS,
+    toolbar: `${UI_TOOLBAR_SELECT_TRIGGER_CLASS} shrink-0 aria-pressed:bg-accent-subtle aria-pressed:text-accent`,
+    'toolbar-toggle': toolbarToggleClass(pressed, false),
+    'toolbar-color': toolbarToggleClass(pressed, true),
     primary: UI_PRIMARY_BUTTON_CLASS,
     secondary: UI_SECONDARY_BUTTON_CLASS,
     danger: UI_DANGER_BUTTON_CLASS,

@@ -44,6 +44,7 @@ export interface EntityReferenceChipProps {
   preserveExtension?: boolean;
   detail?: unknown;
   primaryAction?: EntityReferenceAction;
+  isolateActivation?: boolean;
   busy?: boolean;
   onOpen?: () => void | Promise<void>;
   onReveal?: () => void | Promise<void>;
@@ -73,6 +74,7 @@ function EntityReferenceChipInner({
   label,
   preserveExtension = false,
   primaryAction,
+  isolateActivation = false,
   busy = false,
   onOpen,
   onReveal,
@@ -265,7 +267,19 @@ function EntityReferenceChipInner({
           setHovered(true);
         }}
         onMouseLeave={() => setHovered(false)}
-        onClick={runPrimaryAction}
+        onMouseDown={
+          isolateActivation
+            ? (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }
+            : undefined
+        }
+        onDoubleClick={isolateActivation ? (event) => event.stopPropagation() : undefined}
+        onClick={(event) => {
+          if (isolateActivation) event.stopPropagation();
+          runPrimaryAction();
+        }}
         onContextMenu={(event) => {
           if (actions.length === 0) return;
           event.preventDefault();

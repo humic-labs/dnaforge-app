@@ -1,3 +1,4 @@
+import { TextField } from '../../../../components/ui';
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -55,13 +56,13 @@ function ReferenceDraft({ editor, node, getPos, extension }: NodeViewProps) {
         data-entity-query=""
         data-tab-start=""
         data-tab-end=""
-        className="text-accent"
+        className="wp-inline-query text-accent"
       >
         @
-        <input
+        <TextField
           ref={input}
           aria-label="Edit reference"
-          className="notebook-reference-input"
+          variant="inline-reference"
           value={page.query}
           autoComplete="off"
           spellCheck={false}

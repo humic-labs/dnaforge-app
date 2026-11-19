@@ -80,6 +80,13 @@ export const UI_READONLY_FIELD_CLASS =
 export const UI_TOOLBAR_SELECT_TRIGGER_CLASS =
   'h-7 flex items-center justify-center gap-1 rounded px-1.5 text-xs text-fg transition-none hover:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50';
 
+export const UI_LIST_ACTION_CLASS = `${INTERACTION_CLASS} flex w-full items-center gap-2 px-4 py-2 text-left`;
+export const UI_TOOLBAR_CODE_CLASS = 'font-mono text-[10px]';
+export function toolbarToggleClass(active: boolean, compact: boolean): string {
+  const shape = compact ? 'px-1.5 py-0.5' : 'flex size-7 items-center justify-center';
+  return `${shape} rounded text-xs transition-none ${active ? 'bg-accent text-accent-fg' : `text-fg ${INTERACTION_CLASS}`}`;
+}
+
 export const UI_SEGMENTED_SURFACE_CLASS = 'flex rounded-md bg-bg-muted p-0.5';
 export function segmentedOptionClass(selected: boolean): string {
   return `${INTERACTION_CLASS} flex-1 rounded py-1.5 text-xs font-medium ${

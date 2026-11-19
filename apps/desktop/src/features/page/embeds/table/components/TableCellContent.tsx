@@ -13,20 +13,12 @@ export function TableCellContent({
     let rendered: ReactNode = node.type === 'hardBreak' ? <br /> : (node.text ?? '');
     if (node.type === 'mention') {
       rendered = (
-        <span
-          onMouseDown={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-          }}
-          onClick={(event) => event.stopPropagation()}
-          onDoubleClick={(event) => event.stopPropagation()}
-        >
-          <SavedReferenceChipContent
-            href={node.attrs?.referenceUri ?? ''}
-            label={node.attrs?.label ?? ''}
-            sourceNotebookPageId={sourceNotebookPageId}
-          />
-        </span>
+        <SavedReferenceChipContent
+          isolateActivation
+          href={node.attrs?.referenceUri ?? ''}
+          label={node.attrs?.label ?? ''}
+          sourceNotebookPageId={sourceNotebookPageId}
+        />
       );
     }
     for (const mark of node.marks ?? []) {

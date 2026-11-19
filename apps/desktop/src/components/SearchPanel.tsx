@@ -1,4 +1,4 @@
-import { INTERACTION_CLASS } from '@waypoint/ui-components';
+import { Button } from './ui';
 import { useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent } from 'react';
 import type { MountedCatalogEntitySearchResult } from '../db/catalog-reference-search';
 import {
@@ -260,12 +260,12 @@ function ResultSection({ title, entities, onSelect }: ResultSectionProps) {
       {entities.map((entity) => {
         const type = entity.namedType ?? searchResultNamedType(entity.entityType);
         return (
-          <button
+          <Button
             key={`${entity.workspaceRoot}:${entity.entityId}`}
             type="button"
             aria-label={`Open ${entity.name} (${type.kindLabel})`}
             onClick={() => onSelect(entity)}
-            className={`${INTERACTION_CLASS} w-full px-4 py-2 text-left flex items-center gap-2`}
+            variant="list-action"
           >
             <span className="text-base" aria-hidden="true">
               {referenceIconFor(type.iconKind, 'w-4 h-4', entity.iconContext)}
@@ -274,7 +274,7 @@ function ResultSection({ title, entities, onSelect }: ResultSectionProps) {
               <div className="text-sm text-fg truncate">{entity.name}</div>
               <div className="text-xs text-fg-muted truncate">{entity.workspaceName}</div>
             </div>
-          </button>
+          </Button>
         );
       })}
     </section>

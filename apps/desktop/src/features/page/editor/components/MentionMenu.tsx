@@ -13,8 +13,8 @@ import {
   type MouseEvent,
 } from 'react';
 import { ProjectRootIcon } from '../../../../components/icons/glyphs';
-import { cn } from '@/shared/lib/cn';
-import { UI_TOOLBAR_SELECT_TRIGGER_CLASS } from '../../../../components/ui/styles';
+import { Button } from '../../../../components/ui';
+import { Kbd } from '../../../../shared/components/Kbd';
 import type { Entity, EntityGroup, EntityLinkCategory, EntityType } from '../lib/search';
 import {
   entityLocationLabel,
@@ -236,11 +236,11 @@ export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function
       {(onBack || activeCategory || onToggleProjectScope || onToggleArchived) && (
         <div className="flex min-w-0 items-center gap-2 px-2 py-1">
           {onBack && (
-            <button
+            <Button
               type="button"
               onMouseDown={keepEditorFocus}
               onClick={onBack}
-              className={cn(UI_TOOLBAR_SELECT_TRIGGER_CLASS, 'shrink-0')}
+              variant="toolbar"
               aria-label="Back"
               title="Backspace when search is empty"
             >
@@ -256,11 +256,11 @@ export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function
               </svg>
               Back
               {!query && (
-                <kbd className="rounded bg-bg-muted px-1 font-sans text-[11px] text-fg-subtle">
-                  Backspace
-                </kbd>
+                <Kbd>
+                  <span>Backspace</span>
+                </Kbd>
               )}
-            </button>
+            </Button>
           )}
           {activeCategory && (
             <span
@@ -272,150 +272,145 @@ export const MentionMenu = forwardRef<MentionMenuRef, MentionMenuProps>(function
           )}
           <div className="ml-auto flex items-center gap-1">
             {onToggleProjectScope && (
-              <button
+              <Button
                 type="button"
                 onMouseDown={keepEditorFocus}
                 onClick={onToggleProjectScope}
                 aria-label="Limit to this project"
                 aria-pressed={projectScope}
                 title="Limit to this project"
-                className={cn(
-                  UI_TOOLBAR_SELECT_TRIGGER_CLASS,
-                  projectScope ? 'bg-accent-subtle text-accent' : 'text-fg-muted'
-                )}
+                variant="toolbar"
               >
                 <ProjectRootIcon className="h-4 w-4" />
-              </button>
+              </Button>
             )}
             {onToggleArchived && (
-              <button
+              <Button
                 type="button"
                 aria-pressed={includeArchived}
                 onMouseDown={keepEditorFocus}
                 onClick={onToggleArchived}
-                className={UI_TOOLBAR_SELECT_TRIGGER_CLASS}
+                variant="toolbar"
               >
                 {includeArchived ? 'Including archived' : 'Active only'}
-              </button>
+              </Button>
             )}
           </div>
         </div>
       )}
-      <div
-        className="min-h-0 overflow-auto p-1"
-        role="listbox"
-        aria-label="Entity links"
-        aria-busy={status === 'loading' || loadingMore}
-      >
-        {rows.length === 0 && status === 'ready' && (
-          <div className="px-3 py-2 text-sm text-fg-muted">
-            {recentView || home ? 'No recently viewed entities' : 'No matching entities'}
-          </div>
-        )}
-        {rows.map((choice, index) => {
-          const key = choiceKey(choice);
-          const selected = key === selectedKey;
-          const category = choice.kind === 'category' ? choice.category : null;
-          const entity = choice.kind === 'entity' ? choice.entity : null;
-          const location = entity ? entityLocationLabel(entity) : null;
-          const icon = entity
-            ? getEntityIcon(entity)
-            : category
-              ? getEntityCategoryIcon(category)
-              : null;
-          const section =
-            home && entity && rows[index - 1]?.kind !== 'entity' ? 'Recently viewed' : null;
-          const label =
-            choice.kind === 'entity'
-              ? choice.entity.name
-              : choice.kind === 'category'
-                ? choice.category.label
-                : choice.kind === 'browse'
-                  ? 'Browse types'
-                  : choice.kind === 'all'
-                    ? 'Browse all'
-                    : home
-                      ? 'All recently viewed'
-                      : 'Recently viewed';
-          return (
-            <Fragment key={key}>
-              {section && (
-                <div
-                  className="px-3 pt-2 pb-1 text-xs text-fg-subtle"
-                  data-testid="mention-menu-section"
+      <div className="min-h-0 overflow-auto p-1">
+        <div
+          role="listbox"
+          aria-label="Entity links"
+          aria-busy={status === 'loading' || loadingMore}
+        >
+          {rows.length === 0 && status === 'ready' && (
+            <div className="px-3 py-2 text-sm text-fg-muted">
+              {recentView || home ? 'No recently viewed entities' : 'No matching entities'}
+            </div>
+          )}
+          {rows.map((choice, index) => {
+            const key = choiceKey(choice);
+            const selected = key === selectedKey;
+            const category = choice.kind === 'category' ? choice.category : null;
+            const entity = choice.kind === 'entity' ? choice.entity : null;
+            const location = entity ? entityLocationLabel(entity) : null;
+            const icon = entity
+              ? getEntityIcon(entity)
+              : category
+                ? getEntityCategoryIcon(category)
+                : null;
+            const section =
+              home && entity && rows[index - 1]?.kind !== 'entity' ? 'Recently viewed' : null;
+            const label =
+              choice.kind === 'entity'
+                ? choice.entity.name
+                : choice.kind === 'category'
+                  ? choice.category.label
+                  : choice.kind === 'browse'
+                    ? 'Browse types'
+                    : choice.kind === 'all'
+                      ? 'Browse all'
+                      : home
+                        ? 'All recently viewed'
+                        : 'Recently viewed';
+            return (
+              <Fragment key={key}>
+                {section && (
+                  <div
+                    className="px-3 pt-2 pb-1 text-xs text-fg-subtle"
+                    data-testid="mention-menu-section"
+                  >
+                    {section}
+                  </div>
+                )}
+                <MenuRow
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  aria-disabled={choice.kind === 'entity' && status !== 'ready' ? true : undefined}
+                  aria-label={category ? `Browse ${category.label}` : entity ? undefined : label}
+                  ref={(element) => {
+                    if (element) itemRefs.current.set(key, element);
+                    else itemRefs.current.delete(key);
+                  }}
+                  data-testid={
+                    entity
+                      ? 'mention-menu-item'
+                      : category
+                        ? 'mention-browse-category'
+                        : choice.kind === 'recent'
+                          ? 'mention-recently-viewed'
+                          : 'mention-browse-types'
+                  }
+                  data-entity-type={entity?.type}
+                  data-category-key={category?.key}
+                  onMouseDown={keepEditorFocus}
+                  onMouseEnter={() => setActiveKey(key)}
+                  onClick={() => choose(choice)}
+                  active={selected}
+                  icon={icon}
+                  shortcut={entity?.registryId}
+                  submenu={!entity}
+                  description={
+                    choice.kind === 'entity' && (
+                      <>
+                        {entity?.kindLabel ?? choice.group.label}
+                        {location && (
+                          <>
+                            {' '}
+                            · <span data-testid="mention-menu-item-project">{location}</span>
+                          </>
+                        )}
+                        {entity?.archived ? ' · Archived' : null}
+                      </>
+                    )
+                  }
                 >
-                  {section}
-                </div>
-              )}
-              <MenuRow
-                type="button"
-                role="option"
-                aria-selected={selected}
-                aria-disabled={choice.kind === 'entity' && status !== 'ready' ? true : undefined}
-                aria-label={category ? `Browse ${category.label}` : entity ? undefined : label}
-                ref={(element) => {
-                  if (element) itemRefs.current.set(key, element);
-                  else itemRefs.current.delete(key);
-                }}
-                data-testid={
-                  entity
-                    ? 'mention-menu-item'
-                    : category
-                      ? 'mention-browse-category'
-                      : choice.kind === 'recent'
-                        ? 'mention-recently-viewed'
-                        : 'mention-browse-types'
-                }
-                data-entity-type={entity?.type}
-                data-category-key={category?.key}
-                onMouseDown={keepEditorFocus}
-                onMouseEnter={() => setActiveKey(key)}
-                onClick={() => choose(choice)}
-                active={selected}
-                icon={icon}
-                shortcut={entity?.registryId}
-                submenu={!entity}
-                description={
-                  choice.kind === 'entity' && (
-                    <>
-                      {entity?.kindLabel ?? choice.group.label}
-                      {location && (
-                        <>
-                          {' '}
-                          · <span data-testid="mention-menu-item-project">{location}</span>
-                        </>
-                      )}
-                      {entity?.archived ? ' · Archived' : null}
-                    </>
-                  )
-                }
-              >
-                {label}
-              </MenuRow>
-            </Fragment>
-          );
-        })}
-        {status === 'loading' && (
-          <div
-            className={rows.length ? 'sr-only' : 'px-3 py-2 text-sm text-fg-muted'}
-            role="status"
-          >
-            Loading entities…
-          </div>
-        )}
+                  {label}
+                </MenuRow>
+              </Fragment>
+            );
+          })}
+          {status === 'loading' && (
+            <div
+              className={rows.length ? 'sr-only' : 'px-3 py-2 text-sm text-fg-muted'}
+              role="status"
+            >
+              Loading entities…
+            </div>
+          )}
+        </div>
       </div>
       {error && (
         <div className="px-3 py-2 text-sm text-fg-muted" role="alert">
           {error}
           {onRetry && (
-            <button
-              type="button"
-              onMouseDown={keepEditorFocus}
-              onClick={onRetry}
-              className="ml-2 text-fg underline"
-            >
-              {status === 'refresh-required' ? 'Refresh' : 'Retry'}
-            </button>
+            <span className="ml-2 text-fg">
+              <Button type="button" onMouseDown={keepEditorFocus} onClick={onRetry} variant="link">
+                {status === 'refresh-required' ? 'Refresh' : 'Retry'}
+              </Button>
+            </span>
           )}
         </div>
       )}

@@ -111,7 +111,10 @@ export function useSavedReferenceChip({
   };
 }
 
-export function SavedReferenceChipContent(props: SavedReferenceChipContentProps) {
+export function SavedReferenceChipContent({
+  isolateActivation,
+  ...props
+}: SavedReferenceChipContentProps & { isolateActivation?: boolean }) {
   const { chipProps } = useSavedReferenceChip(props);
-  return <EntityReferenceChip {...chipProps} />;
+  return <EntityReferenceChip {...chipProps} isolateActivation={isolateActivation} />;
 }

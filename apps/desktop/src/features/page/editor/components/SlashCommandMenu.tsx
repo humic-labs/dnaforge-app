@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { Button } from '../../../../components/ui';
 import { cn } from '@/shared/lib/cn';
 
 import type { SlashCommand } from '../lib/commands';
@@ -108,14 +109,16 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenu
           <div role="alert" className="px-3 py-2 text-xs text-fg-muted">
             {error}
             {onRetry && (
-              <button
-                type="button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={onRetry}
-                className="ml-2 text-fg underline"
-              >
-                Retry
-              </button>
+              <span className="ml-2 text-fg">
+                <Button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={onRetry}
+                  variant="link"
+                >
+                  Retry
+                </Button>
+              </span>
             )}
           </div>
         )}
