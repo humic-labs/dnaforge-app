@@ -1,46 +1,44 @@
 import { userMessageWithValues, userMessageValue } from '@waypoint/user-messages';
 import { useEffect, useRef } from 'react';
+import { readNoticeVersion, rememberNotice } from '../lib/desktop-notice-history';
 import { platform } from '../platform';
 import { useToastStore } from '../stores/toast-store';
 import { getReleaseNote } from '../lib/release-notes';
 import { APP_BUILD } from '../lib/app-build';
 import { installedReleaseVersion } from '../shared/app-build-identity';
 
+async function readLegacyVersion(): Promise<string | null> {
+  const bridge = platform();
+  const path = `${await bridge.path.appDataDir()}/.last-seen-version`;
+  return (await bridge.fs.exists(path)) ? (await bridge.fs.readTextFile(path)).trim() : null;
+}
+
 export function usePostUpdateToast(
   openReleaseNotes: (version: string, sourceElement?: HTMLElement) => void
 ): void {
   const currentVersion = installedReleaseVersion(APP_BUILD);
   const addRichToast = useToastStore((s) => s.addRichToast);
-  const firedRef = useRef(false);
   const openReleaseNotesRef = useRef(openReleaseNotes);
 
   openReleaseNotesRef.current = openReleaseNotes;
 
   useEffect(() => {
-    if (!currentVersion || firedRef.current) return;
-    firedRef.current = true;
+    if (!currentVersion) return;
     let cancelled = false;
     (async () => {
       try {
-        const bridge = platform();
-        const appData = await bridge.path.appDataDir();
-        const filePath = `${appData}/.last-seen-version`;
-        const exists = await bridge.fs.exists(filePath);
-
-        if (!exists) {
-          await bridge.fs.writeTextFile(filePath, currentVersion);
-          return;
-        }
-
-        const lastVersion = (await bridge.fs.readTextFile(filePath)).trim();
+        const recorded = await readNoticeVersion('post-update');
+        if (cancelled || recorded === currentVersion) return;
+        const previous = recorded ?? (await readLegacyVersion());
         if (cancelled) return;
-        if (lastVersion === currentVersion) return;
-
-        const note = getReleaseNote(currentVersion);
-        if (!note) {
-          await bridge.fs.writeTextFile(filePath, currentVersion);
+        await rememberNotice('post-update', currentVersion);
+        if (
+          cancelled ||
+          !previous ||
+          previous === currentVersion ||
+          !getReleaseNote(currentVersion)
+        )
           return;
-        }
 
         addRichToast({
           definition: 'post-update',
@@ -57,14 +55,15 @@ export function usePostUpdateToast(
             },
           ],
         });
-
-        await bridge.fs.writeTextFile(filePath, currentVersion);
-      } catch {}
+      } catch (error) {
+        console.warn(
+          '[Post-update notice] Could not check or record the installed release.',
+          error
+        );
+      }
     })();
     return () => {
       cancelled = true;
     };
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [addRichToast, currentVersion]);
 }

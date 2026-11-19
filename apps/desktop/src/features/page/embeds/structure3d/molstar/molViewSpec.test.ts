@@ -568,7 +568,7 @@ describe('standard MolViewSpec scene contract', () => {
     ).toBe(true);
   });
 
-  it('rejects silently dropping loaded polymer context during new authoring', async () => {
+  it('shows the root declaration needed to intentionally omit loaded polymer context', async () => {
     const plugin = nativeStarterPlugin(await nativeStarterSource());
     const current = getMolViewSpecScene(plugin);
     const document = JSON.parse(current.scene);
@@ -581,7 +581,23 @@ describe('standard MolViewSpec scene contract', () => {
     ];
     expect(() =>
       resolveMolViewSpecAgentScene(plugin, JSON.stringify(document), 'structure.cif')
-    ).toThrow('polymer context');
+    ).toThrowError(
+      expect.objectContaining({
+        code: 'MVS_POLYMER_CONTEXT_REQUIRED',
+        message: expect.stringContaining('"fields":["preservePolymerContext"]'),
+      })
+    );
+    const override = {
+      reason: 'Show local atomic geometry without occlusion from the polymer ribbon.',
+      fields: ['preservePolymerContext'],
+    };
+    document.root.custom.dnaforge_presentation_override = override;
+    const compiled = resolveMolViewSpecAgentScene(
+      plugin,
+      JSON.stringify(document),
+      'structure.cif'
+    );
+    expect(JSON.parse(compiled).root.custom.dnaforge_presentation_override).toEqual(override);
   });
   it('retains source-qualified context while adding another pinned resource', async () => {
     const plugin = nativeStarterPlugin(await nativeStarterSource());
