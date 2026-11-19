@@ -1,7 +1,8 @@
 @import './terminal-theme.css';
 
 .dnaforge-terminal-workspace {
-  flex: 1;
+  flex: 0 0 min(52%, 1000px);
+  border-right: 1px solid hsl(var(--color-border));
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -9,9 +10,9 @@
   background: hsl(var(--color-bg));
 }
 .dnaforge-terminal-workspace > aside {
-  width: 260px;
-  max-width: 36%;
-  min-width: 180px;
+  width: clamp(144px, 15vw, 250px);
+  max-width: 38%;
+  min-width: 0;
   flex-shrink: 0;
   display: flex;
   overflow: hidden;

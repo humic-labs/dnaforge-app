@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 import { create } from 'zustand';
+import { PresentationBoundary } from '../../presentation/PresentationSurface';
 import './terminal.css';
 
 interface WorkspaceTarget {
@@ -35,17 +36,28 @@ export function TerminalWorkspace({ active = true }: { active?: boolean }) {
       });
   }, [active, register]);
   return (
-    <section
-      aria-label="Terminal workspace"
-      className="dnaforge-terminal-workspace"
-      style={{ display: active ? 'flex' : 'none' }}
-      data-testid="terminal-workspace"
-    >
-      <aside ref={sidebar} aria-label="Terminals" data-testid="terminal-sidebar" />
-      <div className="dnaforge-terminal-workspace-main">
-        <div ref={chrome} className="dnaforge-terminal-editor-chrome" />
-        <div ref={content} className="dnaforge-terminal-editor-target" />
-      </div>
-    </section>
+    <PresentationBoundary id="terminal-workspace" active={active}>
+      <section
+        aria-label="Terminal workspace"
+        className="dnaforge-terminal-workspace"
+        style={{ display: active ? 'flex' : 'none' }}
+        data-testid="terminal-workspace"
+      >
+        <aside
+          ref={sidebar}
+          aria-label="Terminals"
+          data-terminal-sidebar
+          data-testid="terminal-sidebar"
+        />
+        <div
+          role="region"
+          aria-label="Selected terminal"
+          className="dnaforge-terminal-workspace-main"
+        >
+          <div ref={chrome} className="dnaforge-terminal-editor-chrome" />
+          <div ref={content} className="dnaforge-terminal-editor-target" />
+        </div>
+      </section>
+    </PresentationBoundary>
   );
 }

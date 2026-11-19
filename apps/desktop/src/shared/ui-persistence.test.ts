@@ -127,12 +127,27 @@ describe('ui-persistence: sidebar state', () => {
     });
   });
 
-  it.each(['search', 'references'] as const)('round-trips the allowed %s view', (activeView) => {
-    writeSidebarState({ activeView, sidebarVisible: false, sidebarWidth: 340 });
+  it.each(['search', 'references', 'terminal'] as const)(
+    'round-trips the allowed %s view',
+    (activeView) => {
+      writeSidebarState({ activeView, sidebarVisible: false, sidebarWidth: 340 });
+      expect(readSidebarState()).toEqual({
+        activeView,
+        sidebarVisible: false,
+        sidebarWidth: 340,
+      });
+    }
+  );
+
+  it('restores an open terminal from the former full-window layout', () => {
+    localStorage.setItem(
+      'waypoint:sidebar-state',
+      JSON.stringify({ v: 1, activeView: 'terminal', sidebarVisible: false, sidebarWidth: 260 })
+    );
     expect(readSidebarState()).toEqual({
-      activeView,
-      sidebarVisible: false,
-      sidebarWidth: 340,
+      activeView: 'terminal',
+      sidebarVisible: true,
+      sidebarWidth: 260,
     });
   });
 
