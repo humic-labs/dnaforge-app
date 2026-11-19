@@ -132,6 +132,18 @@ describe('Pixi application retention', () => {
     destroyPixiApplication(second.application);
   });
 
+  it('discards a WebGL context lost while the application was detached', () => {
+    const { application, destroy } = createApplication();
+    const gl = { isContextLost: vi.fn().mockReturnValue(false) };
+    Object.assign(application.renderer, { gl });
+    registerPixiApplication(application);
+    expect(retainPixiApplication(application, DEFAULT_PROFILE)).toBe(true);
+
+    gl.isContextLost.mockReturnValue(true);
+    expect(acquireRetainedPixiApplication(DEFAULT_PROFILE)).toBeNull();
+    expect(destroy).toHaveBeenCalledOnce();
+  });
+
   it('destroys an unused spare after the bounded idle interval', () => {
     vi.useFakeTimers();
     const { application, destroy } = createApplication();

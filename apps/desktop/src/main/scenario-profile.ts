@@ -12,8 +12,6 @@ import {
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
-import { hasExplicitUserDataDir } from './userdata-migration';
-
 const PROFILE_MARKER = '.dnaforge-disposable-scenario.json';
 const authorizedProfiles = new Map<string, string>();
 
@@ -89,18 +87,17 @@ function readMarker(path: string): DisposableScenarioMarker | null {
 
 export function prepareDisposableScenarioProfile(input: {
   requested: boolean;
-  argv: readonly string[];
-  defaultUserData: string;
+  explicitUserDataPath?: string;
   treatExplicitUserDataAsShared?: boolean;
   allowUnmarkedElectronBootFiles?: boolean;
 }): string | null {
   admissionDiagnostic = null;
   if (!input.requested) return null;
   if (input.treatExplicitUserDataAsShared) return denyScenarioProfile('explicit-shared-profile');
-  const explicit = hasExplicitUserDataDir(input.argv);
-  const profilePath = explicit
-    ? resolve(input.defaultUserData)
-    : mkdtempSync(join(tmpdir(), 'dnaforge-scenario-'));
+  const profilePath =
+    input.explicitUserDataPath !== undefined
+      ? resolve(input.explicitUserDataPath)
+      : mkdtempSync(join(tmpdir(), 'dnaforge-scenario-'));
   try {
     const parent = existsSync(profilePath) ? profilePath : resolve(profilePath, '..');
     if (!isTemporaryProfile(realpathSync(parent), true))

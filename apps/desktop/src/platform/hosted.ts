@@ -330,6 +330,7 @@ const hostedImplemented: Partial<PlatformBridge> = {
     setPosition: async () => undefined,
     getSize: async () => ({ width: window.innerWidth, height: window.innerHeight }),
     getPosition: async () => ({ x: 0, y: 0 }),
+    getDisplayColorSpace: async () => null,
     setZoomLevel: async () => ({ status: 'unavailable' }),
   },
   shell: {

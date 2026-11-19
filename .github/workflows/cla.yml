@@ -2,6 +2,8 @@ name: Contributor License Agreement
 
 on:
   pull_request:
+  merge_group:
+    types: [checks_requested]
 
 permissions:
   contents: read
@@ -14,24 +16,27 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.merge_group.head_sha || github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Fetch the pull request's commits as data
-        env:
-          PR: ${{ github.event.pull_request.number }}
-          TOKEN: ${{ github.token }}
-        run: |
-          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
-          git -c "http.https://github.com/.extraheader=$AUTH" fetch --no-tags origin "+refs/pull/${PR}/head:refs/remotes/pull/head"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha }}
+          path: .ci-control
+          persist-credentials: false
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version-file: '.nvmrc'
 
-      - name: Check Signed-off-by lines with the base branch's checker
+      - name: Check contributor identities with the trusted workflow checker
         env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: node .github/scripts/check-cla-sign-off.mjs "$BASE" "$HEAD"
+          BASE: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.merge_group.head_sha || github.event.pull_request.head.sha }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = merge_group ]; then
+            node .ci-control/.github/scripts/check-queue-cla.mjs "$BASE" "$HEAD"
+          else
+            node .ci-control/.github/scripts/check-cla-sign-off.mjs "$BASE" "$HEAD"
+          fi

@@ -1,18 +1,22 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { chromium } from 'playwright';
 import { expect } from '@playwright/test';
+import { finalizeJourneyRecording } from '../../../apps/desktop/scripts/lib/native-journey-recording.mjs';
+import { reloadNativePage } from '../../../apps/desktop/scripts/lib/native-journey-readiness.mjs';
 
 const { values } = parseArgs({ options: { out: { type: 'string' } } });
 assert.ok(values.out && isAbsolute(values.out), 'Use --out with an absolute evidence directory');
 const out = values.out;
 mkdirSync(join(out, 'frames'), { recursive: true });
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const root = resolve(
+  process.env.DNAFORGE_VERIFY_ROOT ?? resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+);
 const appDir = join(root, 'apps/desktop');
 const receipt = {
   sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
@@ -21,6 +25,8 @@ const receipt = {
   frames: [],
   pageErrors: [],
   failedResponses: [],
+  requestFailures: [],
+  consoleErrors: [],
 };
 writeFileSync(join(out, 'source.patch'), execFileSync('git', ['diff', '--binary'], { cwd: root }));
 let browser;
@@ -44,6 +50,15 @@ try {
   assert.ok(page);
   receipt.renderer = renderer;
   page.on('pageerror', (error) => receipt.pageErrors.push(error.message));
+  page.on('requestfailed', (request) =>
+    receipt.requestFailures.push({
+      url: request.url(),
+      error: request.failure()?.errorText,
+    })
+  );
+  page.on('console', (message) => {
+    if (message.type() === 'error') receipt.consoleErrors.push(message.text());
+  });
   page.on('response', (response) => {
     if (response.status() >= 400 && new URL(response.url()).hostname === '127.0.0.1')
       receipt.failedResponses.push({ url: response.url(), status: response.status() });
@@ -173,8 +188,16 @@ try {
   await textItem.dblclick();
   await expect.poll(async () => (await tabs()).some((tab) => tab.entityId === textPath)).toBe(true);
   await step('moved-closed-and-reopened-text-through-file-tree');
-  await page.reload();
-  await expect(page.getByTestId('text-viewer-tab')).toBeVisible({ timeout: 60000 });
+  const restoreDeadline = Date.now() + 60000;
+  await reloadNativePage(page, {
+    timeoutMs: restoreDeadline - Date.now(),
+    observe: ({ phase, startup }) => {
+      receipt[`${phase}Reload`] = startup;
+    },
+  });
+  await expect(page.getByTestId('text-viewer-tab')).toBeVisible({
+    timeout: Math.max(1, restoreDeadline - Date.now()),
+  });
   const restored = await tabs();
   assert.deepEqual(
     restored.find((tab) => tab.id === sequence.id).sequenceDocument,
@@ -194,45 +217,13 @@ try {
   process.exitCode = 1;
 } finally {
   if (cdp) await cdp.send('Page.stopScreencast').catch(() => {});
-  receipt.finishedAt = new Date().toISOString();
-  writeFileSync(join(out, 'receipt.json'), JSON.stringify(receipt, null, 2));
-  if (receipt.frames.length > 1) {
-    writeFileSync(
-      join(out, 'frames.txt'),
-      receipt.frames
-        .map(
-          (frame, i) =>
-            `file '${frame.file}'\nduration ${Math.max(0.01, (receipt.frames[i + 1]?.timestamp ?? frame.timestamp + 0.25) - frame.timestamp)}`
-        )
-        .join('\n')
-    );
-    const video = spawnSync(
-      'ffmpeg',
-      [
-        '-hide_banner',
-        '-loglevel',
-        'error',
-        '-y',
-        '-f',
-        'concat',
-        '-safe',
-        '0',
-        '-i',
-        'frames.txt',
-        '-vsync',
-        'vfr',
-        '-pix_fmt',
-        'yuv420p',
-        'workflow.mp4',
-      ],
-      { cwd: out, encoding: 'utf8' }
-    );
-    if (video.status !== 0) {
-      console.error(video.stderr);
-      process.exitCode = 1;
-    }
+  try {
+    finalizeJourneyRecording(out, receipt);
+    if (receipt.status !== 'passed') process.exitCode = 1;
+    if (receipt.mediaError) console.error(receipt.mediaError);
+  } finally {
+    await browser?.close();
   }
-  await browser?.close();
 }
 console.log(`CANVAS_DOCUMENT_${receipt.status.toUpperCase()} ${join(out, 'receipt.json')}`);
 if (receipt.error) console.error(receipt.error);

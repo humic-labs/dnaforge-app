@@ -996,7 +996,6 @@ export class TileEngineDriver {
     }
     this.cache.setPins([]);
     this.cache.setRetained(this.retentionPins(view));
-    this.coordinator.cancelPendingWhere((entry) => !this.cache.isRetained(entry.key));
     this.coordinator.setViewport(view);
     this.recomputeFeed();
   }

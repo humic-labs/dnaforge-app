@@ -86,8 +86,7 @@ describe('scenario permission is enforced by actual Registry IPC handlers', () =
     expect(
       prepareDisposableScenarioProfile({
         requested: true,
-        argv: process.argv,
-        defaultUserData: state.userData,
+        explicitUserDataPath: state.userData,
       })
     ).not.toBeNull();
     await expect(callHandler('lims:resetRegistry')).resolves.toEqual({

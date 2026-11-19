@@ -2,7 +2,7 @@
 
 Thank you for helping improve DNAForge.
 
-This is the canonical product repository. Open pull requests against `main`. You
+This is the canonical product repository. Open pull requests against `dev`. You
 can develop locally and open a pull request without running our hosted CI.
 
 ## Before you start
@@ -15,14 +15,14 @@ can develop locally and open a pull request without running our hosted CI.
 ## Making a change
 
 1. Fork the repository. Clone your fork, add this repository as `upstream`, and
-   create a branch from its current `main`:
+   create a branch from its current `dev`:
 
    ```bash
    git clone https://github.com/YOUR-USERNAME/dnaforge-app.git
    cd dnaforge-app
    git remote add upstream https://github.com/humic-labs/dnaforge-app.git
    git fetch upstream
-   git switch -c my-change upstream/main
+   git switch -c my-change upstream/dev
    ```
 
 2. Follow the README's setup instructions. Make the change and add or update
@@ -32,7 +32,7 @@ can develop locally and open a pull request without running our hosted CI.
    - packages: `pnpm --filter <package name> test`;
    - sidecar: `cd apps/api && uv run --frozen pytest -q <path to test file>`.
 4. Commit with `git commit -s`, push your branch to your fork, and open a pull
-   request against `humic-labs/dnaforge-app:main`. Describe the problem, the
+   request against `humic-labs/dnaforge-app:dev`. Describe the problem, the
    change and how you tested it. If a check could not run, say which one and
    why.
 
@@ -47,15 +47,21 @@ Required checks must pass before a maintainer merges the change. Local test
 results help assess a contribution; they do not replace those checks. Workflow
 permission is separate from an approving pull-request review.
 
+Keep work in draft until the complete feature and its acceptance are ready. The
+[public merge policy](docs/ci/merge-policy.md) defines the fast development
+checks and the broader qualification required for release promotion.
+Maintainers use the same public commands and tests;
+contributors need no private tracker or release credentials.
+
 For another contribution, fetch `upstream` again and start a new branch from
-`upstream/main`. Keep unrelated changes in separate pull requests.
+`upstream/dev`. Keep unrelated changes in separate pull requests.
 
 When a maintainer asks you to bring an existing contribution up to date, run
 these commands from that contribution's branch:
 
 ```bash
 git fetch upstream
-git merge --signoff upstream/main
+git merge --signoff upstream/dev
 git push origin HEAD
 ```
 
