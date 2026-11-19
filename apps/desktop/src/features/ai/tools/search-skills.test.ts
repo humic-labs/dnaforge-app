@@ -93,6 +93,24 @@ beforeEach(() => {
 });
 
 describe('search_skills tool', () => {
+  it('distinguishes an empty enabled inventory from an unmatched search', async () => {
+    const input = { query: 'uvxylophonic', provider: 'codex-sdk' };
+    const noMatch = await executeTool(
+      createSearchSkillsTool(workspaceFolders),
+      input
+    );
+    expect(noMatch).toMatchObject({ status: 'no-match', count: 0, matches: [] });
+
+    listManaged.mockResolvedValue({ commands: [], memory: [], skills: [
+      skill({ enabled: false }),
+      skill({ provider: 'claude-agent-sdk' }),
+    ] });
+    const rank = vi.fn(async () => null);
+    const empty = await executeTool(createSearchSkillsTool(workspaceFolders, rank), input);
+    expect(empty).toMatchObject({ status: 'no-enabled-skills', count: 0, matches: [] });
+    expect(rank).not.toHaveBeenCalled();
+  });
+
   it('returns the global skill context through the public MCP contract without a project', async () => {
     const result = await execTool<{ matches: Array<{ name: string; context: string }> }>(
       createSearchSkillsTool([]),
@@ -235,7 +253,7 @@ describe('search_skills tool', () => {
     listManaged.mockResolvedValue({ skills: [skill({}), skill({ id: 'disabled-workspace', scope: 'workspace', workspacePath: '/workspace/project', enabled: false })] });
     const rank = vi.fn(async (_query: string, _candidates: readonly DiscoveryCandidate[]) => []);
     const result = await execTool<{ matches: unknown[] }>(createSearchSkillsTool(workspaceFolders, rank), { query: 'primer review', provider: 'codex-sdk' });
-    expect(rank).toHaveBeenCalledOnce(); expect(rank.mock.calls[0]![0]).toBe('primer review'); expect(rank.mock.calls[0]![1]).toEqual([]);
+    expect(rank).not.toHaveBeenCalled();
     expect(result.matches).toEqual([]);
   });
   it('ranks one inherited native descriptor once while retaining both admitted real-folder locators', async () => {
