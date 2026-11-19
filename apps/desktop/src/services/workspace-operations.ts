@@ -3,6 +3,7 @@ import {
   observeProjectLifecyclePhase,
 } from '../features/workspace-loader/workspace-telemetry';
 
+import { waitForNativeFileDocumentReadiness } from '../features/workspace/public/file-document-client';
 import { migrateDatabaseOnlyNotebooksForWorkspace } from '../db/workspace-artifacts';
 import { findWorkspaceRootForPath } from '../db/workspace-catalog';
 import { recordWorkspaceIndex } from '../features/workspace-loader/workspace-telemetry';
@@ -130,6 +131,8 @@ export async function reconcileWorkspaceOnMount(
   const durable = await runTrackedWorkspaceReconcile(workspaceRoot, async () => {
     if (!input.healManagedHead || isDeveloperImportSourcePath(workspaceRoot))
       return reconstructDurably(input);
+    await waitForNativeFileDocumentReadiness();
+    options.signal?.throwIfAborted();
     const notebookMigration = await migrateDatabaseOnlyNotebooksForWorkspace(workspaceRoot);
     if (notebookMigration.failed.length > 0) {
       console.warn(
