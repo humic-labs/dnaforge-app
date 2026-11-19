@@ -22,7 +22,6 @@ import {
   UI_DANGER_BUTTON_CLASS,
   UI_APPBAR_ACTION_CLASS,
   UI_ENTITY_REFERENCE_CHIP_CLASS,
-  UI_FIELD_CLASS,
   UI_ICON_BUTTON_CLASS,
   UI_LINK_BUTTON_CLASS,
   UI_LIST_ACTION_CLASS,
@@ -102,7 +101,7 @@ export const TextField = forwardRef<
       className={
         variant === 'inline-reference'
           ? 'notebook-reference-input'
-          : `${props.readOnly ? UI_READONLY_FIELD_CLASS : UI_FIELD_CLASS}${monospace ? ' font-mono' : ''}`
+          : `${props.readOnly ? UI_READONLY_FIELD_CLASS : 'wp-form-density wp-menu-trigger wp-menu-search-input'}${monospace ? ' !font-mono' : ''}`
       }
     />
   );

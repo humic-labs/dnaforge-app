@@ -208,6 +208,17 @@ describe('ActivityBar dev surfaces', () => {
     expect(onViewChange).toHaveBeenCalledWith('references');
   });
 
+  it('lets navigation buttons supply the color of their tool icons', () => {
+    renderActivityBar();
+
+    const genomeIcon = screen.getByTestId('reference-picker-open').querySelector('svg');
+    expect(genomeIcon).toHaveAttribute('data-icon', 'genome-assembly');
+    expect(genomeIcon).toHaveAttribute('fill', 'currentColor');
+    expect(
+      screen.getByTestId('activity-bar').querySelector('button svg[data-entity-color-family]')
+    ).toBeNull();
+  });
+
   it('focuses the permanent full-screen References tool when its dedicated opener is supplied', () => {
     const onViewChange = vi.fn();
     const onToggleSidebar = vi.fn();

@@ -1,9 +1,30 @@
 // @vitest-environment node
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { TAB_DOCUMENT_LIFECYCLES, TAB_DOCUMENT_OWNER_MODULES } from './tab-kind';
 
 describe('editable tab registration coverage', () => {
+  it('includes every production module that registers an editor in the quit journey inventory', () => {
+    const root = new URL('../', import.meta.url);
+    const modules = readdirSync(fileURLToPath(root), { recursive: true, encoding: 'utf8' })
+      .map((path) => path.replaceAll('\\', '/'))
+      .filter(
+        (path) =>
+          /\.tsx?$/.test(path) &&
+          !/\.(test|spec)\./.test(path) &&
+          path !== 'shared/use-document-lifecycle.ts'
+      )
+      .filter((path) =>
+        /\b(?:useDocumentLifecycle|documentLifecycle\.register)\s*\(/.test(
+          readFileSync(new URL(path, root), 'utf8')
+        )
+      );
+    expect([...new Set(Object.values(TAB_DOCUMENT_OWNER_MODULES).flat())].sort()).toEqual(
+      modules.sort()
+    );
+  });
+
   it('links every editable tab kind to its maintained domain adapters', () => {
     expect(Object.keys(TAB_DOCUMENT_OWNER_MODULES).sort()).toEqual(
       Object.entries(TAB_DOCUMENT_LIFECYCLES)

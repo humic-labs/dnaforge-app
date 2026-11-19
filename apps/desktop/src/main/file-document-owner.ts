@@ -1,3 +1,4 @@
+import { createKeyedMutex } from './workspace-git/keyed-mutex';
 import { tableDataForPersistence } from '../shared/table-document-data';
 import { isForgePackageMetaPath } from '../shared/forge-package-path';
 import { canonicalJson } from '../shared/canonical-json';
@@ -166,6 +167,7 @@ const cells = (rows: string[][]): Cell[][] =>
   );
 
 export class NativeFileDocumentOwner {
+  private readonly commitDraft = createKeyedMutex();
   private readonly generation = randomUUID();
   private readonly documents = new Map<string, Promise<WorkingCopy>>();
   private readonly identities = new Map<string, string>();
@@ -371,8 +373,29 @@ export class NativeFileDocumentOwner {
         loaded.persistedRevision = revision;
         Object.assign(document, loaded, { requests: document.requests, tail: document.tail });
       } else {
-        this.change(document, request.operation);
-        await this.persist(document);
+        await this.commitDraft(document.documentId, async () => {
+          const candidate = {
+            ...document,
+            tableMemory: document.text
+              ? document.tableMemory
+              : structuredClone(document.tableMemory),
+            richTableHistory: {
+              undo: [...document.richTableHistory.undo],
+              redo: [...document.richTableHistory.redo],
+            },
+          };
+          this.change(candidate, request.operation);
+          await this.persist(candidate);
+          document.revision = candidate.revision;
+          document.recovery = candidate.recovery;
+          document.text = candidate.text;
+          document.tablePackage = candidate.tablePackage;
+          document.tableData = candidate.tableData;
+          document.tableMemory = candidate.tableMemory;
+          document.richTableHistory = candidate.richTableHistory;
+          document.firstRowAsHeader = candidate.firstRowAsHeader;
+          document.headerRowValues = candidate.headerRowValues;
+        });
       }
       return this.publish(document);
     };
@@ -1165,17 +1188,19 @@ export class NativeFileDocumentOwner {
           );
         throw error;
       }
-      document.persistedContent = content;
-      document.diskContent = content;
-      if (document.type === 'table') {
-        document.tablePackage = parseTablePackageHead(content);
-        document.persistedTableSnapshotSha256 = document.tablePackage.snapshotSha256;
-      }
-      document.persistedRevision = revision;
-      document.recovery = undefined;
-      await this.persist(document);
-      document.saves.delete(revision);
-      return this.snapshot(document);
+      return this.commitDraft(document.documentId, async () => {
+        document.persistedContent = content;
+        document.diskContent = content;
+        if (document.type === 'table') {
+          document.tablePackage = parseTablePackageHead(content);
+          document.persistedTableSnapshotSha256 = document.tablePackage.snapshotSha256;
+        }
+        document.persistedRevision = revision;
+        document.recovery = undefined;
+        await this.persist(document);
+        document.saves.delete(revision);
+        return this.snapshot(document);
+      });
     })();
     document.saves.set(revision, run);
     document.saveTargets.set(revision, content);

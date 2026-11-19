@@ -550,6 +550,36 @@ describe('DesignTab draft lifecycle', () => {
     capture.mockRestore();
   });
 
+  it('keeps a later assembly edit in its draft when the first write finishes', async () => {
+    const { designId, tab } = openDraftAssembly();
+    let finish!: (path: string) => void;
+    materializationMocks.ensureDesignArtifact.mockImplementationOnce(
+      () =>
+        new Promise<string>((resolve) => {
+          finish = resolve;
+        })
+    );
+    render(<DesignTab designId={designId} tab={tab} panelId="main" />);
+    const target = { kind: 'tab', tabId: tab.id } as const;
+    let result!: Promise<boolean>;
+    act(() => {
+      result = documentLifecycle.save(target, tab.id);
+    });
+    await waitFor(() => expect(finish).toBeTypeOf('function'));
+    act(() => {
+      useDesignStore.getState().updateDesign(designId, { name: 'Later edit' });
+      finish('/lab/first.wpdesign.json');
+    });
+    await act(async () => {
+      expect(await result).toBe(false);
+    });
+    expect(useDesignStore.getState().draftDesignIds[designId]).toBe(true);
+    expect(useCanvasStore.getState().panels.main.tabs[0].artifactDocument?.persistence).toBe(
+      'draft'
+    );
+    expect(useDesignStore.getState().designs[designId].name).toBe('Later edit');
+  });
+
   it('materializes every transient stage in the same MoClo factory run', async () => {
     const { designId, tab } = openDraftAssembly();
     const siblingId = useDesignStore

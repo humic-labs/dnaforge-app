@@ -57,6 +57,41 @@ function setup() {
 }
 
 describe('entity-owned metadata session', () => {
+  it('advances the edit revision for changed fields and preserves it through native readback', async () => {
+    const { session } = setup();
+    await session.load();
+    const initial = session.readRevision();
+    session.stage('count', { valid: true, value: 27 });
+    const edited = session.readRevision();
+    expect(edited).not.toBe(initial);
+    session.stage('count', { valid: true, value: 27 });
+    await session.save();
+    expect(session.getSnapshot().saveConfirmed).toBe(true);
+    expect(session.readRevision()).toBe(edited);
+    session.stage('count', { valid: false });
+    expect(session.readRevision()).not.toBe(edited);
+    expect(session.dirty).toBe(true);
+  });
+
+  it('joins an existing metadata write and waits for its accepted native readback on close', async () => {
+    const { session, save, definition, ports } = setup();
+    await session.load();
+    const readback = Promise.withResolvers<EntityDetailsDefinition>();
+    vi.mocked(ports.load).mockReturnValueOnce(readback.promise);
+    session.stage('count', { valid: true, value: 8 });
+    const running = session.save();
+    let acknowledged = false;
+    const closing = session.saveForClose().then((accepted) => {
+      acknowledged = accepted;
+    });
+    await Promise.resolve();
+    expect(acknowledged).toBe(false);
+    readback.resolve(definition());
+    await Promise.all([running, closing]);
+    expect(acknowledged).toBe(true);
+    expect(save).toHaveBeenCalledOnce();
+  });
+
   it('records the original save failure while retaining the metadata draft', async () => {
     const { session, save } = setup();
     await session.load();

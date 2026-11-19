@@ -1808,14 +1808,6 @@ export const TOAST_DEFINITIONS = {
     ),
     timing: 'persistent',
   }),
-  'sequence-save-close-metadata-draft-must-be-resolved': defineToast({
-    category: 'Sequence Tab',
-    source: 'features/sequence/components/SequenceTab.tsx',
-    type: 'warning',
-    message: userMessage(
-      'notice.save-or-cancel-the-unfinished-metadata-edits-in-its-drawer-before-clos'
-    ),
-  }),
   'sequence-tab-open-this-file-inside-a-project-to-create-a-protein': defineToast({
     category: 'Sequence Tab',
     source: 'features/sequence/components/SequenceTab.tsx',

@@ -168,6 +168,7 @@ export interface ReadPrimerArtifactResult {
   acceptedRevision?: ScientificAcceptedDocumentRevision | null;
 }
 export type UpdatePrimerArtifactContentInput = PrimerArtifactContentRevisionInput & {
+  expectedContentSha256?: string;
   mutationToken?: string;
   artifactPath: string;
   workspaceRoot: string;
@@ -1642,6 +1643,12 @@ export function createPrimerArtifactOwner(dependencies: PrimerArtifactDependenci
         const loaded = await readPrimerArtifactAtPath(input.artifactPath, input.workspaceRoot, {
           mutationToken,
         });
+        if (
+          input.expectedContentSha256 !== undefined &&
+          (await sha256Hex(loaded.content)) !== input.expectedContentSha256
+        ) {
+          throw new Error('The saved primer changed on disk. Reopen it before saving again.');
+        }
         if (loaded.acceptedRevision) {
           if (
             !input.acceptedRevision ||

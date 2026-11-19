@@ -39,6 +39,43 @@ describe('formatOrigin', () => {
 });
 
 describe('formatFeature', () => {
+  it('retains edited feature colors, imported strand colors and the historic uncolored default', () => {
+    const annotation: Annotation = {
+      name: 'example',
+      type: 'gene',
+      start: 1,
+      end: 2,
+      direction: 1,
+    };
+    const sequence = {
+      id: 'example',
+      name: 'example',
+      sequence: 'ACTG',
+      length: 4,
+      annotations: [annotation],
+    };
+    const original = serializeGenBank(sequence);
+    expect(original).not.toContain('/color=');
+    const loaded = parseGenBankFull(original).annotations[0];
+    expect(loaded.color).toBeTruthy();
+    const imported = {
+      ...annotation,
+      direction: -1 as const,
+      qualifiers: { ApEinfo_revcolor: ['#987abc'], ApEinfo_fwdcolor: ['#123321'] },
+    };
+    expect(
+      parseGenBankFull(serializeGenBank({ ...sequence, annotations: [imported] })).annotations[0]
+        .color
+    ).toBe('#987abc');
+    const edited = { ...imported, color: '#114477' };
+    expect(
+      parseGenBankFull(serializeGenBank({ ...sequence, annotations: [edited] })).annotations[0]
+    ).toMatchObject({
+      color: '#114477',
+      qualifiers: imported.qualifiers,
+    });
+  });
+
   it.each([
     { type: 'misc_feature', direction: 1 as const },
     { type: 'misc_feature', direction: -1 as const },

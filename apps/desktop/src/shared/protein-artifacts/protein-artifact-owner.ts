@@ -10,7 +10,11 @@ import {
 } from '../registry-artifacts/protein-sequence-value';
 import { EntityArtifactCreationProjectionError } from '../registry-artifacts/entity-artifact-owner';
 
-import { ENTITY_ARTIFACT_SUFFIX, sanitizeEntityArtifactStem } from '../entity-artifact';
+import {
+  ENTITY_ARTIFACT_SUFFIX,
+  sanitizeEntityArtifactStem,
+  serializeEntityArtifact,
+} from '../entity-artifact';
 import type {
   EntityArtifactRelationshipV1,
   EntityArtifactSourceV1,
@@ -67,7 +71,14 @@ export interface ProteinArtifactPathValidation {
   error?: string;
 }
 
+export interface PublishedProteinDraft {
+  id: string;
+  relativePath: string;
+  contentHash: string;
+}
+
 export interface RecordedProteinArtifact {
+  contentHash: string;
   artifactPath: string;
   artifactAbsolutePath: string;
   artifact: EntityArtifact;
@@ -207,6 +218,7 @@ export function createProteinArtifactOwner(dependencies: createProteinArtifactOw
     }
     return {
       artifactPath: recorded.relativePath,
+      contentHash: await sha256Hex(serializeEntityArtifact(recorded.artifact)),
       artifactAbsolutePath: recorded.artifactPath,
       artifact: recorded.artifact,
       limsEntity,

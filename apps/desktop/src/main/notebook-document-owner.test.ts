@@ -198,6 +198,26 @@ async function fixture(pausePublish?: () => Promise<void>) {
   };
 }
 describe('native notebook working copy', () => {
+  it('keeps the last recoverable revision when a title edit cannot be recorded', async () => {
+    const f = await fixture();
+    const inspect = () =>
+      f.owner.execute({ documentId: 'book', operation: { kind: 'inspect-copy' } });
+    const initial = await inspect();
+    vi.spyOn(f.options, 'storeRecord').mockRejectedValueOnce(new Error('recovery unavailable'));
+    const edit = {
+      documentId: 'book',
+      expectedRevision: initial.revision,
+      operation: { kind: 'set-title', title: 'New title' },
+    } as const;
+    await expect(f.owner.execute(edit)).rejects.toThrow('recovery unavailable');
+    expect(await inspect()).toMatchObject({
+      revision: initial.revision,
+      copy: initial.copy,
+      dirty: false,
+    });
+    expect((await f.owner.execute(edit)).dirty).toBe(true);
+  });
+
   it('retains placement receipts through published Markdown, undo and native owner restart', async () => {
     const f = await fixture();
     const owner = new NativeNotebookWorkingCopyOwner({

@@ -884,6 +884,7 @@ export interface PlatformBridge {
       request: import('../shared/local-indexed-track-authority').LocalIndexedTrackAuthorityRequest
     ): Promise<import('../shared/local-indexed-track-authority').LocalIndexedTrackAuthorityReceipt>;
     save(options: {
+      purpose?: 'edited-sequence-package';
       defaultPath?: string;
       filters?: Array<{ name: string; extensions: string[] }>;
     }): Promise<string | null>;

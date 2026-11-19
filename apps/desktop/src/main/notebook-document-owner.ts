@@ -9,6 +9,7 @@ import type {
   NotebookConflictResolution,
   ResolveNotebookConflictRequest,
 } from '../shared/notebook-conflict';
+import { createKeyedMutex } from './workspace-git/keyed-mutex';
 import { randomUUID, createHash } from 'node:crypto';
 import type { JSONContent } from '@tiptap/core';
 import { closeHistory } from '@tiptap/pm/history';
@@ -194,6 +195,7 @@ const refused = (code: string, message: string) =>
   new NativeDocumentCommandError(code, message, false);
 export class NativeNotebookWorkingCopyOwner {
   private readonly generation = randomUUID();
+  private readonly commitDraft = createKeyedMutex();
   private readonly copies = new Map<string, Promise<NotebookCopy>>();
   private readonly listeners = new Set<(snapshot: NotebookDocumentSnapshot) => void>();
   private readonly protections = new Map<symbol, readonly string[]>();
@@ -987,93 +989,111 @@ export class NativeNotebookWorkingCopyOwner {
               dirty: true,
             };
             copy.version++;
-          } else if (operation.kind === 'table-view') {
-            copy.model.setTableView(operation.tableId, operation);
-            copy.version++;
-          } else if (operation.kind === 'set-title') {
-            copy.model.execute({ kind: 'rename', title: operation.title });
-            copy.version++;
-          } else if (operation.kind === 'apply-steps') {
-            if (
-              operation.baseFingerprint !==
-              contentFingerprint(canonicalNotebookJson(copy.model.content))
-            )
-              throw refused(
-                'STALE_NOTEBOOK_TRANSACTION',
-                'This view edited another notebook revision. Its unsent content remains preserved.'
-              );
-            const candidate = copy.model.fork();
-            candidate.applySteps(
-              operation.steps,
-              operation.selection,
-              operation.separateHistory,
-              operation.time,
-              operation.addToHistory
-            );
-            await this.prepareTableModel(copy, candidate);
-            copy.model = candidate;
-            copy.version++;
-          } else if (operation.kind === 'splice-blocks') {
-            const candidate = copy.model.fork();
-            candidate.execute(operation);
-            await this.prepareTableModel(copy, candidate);
-            copy.model = candidate;
-            copy.version++;
-            result = { changed: true };
-          } else if (operation.kind === 'insert' || operation.kind === 'insert-reference') {
-            if (operation.kind === 'insert-reference' && !this.options.prepareReferenceInsertion)
-              throw new Error('Reference insertion is unavailable.');
-            const prepared =
-              operation.kind === 'insert-reference'
-                ? await this.options.prepareReferenceInsertion!(scope, operation)
-                : await this.options.prepareInsertion(scope, operation.source);
-            scope.assertCurrent();
-            await prepared.verify();
-            scope.assertCurrent();
-            this.assertUnprotected(scope.path);
-            const candidate = copy.model.fork();
-            candidate.splice(operation.index, 0, [prepared.block]);
-            await this.prepareTableModel(copy, candidate);
-            await prepared.verify();
-            scope.assertCurrent();
-            copy.model = candidate;
-            copy.version++;
-            if (operation.kind === 'insert-reference' && operation.workTask) {
-              const reference = operation.workTask;
-              copy.taskPlacements[reference.placementId] = {
-                href: workTaskReferenceHref(reference),
-                index: operation.index,
-                expectedRevision: request.expectedRevision!,
+          } else {
+            return this.commitDraft(scope.documentId, async () => {
+              const draft = {
+                ...copy,
+                model: copy.model.fork(),
+                taskPlacements: { ...copy.taskPlacements },
               };
-              result = { changed: true, placementId: reference.placementId, disposition: 'draft' };
-            } else result = { changed: true };
-          } else if (['create', 'list', 'search'].includes(operation.kind))
-            throw refused(
-              'NOTEBOOK_OPERATION_TARGET',
-              'Use the notebook catalog command for this operation.'
-            );
-          else {
-            const candidate = copy.model.fork();
-            result = candidate.execute(
-              operation as Exclude<
-                NotebookDocumentOperation,
-                {
-                  kind:
-                    | 'schema'
-                    | 'search'
-                    | 'list'
-                    | 'inspect'
-                    | 'create'
-                    | 'insert'
-                    | 'insert-reference'
-                    | 'save'
-                    | 'keep-local';
-                }
-              >
-            );
-            await this.prepareTableModel(copy, candidate);
-            copy.model = candidate;
-            copy.version++;
+              if (operation.kind === 'table-view') {
+                draft.model.setTableView(operation.tableId, operation);
+              } else if (operation.kind === 'set-title') {
+                draft.model.execute({ kind: 'rename', title: operation.title });
+              } else if (operation.kind === 'apply-steps') {
+                if (
+                  operation.baseFingerprint !==
+                  contentFingerprint(canonicalNotebookJson(copy.model.content))
+                )
+                  throw refused(
+                    'STALE_NOTEBOOK_TRANSACTION',
+                    'This view edited another notebook revision. Its unsent content remains preserved.'
+                  );
+                draft.model.applySteps(
+                  operation.steps,
+                  operation.selection,
+                  operation.separateHistory,
+                  operation.time,
+                  operation.addToHistory
+                );
+                await this.prepareTableModel(copy, draft.model);
+              } else if (operation.kind === 'splice-blocks') {
+                draft.model.execute(operation);
+                await this.prepareTableModel(copy, draft.model);
+                result = { changed: true };
+              } else if (operation.kind === 'insert' || operation.kind === 'insert-reference') {
+                if (
+                  operation.kind === 'insert-reference' &&
+                  !this.options.prepareReferenceInsertion
+                )
+                  throw new Error('Reference insertion is unavailable.');
+                const prepared =
+                  operation.kind === 'insert-reference'
+                    ? await this.options.prepareReferenceInsertion!(scope, operation)
+                    : await this.options.prepareInsertion(scope, operation.source);
+                scope.assertCurrent();
+                await prepared.verify();
+                scope.assertCurrent();
+                this.assertUnprotected(scope.path);
+                draft.model.splice(operation.index, 0, [prepared.block]);
+                await this.prepareTableModel(copy, draft.model);
+                await prepared.verify();
+                scope.assertCurrent();
+                if (operation.kind === 'insert-reference' && operation.workTask) {
+                  const reference = operation.workTask;
+                  draft.taskPlacements[reference.placementId] = {
+                    href: workTaskReferenceHref(reference),
+                    index: operation.index,
+                    expectedRevision: request.expectedRevision!,
+                  };
+                  result = {
+                    changed: true,
+                    placementId: reference.placementId,
+                    disposition: 'draft',
+                  };
+                } else result = { changed: true };
+              } else if (['create', 'list', 'search'].includes(operation.kind))
+                throw refused(
+                  'NOTEBOOK_OPERATION_TARGET',
+                  'Use the notebook catalog command for this operation.'
+                );
+              else {
+                result = draft.model.execute(
+                  operation as Exclude<
+                    NotebookDocumentOperation,
+                    {
+                      kind:
+                        | 'schema'
+                        | 'search'
+                        | 'list'
+                        | 'inspect'
+                        | 'create'
+                        | 'insert'
+                        | 'insert-reference'
+                        | 'save'
+                        | 'keep-local';
+                    }
+                  >
+                );
+                await this.prepareTableModel(copy, draft.model);
+              }
+              draft.version++;
+              await this.refreshTableAliases(draft);
+              scope.assertCurrent();
+              await this.persist(draft, copy);
+              copy.model = draft.model;
+              copy.version = draft.version;
+              copy.taskPlacements = draft.taskPlacements;
+              copy.tableAliasBaseline = draft.tableAliasBaseline;
+              copy.tableAliasConflict = draft.tableAliasConflict;
+              copy.persistedRevision = draft.persistedRevision;
+              const snapshot = {
+                ...this.snapshot(copy),
+                ...(result !== undefined ? { result } : {}),
+              };
+              this.publish(snapshot);
+              return snapshot;
+            });
           }
           await this.refreshTableAliases(copy);
           await this.persist(copy);
@@ -1449,7 +1469,7 @@ export class NativeNotebookWorkingCopyOwner {
       ...(copy.warnings ? { warnings: copy.warnings } : {}),
     };
   }
-  private persist(copy: NotebookCopy): Promise<void> {
+  private persist(copy: NotebookCopy, owner: NotebookCopy = copy): Promise<void> {
     const record = structuredClone(
       copy.recovery ?? {
         version: 1 as const,
@@ -1465,8 +1485,8 @@ export class NativeNotebookWorkingCopyOwner {
     );
     if (Object.keys(copy.taskPlacements).length)
       Object.assign(record, { taskPlacements: structuredClone(copy.taskPlacements) });
-    const pending = copy.recordTail.catch(() => {}).then(() => this.options.storeRecord(record));
-    copy.recordTail = pending;
+    const pending = owner.recordTail.catch(() => {}).then(() => this.options.storeRecord(record));
+    owner.recordTail = pending;
     return pending;
   }
   private save(copy: NotebookCopy): Promise<NotebookDocumentSnapshot> {
@@ -1529,24 +1549,26 @@ export class NativeNotebookWorkingCopyOwner {
       scope.assertCurrent();
       const result = await this.options.publish(scope, copy.source, references.content, title);
       published = true;
-      if (copy.version === version && references.content !== content)
-        copy.model.applySteps([], undefined, false, undefined, false, references.content);
-      copy.source = result.source;
-      if (result.scope) copy.scope = result.scope;
-      copy.warnings = result.warnings;
-      copy.persistedRevision = revision;
-      try {
-        await this.persist(copy);
-      } catch (error) {
-        copy.warnings = [
-          ...(copy.warnings ?? []),
-          'The notebook was saved, but its recovery record could not be refreshed.',
-        ];
-      }
-      copy.saves.delete(version);
-      const snapshot = this.snapshot(copy);
-      this.publish(snapshot);
-      return snapshot;
+      return this.commitDraft(scope.documentId, async () => {
+        if (copy.version === version && references.content !== content)
+          copy.model.applySteps([], undefined, false, undefined, false, references.content);
+        copy.source = result.source;
+        if (result.scope) copy.scope = result.scope;
+        copy.warnings = result.warnings;
+        copy.persistedRevision = revision;
+        try {
+          await this.persist(copy);
+        } catch (error) {
+          copy.warnings = [
+            ...(copy.warnings ?? []),
+            'The notebook was saved, but its recovery record could not be refreshed.',
+          ];
+        }
+        copy.saves.delete(version);
+        const snapshot = this.snapshot(copy);
+        this.publish(snapshot);
+        return snapshot;
+      });
     })()
       .catch((error) => {
         if (error instanceof NativeDocumentCommandError) throw error;

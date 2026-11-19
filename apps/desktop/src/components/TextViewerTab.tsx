@@ -20,6 +20,7 @@ import { parseSequenceDataLayerPath } from '../shared/sequence-data-layer-path';
 import type { EditorView } from '@codemirror/view';
 import {
   FileDocumentDraft,
+  saveCurrentFileEdits,
   waitForFileDocumentSaves,
 } from '../features/workspace/public/file-document-draft';
 import {
@@ -597,15 +598,16 @@ export function TextViewerTab({
   useDocumentLifecycle({
     target: { kind: 'file', filePath },
     tabId: canvasTabId,
+    readRevision: () => document.revision,
     isDirty: () => !readOnly && document.content !== document.persistedContent,
-    save: async () => {
-      let success: boolean;
-      do {
-        success = await handleSave();
-        if (!mountedRef.current || currentDocumentRef.current !== document) return false;
-      } while (success && !readOnly && document.content !== document.persistedContent);
-      return success;
-    },
+    save: () =>
+      readOnly
+        ? Promise.resolve(true)
+        : saveCurrentFileEdits(
+            document,
+            handleSave,
+            () => mountedRef.current && currentDocumentRef.current === document
+          ),
     discard: () => {
       if (document instanceof FileDocumentClient) document.discard();
       else document.change(document.persistedContent);
