@@ -18,6 +18,7 @@ import {
 } from '../features/design/design-recovery';
 
 export function initDirtyReporter(): () => void {
+  let lastReport: string | undefined;
   const publish = () => {
     try {
       const dirtyPageIds = [...usePageStore.getState().dirtyIds];
@@ -54,7 +55,7 @@ export function initDirtyReporter(): () => void {
         }))
       );
 
-      platform().app.reportDirtyState({
+      const report = {
         hasDirtyWork,
         details,
         dirtyPageIds,
@@ -62,7 +63,12 @@ export function initDirtyReporter(): () => void {
         dirtyTabIds,
         dirtyFilePaths,
         ...(isDesktopRuntime() ? { dirtyItems } : {}),
-      });
+      };
+      const serialized = JSON.stringify(report);
+      if (serialized !== lastReport) {
+        platform().app.reportDirtyState(report);
+        lastReport = serialized;
+      }
     } catch (err) {
       console.warn('[DirtyReporter] Failed to report dirty state:', err);
     }
@@ -80,12 +86,14 @@ export function initDirtyReporter(): () => void {
     if (state.panels !== prev.panels) publish();
   });
   const unsubDesign = useDesignRecoveryStore.subscribe(publish);
+  const unsubLifecycle = documentLifecycle.subscribe(publish);
 
   return () => {
     unsubPage();
     unsubSequence();
     unsubCanvas();
     unsubDesign();
+    unsubLifecycle();
   };
 }
 
