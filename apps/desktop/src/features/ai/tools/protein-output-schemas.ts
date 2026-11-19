@@ -5,6 +5,7 @@ import {
   molecularCatalogObservationSchema,
   encodedMoleculeSchema,
 } from '../../../shared/molecular-catalog';
+import { molecularChainPageOutputSchema } from '../../../shared/molecular-tool-readback';
 import { residueMeasurementSchema } from '../../page/public/embeds/structure3d/residueMeasurement';
 import { structureOpenOutputFields } from '../../agent-bridge/public/structure-tools/contracts';
 
@@ -207,9 +208,13 @@ const chainIdentity = {
 };
 const relationship = z.enum(['exact', 'partial', 'homolog', 'unresolved']);
 const catalogMatch = z.object({
-  observation: molecularCatalogObservationSchema.extend({
-    run: molecularCatalogObservationSchema.shape.run.unwrap().omit({ settings: true }).nullable(),
-  }),
+  observation: molecularCatalogObservationSchema
+    .extend({
+      run: molecularCatalogObservationSchema.shape.run.unwrap().omit({ settings: true }).nullable(),
+    })
+    .partial({ metrics: true, provenance: true }),
+  chainCount: count.optional(),
+  chainPage: molecularChainPageOutputSchema.optional(),
   chains: z.array(
     z.object({
       ...chainIdentity,
@@ -221,7 +226,7 @@ const catalogMatch = z.object({
       matchCount: count,
       mismatchCount: count,
     })
-  ),
+  ).optional(),
 });
 const catalogChain = z.object({
   ...chainIdentity,

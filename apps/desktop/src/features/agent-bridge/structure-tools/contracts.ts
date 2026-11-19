@@ -9,6 +9,10 @@ import { molecularDataLayerSchema } from '../../page/public/embeds/structure3d/m
 import { molecularDataPublicationRequestSchema } from './molecular-data-source';
 import { molecularParameterEditsSchema } from './document-parameter-contract';
 import {
+  molecularChainPageSchema,
+  molecularDetailSchema,
+} from '../../../shared/molecular-tool-readback';
+import {
   molecularDocumentReferenceSchema,
   molecularDocumentReferenceHref,
   type MolecularDocumentReference,
@@ -191,7 +195,9 @@ export const molOpenDrawerSchema = z
   })
   .strict();
 
-export const molListStructuresSchema = z.object({}).strict();
+export const molListStructuresSchema = z
+  .object({ detail: molecularDetailSchema.optional() })
+  .strict();
 
 export const structureViewerStatusSchema = z.enum(['active', 'inactive', 'loading', 'error']);
 export const structureOpenOutputFields = {
@@ -368,6 +374,8 @@ export const molSaveViewSchema = z
 export const molGetStateSchema = z
   .object({
     ...structureTargetShape,
+    detail: molecularDetailSchema.optional(),
+    chainPage: molecularChainPageSchema.optional(),
     connectionQuery: molecularConnectionQuerySchema
       .optional()
       .describe(
@@ -375,7 +383,9 @@ export const molGetStateSchema = z
       ),
   })
   .strict()
-  .superRefine((input, context) => validateStructureTarget(input, context, true));
+  .superRefine((input, context) => {
+    validateStructureTarget(input, context, !input.chainPage);
+  });
 
 export const molSetRepresentationSchema = z
   .object({
@@ -420,6 +430,11 @@ export const molCaptureScreenshotSchema = z
 export const molGetSceneSchema = z
   .object({
     ...structureTargetShape,
+    detail: molecularDetailSchema.optional(),
+    includeScene: z
+      .boolean()
+      .optional()
+      .describe('Export the complete MolViewSpec JSON in scene without the full native readback.'),
     includeParameterSchema: z
       .boolean()
       .optional()
@@ -428,6 +443,18 @@ export const molGetSceneSchema = z
       ),
     parameterOffset: z.number().int().nonnegative().optional(),
     parameterLimit: z.number().int().min(1).max(256).optional(),
+    parameterNodeKind: z
+      .string()
+      .min(1)
+      .max(64)
+      .optional()
+      .describe('Filter parameter discovery by exact node kind, such as camera.'),
+    parameterSnapshotIndex: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe('Filter parameter discovery to one zero-based perspective. Use 0 for a single-view scene.'),
     includeColorGroupSelections: z
       .boolean()
       .optional()
@@ -451,18 +478,28 @@ export const molSelectStoryStepSchema = z
   .strict()
   .superRefine((input, context) => validateStructureTarget(input, context, false));
 
+export const MAX_MOL_SCENE_BYTES = 2_000_000;
+
 export const molApplySceneSchema = z
   .object({
     ...structureTargetShape,
+    detail: molecularDetailSchema.optional(),
     parameterEdits: molecularParameterEditsSchema
       .optional()
       .describe(
-        'Atomic parameter values at exact paths returned by mol_get_scene includeParameterSchema. Supply these instead of scene/root, with expectedSceneSha256.'
+        'Atomic parameter values at exact paths returned by mol_get_scene with includeParameterSchema. Supply these instead of scene, scenePath or root, with expectedSceneSha256.'
       ),
     expectedSceneSha256: z
       .string()
       .regex(/^[a-f0-9]{64}$/)
-      .optional(),
+      .optional()
+      .describe('Current sceneSha256 from mol_get_scene or the previous edit receipt. Required for parameterEdits.'),
+    expectedActiveIndex: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe('Optional active perspective guard. Use activeIndex from mol_get_scene when editing the selected view.'),
     viewAction: z
       .enum(['edit-current', 'add', 'replace'])
       .optional()
@@ -472,16 +509,22 @@ export const molApplySceneSchema = z
     scene: z
       .string()
       .min(1)
-      .max(2_000_000)
+      .max(MAX_MOL_SCENE_BYTES)
       .optional()
       .describe(
-        'Complete standard MolViewSpec JSON (MVSJ), with root and metadata for one view or kind:"multiple" snapshots. Preserve the required metadata.version and metadata.timestamp from mol_get_scene. To author a bare root tree, use root instead and omit scene. Keep the bound resource URI, parse format and canvas background from mol_get_scene in every view.'
+        'Complete standard MolViewSpec JSON (MVSJ) for one view or kind:"multiple" snapshots. Export a starting document with mol_get_scene and includeScene:true. Keep its resource URI, parse format and canvas background in every view.'
       ),
+    scenePath: z
+      .string()
+      .min(1)
+      .max(4096)
+      .optional()
+      .describe('Path to a complete MolViewSpec JSON file inside an authorized workspace, up to 2 MB. Use viewAction:"replace" to replace the whole presentation.'),
     root: z
       .record(z.unknown())
       .optional()
       .describe(
-        'Author one standard MolViewSpec root node: {kind:"root",children:[...]}. Supply root instead of scene; DNAForge stamps official format/version/time metadata. Read mol_get_scene first and modify its parsed root, retaining the coordinate URI, parse format and canvas background. All component expressions, representations, colors, opacity and camera nodes still use the installed official MVS schema.'
+        'Author one standard MolViewSpec root node: {kind:"root",children:[...]}. Supply root instead of scene; DNAForge stamps official format/version/time metadata. Use mol_get_scene with includeScene:true to read the starting root and retain its coordinate URI, parse format and canvas background.'
       ),
     reapplyUnchanged: z
       .boolean()
@@ -500,12 +543,13 @@ export const molApplySceneSchema = z
   .superRefine((input, context) => {
     validateStructureTarget(input, context, false);
     if (
-      [input.scene, input.root, input.parameterEdits].filter((value) => value !== undefined)
-        .length !== 1
+      [input.scene, input.scenePath, input.root, input.parameterEdits].filter(
+        (value) => value !== undefined
+      ).length !== 1
     )
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Supply exactly one of complete scene, authored root, or parameterEdits.',
+        message: 'Supply exactly one of scene, scenePath, root, or parameterEdits.',
       });
     if (
       input.parameterEdits &&
@@ -514,11 +558,6 @@ export const molApplySceneSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Parameter edits require expectedSceneSha256 and no viewAction or replace.',
-      });
-    if (!input.parameterEdits && input.expectedSceneSha256)
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'expectedSceneSha256 belongs to parameterEdits.',
       });
   });
 

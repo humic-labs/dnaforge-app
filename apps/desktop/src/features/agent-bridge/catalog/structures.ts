@@ -266,7 +266,8 @@ export const structuresTools = defineRendererToolCatalog({
   },
   mol_list_structures: {
     name: 'mol_list_structures',
-    description: 'List open structure views and their viewerStatus, including tabs still preparing a renderer or awaiting selection.',
+    description:
+      'List open structure tabs with their handles, readiness and chain counts, including tabs still loading or awaiting selection. Use detail:"full" for the complete inventory or mol_get_state with chainPage for exact chains in one view.',
     shape: 'data-service',
     required_capabilities: ['read-workspace'],
     conditional_required_capabilities: [],
@@ -276,8 +277,6 @@ export const structuresTools = defineRendererToolCatalog({
     conditionallyRequiresWorkspace: false,
     mcpAnnotations: READ_ONLY_IDEMPOTENT_MCP_ANNOTATIONS,
     workspaceGrounding: 'always',
-    emptyInputReason:
-      'mol_list_structures snapshots open tabs and registered native viewers.',
     exposure: { kind: 'shared' },
     inputSchema: molListStructuresSchema,
     outputSchema: molListStructuresOutputSchema,
@@ -286,7 +285,7 @@ export const structuresTools = defineRendererToolCatalog({
   mol_get_state: {
     name: 'mol_get_state',
     description:
-      'Read structure readiness, active render profile and molecular connections with endpoint identities, source provenance and depiction coverage. Use viewHandle from open to check that tab lifetime, or supply one documentReference, structureViewId, bindingId or legacy viewerId.',
+      'Read structure readiness, camera, representation and inventory counts. Use viewHandle from open for that tab lifetime, or supply one documentReference, structureViewId, bindingId or unique legacy viewerId. Use chainPage:{offset,limit} on one exact view for chain identities and follow chainPage.nextOffset. Use connectionQuery for connection evidence or detail:"full" for native appearance, selected residues and the complete inventory.',
     shape: 'data-service',
     required_capabilities: ['read-workspace'],
     conditional_required_capabilities: [],
@@ -441,16 +440,22 @@ export const structuresTools = defineRendererToolCatalog({
     description: MOL_SCENE_TOOL_DESCRIPTIONS.applyScene,
     shape: 'viz-tab-action',
     required_capabilities: ['modify-tabs'],
-    conditional_required_capabilities: [],
+    conditional_required_capabilities: ['read-workspace'],
     audit_required: true,
     effects: ['ui-bound'],
     requiresWorkspace: false,
-    conditionallyRequiresWorkspace: false,
+    conditionallyRequiresWorkspace: true,
     mcpAnnotations: UI_IDEMPOTENT_MCP_ANNOTATIONS,
     exposure: { kind: 'shared' },
     inputSchema: molApplySceneSchema,
     outputSchema: molApplySceneOutputSchema,
     execution: resultSdkRendererTool((context) => createMolApplySceneTool(undefined, context)),
+    resolveInputAuthorization: (input) => {
+      const parsed = molApplySceneSchema.safeParse(input);
+      return parsed.success && parsed.data.scenePath
+        ? { additionalRequiredCapabilities: ['read-workspace'], requiresWorkspace: true }
+        : {};
+    },
   },
   mol_select_story_step: {
     name: 'mol_select_story_step',
