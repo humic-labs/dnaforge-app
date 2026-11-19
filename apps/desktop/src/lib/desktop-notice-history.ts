@@ -3,6 +3,7 @@ import { getSetting, setSetting } from '../db';
 const noticeSettings = {
   'post-update': 'last_seen_release_version',
   'usage-analytics': 'analytics_banner_seen',
+  'usage-analytics-opt-in': 'analytics_opt_in_prompt_seen',
   'privacy-policy': 'privacy_policy_update_seen',
 } as const;
 

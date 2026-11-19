@@ -232,11 +232,17 @@ export function useAppStartup({
         }
 
         await failClosedAnalyticsForSession();
-        if (!bannerSeen && decision.needsDisclosure && (await hasTelemetryDestination())) {
+        const optInPromptSeen =
+          (await readNoticeVersion('usage-analytics-opt-in')) === 'true' ||
+          (bannerSeen && (await getSetting('analytics_consent_basis')) !== 'default');
+        if (!optInPromptSeen && decision.needsDisclosure && (await hasTelemetryDestination())) {
           useToastStore.getState().addRichToast({
             definition: 'data-privacy-opt-in',
             message: toUserMessage(DESKTOP_ANALYTICS_OPT_IN_MESSAGE),
-            onDismiss: acknowledgeAnalyticsNotice,
+            onDismiss: async () => {
+              await rememberNotice('usage-analytics-opt-in', 'true');
+              await acknowledgeAnalyticsNotice();
+            },
             actions: [
               {
                 label: 'Share',

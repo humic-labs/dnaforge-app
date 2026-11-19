@@ -197,36 +197,43 @@ describe('hosted versus desktop startup analytics', () => {
     expect(mocks.optOutAnalytics).toHaveBeenCalledTimes(1);
   });
 
-  it('remembers a dismissed opt-in prompt across startup without granting consent', async () => {
-    mocks.hosted = false;
-    const settings = new Map<string, string>();
-    mocks.getSetting.mockImplementation(async (key: string) => settings.get(key) ?? null);
-    mocks.setSetting.mockImplementation(async (key: string, value: string) => {
-      settings.set(key, value);
-    });
-    mocks.readAnalyticsConsentPolicy.mockResolvedValue({
-      enabled: false,
-      needsDisclosure: true,
-      consent: null,
-      version: null,
-    });
-    const launch = () => {
-      const options = startupOptions();
-      return renderHook(() => useAppStartup(options));
-    };
-    const first = launch();
-    await waitFor(() => expect(mocks.addRichToast).toHaveBeenCalled());
-    const notice = mocks.addRichToast.mock.calls[0][0];
-    expect(notice.definition).toBe('data-privacy-opt-in');
-    await notice.onDismiss?.();
-    first.unmount();
-    vi.clearAllMocks();
-    launch();
-    await waitFor(() => expect(mocks.failClosedAnalyticsForSession).toHaveBeenCalled());
-    expect(mocks.addRichToast).not.toHaveBeenCalled();
-    expect(mocks.optInAnalytics).not.toHaveBeenCalled();
-    expect(mocks.optOutAnalytics).not.toHaveBeenCalled();
-  });
+  it.each([false, true])(
+    'remembers the opt-in prompt across startup without granting consent (prior default disclosure=%s)',
+    async (priorDefault) => {
+      mocks.hosted = false;
+      const settings = new Map<string, string>();
+      if (priorDefault) {
+        settings.set('analytics_banner_seen', 'true');
+        settings.set('analytics_consent_basis', 'default');
+      }
+      mocks.getSetting.mockImplementation(async (key: string) => settings.get(key) ?? null);
+      mocks.setSetting.mockImplementation(async (key: string, value: string) => {
+        settings.set(key, value);
+      });
+      mocks.readAnalyticsConsentPolicy.mockResolvedValue({
+        enabled: false,
+        needsDisclosure: true,
+        consent: null,
+        version: null,
+      });
+      const launch = () => {
+        const options = startupOptions();
+        return renderHook(() => useAppStartup(options));
+      };
+      const first = launch();
+      await waitFor(() => expect(mocks.addRichToast).toHaveBeenCalled());
+      const notice = mocks.addRichToast.mock.calls[0][0];
+      expect(notice.definition).toBe('data-privacy-opt-in');
+      await notice.onDismiss?.();
+      first.unmount();
+      vi.clearAllMocks();
+      launch();
+      await waitFor(() => expect(mocks.failClosedAnalyticsForSession).toHaveBeenCalled());
+      expect(mocks.addRichToast).not.toHaveBeenCalled();
+      expect(mocks.optInAnalytics).not.toHaveBeenCalled();
+      expect(mocks.optOutAnalytics).not.toHaveBeenCalled();
+    }
+  );
 
   it('honors an explicit sharing choice made before the notice was remembered', async () => {
     mocks.hosted = false;
