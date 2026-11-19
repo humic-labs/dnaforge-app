@@ -109,7 +109,7 @@ export async function assertFreshMolecularTrialAttributes(
     },
     ...assets.map((asset) => ({
       uri: asset.name,
-      format: asset.format,
+      format: textCoordinates(asset).format,
       params: fixedStructureParams(attrs.molViewSpec!, asset.name),
     })),
   ];
