@@ -40,7 +40,7 @@ export function SequenceTabInfoChrome({
   readOnly: boolean;
   presentation: SequencePresentation;
   quickLook?: {
-    label: SequenceDisplayName;
+    sourceFileName: string;
     records: readonly {
       recordId: string;
       displayName: SequenceDisplayName;
@@ -82,7 +82,7 @@ export function SequenceTabInfoChrome({
       {}
       <div data-testid={isHostedDocument ? 'hosted-document-bar' : undefined}>
         <SequenceInfoBar
-          documentLabel={quickLook?.label ?? presentation.name}
+          documentLabel={presentation.name}
           sequenceLength={sequenceLength}
           circular={circular}
           viewMode={viewMode}
@@ -95,12 +95,15 @@ export function SequenceTabInfoChrome({
           showRendererVisibilityToggle={false}
           showMapLayoutToggle={false}
           accessMode={
-            readOnly
+            quickLook
               ? {
-                  kind: 'read-only',
-                  onImportToEdit: quickLook?.onImportToEdit,
+                  kind: 'external-preview',
+                  sourceFileName: quickLook.sourceFileName,
+                  onImportToEdit: quickLook.onImportToEdit,
                 }
-              : undefined
+              : readOnly
+                ? { kind: 'read-only' }
+                : undefined
           }
           recordSelector={
             quickLook

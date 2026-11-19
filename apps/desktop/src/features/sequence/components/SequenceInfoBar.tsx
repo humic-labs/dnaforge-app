@@ -26,10 +26,9 @@ interface SequenceInfoBarProps {
   showViewModeToggle?: boolean;
   showRendererVisibilityToggle?: boolean;
   showMapLayoutToggle?: boolean;
-  accessMode?: {
-    kind: 'read-only';
-    onImportToEdit?: () => void;
-  };
+  accessMode?:
+    | { kind: 'read-only' }
+    | { kind: 'external-preview'; sourceFileName: string; onImportToEdit: () => void };
   recordSelector?: {
     readonly records: readonly {
       readonly recordId: string;
@@ -71,7 +70,9 @@ export function SequenceInfoBar({
   editingPending = false,
   editButtonTestId = 'sequence-edit-button',
 }: SequenceInfoBarProps) {
-  if (!documentLabel) return null;
+  const preview = accessMode?.kind === 'external-preview' ? accessMode : undefined;
+  const label = preview?.sourceFileName ?? documentLabel;
+  if (!label) return null;
 
   const hasMeta = sequenceLength != null || circular != null;
   const showToggle = showViewModeToggle && viewMode != null && onViewModeChange != null;
@@ -88,17 +89,24 @@ export function SequenceInfoBar({
   return (
     <div
       data-testid="sequence-info-bar"
-      className={`flex-shrink-0 flex items-center gap-3 px-3 py-0 ${DOCUMENT_TAB_UNDERBAR_MIN_CLASS} bg-bg border-b border-border-hover text-xs text-fg-muted`}
+      role={preview ? 'group' : undefined}
+      aria-label={preview ? 'Read-only preview · Not imported' : undefined}
+      className={`flex-shrink-0 flex items-center gap-x-3 px-3 ${DOCUMENT_TAB_UNDERBAR_MIN_CLASS} border-b border-border-hover text-xs text-fg-muted ${preview ? 'external-preview-toolbar flex-wrap gap-y-1 py-1' : 'bg-bg py-0'}`}
     >
-      <span
-        data-testid="sequence-info-path"
-        className="truncate text-fg min-w-0"
-        title={documentLabel}
-      >
-        {documentLabel}
+      <span className={preview ? 'flex min-w-0 flex-[1_1_9rem] items-center gap-2' : 'contents'}>
+        {preview && (
+          <span
+            title="Read-only · Not imported"
+            className="shrink-0 border-r border-border-hover pr-2 font-medium text-fg"
+          >
+            Preview
+          </span>
+        )}
+        <span data-testid="sequence-info-path" className="truncate text-fg min-w-0" title={label}>
+          {label}
+        </span>
       </span>
 
-      {}
       {(accessMode ||
         recordSelector ||
         limsBadge ||
@@ -108,9 +116,11 @@ export function SequenceInfoBar({
         showMapLayout ||
         showToggle ||
         hasMeta) && (
-        <div className="ml-auto flex-shrink-0 flex items-center gap-3">
+        <div
+          className={`ml-auto flex items-center gap-x-3 ${preview ? 'min-w-0 max-w-full flex-wrap justify-end gap-y-1' : 'flex-shrink-0'}`}
+        >
           {recordSelector && recordSelector.records.length > 1 ? (
-            <label className="flex items-center gap-1.5">
+            <label className="flex min-w-0 max-w-full items-center gap-1.5">
               <span className="text-fg-muted">Record</span>
               <span className="inline-block min-w-0 max-w-56">
                 <MenuNativeSelect
@@ -130,23 +140,20 @@ export function SequenceInfoBar({
               </span>
             </label>
           ) : null}
-          {accessMode?.kind === 'read-only' ? (
-            <span className="flex items-center gap-2">
-              <span data-testid="sequence-read-only-indicator" className="font-medium text-fg">
-                Read Only
-              </span>
-              {accessMode.onImportToEdit ? (
-                <button
-                  type="button"
-                  data-testid="quick-look-import-button"
-                  onClick={accessMode.onImportToEdit}
-                  className="rounded border border-accent/70 bg-accent/10 px-2 py-0.5 font-medium text-accent hover:bg-accent/20"
-                >
-                  Import to Edit
-                </button>
-              ) : null}
+          {accessMode?.kind === 'read-only' && (
+            <span data-testid="sequence-read-only-indicator" className="font-medium text-fg">
+              Read Only
             </span>
-          ) : null}
+          )}
+          {preview && (
+            <Button
+              variant="appbar"
+              data-testid="quick-look-import-button"
+              onClick={preview.onImportToEdit}
+            >
+              Import to Edit
+            </Button>
+          )}
           {limsBadge}
           {trailingContent}
           {onEdit ? (

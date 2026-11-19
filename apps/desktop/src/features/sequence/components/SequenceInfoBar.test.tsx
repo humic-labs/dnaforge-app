@@ -2,10 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { DOCUMENT_TAB_UNDERBAR_MIN_CLASS } from '../public/document-tab-underbar';
 import { SequenceInfoBar } from './SequenceInfoBar';
-import {
-  sequenceDisplayName,
-  quickLookSequenceDisplayName,
-} from '../../../shared/sequence-presentation';
+import { sequenceDisplayName } from '../../../shared/sequence-presentation';
 
 describe('SequenceInfoBar', () => {
   it.each([
@@ -21,15 +18,6 @@ describe('SequenceInfoBar', () => {
     expect(label).toHaveTextContent(expected);
     expect(label.textContent).toBe(expected);
     expect(label).toHaveAttribute('title', expected);
-  });
-
-  it('renders the admitted Quick Look source and record without import extensions', () => {
-    render(
-      <SequenceInfoBar documentLabel={quickLookSequenceDisplayName('two-record.gb', 'Record 1')} />
-    );
-    const label = screen.getByTestId('sequence-info-path');
-    expect(label.textContent).toBe('Quick Look / two-record / Record 1');
-    expect(label).toHaveAttribute('title', 'Quick Look / two-record / Record 1');
   });
 
   it('renders runtime metadata and a caller-stable edit action in the shared bar', () => {
@@ -52,27 +40,19 @@ describe('SequenceInfoBar', () => {
     expect(onEdit).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps Quick Look identity and import action inside the existing header', () => {
-    const onImportToEdit = vi.fn();
-
+  it('keeps the ordinary read-only project header and its sequence name', () => {
     render(
       <SequenceInfoBar
-        documentLabel={sequenceDisplayName('Quick Look / SLI_505.gbk')}
-        sequenceLength={166379}
-        circular={false}
-        accessMode={{ kind: 'read-only', onImportToEdit }}
+        documentLabel={sequenceDisplayName('Saved construct.gb')}
+        accessMode={{ kind: 'read-only' }}
       />
     );
 
-    const bar = screen.getByTestId('sequence-info-bar');
-    expect(bar).toHaveTextContent('Quick Look / SLI_505');
-    expect(bar).toHaveTextContent('Read Only');
-    expect(bar).not.toHaveTextContent('quick-look-packages');
-    expect(bar).not.toHaveTextContent('uuid');
-
-    fireEvent.click(screen.getByTestId('quick-look-import-button'));
-    expect(screen.getByTestId('quick-look-import-button')).toHaveTextContent('Import to Edit');
-    expect(onImportToEdit).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('sequence-info-bar')).not.toHaveClass('external-preview-toolbar');
+    expect(screen.getByTestId('sequence-info-path')).toHaveTextContent(/^Saved construct$/);
+    expect(screen.getByText('Read Only')).toBeVisible();
+    expect(screen.queryByText('Preview')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Import to Edit' })).toBeNull();
   });
 
   it('renders the  view controls for circular sequences', () => {

@@ -193,7 +193,6 @@ import { managedSequenceRepository } from '../managed-sequence-repository';
 import { retargetOpenSequenceTab } from '../openSequenceFile';
 import {
   sequenceDisplayName,
-  quickLookSequenceDisplayName,
   type SequencePresentation,
 } from '../../../shared/sequence-presentation';
 import { requestQuickLookImport } from '../../../stores/quick-look-import-store';
@@ -2366,12 +2365,7 @@ export function SequenceTab({
                 quickLook={
                   quickLookSource && selectedQuickLookRecord
                     ? {
-                        label: quickLookSequenceDisplayName(
-                          quickLookSource.sourceFileName,
-                          quickLookSource.records.length > 1
-                            ? selectedQuickLookRecord.displayName
-                            : undefined
-                        ),
+                        sourceFileName: quickLookSource.sourceFileName,
                         records: quickLookSource.records.map((record) => ({
                           recordId: record.recordId,
                           displayName: sequenceDisplayName(record.displayName),
