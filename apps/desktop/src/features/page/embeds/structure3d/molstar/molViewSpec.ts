@@ -90,7 +90,10 @@ import {
   molecularPolymerContextBaselineIndex,
   requirePreservedPolymerContext,
 } from './molecularSceneSelections';
-import { molecularPresentationOverrideSchema } from './molecularPresentationPreferences';
+import {
+  molecularPresentationOverrideSchema,
+  POLYMER_CONTEXT_OMISSION_GUIDANCE,
+} from '../../../../../shared/molecular-presentation-override';
 import {
   assignMolViewSpecStructureRefs,
   molViewSpecStructureBindings,
@@ -1323,7 +1326,7 @@ export function resolveMolViewSpecAgentScene(
       )
         throw new MolViewSpecSceneError(
           'MVS_CONTEXT_SOURCE_UNSUPPORTED',
-          'An existing structure identity was rebound to different coordinates or assembly/model parameters. Retain its identity and context or record a scientific preservePolymerContext exception.'
+          `An existing structure identity was rebound to different coordinates or assembly/model parameters. Retain its identity and context. ${POLYMER_CONTEXT_OMISSION_GUIDANCE}`
         );
 
       const parent = sourcesByBinding.get(molViewSpecStructureBindingKey(binding));

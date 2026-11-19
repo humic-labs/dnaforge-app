@@ -18,6 +18,8 @@ import {
 import { molecularSceneSelections } from './molecularSceneSelections';
 import type { MolecularProfileNode as Node } from './nucleotidePresentationSettings';
 import cif from './fixtures/molecular-attachment-1hrc.cif?raw';
+import overviewCoordinates from '../../../../../../../../test-fixtures/molecular-data/1URN.cif?raw';
+import overviewScene from '../../../../../../../../test-fixtures/molecular-data/overview-contour.mvs.json?raw';
 import { molecularBindingDetail } from './molecularBindingDetail';
 import { resolveMolecularDisplayGroups } from './molecularDisplayGroups';
 import { molViewSpecColorGroups } from './molViewSpecLegend';
@@ -50,6 +52,45 @@ async function fixture() {
 }
 const walk = (node: Node): Node[] => [node, ...(node.children ?? []).flatMap(walk)];
 describe('binding surfaces checked against actual coordinate instances', () => {
+  it('accepts an unannotated Gaussian surface covering a whole entity during authoring and replay', async () => {
+    const parsed = await CIF.parseText(overviewCoordinates).run();
+    if (parsed.isError) throw Error(parsed.message);
+    const trajectory = await trajectoryFromMmCIF(parsed.result.blocks[0]).run();
+    const source = Structure.ofModel(trajectory.representative);
+    const document = MVSData.fromMVSJ(overviewScene);
+    requireMolecularSurfaceOwnership(document, () => source, true);
+    expect(() => requireMolecularSurfaceOwnership(document, () => source)).not.toThrow();
+  });
+
+  it.each([
+    { selector: { label_entity_id: '1', auth_seq_id: 18 }, custom: undefined },
+    { selector: { label_entity_id: '1', auth_seq_id: 999 }, custom: undefined },
+    {
+      selector: { label_entity_id: '1' },
+      custom: { dnaforge_presentation_role: 'binding-site' },
+    },
+    {
+      selector: { label_entity_id: '1' },
+      custom: { dnaforge_surface_owner: { side: 'target' } },
+    },
+  ])(
+    'rejects a partial, empty or binding-owned contour without a valid owner: %j',
+    async (input) => {
+      const { source, parent, document } = await fixture();
+      parent.children = [
+        {
+          kind: 'component',
+          params: { selector: input.selector },
+          custom: input.custom,
+          children: [{ kind: 'representation', params: { type: 'surface' } }],
+        },
+      ];
+      expect(() => requireMolecularSurfaceOwnership(document, () => source, true)).toThrowError(
+        expect.objectContaining({ code: 'MVS_SURFACE_OWNERSHIP_REQUIRED' })
+      );
+    }
+  );
+
   it.each([
     { cofactor: true, requested: 'contact-patch', expected: 'complete' },
     { cofactor: false, requested: undefined, expected: 'contact-patch' },
@@ -928,6 +969,20 @@ describe('binding surfaces checked against actual coordinate instances', () => {
     retained.params!.selector = { label_comp_id: 'HEC' };
     expect(() => requireMolecularSurfaceOwnership(built, () => f.source)).toThrow(/surface owner/);
   });
+
+  it('rejects an explicit context contour overlapping the selected binding side during construction', async () => {
+    const f = await fixture();
+    f.parent.children!.push({
+      kind: 'component',
+      params: { selector: { label_comp_id: 'HEC' } },
+      custom: { dnaforge_presentation_role: 'context' },
+      children: [{ kind: 'representation', params: { type: 'surface' } }],
+    });
+    expect(() =>
+      constructMolecularBindingRegions(resolveMolViewSpecRenderProfile(f.document), () => f.source)
+    ).toThrowError(expect.objectContaining({ code: 'MVS_SURFACE_OWNERSHIP_REQUIRED' }));
+  });
+
   it('rejects union, partial owner, unknown owner and opposing separate surfaces', async () => {
     const f = await fixture();
     const d = constructMolecularBindingRegions(
