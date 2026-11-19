@@ -19,8 +19,8 @@ desktop against a fresh profile and workspace from the repository root.
 ```sh
 session_dir=$(mktemp -d "$HOME/split-map.XXXXXX")
 git init -q "$session_dir/workspace"
-DNAFORGE_BACKGROUND_WINDOW=1 pnpm --dir apps/desktop dev -- \
-  "--user-data-dir=$session_dir/profile" "--workspace=$session_dir/workspace"
+ELECTRON_CLI_ARGS=$(node -p 'JSON.stringify(["--user-data-dir=" + process.argv[1] + "/profile", "--workspace=" + process.argv[1] + "/workspace"])' "$session_dir") \
+  DNAFORGE_BACKGROUND_WINDOW=1 pnpm --dir apps/desktop dev
 ```
 
 Open Files in that window. In a second terminal, use the same session path
@@ -45,6 +45,22 @@ actual height from the divider to the bottom of the pane.
 
 Keep the screenshots, recording and measured bounds for each step with the
 tested revision. Follow the parent skill's cleanup instructions.
+
+### Switching the split direction
+
+Open Files in the isolated project. Run the orientation journey with the same
+session and a fresh output directory. It closes the disposable session’s tabs
+and opens a fresh copy of pUC19 through Files.
+
+```sh
+node apps/desktop/scripts/split-orientation-journey.mjs \
+  --session "$session_dir" --out "$session_dir/switch-captures"
+```
+
+Each click switches the wrapped sequence and map between stacked and side-by-side.
+Compare the first displayed frames against the settled destination. Check the
+wrap canvas dimensions, bases per row, and the drawn map size and position in
+both directions. Keep the compositor captures and input-relative measurements.
 
 ## Gotchas
 
