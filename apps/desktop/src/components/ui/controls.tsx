@@ -21,7 +21,6 @@ import { PortalMenu } from '../PortalMenu';
 import {
   UI_DANGER_BUTTON_CLASS,
   UI_APPBAR_ACTION_CLASS,
-  UI_FIELD_CLASS,
   UI_ICON_BUTTON_CLASS,
   UI_LINK_BUTTON_CLASS,
   UI_PRIMARY_BUTTON_CLASS,
@@ -73,7 +72,7 @@ export const TextField = forwardRef<
       ref={ref}
       data-ui-control="input"
       data-settings-control="input"
-      className={`${props.readOnly ? UI_READONLY_FIELD_CLASS : UI_FIELD_CLASS}${monospace ? ' font-mono' : ''}`}
+      className={`${props.readOnly ? UI_READONLY_FIELD_CLASS : 'wp-form-density wp-menu-trigger wp-menu-search-input'}${monospace ? ' !font-mono' : ''}`}
     />
   );
 });
