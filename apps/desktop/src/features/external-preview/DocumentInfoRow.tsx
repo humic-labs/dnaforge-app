@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
-import { UI_DOCUMENT_PREVIEW_ROW_CLASS } from '../../components/ui/styles';
+import {
+  UI_DOCUMENT_PREVIEW_LABEL_CLASS,
+  UI_DOCUMENT_PREVIEW_ROW_CLASS,
+} from '../../components/ui/styles';
 
 export interface PreviewControls {
   action: ReactNode;
@@ -27,7 +30,7 @@ export function DocumentInfoRow({
       >
         {controls && (
           <span
-            className="shrink-0 border-r border-border-hover pr-2 font-medium text-fg"
+            className={UI_DOCUMENT_PREVIEW_LABEL_CLASS}
             title="Read-only preview · Not imported"
           >
             Preview

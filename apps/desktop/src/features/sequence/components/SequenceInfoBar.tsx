@@ -4,6 +4,7 @@ import type { SequenceDisplayName } from '../../../shared/sequence-presentation'
 import { EditIcon } from '../../../components/icons';
 import { Button } from '../../../components/ui';
 import {
+  UI_DOCUMENT_PREVIEW_LABEL_CLASS,
   UI_DOCUMENT_PREVIEW_ROW_CLASS,
   UI_SEQUENCE_INFO_ROW_CLASS,
 } from '../../../components/ui/styles';
@@ -98,10 +99,7 @@ export function SequenceInfoBar({
     >
       <span className={preview ? 'flex min-w-0 flex-[1_1_9rem] items-center gap-2' : 'contents'}>
         {preview && (
-          <span
-            title="Read-only · Not imported"
-            className="shrink-0 border-r border-border-hover pr-2 font-medium text-fg"
-          >
+          <span title="Read-only · Not imported" className={UI_DOCUMENT_PREVIEW_LABEL_CLASS}>
             Preview
           </span>
         )}
