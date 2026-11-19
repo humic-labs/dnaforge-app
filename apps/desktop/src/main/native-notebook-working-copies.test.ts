@@ -77,6 +77,22 @@ const owner = () => {
 };
 
 describe('native notebook legacy package boundary', () => {
+  it('keeps current notebook packages writable during the automatic legacy scan', async () => {
+    const native = owner();
+    const created = await native.create({
+      title: 'Current notebook',
+      workspaceRoot: root,
+      requestId: 'current-notebook',
+    });
+    const guard = vi.spyOn(native, 'withCleanPaths');
+    await expect(native.migrateLegacyProjectFiles(root)).resolves.toMatchObject({
+      migrated: 0,
+      issues: [],
+    });
+    expect(guard).not.toHaveBeenCalledWith([created.path], expect.any(Function));
+    await native.close();
+  });
+
   it('defers automatic migration while a notebook has unsaved edits and keeps explicit file changes protected', async () => {
     const native = owner();
     const created = await native.create({

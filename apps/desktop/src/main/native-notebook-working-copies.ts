@@ -648,10 +648,12 @@ export function createNativeNotebookWorkingCopies(options: {
     }
     return captureMigrationGitContent(scope.workspaceRoot, [...files, receipt]);
   };
+  type MigrationPreparation = { scope: NativeNotebookScope; migrated: boolean };
   const prepareLegacyNotebook = async (
     scope: NativeNotebookScope,
-    record?: NativeNotebookRecord
-  ): Promise<{ scope: NativeNotebookScope; migrated: boolean }> => {
+    record?: NativeNotebookRecord,
+    acquireForMigration?: () => Promise<MigrationPreparation>
+  ): Promise<MigrationPreparation> => {
     if (scope.readOnly) return { scope, migrated: false };
     const legacyFlat = scope.path.toLowerCase().endsWith('.wpnote.json');
     let resuming = false;
@@ -726,6 +728,7 @@ export function createNativeNotebookWorkingCopies(options: {
               captured = true;
           }
           if (captured) continue;
+          if (acquireForMigration) return acquireForMigration();
           await withKnownWorkspacePathMutation(options.db(), [scope.path], async () => {
             scope = await resolveDocument(scope.documentId, true);
             const current = await readCanonicalNotebookPackage(
@@ -779,6 +782,7 @@ export function createNativeNotebookWorkingCopies(options: {
         return { scope, migrated: false };
       }
     }
+    if (acquireForMigration) return acquireForMigration();
     return withKnownWorkspacePathMutation(options.db(), [scope.path], async () => {
       scope = await resolveDocument(scope.documentId, true);
       if ((await readRetainedRecord(scope.documentId))?.dirty && !resuming)
@@ -1001,15 +1005,19 @@ export function createNativeNotebookWorkingCopies(options: {
         (row) => findKnownWorkspaceRoot(options.db(), row.path) === root
       )) {
         try {
-          await owner.withCleanPaths([row.path], async () => {
+          const prepare = async (acquire?: () => Promise<MigrationPreparation>) => {
             assertCurrent();
             const scope = await resolveDocument(row.id, false);
-            const prepared = await prepareLegacyNotebook(scope, await readRetainedRecord(row.id));
-            if (prepared.migrated) {
-              result.migrated++;
-              await owner.refreshAfterMigration(row.id, prepared.scope);
-            }
-          });
+            return prepareLegacyNotebook(scope, await readRetainedRecord(row.id), acquire);
+          };
+          const prepared = await prepare(() =>
+            owner.withCleanPaths([row.path], async () => {
+              const checked = await prepare();
+              if (checked.migrated) await owner.refreshAfterMigration(row.id, checked.scope);
+              return checked;
+            })
+          );
+          if (prepared.migrated) result.migrated++;
         } catch (error) {
           if (error instanceof NativeDocumentCommandError && error.code === 'DIRTY_NOTEBOOK')
             continue;
