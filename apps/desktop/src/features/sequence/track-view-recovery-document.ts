@@ -1,10 +1,20 @@
 import { platform } from '../../platform';
 import { createIndexedBbiTrackId, type PortableGenomeViewDocument } from '@waypoint/genome-data';
+import { isAbsolutePath } from '../../shared/resolve-entity-path';
 import { validateTrackViewDocument, type TrackViewDocument } from '../../shared/track-view';
 import type { AdmitPortableTracksResult } from './portable-genome-view-restore';
 import { portableFingerprintFromIdentity } from './portable-genome-view-adapter';
 import { projectPortableGenomeView } from './portable-genome-view-adapter';
 import { referenceSignature } from './bbi-reference-compatibility';
+
+function restoresFromNativeAlignmentSource(track: TrackViewDocument['bamTracks'][number]): boolean {
+  return (
+    Boolean(track.source.remote) ||
+    (!track.admittedSource?.request &&
+      isAbsolutePath(track.source.bamPath) &&
+      isAbsolutePath(track.source.indexPath))
+  );
+}
 
 export async function trackViewRecoveryDocument(
   input: TrackViewDocument
@@ -75,7 +85,7 @@ export async function trackViewRecoveryDocument(
       assembly: { assemblyId: document.reference.assemblyId },
       scope: document.scope,
       dataTracks: document.dataTracks.filter((track) => !track.remoteSignal),
-      bamTracks: document.bamTracks.filter((track) => !track.source.remote),
+      bamTracks: document.bamTracks.filter((track) => !restoresFromNativeAlignmentSource(track)),
       variantSource: document.variantSource,
       ...(reference.kind === 'hosted-reference'
         ? {
@@ -144,7 +154,7 @@ export function managedRestoredTracks(
       return restored ? [{ ...saved, source: restored.source }] : [];
     }),
     bamTracks: document.bamTracks.flatMap((saved) => {
-      if (saved.source.remote) return [saved];
+      if (restoresFromNativeAlignmentSource(saved)) return [saved];
       const restored = bamById.get(saved.trackId);
       return restored
         ? [

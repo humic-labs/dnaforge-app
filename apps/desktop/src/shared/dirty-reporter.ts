@@ -137,7 +137,7 @@ export async function saveAllUnsavedWork(): Promise<void> {
         ownsNativeFileDocument(target.filePath)
       )
         continue;
-      pending.push(documentLifecycle.save(target, tab.id));
+      pending.push(documentLifecycle.save(target, tab.id, 'all'));
     }
   }
   const results = await Promise.allSettled(pending);

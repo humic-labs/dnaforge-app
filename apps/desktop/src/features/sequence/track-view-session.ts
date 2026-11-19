@@ -2,7 +2,7 @@ import type { PortableGenomeViewReference } from '@waypoint/genome-data';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { contentFingerprint } from '../../db/entity-substrate/adapter';
 import { reportSaveFailure } from '../../lib/report-save-failure';
-import { documentLifecycle } from '../../shared/document-lifecycle';
+import { documentLifecycle, type DocumentSaveScope } from '../../shared/document-lifecycle';
 import {
   trackViewIdSchema,
   validateTrackViewDocument,
@@ -36,6 +36,7 @@ export class TrackViewSession implements TrackViewControl {
   private saved: SavedTrackView | undefined;
   private source: { token: symbol; value: TrackViewSource } | null = null;
   private snapshot: TrackViewSnapshot | null;
+  private capturePortableReference?: TrackViewSource['capturePortableReference'];
   private ready = false;
   private interaction: TrackViewInteraction = { kind: 'idle' };
   private readonly listeners = new Set<() => void>();
@@ -79,6 +80,7 @@ export class TrackViewSession implements TrackViewControl {
       this.saved = tab.trackView;
       this.ready = false;
       this.source = null;
+      this.capturePortableReference = undefined;
       this.snapshot = this.saved?.document ?? this.snapshot;
       this.registration.changed();
     }
@@ -86,6 +88,7 @@ export class TrackViewSession implements TrackViewControl {
   attachSource(token: symbol, source: TrackViewSource) {
     if (this.closed()) return;
     this.source = { token, value: source };
+    this.capturePortableReference = source.capturePortableReference;
     this.ready = source.readyForDirtyCheck;
     if (this.ready) this.snapshot = source.capture();
     this.registration.changed();
@@ -139,10 +142,14 @@ export class TrackViewSession implements TrackViewControl {
       dirty: this.isDirty(),
     };
   }
+  private suggestedName() {
+    const reference =
+      this.source?.value.referenceName ?? this.snapshot?.reference.name ?? this.tab.label;
+    return `${reference.trim().slice(0, 195)} view`.trim();
+  }
   beginNaming(mode: Mode) {
     if (this.closed() || this.interaction.kind === 'saving') return;
-    const name =
-      this.saved?.document.name ?? `${this.source?.value.referenceName ?? this.tab.label} view`;
+    const name = this.saved?.document.name ?? this.suggestedName();
     this.transition({
       kind: 'naming',
       mode,
@@ -163,13 +170,15 @@ export class TrackViewSession implements TrackViewControl {
     this.pendingSaves.clear();
     for (const resolve of pending) resolve(success);
   }
-  readonly requestSave = (): Promise<boolean> => {
-    if (this.closed() || this.interaction.kind === 'saving') return Promise.resolve(false);
+  readonly requestSave = (scope: DocumentSaveScope = 'document'): Promise<boolean> => {
+    if (this.closed()) return Promise.resolve(false);
     return new Promise<boolean>((resolve) => {
       this.pendingSaves.add(resolve);
+      if (this.interaction.kind === 'saving') return;
       if (this.interaction.kind === 'naming') {
         if (this.interaction.mode === 'rename') void this.saveHuman(this.interaction.name);
       } else if (this.saved) void this.saveHuman(this.saved.document.name);
+      else if (scope === 'all') void this.saveHuman(this.suggestedName());
       else this.beginNaming('save');
     });
   };
@@ -213,7 +222,7 @@ export class TrackViewSession implements TrackViewControl {
       const captured = renaming ? previous.document : this.current();
       const portableReference = renaming
         ? previous.document.portableReference
-        : ((await this.source?.value.capturePortableReference?.()) ?? captured.portableReference);
+        : ((await this.capturePortableReference?.()) ?? captured.portableReference);
       const now = new Date().toISOString();
       const document = validateTrackViewDocument({
         ...captured,
@@ -238,6 +247,9 @@ export class TrackViewSession implements TrackViewControl {
         throw new Error('The view changed while preparing its save. Inspect it again.');
       const result = await saveTrackView({
         expectedRevision: previous?.revision ?? null,
+        ...(previous && mode === 'save' && expectedRevision === undefined
+          ? { baseDocument: previous.document }
+          : {}),
         ...(destination
           ? { destination }
           : previous
@@ -253,24 +265,30 @@ export class TrackViewSession implements TrackViewControl {
       });
       if (this.closed()) return { ok: false, error: 'The file was saved after its tab closed.' };
       const unchanged =
-        Boolean(renaming) ||
-        trackViewMatchesSavedConfiguration(this.current(), result.saved.document);
+        Boolean(renaming) || trackViewMatchesSavedConfiguration(this.current(), document);
       if (mode === 'copy') {
         const { openTrackView } = await import('./open-track-view');
         if (!this.closed()) await openTrackView(result.saved.document.id);
-      } else {
+      } else if (!(result.saved.reconciliation === 'merged' && !unchanged)) {
         this.saved = result.saved;
+        if (result.saved.reconciliation === 'merged' && unchanged) {
+          this.source = null;
+          this.snapshot = result.saved.document;
+          this.ready = true;
+        }
         this.projectSaved(result.saved, Boolean(renaming), unchanged, Boolean(previous));
       }
       if (this.closed()) return { ok: false, error: 'The Track view closed while saving.' };
-      const dirty = mode === 'copy' ? false : this.isDirty();
+      const dirty = mode !== 'copy' && (!unchanged || this.isDirty());
       this.transition({ kind: 'idle' });
       useToastStore
         .getState()
         .addToast(
           result.warning != null
             ? toUserMessage(result.warning, 'operation.failed')
-            : userMessage('notice.view-saved'),
+            : result.saved.reconciliation === 'saved-copy'
+              ? userMessage('notice.track-view-recovered-copy')
+              : userMessage('notice.view-saved'),
           { definition: 'track-view-result', variant: result.warning ? 'warning' : 'success' }
         );
       this.settle(mode === 'copy' ? !this.isDirty() : !dirty);
@@ -279,7 +297,7 @@ export class TrackViewSession implements TrackViewControl {
       reportSaveFailure('[TrackViewSession] Save failed:', { tabId: this.tab.id }, error);
       const message = toUserMessage(
         error instanceof Error ? error.message : 'Could not save this Track view.',
-        'tracks.loadFailed'
+        'document.saveFailed'
       );
       if (!this.closed()) {
         this.transition(naming ? { ...naming, error: message } : { kind: 'idle' });
@@ -311,14 +329,17 @@ export class TrackViewSession implements TrackViewControl {
           trackView: saved,
           ...(!renaming && unchanged
             ? {
+                isDirty: false,
                 initialAnnotationMapperPolicy: document.annotation.policy,
                 viewState: {
                   ...tab.viewState,
                   indexedViewport: document.viewport,
                   indexedGenomeViewRestoreCommand: {
-                    id: previouslySaved
-                      ? (tab.viewState?.indexedGenomeViewRestoreCommand?.id ?? crypto.randomUUID())
-                      : crypto.randomUUID(),
+                    id:
+                      previouslySaved && saved.reconciliation !== 'merged'
+                        ? (tab.viewState?.indexedGenomeViewRestoreCommand?.id ??
+                          crypto.randomUUID())
+                        : crypto.randomUUID(),
                     viewport: { kind: 'assembly-range' as const, ...document.viewport },
                     annotationPolicy: document.annotation.policy,
                     orderedAnnotationTrackIds: document.annotation.orderedTrackIds,
@@ -329,12 +350,17 @@ export class TrackViewSession implements TrackViewControl {
                       .map(([id]) => id),
                   },
                 },
-                ...(!previouslySaved
+                ...(!previouslySaved || saved.reconciliation === 'merged'
                   ? {
                       indexedGenome: tab.indexedGenome
                         ? {
                             ...tab.indexedGenome,
                             scope: document.scope,
+                            sequenceDataLayers: document.sequenceDataLayers,
+                            contactProjection: document.contactProjection,
+                            comparisonProjection: document.comparisonProjection,
+                            primerBindings: document.primerBindings,
+                            userAnnotations: document.userAnnotations,
                             dataTracks: document.dataTracks,
                             bamTracks: document.bamTracks,
                             signalReadPileupViews: document.signalReadPileupViews,
