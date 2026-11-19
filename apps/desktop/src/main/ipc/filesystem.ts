@@ -445,9 +445,6 @@ export function registerFilesystemHandlers(): void {
             event.sender.id,
             [safeFilePath, ...(safeOverwritePackageRoot ? [safeOverwritePackageRoot] : [])]
           );
-          const sourceIdentity = options?.requireConverted
-            ? await stat(safeFilePath, { bigint: true })
-            : null;
           if (safeOverwritePackageRoot)
             await retainSequencePackage(workspaceScope.db, {
               workspaceRoot: sourceWorkspaceRoot,
@@ -462,17 +459,6 @@ export function registerFilesystemHandlers(): void {
               packageRoot: pkg.packageRoot,
             });
           if (options?.requireConverted && !result.converted) {
-            const currentIdentity = await stat(safeFilePath, { bigint: true }).catch(() => null);
-            const isSameSource =
-              currentIdentity !== null &&
-              sourceIdentity !== null &&
-              currentIdentity.dev === sourceIdentity.dev &&
-              currentIdentity.ino === sourceIdentity.ino &&
-              currentIdentity.size === sourceIdentity.size &&
-              currentIdentity.mtimeNs === sourceIdentity.mtimeNs;
-            if (isSameSource) {
-              await rm(safeFilePath);
-            }
             throw new Error(
               `SEQUENCE_PACKAGE_REQUIRED: ${
                 result.skippedReason ??

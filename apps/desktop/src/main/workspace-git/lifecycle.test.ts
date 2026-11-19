@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -32,6 +32,45 @@ describe('managed workspace lifecycle transitions', () => {
     db.close();
     rmSync(root, { recursive: true, force: true });
   });
+
+  it.each(['database', 'file', 'nested'] as const)(
+    'refuses project Trash while its %s entity stays addressable and still permits archive and restore',
+    async (kind) => {
+      if (kind === 'database')
+        db.prepare(
+          "INSERT INTO primers(id,name,sequence,length,workspace_id,created_at,updated_at) VALUES('retained','Retained','A',1,1,1,1)"
+        ).run();
+      if (kind === 'file') {
+        writeFileSync(join(repoPath, 'arbitrary.log'), 'saved');
+        db.prepare(
+          "INSERT INTO catalog_entities(id,type,name,locator,storage_type,status,workspace_id,created_at,updated_at) VALUES('registered','file','Raw',?,'file','active',1,1,1)"
+        ).run('file://' + join(repoPath, 'arbitrary.log'));
+      }
+      if (kind === 'nested') {
+        const nested = join(repoPath, 'Ordinary', 'Child', '.forge');
+        mkdirSync(nested, { recursive: true });
+        writeFileSync(join(nested, 'notebook.json'), 'saved');
+      }
+      await expect(
+        transitionManagedWorkspaceLifecycle(db, { action: 'trash-by-path', repoPath })
+      ).rejects.toThrow('SAVED_ENTITY_CONTENT');
+      expect(lifecycleRow(db)).toEqual({ archived_at: null, trashed_at: null });
+      await expect(
+        transitionManagedWorkspaceLifecycle(db, { action: 'archive-by-path', repoPath })
+      ).resolves.toEqual({ changed: 1 });
+      await expect(
+        transitionManagedWorkspaceLifecycle(db, {
+          action: 'trash-by-uuid',
+          repoUuid: 'workspace-a',
+        })
+      ).rejects.toThrow('SAVED_ENTITY_CONTENT');
+      await expect(
+        transitionManagedWorkspaceLifecycle(db, { action: 'restore-archive-by-path', repoPath })
+      ).resolves.toEqual({ changed: 1 });
+      if (kind === 'file')
+        expect(readFileSync(join(repoPath, 'arbitrary.log'), 'utf8')).toBe('saved');
+    }
+  );
 
   it('owns archive, trash, and restore state changes in main', async () => {
     await expect(

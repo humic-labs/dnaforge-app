@@ -1,3 +1,4 @@
+import { actOnAcceptedScientificEntity } from './scientific-resource-lifecycle';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, rm, symlink, unlink, writeFile } from 'node:fs/promises';
@@ -740,6 +741,38 @@ describe('scientific workspace operation owner', () => {
     );
   });
 
+  it('refuses an omitted saved identity in a submitted or on-disk snapshot', async () => {
+    const f = await fixture();
+    await f.initial();
+    const before = f.store.read();
+    const primerBytes = await readFile(join(f.root, 'p.json'));
+    const primerBefore = before.reader.current(id('p'));
+    await expect(
+      f.submit({
+        operationId: 'omit-saved-primer',
+        expectedHead: before.head,
+        source: { kind: 'documents', entries: entries.filter((entry) => entry.resourceId !== 'p') },
+      })
+    ).rejects.toThrow('SAVED_ENTITY_CONTENT');
+    const identityPath = join(f.root, scientificIdentityPath);
+    const identity = JSON.parse(await readFile(identityPath, 'utf8'));
+    identity.entries = identity.entries.filter(
+      (entry: { resourceId: string }) => entry.resourceId !== 'p'
+    );
+    await writeFile(identityPath, JSON.stringify(identity));
+    await expect(
+      f.submit({
+        operationId: 'omit-on-disk',
+        expectedHead: before.head,
+        source: { kind: 'working-files' },
+      })
+    ).rejects.toThrow('SAVED_ENTITY_CONTENT');
+    const after = f.store.read();
+    expect(after.head).toBe(before.head);
+    expect(after.reader.current(id('p'))).toEqual(primerBefore);
+    expect(await readFile(join(f.root, 'p.json'))).toEqual(primerBytes);
+  });
+
   it('repairs and restores a deleted legacy checksum cache without rewriting historical metadata or DNA', async () => {
     const f = await fixture();
     await f.initial();
@@ -817,13 +850,19 @@ describe('scientific workspace operation owner', () => {
     expect(new TextDecoder().decode(f.store.readBlob(defineBlob(oldBytes))!)).toBe(
       new TextDecoder().decode(oldBytes)
     );
-    expect(
-      await f.submit({
+    await expect(
+      f.submit({
         operationId: 'delete-legacy-package',
         expectedHead: f.store.read().head,
         source: { kind: 'delete', sourcePath: 'Cache sequence' },
       })
-    ).toMatchObject({ acceptance: { kind: 'changed' }, delivery: { kind: 'complete' } });
+    ).rejects.toThrow('SAVED_ENTITY_CONTENT');
+    const archived = await actOnAcceptedScientificEntity({
+      db: f.db,
+      action: 'archive',
+      input: { id: metadata.id },
+    });
+    expect(archived?.entity.id).toBe(metadata.id);
     const deleted = f.store.read();
     expect(deleted.reader.current(id(metadata.id))).toBeNull();
     expect(

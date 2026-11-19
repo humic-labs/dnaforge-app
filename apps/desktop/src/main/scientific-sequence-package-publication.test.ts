@@ -16,7 +16,6 @@ import { serializeSequenceForInPlaceSave } from '@waypoint/sequence-utils';
 import {
   defineBlob,
   defineResourceState,
-  inspectResourceRevision,
   parseOperationId,
   parseResourceId,
   parseWorkspacePath,
@@ -29,7 +28,7 @@ import { reconcileScientificProjections } from './scientific-projection-service'
 import { assertKnownWorkspaceContentWritable } from './workspace-content-write-access';
 import { assertUnversionedRendererFilesystemMutationAllowed } from './ipc/workspace-mutation-authority';
 import { runWorkspaceFileTrash } from './workspace-file-trash';
-import { trashAcceptedScientificPath } from './scientific-resource-lifecycle';
+import { assertSystemTrashAllowed } from './saved-entity-file-retention';
 import { assertRendererDatabaseStatementAllowed } from './workspace-sync-database-fence';
 import {
   sequencePackageAttachTwoClones,
@@ -496,7 +495,7 @@ async function acceptedQueryFixture(sourceKind: 'accepted' | 'unversioned') {
 }
 
 it.each(['accepted', 'unversioned'] as const)(
-  'retires %s raw clone sources through their native owner and reconstructs only canonical and frozen package bytes from cold accepted history',
+  'preserves %s raw clone identities during attachment and restores their accepted package history',
   async (sourceKind) => {
     const f = await acceptedQueryFixture(sourceKind);
     const initialSlots = f.store
@@ -525,27 +524,14 @@ it.each(['accepted', 'unversioned'] as const)(
         expect(prepared.run.queries[index].id).toBe(id);
         expect(await readFile(canonical[index], 'utf8')).toBe(f.clones[index]);
         expect(await readFile(prepared.queryPaths[id], 'utf8')).toBe(f.clones[index]);
-        await expect(readFile(source.path)).rejects.toMatchObject({ code: 'ENOENT' });
+        expect(await readFile(source.path)).toEqual(Buffer.from(source.bytes));
         expect(
           f.f.db.prepare('SELECT status FROM catalog_entity_files WHERE path=?').get(source.path)
-        ).toEqual({ status: 'missing' });
+        ).toEqual({ status: 'current' });
         if (sourceKind === 'accepted') {
-          const before = initialSlots.find((slot) => slot.resourceId === source.resourceId);
-          const after = f.store
-            .catalog()
-            .entries.find((slot) => slot.resourceId === source.resourceId);
-          expect(after).toMatchObject({
-            resourceId: source.resourceId,
-            path: null,
-            lastPath: source.relative,
-            tombstone: true,
-          });
-          if (!before || !after) throw new Error('Accepted source identity was lost.');
           expect(
-            requireQueryFixtureValue(
-              inspectResourceRevision(f.store.read().graph, after.revisionId)
-            ).parentIds
-          ).toContain(before.revisionId);
+            f.store.catalog().entries.find((slot) => slot.resourceId === source.resourceId)
+          ).toEqual(initialSlots.find((slot) => slot.resourceId === source.resourceId));
           expect(f.store.readBlob(defineBlob(source.bytes))).toEqual(Buffer.from(source.bytes));
         }
       }
@@ -559,18 +545,8 @@ it.each(['accepted', 'unversioned'] as const)(
         if (trash.kind !== 'list')
           throw new Error('The native query recovery entries are unavailable.');
         expect(trash.errors).toEqual([]);
-        expect(trash.entries.map((entry) => entry.originalPath).sort()).toEqual(
-          f.raw.map((source) => source.relative).sort()
-        );
-        for (const entry of trash.entries) {
-          const source = f.raw.find((candidate) => candidate.relative === entry.originalPath);
-          if (!source) throw new Error('The recovery entry is not an original query source.');
-          expect(
-            await readFile(join(f.root, '.git', 'dnaforge-file-trash', entry.id, 'payload'))
-          ).toEqual(Buffer.from(source.bytes));
-        }
+        expect(trash.entries).toEqual([]);
       }
-      expect(await readFile(f.paths.productPath, 'utf8')).toBe(f.reference);
       await retireSequenceEvidenceQuerySources(f.request, prepared, f.context(lease));
       expect(f.store.read().head).toBe(head);
       const envelope = f.store.exportHistory();
@@ -585,6 +561,7 @@ it.each(['accepted', 'unversioned'] as const)(
       f.f.db.close();
       await rm(f.packageRoot, { recursive: true });
       await rm(join(f.root, 'seed.gb'));
+      if (sourceKind === 'accepted') for (const source of f.raw) await rm(source.path);
       lease();
       cold = createFileTestDb('cold-query-materialization');
       ensureSchema(cold.db, cold.dbPath);
@@ -609,7 +586,8 @@ it.each(['accepted', 'unversioned'] as const)(
       expect(await readFile(f.paths.metaPath, 'utf8')).toBe(marker);
       for (const [index, source] of f.raw.entries()) {
         const id = f.request.queries[index].id;
-        await expect(readFile(source.path)).rejects.toMatchObject({ code: 'ENOENT' });
+        if (sourceKind === 'accepted')
+          expect(await readFile(source.path)).toEqual(Buffer.from(source.bytes));
         expect(await readFile(canonical[index], 'utf8')).toBe(f.clones[index]);
         expect(await readFile(prepared.queryPaths[id], 'utf8')).toBe(f.clones[index]);
         expect(
@@ -620,7 +598,7 @@ it.each(['accepted', 'unversioned'] as const)(
         if (sourceKind === 'accepted') {
           expect(
             restored.catalog().entries.find((slot) => slot.resourceId === source.resourceId)
-          ).toMatchObject({ resourceId: source.resourceId, tombstone: true });
+          ).toMatchObject({ resourceId: source.resourceId, tombstone: false });
           expect(restored.readBlob(defineBlob(source.bytes))).toEqual(Buffer.from(source.bytes));
         }
       }
@@ -715,15 +693,7 @@ it.each(['canonical-member', 'marker', 'identity-map'] as const)(
       if (!path) throw new Error('The protected accepted package input is unavailable.');
       const bytes = await readFile(path);
       const head = f.store.read().head;
-      await expect(
-        trashAcceptedScientificPath({
-          db: f.f.db,
-          path,
-          mutationLease: lease,
-          assertCurrent: f.context(lease).assertCurrent,
-          expectedContentHash: defineBlob(bytes).hash,
-        })
-      ).rejects.toThrow();
+      await expect(assertSystemTrashAllowed(f.f.db, path)).rejects.toThrow();
       expect(f.store.read().head).toBe(head);
       expect(await readFile(path)).toEqual(bytes);
       for (const source of f.raw)

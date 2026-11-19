@@ -771,13 +771,29 @@ describe('registered primer raw shell refusal', () => {
         path,
       });
       if (inspection.kind !== 'inspect') throw new Error('Expected source inspection');
-      const legacy = await runWorkspaceFileTrash({
-        kind: 'trash',
-        workspaceRoot: root,
-        path,
-        expectedRevision: inspection.source.revision,
-      });
-      if (legacy.kind !== 'trash') throw new Error('Expected legacy Trash entry');
+      const entryId = randomUUID();
+      const dir = join(root, '.git', 'dnaforge-file-trash', entryId);
+      mkdirSync(dir, { recursive: true });
+      const { workspaceMoveTreeDigest } = await import('../workspace-file-trash');
+      const contentDigest = await workspaceMoveTreeDigest(path);
+      const { renameSync, realpathSync } = await import('node:fs');
+      renameSync(path, join(dir, 'payload'));
+      writeFileSync(
+        join(dir, 'record.json'),
+        JSON.stringify({
+          schema: 'dnaforge.file-trash.v1',
+          id: entryId,
+          workspaceRoot: realpathSync(root),
+          originalPath: inspection.source.path,
+          trashedAt: new Date().toISOString(),
+          type: 'file',
+          contentDigest,
+        })
+      );
+      const listed = await runWorkspaceFileTrash({ kind: 'list', workspaceRoot: root });
+      if (listed.kind !== 'list' || listed.entries.length !== 1)
+        throw Error(JSON.stringify(listed));
+      const legacy = { entry: listed.entries[0] };
       const handler = await getShellHandler('shell:fileTrash');
       const before = db.prepare('SELECT * FROM org_registry_local_records').all();
       expect(
@@ -805,7 +821,7 @@ describe('registered primer raw shell refusal', () => {
   );
 
   it.each(['file', 'parent'] as const)(
-    'keeps the saved bytes of a local, unenrolled entity when purging its %s',
+    'refuses to move the registered raw file or its %s ancestor before creating a Trash entry',
     async (target) => {
       const event = gitReadEvent(819);
       const handler = await getShellHandler('shell:fileTrash');
@@ -840,31 +856,55 @@ describe('registered primer raw shell refusal', () => {
         path: item,
         expectedRevision: inspected.source.revision,
       })) as Awaited<ReturnType<typeof runWorkspaceFileTrash>>;
-      if (moved.kind !== 'trash') throw new Error('Expected reversible project Trash');
-      const entry = {
-        workspaceRoot: root,
-        entryId: moved.entry.id,
-        expectedRevision: moved.entry.revision,
-      };
-      expect(await handler(event, { kind: 'purge', ...entry })).toMatchObject({
+      expect(moved).toMatchObject({
         kind: 'failed',
         code: 'SAVED_ENTITY_CONTENT',
         stateChanged: false,
       });
-      db.prepare('DELETE FROM catalog_entity_files WHERE entity_id=?').run(localId);
-      db.prepare('DELETE FROM catalog_entities WHERE id=?').run(localId);
-      expect(await handler(event, { kind: 'purge', ...entry })).toMatchObject({
-        kind: 'failed',
-        code: 'RETENTION_UNVERIFIED',
-        stateChanged: false,
-      });
-      expect(await handler(event, { kind: 'restore', ...entry })).toMatchObject({
-        kind: 'restore',
-      });
       expect(readFileSync(localPath, 'utf8')).toBe('local entity bytes');
+      expect(await handler(event, { kind: 'list', workspaceRoot: root })).toMatchObject({
+        entries: [],
+      });
     }
   );
 
+  it.each(['primer', 'folder'] as const)(
+    'refuses project and system Trash for an unindexed native %s',
+    async (kind) => {
+      const target = join(root, kind === 'primer' ? 'Saved.primer.json' : 'Ordinary');
+      const file = kind === 'primer' ? target : join(target, 'Nested', '.forge', 'notebook.json');
+      if (kind === 'folder') mkdirSync(join(target, 'Nested', '.forge'), { recursive: true });
+      writeFileSync(file, '{"id":"saved-stable-id"}');
+      const event = gitReadEvent(851);
+      const handler = await getShellHandler('shell:fileTrash');
+      const osTrash = await getShellHandler('shell:trashItem');
+      const inspected = await runWorkspaceFileTrash({
+        kind: 'inspect',
+        workspaceRoot: root,
+        path: target,
+      });
+      if (inspected.kind !== 'inspect') throw new Error('Expected source');
+      await expect(
+        handler(event, {
+          kind: 'trash',
+          workspaceRoot: root,
+          path: target,
+          expectedRevision: inspected.source.revision,
+        })
+      ).resolves.toMatchObject({
+        kind: 'failed',
+        code: 'SAVED_ENTITY_CONTENT',
+        stateChanged: false,
+      });
+      await expect(osTrash(event, target)).rejects.toThrow('SAVED_ENTITY_CONTENT');
+      expect(shell.trashItem).not.toHaveBeenCalled();
+      expect(readFileSync(file, 'utf8')).toBe('{"id":"saved-stable-id"}');
+      expect(await handler(event, { kind: 'list', workspaceRoot: root })).toMatchObject({
+        entries: [],
+        errors: [],
+      });
+    }
+  );
   it('protects an absolute catalog binding with no project owner from system Trash', async () => {
     const outside = mkdtempSync(join(TEST_OTHER_ROOT, 'global-file-'));
     try {
@@ -888,16 +928,22 @@ describe('registered primer raw shell refusal', () => {
     writeFileSync(path, 'legacy');
     const inspected = await runWorkspaceFileTrash({ kind: 'inspect', workspaceRoot: root, path });
     if (inspected.kind !== 'inspect') throw new Error('Expected inspection');
-    const moved = await runWorkspaceFileTrash({
-      kind: 'trash',
-      workspaceRoot: root,
-      path,
-      expectedRevision: inspected.source.revision,
-    });
+    const moved = await runWorkspaceFileTrash(
+      {
+        kind: 'trash',
+        workspaceRoot: root,
+        path,
+        expectedRevision: inspected.source.revision,
+      },
+      undefined,
+      undefined,
+      undefined,
+      () => false
+    );
     if (moved.kind !== 'trash') throw new Error('Expected Trash receipt');
     const journalPath = join(root, '.git', 'dnaforge-file-trash', moved.entry.id, 'record.json');
     const { purgeEligible, ...legacyRecord } = JSON.parse(readFileSync(journalPath, 'utf8'));
-    expect(purgeEligible).toBe(false);
+    expect(purgeEligible).toBe(true);
     writeFileSync(
       journalPath,
       JSON.stringify({ ...legacyRecord, schema: 'dnaforge.file-trash.v1' })

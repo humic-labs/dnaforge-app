@@ -102,6 +102,7 @@ vi.mock('../sequence-package-revision-publication', async (original) => {
 import { ipcMain, BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 import { createTestDb } from '../__tests__/test-db';
 import { ensureSchema } from '../schema';
+import { configureSavedFileBlobRoot } from '../saved-file-sources';
 import { nativeDocuments } from '../features/native-documents';
 import {
   acquireWorkspaceSyncMutationLease,
@@ -192,6 +193,60 @@ afterEach(async () => {
   host.db?.close();
   await rm(root, { recursive: true, force: true });
 });
+
+it('packages loose sequence bytes and preserves the published product when required conversion skips it on retry', async () => {
+  host.db!.prepare("UPDATE workspace_sync_bindings SET access_role='editor'").run();
+  configureSavedFileBlobRoot(host.db!, join(nativeProfile, 'retained'));
+  const path = join(root, 'loose.gb');
+  const bytes = 'LOCUS       Preview  4 bp    DNA     linear SYN\nORIGIN\n        1 acgt\n//\n';
+  await writeFile(path, bytes);
+  const packageFile = new Map(vi.mocked(ipcMain.handle).mock.calls).get('fs:packageSequenceFile')!;
+  const result = await packageFile(event(), path, { requireConverted: true });
+  expect(result.converted).toBe(true);
+  expect(await readFile(result.productPath, 'utf8')).toBe(bytes);
+  const saved = host
+    .db!.prepare(
+      "SELECT entity_id FROM retained_file_source_revisions WHERE workspace_id=7 AND status='committed'"
+    )
+    .all();
+  expect(saved).toHaveLength(1);
+  await expect(
+    packageFile(event(), result.productPath, { requireConverted: true })
+  ).rejects.toThrow('SEQUENCE_PACKAGE_REQUIRED');
+  expect(await readFile(result.productPath, 'utf8')).toBe(bytes);
+  expect(
+    host
+      .db!.prepare(
+        "SELECT DISTINCT entity_id FROM retained_file_source_revisions WHERE workspace_id=7 AND status='committed'"
+      )
+      .all()
+  ).toEqual(saved);
+});
+
+it.each(['registered', 'unregistered'] as const)(
+  'preserves a pre-existing %s input when required sequence conversion skips it',
+  async (kind) => {
+    host.db!.prepare("UPDATE workspace_sync_bindings SET access_role='editor'").run();
+    const path = kind === 'registered' ? join(packageRoot, 'sequence.gb') : join(root, 'data.txt');
+    const bytes = Buffer.from([0x61, 0x62, 0x0d, 0x0a]);
+    await writeFile(path, bytes);
+    const packageFile = new Map(vi.mocked(ipcMain.handle).mock.calls).get(
+      'fs:packageSequenceFile'
+    )!;
+    expect(await packageFile(event(), path)).toMatchObject({
+      productPath: path,
+      converted: false,
+      packageRoots: [],
+    });
+    await expect(packageFile(event(), path, { requireConverted: true })).rejects.toThrow(
+      'SEQUENCE_PACKAGE_REQUIRED'
+    );
+    expect(await readFile(path)).toEqual(bytes);
+    expect(
+      host.db!.prepare("SELECT path FROM catalog_entity_files WHERE entity_id='document'").get()
+    ).toEqual({ path: join(packageRoot, 'sequence.gb') });
+  }
+);
 
 function invoke(kind: Kind) {
   const handler = new Map(vi.mocked(ipcMain.handle).mock.calls).get(channels[kind]);

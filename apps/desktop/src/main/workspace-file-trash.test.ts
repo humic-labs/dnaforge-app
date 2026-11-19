@@ -2,7 +2,17 @@ import { mkdtemp, mkdir, readFile, writeFile, rm, symlink } from 'node:fs/promis
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { runWorkspaceFileTrash } from './workspace-file-trash';
+import {
+  runWorkspaceFileTrash as nativeFileTrash,
+  workspaceMoveTreeDigest,
+} from './workspace-file-trash';
+import { randomUUID } from 'node:crypto';
+import { realpath, rename } from 'node:fs/promises';
+function runWorkspaceFileTrash(
+  ...[request, check, documents, admit, owns]: Parameters<typeof nativeFileTrash>
+) {
+  return nativeFileTrash(request, check, documents, admit, owns ?? (() => false));
+}
 
 describe('native individual file recovery', () => {
   let root: string;
@@ -139,13 +149,37 @@ describe('native individual file recovery', () => {
       path,
       expectedRevision: source.source.revision,
     });
-    if (result.kind !== 'trash') throw new Error('Expected package recovery entry');
+    expect(result).toMatchObject({
+      kind: 'failed',
+      code: 'SAVED_ENTITY_CONTENT',
+      stateChanged: false,
+    });
+    const entryId = randomUUID();
+    const entryDir = join(root, '.git', 'dnaforge-file-trash', entryId);
+    await mkdir(entryDir, { recursive: true });
+    const contentDigest = await workspaceMoveTreeDigest(path);
+    await rename(path, join(entryDir, 'payload'));
+    await writeFile(
+      join(entryDir, 'record.json'),
+      JSON.stringify({
+        schema: 'dnaforge.file-trash.v1',
+        id: entryId,
+        workspaceRoot: await realpath(root),
+        originalPath: 'Notebook',
+        trashedAt: new Date().toISOString(),
+        type: 'directory',
+        contentDigest,
+      })
+    );
+    const old = await runWorkspaceFileTrash({ kind: 'list', workspaceRoot: root });
+    if (old.kind !== 'list' || old.entries.length !== 1) throw Error(JSON.stringify(old));
+    const [entry] = old.entries;
     expect(
       await runWorkspaceFileTrash({
         kind: 'restore',
         workspaceRoot: root,
-        entryId: result.entry.id,
-        expectedRevision: result.entry.revision,
+        entryId: entry.id,
+        expectedRevision: entry.revision,
       })
     ).toMatchObject({ kind: 'restore' });
     expect(await readFile(join(path, '.forge', 'notebook.json'), 'utf8')).toBe(
@@ -174,6 +208,21 @@ describe('native individual file recovery', () => {
       })
     ).toMatchObject({ kind: 'failed', stateChanged: false });
     expect(await readFile(path, 'utf8')).toBe('accepted');
+    expect(await nativeFileTrash(request)).toMatchObject({
+      kind: 'failed',
+      code: 'RETENTION_UNVERIFIED',
+      stateChanged: false,
+    });
+    let checks = 0;
+    expect(
+      await nativeFileTrash(request, undefined, undefined, undefined, () => ++checks === 2)
+    ).toMatchObject({ kind: 'failed', code: 'SAVED_ENTITY_CONTENT', stateChanged: false });
+    expect(checks).toBe(2);
+    expect(await readFile(path, 'utf8')).toBe('accepted');
+    expect(await nativeFileTrash({ kind: 'list', workspaceRoot: root })).toMatchObject({
+      entries: [],
+      errors: [],
+    });
     const result = await runWorkspaceFileTrash(request);
     if (result.kind !== 'trash') throw new Error('Expected recovery entry');
     const payload = join(root, '.git', 'dnaforge-file-trash', result.entry.id, 'payload');
