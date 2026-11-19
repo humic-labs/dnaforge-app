@@ -97,3 +97,31 @@ it('keeps a separately opened saved view visible even when its old inspection no
   });
   expect(isRegisteredStructureAgentVisible(candidate('retained'))).toBe(true);
 });
+it('shows a retained protein of the inspection while it renders in the background', () => {
+  const canvas = useCanvasStore.getState();
+  const [tab] = canvas.panels.main.tabs;
+  useCanvasStore.setState({
+    panels: {
+      main: {
+        ...canvas.panels.main,
+        tabs: [
+          {
+            ...tab,
+            structureInspection: {
+              ...tab.structureInspection!,
+              retainedProteinViews: {
+                'other-protein-key': {
+                  candidateId: 'saved:other',
+                  request: { entityId: 'dna', translation: 'MKV' },
+                  viewSettings: { candidateId: 'saved:other', structureViewId: 'other-protein' },
+                },
+              },
+            },
+          },
+        ],
+      },
+    },
+  });
+  expect(isRegisteredStructureAgentVisible(candidate('other-protein'))).toBe(true);
+  expect(isRegisteredStructureAgentVisible(candidate('retained'))).toBe(false);
+});
