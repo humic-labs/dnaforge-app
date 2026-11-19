@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
-import { copyFileSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -56,16 +55,11 @@ try {
   const workspace = path.join(session, 'workspace');
   const roots = await page.evaluate(() => window.__test.getWorkspaceRootPaths());
   assert.ok(roots.includes(workspace), 'Expected the disposable project in Files');
-  const name = 'pUC19-' + randomUUID();
-  copyFileSync(
-    path.join(root, 'test-fixtures/sequences/circular/pUC19.gb'),
-    path.join(workspace, name + '.gb')
-  );
   await page.evaluate(() => {
     window.__test.closeAllTabs();
     window.__webglExposeForTests = true;
   });
-  const row = page.locator('[data-testid="file-tree-item"][data-entry-name="' + name + '"]');
+  const row = page.locator('[data-testid="file-tree-item"][data-entry-name="pUC19"]');
   await row.first().dblclick();
 
   await page.waitForFunction(() => window.__webglReady && window.__webglGenome?.length === 2686);
