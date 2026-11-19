@@ -3,5 +3,12 @@ import { TerminalWorkspace } from '../TerminalWorkspace';
 
 export const terminalRendererFeature: RendererFeature = {
   id: 'terminal',
-  views: [{ view: 'terminal', Component: TerminalWorkspace, screenCategory: 'unknown' }],
+  views: [
+    {
+      view: 'terminal',
+      Component: TerminalWorkspace,
+      placement: 'sidebar',
+      screenCategory: 'unknown',
+    },
+  ],
 };
