@@ -1013,6 +1013,8 @@ export class NativeNotebookWorkingCopyOwner {
                 expectedRevision: request.expectedRevision!,
               };
               result = { changed: true, placementId: reference.placementId, disposition: 'draft' };
+            } else if (operation.kind === 'insert' && operation.source.kind === 'table') {
+              result = { changed: true, tableId: prepared.block.attrs?.refId };
             } else result = { changed: true };
           } else if (['create', 'list', 'search'].includes(operation.kind))
             throw refused(

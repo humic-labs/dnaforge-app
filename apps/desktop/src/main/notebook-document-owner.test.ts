@@ -18,6 +18,7 @@ import { notebookPackagePaths } from '../db/notebook-package';
 import { contentFingerprint } from '../shared/content-fingerprint';
 import { canonicalNotebookJson } from '../db/notebook-markdown-codec';
 import { NotebookDocumentModel } from '../shared/notebook-model/document';
+import { createConfiguredTableBlock } from '../shared/notebook-model/table/configuration';
 import { NativeDocumentCommandError } from '../shared/native-document-error';
 import { NativeNotebookDocumentClient } from '../features/page/notebook-document-client';
 
@@ -427,6 +428,26 @@ describe('native notebook working copy', () => {
     expect(f.publishes).toBe(2);
     stop();
     await restarted.close();
+  });
+  it('returns the inserted table identity through the public notebook command', async () => {
+    const f = await fixture();
+    const block = createConfiguredTableBlock('inserted-table', { rows: 3, columns: 2 });
+    f.options.prepareInsertion = async () => ({ block, verify: async () => {} });
+    const before = await f.owner.execute({
+      documentId: 'book',
+      operation: { kind: 'inspect-copy' },
+    });
+    const result = await f.owner.executePublic({
+      pageId: 'book',
+      expectedRevision: before.revision,
+      operation: { kind: 'insert', index: 1, source: { kind: 'table', rows: 3, columns: 2 } },
+    });
+    const after = await f.owner.execute({
+      documentId: 'book',
+      operation: { kind: 'inspect-copy' },
+    });
+    expect(after.copy.content.content?.[1]?.attrs?.refId).toBe('inserted-table');
+    expect(result).toMatchObject({ changed: true, tableId: 'inserted-table' });
   });
   it('edits a closed rich package, keeps shared undo, saves canonical bytes and reopens the same rich nodes', async () => {
     const f = await fixture();
