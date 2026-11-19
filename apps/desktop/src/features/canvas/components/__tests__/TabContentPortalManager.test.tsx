@@ -15,6 +15,11 @@ import { useMemoryPressureStore } from '../../../memory-pressure/public';
 import { TAB_PORTAL_HOST_ATTACHED_EVENT, TabPortalTarget } from '../TabPortalTarget';
 import type { Tab, PanelState } from '../../types';
 import { ExplorerWorkspaceSurface } from '../../ExplorerWorkspaceSurface';
+import {
+  leaseAgentStructureRenderer,
+  releaseAgentStructureRenderer,
+  useAgentStructureRenderers,
+} from '../../../page/embeds/structure3d/agentStructureRenderers';
 
 const {
   panelContentMapPolicySpy,
@@ -186,6 +191,9 @@ vi.mock('../../store', () => ({
 
 vi.mock('../PanelContent', async () => {
   const { useEffect, memo } = await vi.importActual<typeof import('react')>('react');
+  const { useStructureRendererHostId } = await vi.importActual<
+    typeof import('../../../page/embeds/structure3d/agentStructureRenderers')
+  >('../../../page/embeds/structure3d/agentStructureRenderers');
 
   const PanelContentMock = ({
     tab,
@@ -196,6 +204,7 @@ vi.mock('../PanelContent', async () => {
   }) => {
     const mountedEntityId = tab?.entityId ?? null;
     const mapPolicy = useHiddenMapIdlePolicy('bounded-lru');
+    const rendererHostId = useStructureRendererHostId(`pane:${panelId}`);
     useEffect(() => {
       if (!mountedEntityId) return;
       panelContentMountSpy(mountedEntityId);
@@ -210,7 +219,11 @@ vi.mock('../PanelContent', async () => {
     panelContentHostSpy(tab.entityId, panelId);
     panelContentMapPolicySpy(tab.entityId, mapPolicy);
     return (
-      <div data-testid={`panel-content-${tab.entityId}`} data-panel-id={panelId}>
+      <div
+        data-testid={`panel-content-${tab.entityId}`}
+        data-panel-id={panelId}
+        data-renderer-host={rendererHostId}
+      >
         Content: {tab.entityId}
       </div>
     );
@@ -250,6 +263,7 @@ describe('TabPortalProvider', () => {
     resetMockStore();
     sequenceTabRetention.clear();
     useMemoryPressureStore.setState({ level: 'normal', source: 'forced', sampledAt: 0 });
+    useAgentStructureRenderers.setState({ tabIds: [] });
   });
 
   afterEach(() => {
@@ -506,6 +520,81 @@ describe('TabPortalProvider', () => {
       expect(screen.queryByTestId('panel-content-fun12.cif')).not.toBeInTheDocument();
       expect(panelContentRenderSpy).not.toHaveBeenCalledWith('fun12.cif', 'structure');
       expect(panelContentHostSpy).toHaveBeenCalledWith('1fs0.pdb', 'main');
+    });
+
+    it('renders a structure an agent is using in the hidden stage with its own renderer', () => {
+      const backgroundTabId = mockOpenTab('main', {
+        type: 'structure',
+        entityId: 'fun12.cif',
+        label: 'FUN12',
+      });
+      const selectedTabId = mockOpenTab('main', {
+        type: 'structure',
+        entityId: '1fs0.pdb',
+        label: '1FS0',
+      });
+      const view = () => (
+        <TabPortalProvider>
+          <div data-testid="panel-area">
+            <TabPortalTarget tab={getActiveTab('main')} />
+          </div>
+        </TabPortalProvider>
+      );
+      const { rerender } = render(view());
+      expect(screen.queryByTestId('panel-content-fun12.cif')).not.toBeInTheDocument();
+
+      act(() => leaseAgentStructureRenderer(backgroundTabId));
+      rerender(view());
+      const background = screen.getByTestId('panel-content-fun12.cif');
+      expect(screen.getByTestId('agent-structure-stage')).toContainElement(background);
+      expect(screen.getByTestId('panel-area')).not.toContainElement(background);
+      expect(background).toHaveAttribute('data-renderer-host', `agent:${backgroundTabId}`);
+      expect(screen.getByTestId('panel-content-1fs0.pdb')).toHaveAttribute(
+        'data-renderer-host',
+        'pane:main'
+      );
+      expect(acquireCachedViewerLeaseSpy).toHaveBeenCalledWith(
+        `pane-cache:agent:${backgroundTabId}`
+      );
+      expect(getActiveTab('main')?.id).toBe(selectedTabId);
+
+      act(() => releaseAgentStructureRenderer(backgroundTabId));
+      rerender(view());
+      expect(screen.queryByTestId('panel-content-fun12.cif')).not.toBeInTheDocument();
+      expect(screen.getByTestId('agent-structure-stage')).toBeEmptyDOMElement();
+      expect(releaseCachedViewerLeaseSpy).toHaveBeenCalledWith(
+        `pane-cache:agent:${backgroundTabId}`
+      );
+    });
+
+    it('hands a background structure to its pane renderer when the person selects it', () => {
+      const backgroundTabId = mockOpenTab('main', {
+        type: 'structure',
+        entityId: 'fun12.cif',
+        label: 'FUN12',
+      });
+      mockOpenTab('main', { type: 'structure', entityId: '1fs0.pdb', label: '1FS0' });
+      const view = () => (
+        <TabPortalProvider>
+          <div data-testid="panel-area">
+            <TabPortalTarget tab={getActiveTab('main')} />
+          </div>
+        </TabPortalProvider>
+      );
+      const { rerender } = render(view());
+      act(() => leaseAgentStructureRenderer(backgroundTabId));
+      rerender(view());
+      expect(screen.getByTestId('agent-structure-stage')).toContainElement(
+        screen.getByTestId('panel-content-fun12.cif')
+      );
+
+      mockSetActiveTab('main', backgroundTabId);
+      rerender(view());
+      const shown = screen.getByTestId('panel-content-fun12.cif');
+      expect(screen.getByTestId('panel-area')).toContainElement(shown);
+      expect(shown).toHaveAttribute('data-renderer-host', 'pane:main');
+      expect(screen.getByTestId('agent-structure-stage')).toBeEmptyDOMElement();
+      expect(screen.queryByTestId('panel-content-1fs0.pdb')).not.toBeInTheDocument();
     });
 
     it('keeps the selected structure running while another workspace surface takes over', () => {

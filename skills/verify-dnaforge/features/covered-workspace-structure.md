@@ -35,6 +35,6 @@ same active view and camera on Files. It keeps every capture and `receipt.json`.
 The helper imports renderer modules from the development server, so it needs the
 source-mode app, not a packaged build. Start the app with
 `DNAFORGE_BACKGROUND_WINDOW=1` so the window stays behind other windows; a
-passing run therefore also covers a background window. Only the selected
-structure tab in each pane runs a viewer; an agent must activate another
-structure tab before addressing it.
+passing run therefore also covers a background window. Agent work on a structure
+tab that is not selected is covered by the
+[unselected structure tab map](unselected-structure-tab.md).

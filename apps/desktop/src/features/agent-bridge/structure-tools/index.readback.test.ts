@@ -7,6 +7,11 @@ import {
   getPaneRendererHostCacheKey,
 } from '../../page/public/embeds/structure3d/viewerCache';
 import { MolViewSpecSceneError } from '../../page/public/embeds/structure3d/molstar/molViewSpec';
+import {
+  agentStructureRendererHostId,
+  hasAgentStructureRenderer,
+  useAgentStructureRenderers,
+} from '../../page/public/embeds/structure3d/agentStructureRenderers';
 import { molecularDocumentOwner } from '../../../shared/molecular-document-owner';
 import { molecularDocumentReferenceFor } from '../../../shared/molecular-document-reference';
 import {
@@ -311,6 +316,7 @@ describe('molecular MCP readback integration', () => {
       selectionAnchor: {},
       selectionRangeBase: {},
     });
+    useAgentStructureRenderers.setState({ tabIds: [] });
     readback.withPlugin.mockImplementation(async (_id, operation) =>
       operation({
         plugin: {
@@ -758,6 +764,30 @@ describe('molecular MCP readback integration', () => {
         }
       );
     }
+  });
+
+  it('serves an unselected structure tab from its own background renderer without selecting it', async () => {
+    allowSuccessfulCapture();
+    const backgroundTabId = useCanvasStore.getState().panels.main.activeTabId!;
+    const selectedTabId = registerView('view-b');
+    expect(useCanvasStore.getState().panels.main.activeTabId).toBe(selectedTabId);
+
+    expect(await handleMolGetScene({ structureViewId: 'view-a' })).toMatchObject({ ok: true });
+    expect(readback.withPlugin).toHaveBeenLastCalledWith(expect.anything(), expect.any(Function), {
+      cacheKey: getPaneRendererHostCacheKey(
+        agentStructureRendererHostId(backgroundTabId),
+        'loaded'
+      ),
+      registrationId: 'view-a',
+    });
+    expect(hasAgentStructureRenderer(backgroundTabId)).toBe(true);
+    expect((await handleMolGetState({ structureViewId: 'view-a' })).structures[0]).toMatchObject({
+      viewerStatus: 'active',
+    });
+    expect(await handleMolCaptureScreenshot({ structureViewId: 'view-a' })).toMatchObject({
+      ok: true,
+    });
+    expect(useCanvasStore.getState().panels.main.activeTabId).toBe(selectedTabId);
   });
 
   it('refuses a selection before a transitioning molecular view has settled', async () => {
