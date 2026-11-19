@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const searchSkillsOutputSchema = z.object({
   ok: z.literal(true),
   query: z.string(),
+  status: z.enum(['matched', 'no-match', 'no-enabled-skills']),
   count: z.number().int().nonnegative(),
   matches: z.array(
     z.object({

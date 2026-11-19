@@ -29,6 +29,16 @@ it('retains editable agent guidance across owners and rejects a stale preference
   const owner = new AdministrationOwner(deps);
   const before = await owner.execute({ operation: { kind: 'inspect-settings' } }, () => {});
   if (before.kind !== 'settings') throw Error('Missing settings');
+  const inspectGuidance = (current: AdministrationOwner) =>
+    current.execute({ operation: { kind: 'inspect-structure-guidance' } }, () => {});
+  expect(await inspectGuidance(owner)).toEqual({
+    kind: 'structure-guidance',
+    guidance: {
+      defaultVersion: 1,
+      source: 'default',
+      instructions: before.snapshot.values.molecularAgentInstructions,
+    },
+  });
   const patch = {
     molecularAgentInstructions: 'Overview plus evidence detail.',
     rememberedAgentPreferences: 'Keep RNA purple.',
@@ -56,13 +66,37 @@ it('retains editable agent guidance across owners and rejects a stale preference
     () => {}
   );
   expect(stale).toMatchObject({ kind: 'failed', code: 'STALE_ADMINISTRATION_SETTINGS' });
-  const restored = await new AdministrationOwner(deps).execute(
+  const relaunched = new AdministrationOwner(deps);
+  const restored = await relaunched.execute(
     { operation: { kind: 'inspect-settings' } },
     () => {}
   );
   expect(restored).toMatchObject({
     kind: 'settings',
     snapshot: { values: patch, persistence: 'saved' },
+  });
+  expect(await inspectGuidance(relaunched)).toEqual({
+    kind: 'structure-guidance',
+    guidance: {
+      defaultVersion: 1,
+      source: 'override',
+      instructions: patch.molecularAgentInstructions,
+    },
+  });
+  if (restored.kind !== 'settings') throw Error('Missing restored settings');
+  await relaunched.execute(
+    {
+      operation: {
+        kind: 'update-settings',
+        expectedRevision: restored.snapshot.revision,
+        patch: { molecularAgentInstructions: '' },
+      },
+    },
+    () => {}
+  );
+  expect(await inspectGuidance(new AdministrationOwner(deps))).toMatchObject({
+    kind: 'structure-guidance',
+    guidance: { source: 'override', instructions: '' },
   });
   expect(deps.requestApproval).not.toHaveBeenCalled();
 });
