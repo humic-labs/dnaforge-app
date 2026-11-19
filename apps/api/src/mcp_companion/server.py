@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import secrets
+from collections import OrderedDict
 from collections.abc import Callable, Mapping
 from contextlib import suppress
 from pathlib import Path
@@ -14,10 +15,11 @@ from typing import Any
 import httpx
 from mcp import MCPError, types
 from mcp.server import CacheHint, Server, ServerRequestContext
+from mcp.server.streamable_http import MCP_SESSION_ID_HEADER
 
 from src.agent_manifest_paths import agent_tool_manifest_path
 
-from ..mcp_tool_names import portable_tool_catalog
+from ..mcp_tool_names import canonical_renderer_tool_name, portable_tool_catalog
 from .options import CompanionOptions
 from .projection import (
     project_call_result,
@@ -44,6 +46,33 @@ PRIVATE_ZERO_TTL_METHODS = (
 )
 ACTIVE_JOB_STATUSES = {"queued", "running"}
 AGENT_USER_INPUT_TOOL_NAME = "request_user_input"
+STRUCTURE_GUIDANCE_OPERATION = {"operation": {"kind": "inspect-structure-guidance"}}
+STRUCTURE_AUTHORING_EXAMPLES = "waypoint://workflow/structure-authoring"
+MAX_GUIDED_HTTP_SCOPES = 10_000
+StructureGuidanceScope = tuple[str, str | None] | None
+STRUCTURE_READ_TOOLS = frozenset(
+    {"mol_list_structures", "mol_get_state", "mol_get_scene", "mol_capture_screenshot"}
+)
+STRUCTURE_GUIDANCE_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "defaultVersion": {"type": "integer", "minimum": 1},
+        "source": {"enum": ["default", "override"]},
+        "instructions": {"type": "string"},
+        "examplesUri": {"type": "string"},
+    },
+    "required": ["defaultVersion", "source", "instructions", "examplesUri"],
+    "additionalProperties": False,
+}
+OTHER_STRUCTURE_TOOLS = frozenset(
+    {
+        "color_variant_protein",
+        "manage_protein_structures",
+        "highlight_residues",
+        "save_active_residue_selection",
+        "apply_saved_residue_selection",
+    }
+)
 
 
 def _agent_user_input_tool() -> types.Tool:
@@ -161,6 +190,7 @@ class CompanionHandlers:
         self.server: Server[Any] | None = None
         self._process_nonce = secrets.token_hex(8)
         self.active_request_jobs: dict[str, str] = {}
+        self._guided_structure_scopes: OrderedDict[StructureGuidanceScope, None] = OrderedDict()
 
     def _sidecar(self, ctx: ServerRequestContext[Any]) -> SidecarClientProtocol:
         if self._sidecar_for is not None:
@@ -195,7 +225,12 @@ class CompanionHandlers:
         raw_tools = _object_list(catalog, "tools")
         if self.options.portable_tool_names:
             raw_tools, _names = portable_tool_catalog(raw_tools)
-        tools = [self.project_tool(raw) for raw in raw_tools]
+        tools = [
+            self.project_tool(
+                raw, include_structure_guidance=self.options.client_surface == "external"
+            )
+            for raw in raw_tools
+        ]
         if self.options.expose_agent_user_input:
             tools.append(_agent_user_input_tool())
         tools.sort(key=lambda tool: tool.name)
@@ -246,6 +281,85 @@ class CompanionHandlers:
 
             await self._catalog(ctx)
             return await self._request_agent_user_input(ctx, arguments)
+        if self.options.client_surface == "dnaforge-chat":
+            return await self._dispatch_tool(ctx, params)
+
+        canonical_name = canonical_renderer_tool_name(params.name)
+        structure_call = (
+            canonical_name.startswith("mol_") or canonical_name in OTHER_STRUCTURE_TOOLS
+        )
+        guidance_read = (
+            canonical_name == "administration" and arguments == STRUCTURE_GUIDANCE_OPERATION
+        )
+        if not structure_call and not guidance_read:
+            return await self._dispatch_tool(ctx, params)
+
+        guidance_scope = self._structure_guidance_scope(ctx)
+        guidance = None
+        if structure_call and guidance_scope not in self._guided_structure_scopes:
+            try:
+                sidecar = self._sidecar(ctx)
+                tool = await sidecar.lookup_tool(
+                    params.name, portable_names=self.options.portable_tool_names
+                )
+                administration = (
+                    await sidecar.lookup_tool("administration", portable_names=False)
+                    if tool is not None
+                    else None
+                )
+            except SidecarHTTPError as exc:
+                raise _as_mcp_error(exc) from exc
+            if administration is not None:
+                current = await self._dispatch_tool(
+                    ctx,
+                    types.CallToolRequestParams(
+                        name="administration", arguments=STRUCTURE_GUIDANCE_OPERATION
+                    ),
+                )
+                guidance = _structure_guidance_from_result(current)
+                if guidance is None:
+                    return _tool_error(
+                        "STRUCTURE_GUIDANCE_UNAVAILABLE: Could not read the current "
+                        "structure guidance from Settings > AI. No structure operation ran. "
+                        "Use administration inspect-structure-guidance for details."
+                    )
+                if not _is_structure_read(canonical_name, arguments):
+                    self._mark_structure_guidance_delivered(guidance_scope)
+                    return _structure_write_preflight(guidance)
+
+        result = await self._dispatch_tool(ctx, params)
+        if guidance_read and _structure_guidance_from_result(result) is not None:
+            self._mark_structure_guidance_delivered(guidance_scope)
+        elif guidance is not None and guidance_scope not in self._guided_structure_scopes:
+            result.content.insert(0, types.TextContent(text=_structure_guidance_text(guidance)))
+            if result.structured_content is not None:
+                result.structured_content = {
+                    "structureGuidance": {**guidance, "examplesUri": STRUCTURE_AUTHORING_EXAMPLES},
+                    **result.structured_content,
+                }
+            self._mark_structure_guidance_delivered(guidance_scope)
+        return result
+
+    def _structure_guidance_scope(
+        self, ctx: ServerRequestContext[Any]
+    ) -> StructureGuidanceScope:
+        if self._sidecar_for is None:
+            return None
+        request = ctx.request
+        return (
+            request.user.access_token.client_id,
+            request.headers.get(MCP_SESSION_ID_HEADER),
+        )
+
+    def _mark_structure_guidance_delivered(self, scope: StructureGuidanceScope) -> None:
+        self._guided_structure_scopes[scope] = None
+        self._guided_structure_scopes.move_to_end(scope)
+        if len(self._guided_structure_scopes) > MAX_GUIDED_HTTP_SCOPES:
+            self._guided_structure_scopes.popitem(last=False)
+
+    async def _dispatch_tool(
+        self, ctx: ServerRequestContext[Any], params: types.CallToolRequestParams
+    ) -> types.CallToolResult:
         sidecar = self._sidecar(ctx)
         for attempt in range(2):
             status_code, body = await self._call_tool_once(ctx, params)
@@ -493,8 +607,26 @@ class CompanionHandlers:
         )
 
     @staticmethod
-    def project_tool(raw: dict[str, Any]) -> types.Tool:
-        return project_tool(raw)
+    def project_tool(
+        raw: dict[str, Any], *, include_structure_guidance: bool = False
+    ) -> types.Tool:
+        tool = project_tool(raw)
+        if (
+            include_structure_guidance
+            and tool.output_schema is not None
+            and (
+                tool.name in STRUCTURE_READ_TOOLS
+                or tool.name in {"mol_structures", "mol_data"}
+            )
+        ):
+            tool.output_schema = {
+                **tool.output_schema,
+                "properties": {
+                    **tool.output_schema.get("properties", {}),
+                    "structureGuidance": STRUCTURE_GUIDANCE_OUTPUT_SCHEMA,
+                },
+            }
+        return tool
 
     async def _catalog(
         self,
@@ -634,6 +766,65 @@ def mcp_session_instructions(options: CompanionOptions) -> str:
         + link_instructions
         + "\nCatalog visibility and execution are constrained to the current persistent "
         "agent grant and revalidated on every request."
+    )
+
+
+def _is_structure_read(name: str, arguments: dict[str, Any]) -> bool:
+    return (
+        name in STRUCTURE_READ_TOOLS
+        or (name == "mol_structures" and arguments.get("operation") in ("list", "mapping"))
+        or (name == "mol_data" and arguments.get("operation") == "inspect")
+    )
+
+
+def _structure_guidance_from_result(result: types.CallToolResult) -> dict[str, Any] | None:
+    if result.is_error or result.structured_content is None:
+        return None
+    outcome = result.structured_content.get("result", result.structured_content)
+    if not isinstance(outcome, dict) or outcome.get("kind") != "structure-guidance":
+        return None
+    guidance = outcome.get("guidance")
+    if (
+        not isinstance(guidance, dict)
+        or type(guidance.get("defaultVersion")) is not int
+        or guidance.get("source") not in ("default", "override")
+        or not isinstance(guidance.get("instructions"), str)
+    ):
+        return None
+    return {
+        "defaultVersion": guidance["defaultVersion"],
+        "source": guidance["source"],
+        "instructions": guidance["instructions"],
+    }
+
+
+def _structure_guidance_text(guidance: dict[str, Any]) -> str:
+    instructions = guidance["instructions"] or "The saved structure guidance is empty."
+    return (
+        "Configured molecular presentation guidance "
+        f"(default version {guidance['defaultVersion']}, {guidance['source']})\n\n"
+        f"{instructions}\n\n"
+        "Read it again with administration inspect-structure-guidance. "
+        f"For examples, read {STRUCTURE_AUTHORING_EXAMPLES}."
+    )
+
+
+def _structure_write_preflight(guidance: dict[str, Any]) -> types.CallToolResult:
+    code = "STRUCTURE_GUIDANCE_REQUIRED"
+    message = (
+        "No structure changes were made. Review the configured guidance below, "
+        "then retry the intended command with any needed adjustments."
+    )
+    return types.CallToolResult(
+        content=[
+            types.TextContent(text=f"{code}: {message}\n\n{_structure_guidance_text(guidance)}")
+        ],
+        structuredContent={
+            "ok": False,
+            "error": {"code": code, "message": message, "details": {"stateMayHaveChanged": False}},
+            "guidance": guidance,
+        },
+        isError=True,
     )
 
 

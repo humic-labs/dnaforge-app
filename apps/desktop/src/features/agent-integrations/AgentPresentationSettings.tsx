@@ -5,7 +5,7 @@ import {
   inspectAdministrationSettings,
   subscribeAdministrationSettings,
 } from '../../lib/administration-client';
-import { DEFAULT_MOLECULAR_AGENT_INSTRUCTIONS } from '../../shared/agent-presentation-instructions';
+import { DEFAULT_MOLECULAR_AGENT_GUIDANCE } from '../../shared/agent-presentation-instructions';
 import type { AdministrationSettingsSnapshot } from '../../shared/administration';
 
 type PreferenceKey = 'molecularAgentInstructions' | 'rememberedAgentPreferences';
@@ -92,7 +92,7 @@ export function AgentPresentationSettings() {
           value={
             draft?.patch.molecularAgentInstructions ??
             snapshot?.values.molecularAgentInstructions ??
-            DEFAULT_MOLECULAR_AGENT_INSTRUCTIONS
+            DEFAULT_MOLECULAR_AGENT_GUIDANCE.instructions
           }
           onChange={(event) => edit('molecularAgentInstructions', event.currentTarget.value)}
         />
@@ -100,7 +100,7 @@ export function AgentPresentationSettings() {
           type="button"
           className="mt-1 text-xs text-accent"
           disabled={!snapshot || saving}
-          onClick={() => edit('molecularAgentInstructions', DEFAULT_MOLECULAR_AGENT_INSTRUCTIONS)}
+          onClick={() => edit('molecularAgentInstructions', DEFAULT_MOLECULAR_AGENT_GUIDANCE.instructions)}
         >
           Restore default guidance
         </button>

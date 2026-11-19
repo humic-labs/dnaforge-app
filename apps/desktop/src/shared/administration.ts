@@ -7,7 +7,7 @@ import type {
 import type { BenchlingMigrationRunView } from './benchling-migration-ipc';
 import { MAX_WINDOW_ZOOM_FACTOR, MIN_WINDOW_ZOOM_FACTOR } from './window-zoom';
 import type { WindowZoomResult } from './window-zoom';
-import { DEFAULT_MOLECULAR_AGENT_INSTRUCTIONS } from './agent-presentation-instructions';
+import { DEFAULT_MOLECULAR_AGENT_GUIDANCE } from './agent-presentation-instructions';
 
 export const administrationSettingsSchema = z
   .object({
@@ -33,7 +33,7 @@ export const ADMINISTRATION_SETTINGS_DEFAULTS: AdministrationSettings = {
   displayZoom: 1,
   assemblyColorScheme: 'tailwind',
   webglPerformance: 'auto',
-  molecularAgentInstructions: DEFAULT_MOLECULAR_AGENT_INSTRUCTIONS,
+  molecularAgentInstructions: DEFAULT_MOLECULAR_AGENT_GUIDANCE.instructions,
   rememberedAgentPreferences: '',
 };
 export const administrationSettingsPatchSchema = administrationSettingsSchema
@@ -57,6 +57,7 @@ export const administrationHandoffSchema = z.discriminatedUnion('purpose', [
 export type AdministrationHandoff = z.infer<typeof administrationHandoffSchema>;
 const publicOperations = [
   z.object({ kind: z.literal('inspect-settings') }).strict(),
+  z.object({ kind: z.literal('inspect-structure-guidance') }).strict(),
   z
     .object({
       kind: z.literal('update-settings'),
@@ -132,6 +133,13 @@ export interface AdministrationSettingsSnapshot {
   zoom?: WindowZoomResult;
   message?: string;
 }
+export const administrationStructureGuidanceSchema = z
+  .object({
+    defaultVersion: z.number().int().positive(),
+    source: z.enum(['default', 'override']),
+    instructions: administrationSettingsSchema.shape.molecularAgentInstructions.unwrap(),
+  })
+  .strict();
 export interface AdministrationAccount {
   accountId: string;
   desktopSessionId: string;
@@ -200,6 +208,7 @@ export interface AdministrationAction {
 }
 export type AdministrationResult =
   | { kind: 'settings'; snapshot: AdministrationSettingsSnapshot; stateChanged: boolean }
+  | { kind: 'structure-guidance'; guidance: z.infer<typeof administrationStructureGuidanceSchema> }
   | { kind: 'account'; account: AdministrationAccount | null }
   | { kind: 'action'; action: AdministrationAction }
   | { kind: 'migration'; run: BenchlingMigrationRunView | null; revision: string | null }
