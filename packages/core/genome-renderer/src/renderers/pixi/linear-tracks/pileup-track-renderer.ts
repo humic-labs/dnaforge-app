@@ -252,7 +252,7 @@ const READ_ROWS_ASSIGN_WORK_BUDGET_MS = 0.75;
 const READ_ROWS_URGENT_ASSIGN_WORK_BUDGET_MS = 2;
 const READ_ROWS_RETAIN_RECORDS_PER_FRAME = 512;
 const READ_ROWS_BUILD_RECORDS_PER_FRAME = 512;
-const FIRST_STATIC_MESH_MAX_RECORDS = 4;
+const FIRST_STATIC_MESH_BATCH_SIZE = 4;
 const FIRST_STATIC_MAX_FIELD_ITEMS = 512;
 const READ_ROWS_URGENT_RECORDS_PER_FRAME = 4_096;
 const READ_ROWS_URGENT_BUILD_RECORDS_PER_FRAME = 8_192;
@@ -373,14 +373,24 @@ function isFirstStaticBatch(
   records: ReadonlyArray<PileupRecord>,
   maxRecords: number
 ): boolean {
-  return (
-    state.rows === null &&
-    state.rowsBack.bufferCapacity === 0 &&
-    !input.tileEngineAuthority &&
-    records === state.incomingReadInput?.records &&
-    records.length <= Math.min(FIRST_STATIC_MESH_MAX_RECORDS, maxRecords) &&
-    records.every((record) => !record.mismatches?.length)
-  );
+  const limit = Math.min(FIRST_STATIC_MESH_BATCH_SIZE, maxRecords);
+  if (
+    state.rows !== null ||
+    state.rowsBack.bufferCapacity !== 0 ||
+    input.tileEngineAuthority ||
+    records !== state.incomingReadInput?.records ||
+    records.length > limit
+  ) {
+    return false;
+  }
+  let hasMarks = false;
+  let bodyAndDifferenceItems = records.length;
+  for (const record of records) {
+    const markCount = record.mismatches?.length ?? 0;
+    if (markCount > 0) hasMarks = true;
+    bodyAndDifferenceItems += Math.max(1, markCount);
+  }
+  return !hasMarks || bodyAndDifferenceItems <= limit;
 }
 
 function firstStaticFieldsFit(
