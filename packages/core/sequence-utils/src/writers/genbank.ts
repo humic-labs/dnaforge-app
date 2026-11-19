@@ -1,6 +1,7 @@
 import type { AnnotatedSequence, Annotation } from '../types';
 import { formatGenBankLocusPrefix, GENBANK_LOCUS_ENCODING_COMMENT } from '../genbank-locus';
 import { formatGenBankGeneticCodeLines } from '../genbank-genetic-code';
+import { genBankFeatureColor } from '../colors';
 import { inferFeatureTypeFromLabel } from '../annotation-type-inference';
 import { parseFeatureLocation, resolveGenBankFeatureDirection } from '../parsers/genbank';
 
@@ -42,7 +43,7 @@ export function formatFeature(annotation: Annotation): string {
     resolvedType,
     sourceQualifiers
   );
-  const qualifiers =
+  let qualifiers =
     inferredDirection === annotation.direction
       ? sourceQualifiers
       : {
@@ -52,6 +53,18 @@ export function formatFeature(annotation: Annotation): string {
             ...(sourceQualifiers.direction?.slice(1) ?? []),
           ],
         };
+
+  if (
+    annotation.color &&
+    annotation.color !== genBankFeatureColor(resolvedType, annotation.direction, qualifiers)
+  )
+    qualifiers = {
+      ...qualifiers,
+      color: [
+        annotation.color,
+        ...(qualifiers.color ?? []).filter((value) => value !== annotation.color),
+      ],
+    };
 
   const featureLine = `     ${type.padEnd(16)}${location}`;
   lines.push(featureLine);

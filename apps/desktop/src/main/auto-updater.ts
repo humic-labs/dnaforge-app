@@ -1,6 +1,11 @@
 export { readBetaUpdatesSetting } from './update-preferences';
 import { updateContract } from '../shared/ipc/update.contract';
-import { SaveAllError, failedSaveAllResult, type SaveAllResult } from '../shared/save-all-result';
+import {
+  SaveAllCancelled,
+  SaveAllError,
+  failedSaveAllResult,
+  type SaveAllResult,
+} from '../shared/save-all-result';
 import {
   handleGroup,
   mainIpc,
@@ -1478,7 +1483,7 @@ export function requestSaveAll(win: BrowserWindow, timeoutMs = 10_000): Promise<
   const requestId = randomUUID();
   return new Promise((resolve, reject) => {
     let settled = false;
-    const finish = (error?: SaveAllError): void => {
+    const finish = (error?: Error): void => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -1497,6 +1502,10 @@ export function requestSaveAll(win: BrowserWindow, timeoutMs = 10_000): Promise<
       if (event.sender !== renderer || acknowledgedRequestId !== requestId) return;
       if (result === undefined || result?.status === 'saved') {
         finish();
+        return;
+      }
+      if (result?.status === 'cancelled') {
+        finish(new SaveAllCancelled());
         return;
       }
       const validFailures =

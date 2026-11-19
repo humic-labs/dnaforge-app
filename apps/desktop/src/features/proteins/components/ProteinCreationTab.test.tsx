@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   retargetTab: vi.fn(),
   closeTab: vi.fn(),
   recordProtein: vi.fn(),
+  updatePublishedProteinDraft: vi.fn(),
   addToast: vi.fn(),
 }));
 
@@ -44,7 +45,13 @@ vi.mock('../../sequence/components/SequenceDrawer', () => ({
 vi.mock('./ProteinSaveLocationPicker', () => ({
   ProteinSaveLocationPicker: () => <div data-testid="mock-protein-location">/workspace/lab</div>,
 }));
-vi.mock('../record-proteins', () => ({ recordProtein: mocks.recordProtein }));
+vi.mock('../save-protein-sequence', () => ({
+  updatePublishedProteinDraft: mocks.updatePublishedProteinDraft,
+}));
+vi.mock('../record-proteins', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../record-proteins')>()),
+  recordProtein: mocks.recordProtein,
+}));
 
 import type { Tab } from '../../canvas/types';
 import { ProteinCreationTab } from './ProteinCreationTab';
@@ -122,6 +129,96 @@ describe('ProteinCreationTab', () => {
     expect(await readUnsavedDraft(key)).toMatchObject({
       payload: { fields: { name: 'Newer name' } },
     });
+  });
+
+  it('updates the first published protein after a later edit and restores that exact target after restart', async () => {
+    const first = Promise.withResolvers<unknown>();
+    mocks.recordProtein.mockReturnValueOnce(first.promise);
+    const owned = {
+      id: 'first-protein',
+      relativePath: 'lab/First.entity.json',
+      contentHash: 'a'.repeat(64),
+    };
+    const entity = { id: owned.id, name: 'First' };
+    const view = render(<ProteinCreationTab tab={tab} panelId="panel-1" />);
+    fireEvent.change(screen.getByTestId('protein-draft-name'), { target: { value: 'First' } });
+    fireEvent.change(screen.getByTestId('protein-draft-sequence'), {
+      target: { value: 'MPEPTIDE' },
+    });
+    const target = { kind: 'tab', tabId: tab.id } as const;
+    const saving = documentLifecycle.save(target, tab.id);
+    fireEvent.change(screen.getByTestId('protein-draft-name'), { target: { value: 'Later' } });
+    first.resolve({
+      created: true,
+      contentHash: owned.contentHash,
+      artifactPath: owned.relativePath,
+      limsEntity: entity,
+    });
+    await act(async () => {
+      expect(await saving).toBe(false);
+    });
+    await flushPendingUnsavedDraftWrites([`new:${tab.id}`]);
+    const entry = await readUnsavedDraft<{ fields: Record<string, string> }>(`new:${tab.id}`);
+    expect(entry?.payload.fields).toMatchObject({
+      name: 'Later',
+      publishedProteinId: owned.id,
+      publishedProteinPath: owned.relativePath,
+      publishedProteinHash: owned.contentHash,
+    });
+    view.unmount();
+    render(
+      <ProteinCreationTab
+        tab={{ ...tab, recoveredDraft: entry!.payload.fields }}
+        panelId="panel-1"
+      />
+    );
+    mocks.updatePublishedProteinDraft.mockResolvedValue({
+      contentHash: 'b'.repeat(64),
+      artifactPath: owned.relativePath,
+      limsEntity: { ...entity, name: 'Later' },
+    });
+    await act(async () => {
+      expect(await documentLifecycle.save(target, tab.id)).toBe(true);
+    });
+    expect(mocks.recordProtein).toHaveBeenCalledTimes(1);
+    expect(mocks.updatePublishedProteinDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Later', sequence: 'MPEPTIDE' }),
+      owned
+    );
+    expect(mocks.retargetTab).toHaveBeenCalledWith(
+      'panel-1',
+      tab.id,
+      { type: 'protein', entityId: owned.id },
+      expect.objectContaining({ label: 'Later' })
+    );
+  });
+
+  it('does not treat an identical pre-existing protein as an owned publication', async () => {
+    const first = Promise.withResolvers<unknown>();
+    mocks.recordProtein.mockReturnValueOnce(first.promise);
+    const view = render(<ProteinCreationTab tab={tab} panelId="panel-1" />);
+    fireEvent.change(screen.getByTestId('protein-draft-name'), { target: { value: 'Existing' } });
+    fireEvent.change(screen.getByTestId('protein-draft-sequence'), {
+      target: { value: 'MPEPTIDE' },
+    });
+    const target = { kind: 'tab', tabId: tab.id } as const;
+    const saving = documentLifecycle.save(target, tab.id);
+    fireEvent.change(screen.getByTestId('protein-draft-name'), { target: { value: 'Different' } });
+    first.resolve({
+      created: false,
+      contentHash: 'a'.repeat(64),
+      artifactPath: 'lab/Existing.entity.json',
+      limsEntity: { id: 'existing', name: 'Existing' },
+    });
+    await act(async () => {
+      expect(await saving).toBe(false);
+    });
+    await act(async () => {
+      expect(await documentLifecycle.save(target, tab.id)).toBe(true);
+    });
+    expect(mocks.updatePublishedProteinDraft).not.toHaveBeenCalled();
+    expect(mocks.recordProtein).toHaveBeenCalledTimes(2);
+    view.unmount();
   });
 
   it('keeps Save disabled until both a name and valid protein sequence exist', () => {

@@ -1,7 +1,12 @@
+import { parentDirOf } from '../../../shared/move-target';
+import { useDocumentDraft } from '../../../shared/use-document-draft';
+import { serializePrimerArtifact, sha256Hex } from '../primer-artifact';
+import { publishedPrimerDraft, restorePrimerDraftSettings } from '../primer-draft-settings';
 import { reportSaveFailure } from '../../../lib/report-save-failure';
 import { useDocumentLifecycle } from '../../../shared/use-document-lifecycle';
 import {
   toUserMessage,
+  withUserMessage,
   userMessageWithValues,
   userMessageValue,
   userMessage,
@@ -61,12 +66,20 @@ export function PrimerCreationTab({ tab, panelId }: PrimerCreationTabProps) {
   const updateTab = useCanvasStore((state) => state.updateTab);
 
   const recovered = tab.recoveredDraft;
-  const [sequence, setSequence] = useState(recovered?.sequence ?? '');
-  const [orderType, setOrderType] = useState<OligoOrderType>(
-    (recovered?.orderType as OligoOrderType | undefined) ?? context?.orderType ?? 'dna'
-  );
-  const [draftName, setDraftName] = useState(recovered?.name ?? '');
-
+  const draft = useDocumentDraft(() => ({
+    sequence: recovered?.sequence ?? '',
+    name: recovered?.name ?? '',
+    orderType: (recovered?.orderType as OligoOrderType | undefined) ?? context?.orderType ?? 'dna',
+    settings: restorePrimerDraftSettings(recovered?.form),
+  }));
+  const [previousPublication, setPreviousPublication] = useState(recovered?.publishedPrimer);
+  const publication = useRef(previousPublication);
+  const { sequence, name: draftName, orderType, settings } = draft.value;
+  const { edit, read } = draft;
+  const setSequence = useCallback((sequence: string) => edit({ sequence }), [edit]);
+  const setDraftName = useCallback((name: string) => edit({ name }), [edit]);
+  const setOrderType = useCallback((orderType: OligoOrderType) => edit({ orderType }), [edit]);
+  const readRevision = useCallback(() => read().revision, [read]);
   const [restoredName, setRestoredName] = useState<string | null>(null);
   const [loadedArtifact, setLoadedArtifact] = useState<ReadPrimerArtifactResult | null>(null);
   const pendingRecovery = useRef<{ sequence?: string; name?: string } | null>(null);
@@ -106,14 +119,12 @@ export function PrimerCreationTab({ tab, panelId }: PrimerCreationTabProps) {
       ? {
           target: { kind: 'tab', tabId: tab.id },
           tabId: tab.id,
+          readRevision: metadataSession.readRevision,
           isDirty: () =>
             metadataSession.dirty ||
             metadataSession.getSnapshot().saving ||
             metadataSession.getSnapshot().completionPending,
-          save: async () => {
-            await metadataSession.save();
-            return !metadataSession.dirty && !metadataSession.getSnapshot().requiresReload;
-          },
+          save: metadataSession.saveForClose,
           discard: () => metadataSession.discard(),
         }
       : null
@@ -219,11 +230,18 @@ export function PrimerCreationTab({ tab, panelId }: PrimerCreationTabProps) {
             tabType: 'primer',
             label: primerDraftDisplayName(draftName, oligoKindLabel),
             artifactDocument: context,
-            fields: { sequence, name: draftName, orderType },
+            fields: {
+              sequence,
+              name: draftName,
+              orderType,
+              ...(Object.keys(settings).length ? { form: JSON.stringify(settings) } : {}),
+              ...(previousPublication ? { publishedPrimer: previousPublication } : {}),
+            },
           }
         : undefined,
-    [context, draftName, oligoKindLabel, orderType, sequence]
+    [context, draftName, oligoKindLabel, orderType, sequence, settings, previousPublication]
   );
+  const draftDirty = Boolean(sequence || draftName || Object.keys(settings).length);
   const { completePublishedDraft } = useUnsavedDraftRecovery<NewDraftPayload>({
     key: !context
       ? null
@@ -234,11 +252,12 @@ export function PrimerCreationTab({ tab, panelId }: PrimerCreationTabProps) {
           : null,
     name: recoveryPayload?.label ?? oligoKindLabel,
     baseline: isNewDraft ? NEW_DOCUMENT_BASELINE : savedPrimerFingerprint,
-    dirty: metadataSession ? metadataSession.dirty : Boolean(sequence || draftName),
+    dirty: metadataSession ? metadataSession.dirty : draftDirty,
     payload: recoveryPayload,
     onRestore: (restored) => {
       if (pendingPublication || publicationBusy || organizationBlocked) return;
       pendingRecovery.current = restored.fields;
+      edit({ settings: restorePrimerDraftSettings(restored.fields.form) });
       setSequence(restored.fields.sequence ?? '');
       setDraftName(restored.fields.name ?? '');
       setRestoredName(restored.fields.name ?? '');
@@ -349,11 +368,52 @@ export function PrimerCreationTab({ tab, panelId }: PrimerCreationTabProps) {
   const save = async (input: CreatePrimerInput): Promise<void | false> => {
     if (pendingPublication || publicationBusy || organizationBlocked || loadedArtifact)
       return false;
-    const saved = await createFileAuthoritativePrimer({
-      ...input,
-      origin: 'manual',
-    });
-    if (!(await completePublishedDraft())) return false;
+    const revision = draft.revision;
+    if (!input.workspaceRoot || readRevision() !== revision) return false;
+    const previous = publication.current
+      ? publishedPrimerDraft.parse(JSON.parse(publication.current))
+      : undefined;
+    if (
+      previous &&
+      (!input.artifactPath ||
+        parentDirOf(input.artifactPath.replaceAll('\\', '/')) !==
+          parentDirOf(previous.path.replaceAll('\\', '/')))
+    ) {
+      throw withUserMessage(
+        new Error('The destination changed after first save.'),
+        'primer.firstSaveFolderChanged'
+      );
+    }
+    const saved = previous
+      ? await primerServices.persistence.updateArtifactContent({
+          artifactPath: previous.path,
+          workspaceRoot: input.workspaceRoot,
+          name: input.name,
+          sequence: input.sequence,
+          oligo: input.oligo,
+          application: input.application,
+          notes: input.notes,
+          entitySchema: input.entitySchema,
+          entityFields: input.entityFields,
+          expectedArtifactRevision: previous.revision,
+          expectedContentSha256: previous.sha256,
+          acceptedRevision: previous.accepted,
+        })
+      : await createFileAuthoritativePrimer({ ...input, origin: 'manual' });
+    const current = () => readRevision() === revision;
+    if (!current() || !(await completePublishedDraft(current)) || !current()) {
+      if (previous || saved.created) {
+        const checkpoint = JSON.stringify({
+          path: saved.artifactPath,
+          revision: saved.artifact.artifactRevision,
+          sha256: await sha256Hex(serializePrimerArtifact(saved.artifact)),
+          accepted: saved.acceptedRevision,
+        });
+        publication.current = checkpoint;
+        setPreviousPublication(checkpoint);
+      }
+      return false;
+    }
     window.dispatchEvent(
       new CustomEvent('waypoint:workspace-files-changed', {
         detail: { workspaceRoot: input.workspaceRoot, revealPath: saved.artifactPath },
@@ -536,6 +596,17 @@ export function PrimerCreationTab({ tab, panelId }: PrimerCreationTabProps) {
     );
   }
 
+  const renderDrawer = (contents: React.ReactElement) =>
+    metadataOpen ? (
+      <SequenceDrawer
+        width={drawerWidth}
+        onWidthChange={(width) =>
+          setDrawerWidth(Math.min(MAX_DRAWER_WIDTH, Math.max(MIN_DRAWER_WIDTH, width)))
+        }
+      >
+        {contents}
+      </SequenceDrawer>
+    ) : null;
   const primerForm = (
     <PrimerCreationForm
       key={`${loadedArtifact?.artifact.artifactRevision ?? 'draft'}:${formResetNonce}`}
@@ -551,7 +622,16 @@ export function PrimerCreationTab({ tab, panelId }: PrimerCreationTabProps) {
       externalSequenceEditor={{ value: sequence, onChange: setSequence }}
       onSave={save}
       onCancel={cancel}
-      saveRequestTargetId={tab.id}
+      documentDraft={{
+        tabId: tab.id,
+        revision: draft.revision,
+        readRevision,
+        dirty: draftDirty,
+        visible: metadataOpen,
+        settings,
+        editSettings: (change) => edit({ settings: { ...read().value.settings, ...change } }),
+        render: renderDrawer,
+      }}
       onNameChange={updateDraftName}
     />
   );
@@ -609,14 +689,8 @@ export function PrimerCreationTab({ tab, panelId }: PrimerCreationTabProps) {
           </div>
         </main>
 
-        {metadataOpen ? (
-          <SequenceDrawer
-            width={drawerWidth}
-            onWidthChange={(width) =>
-              setDrawerWidth(Math.min(MAX_DRAWER_WIDTH, Math.max(MIN_DRAWER_WIDTH, width)))
-            }
-          >
-            {loadedArtifact ? (
+        {loadedArtifact
+          ? renderDrawer(
               <EntityDetails
                 metadataEditorTabId={tab.id}
                 target={{ entityId: loadedArtifact.artifact.registry.entityId }}
@@ -627,11 +701,8 @@ export function PrimerCreationTab({ tab, panelId }: PrimerCreationTabProps) {
                 }
                 onClose={() => setMetadataOpen(false)}
               />
-            ) : (
-              primerForm
-            )}
-          </SequenceDrawer>
-        ) : null}
+            )
+          : primerForm}
 
         <aside
           className="w-12 shrink-0 border-l border-border bg-bg-subtle"

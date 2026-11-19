@@ -316,3 +316,22 @@ export function getAAColor(aa: string, schemeId: string): string {
   if (!scheme) return '#9CA3AF';
   return scheme.colors[aa] || '#9CA3AF';
 }
+
+export function genBankFeatureColor(
+  type: string,
+  direction: number,
+  qualifiers: Record<string, string[]>
+): string {
+  const colors = [
+    qualifiers.color?.[0],
+    ...(direction === -1
+      ? [qualifiers.ApEinfo_revcolor?.[0], qualifiers.ApEinfo_fwdcolor?.[0]]
+      : [qualifiers.ApEinfo_fwdcolor?.[0], qualifiers.ApEinfo_revcolor?.[0]]),
+  ];
+  return (
+    colors.find(
+      (color): color is string =>
+        typeof color === 'string' && /^(?:#[0-9a-f]{3,8}|[a-z]+)$/iu.test(color)
+    ) ?? getFeatureColor(type)
+  );
+}

@@ -58,11 +58,18 @@ export function documentLifecycleCapabilities(input: {
 
 export type DocumentSaveScope = 'document' | 'all';
 
+export type DocumentRevision = string | number;
+export type DocumentSaveAcknowledgement =
+  | boolean
+  | { readonly publishedRevision: DocumentRevision; readonly settledRevision?: DocumentRevision };
+
 export interface DocumentLifecycleOwner {
   readonly target: SaveDocumentTarget;
   readonly tabId?: string;
   isDirty(): boolean;
-  save(scope: DocumentSaveScope): Promise<boolean>;
+  hasAdditionalEdits?(): boolean;
+  readRevision(): DocumentRevision;
+  save(scope: DocumentSaveScope): Promise<DocumentSaveAcknowledgement>;
   discard?(): void | Promise<void>;
   reload?(): Promise<boolean>;
 }
@@ -70,7 +77,10 @@ export interface DocumentLifecycleOwner {
 export class DocumentLifecycle {
   private readonly owners = new Set<DocumentLifecycleOwner>();
   private readonly listeners = new Set<() => void>();
-  private readonly saves = new Map<DocumentLifecycleOwner, Promise<boolean>>();
+  private readonly saves = new Map<
+    DocumentLifecycleOwner,
+    { revision: DocumentRevision; done: Promise<boolean> }
+  >();
 
   readonly subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
@@ -109,6 +119,10 @@ export class DocumentLifecycle {
     return owners.length ? owners.some((owner) => owner.isDirty()) : undefined;
   }
 
+  hasAdditionalEdits(target: SaveDocumentTarget, tabId: string): boolean {
+    return this.matching(target, tabId).some((owner) => owner.hasAdditionalEdits?.());
+  }
+
   has(target: SaveDocumentTarget, tabId?: string): boolean {
     return this.matching(target, tabId).length === 1;
   }
@@ -129,36 +143,59 @@ export class DocumentLifecycle {
       return false;
     }
     const owner = owners[0];
+    const revision = owner.readRevision();
     const pending = this.saves.get(owner);
-    if (pending) return pending;
-    let run: Promise<boolean>;
+    if (pending) {
+      if (pending.revision === revision) return pending.done;
+      await pending.done;
+      if (!this.isCurrent(owner, target, tabId, revision)) return false;
+      return this.save(target, tabId, scope);
+    }
+    let finish!: (saved: boolean) => void;
+    const done = new Promise<boolean>((resolve) => {
+      finish = resolve;
+    });
+    this.saves.set(owner, { revision, done });
+    let saved = false;
     try {
-      run = owner.save(scope).then(
-        (success) => {
-          if (!success)
-            console.warn('[DocumentLifecycle] Save not completed:', {
-              target,
-              tabId,
-              reason: 'owner-returned-false',
-            });
-          return success;
-        },
-        (error: unknown) => {
-          console.error('[DocumentLifecycle] Save failed:', { target, tabId }, error);
-          return false;
+      const acknowledgement = await owner.save(scope);
+      if (acknowledgement === false) {
+        console.warn('[DocumentLifecycle] Save not completed:', {
+          target,
+          tabId,
+          reason: 'owner-returned-false',
+        });
+      } else if (acknowledgement === true) {
+        saved = this.isCurrent(owner, target, tabId, revision);
+      } else if (acknowledgement.publishedRevision === revision) {
+        const current = this.matching(target, tabId);
+        if (current.includes(owner)) {
+          const settled = acknowledgement.settledRevision;
+          saved =
+            this.isCurrent(owner, target, tabId, settled ?? revision) &&
+            (settled === undefined || !owner.isDirty());
+        } else {
+          saved = current.length === 0 || (current.length === 1 && !current[0].isDirty());
         }
-      );
+      }
     } catch (error) {
       console.error('[DocumentLifecycle] Save failed:', { target, tabId }, error);
-      return false;
-    }
-    this.saves.set(owner, run);
-    try {
-      return await run;
     } finally {
-      if (this.saves.get(owner) === run) this.saves.delete(owner);
+      this.saves.delete(owner);
+      finish(saved);
       this.changed();
     }
+    return saved;
+  }
+
+  private isCurrent(
+    owner: DocumentLifecycleOwner,
+    target: SaveDocumentTarget,
+    tabId: string | undefined,
+    revision: DocumentRevision
+  ): boolean {
+    const current = this.matching(target, tabId);
+    return current.length === 1 && current[0] === owner && owner.readRevision() === revision;
   }
 
   async reload(

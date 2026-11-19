@@ -32,20 +32,9 @@ export function EntityRecordTab({ tab, panelId }: { tab: Tab; panelId: string })
   useDocumentLifecycle({
     target: { kind: 'tab', tabId: tab.id },
     tabId: tab.id,
+    readRevision: session.readRevision,
     isDirty: () => session.dirty || session.getSnapshot().completionPending,
-    save: async () => {
-      if (tab.readOnly) return false;
-      if (session.getSnapshot().completionPending) await session.retryCompletion();
-      else await session.save();
-      const current = session.getSnapshot();
-      return (
-        !session.dirty &&
-        !current.saving &&
-        !current.requiresReload &&
-        !current.completionPending &&
-        !current.mutationBlock
-      );
-    },
+    save: async () => !tab.readOnly && session.saveForClose(),
     discard: () => session.discard(),
   });
 

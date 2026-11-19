@@ -111,6 +111,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
   const upsertPageFromArtifact = usePageStore((state) => state.upsertPageFromArtifact);
   const upsertDesignFromArtifact = useDesignStore((state) => state.upsertDesignFromArtifact);
   const saveOwner = useMemo(() => new DraftSaveOwner(), [filePath]);
+  const pendingEdits = useRef(0);
   const saveInFlight = useRef<{ owner: DraftSaveOwner; promise: Promise<boolean> } | null>(null);
   useEffect(() => {
     setSaving(false);
@@ -398,15 +399,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
     }
   }, [document, proteinDraft, protocolOverviewDraft, protocolStepDrafts, titleDraft]);
 
-  saveOwner.observeDraft(
-    JSON.stringify({
-      titleDraft,
-      proteinDraft,
-      protocolOverviewDraft,
-      protocolStepDrafts,
-      preparedText: prepared.text,
-    })
-  );
+  const renderedRevision = saveOwner.readRevision();
 
   const reviewDocument =
     prepared.document?.kind === 'protocol'
@@ -500,6 +493,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
     });
 
   const save = useCallback(async (): Promise<boolean> => {
+    if (pendingEdits.current || renderedRevision !== saveOwner.readRevision()) return false;
     if (!dirty) return true;
     if (!workspaceUnlocked) {
       setError(userMessage('failure.unlock-the-migrated-project-before-editing-this-document'));
@@ -590,6 +584,7 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
     saveOwner,
     dismissExternalChange,
     dirty,
+    renderedRevision,
     filePath,
     originalText,
     prepared,
@@ -601,7 +596,9 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
   useDocumentLifecycle({
     target: { kind: 'file', filePath },
     tabId: canvasTabId,
-    isDirty: () => dirty,
+    readRevision: saveOwner.readRevision,
+    isDirty: () =>
+      pendingEdits.current > 0 || renderedRevision !== saveOwner.readRevision() || dirty,
     save,
     reload: reloadDocumentFromDisk,
     discard: () => {
@@ -612,25 +609,39 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
 
   const addAmendment = useCallback(async () => {
     if (!document || document.kind !== 'protocol_run') return;
+    pendingEdits.current++;
+    saveOwner.edited();
+    documentLifecycle.changed();
     setError(null);
     try {
       const next = await appendProtocolRunTextAmendment(document, amendment);
+      saveOwner.edited();
       setDocument(next);
       setAmendment(EMPTY_AMENDMENT);
     } catch (amendmentError) {
       setError(toUserMessage(amendmentError, 'failure.failed-to-add-amendment'));
+    } finally {
+      pendingEdits.current--;
+      documentLifecycle.changed();
     }
-  }, [amendment, document]);
+  }, [amendment, document, saveOwner]);
 
-  const applyProtocolDocument = useCallback((next: ScientificProtocolDocument) => {
-    setDocument(next);
-    setProtocolOverviewDraft(next.overview.text);
-    setProtocolStepDrafts(stepDraftsForProtocol(next));
-  }, []);
+  const applyProtocolDocument = useCallback(
+    (next: ScientificProtocolDocument) => {
+      saveOwner.edited();
+      setDocument(next);
+      setProtocolOverviewDraft(next.overview.text);
+      setProtocolStepDrafts(stepDraftsForProtocol(next));
+    },
+    [saveOwner]
+  );
 
   const handleAddProtocolStep = useCallback(async () => {
     const current = prepared.document;
     if (!current || current.kind !== 'protocol') return;
+    pendingEdits.current++;
+    saveOwner.edited();
+    documentLifecycle.changed();
     setError(null);
     try {
       applyProtocolDocument(
@@ -641,8 +652,11 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
       );
     } catch (stepError) {
       setError(toUserMessage(stepError, 'failure.failed-to-add-protocol-step'));
+    } finally {
+      pendingEdits.current--;
+      documentLifecycle.changed();
     }
-  }, [applyProtocolDocument, prepared.document]);
+  }, [applyProtocolDocument, prepared.document, saveOwner]);
 
   const handleDeleteProtocolStep = useCallback(
     (stepId: string) => {
@@ -694,11 +708,15 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
       onAddStep={handleAddProtocolStep}
       onDeleteStep={handleDeleteProtocolStep}
       onMoveStep={handleMoveProtocolStep}
-      onOverviewChange={setProtocolOverviewDraft}
+      onOverviewChange={(value) => {
+        saveOwner.edited();
+        setProtocolOverviewDraft(value);
+      }}
       onOpenDestination={openDestination}
-      onStepDraftChange={(stepId, draft) =>
-        setProtocolStepDrafts((current) => ({ ...current, [stepId]: draft }))
-      }
+      onStepDraftChange={(stepId, draft) => {
+        saveOwner.edited();
+        setProtocolStepDrafts((current) => ({ ...current, [stepId]: draft }));
+      }}
       resolveDestination={resolveDestination}
       hoveredStepId={hoveredReviewStep?.protocolPath === filePath ? hoveredReviewStep.stepId : null}
       selectedStepId={
@@ -727,7 +745,10 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
           className="min-w-0 flex-1 border-0 border-b border-transparent bg-transparent px-0 py-1 text-base font-semibold text-fg outline-none enabled:hover:border-border enabled:focus:border-accent disabled:opacity-100"
           disabled={!canEdit || document.kind === 'protocol_run'}
           value={titleDraft}
-          onChange={(event) => setTitleDraft(event.target.value)}
+          onChange={(event) => {
+            saveOwner.edited();
+            setTitleDraft(event.target.value);
+          }}
         />
         {dirty ? <span className="text-xs font-medium text-warning">Unsaved</span> : null}
         {saved && !dirty ? <span className="text-xs font-medium text-success">Saved</span> : null}
@@ -802,7 +823,10 @@ export function ScientificDocumentTab({ filePath, canvasTabId }: ScientificDocum
             canEdit={canEdit}
             document={document}
             sequence={proteinDraft}
-            onSequenceChange={setProteinDraft}
+            onSequenceChange={(value) => {
+              saveOwner.edited();
+              setProteinDraft(value);
+            }}
           />
         ) : null}
       </main>

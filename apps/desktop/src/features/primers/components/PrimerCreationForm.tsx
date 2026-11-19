@@ -1,3 +1,5 @@
+import { documentLifecycle } from '../../../shared/document-lifecycle';
+import type { PrimerDraftSettings } from '../primer-draft-settings';
 import { temporalFieldDraft } from '../../../shared/registry-temporal-input';
 import { reportSaveFailure } from '../../../lib/report-save-failure';
 import { useDocumentLifecycle } from '../../../shared/use-document-lifecycle';
@@ -320,7 +322,16 @@ interface PrimerCreationFormProps {
   hostOwnedBinding?: boolean;
   onCancel: () => void;
 
-  saveRequestTargetId?: string;
+  documentDraft?: {
+    tabId: string;
+    revision: number;
+    readRevision(): number;
+    dirty: boolean;
+    visible: boolean;
+    settings: PrimerDraftSettings;
+    editSettings(change: PrimerDraftSettings): void;
+    render(form: React.ReactElement): React.ReactNode;
+  };
 
   onNameChange?: (name: string) => void;
   onDraftChange?: () => void;
@@ -356,12 +367,13 @@ export function PrimerCreationForm({
   onSave,
   hostOwnedBinding = false,
   onCancel,
-  saveRequestTargetId,
+  documentDraft,
   onNameChange,
   onDraftChange,
   onPreviewChange,
   onGoToBinding,
 }: PrimerCreationFormProps) {
+  const saveRequestTargetId = documentDraft?.tabId;
   const [name, setName] = useState(initialName);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -385,7 +397,9 @@ export function PrimerCreationForm({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [artifactDir, setArtifactDir] = useState<string | null>(null);
+  const [artifactDir, setArtifactDir] = useState<string | null>(
+    documentDraft?.settings.directory ?? null
+  );
   const initialSchemaView = useMemo(
     () => (initialEntitySchema ? primerSchemaViewFromSnapshot(initialEntitySchema) : null),
     [initialEntitySchema]
@@ -394,10 +408,11 @@ export function PrimerCreationForm({
     initialPrimerSchemaOptions(orderType, initialSchemaView)
   );
   const [selectedSchemaId, setSelectedSchemaId] = useState(
-    initialSchemaView?.schemaId ?? schemaOptions[0].schemaId
+    documentDraft?.settings.schemaId ?? initialSchemaView?.schemaId ?? schemaOptions[0].schemaId
   );
-  const [schemaFieldDrafts, setSchemaFieldDrafts] = useState<PrimerSchemaFieldDrafts>(() =>
-    primerSchemaDrafts(initialEntityFields, initialSchemaView)
+  const [schemaFieldDrafts, setSchemaFieldDrafts] = useState<PrimerSchemaFieldDrafts>(
+    () =>
+      documentDraft?.settings.fields ?? primerSchemaDrafts(initialEntityFields, initialSchemaView)
   );
 
   useEffect(() => {
@@ -433,7 +448,7 @@ export function PrimerCreationForm({
       if (!safeFocus(nameInputRef.current)) return false;
       nameInputRef.current?.select();
     },
-    !isSaving
+    !isSaving && documentDraft?.visible !== false
   );
 
   const parsedOligo = useMemo(
@@ -725,7 +740,8 @@ export function PrimerCreationForm({
   }, [onPreviewChange]);
 
   const submit = useCallback(async (): Promise<boolean> => {
-    if (isSaving) return false;
+    if (isSaving || (documentDraft && documentDraft.revision !== documentDraft.readRevision()))
+      return false;
     if (fixedArtifactPath && !hasMetadataChanges) return true;
     setError(null);
     const prepared = preparePrimerSaveInput({
@@ -782,6 +798,7 @@ export function PrimerCreationForm({
     }
   }, [
     isSaving,
+    documentDraft,
     hasMetadataChanges,
     metadataDraft,
     hostOwnedBinding,
@@ -814,18 +831,27 @@ export function PrimerCreationForm({
   const handleSubmit = useCallback(
     (event: React.FormEvent) => {
       event.preventDefault();
-      void submit();
+      if (saveRequestTargetId)
+        void documentLifecycle.save(
+          { kind: 'tab', tabId: saveRequestTargetId },
+          saveRequestTargetId
+        );
+      else void submit();
     },
-    [submit]
+    [saveRequestTargetId, submit]
   );
 
   useDocumentLifecycle(
-    saveRequestTargetId
+    documentDraft
       ? {
-          target: { kind: 'tab', tabId: saveRequestTargetId },
-          tabId: saveRequestTargetId,
-          isDirty: () => Boolean(name.trim() || sequence.trim()),
-          save: submit,
+          target: { kind: 'tab', tabId: documentDraft.tabId },
+          tabId: documentDraft.tabId,
+          readRevision: documentDraft.readRevision,
+          isDirty: () => documentDraft.dirty,
+          save: async () => {
+            const revision = documentDraft.revision;
+            return (await submit()) ? { publishedRevision: revision } : false;
+          },
           discard: () => undefined,
         }
       : null
@@ -833,7 +859,7 @@ export function PrimerCreationForm({
 
   const gcOff = isPrimerGcOff(computed?.gc);
 
-  return (
+  const form = (
     <form
       data-testid="primer-creation-form"
       onSubmit={handleSubmit}
@@ -992,14 +1018,17 @@ export function PrimerCreationForm({
             const nextKeys = new Set(
               editablePrimerSchemaFields(nextSchema).map((field) => field.key)
             );
-            setSchemaFieldDrafts((current) =>
-              Object.fromEntries(Object.entries(current).filter(([key]) => nextKeys.has(key)))
+            const fields = Object.fromEntries(
+              Object.entries(schemaFieldDrafts).filter(([key]) => nextKeys.has(key))
             );
+            documentDraft?.editSettings({ schemaId, fields });
+            setSchemaFieldDrafts(fields);
             setSelectedSchemaId(schemaId);
             setError(null);
             onDraftChange?.();
           }}
           onValuesChange={(values) => {
+            documentDraft?.editSettings({ fields: values });
             setSchemaFieldDrafts(values);
             onDraftChange?.();
           }}
@@ -1012,6 +1041,7 @@ export function PrimerCreationForm({
           targetDir={targetDir}
           artifactDir={artifactDir}
           onSelectFolder={(dir) => {
+            documentDraft?.editSettings({ directory: dir });
             setArtifactDir(dir);
             setError(null);
           }}
@@ -1036,6 +1066,7 @@ export function PrimerCreationForm({
       />
     </form>
   );
+  return documentDraft ? documentDraft.render(form) : form;
 }
 
 function primerMismatchLabel(mismatchInfo: MismatchInfo): string {

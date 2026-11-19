@@ -212,6 +212,27 @@ async function activationFixture() {
 }
 
 describe('rich table file working copy', () => {
+  it('keeps the current table, revision and undo history when recording an edit fails', async () => {
+    const f = await fixture();
+    const initial = await f.inspect();
+    const accepted = await f.command(initial, {
+      kind: 'table',
+      command: { kind: 'rename', name: 'Accepted' },
+    });
+    vi.spyOn(f.options, 'storeRecord').mockRejectedValueOnce(new Error('record refused'));
+    await expect(
+      f.command(accepted, { kind: 'table', command: { kind: 'rename', name: 'Refused' } })
+    ).rejects.toThrow('record refused');
+    expect(await f.inspect()).toMatchObject({
+      revision: accepted.revision,
+      tableData: { name: 'Accepted' },
+      dirty: true,
+      canUndo: true,
+    });
+    const undone = await f.command(accepted, { kind: 'undo' });
+    expect(undone.tableData).toEqual(initial.tableData);
+  });
+
   it('uses the ordinary native table owner while retaining a separate portable identity', async () => {
     const f = await fixture();
     const first = await f.inspect();

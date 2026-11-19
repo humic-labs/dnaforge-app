@@ -37,6 +37,7 @@ export function registerDialogHandlers(): void {
       const win = BrowserWindow.fromWebContents(event.sender);
       if (!win) return null;
       const result = await dialog.showSaveDialog(win, {
+        ...(options.title ? { title: options.title } : {}),
         defaultPath: options.defaultPath,
         filters: options.filters,
       });

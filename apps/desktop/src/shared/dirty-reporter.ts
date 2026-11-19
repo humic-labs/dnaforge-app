@@ -1,5 +1,5 @@
 import { platform } from '../platform';
-import { SaveAllError, failedSaveAllResult } from './save-all-result';
+import { SaveAllCancelled, SaveAllError, failedSaveAllResult } from './save-all-result';
 import { usePageStore } from '../features/page/store';
 import { useSequenceStore } from '../features/sequence/store';
 import { saveAllDirtySequences } from '../features/sequence/save-all-sequences';
@@ -114,6 +114,11 @@ export async function saveAllUnsavedWork(): Promise<void> {
   const nativeDocumentsSettled =
     isDesktopRuntime() && typeof bridge.fs?.settleDirtyDocuments === 'function';
   if (nativeDocumentsSettled) {
+    if (typeof bridge.fs.listDirtyDocuments === 'function') {
+      const { saveDirtySequenceCopiesAsNeeded } =
+        await import('../features/sequence/save-edited-sequence-copy');
+      await saveDirtySequenceCopiesAsNeeded();
+    }
     const result = await bridge.fs.settleDirtyDocuments({ action: 'save' });
     if (result.failures.length || result.remaining.length) throw new SaveAllError(result.failures);
   }
@@ -141,13 +146,15 @@ export async function saveAllUnsavedWork(): Promise<void> {
       const target = saveTargetForTab(tab);
       if (
         target.kind === 'sequence-document' &&
-        classifyTabSession(tab).kind !== 'sequence-assembly'
+        classifyTabSession(tab).kind !== 'sequence-assembly' &&
+        !documentLifecycle.hasAdditionalEdits(target, tab.id)
       )
         continue;
       if (
         nativeDocumentsSettled &&
         target.kind === 'file' &&
-        ownsNativeFileDocument(target.filePath)
+        ownsNativeFileDocument(target.filePath) &&
+        !documentLifecycle.hasAdditionalEdits(target, tab.id)
       )
         continue;
       if (target.kind === 'tab' && tab.trackView && !documentLifecycle.has(target, tab.id)) {
@@ -172,6 +179,10 @@ export function initSaveAllHandler(): () => void {
     void saveAllUnsavedWork().then(
       () => bridge.app.saveAllDone(requestId, { status: 'saved' }),
       (error) => {
+        if (error instanceof SaveAllCancelled) {
+          bridge.app.saveAllDone(requestId, { status: 'cancelled' });
+          return;
+        }
         try {
           console.error('[Save All] Some changes were not saved:', error);
         } catch {}

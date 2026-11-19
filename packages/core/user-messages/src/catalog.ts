@@ -41,6 +41,8 @@ export const USER_MESSAGES = {
   'primer.nameRequired': 'Enter a name for this primer.',
   'primer.targetUnavailable':
     'Reopen the target sequence from its project before attaching this primer.',
+  'primer.firstSaveFolderChanged':
+    'Your first save reached the original folder. Choose that folder to save the newer edits to the same primer.',
   'primer.saveLocationInvalid':
     'Choose a save folder in this project and try again. Your primer draft is still here.',
   'primer.save.open-a-sequence-from-a-project-before-saving-a-primer':
