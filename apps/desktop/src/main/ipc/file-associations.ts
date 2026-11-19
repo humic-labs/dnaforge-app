@@ -10,6 +10,8 @@ import type {
 import { handlerFamily, type FileAssociationFamilyId } from '../../shared/file-associations';
 import type { DefaultHandlerService } from '../file-associations/default-handler-service';
 import { assertSafePath } from './path-allowlist';
+import { readFileBoundedFromHandle } from './bounded-file-read';
+import { resolvePreviewSource } from '../selected-preview-files';
 import { fileAssociationsContract } from '../../shared/ipc/file-associations.contract';
 
 export interface RegisterFileAssociationHandlersDeps {
@@ -152,13 +154,14 @@ function parsePromoteQuickLookRequest(value: unknown): PromoteQuickLookPackageRe
 
 export function registerFileAssociationHandlers(deps: RegisterFileAssociationHandlersDeps): void {
   handleGroup(fileAssociationsContract, {
+    readPreviewBytes: async (_event, path, maxBytes) =>
+      readFileBoundedFromHandle(await resolvePreviewSource(path, assertSafePath), maxBytes),
     takePendingActivations: () => deps.takePendingAndMarkReady(),
     materializeQuickLookPackage: async (_event, request: unknown) => {
       const parsed = parseMaterializeQuickLookRequest(request);
-      const sourcePath = await assertSafePath(parsed.sourcePath, {
-        requireAbsolute: true,
-        errorPrefix: 'Quick Look source',
-      });
+      const sourcePath = await resolvePreviewSource(parsed.sourcePath, (path) =>
+        assertSafePath(path, { requireAbsolute: true, errorPrefix: 'Quick Look source' })
+      );
       return deps.materializeQuickLookPackage({ ...parsed, sourcePath });
     },
     prepareQuickLookPackage: (_event, request: unknown) =>

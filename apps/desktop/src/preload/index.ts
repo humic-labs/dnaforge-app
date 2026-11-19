@@ -45,6 +45,7 @@ import {
   type MainSendArguments,
 } from '../shared/ipc-contract';
 import { contextBridge, webUtils } from 'electron';
+import { externalFormatForPath } from '../shared/external-preview';
 import { hostedAllowanceContract } from '../shared/ipc/hosted-allowance.contract';
 import type { RuntimeProfile, RuntimeProvenance } from '../shared/runtime-profile';
 import { createElectronRuntimeProfile } from '../shared/scenario-mutation';
@@ -269,6 +270,12 @@ function sendReplicaAck(
   rendererIpc.send('cloudSync:replicaAppliedAck', ack);
 }
 
+function getPathForNativeFile(file: File): string {
+  const path = webUtils.getPathForFile(file);
+  if (path && externalFormatForPath(path)) rendererIpc.send('file-association:native-drop', path);
+  return path;
+}
+
 const nativeWheelMetadata = process.argv.includes('--dnaforge-native-wheel-metadata=1');
 
 const api = {
@@ -464,7 +471,7 @@ const api = {
     ...createClient(workspaceContract),
     ...createClient(workspaceRelocateContract),
     ...createClient(workspaceBrowserContract),
-    getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+    getPathForFile: getPathForNativeFile,
   },
 
   tracing: createClient(tracingContract),
@@ -506,6 +513,7 @@ const api = {
       'menu:close-tab',
       'menu:reopen-closed-tab',
       'menu:redo',
+      'menu:open-files',
       'menu:import-files',
       'menu:import-folder',
       'menu:import-registry-records',
@@ -823,7 +831,7 @@ const api = {
   convertFileSrc: (filePath: string): Promise<string> =>
     rendererIpc.invoke('fs:convertFileSrc', filePath),
 
-  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+  getPathForFile: getPathForNativeFile,
 };
 
 export type PreloadElectronApi = typeof api;

@@ -37,6 +37,7 @@ export const STATIC_IPC_CHANNELS = [
   "db:select",
   "diagnostics:breadcrumbs",
   "diagnostics:renderer-error",
+  "file-association:native-drop",
   "file-changed",
   "fs:convertFileSrc",
   "fs:createPackageScratch",
@@ -108,6 +109,7 @@ export const STATIC_IPC_CHANNELS = [
   "menu:import-folder",
   "menu:import-registry-records",
   "menu:new-chat",
+  "menu:open-files",
   "menu:organizations",
   "menu:redo",
   "menu:reopen-closed-tab",
@@ -274,6 +276,7 @@ export const STATIC_RENDERER_SEND_CHANNELS = [
   "cloudSync:replicaAppliedAck",
   "diagnostics:breadcrumbs",
   "diagnostics:renderer-error",
+  "file-association:native-drop",
   "workspace:mutationAck",
   "workspace:set-path-listener-ready"
 ] as const;
@@ -295,6 +298,7 @@ export const STATIC_MAIN_SEND_CHANNELS = [
   "menu:import-folder",
   "menu:import-registry-records",
   "menu:new-chat",
+  "menu:open-files",
   "menu:organizations",
   "menu:redo",
   "menu:reopen-closed-tab",

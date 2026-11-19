@@ -193,6 +193,7 @@ const hostedImplemented: Partial<PlatformBridge> = {
   },
   workspaceMutations: { onLifecycle: () => () => undefined },
   fileAssociations: {
+    readPreviewBytes: async () => unavailable('fileAssociations.readPreviewBytes'),
     takePendingActivations: async () => [],
     materializeQuickLookPackage: async () =>
       unavailable('fileAssociations.materializeQuickLookPackage'),

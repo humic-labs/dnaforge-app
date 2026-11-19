@@ -7,6 +7,9 @@ import { SidecarSessionAuthority } from '../sidecar-session-authority';
 
 const h = vi.hoisted(() => ({
   handle: vi.fn<(channel: string, handler: unknown) => void>(),
+  on: vi.fn<(channel: string, handler: (event: unknown, path: string) => void) => void>(),
+  remember: vi.fn(),
+  showOpenDialog: vi.fn(),
   issue: vi.fn<(request: LocalIndexedTrackAuthorityRequest) => LocalIndexedTrackAuthorityReceipt>(),
   waitForReadySnapshot: vi.fn<() => Promise<unknown>>(),
 }));
@@ -16,7 +19,7 @@ vi.mock('../../shared/ipc-contract', async () => {
     '../../shared/ipc/contract'
   );
   return {
-    mainIpc: { handle: h.handle },
+    mainIpc: { handle: h.handle, on: h.on },
     handleGroup: (
       contract: import('../../shared/ipc/contract').AnyContractGroup,
       handlers: Record<string, unknown>
@@ -28,7 +31,11 @@ vi.mock('../../shared/ipc-contract', async () => {
     },
   };
 });
-vi.mock('electron', () => ({ dialog: {}, BrowserWindow: {} }));
+vi.mock('electron', () => ({
+  dialog: { showOpenDialog: h.showOpenDialog },
+  BrowserWindow: { fromWebContents: () => ({}) },
+}));
+vi.mock('../selected-preview-files', () => ({ rememberSelectedPreviewFile: h.remember }));
 vi.mock('../local-indexed-track-authority', () => ({
   issueLocalIndexedTrackAuthority: h.issue,
   registerSelectedLocalIndexedTrackPaths: vi.fn(),
@@ -105,4 +112,25 @@ describe('local track authorization IPC', () => {
       Promise.resolve().then(() => authorizeHandler()({}, { path: '/unselected/private.bed' }))
     ).rejects.toThrow('Select this local indexed track through the DNAForge file picker first.');
   });
+});
+
+it('admits chosen paths from the native picker and top-level native file drops on another drive', async () => {
+  const [picked, dropped] = [
+    String.raw`D:\Project Files\read.ab1`,
+    String.raw`E:\Public data\model.cif`,
+  ];
+  const handler = h.handle.mock.calls.find(([channel]) => channel === 'dialog:open')?.[1] as (
+    event: unknown,
+    options: unknown
+  ) => Promise<string>;
+  h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [picked] });
+  const mainFrame = {};
+  const sender = { mainFrame };
+  expect(await handler({ sender }, {})).toBe(picked);
+  expect(h.remember.mock.calls).toEqual([[picked]]);
+  const drop = h.on.mock.calls.find(([channel]) => channel === 'file-association:native-drop')![1];
+  drop({ sender, senderFrame: {} }, dropped);
+  expect(h.remember.mock.calls).toEqual([[picked]]);
+  drop({ sender, senderFrame: mainFrame }, dropped);
+  expect(h.remember.mock.calls).toEqual([[picked], [dropped]]);
 });

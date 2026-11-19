@@ -1,4 +1,5 @@
-import { handleGroup } from '../../shared/ipc-contract';
+import { rememberSelectedPreviewFile } from '../selected-preview-files';
+import { handleGroup, mainIpc } from '../../shared/ipc-contract';
 import { dialog, BrowserWindow } from 'electron';
 import {
   issueLocalIndexedTrackAuthority,
@@ -8,6 +9,10 @@ import { sidecarSessionAuthority } from '../sidecar-session-runtime';
 import { dialogContract } from '../../shared/ipc/dialog.contract';
 
 export function registerDialogHandlers(): void {
+  mainIpc.on('file-association:native-drop', (event, path) => {
+    if (event.senderFrame === event.sender.mainFrame && BrowserWindow.fromWebContents(event.sender))
+      rememberSelectedPreviewFile(path);
+  });
   handleGroup(dialogContract, {
     open: async (event, options) => {
       const win = BrowserWindow.fromWebContents(event.sender);
@@ -27,6 +32,7 @@ export function registerDialogHandlers(): void {
 
       if (result.canceled) return null;
       registerSelectedLocalIndexedTrackPaths(result.filePaths);
+      for (const path of result.filePaths) rememberSelectedPreviewFile(path);
       return options.multiple ? result.filePaths : (result.filePaths[0] ?? null);
     },
     authorizeLocalIndexedTrack: async (_event, request) => {

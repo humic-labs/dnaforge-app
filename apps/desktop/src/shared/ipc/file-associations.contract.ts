@@ -12,6 +12,7 @@ import type { HandlerFamilyId } from '../file-associations';
 import { defineGroup, invoke, event } from './contract';
 
 export const fileAssociationsContract = defineGroup('fileAssociations', {
+  readPreviewBytes: invoke<[path: string, maxBytes: number], Uint8Array>(),
   takePendingActivations: invoke<[], FileActivationDelivery[]>(),
   materializeQuickLookPackage: invoke<
     [request: MaterializeQuickLookPackageRequest],

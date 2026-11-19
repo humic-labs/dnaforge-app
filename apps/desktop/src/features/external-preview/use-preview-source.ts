@@ -20,7 +20,7 @@ export function usePreviewSource<T>(
   useEffect(() => {
     let active = true;
     async function load() {
-      const bytes = await platform().fs.readFileBounded(path, maxBytes);
+      const bytes = await platform().fileAssociations.readPreviewBytes(path, maxBytes);
       if (!active) return;
       const sha256 = await sha256Hex(bytes);
       if (!active) return;

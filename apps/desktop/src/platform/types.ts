@@ -269,6 +269,7 @@ import type {
   CreateEmptyWorkspaceResult,
   ImportContentRequest,
   ImportFileRequest,
+  ImportFileAsWorkspaceRequest,
   ImportFileResult,
   ImportManagedWorkspaceRequest,
   ImportManagedWorkspaceResult,
@@ -610,6 +611,7 @@ export interface PlatformBridge {
     typeof import('../shared/ipc/scientific-objects.contract').scientificObjectsContract
   >;
   fileAssociations: {
+    readPreviewBytes(path: string, maxBytes: number): Promise<Uint8Array>;
     takePendingActivations(): Promise<FileActivationDelivery[]>;
     materializeQuickLookPackage(
       request: MaterializeQuickLookPackageRequest
@@ -970,9 +972,9 @@ export interface PlatformBridge {
     previewSequenceImport(
       request: SequenceImportPreviewRequest
     ): Promise<SequenceImportPreviewResult>;
-    importFileAsNewWorkspace(request: {
-      sourcePath: string;
-    }): Promise<ImportManagedWorkspaceResult>;
+    importFileAsNewWorkspace(
+      request: ImportFileAsWorkspaceRequest
+    ): Promise<ImportManagedWorkspaceResult>;
     registerImportedSequence(
       request: RegisterImportedSequenceRequest
     ): Promise<RegisterImportedSequenceResult>;

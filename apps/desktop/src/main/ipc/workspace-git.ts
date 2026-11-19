@@ -17,6 +17,7 @@ import {
 } from '../../shared/workspace-git-types';
 import { basename, dirname, join } from 'node:path';
 import { assertSafePath, withSafeWritablePath, withSafeWritablePaths } from './path-allowlist';
+import { admitFileImportSource } from '../selected-preview-files';
 import { resolveSelectedLocalFilePath } from '../local-indexed-track-authority';
 import { getDb } from './database';
 import {
@@ -73,6 +74,7 @@ import type {
   CreateEmptyWorkspaceResult,
   ImportContentRequest,
   ImportFileRequest,
+  ImportFileAsWorkspaceRequest,
   ImportManagedWorkspaceRequest,
   ImportSequenceContentRequest,
   ManagedWorkspaceLargeFile,
@@ -347,11 +349,11 @@ export function registerWorkspaceGitHandlers(): void {
       };
     },
     importFile: async (_event, request: ImportFileRequest) => {
-      await assertSafePath(request.sourcePath);
+      const admitted = await admitFileImportSource(request, assertSafePath);
       return withSafeWritablePath(request.targetRoot, (targetRoot) =>
         withDeclaredWorkspaceMutation(getDb(), targetRoot, [targetRoot], () =>
           importFileIntoWorkspaceRoot(
-            { ...request, targetRoot },
+            { ...admitted, targetRoot },
             {
               db: getDb(),
               managedRootDir: managedRootDir(),
@@ -399,9 +401,9 @@ export function registerWorkspaceGitHandlers(): void {
         )
       );
     },
-    importFileAsNewWorkspace: async (_event, request: { sourcePath: string }) => {
-      await assertSafePath(request.sourcePath);
-      return importFileAsNewManagedWorkspace(request.sourcePath, {
+    importFileAsNewWorkspace: async (_event, request: ImportFileAsWorkspaceRequest) => {
+      const admitted = await admitFileImportSource(request, assertSafePath);
+      return importFileAsNewManagedWorkspace(admitted, {
         db: getDb(),
         managedRootDir: managedRootDir(),
       });

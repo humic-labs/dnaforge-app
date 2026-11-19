@@ -314,6 +314,7 @@ export const browserMockBridge: PlatformBridge = {
     },
   },
   fileAssociations: {
+    readPreviewBytes: (path, maxBytes) => browserMockBridge.fs.readFileBounded(path, maxBytes),
     takePendingActivations: async () => [],
     materializeQuickLookPackage: async (request) => {
       const sourceFileName = request.sourcePath.split(/[\\/]/u).pop() ?? request.sourcePath;
