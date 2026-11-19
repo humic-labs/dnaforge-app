@@ -706,6 +706,7 @@ function prepareQuickLookRecords(
     const extension = extname(identity.sourceFileName) || '.gb';
     const indexed = indexGenBankRecords(sourceBytes, {
       maxRecords: QUICK_LOOK_MAX_GENBANK_RECORDS,
+      verifyNucleotideLocus: true,
     });
     const preserveWholeSource = indexed.length === 1;
     return indexed.map((record) => {
@@ -757,7 +758,14 @@ async function buildGeneration(
   maxStoreBytes: number
 ): Promise<QuickLookPackageReceipt> {
   const publishedReceipt = await verifiedReceiptForIdentity(storeRoot, request, identity);
-  if (publishedReceipt) return publishedReceipt;
+  if (publishedReceipt) {
+    if (request.familyId === 'genbank')
+      indexGenBankRecords(sourceBytes, {
+        maxRecords: QUICK_LOOK_MAX_GENBANK_RECORDS,
+        verifyNucleotideLocus: true,
+      });
+    return publishedReceipt;
+  }
 
   await fs.mkdir(storeRoot, { recursive: true });
   const publishedBytes = await directoryBytes(storeRoot, true);

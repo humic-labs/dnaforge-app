@@ -1,3 +1,4 @@
+import { isFastaSource, preservedFastaMarkerPath } from '../../shared/preserved-fasta';
 import { createHash, randomUUID } from 'node:crypto';
 import { constants as fsConstants, createReadStream, existsSync, type Stats } from 'node:fs';
 import {
@@ -26,6 +27,7 @@ import {
   MANAGED_WORKSPACE_MARKER,
   type ImportContentRequest,
   type ImportFileRequest,
+  type ImportFileAsWorkspaceRequest,
   type ImportFileResult,
   type ImportSequenceContentRequest,
   type ImportSequenceContentResult,
@@ -1765,11 +1767,30 @@ export async function importQuickLookGenerationIntoWorkspaceRoot(
   });
 }
 
+function validateExactFileImport(request: ImportFileAsWorkspaceRequest): void {
+  if (request.preserveOriginal && !/^[a-f0-9]{64}$/.test(request.expectedSourceSha256 ?? '')) {
+    throw new Error('Reopen the file to import the same bytes shown in its preview.');
+  }
+}
+
+async function markPreservedFasta(
+  path: string,
+  request: ImportFileAsWorkspaceRequest
+): Promise<void> {
+  if (!request.preserveOriginal || !isFastaSource(path)) return;
+  const marker = await preservedFastaMarkerPath(path);
+  await writeFile(marker, request.expectedSourceSha256 + '\n', { flag: 'wx' });
+}
+
 export async function importFileIntoWorkspaceRoot(
   request: ImportFileRequest,
   deps: ImportFileIntoWorkspaceDeps
 ): Promise<ImportFileResult> {
   const { db, managedRootDir } = deps;
+
+  validateExactFileImport(request);
+  if (request.preserveOriginal && request.dedup && request.dedup.mode !== 'keep-both')
+    throw new Error('An original file import requires its own destination.');
 
   const realSource = await realpath(request.sourcePath);
   const sourceStat = await stat(realSource);
@@ -1874,6 +1895,7 @@ export async function importFileIntoWorkspaceRoot(
         await copyFile(realSource, destPath, fsConstants.COPYFILE_EXCL);
         copiedIdentity = await physicalFileIdentity(destPath);
         await assertExpectedSourceDigest(destPath, request.expectedSourceSha256);
+        await markPreservedFasta(destPath, request);
         break;
       } catch (err) {
         if (copiedIdentity) {
@@ -1897,7 +1919,7 @@ export async function importFileIntoWorkspaceRoot(
     }
   }
 
-  if (!materializedDuringReplace) {
+  if (!materializedDuringReplace && !request.preserveOriginal) {
     const copiedIdentity = await physicalFileIdentity(destPath);
     try {
       const materialized = await materializeImportedSequencePackages(destPath, undefined, {
@@ -1925,7 +1947,12 @@ export async function importFileIntoWorkspaceRoot(
     }
   }
 
-  if (!replaced && !packageProductPaths && packagedCoordinateFormat(relPath)) {
+  if (
+    !request.preserveOriginal &&
+    !replaced &&
+    !packageProductPaths &&
+    packagedCoordinateFormat(relPath)
+  ) {
     try {
       const copiedIdentity = await physicalFileIdentity(destPath);
       const packaged = await materializeCoordinatePackage(destPath, {
@@ -3324,10 +3351,13 @@ export async function importFolderIntoWorkspaceRoot(
 }
 
 export async function importFileAsNewManagedWorkspace(
-  sourceFile: string,
+  input: string | ImportFileAsWorkspaceRequest,
   deps: ImportFileIntoWorkspaceDeps
 ): Promise<ImportManagedWorkspaceResult> {
   const { db, managedRootDir } = deps;
+  const request = typeof input === 'string' ? { sourcePath: input } : input;
+  validateExactFileImport(request);
+  const sourceFile = request.sourcePath;
   const realSource = await realpath(sourceFile);
   const sourceStat = await stat(realSource);
   if (!sourceStat.isFile()) {
@@ -3345,33 +3375,48 @@ export async function importFileAsNewManagedWorkspace(
   const createdAt = Date.now();
   const destName = base === MANAGED_WORKSPACE_MARKER ? `imported-${base}` : base;
 
-  await mkdir(repoPath, { recursive: true });
-  await copyFile(realSource, join(repoPath, destName));
+  await mkdir(managedRootDir, { recursive: true });
+  const containerPath = dirname(repoPath);
+  await mkdir(containerPath);
   let packageProductPaths: string[] | undefined;
   try {
-    const materialized = await materializeImportedSequencePackages(join(repoPath, destName));
-    packageProductPaths = materialized.packages.map((pkg) => pkg.productPath);
-  } catch (err) {
-    console.warn(`[importFileAsNewWorkspace] copied ${destName} but could not package it:`, err);
-  }
-  await writeFile(
-    join(repoPath, MANAGED_WORKSPACE_MARKER),
-    `${JSON.stringify({ schema: 1, workspaceUuid, originPath: realSource, importedAt: createdAt }, null, 2)}\n`,
-    'utf8'
-  );
-  await initManagedRepo(repoPath);
-  await commitAllIfDirty(repoPath, 'Initial import', {
-    forceInclude: requiredGitFilesForProducts(packageProductPaths),
-  });
+    await mkdir(repoPath);
+    await copyFile(realSource, join(repoPath, destName));
+    await assertExpectedSourceDigest(join(repoPath, destName), request.expectedSourceSha256);
+    await markPreservedFasta(join(repoPath, destName), request);
+    if (!request.preserveOriginal) {
+      try {
+        const materialized = await materializeImportedSequencePackages(join(repoPath, destName));
+        packageProductPaths = materialized.packages.map((pkg) => pkg.productPath);
+      } catch (err) {
+        console.warn(
+          `[importFileAsNewWorkspace] copied ${destName} but could not package it:`,
+          err
+        );
+      }
+    }
+    await writeFile(
+      join(repoPath, MANAGED_WORKSPACE_MARKER),
+      `${JSON.stringify({ schema: 1, workspaceUuid, originPath: realSource, importedAt: createdAt }, null, 2)}\n`,
+      'utf8'
+    );
+    await initManagedRepo(repoPath);
+    await commitAllIfDirty(repoPath, 'Initial import', {
+      forceInclude: requiredGitFilesForProducts(packageProductPaths),
+    });
 
-  db.prepare(
-    `INSERT INTO workspaces (name, path, repo_uuid, origin_path, created_at, last_opened_at)
+    db.prepare(
+      `INSERT INTO workspaces (name, path, repo_uuid, origin_path, created_at, last_opened_at)
      VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(path) DO UPDATE SET
        repo_uuid = excluded.repo_uuid,
        origin_path = excluded.origin_path,
        last_opened_at = excluded.last_opened_at`
-  ).run(displayName, repoPath, workspaceUuid, realSource, createdAt, createdAt);
+    ).run(displayName, repoPath, workspaceUuid, realSource, createdAt, createdAt);
+  } catch (error) {
+    await rm(containerPath, { recursive: true, force: true });
+    throw error;
+  }
 
   return {
     workspaceUuid,

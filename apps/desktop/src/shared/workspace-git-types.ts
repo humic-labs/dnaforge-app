@@ -95,7 +95,14 @@ export interface ImportFileDedup {
   expectedRelPath?: string;
 }
 
+export type ImportFileAsWorkspaceRequest = Pick<
+  ImportFileRequest,
+  'sourcePath' | 'expectedSourceSha256' | 'preserveOriginal'
+>;
+
 export interface ImportFileRequest {
+  preserveOriginal?: true;
+
   targetRoot: string;
 
   sourcePath: string;

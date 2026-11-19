@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { convertTreeToPlasmidPackages } from './convert-tree-to-packages';
+import { preservedFastaMarkerPath } from '../../shared/preserved-fasta';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -11,7 +15,11 @@ vi.mock('electron', () => ({
 import type Database from 'better-sqlite3';
 import { createTestDb } from '../__tests__/test-db';
 import { ensureSchema } from '../schema';
-import { importFileAsNewManagedWorkspace, MANAGED_WORKSPACE_MARKER } from './import';
+import {
+  importFileAsNewManagedWorkspace,
+  importFileIntoWorkspaceRoot,
+  MANAGED_WORKSPACE_MARKER,
+} from './import';
 import { resolveHeadCommit } from './index';
 
 describe('importFileAsNewManagedWorkspace ', () => {
@@ -57,6 +65,44 @@ describe('importFileAsNewManagedWorkspace ', () => {
     const src = loose('reads.fastq', '@x\nACGT\n+\n!!!!\n');
     await importFileAsNewManagedWorkspace(src, { db, managedRootDir: managedRoot });
     expect(readFileSync(src, 'utf8')).toBe('@x\nACGT\n+\n!!!!\n');
+  });
+
+  it('preserves duplicate records and original bytes in new and existing projects across conversion scans', async () => {
+    const bytes =
+      '>dup DNA\r\n' + 'ACGT'.repeat(35) + '\r\n>dup another DNA\r\n' + 'TGCA'.repeat(40) + '\r\n';
+    const src = loose('reads.fa', bytes);
+    const request = {
+      sourcePath: src,
+      expectedSourceSha256: createHash('sha256').update(bytes).digest('hex'),
+      preserveOriginal: true as const,
+    };
+    const deps = { db, managedRootDir: managedRoot };
+    const project = await importFileAsNewManagedWorkspace(request, deps);
+    const copy = await importFileIntoWorkspaceRoot(
+      { ...request, targetRoot: project.repoPath },
+      deps
+    );
+    expect(copy.relPath).toBe('reads (1).fa');
+    expect((await convertTreeToPlasmidPackages(project.repoPath)).converted).toBe(0);
+    for (const path of [project.entryPath!, copy.destPath]) {
+      expect(readFileSync(path, 'utf8')).toBe(bytes);
+      expect(readFileSync(await preservedFastaMarkerPath(path), 'utf8').trim()).toBe(
+        request.expectedSourceSha256
+      );
+    }
+    expect(readFileSync(src, 'utf8')).toBe(bytes);
+  });
+
+  it('rejects changed preview bytes without publishing a new project or leaving its files', async () => {
+    const src = loose('changed.faa', '>name\nPEPTIDE\n');
+    await expect(
+      importFileAsNewManagedWorkspace(
+        { sourcePath: src, expectedSourceSha256: 'f'.repeat(64), preserveOriginal: true },
+        { db, managedRootDir: managedRoot }
+      )
+    ).rejects.toThrow('changed after preview');
+    expect(await readdir(managedRoot)).toEqual([]);
+    expect(db.prepare('SELECT name FROM workspaces').all()).toEqual([]);
   });
 
   it('rejects a directory (that path is importIntoManagedWorkspaceRepo)', async () => {

@@ -112,6 +112,29 @@ describe('createQuickLookPackageStore', () => {
     expect(await fs.readdir(join(userDataRoot, 'quick-look-packages')).catch(() => [])).toEqual([]);
   });
 
+  it.each([
+    ['2 aa', 'mf', 'nucleotide LOCUS'],
+    ['3 bp', 'ac', 'length'],
+    ['2 bp', 'ef', 'nucleotide alphabet'],
+  ])(
+    'rejects the whole external set when a later record has unsupported %s / %s',
+    async (locus, sequence, reason) => {
+      const path = join(sourceRoot, 'mixed.gb');
+      const text =
+        'LOCUS       repeat   2 bp DNA\nORIGIN\n        1 ac\n//\n' +
+        `LOCUS       repeat   ${locus}\nORIGIN\n        1 ${sequence}\n//\n`;
+      await fs.writeFile(path, text);
+      await expect(
+        createQuickLookPackageStore(userDataRoot).materialize({
+          sourcePath: path,
+          familyId: 'genbank',
+        })
+      ).rejects.toThrow(reason);
+      expect(await fs.readFile(path, 'utf8')).toBe(text);
+      expect(await fs.readdir(join(userDataRoot, 'quick-look-packages'))).toEqual([]);
+    }
+  );
+
   it('creates one ordinary package per GenBank record and preserves the complete source once', async () => {
     const sourcePath = join(sourceRoot, 'assembly.gbk');
     const firstRecord =
