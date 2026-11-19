@@ -2552,15 +2552,19 @@ export async function handleMolSaveView(
           acceptSavedMolViewSpecView(active.plugin, captured, savedSnapshot.scene, captureOptions);
         const adoptingHost =
           current && adoptedAppearance
-            ? findStructureTabHost(current.registrationId, current.structureViewId)
+            ? findStructureTabHost(current.registrationId, current.structureViewId, target)
             : null;
+        const adoptedDocumentViewId =
+          projectSave && adoptingHost && !adoptingHost.tab.structureInspection
+            ? `molecular-document:${projectSave.catalogEntityId}`
+            : undefined;
         if (current?.viewerId === before.viewerId && (adoptedAppearance || projectSave)) {
           const next = {
             ...current.entry.data,
             ...(projectSave && adoptedAppearance
               ? {
                   ...molecularViewAttrs(
-                    current.registrationId,
+                    adoptedDocumentViewId ?? current.registrationId,
                     savedSnapshot,
                     undefined,
                     reference.id
@@ -2597,7 +2601,12 @@ export async function handleMolSaveView(
               : {}),
             ...documentBinding,
           };
-          useStructure3dStore.getState().updateStructureData(current.registrationId, next);
+          const structureStore = useStructure3dStore.getState();
+          if (adoptedDocumentViewId && adoptedDocumentViewId !== current.registrationId) {
+            structureStore.registerStructure(adoptedDocumentViewId, next, projectSave.document.name);
+          } else {
+            structureStore.updateStructureData(current.registrationId, next);
+          }
           for (const panel of Object.values(useCanvasStore.getState().panels))
             for (const tab of panel.tabs)
               if (
@@ -2605,9 +2614,8 @@ export async function handleMolSaveView(
                 !tab.structureInspection &&
                 tab.entityId === current.registrationId
               ) {
-                if (projectSave && adoptedAppearance)
-                  savedStructureViewId = `molecular-document:${projectSave.catalogEntityId}`;
-                if (projectSave && adoptedAppearance) {
+                if (adoptedDocumentViewId) {
+                  savedStructureViewId = adoptedDocumentViewId;
                   useCanvasStore
                     .getState()
                     .retargetTab(
@@ -2615,7 +2623,7 @@ export async function handleMolSaveView(
                       tab.id,
                       {
                         type: 'structure',
-                        entityId: `molecular-document:${projectSave.catalogEntityId}`,
+                        entityId: adoptedDocumentViewId,
                       },
                       { label: projectSave.document.name, initialStructureAttrs: next }
                     );

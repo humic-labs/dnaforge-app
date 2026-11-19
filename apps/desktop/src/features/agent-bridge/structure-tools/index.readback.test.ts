@@ -260,10 +260,11 @@ function allowSuccessfulCapture() {
 }
 
 const savedRevisionId = '6cf13483-9489-48cf-85f4-977b84e60a22';
+const savedDocumentId = 'e00eb626-270d-4bf0-b92f-5b827285559b';
 async function savedDocumentResult(snapshot: MolecularView) {
   const document = molecularDocumentSchema.parse({
     schema: MOLECULAR_DOCUMENT_SCHEMA,
-    id: 'e00eb626-270d-4bf0-b92f-5b827285559b',
+    id: savedDocumentId,
     name: snapshot.title,
     currentReferenceId: savedRevisionId,
     history: [{ referenceId: savedRevisionId, snapshot }],
@@ -542,14 +543,18 @@ describe('molecular MCP readback integration', () => {
       const nativeAccess = readback.withPlugin.getMockImplementation()!;
       let nativeReady = false;
       let adoptionReads = 0;
-      const unsubscribe = useCanvasStore.subscribe((state) => {
-        for (const tab of state.panels.main.tabs) {
-          if (!tab.entityId.startsWith('molecular-document:')) continue;
-          useStructure3dStore
-            .getState()
-            .registerStructure(tab.entityId, tab.initialStructureAttrs!, tab.label);
-        }
-      });
+      useStructure3dStore.getState().registerStructure(
+        `molecular-document:readback-workspace::${savedDocumentId}`,
+        {
+          ...rawFileAttrs,
+          structureViewIdentity: undefined,
+          molecularDocumentId: savedDocumentId,
+          molecularDocumentPath: '/readback-workspace/Saved view.molview.json',
+          molecularDocumentRevision: 'b'.repeat(64),
+          molecularDocumentSavedReferenceId: '2e515407-f279-475c-8e0f-4a5fa9d4e412',
+        },
+        'Previous closed revision'
+      );
       readback.withPlugin.mockImplementation(async (...args) => {
         if (
           useCanvasStore.getState().panels.main.tabs[0].entityId.startsWith('molecular-document:')
@@ -600,6 +605,7 @@ describe('molecular MCP readback integration', () => {
           source: 'file',
           sourceId: 'controlled coordinates',
           coordinateSha256: saved.coordinateDigestSha256,
+          molecularDocumentSavedReferenceId: savedRevisionId,
         });
         expect(adopted.coordinateFilePath).toBeUndefined();
         expect(adopted.structureArtifactRef).toBeUndefined();
@@ -623,7 +629,6 @@ describe('molecular MCP readback integration', () => {
       } finally {
         nativeReady = true;
         await saving;
-        unsubscribe();
       }
     }
   );
