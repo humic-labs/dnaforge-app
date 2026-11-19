@@ -5,6 +5,9 @@ import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestDb } from './test-db';
+import { existsSync } from 'node:fs';
+import { validateWorkspacePathInMain } from '../primer-artifact-files';
+import { findCurrentFilesByFilename } from '../../db/find-current-files-by-filename';
 import { ensureSchema } from '../schema';
 import { bindCatalogEntityFileInDb } from '../catalog-file-binding';
 import { catalogSequenceIdForPath } from '../catalog-package-identity';
@@ -26,7 +29,11 @@ const bridge = vi.hoisted(() => ({
 
 vi.mock('../../platform', () => ({
   platform: () => ({
-    fs: { readTextFile: (path: string) => fs.readFile(path, 'utf8') },
+    fs: {
+      readTextFile: (path: string) => fs.readFile(path, 'utf8'),
+      exists: async (path: string) => existsSync(path),
+      validateWorkspacePath: validateWorkspacePathInMain,
+    },
     db: {
       registerCatalogEntity: async (input: CatalogEntityRegistrationRequest) => {
         if (!bridge.db) throw new Error('Test database is not open.');
@@ -204,6 +211,48 @@ describe('catalog identity across loose-file conversion (real SQLite)', () => {
       expect(rowAt(packageRoot)).toEqual({ status: 'current', object_uuid: 'clone-object' });
     }
   );
+
+  it('finds the actual primary filename of a relocated package for a legacy reference', async () => {
+    const renamed = join(root, 'renamed-directory');
+    await fs.rename(packageRoot, renamed);
+    await reconcileSequencePackageCatalogEntity({
+      metaPath: join(renamed, '.forge', 'plasmid.json'),
+      workspaceRoot: root,
+    });
+    const expected = {
+      path: 'renamed-directory/clone.gb',
+      objectUuid: 'clone-object',
+      entityId: 'clone-entity',
+    };
+    const originalPath = 'before/clone.gb';
+    expect(await findCurrentFilesByFilename(originalPath, root)).toMatchObject([expected]);
+    db.prepare('UPDATE catalog_entities SET metadata=NULL WHERE id=?').run('clone-entity');
+    expect(await findCurrentFilesByFilename(originalPath, root)).toMatchObject([expected]);
+    const loose = join(root, 'clone.gb');
+    await fs.copyFile(join(renamed, 'clone.gb'), loose);
+    registerCatalogEntityInDb(db, {
+      id: 'independent',
+      type: 'sequence',
+      name: 'Copy',
+      locator: 'file://' + loose,
+      storageType: 'file',
+      workspaceRoot: root,
+    });
+    bindCatalogEntityFileInDb(db, {
+      entityId: 'independent',
+      workspaceRoot: root,
+      path: loose,
+      fileKind: 'genbank',
+      objectUuid: 'other-object',
+    });
+    expect(
+      (await findCurrentFilesByFilename(originalPath, root)).map((file) => file.objectUuid).sort()
+    ).toEqual(['clone-object', 'other-object']);
+    await fs.unlink(join(renamed, 'clone.gb'));
+    expect(
+      (await findCurrentFilesByFilename(originalPath, root)).map((file) => file.objectUuid)
+    ).toEqual(['other-object']);
+  });
 
   it('assigns a separate object to a package copy while the original directory exists', async () => {
     const reconcile = (directory: string) =>

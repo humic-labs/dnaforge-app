@@ -1,6 +1,5 @@
 import type { ManagedSequenceDocumentRef } from '../../../shared/managed-sequence-document';
 import { pathRelativeToBoundary } from '../../../shared/path-boundary';
-import { platform } from '../../../platform';
 
 const SHA256_PREFIX = 'sha256:';
 const SHA256_FINGERPRINT = /^sha256:[0-9a-f]{64}$/i;
@@ -33,28 +32,14 @@ export async function resolveReferenceContentHash({
   try {
     let contentPath = workspaceRelativePath;
     if (managedDocument) {
-      const { packageRoot, packageId } = managedDocument;
-      if (pathRelativeToBoundary(packageRoot, workspaceRoot) !== workspaceRelativePath) return null;
-      const { locateSequencePackageMetaPath } = await import('../../../db/sequence-package-io');
-      const { parseSequencePackageDocument, sequencePackagePaths } =
-        await import('../../../db/sequence-package');
-      const fs = platform().fs;
-      const marker = await locateSequencePackageMetaPath(packageRoot, (path) => fs.exists(path));
       if (
-        !marker ||
-        !(await fs.validateWorkspacePath({
-          workspaceRoot,
-          path: marker,
-          artifactNoun: 'reference',
-        }))
+        pathRelativeToBoundary(managedDocument.packageRoot, workspaceRoot) !== workspaceRelativePath
       )
         return null;
-      const document = parseSequencePackageDocument(await fs.readTextFile(marker));
-      if (document.id !== packageId) return null;
-      const product = sequencePackagePaths(packageRoot, { productFile: document.product.file });
-      const relative = pathRelativeToBoundary(product.productPath, workspaceRoot);
-      if (!relative) return null;
-      contentPath = relative;
+      const { readBoundSequenceProduct } = await import('../../../db/bound-sequence-product');
+      const product = await readBoundSequenceProduct(managedDocument, workspaceRoot);
+      if (!product) return null;
+      contentPath = product.path;
     }
     const hashed = await contentHash({ workspaceRoot, workspaceRelativePath: contentPath });
     if (!SHA256_FINGERPRINT.test(hashed)) {
