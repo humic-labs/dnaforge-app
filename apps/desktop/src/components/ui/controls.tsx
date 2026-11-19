@@ -2,6 +2,7 @@ import {
   MenuRow,
   MenuTrigger,
   MenuSearchInput,
+  menuDensityStyle,
   MenuStatus,
   useMenu,
 } from '@waypoint/ui-components';
@@ -73,6 +74,17 @@ export const TextField = forwardRef<
       ref={ref}
       data-ui-control="input"
       data-settings-control="input"
+      style={
+        props.readOnly
+          ? undefined
+          : {
+              ...menuDensityStyle('form'),
+              height: 'var(--menu-control-height)',
+              paddingInline: 'var(--menu-padding-inline)',
+              fontSize: 'var(--menu-font-size)',
+              lineHeight: 'var(--menu-line-height)',
+            }
+      }
       className={`${props.readOnly ? UI_READONLY_FIELD_CLASS : UI_FIELD_CLASS}${monospace ? ' font-mono' : ''}`}
     />
   );
