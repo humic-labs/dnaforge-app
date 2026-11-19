@@ -185,6 +185,7 @@ export function FileHandlingSettings() {
           return;
         }
         if (result.outcome === 'instructions') {
+          await refresh();
           useToastStore
             .getState()
             .addToast(toUserMessage(result, 'failure.change-the-default-app-in-finder-get-info'), {
