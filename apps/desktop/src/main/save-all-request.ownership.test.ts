@@ -43,6 +43,7 @@ vi.mock('./update-install-telemetry', () => ({
   recordUpdateInstallMeasurement: vi.fn(),
 }));
 
+import { withSequencePackageSavePicker } from './sequence-package-save-picker';
 import { requestSaveAll } from './auto-updater';
 const renderer = Object.assign(new EventEmitter(), { id: 7, isDestroyed: () => false });
 const window = { isDestroyed: () => false, webContents: renderer };
@@ -71,6 +72,60 @@ it('keeps the save request pending when another renderer acknowledges it', async
   expect(done).toBe(true);
   expect(host.bus!.listenerCount('app:saveAllDone')).toBe(0);
 });
+
+it('suspends only the choosing window clock and resumes its remaining save deadline', async () => {
+  const choose = Promise.withResolvers<void>();
+  const other = Object.assign(new EventEmitter(), { isDestroyed: () => false });
+  const pending = requestSaveAll(window as never, 60_000);
+  const otherSave = requestSaveAll(
+    { isDestroyed: () => false, webContents: other } as never,
+    60_000
+  );
+  const otherTimeout = expect(otherSave).rejects.toThrow('timed out');
+  let finished = false;
+  const timeout = expect(
+    pending.finally(() => {
+      finished = true;
+    })
+  ).rejects.toThrow('timed out');
+  await vi.advanceTimersByTimeAsync(20_000);
+  const picker = withSequencePackageSavePicker(renderer, () => choose.promise);
+  await vi.advanceTimersByTimeAsync(90_000);
+  await otherTimeout;
+  expect(finished).toBe(false);
+  choose.resolve();
+  await picker;
+  await vi.advanceTimersByTimeAsync(39_999);
+  expect(finished).toBe(false);
+  await vi.advanceTimersByTimeAsync(1);
+  await timeout;
+});
+
+it.each(['cancel', 'renderer destroyed'])(
+  'ends a save cleanly when a held native chooser finishes by %s',
+  async (outcome) => {
+    const choose = Promise.withResolvers<void>();
+    const picker = withSequencePackageSavePicker(renderer, () => choose.promise);
+    const pending = requestSaveAll(window as never, 60_000);
+    const error = expect(pending).rejects.toThrow(
+      outcome === 'cancel' ? 'cancelled' : 'stopped before confirming'
+    );
+    await vi.advanceTimersByTimeAsync(90_000);
+    if (outcome === 'cancel') {
+      choose.resolve();
+      await picker;
+      host.bus!.emit('app:saveAllDone', { sender: renderer }, host.send.mock.calls[0][2], {
+        status: 'cancelled',
+      });
+    } else {
+      renderer.emit('destroyed');
+      choose.resolve();
+      await picker;
+    }
+    await error;
+    expect(host.bus!.listenerCount('app:saveAllDone')).toBe(0);
+  }
+);
 
 it('does not let a late timed-out acknowledgement finish a replacement save request', async () => {
   const first = requestSaveAll(window as never, 1000);

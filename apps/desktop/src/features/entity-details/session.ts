@@ -91,6 +91,8 @@ export class EntityDetailsSession {
     mutationBlock: null,
     saveConfirmed: false,
   };
+  private editRevision = 0;
+  readonly readRevision = (): number => this.editRevision;
   private listeners = new Set<() => void>();
   private mutationHolds = new Map<symbol, string>();
   private recoveredDrafts = new Set<string>();
@@ -248,6 +250,8 @@ export class EntityDetailsSession {
         next = { ...next, fields };
       }
     }
+    if (!same(next, this.state.draft) || invalid.has(key) !== this.state.invalid.has(key))
+      this.editRevision++;
     this.publish({ draft: next, invalid });
   };
 
@@ -257,6 +261,11 @@ export class EntityDetailsSession {
     const invalid = new Set(this.state.invalid);
     if (this.state.definition?.validate?.(draft)) invalid.add('$scientific');
     else invalid.delete('$scientific');
+    if (
+      !same(this.state.draft, draft) ||
+      invalid.has('$scientific') !== this.state.invalid.has('$scientific')
+    )
+      this.editRevision++;
     this.publish({ draft, invalid });
   };
 
@@ -279,11 +288,13 @@ export class EntityDetailsSession {
       this.publish({ error: userMessage('record.schemaWrongType') });
       return;
     }
+    if (!same(schema, this.state.draft.schema)) this.editRevision++;
     this.publish({ draft: { ...this.state.draft, schema } });
   };
 
   refreshGeneticCode = (): void => {
     if (this.state.saving || this.state.requiresReload || !this.state.draft) return;
+    if (!this.state.draft.refreshGeneticCodeRevision) this.editRevision++;
     this.publish({ draft: { ...this.state.draft, refreshGeneticCodeRevision: true } });
   };
 
@@ -295,6 +306,7 @@ export class EntityDetailsSession {
     )
       return;
     this.completion = null;
+    this.editRevision++;
     this.state.definition.savedRecord?.discard();
     this.publish({
       draft: values(this.state.definition),
@@ -342,6 +354,7 @@ export class EntityDetailsSession {
     const identity = JSON.stringify([draft, pending?.key]);
     if (this.recoveredDrafts.has(identity)) return;
     this.recoveredDrafts.add(identity);
+    this.editRevision++;
     const restored = {
       ...this.state.draft,
       name: draft.name,
@@ -487,6 +500,33 @@ export class EntityDetailsSession {
       finish?.();
       this.publish({ saving: false });
     }
+  };
+
+  private async waitForWrite(): Promise<void> {
+    if (!this.state.saving) return;
+    await new Promise<void>((resolve) => {
+      const unsubscribe = this.subscribe(() => {
+        if (this.state.saving) return;
+        unsubscribe();
+        resolve();
+      });
+    });
+  }
+
+  readonly saveForClose = async (): Promise<boolean> => {
+    await this.waitForWrite();
+    this.editingCoordinator.finish();
+    await this.waitForWrite();
+    if (this.state.completionPending) await this.retryCompletion();
+    if (this.dirty && !this.state.requiresReload) await this.save();
+    const current = this.state;
+    return (
+      !this.dirty &&
+      !current.saving &&
+      !current.requiresReload &&
+      !current.completionPending &&
+      !current.mutationBlock
+    );
   };
 
   save = async (): Promise<void> => {

@@ -36,6 +36,9 @@ can develop locally and open a pull request without running our hosted CI.
    change and how you tested it. If a check could not run, say which one and
    why.
 
+For editable desktop documents, follow the
+[document editing contract](docs/document-editing.md).
+
 ## CI on pull requests
 
 Workflows from all external contributors, including returning contributors, wait

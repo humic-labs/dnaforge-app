@@ -1,3 +1,4 @@
+import { sequenceMetadataSession } from '../../entity-details/public/session';
 import { useDocumentLifecycle } from '../../../shared/use-document-lifecycle';
 import {
   toUserMessage,
@@ -571,6 +572,7 @@ export function SequenceTab({
     isDirty,
     isSaving,
     save,
+    saveWithReceipt,
     showExternalChangeToast,
     acceptExternalChange,
     dismissExternalChange,
@@ -604,25 +606,45 @@ export function SequenceTab({
     return registerSaveActiveSequence(bridge, sequenceDocumentId, save);
   }, [save, sequenceDocumentId]);
 
+  const hasMetadataEdits = () => {
+    const session = sequenceMetadataSession(sequenceDocumentId);
+    if (!session) return metadataDirty;
+    const metadata = session.getSnapshot();
+    return (
+      session.dirty ||
+      metadata.activeField !== null ||
+      metadata.saving ||
+      metadata.completionPending ||
+      Boolean(metadata.mutationBlock)
+    );
+  };
+
   useDocumentLifecycle({
     target: { kind: 'sequence-document', documentId: sequenceDocumentId },
     tabId,
-    isDirty: () =>
-      Boolean(useSequenceStore.getState().dirtyPaths[sequenceDocumentId]) || metadataDirty,
+    readRevision: () =>
+      `${useSequenceStore.getState().getVersion(sequenceDocumentId)}:${sequenceMetadataSession(sequenceDocumentId)?.readRevision() ?? 0}`,
+    hasAdditionalEdits: hasMetadataEdits,
+    isDirty: () => useSequenceStore.getState().isDirty(sequenceDocumentId) || hasMetadataEdits(),
     save: async () => {
-      if (metadataDirty) {
-        useToastStore
-          .getState()
-          .addToast(
-            userMessage(
-              'notice.save-or-cancel-the-unfinished-metadata-edits-in-its-drawer-before-clos'
-            ),
-            { definition: 'sequence-save-close-metadata-draft-must-be-resolved' }
-          );
+      const session = sequenceMetadataSession(sequenceDocumentId);
+      if (session ? !(await session.saveForClose()) : metadataDirty) return false;
+      if (!useSequenceStore.getState().isDirty(sequenceDocumentId)) return !hasMetadataEdits();
+      const metadataRevision = session?.readRevision() ?? 0;
+      const result = await saveWithReceipt();
+      if (
+        !result.ok ||
+        useSequenceStore.getState().isDirty(sequenceDocumentId) ||
+        hasMetadataEdits()
+      )
         return false;
+      if (result.outcome === 'saved' && result.copyDestination) {
+        return {
+          publishedRevision: `${result.writtenRevision}:${metadataRevision}`,
+          settledRevision: `${result.copyDestination.releasedSourceRevision}:${metadataRevision}`,
+        };
       }
-      await save();
-      return useSequenceStore.getState().dirtyPaths[sequenceDocumentId] !== true;
+      return true;
     },
     discard: () => {
       useSequenceStore.getState().discardEdits(sequenceDocumentId);

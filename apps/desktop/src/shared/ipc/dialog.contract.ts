@@ -20,6 +20,7 @@ export const dialogContract = defineGroup('dialog', {
   save: invoke<
     [
       options: {
+        purpose?: 'edited-sequence-package';
         defaultPath?: string;
         filters?: Array<{ name: string; extensions: string[] }>;
       },

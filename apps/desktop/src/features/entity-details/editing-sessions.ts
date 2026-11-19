@@ -6,6 +6,17 @@ export function peekEntityDetailsSession(entityId: string): EntityDetailsSession
   return sessions.get(entityId);
 }
 
+export function sequenceMetadataSession(documentId: string): EntityDetailsSession | undefined {
+  return (
+    sessions.get(documentId) ??
+    [...sessions.values()].find(
+      (session) =>
+        session.target.sequenceFile?.documentId === documentId ||
+        session.target.managedSequence?.packageId === documentId
+    )
+  );
+}
+
 export function findUnsettledEntityDetailsSession(
   entityIds: readonly string[],
   paths: readonly string[]

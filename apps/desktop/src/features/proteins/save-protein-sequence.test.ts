@@ -56,7 +56,11 @@ vi.mock('../../services/lims-entity-mutations', () => ({
 
 import type { LimsEntity } from '../../shared/lims';
 import { parseEntityArtifact, serializeEntityArtifact } from '../lims/entity-artifact';
-import { resolveProteinEntityArtifactRevision, saveProteinSequence } from './save-protein-sequence';
+import {
+  resolveProteinEntityArtifactRevision,
+  saveProteinSequence,
+  updatePublishedProteinDraft,
+} from './save-protein-sequence';
 
 const ARTIFACT_PATH = '/workspace/proteins/Reporter.entity.json';
 
@@ -163,6 +167,55 @@ describe('package-backed protein editing', () => {
       200,
       { workspaceRoot: '/workspace', workspaceId: 7 }
     );
+  });
+
+  it('updates the first published package in place with its exact hash and retains unrelated fields', async () => {
+    const opened = parseEntityArtifact(packageContent());
+    opened.fields.extra = 'retained';
+    opened.fields.organism = 'old value';
+    const original = serializeEntityArtifact(opened);
+    mocks.files.set(ARTIFACT_PATH, original);
+    const contentHash = await computeChecksum(original);
+    const target = { id: opened.id, relativePath: 'proteins/Reporter.entity.json', contentHash };
+    const result = await updatePublishedProteinDraft(
+      { name: 'New name', sequence: 'mktw*', notes: 'new note', workspaceRoot: '/workspace' },
+      target
+    );
+    expect(result.limsEntity.id).toBe(opened.id);
+    expect(result.artifactPath).toBe(target.relativePath);
+    const [write] = mocks.writeWorkspaceTextFileAtomic.mock.calls[0];
+    expect(write).toMatchObject({
+      path: ARTIFACT_PATH,
+      mode: 'replace',
+      expectedContentHash: contentHash.replace(/^sha256:/, ''),
+    });
+    const artifact = parseEntityArtifact(write.content);
+    expect(artifact).toMatchObject({
+      id: opened.id,
+      name: 'New name',
+      fields: { sequence: { aminoAcids: 'MKTW*' }, notes: 'new note', extra: 'retained' },
+    });
+    expect(artifact.fields.organism).toBeUndefined();
+  });
+
+  it('retains independent changes and refuses a different folder when retrying a published draft', async () => {
+    const input = { name: 'New name', sequence: 'MKTW', workspaceRoot: '/workspace' };
+    const target = {
+      id: 'protein-1',
+      relativePath: 'proteins/Reporter.entity.json',
+      contentHash: await computeChecksum(packageContent()),
+    };
+    await expect(
+      updatePublishedProteinDraft({ ...input, dir: '/workspace/elsewhere' }, target)
+    ).rejects.toThrow('destination changed');
+    const external = parseEntityArtifact(packageContent());
+    external.name = 'Independently changed';
+    mocks.files.set(ARTIFACT_PATH, serializeEntityArtifact(external));
+    await expect(updatePublishedProteinDraft(input, target)).rejects.toThrow(
+      'changed after it was opened'
+    );
+    expect(mocks.writeWorkspaceTextFileAtomic).not.toHaveBeenCalled();
+    expect(parseEntityArtifact(mocks.files.get(ARTIFACT_PATH)!).name).toBe('Independently changed');
   });
 
   it('atomically replaces the package, reconciles Registry from it, and commits the package path', async () => {

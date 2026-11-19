@@ -1,3 +1,4 @@
+import { createKeyedMutex } from './workspace-git/keyed-mutex';
 import type { ScientificAcceptedDocumentRevision } from '@waypoint/domain-services';
 import { NativeDocumentCommandError } from '../shared/native-document-error';
 import { createHash, randomUUID } from 'node:crypto';
@@ -149,6 +150,7 @@ const readOnlyAction = (command: SequenceDocumentClientCommand) =>
 
 export class NativeSequenceWorkingCopyOwner {
   readonly model = createSequenceDocumentModel();
+  private readonly commitDraft = createKeyedMutex();
   private readonly generation = randomUUID();
   private readonly documents = new Map<string, Promise<WorkingCopy>>();
   private readonly listeners = new Set<(snapshot: SequenceDocumentSnapshot) => void>();
@@ -201,9 +203,22 @@ export class NativeSequenceWorkingCopyOwner {
         saving: this.saving(document),
         recovery: Boolean(document.recovery),
         inspectionRequired: false,
+        ...(this.requiresDestination(document) ? { saveDestinationRequired: true } : {}),
       });
     }
     return [...result.values()];
+  }
+  private requiresDestination(document: WorkingCopy): boolean {
+    const { capabilities } = getSequenceSavePolicy(
+      this.model.getState().sequences[document.scope.documentId],
+      document.scope.path
+    );
+    return (
+      !document.scope.readOnly &&
+      capabilities.editable &&
+      !capabilities.canSaveInPlace &&
+      capabilities.canExportGenBank
+    );
   }
   subscribe(listener: (snapshot: SequenceDocumentSnapshot) => void): () => void {
     this.listeners.add(listener);
@@ -313,7 +328,8 @@ export class NativeSequenceWorkingCopyOwner {
       if (mutating && document.scope.readOnly)
         throw refusal('READ_ONLY_SEQUENCE: This sequence belongs to a read-only source.');
       const state = this.model.getState();
-      if (request.expectedVersion !== state.getVersion(scope.documentId))
+      const expectedVersion = request.expectedVersion;
+      if (expectedVersion !== state.getVersion(scope.documentId))
         throw refusal('STALE_SEQUENCE: Inspect the current sequence before editing.');
       if (document.stampingCaptureId && mutating) {
         if (operation.kind === 'save')
@@ -329,7 +345,7 @@ export class NativeSequenceWorkingCopyOwner {
       if (operation.kind === 'save' || operation.kind === 'capture-save') {
         if (!policy.capabilities.canSaveInPlace)
           throw refusal(
-            `SEQUENCE_SAVE_FORMAT_UNSUPPORTED: ${policy.capabilities.saveInPlaceDisabledReason ?? 'This source format cannot be saved in place.'}`
+            'SEQUENCE_SAVE_DESTINATION_REQUIRED: Choose a destination for the edited GenBank copy in the editing client.'
           );
         const captureId = this.capture(document, operation.message, undefined, operation.kind);
         if (operation.kind === 'capture-save') {
@@ -390,36 +406,70 @@ export class NativeSequenceWorkingCopyOwner {
           loaded.acceptedRevision
         );
         document.baselineSha256 = loaded.sha256;
-      } else if (operation.kind === 'restore-recovery') {
-        if (!document.recovery || operation.recoveryId !== hash(JSON.stringify(document.recovery)))
-          throw refusal('STALE_SEQUENCE_RECOVERY');
-        if (document.recovery.baselineSha256 !== document.baselineSha256)
-          throw refusal(
-            'FILE_CHANGED: The retained sequence draft remains preserved because its source changed.'
-          );
-        const version = state.getVersion(scope.documentId) + 1;
-        this.restoreCopy(scope.documentId, {
-          ...document.recovery.copy,
-          version,
-          savedVersion: state.savedVersions[scope.documentId],
-          savedSequence: state.savedSequences[scope.documentId],
-        });
-        document.recovery = undefined;
-      } else if (operation.kind === 'discard') {
-        this.discard(document);
-        document.recovery = undefined;
-      } else if (operation.kind === 'client-command') {
-        const before = state.getVersion(scope.documentId);
-        if (operation.command.method === 'discardEdits') this.discard(document);
-        else this.applyClient(scope.documentId, operation.command);
-        if (before === state.getVersion(scope.documentId)) return this.snapshot(document, request);
       } else {
-        const result = applySequenceModelCommand(state, {
-          documentId: scope.documentId,
-          expectedVersion: request.expectedVersion,
-          operation,
+        return this.commitDraft(scope.documentId, async () => {
+          const model = createSequenceDocumentModel();
+          this.restoreCopy(
+            scope.documentId,
+            this.copy(scope.documentId),
+            model,
+            this.model.getState().isDirty(scope.documentId)
+          );
+          const working = { ...document };
+          const state = model.getState();
+          if (operation.kind === 'restore-recovery') {
+            if (
+              !working.recovery ||
+              operation.recoveryId !== hash(JSON.stringify(working.recovery))
+            )
+              throw refusal('STALE_SEQUENCE_RECOVERY');
+            if (working.recovery.baselineSha256 !== document.baselineSha256)
+              throw refusal(
+                'FILE_CHANGED: The retained sequence draft remains preserved because its source changed.'
+              );
+            const version = state.getVersion(scope.documentId) + 1;
+            this.restoreCopy(
+              scope.documentId,
+              {
+                ...working.recovery.copy,
+                version,
+                savedVersion: state.savedVersions[scope.documentId],
+                savedSequence: state.savedSequences[scope.documentId],
+              },
+              model
+            );
+            working.recovery = undefined;
+          } else if (operation.kind === 'discard') {
+            this.discard(working, model);
+            working.recovery = undefined;
+          } else if (operation.kind === 'client-command') {
+            const before = state.getVersion(scope.documentId);
+            if (operation.command.method === 'discardEdits') this.discard(working, model);
+            else this.applyClient(scope.documentId, operation.command, model);
+            if (before === state.getVersion(scope.documentId)) {
+              this.restoreCopy(
+                scope.documentId,
+                this.copy(scope.documentId, model),
+                this.model,
+                state.isDirty(scope.documentId)
+              );
+              return this.snapshot(document, request);
+            }
+          } else {
+            const result = applySequenceModelCommand(state, {
+              documentId: scope.documentId,
+              expectedVersion,
+              operation,
+            });
+            if (!result.ok) throw refusal(`${result.code}: ${result.error}`);
+          }
+          const next = this.copy(scope.documentId, model);
+          await this.persist(working, model);
+          this.restoreCopy(scope.documentId, next, this.model, state.isDirty(scope.documentId));
+          document.recovery = working.recovery;
+          document.discardCapture = working.discardCapture;
+          return this.publish(document, request);
         });
-        if (!result.ok) throw refusal(`${result.code}: ${result.error}`);
       }
       await this.persist(document);
       return this.publish(document, request);
@@ -778,7 +828,7 @@ export class NativeSequenceWorkingCopyOwner {
         throw new Error('The native sequence recovery record is invalid.');
       if (record.dirty) document.recovery = record;
       else if (record.baselineSha256 === loaded.sha256)
-        this.restoreCopy(scope.documentId, record.copy);
+        this.restoreCopy(scope.documentId, record.copy, this.model, record.dirty);
       if (record.dirty || record.baselineSha256 !== loaded.sha256) {
         const version = Math.max(
           this.model.getState().getVersion(scope.documentId),
@@ -826,8 +876,8 @@ export class NativeSequenceWorkingCopyOwner {
     }
     document.externalChange = false;
   }
-  private copy(id: string): SequenceDocumentCopy {
-    const state = this.model.getState();
+  private copy(id: string, model = this.model): SequenceDocumentCopy {
+    const state = model.getState();
     return {
       sequence: state.sequences[id],
       savedSequence: state.savedSequences[id],
@@ -838,8 +888,13 @@ export class NativeSequenceWorkingCopyOwner {
       savedVersion: state.savedVersions[id],
     };
   }
-  private restoreCopy(id: string, copy: SequenceDocumentCopy): void {
-    this.model.setState((state) => ({
+  private restoreCopy(
+    id: string,
+    copy: SequenceDocumentCopy,
+    model = this.model,
+    dirty = copy.version !== copy.savedVersion
+  ): void {
+    model.setState((state) => ({
       sequences: { ...state.sequences, [id]: copy.sequence },
       savedSequences: { ...state.savedSequences, [id]: copy.savedSequence },
       drafts: { ...state.drafts, [id]: copy.draft },
@@ -849,25 +904,28 @@ export class NativeSequenceWorkingCopyOwner {
         : state.acceptedRevisions,
       sequenceVersions: { ...state.sequenceVersions, [id]: copy.version },
       savedVersions: { ...state.savedVersions, [id]: copy.savedVersion },
-      dirtyPaths:
-        copy.version !== copy.savedVersion
-          ? { ...state.dirtyPaths, [id]: true }
-          : Object.fromEntries(Object.entries(state.dirtyPaths).filter(([key]) => key !== id)),
+      dirtyPaths: dirty
+        ? { ...state.dirtyPaths, [id]: true }
+        : Object.fromEntries(Object.entries(state.dirtyPaths).filter(([key]) => key !== id)),
     }));
   }
-  private persist(document: WorkingCopy): Promise<void> {
+  private persist(document: WorkingCopy, model = this.model): Promise<void> {
     const id = document.scope.documentId;
     return this.options.storeRecord({
       version: 1,
       documentId: id,
       path: document.scope.path,
       baselineSha256: document.baselineSha256,
-      dirty: this.model.getState().isDirty(id),
-      copy: this.copy(id),
+      dirty: model.getState().isDirty(id),
+      copy: this.copy(id, model),
     });
   }
-  private applyClient(id: string, command: SequenceDocumentClientCommand): void {
-    const state = this.model.getState();
+  private applyClient(
+    id: string,
+    command: SequenceDocumentClientCommand,
+    model = this.model
+  ): void {
+    const state = model.getState();
     switch (command.method) {
       case 'dispatchEdit':
         state.dispatchEdit(id, command.action);
@@ -1046,8 +1104,10 @@ export class NativeSequenceWorkingCopyOwner {
               true,
               [publishedReceipt]
             );
-          document.baselineSha256 = fileSha256;
-          await this.persist(document);
+          await this.commitDraft(id, async () => {
+            document.baselineSha256 = fileSha256;
+            await this.persist(document);
+          });
           saved.scope.assertCurrent();
           if (saved.kind === 'save') throw error;
           document.captures.delete(captureId);
@@ -1062,22 +1122,24 @@ export class NativeSequenceWorkingCopyOwner {
           };
         }
       }
-      this.model
-        .getState()
-        .acknowledgeSaved(id, saved.capture, result.managedAnnotationIds, result.accepted);
-      if (
-        document.discardCapture?.captureId === captureId &&
-        document.discardCapture.version === this.model.getState().getVersion(id)
-      ) {
-        const current = this.model.getState().captureForSave(id);
-        if (current)
-          this.model
-            .getState()
-            .acknowledgeSaved(id, current, result.managedAnnotationIds, result.accepted);
-        document.discardCapture = undefined;
-      }
-      document.baselineSha256 = fileSha256;
-      await this.persist(document);
+      await this.commitDraft(id, async () => {
+        this.model
+          .getState()
+          .acknowledgeSaved(id, saved.capture, result.managedAnnotationIds, result.accepted);
+        if (
+          document.discardCapture?.captureId === captureId &&
+          document.discardCapture.version === this.model.getState().getVersion(id)
+        ) {
+          const current = this.model.getState().captureForSave(id);
+          if (current)
+            this.model
+              .getState()
+              .acknowledgeSaved(id, current, result.managedAnnotationIds, result.accepted);
+          document.discardCapture = undefined;
+        }
+        document.baselineSha256 = fileSha256;
+        await this.persist(document);
+      });
       let history: SequenceDocumentSnapshot['history'];
       try {
         if (saved.kind === 'save' || !this.model.getState().isDirty(id))
@@ -1143,16 +1205,20 @@ export class NativeSequenceWorkingCopyOwner {
       document.completedCaptures.delete(document.completedCaptures.keys().next().value!);
     return settled;
   }
-  private discard(document: WorkingCopy): void {
+  private discard(document: WorkingCopy, model = this.model): void {
     const pending = [...document.captures.entries()]
       .filter(([, capture]) => Boolean(capture.promise))
       .at(-1);
     if (!pending) {
-      this.model.getState().discardEdits(document.scope.documentId);
+      model.getState().discardEdits(document.scope.documentId);
       return;
     }
-    const version = this.model.getState().getVersion(document.scope.documentId) + 1;
-    this.restoreCopy(document.scope.documentId, { ...structuredClone(pending[1].copy), version });
+    const version = model.getState().getVersion(document.scope.documentId) + 1;
+    this.restoreCopy(
+      document.scope.documentId,
+      { ...structuredClone(pending[1].copy), version },
+      model
+    );
     document.discardCapture = { captureId: pending[0], version };
   }
   private snapshot(
@@ -1205,6 +1271,7 @@ export class NativeSequenceWorkingCopyOwner {
       saving: this.saving(document),
       canUndo: state.canUndo,
       canRedo: state.canRedo,
+      ...(this.requiresDestination(document) ? { saveDestinationRequired: true } : {}),
       length: state.length,
       annotationCount: state.annotations.length,
       capabilities: document.scope.readOnly

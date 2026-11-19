@@ -13,6 +13,7 @@ describe('tab dirty presentation', () => {
       isDirty: !dirty,
     };
     const registration = documentLifecycle.register({
+      readRevision: () => 1,
       target: { kind: 'tab', tabId: tab.id },
       tabId: tab.id,
       isDirty: () => dirty,

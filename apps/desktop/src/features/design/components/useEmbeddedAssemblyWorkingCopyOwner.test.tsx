@@ -95,6 +95,16 @@ describe('embedded assembly working-copy owner', () => {
     expect(onExitToSequence).not.toHaveBeenCalled();
   });
 
+  it('reads an edit from the working copy before the component renders it', () => {
+    renderHook(() =>
+      useEmbeddedAssemblyWorkingCopyOwner({ designId: 'copy-1', tab, panelId: 'main' })
+    );
+    h.design = { ...h.design, name: 'Accepted since the last render' };
+    expect(
+      documentLifecycle.dirty({ kind: 'sequence-document', documentId: 'package-1' }, tab.id)
+    ).toBe(true);
+  });
+
   it('keeps the same tab in assembly edit if package-member saving fails', async () => {
     const onExitToSequence = vi.fn();
     h.design = { ...h.design, name: 'Edited' };

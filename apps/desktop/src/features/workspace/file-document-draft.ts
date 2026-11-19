@@ -24,6 +24,23 @@ async function textHash(text: string) {
   return `sha256:${Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
 }
 
+export async function saveCurrentFileEdits(
+  document: Pick<FileDocumentDraft, 'revision' | 'dirty'>,
+  write: () => Promise<boolean>,
+  stillOpen: () => boolean
+) {
+  const publishedRevision = document.revision;
+  let writtenRevision: number;
+  do {
+    writtenRevision = document.revision;
+    if (!(await write()) || !stillOpen()) return false;
+  } while (document.dirty);
+  if (writtenRevision !== document.revision) return false;
+  return writtenRevision === publishedRevision
+    ? true
+    : { publishedRevision, settledRevision: writtenRevision };
+}
+
 export class FileDocumentDraft {
   readonly sessionId = crypto.randomUUID();
   content: string | null = null;

@@ -1,5 +1,5 @@
 import type { AnnotatedSequence, Annotation, AnnotationDirection } from '../types';
-import { getFeatureColor } from '../colors';
+import { genBankFeatureColor } from '../colors';
 import { inferFeatureTypeFromLabel } from '../annotation-type-inference';
 import { planSplitCDSMerges } from './split-cds-merge';
 import { decodeGenBankLocusName, GENBANK_LOCUS_ENCODING_COMMENT } from '../genbank-locus';
@@ -678,13 +678,14 @@ function rawFeatureToAnnotation(raw: RawFeature, preserveSourceType = false): An
       ? type
       : inferFeatureTypeFromLabel(type, qualifiers.label?.[0]);
 
+  const direction = resolveGenBankFeatureDirection(location, resolvedType, qualifiers);
   const annotation: Annotation = {
     name,
     type: resolvedType,
     start: location.start,
     end: location.end,
-    direction: resolveGenBankFeatureDirection(location, resolvedType, qualifiers),
-    color: getFeatureColor(resolvedType),
+    direction,
+    color: genBankFeatureColor(resolvedType, direction, qualifiers),
     qualifiers,
   };
 

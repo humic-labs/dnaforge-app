@@ -122,7 +122,7 @@ export function TablePanel({
       try {
         setSaveFailure(null);
         await rich.client.save();
-        return true;
+        return !rich.client.dirty;
       } catch (error) {
         setSaveFailure(error instanceof Error ? error.message : String(error));
         reportSaveFailure(
@@ -182,6 +182,7 @@ export function TablePanel({
       ? {
           target: { kind: 'page', pageId: notebook.notebookDocumentId },
           tabId: canvasTabId,
+          readRevision: native.client.readRevision,
           isDirty: () => native.client!.dirty,
           save: saveNative,
           discard: () => native.client!.discard(),
@@ -199,6 +200,7 @@ export function TablePanel({
       ? {
           target: { kind: 'file', filePath: rich.resolved.owner.path },
           tabId: canvasTabId,
+          readRevision: () => rich.client!.revision,
           isDirty: () => rich.client!.dirty,
           save: saveNative,
           discard: () => rich.client!.discard(),

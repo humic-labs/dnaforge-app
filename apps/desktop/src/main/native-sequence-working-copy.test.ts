@@ -45,6 +45,7 @@ async function fixture(
   pause?: () => Promise<void>,
   managed = false,
   options: {
+    source?: { name: string; content: string };
     captureWorkspace?: (root: string) => () => void;
     afterProduct?: () => Promise<void>;
     assertResourceCurrent?: () => void;
@@ -54,28 +55,32 @@ async function fixture(
 ) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'native-sequence-working-copy-')));
   directories.push(root);
-  const path = join(root, 'native.gb'),
+  const path = join(root, options.source?.name ?? 'native.gb'),
     documentId = 'native-sequence-owner';
   await writeFile(
     path,
-    serializeSequenceForInPlaceSave(
-      {
-        id: documentId,
-        name: 'Native',
-        sequence: 'AAAACCCCGGGG',
-        length: 12,
-        annotations: [],
-        circular: false,
-        metadata: {},
-      },
-      path
-    )
+    options.source?.content ??
+      serializeSequenceForInPlaceSave(
+        {
+          id: documentId,
+          name: 'Native',
+          sequence: 'AAAACCCCGGGG',
+          length: 12,
+          annotations: [],
+          circular: false,
+          metadata: {},
+        },
+        path
+      )
   );
   const records = new Map<string, NativeSequenceRecord>();
   const digest = async () =>
     `sha256:${createHash('sha256')
       .update(await readFile(path))
       .digest('hex')}`;
+  const storeRecord = vi.fn(async (record: NativeSequenceRecord) => {
+    records.set(record.documentId, structuredClone(record));
+  });
   const create = () =>
     new NativeSequenceWorkingCopyOwner({
       resolve: async () => {
@@ -129,9 +134,7 @@ async function fixture(
         };
       },
       loadRecord: async (id) => records.get(id),
-      storeRecord: async (record) => {
-        records.set(record.documentId, structuredClone(record));
-      },
+      storeRecord,
     });
   const owner = create();
   const command = (
@@ -151,12 +154,80 @@ async function fixture(
     path,
     documentId,
     records,
+    storeRecord,
     command,
     inspect: () => owner.execute({ documentId, operation: inspect, projection: 'document' }),
   };
 }
 
 describe('native sequence working copy without a view', () => {
+  it('retains a loose edited document and tells headless callers when a destination is required', async () => {
+    const f = await fixture(undefined, false, {
+      source: { name: 'original.seq', content: 'AAAACCCCGGGG' },
+    });
+    const original = await f.inspect();
+    const edit = await f.command(original, {
+      kind: 'replace-bases',
+      start: 0,
+      end: 1,
+      bases: 'T',
+      expectedBases: 'A',
+    });
+    expect(await f.owner.listDirty()).toMatchObject([
+      { documentId: f.documentId, saveDestinationRequired: true },
+    ]);
+    expect(edit).toMatchObject({ dirty: true, readOnly: false, saveDestinationRequired: true });
+    await expect(f.command(edit, { kind: 'save', message: 'save' })).rejects.toMatchObject({
+      code: 'SEQUENCE_SAVE_DESTINATION_REQUIRED',
+      stateChanged: false,
+    });
+    expect(await readFile(f.path, 'utf8')).toBe('AAAACCCCGGGG');
+    expect(f.records.get(f.documentId)?.copy.sequence.sequence).toBe('TAAACCCCGGGG');
+  });
+
+  it('reopens a newer clean revision after undo without resurrecting a dirty draft', async () => {
+    const f = await fixture();
+    const current = await f.inspect();
+    const edited = await f.command(current, {
+      kind: 'replace-bases',
+      start: 0,
+      end: 1,
+      bases: 'T',
+      expectedBases: 'A',
+    });
+    const undone = await f.command(edited, { kind: 'undo' });
+    expect(undone).toMatchObject({ dirty: false });
+    expect(undone.version).toBeGreaterThan(undone.savedVersion);
+    expect(f.records.get(f.documentId)).toMatchObject({ dirty: false });
+    const reopened = await f
+      .create()
+      .execute({ documentId: f.documentId, operation: inspect, projection: 'document' });
+    expect(reopened).toMatchObject({
+      dirty: false,
+      version: undone.version,
+      savedVersion: undone.savedVersion,
+    });
+  });
+  it('keeps the last recoverable revision when an edit cannot be recorded', async () => {
+    const f = await fixture();
+    const initial = await f.inspect();
+    const change = {
+      kind: 'replace-bases',
+      start: 0,
+      end: 1,
+      bases: 'T',
+      expectedBases: 'A',
+    } as const;
+    f.storeRecord.mockRejectedValueOnce(new Error('recovery unavailable'));
+    await expect(f.command(initial, change)).rejects.toThrow('recovery unavailable');
+    expect(await f.inspect()).toMatchObject({
+      revision: initial.revision,
+      copy: initial.copy,
+      dirty: false,
+    });
+    expect((await f.command(initial, change)).dirty).toBe(true);
+  });
+
   it('does not extend a prior Save continuation to a revision accepted after its publication', async () => {
     const registry = createRegisteredProjectAuthorityFixture();
     const workspaces = new NativeDocumentWorkspaces({ authority: registry.authority });

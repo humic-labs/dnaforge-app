@@ -154,6 +154,7 @@ export class NativeNotebookDocumentClient {
     nativeAfter: ProseMirrorNode;
   } | null = null;
   constructor(readonly pageId: string) {}
+  readonly readRevision = (): number => this.inputVersion;
   get content(): JSONContent | null {
     return this.projectedContent ?? this.snapshot?.copy.content ?? null;
   }
