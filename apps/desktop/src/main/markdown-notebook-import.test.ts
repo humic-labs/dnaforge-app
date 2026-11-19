@@ -75,6 +75,32 @@ describe('native Markdown notebook adoption', () => {
     expect(fixture.db.prepare('SELECT id FROM pages').all()).toEqual([{ id: adopted!.pageId }]);
     await expect(access(source)).rejects.toMatchObject({ code: 'ENOENT' });
   });
+  it('preserves imported fallback files when scanning or opening Markdown', async () => {
+    const name = 'Unrecognized export.md';
+    const path = join(root, name);
+    const bytes = '# Preserved export\n';
+    await writeFile(path, bytes);
+    fixture.db
+      .prepare(
+        `INSERT INTO catalog_entities
+           (id,type,name,locator,storage_type,workspace_id,metadata,created_at,updated_at)
+         VALUES ('imported-file','file',?,?,'file',7,?,1,1)`
+      )
+      .run(name, path, JSON.stringify({ imported: true, projection: 'fallback' }));
+    fixture.db
+      .prepare(
+        `INSERT INTO catalog_entity_files
+           (id,entity_id,workspace_id,path,relative_path,file_kind,created_at,updated_at)
+         VALUES ('binding','imported-file',7,?,?,'md',1,1)`
+      )
+      .run(path, name);
+
+    await importer.scan(root);
+    expect(await importer.adopt({ workspaceRoot: root, path })).toBeNull();
+    expect(await readFile(path, 'utf8')).toBe(bytes);
+    expect(fixture.db.prepare('SELECT id FROM pages').all()).toEqual([]);
+  });
+
   it('does not convert instructions, existing package members, or overwrite a colliding destination', async () => {
     const instruction = join(root, 'AGENTS.md');
     await writeFile(instruction, '# Instructions');
