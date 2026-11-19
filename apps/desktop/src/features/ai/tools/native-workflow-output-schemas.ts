@@ -3,6 +3,7 @@ import { jsonObjectSchema } from '../../../shared/json-value';
 import {
   administrationHandoffSchema,
   administrationSettingsSchema,
+  administrationStructureGuidanceSchema,
 } from '../../../shared/administration';
 
 const count = z.number().int().nonnegative();
@@ -599,6 +600,13 @@ export const administrationOutputSchema = z.discriminatedUnion('kind', [
     })
     .strict(),
   z.object({ ...ok, kind: z.literal('account'), account: account.nullable() }).strict(),
+  z
+    .object({
+      ...ok,
+      kind: z.literal('structure-guidance'),
+      guidance: administrationStructureGuidanceSchema,
+    })
+    .strict(),
   z.object({ ...ok, kind: z.literal('action'), action }).strict(),
   z
     .object({

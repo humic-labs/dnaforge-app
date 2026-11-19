@@ -355,6 +355,13 @@ class AppOwnedMcpClient(SidecarClientProtocol):
             include_open_workspace_resources=include_open_workspace_resources,
         )
 
+    async def lookup_tool(
+        self, name: str, *, portable_names: bool
+    ) -> dict[str, Any] | None:
+        return await (await self._current_client()).lookup_tool(
+            name, portable_names=portable_names
+        )
+
     async def call_tool(
         self,
         name: str,
