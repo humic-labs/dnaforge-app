@@ -2122,7 +2122,7 @@ async function waitForSavedDocumentViewer(expected: {
   documentId: string;
   revisionId: string;
   scene: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const requireDestination = () => {
     const panel = useCanvasStore.getState().panels[expected.panelId];
     const tab = panel?.tabs.find((candidate) => candidate.id === expected.tabId);
@@ -2157,7 +2157,7 @@ async function waitForSavedDocumentViewer(expected: {
           { cacheKey: getPaneRendererHostCacheKey(`pane:${expected.panelId}`, 'loaded') }
         );
         requireDestination();
-        return;
+        return true;
       } catch (error) {
         if (
           !(error instanceof ActiveMolstarViewerError || error instanceof MolViewSpecSceneError) ||
@@ -2168,10 +2168,7 @@ async function waitForSavedDocumentViewer(expected: {
     }
     await new Promise((resolve) => setTimeout(resolve, 50));
   } while (Date.now() < deadline);
-  throw new MolViewSpecSceneError(
-    'PLUGIN_NOT_READY',
-    'The document was saved, but its viewer is still loading. Reopen the saved document before continuing.'
-  );
+  return false;
 }
 
 export async function handleMolSaveView(
@@ -2492,8 +2489,9 @@ export async function handleMolSaveView(
                 }
               }
         }
-        if (adoptingHost && !adoptingHost.tab.structureInspection)
-          await waitForSavedDocumentViewer({
+        let warning = projectSave.warning;
+        if (adoptingHost && !adoptingHost.tab.structureInspection) {
+          const viewerReady = await waitForSavedDocumentViewer({
             structureViewId: savedStructureViewId,
             panelId: adoptingHost.panel.id,
             tabId: adoptingHost.tab.id,
@@ -2501,6 +2499,14 @@ export async function handleMolSaveView(
             revisionId: reference.id,
             scene: savedSnapshot.scene,
           });
+          if (!viewerReady)
+            warning = [
+              warning,
+              'The document was saved. Its viewer is still loading. Use the returned document reference to reopen it.',
+            ]
+              .filter(Boolean)
+              .join(' ');
+        }
         return toolSuccess({
           referenceId: projectSave.reference?.id,
           revisionId: reference.id,
@@ -2526,7 +2532,7 @@ export async function handleMolSaveView(
               }
             : {}),
           format: 'mvsj',
-          ...(projectSave?.warning ? { warning: projectSave.warning } : {}),
+          ...(warning ? { warning } : {}),
           message: projectSave
             ? 'Saved the molecular document in the project and preserved this exact result. Earlier chat and notebook results remain unchanged.'
             : 'Retained a clickable molecular result with pinned coordinates, appearance and camera in this chat. No project document or notebook was created; do not print its private locator or reference token.',

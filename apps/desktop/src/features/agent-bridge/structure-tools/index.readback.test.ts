@@ -514,7 +514,7 @@ describe('molecular MCP readback integration', () => {
     });
   });
 
-  it.each(['reattached', 'deactivated'] as const)(
+  it.each(['reattached', 'deactivated', 'timed out'] as const)(
     'waits for the adopted document viewer and reports its actual outcome: %s',
     async (destination) => {
       allowSuccessfulCapture();
@@ -579,6 +579,7 @@ describe('molecular MCP readback integration', () => {
         return nativeAccess(...args);
       });
       let settled = false;
+      const clock = destination === 'timed out' ? vi.spyOn(Date, 'now') : undefined;
       const saving = handleMolSaveView({
         structureViewId: 'view-a',
         title: 'Saved view',
@@ -596,8 +597,19 @@ describe('molecular MCP readback integration', () => {
           const panel = useCanvasStore.getState().panels.main;
           useCanvasStore.setState({ panels: { main: { ...panel, activeTabId: null } } });
         }
-        nativeReady = true;
+        if (clock) clock.mockReturnValue(Date.now() + 31_000);
+        else nativeReady = true;
         const saved = await saving;
+        if (destination === 'timed out') {
+          assertMcpOutput(molSaveViewOutputSchema, saved);
+          expect(saved).toMatchObject({
+            ok: true,
+            documentReference: { kind: 'molecular-document', revisionId: savedRevisionId },
+            warning: expect.stringMatching(/viewer is still loading/i),
+          });
+          expect(savedReferences.create).toHaveBeenCalledOnce();
+          return;
+        }
         if (destination === 'deactivated') {
           expect(saved).toMatchObject({
             ok: false,
@@ -636,6 +648,7 @@ describe('molecular MCP readback integration', () => {
         ).toMatchObject({ ok: true });
         expect(readback.catalogLoad).toHaveBeenCalledTimes(1);
       } finally {
+        clock?.mockRestore();
         nativeReady = true;
         await saving;
         unsubscribe();
