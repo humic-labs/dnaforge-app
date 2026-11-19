@@ -6,6 +6,7 @@ import {
   userMessageValue,
 } from '@waypoint/user-messages';
 import { safeFocus } from '../../shared/utils/safeFocus';
+import { presentationSurfaceFor } from '../../presentation/browser-input';
 import {
   createRef,
   useCallback,
@@ -14,6 +15,7 @@ import {
   useState,
   type HTMLAttributes,
   type KeyboardEventHandler,
+  type MouseEvent,
   type MouseEventHandler,
 } from 'react';
 import {
@@ -189,7 +191,12 @@ export function TerminalDock({
     closeLifetime.current = lifetime;
     return () => lifetime.abort();
   }, []);
-  const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    id: string;
+    x: number;
+    y: number;
+    presentationParentId: string;
+  } | null>(null);
   const [outputView, setOutputView] = useState<{ id: string; text: string } | null>(null);
   const [dimensionsId, setDimensionsId] = useState<string | null>(null);
   const appearance = useTerminalPreferences();
@@ -273,7 +280,7 @@ export function TerminalDock({
     } else handles.current.delete(id);
   }, []);
   const showContextMenu = useCallback(
-    (id: string, x: number, y: number) => {
+    (id: string, event: MouseEvent<HTMLElement>) => {
       setActiveId(id);
       const group = groups.find((group) => group.sessions.includes(id));
       if (group) {
@@ -281,7 +288,12 @@ export function TerminalDock({
         setUiViewId(viewId);
         setActiveByView((current) => ({ ...current, [viewId]: id }));
       }
-      setContextMenu({ id, x, y });
+      setContextMenu({
+        id,
+        x: event.clientX,
+        y: event.clientY,
+        presentationParentId: presentationSurfaceFor(event.currentTarget),
+      });
     },
     [groups]
   );
@@ -1705,7 +1717,7 @@ export function TerminalDock({
                           'data-terminal-group-id': group.id,
                           onContextMenu: (event) => {
                             event.preventDefault();
-                            showContextMenu(session.id, event.clientX, event.clientY);
+                            showContextMenu(session.id, event);
                           },
                           draggable: true,
                           onDragStart: (event) => {
@@ -1983,6 +1995,7 @@ export function TerminalDock({
             <TerminalContextMenu
               x={contextMenu.x}
               y={contextMenu.y}
+              presentationParentId={contextMenu.presentationParentId}
               onClose={closeContextMenu}
               actions={[
                 {
