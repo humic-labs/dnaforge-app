@@ -266,7 +266,8 @@ export const structuresTools = defineRendererToolCatalog({
   },
   mol_list_structures: {
     name: 'mol_list_structures',
-    description: 'List structures registered in the DNAForge Mol* viewer store.',
+    description:
+      'List open structure views with their exact IDs, readiness and chain counts. Use detail:"full" for the complete inventory or mol_get_state with chainPage for exact chains in one view.',
     shape: 'data-service',
     required_capabilities: ['read-workspace'],
     conditional_required_capabilities: [],
@@ -276,8 +277,6 @@ export const structuresTools = defineRendererToolCatalog({
     conditionallyRequiresWorkspace: false,
     mcpAnnotations: READ_ONLY_IDEMPOTENT_MCP_ANNOTATIONS,
     workspaceGrounding: 'always',
-    emptyInputReason:
-      'mol_list_structures intentionally snapshots the registered Mol* viewer store.',
     exposure: { kind: 'shared' },
     inputSchema: molListStructuresSchema,
     outputSchema: molListStructuresOutputSchema,
@@ -286,7 +285,7 @@ export const structuresTools = defineRendererToolCatalog({
   mol_get_state: {
     name: 'mol_get_state',
     description:
-      'Read structure viewer state, active render profile, and molecular connections with endpoint identities, source provenance and depiction coverage. Optionally filter by one logical structureViewId, bindingId, or legacy viewerId.',
+      'Read live structure status, camera, representation and inventory counts. Use chainPage:{offset,limit} on one exact view for chain identities and follow chainPage.nextOffset. Use connectionQuery for connection evidence or detail:"full" for native appearance, selected residues and the complete inventory. Prefer structureViewId or bindingId; legacy viewerId must resolve uniquely.',
     shape: 'data-service',
     required_capabilities: ['read-workspace'],
     conditional_required_capabilities: [],
@@ -441,16 +440,22 @@ export const structuresTools = defineRendererToolCatalog({
     description: MOL_SCENE_TOOL_DESCRIPTIONS.applyScene,
     shape: 'viz-tab-action',
     required_capabilities: ['modify-tabs'],
-    conditional_required_capabilities: [],
+    conditional_required_capabilities: ['read-workspace'],
     audit_required: true,
     effects: ['ui-bound'],
     requiresWorkspace: false,
-    conditionallyRequiresWorkspace: false,
+    conditionallyRequiresWorkspace: true,
     mcpAnnotations: UI_IDEMPOTENT_MCP_ANNOTATIONS,
     exposure: { kind: 'shared' },
     inputSchema: molApplySceneSchema,
     outputSchema: molApplySceneOutputSchema,
     execution: resultSdkRendererTool((context) => createMolApplySceneTool(undefined, context)),
+    resolveInputAuthorization: (input) => {
+      const parsed = molApplySceneSchema.safeParse(input);
+      return parsed.success && parsed.data.scenePath
+        ? { additionalRequiredCapabilities: ['read-workspace'], requiresWorkspace: true }
+        : {};
+    },
   },
   mol_select_story_step: {
     name: 'mol_select_story_step',
