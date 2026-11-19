@@ -51,11 +51,7 @@ import {
   pileupReadQualityGradientCss,
 } from '@waypoint/genome-renderer';
 
-import {
-  READ_HOVER_FILTERS,
-  READ_SELECTION_FILTERS,
-  READ_MARKUP_RADIUS,
-} from './read-hover-surface';
+import { READ_HOVER_FILTERS, READ_SELECTION_FILTERS } from './read-hover-surface';
 import { useReadHoverSurface } from './use-read-hover-surface';
 import { cdsRegionHoverLine } from '@waypoint/workspace-editor/codon-hover-tooltip-lines';
 
@@ -750,7 +746,7 @@ export const IndexedGenomeTileNativeMap = memo(
               canvas &&
               canvas.offsetLeft === 0 &&
               canvas.offsetTop === 0 &&
-              foreground.paint(canvas, located.bodyRect, themeMode);
+              foreground.paint(canvas, located.bodyRect, themeMode, READ_MARKUP_RADIUS);
             if (painted && canvas.nextElementSibling !== foreground.canvas) {
               foreground.canvas.dataset.readHoverSurface = '';
               foreground.canvas.style.zIndex = '92';
@@ -1218,6 +1214,8 @@ const TOOLTIP_STYLE: CSSProperties = {
   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12)',
   maxWidth: 240,
 };
+
+const READ_MARKUP_RADIUS = 2;
 
 const READ_MARKUP_BASE_STYLE: CSSProperties = {
   position: 'absolute',

@@ -2,7 +2,6 @@ const lightBrightness = 0.82;
 const lightSaturation = 2;
 const darkBrightness = 1.18;
 
-export const READ_MARKUP_RADIUS = 2;
 export const READ_HOVER_FILTERS = {
   light: `brightness(${lightBrightness}) saturate(${lightSaturation})`,
   dark: `brightness(${darkBrightness})`,
@@ -18,7 +17,7 @@ type BackingSize = Pick<HTMLCanvasElement, 'width' | 'height'>;
 
 export interface ReadHoverSurface {
   readonly canvas: HTMLCanvasElement;
-  paint(source: HTMLCanvasElement, rect: Rect, theme: Theme): boolean;
+  paint(source: HTMLCanvasElement, rect: Rect, theme: Theme, cornerRadius: number): boolean;
   dispose(): void;
 }
 
@@ -301,7 +300,7 @@ export function createReadHoverSurface({
   canvas.addEventListener('webglcontextlost', lost);
   return {
     canvas,
-    paint(source, rect, theme) {
+    paint(source, rect, theme, cornerRadius) {
       if (disposed || gl.isContextLost()) return hide();
       const crop = readHoverCrop(
         source,
@@ -338,7 +337,7 @@ export function createReadHoverSurface({
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, input);
       gl.uniform4f(shape, crop.x, crop.y, crop.w, crop.h);
       gl.uniform2f(clipSize, crop.clipW, crop.clipH);
-      gl.uniform1f(radius, Math.min(READ_MARKUP_RADIUS * scale, crop.w / 2, crop.h / 2));
+      gl.uniform1f(radius, Math.min(cornerRadius * scale, crop.w / 2, crop.h / 2));
       gl.uniform1f(cropHeight, height);
       gl.uniform1i(dark, theme === 'dark' ? 1 : 0);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
