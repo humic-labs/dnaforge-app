@@ -413,7 +413,9 @@ function getE2EParams(): { workspace?: string; openFile?: string; e2e?: boolean 
   };
 }
 
-function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
+function App({
+  onShellReady,
+}: { onShellReady?: (mountNewWorkspace: (root: string) => void) => Promise<void> } = {}) {
   const { dispatchCommand } = useCommandRegistry();
   useEffect(() => {
     const uninstallEpisodeCorrelation = installTelemetryEpisodeCorrelationBridge();
@@ -1636,6 +1638,10 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
     workspaceRootFromCreationContext,
     artifactTitleFromCreationContext,
   });
+  const acknowledgeShell = useCallback(
+    () => onShellReady?.(startProjectIndex) ?? Promise.resolve(),
+    [onShellReady, startProjectIndex]
+  );
   useAppStartup({
     shellPrepared,
     setShellPrepared,
@@ -1647,7 +1653,7 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
     workspaceError: workspace.error,
     libraryLoaded,
     projectCollectionRestoredRef,
-    onShellReady,
+    onShellReady: onShellReady && acknowledgeShell,
     optionalSetupStarted,
     devScenarioRuntimeEnabled: DEV_SCENARIO_RUNTIME_ENABLED,
     devScenarioReplayEpoch: DEV_SCENARIO_REPLAY_EPOCH,

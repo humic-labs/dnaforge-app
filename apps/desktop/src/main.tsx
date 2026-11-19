@@ -2317,7 +2317,7 @@ if (new URLSearchParams(window.location.search).has('proteinExperimentWorker')) 
             <Providers>
               <CommandScopeProvider>
                 <App
-                  onShellReady={async () => {
+                  onShellReady={async (mountNewWorkspace) => {
                     const accepted = await platform().startup.acknowledge(loadId);
                     if (!accepted)
                       throw new Error('This application load was replaced. Reload to reconnect.');
@@ -2345,7 +2345,9 @@ if (new URLSearchParams(window.location.search).has('proteinExperimentWorker')) 
                     }
                     if (!isBrowserOnly() && !nativeWorkspacesPublished) {
                       nativeWorkspacesPublished = true;
-                      startupDisposers.push(installNativeDocumentWorkspacePublisher(loadId));
+                      startupDisposers.push(
+                        installNativeDocumentWorkspacePublisher(loadId, mountNewWorkspace)
+                      );
                       releaseNativeDocumentStartup();
                     }
                   }}

@@ -24,14 +24,20 @@ export function deferNativeDocumentWorkspaceStartup(): () => void {
   return resolve;
 }
 
-export function installNativeDocumentWorkspacePublisher(loadId: string): () => void {
+export function installNativeDocumentWorkspacePublisher(
+  loadId: string,
+  mountNewWorkspace?: (root: string) => void
+): () => void {
   let disposed = false;
   const detachNotebookCatalog = installNativeNotebookCatalogPublisher();
   const detachFileSync = installFileDocumentClientSync(loadId);
   const detachSequenceClient = installNativeSequenceDocumentClient(sequenceDocumentModel);
   let previous: string | undefined;
+  let mountedRoots = new Set<string>();
   let currentReadiness: Promise<void> = Promise.resolve();
-  let currentEnrollment: { key: string; writableRoots: string[]; ready: boolean } | undefined;
+  let currentEnrollment:
+    | { key: string; writableRoots: string[]; newMounts: Set<string>; ready: boolean }
+    | undefined;
   const migrations = new Map<
     string,
     { changed: boolean; enrollment: NonNullable<typeof currentEnrollment> }
@@ -69,7 +75,10 @@ export function installNativeDocumentWorkspacePublisher(loadId: string): () => v
       });
   };
   const detachMigrationCandidates = platform().workspace.onMigrationCandidatesChanged?.(
-    ({ workspaceRoot }) => requestMigration(workspaceRoot)
+    ({ workspaceRoot }) => {
+      if (!currentEnrollment?.ready && currentEnrollment?.newMounts.has(workspaceRoot)) return;
+      requestMigration(workspaceRoot);
+    }
   );
   const publish = () => {
     if (disposed) return;
@@ -87,7 +96,10 @@ export function installNativeDocumentWorkspacePublisher(loadId: string): () => v
     const key = JSON.stringify({ roots, readableRoots });
     if (key === previous) return;
     previous = key;
-    const enrollment = { key, writableRoots: roots, ready: false };
+    const newMounts = new Set(
+      mountNewWorkspace ? roots.filter((root) => !mountedRoots.has(root)) : []
+    );
+    const enrollment = { key, writableRoots: roots, newMounts, ready: false };
     currentEnrollment = enrollment;
     const readiness = platform()
       .workspace.setDocumentCommandRoots({ loadId, roots, readableRoots })
@@ -97,6 +109,7 @@ export function installNativeDocumentWorkspacePublisher(loadId: string): () => v
           await migrateLegacySequenceDrafts();
           await migrateLegacyNotebookDrafts();
           if (!disposed && key === previous) {
+            mountedRoots = new Set(readableRoots);
             enrollment.ready = true;
             getNativeSequenceDocumentClient()?.refreshAvailableDocuments();
           }
@@ -113,7 +126,10 @@ export function installNativeDocumentWorkspacePublisher(loadId: string): () => v
     void readiness
       .then(async () => {
         if (disposed || key !== previous || !enrollment.ready) return;
-        for (const root of roots) requestMigration(root);
+        for (const root of roots) {
+          if (newMounts.has(root)) mountNewWorkspace?.(root);
+          else requestMigration(root);
+        }
       })
       .catch((error: unknown) => {
         if (!disposed && key === previous)

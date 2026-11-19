@@ -109,6 +109,36 @@ describe('automatic migration after native draft transfer readiness', () => {
     expect(mocks.reconcile).toHaveBeenCalledOnce();
   });
 
+  it('uses the project mount for a newly enrolled root and reconciles later native arrivals', async () => {
+    let finish!: () => void;
+    mocks.notebookDrafts.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        })
+    );
+    const mount = vi.fn();
+    mocks.folders = [
+      { path: '/writable', name: 'Writable' },
+      { path: '/reference', name: 'Reference', pinned: true },
+    ];
+    disposals.push(installNativeDocumentWorkspacePublisher('mounted-project', mount));
+    await vi.waitFor(() => expect(mocks.notebookDrafts).toHaveBeenCalledOnce());
+    mocks.candidates!({ workspaceRoot: '/writable' });
+    expect(mount).not.toHaveBeenCalled();
+    finish();
+    await vi.waitFor(() => expect(mount).toHaveBeenCalledExactlyOnceWith('/writable'));
+    expect(mocks.reconcile).not.toHaveBeenCalled();
+    mocks.candidates!({ workspaceRoot: '/writable' });
+    await vi.waitFor(() => expect(mocks.completed).toEqual(['/writable']));
+    expect(mount).toHaveBeenCalledOnce();
+
+    mocks.folders[1].pinned = false;
+    for (const listener of mocks.listeners) listener();
+    await vi.waitFor(() => expect(mocks.completed).toContain('/reference'));
+    expect(mount).toHaveBeenCalledOnce();
+  });
+
   it('coalesces changes during a migration and reruns after each changed in-flight pass without losing the last arrival', async () => {
     const releases: Array<() => void> = [];
     mocks.reconcile.mockImplementation(async ({ workspaceRoot }: { workspaceRoot: string }) => {
