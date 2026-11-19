@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, render, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
@@ -825,6 +826,20 @@ describe('usePixiMap annotation/source lifecycle', () => {
 
     expect(lifecycle.eventTargetDetachCount).toBe(1);
     expect(lifecycle.appDestroyCount).toBe(1);
+  });
+
+  it('only acquires a graphics context for the surviving indexed map mount', async () => {
+    const view = render(
+      <StrictMode>
+        <Harness genome={genome('A')} indexed hiddenMapIdlePolicy="short-timeout" />
+      </StrictMode>
+    );
+    await waitFor(() => expect(latestHandle?.getLinearRenderer()).not.toBeNull());
+    expect(lifecycle.applications).toHaveLength(1);
+    expect(lifecycle.instances).toHaveLength(1);
+
+    view.unmount();
+    expect(lifecycle.appDestroyCount).toBe(0);
   });
 
   it.each([
