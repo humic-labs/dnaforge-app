@@ -9,6 +9,9 @@ import type {
 } from '../../shared/molecular-document';
 import { MolecularDocumentLibrary } from '../molecular-document-library';
 import { molecularDocumentsContract } from '../../shared/ipc/molecular-documents.contract';
+import { userMessage } from '@waypoint/user-messages';
+import { molecularDocumentReadFailure } from '../../shared/molecular-document-read-failure';
+import { readRegisteredMolecularDocument } from '../registered-molecular-document';
 
 export function registerMolecularDocumentIpcHandlers(): void {
   const library = new MolecularDocumentLibrary();
@@ -27,7 +30,13 @@ export function registerMolecularDocumentIpcHandlers(): void {
           ),
       });
     },
-    read: (_event, request: MolecularDocumentLocation) => library.read(request),
+    read: async (_event, request: MolecularDocumentLocation) => {
+      try {
+        return await readRegisteredMolecularDocument(getDb(), request);
+      } catch (error) {
+        throw new Error(userMessage(molecularDocumentReadFailure(error)), { cause: error });
+      }
+    },
     save: (_event, request: SaveMolecularDocumentRequest) => library.save(request),
   });
 }

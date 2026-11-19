@@ -116,7 +116,7 @@ export async function openSelectedDocument(
       status: result.status,
       message: result.message,
     });
-    const message = toUserMessage(result, 'operation.failed');
+    const message = toUserMessage(result.message, 'operation.failed');
     useToastStore
       .getState()
       .addToast(

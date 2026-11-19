@@ -24,6 +24,9 @@ import { isApplePlatform } from './menuShortcuts';
 import { pathRelativeToBoundary } from '../shared/path-boundary';
 import { isHostedBrowserRuntime } from '../utils/environment';
 import { isSupportedSequencePath } from '../shared/scientific-file-types';
+import { isTypedDocumentCandidate } from '../shared/document-availability';
+import { useDocumentAvailability } from '../features/document-opening/useDocumentAvailability';
+import { userMessage } from '@waypoint/user-messages';
 
 interface FileTreeItemProps {
   entry: FileBrowserTreeEntry;
@@ -254,6 +257,18 @@ function FilesystemTreeItem({
   onDelete,
   dragToMoveEnabled = true,
 }: Omit<FileTreeItemProps, 'entry'> & { entry: FileEntry }) {
+  const typedCandidate =
+    !entry.isDirectory && (Boolean(entry.packageKind) || isTypedDocumentCandidate(entry.path));
+  const availability = useDocumentAvailability(rootPath, typedCandidate ? entry.path : undefined);
+  const showNeutralIcon = availability?.state === 'checking' || availability?.state === 'blocked';
+  const availabilityDetail =
+    availability?.state === 'blocked'
+      ? availability.reason
+      : availability?.state === 'checking'
+        ? userMessage('document.checking')
+        : availability?.state === 'unchecked'
+          ? userMessage('document.checkOnOpen')
+          : undefined;
   const [renameValue, setRenameValue] = useState(() => renameStem(entry));
   const inputRef = useRef<HTMLInputElement>(null);
   const itemRef = useRef<HTMLDivElement>(null);
@@ -327,9 +342,9 @@ function FilesystemTreeItem({
       if (!selectedEntryIds.has(entry.entryId)) {
         onSelect(entry.entryId);
       }
-      onContextMenu?.(e, entry);
+      onContextMenu?.(e, { ...entry, documentAvailability: availability });
     },
-    [entry, onContextMenu, onSelect, isRenaming, selectedEntryIds]
+    [entry, availability, onContextMenu, onSelect, isRenaming, selectedEntryIds]
   );
 
   const handleRenameSubmit = useCallback(() => {
@@ -477,6 +492,7 @@ function FilesystemTreeItem({
             : undefined
         }
         data-entry-name={entry.name}
+        data-document-availability={availability?.state}
         data-git-status={effectiveGitStatus ?? undefined}
         data-file-drop-target={entry.isDirectory && dragToMoveEnabled ? 'true' : undefined}
         role="treeitem"
@@ -494,7 +510,10 @@ function FilesystemTreeItem({
           if (e.button !== 0) return;
           startFileDrag(entry.path, entry.name, e);
         }}
-        title={isDesign ? displayName(entry) : entry.isBiologyFile ? entry.name : entry.path}
+        title={
+          availabilityDetail ??
+          (isDesign ? displayName(entry) : entry.isBiologyFile ? entry.name : entry.path)
+        }
         isSelected={isSelected}
         isExpanded={entry.isDirectory ? isExpanded : undefined}
         isLoading={entry.isDirectory ? entry.isLoading : undefined}
@@ -504,13 +523,18 @@ function FilesystemTreeItem({
         icon={
           entry.isDirectory ? (
             <FolderIcon expanded={isExpanded} className="w-4 h-4 flex-shrink-0" />
+          ) : showNeutralIcon ? (
+            <FileTypeIcon category="generic" className="w-4 h-4 flex-shrink-0" />
           ) : (
             <FileIcon entry={entry} />
           )
         }
         labelClassName={isRenaming ? 'flex-1 min-w-0' : gitTextClass}
         labelTitle={
-          isRenaming ? undefined : isDesign ? displayName(entry) : (entry.displayName ?? entry.name)
+          isRenaming
+            ? undefined
+            : (availabilityDetail ??
+              (isDesign ? displayName(entry) : (entry.displayName ?? entry.name)))
         }
         label={
           isRenaming ? (
@@ -531,7 +555,14 @@ function FilesystemTreeItem({
               className="w-full min-w-0 select-text px-1 py-0.5 text-sm bg-bg border border-accent rounded outline-none"
             />
           ) : (
-            displayName(entry)
+            <>
+              {displayName(entry)}
+              {availabilityDetail && (
+                <span className="block whitespace-normal text-xs leading-tight text-fg-subtle">
+                  {availabilityDetail}
+                </span>
+              )}
+            </>
           )
         }
         trailing={

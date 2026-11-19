@@ -3,11 +3,10 @@ import {
   MOLECULAR_DOCUMENT_FILE_KIND,
   MOLECULAR_DOCUMENT_SCHEMA,
   MOLECULAR_DOCUMENT_SUFFIX,
-  parseMolecularDocument,
   serializeMolecularDocument,
-  validateMolecularDocumentCoordinates,
   type MolecularDocument,
 } from '../../shared/molecular-document';
+import { readMolecularDocumentContent } from '../../shared/molecular-document-reader';
 import { coordinateDigest } from '../../shared/molecular-view';
 import { scopedProjectionId } from '../../shared/workspace-scoped-identity';
 import {
@@ -35,11 +34,7 @@ export const molecularDocumentAdapter: WorkspaceEntityAdapter<MolecularDocument>
   kind: 'molecular-document',
   schema: MOLECULAR_DOCUMENT_SCHEMA,
   matchesPath: (path) => path.toLowerCase().endsWith(MOLECULAR_DOCUMENT_SUFFIX),
-  async parse(bytes) {
-    const document = parseMolecularDocument(bytes);
-    await validateMolecularDocumentCoordinates(document);
-    return document;
-  },
+  parse: (bytes) => readMolecularDocumentContent(bytes),
   serialize: serializeMolecularDocument,
   identity(document, context) {
     if (context.workspaceRoot && !context.workspaceScope)

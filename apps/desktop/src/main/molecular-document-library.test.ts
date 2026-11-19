@@ -8,6 +8,7 @@ import {
   MOLECULAR_DOCUMENT_SCHEMA,
   serializeMolecularDocument,
 } from '../shared/molecular-document';
+import { coordinateDigest } from '../shared/molecular-view';
 import legacyV1 from '../test/fixtures/molecular-document-v1.json';
 import {
   appendSavedResidueSelectionRevision,
@@ -26,6 +27,62 @@ async function destination() {
 }
 
 describe('native molecular document file authority', () => {
+  it('keeps a scene with an unsupported viewer format out of open and save', async () => {
+    const target = await destination();
+    await mkdir(join(target.workspaceRoot, 'views'));
+    const document = await molecularDocumentFixture();
+    const snapshot = document.history[0].snapshot;
+    const scene = JSON.parse(snapshot.scene);
+    scene.metadata.version = '99';
+    snapshot.scene = JSON.stringify(scene);
+    const bytes = serializeMolecularDocument(document);
+    await writeFile(target.path, bytes);
+    const library = new MolecularDocumentLibrary();
+
+    await expect(library.read(target)).rejects.toThrow(/supports MolViewSpec major version/);
+    expect(await readFile(target.path, 'utf8')).toBe(bytes);
+
+    const newTarget = {
+      ...target,
+      path: join(target.workspaceRoot, 'New.dnaforge-molecular.json'),
+    };
+    await expect(
+      library.save({ document, destination: newTarget, expectedRevision: null })
+    ).rejects.toThrow(/supports MolViewSpec major version/);
+    await expect(readFile(newTarget.path)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('does not accept a matching coordinate digest if the coordinates do not load', async () => {
+    const target = await destination();
+    await mkdir(join(target.workspaceRoot, 'views'));
+    const document = await molecularDocumentFixture();
+    const text = 'This resource contains no atomic structure.';
+    document.history[0].snapshot.coordinates = {
+      format: 'pdb',
+      text,
+      sha256: await coordinateDigest(text),
+    };
+    const bytes = serializeMolecularDocument(document);
+    await writeFile(target.path, bytes);
+    const library = new MolecularDocumentLibrary();
+
+    await expect(library.read(target)).rejects.toThrow(/coordinate|structure/i);
+    expect(await readFile(target.path, 'utf8')).toBe(bytes);
+  });
+
+  it('does not admit a valid scene description with no structure to show', async () => {
+    const target = await destination();
+    await mkdir(join(target.workspaceRoot, 'views'));
+    const document = await molecularDocumentFixture();
+    const snapshot = document.history[0].snapshot;
+    const scene = JSON.parse(snapshot.scene);
+    scene.root.children = [];
+    snapshot.scene = JSON.stringify(scene);
+    await writeFile(target.path, serializeMolecularDocument(document));
+
+    await expect(new MolecularDocumentLibrary().read(target)).rejects.toThrow(/no structure/);
+  });
+
   it('leaves unsupported newer documents and essential extensions untouched on native open', async () => {
     const target = await destination();
     await mkdir(join(target.workspaceRoot, 'views'));
