@@ -33,6 +33,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check shared UI appearance
+        env:
+          STYLING_BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          [[ "$STYLING_BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags origin "$STYLING_BASE_SHA"
+          node --test scripts/guard-ui-styling.test.mjs
+          node scripts/guard-ui-styling.mjs --base "$STYLING_BASE_SHA"
+
       - name: Build the desktop app
         run: pnpm --dir apps/desktop build
 
