@@ -787,7 +787,10 @@ export function drawAnnotations(
     const isChanged = changedAnnotationNames?.has(ann.name) ?? false;
     const annRenderState = annotationRenderState(ann, annotationRenderStateInput);
 
-    if (ann.segments && ann.segments.length > 1) {
+    const isPromoter =
+      ann.type === 'promoter' ||
+      (ann.type === 'regulatory' && ann.qualifiers?.regulatory_class?.includes('promoter'));
+    if (ann.segments && ann.segments.length > 1 && !isPromoter) {
       const color = adaptColorForDark(
         resolveAnnotationDisplayColor(ann, {
           profile: { colorMode: config.annotationColorMode },

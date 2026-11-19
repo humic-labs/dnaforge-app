@@ -21,9 +21,15 @@ import {
 } from '../../page/public/embeds/structure3d/molstar/cache';
 import {
   agentStructureRendererHostId,
+  rendererSlotTabId,
+  retainedInspectionRendererSlot,
   StructureRendererHostProvider,
   useAgentStructureRenderers,
 } from '../../page/public/embeds/structure3d/agentStructureRenderers';
+import {
+  inspectionProteinKey,
+  type StructureInspection,
+} from '../../structure-drawer/public/structure-inspection';
 
 export const SEQUENCE_TAB_RETENTION_BUDGETS = { normal: 8, moderate: 4, critical: 1 } as const;
 
@@ -163,7 +169,6 @@ export function TabPortalProvider({
           .filter(
             ({ tab }) =>
               tab.type === 'structure' &&
-              !tab.structureInspection &&
               !activeTabIds.has(tab.id) &&
               agentRendererTabIds.includes(tab.id)
           )
@@ -171,6 +176,38 @@ export function TabPortalProvider({
       ),
     [allTabs, activeTabIds, agentRendererTabIds]
   );
+  const retainedInspections = useMemo(
+    () =>
+      agentRendererTabIds.flatMap((slot) => {
+        const entry = allTabs.find(({ tab }) => tab.id === rendererSlotTabId(slot));
+        const inspection = entry?.tab.structureInspection;
+        if (!entry || !inspection || slot === entry.tab.id) return [];
+        const currentKey = inspectionProteinKey(inspection.request);
+        const proteinKey = Object.keys(inspection.retainedProteinViews ?? {}).find(
+          (key) => key !== currentKey && retainedInspectionRendererSlot(entry.tab.id, key) === slot
+        );
+        const view = proteinKey ? inspection.retainedProteinViews?.[proteinKey] : undefined;
+        if (!view?.request) return [];
+        const retained: StructureInspection = {
+          ...view,
+          request: view.request,
+          mutationCamera: 'keep',
+          retainedProteinViews: inspection.retainedProteinViews,
+        };
+        return [
+          { slot, panelId: entry.panelId, tab: { ...entry.tab, structureInspection: retained } },
+        ];
+      }),
+    [agentRendererTabIds, allTabs]
+  );
+  const retainedHostsRef = useRef(new Map<string, HTMLDivElement>());
+  for (const { slot } of retainedInspections) {
+    if (!retainedHostsRef.current.has(slot)) {
+      const el = document.createElement('div');
+      el.className = 'h-full w-full';
+      retainedHostsRef.current.set(slot, el);
+    }
+  }
   const agentStageRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -183,16 +220,52 @@ export function TabPortalProvider({
         stage.removeChild(host);
       }
     }
-  }, [agentHostedTabIds]);
+    const slots = new Set(retainedInspections.map(({ slot }) => slot));
+    for (const [slot, host] of retainedHostsRef.current) {
+      if (slots.has(slot)) {
+        if (host.parentNode !== stage) stage.appendChild(host);
+      } else {
+        host.remove();
+        retainedHostsRef.current.delete(slot);
+      }
+    }
+  }, [agentHostedTabIds, retainedInspections]);
 
   return (
     <TabPortalContext.Provider value={hostsRef.current}>
       {Object.keys(panels).map((panelId) => (
         <PaneRendererHostLease key={panelId} rendererHostId={`pane:${panelId}`} />
       ))}
-      {[...agentHostedTabIds].map((tabId) => (
-        <PaneRendererHostLease key={tabId} rendererHostId={agentStructureRendererHostId(tabId)} />
+      {[...agentHostedTabIds, ...retainedInspections.map(({ slot }) => slot)].map((slot) => (
+        <PaneRendererHostLease key={slot} rendererHostId={agentStructureRendererHostId(slot)} />
       ))}
+      {retainedInspections.map(({ slot, panelId, tab }) => {
+        const host = retainedHostsRef.current.get(slot);
+        if (!host) return null;
+        return createPortal(
+          <PresentationHost
+            id={`tab-${tab.id}-${slot}`}
+            parentId={`panel-${panelId}`}
+            active={false}
+            element={host}
+          >
+            <ErrorBoundary>
+              <StructureRendererHostProvider value={agentStructureRendererHostId(slot)}>
+                <PanelContent
+                  tab={tab}
+                  isActive={false}
+                  panelId={panelId}
+                  onOpenAssistantSources={onOpenAssistantSources}
+                  onConfigureHost={onConfigureHost}
+                  onChatHistoryPinnedChange={onChatHistoryPinnedChange}
+                />
+              </StructureRendererHostProvider>
+            </ErrorBoundary>
+          </PresentationHost>,
+          host,
+          slot
+        );
+      })}
       <div
         ref={agentStageRef}
         aria-hidden="true"

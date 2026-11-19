@@ -213,6 +213,27 @@ for (const [label, id] of [
 }
 receipt.steps.budget = { fourth, budget };
 
+const parallelTargets = { background, selected, third };
+const parallel = await Promise.all(
+  Object.entries(parallelTargets).flatMap(([label, id]) => [
+    tool('handleMolGetScene', { structureViewId: id }).then((result) => ({ label, id, result })),
+    tool('handleMolCaptureScreenshot', { structureViewId: id }).then((result) => ({
+      label,
+      id,
+      result,
+    })),
+  ])
+);
+for (const { label, id, result } of parallel) {
+  succeeded(result, `parallel command on ${label}`);
+  if (result.structureViewId)
+    assert.equal(result.structureViewId, id, `${label} answered for ${id}`);
+}
+const afterParallel = await personView();
+assert.ok(afterParallel.backgroundHosts <= 2, 'Parallel work keeps at most two renderers.');
+assert.ok(afterParallel.selectedLabels.includes('Fourth structure'));
+receipt.steps.parallel = { calls: parallel.length, afterParallel };
+
 await page.waitForTimeout(62_000);
 const idle = await personView();
 assert.equal(idle.backgroundHosts, 0, 'Idle background renderers must be released.');
