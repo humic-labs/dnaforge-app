@@ -5,6 +5,7 @@ import { userMessage } from '@waypoint/user-messages';
 import { findUnsettledEntityDetailsSession } from '../../entity-details/public/editing-sessions';
 import { requestManagedSequenceMetadata } from '../../sequence/public/managed-sequence-metadata';
 import React, { useCallback, useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { terminalTabDropTarget } from '../../terminal/public/tab-transfer';
 import { TabBar } from './TabBar';
 import { TabPortalTarget } from './TabPortalTarget';
 import { EmptyPanel } from './EmptyPanel';
@@ -543,6 +544,7 @@ function PanelBody({ panel, isFocused }: PanelProps) {
         className="flex-1 overflow-hidden min-h-0 relative"
         data-panel-content={panel.id}
         data-tab-count={panel.tabs.length}
+        {...(panel.tabs.length === 0 ? terminalTabDropTarget(panel.id) : {})}
       >
         {activeTab ? <TabPortalTarget tab={activeTab} /> : <EmptyPanel />}
       </div>

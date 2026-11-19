@@ -6,7 +6,7 @@ export function useWorkspaceMainMode(activeView: ActivityView, sidebarVisible: b
   const settingsViewActive = activeView === 'settings';
   const homeViewActive = activeView === 'home';
   const referencesViewActive = activeView === 'references';
-  const terminalViewActive = activeView === 'terminal';
+  const terminalViewActive = activeView === 'terminal' && sidebarVisible;
   const featureViewActive = isRendererFeatureView(activeView);
   const hasOpenTabs = useCanvasStore((s) =>
     Object.values(s.panels).some((panel) => panel.tabs.length > 0)
@@ -14,12 +14,8 @@ export function useWorkspaceMainMode(activeView: ActivityView, sidebarVisible: b
   const emptyFilesHomeActive = activeView === 'files' && !hasOpenTabs;
   const homeWorkbenchActive = homeViewActive || emptyFilesHomeActive;
   const workspaceTakeoverActive =
-    settingsViewActive ||
-    homeViewActive ||
-    referencesViewActive ||
-    featureViewActive ||
-    terminalViewActive;
-  const sidebarChromeVisible = sidebarVisible && !workspaceTakeoverActive;
+    settingsViewActive || homeViewActive || referencesViewActive || featureViewActive;
+  const sidebarChromeVisible = sidebarVisible && !terminalViewActive && !workspaceTakeoverActive;
   return {
     settingsViewActive,
     homeViewActive,

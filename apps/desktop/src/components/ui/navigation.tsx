@@ -30,7 +30,7 @@ export interface NavigationRowAction {
   tooltip?: string;
   testId?: string;
   disabled?: boolean;
-  onInvoke: () => void;
+  onInvoke: (trigger: HTMLButtonElement) => void;
 }
 
 export type NavigationSelection =
@@ -113,7 +113,7 @@ export function NavigationAction({
         className={UI_NAVIGATION_ACTION_CLASS}
         onClick={(event) => {
           event.stopPropagation();
-          onInvoke();
+          onInvoke(event.currentTarget);
         }}
         onKeyDown={(event) => event.stopPropagation()}
         onDoubleClick={(event) => event.stopPropagation()}
