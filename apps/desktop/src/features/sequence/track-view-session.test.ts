@@ -4,6 +4,7 @@ import { useTrackViewSessionSource } from './components/useTrackViewSessionSourc
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { documentLifecycle } from '../../shared/document-lifecycle';
 import { trackViewFixture } from '../../shared/track-view-fixture';
+import { validateTrackViewDocument } from '../../shared/track-view';
 import { useCanvasStore } from '../canvas/store';
 import { getTrackViewSession } from './track-view-control';
 const boundary = vi.hoisted(() => ({ save: vi.fn(), open: vi.fn() }));
@@ -13,7 +14,7 @@ vi.mock('../../stores/toast-store', () => ({
   useToastStore: { getState: () => ({ addToast: vi.fn() }) },
 }));
 function open() {
-  const document = trackViewFixture();
+  const document = validateTrackViewDocument(trackViewFixture());
   const tabId = useCanvasStore.getState().openTab('main', {
     type: 'sequence',
     entityId: document.id,
@@ -103,6 +104,39 @@ describe('Track view command settlement', () => {
     expect(await requested).toBe(false);
     pending.resolve({ saved: { document, revision: 'b'.repeat(64), path: '/project/view.json' } });
   });
+  it('acknowledges a merged save against the submitted edit and restores the merged configuration', async () => {
+    const { owner, document, tabId } = open();
+    const edited = { ...document, viewport: { start0: 200, end0: 400 } };
+    const merged = {
+      ...edited,
+      annotation: { ...edited.annotation, visibilityByTrackId: { gene: true } },
+    };
+    owner.attachSource(Symbol(), {
+      referenceName: 'Reference',
+      readyForDirtyCheck: true,
+      capture: () => edited,
+    });
+    boundary.save.mockResolvedValue({
+      saved: {
+        document: merged,
+        path: '/project/view.json',
+        revision: 'b'.repeat(64),
+        reconciliation: 'merged',
+      },
+    });
+    expect(await documentLifecycle.save({ kind: 'tab', tabId }, tabId)).toBe(true);
+    expect(boundary.save.mock.calls[0][0]).toMatchObject({
+      baseDocument: document,
+      expectedRevision: 'a'.repeat(64),
+    });
+    expect(owner.inspect().document).toMatchObject(merged);
+    expect(owner.isDirty()).toBe(false);
+    const tab = useCanvasStore.getState().panels.main.tabs[0];
+    expect(tab.viewState?.indexedGenomeViewRestoreCommand?.visibleAnnotationTrackIds).toEqual([
+      'gene',
+    ]);
+  });
+
   it('renames the saved baseline without committing unsaved viewport edits', async () => {
     const { owner, document } = open();
     const edited = { ...document, viewport: { start0: 500, end0: 1000 } };

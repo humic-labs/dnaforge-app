@@ -1,9 +1,10 @@
+import type { Tab } from '../features/canvas/types';
 import { documentLifecycle } from './document-lifecycle';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   settle: vi.fn(),
   saveSequences: vi.fn(async () => ({ saved: 0, failed: [] as string[] })),
-  tabs: [] as Array<{ id: string; type: string; entityId: string; isDirty: boolean }>,
+  tabs: [] as Array<Pick<Tab, 'id' | 'type' | 'entityId' | 'isDirty' | 'assemblyEditDesignId'>>,
   dirtyPaths: {} as Record<string, boolean>,
 }));
 vi.mock('../platform', () => ({
@@ -33,10 +34,6 @@ vi.mock('../features/canvas/store', () => ({
     getState: () => ({ panels: { main: { tabs: mocks.tabs } } }),
     subscribe: () => () => {},
   },
-}));
-vi.mock('../features/canvas/artifact-document-lifecycle', () => ({
-  isTabDirty: (tab: { isDirty: boolean }) => tab.isDirty,
-  saveTargetForTab: (tab: { entityId: string }) => ({ kind: 'file', filePath: tab.entityId }),
 }));
 vi.mock('../features/design/design-recovery', () => ({
   hasUnrecoverableDesignWork: () => [],
@@ -98,6 +95,53 @@ describe('Save All shares the native dirty owner', () => {
     });
     await expect(saveAllUnsavedWork()).rejects.toThrow('Pending renderer input.');
     expect(mocks.saveSequences).not.toHaveBeenCalled();
+  });
+  it('awaits the embedded assembly owner independently of sequence bytes', async () => {
+    const packageId = 'native-sequence';
+    mocks.tabs = [
+      {
+        type: 'sequence',
+        id: 'assembly-tab',
+        entityId: packageId,
+        assemblyEditDesignId: 'working-copy',
+      },
+      { type: 'sequence', id: 'sequence-tab', entityId: packageId },
+    ];
+    mocks.dirtyPaths = { [packageId]: true };
+    const target = { kind: 'sequence-document', documentId: packageId } as const;
+    const write = Promise.withResolvers<boolean>();
+    const saveAssembly = vi.fn(() => write.promise);
+    const saveSequence = vi.fn(async () => true);
+    const owners = [
+      documentLifecycle.register({
+        target,
+        tabId: 'assembly-tab',
+        isDirty: () => true,
+        save: saveAssembly,
+      }),
+      documentLifecycle.register({
+        target,
+        tabId: 'sequence-tab',
+        isDirty: () => true,
+        save: saveSequence,
+      }),
+    ];
+    try {
+      const finished = vi.fn();
+      const run = saveAllUnsavedWork().then(finished);
+      await vi.waitFor(() => expect(saveAssembly).toHaveBeenCalledOnce());
+      expect(saveSequence).not.toHaveBeenCalled();
+      expect(mocks.saveSequences).toHaveBeenCalledExactlyOnceWith({
+        excludeDocumentIds: new Set([packageId]),
+      });
+      expect(finished).not.toHaveBeenCalled();
+      write.resolve(true);
+      await run;
+      expect(finished).toHaveBeenCalledOnce();
+    } finally {
+      write.resolve(true);
+      for (const owner of owners) owner.release();
+    }
   });
   it('waits for the matching registered view owner', async () => {
     mocks.tabs = [{ id: 'legacy-view', type: 'text', entityId: '/legacy.txt', isDirty: true }];

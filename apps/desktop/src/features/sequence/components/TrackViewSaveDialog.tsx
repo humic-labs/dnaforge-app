@@ -170,7 +170,7 @@ export function TrackViewSaveDialog({
           {(error || loadError) && (
             <p role="alert" className="text-sm text-red-600">
               {error
-                ? toUserMessage(error, 'tracks.loadFailed')
+                ? toUserMessage(error, 'document.saveFailed')
                 : toUserMessage(loadError, 'tracks.loadFailed')}
             </p>
           )}

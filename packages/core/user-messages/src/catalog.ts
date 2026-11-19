@@ -1703,6 +1703,8 @@ export const USER_MESSAGES = {
     'Converted the file, but 1 of its 2 sequences could not be opened.',
   'notice.copied-translation-to-clipboard': 'Copied translation to clipboard.',
   'notice.view-saved': 'View saved.',
+  'notice.track-view-recovered-copy':
+    'The saved view had conflicting changes. Your edits were saved in a separate recovered copy.',
   'notice.the-view-was-saved-but-one-setting-needs-attention':
     'The view was saved, but one setting needs attention.',
   'notice.the-view-could-not-be-saved': 'The view could not be saved.',

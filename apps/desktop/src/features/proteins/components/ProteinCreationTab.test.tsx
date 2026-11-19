@@ -1,3 +1,8 @@
+import 'fake-indexeddb/auto';
+import {
+  flushPendingUnsavedDraftWrites,
+  readUnsavedDraft,
+} from '../../../shared/unsaved-draft-recovery';
 import { documentLifecycle } from '../../../shared/document-lifecycle';
 import { expectToastCall } from '../../../test/toast-assertions';
 /** @vitest-environment jsdom */
@@ -70,7 +75,7 @@ afterEach(cleanup);
 
 describe('ProteinCreationTab', () => {
   it.each([true, false])(
-    'correlates the close-save result when publication succeeds=%s',
+    'retires the recovery copy only when close-save publication succeeds=%s',
     async (success) => {
       if (!success) mocks.recordProtein.mockRejectedValueOnce(new Error('controlled refusal'));
       render(<ProteinCreationTab tab={tab} panelId="panel-1" />);
@@ -79,11 +84,45 @@ describe('ProteinCreationTab', () => {
         target: { value: 'MSKX*' },
       });
       expect(documentLifecycle.dirty({ kind: 'tab', tabId: tab.id }, tab.id)).toBe(true);
+      const key = `new:${tab.id}`;
+      await flushPendingUnsavedDraftWrites([key]);
+      const unsaved = await readUnsavedDraft(key);
+      expect(unsaved).toBeDefined();
       await act(async () => {
         expect(await documentLifecycle.save({ kind: 'tab', tabId: tab.id }, tab.id)).toBe(success);
       });
+      expect(await readUnsavedDraft(key)).toEqual(success ? undefined : unsaved);
     }
   );
+
+  it('keeps later edits and their recovery copy when an earlier publication finishes', async () => {
+    const publication = Promise.withResolvers<{
+      artifactPath: string;
+      limsEntity: { id: string; name: string };
+    }>();
+    mocks.recordProtein.mockReturnValueOnce(publication.promise);
+    render(<ProteinCreationTab tab={tab} panelId="panel-1" />);
+    const name = screen.getByTestId('protein-draft-name');
+    fireEvent.change(name, { target: { value: 'First name' } });
+    fireEvent.change(screen.getByTestId('protein-draft-sequence'), {
+      target: { value: 'MPEPTIDE' },
+    });
+    const target = { kind: 'tab', tabId: tab.id } as const;
+    const key = `new:${tab.id}`;
+    const saving = documentLifecycle.save(target, tab.id);
+    fireEvent.change(name, { target: { value: 'Newer name' } });
+    publication.resolve({
+      artifactPath: 'first.entity.json',
+      limsEntity: { id: 'first', name: 'First name' },
+    });
+    await act(async () => expect(await saving).toBe(false));
+    await flushPendingUnsavedDraftWrites([key]);
+    expect(mocks.retargetTab).not.toHaveBeenCalled();
+    expect(documentLifecycle.dirty(target, tab.id)).toBe(true);
+    expect(await readUnsavedDraft(key)).toMatchObject({
+      payload: { fields: { name: 'Newer name' } },
+    });
+  });
 
   it('keeps Save disabled until both a name and valid protein sequence exist', () => {
     render(<ProteinCreationTab tab={tab} panelId="panel-1" />);
@@ -127,11 +166,13 @@ describe('ProteinCreationTab', () => {
         notes: undefined,
       })
     );
-    expect(mocks.retargetTab).toHaveBeenCalledWith(
-      'panel-1',
-      tab.id,
-      { type: 'protein', entityId: 'protein-1' },
-      { label: 'GFP', artifactDocument: undefined, isDirty: false }
+    await waitFor(() =>
+      expect(mocks.retargetTab).toHaveBeenCalledWith(
+        'panel-1',
+        tab.id,
+        { type: 'protein', entityId: 'protein-1' },
+        { label: 'GFP', artifactDocument: undefined, isDirty: false }
+      )
     );
     expect(changed).toHaveBeenCalledTimes(1);
     expectToastCall(mocks.addToast, 'Created protein GFP.', 'success');

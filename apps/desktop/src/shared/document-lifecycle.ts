@@ -56,11 +56,13 @@ export function documentLifecycleCapabilities(input: {
   };
 }
 
+export type DocumentSaveScope = 'document' | 'all';
+
 export interface DocumentLifecycleOwner {
   readonly target: SaveDocumentTarget;
   readonly tabId?: string;
   isDirty(): boolean;
-  save(): Promise<boolean>;
+  save(scope: DocumentSaveScope): Promise<boolean>;
   discard?(): void | Promise<void>;
   reload?(): Promise<boolean>;
 }
@@ -111,7 +113,11 @@ export class DocumentLifecycle {
     return this.matching(target, tabId).length === 1;
   }
 
-  async save(target: SaveDocumentTarget, tabId?: string): Promise<boolean> {
+  async save(
+    target: SaveDocumentTarget,
+    tabId?: string,
+    scope: DocumentSaveScope = 'document'
+  ): Promise<boolean> {
     const owners = this.matching(target, tabId);
     if (owners.length !== 1) {
       console.warn('[DocumentLifecycle] Save not completed:', {
@@ -127,7 +133,7 @@ export class DocumentLifecycle {
     if (pending) return pending;
     let run: Promise<boolean>;
     try {
-      run = owner.save().then(
+      run = owner.save(scope).then(
         (success) => {
           if (!success)
             console.warn('[DocumentLifecycle] Save not completed:', {
