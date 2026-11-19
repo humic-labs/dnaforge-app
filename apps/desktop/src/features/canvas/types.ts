@@ -170,6 +170,7 @@ export interface Tab {
   initialAnnotationMapperPolicy?: IndexedGenomeInitialAnnotationMapperPolicy;
 
   initialStructureAttrs?: Structure3dAttrs;
+  structureRenderError?: string;
   molecularViewReferenceId?: string;
 
   structureInspection?: StructureInspection;

@@ -1,15 +1,29 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import type { Tab } from '../types';
 
 const mocks = vi.hoisted(() => ({
   read: vi.fn(),
   updateTab: vi.fn(),
+  activeTab: undefined as Tab | undefined,
+  structurePanel: vi.fn((_props: { onError: (message: string) => void; onLoad: () => void }) => (
+    <div data-testid="structure-panel" />
+  )),
 }));
 
 vi.mock('../store', () => ({
-  useCanvasStore: { getState: () => ({ updateTab: mocks.updateTab }) },
+  useCanvasStore: {
+    getState: () => ({
+      updateTab: mocks.updateTab,
+      panels: {
+        panel: {
+          activeTabId: mocks.activeTab?.id,
+          tabs: mocks.activeTab ? [mocks.activeTab] : [],
+        },
+      },
+    }),
+  },
 }));
 vi.mock('./load-states', () => ({ LoadingTab: () => <div data-testid="loading" /> }));
 vi.mock('../../compute/public/prediction-result-view', () => ({
@@ -23,7 +37,7 @@ vi.mock('../../page/public/embeds/structure3d/store', () => ({
     select({ expandedStructures: {}, viewerInstances: {} }),
 }));
 vi.mock('../../page/public/embeds/structure3d/components/LazyStructure3dPanel', () => ({
-  LazyStructure3dPanel: () => <div data-testid="structure-panel" />,
+  LazyStructure3dPanel: mocks.structurePanel,
 }));
 vi.mock('../../page/public/embeds/protein-prompt-history/RunVersionSwitcher', () => ({
   ProteinRunVersionSwitcher: () => null,
@@ -73,6 +87,48 @@ function structureTab(initialStructureAttrs: Tab['initialStructureAttrs']): Tab 
 beforeEach(() => {
   mocks.read.mockReset();
   mocks.updateTab.mockReset();
+  mocks.structurePanel.mockClear();
+  mocks.activeTab = undefined;
+});
+
+describe('structure tab load errors', () => {
+  it('publishes a saved package read error for the active tab', async () => {
+    const tab = structureTab({
+      source: 'file',
+      sourceId: '',
+      label: '1ABC',
+      molecularDocumentPath: PATH,
+    });
+    mocks.activeTab = tab;
+    mocks.read.mockRejectedValue(new Error('internal read failure'));
+    const rendered = render(<StructureTabContent tab={tab} panelId="panel" isActive />);
+    await waitFor(() => {
+      expect(mocks.updateTab).toHaveBeenCalledWith('panel', tab.id, {
+        structureRenderError: 'The saved molecular view could not open.',
+      });
+    });
+    expect(rendered.getByRole('alert')).toBeTruthy();
+  });
+
+  it('clears a render error on load and ignores a callback from a replaced tab', () => {
+    const tab = structureTab({ source: 'pdb', sourceId: '1CRN', label: '1CRN' });
+    mocks.activeTab = tab;
+    mocks.updateTab.mockImplementation((_panel: string, _id: string, updates: Partial<Tab>) => {
+      mocks.activeTab = { ...mocks.activeTab!, ...updates };
+    });
+    const rendered = render(<StructureTabContent tab={tab} panelId="panel" isActive />);
+    const { onError, onLoad } = mocks.structurePanel.mock.lastCall![0];
+    onError('The renderer failed.');
+    expect(mocks.activeTab.structureRenderError).toBe('The renderer failed.');
+    onLoad();
+    expect(mocks.activeTab.structureRenderError).toBeUndefined();
+
+    const replacement = { ...tab, entityId: 'pdb:4HHB' };
+    mocks.activeTab = replacement;
+    rendered.rerender(<StructureTabContent tab={replacement} panelId="panel" isActive />);
+    onError('The old renderer failed.');
+    expect(mocks.activeTab.structureRenderError).toBeUndefined();
+  });
 });
 
 describe('structure tabs bound to a default-view package ', () => {
