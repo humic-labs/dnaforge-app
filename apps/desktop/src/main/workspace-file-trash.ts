@@ -310,6 +310,12 @@ export async function runWorkspaceFileTrash(
         await documents?.assertClean(source.path);
         await assertMutationAllowed([source.path]);
         assertCurrent();
+        if (state.containsSavedEntity || entityOwnsPath?.(source.path))
+          throw new Error(retainedEntityMessage);
+        if (!entityOwnsPath)
+          throw new Error(
+            'RETENTION_UNVERIFIED: The saved entity owner is required before moving a file to Trash.'
+          );
         const store = (await storeRoot(root, true))!;
         const id = randomUUID(),
           directory = join(store, id);
@@ -318,8 +324,7 @@ export async function runWorkspaceFileTrash(
         await syncDirectory(store);
         const record = {
           schema: 'dnaforge.file-trash.v2',
-          purgeEligible:
-            !!entityOwnsPath && !state.containsSavedEntity && !entityOwnsPath(source.path),
+          purgeEligible: true,
           id,
           workspaceRoot: root,
           originalPath: source.member,
@@ -327,13 +332,28 @@ export async function runWorkspaceFileTrash(
           type: state.type,
           contentDigest: state.contentDigest,
         };
-        await writeJournal(join(directory, 'record.json'), JSON.stringify(record));
-        await assertMutationAllowed([source.path]);
-        if (record.purgeEligible && entityOwnsPath?.(source.path))
-          throw new Error('STALE_FILE: The source acquired an entity identity. Inspect it again.');
-        assertCurrent();
-        mutationStarted = true;
-        await rename(source.path, join(directory, 'payload'));
+        try {
+          await writeJournal(join(directory, 'record.json'), JSON.stringify(record));
+          await assertMutationAllowed([source.path]);
+          const rechecked = await snapshot(source.path, false, source.member);
+          if (rechecked.containsSavedEntity || entityOwnsPath(source.path))
+            throw new Error(retainedEntityMessage);
+          if (rechecked.statDigest !== state.statDigest)
+            throw new Error('STALE_FILE: The source changed before moving to Trash.');
+          assertCurrent();
+          await rename(source.path, join(directory, 'payload'));
+          mutationStarted = true;
+        } catch (error) {
+          if (await exists(join(directory, 'payload'))) mutationStarted = true;
+          else {
+            if (await exists(join(directory, 'record.json')))
+              await unlink(join(directory, 'record.json'));
+            await rmdir(directory);
+            await syncDirectory(store);
+            preparedEntryId = undefined;
+          }
+          throw error;
+        }
         const warnings: string[] = [];
         try {
           const moved = await snapshot(join(directory, 'payload'), true);

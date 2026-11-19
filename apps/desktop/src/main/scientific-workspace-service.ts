@@ -1,3 +1,4 @@
+import { retainedEntityMessage } from '../shared/workspace-file-trash';
 import type { NativeWorkTaskFile } from './work-task-preparation';
 import type Database from 'better-sqlite3';
 import type { ScientificWorkspaceSubmission } from '@waypoint/domain-services';
@@ -98,6 +99,7 @@ export async function submitScientificWorkspace(input: {
   readonly databaseFence?: () => void;
   readonly beforeAccept?: () => void;
   readonly workTaskCommand?: boolean;
+  readonly archiveResourceId?: string;
   readonly workTaskSuccessor?: NativeWorkTaskFile;
 
   readonly publication?: {
@@ -118,6 +120,7 @@ export async function submitScientificWorkspace(input: {
       ? null
       : must(parseWorkspaceVersionId(input.request.expectedHead));
   const source = snapshotSource(input.request.source);
+  if (source.kind === 'delete' && !input.archiveResourceId) throw new Error(retainedEntityMessage);
   const successor = input.workTaskSuccessor && structuredClone(input.workTaskSuccessor);
   if (
     successor &&
@@ -152,7 +155,7 @@ export async function submitScientificWorkspace(input: {
     }
     const release = input.databaseFence ? null : await acquireWorkspaceSyncDatabaseFence(input.db);
     try {
-      const { graph } = store.read();
+      const { graph, reader } = store.read();
       const recovery = await materializeScientificWorkspace(store);
       if (recovery.kind === 'blocked' && !hasOperationReceipt(graph, operationId))
         throw new Error(`Scientific file delivery is pending: ${recovery.error}`);
@@ -401,7 +404,30 @@ export async function submitScientificWorkspace(input: {
       };
       if (!input.workTaskCommand)
         assertScientificTaskCommandAuthority(graph, expectedHead, source, submittedEntries);
+      if (
+        source.kind === 'delete' &&
+        !plan.mutations.some(
+          (m) => m.kind === 'delete-resource' && m.resourceId === input.archiveResourceId
+        )
+      )
+        throw new Error(retainedEntityMessage);
       for (const mutation of plan.mutations) {
+        if (
+          mutation.kind === 'delete-resource' &&
+          source.kind !== 'restore-workspace' &&
+          source.kind !== 'restore-record' &&
+          source.kind !== 'revert-record'
+        ) {
+          const kind = reader.revision({
+            resourceId: mutation.resourceId,
+            revisionId: mutation.expectedRevision,
+          })?.document.kind;
+          const relationship =
+            kind === 'primer-binding' || kind === 'strain-sequence' || kind === 'strain-descent';
+          const partOfArchive =
+            source.kind === 'delete' && (mutation.resourceId === input.archiveResourceId || !kind);
+          if (!relationship && !partOfArchive) throw new Error(retainedEntityMessage);
+        }
         const paths =
           mutation.kind === 'create-resource'
             ? [mutation.path]

@@ -31,7 +31,6 @@ import {
 import { assertSafePath, assertSafeWritablePath } from './path-allowlist';
 import { getDb } from './database';
 import { assertSystemTrashAllowed } from '../saved-entity-file-retention';
-import { trashAcceptedScientificPath } from '../scientific-resource-lifecycle';
 import type { AgentToolsBridgeServer } from '../agent-tools-bridge';
 import { AgentStateCapsuleStore } from '../hosted-codex/agent-state-capsule';
 import {
@@ -727,7 +726,6 @@ export function registerHostedAiGatewayHandlers(
     withSafeWritablePaths: (paths, operation) =>
       withHostedNativeWritablePaths(getDb(), paths, operation),
     trashPath: async (path) => {
-      if (await trashAcceptedScientificPath({ db: getDb(), path })) return;
       await assertSystemTrashAllowed(getDb(), path);
       await shell.trashItem(path);
     },

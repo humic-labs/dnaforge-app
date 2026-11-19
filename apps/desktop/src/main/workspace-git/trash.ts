@@ -1,3 +1,7 @@
+import {
+  assertProjectTrashAllowed,
+  workspaceContainsSavedRecords,
+} from '../saved-entity-file-retention';
 import { realpath, rm } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import type Database from 'better-sqlite3';
@@ -97,7 +101,15 @@ async function purgeManagedWorkspaceRow(
           'This project still contains items in file Trash. Restore the project to recover those items.'
         );
       }
-      await removeManagedWorkspaceDirectory(managedRootDir, current);
+      const directory = await managedWorkspaceDirectory(managedRootDir, current);
+      try {
+        await assertProjectTrashAllowed(db, current.id, current.path);
+      } catch (error) {
+        if (expiry && error instanceof Error && error.message.startsWith('SAVED_ENTITY_CONTENT:'))
+          return false;
+        throw error;
+      }
+      if (directory) await rm(directory, { recursive: true, force: false });
 
       const deleted = db
         .prepare(
@@ -134,23 +146,7 @@ function permanentDeletionRefusal(db: Database.Database, row: TrashedWorkspaceRo
     );
   }
 
-  const retained = db
-    .prepare(
-      `
-    SELECT 1 FROM lims_entity WHERE workspace_id = @workspaceId
-    UNION ALL SELECT 1 FROM lims_link WHERE workspace_id = @workspaceId
-    UNION ALL SELECT 1 FROM lims_audit WHERE workspace_id = @workspaceId
-    UNION ALL SELECT 1 FROM primers WHERE workspace_id = @workspaceId
-    UNION ALL SELECT 1 FROM catalog_entities
-      WHERE workspace_id = @workspaceId AND type NOT IN ('file', 'folder')
-    UNION ALL SELECT 1 FROM catalog_entity_files f
-      JOIN catalog_entities e ON e.id = f.entity_id
-      WHERE f.workspace_id = @workspaceId AND e.type NOT IN ('file', 'folder')
-    UNION ALL SELECT 1 FROM catalog_workspace_placements WHERE workspace_id = @workspaceId
-    LIMIT 1
-  `
-    )
-    .get({ workspaceId: row.id });
+  const retained = workspaceContainsSavedRecords(db, row.id);
   return retained
     ? withUserMessage(
         new Error(userMessage('workspace.purgeRetainedRefused')),
@@ -159,10 +155,10 @@ function permanentDeletionRefusal(db: Database.Database, row: TrashedWorkspaceRo
     : null;
 }
 
-async function removeManagedWorkspaceDirectory(
+async function managedWorkspaceDirectory(
   managedRootDir: string,
   row: TrashedWorkspaceRow
-): Promise<void> {
+): Promise<string | undefined> {
   const workspaceDir = resolve(dirname(row.path));
   const container = resolve(managedRootDir);
   if (!isStrictlyInside(workspaceDir, container)) {
@@ -184,7 +180,7 @@ async function removeManagedWorkspaceDirectory(
       `[trash] refusing to purge "${workspaceDir}" — resolved path escapes the managed container`
     );
   }
-  await rm(workspaceDir, { recursive: true, force: false });
+  return workspaceDir;
 }
 
 function isStrictlyInside(candidate: string, container: string): boolean {

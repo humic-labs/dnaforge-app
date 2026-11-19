@@ -11,7 +11,6 @@ import { WORKSPACE_GIT_AUTHOR } from '../../shared/workspace-git-author';
 import { assertSafePath, getAllowedRoots, withSafeWritablePath } from './path-allowlist';
 import { getDb } from './database';
 import { assertSystemTrashAllowed, workspaceEntityOwnsPath } from '../saved-entity-file-retention';
-import { trashAcceptedScientificPath } from '../scientific-resource-lifecycle';
 import {
   withKnownWorkspacePathMutation,
   findKnownWorkspaceRoot,
@@ -177,14 +176,6 @@ export function registerShellHandlers(): void {
         return nativeDocuments.fileDocuments.withCleanPaths([safePath], async () => {
           await nativeDocuments.fileDocuments.assertClean(safePath);
           const assertCurrent = bindShellContentWrite(safePath);
-          if (
-            await trashAcceptedScientificPath({
-              db: getDb(),
-              path: safePath,
-              renderer: { ownerId: event.sender.id, ...(mutationToken ? { mutationToken } : {}) },
-            })
-          )
-            return;
           return withKnownRendererFilesystemMutation({
             db: getDb(),
             ownerId: event.sender.id,

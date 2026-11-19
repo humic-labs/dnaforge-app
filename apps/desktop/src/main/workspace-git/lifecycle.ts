@@ -1,3 +1,4 @@
+import { assertProjectHasNoSavedOwners, assertProjectTrashAllowed } from '../saved-entity-file-retention';
 import { withUserMessage } from '@waypoint/user-messages';
 import type Database from 'better-sqlite3';
 
@@ -28,7 +29,12 @@ export async function transitionManagedWorkspaceLifecycle(
   const releaseMutation = await acquireWorkspaceSyncMutationLease(row.path);
   try {
     await assertWorkspaceMigrationActionsSettled(row.path);
-    const result = db.transaction(() => applyTransition(db, row, request, nowMs))();
+    const trash = request.action === 'trash-by-path' || request.action === 'trash-by-uuid';
+    if (trash) await assertProjectTrashAllowed(db, row.id, row.path);
+    const result = db.transaction(() => {
+      if (trash) assertProjectHasNoSavedOwners(db, row.id, row.path);
+      return applyTransition(db, row, request, nowMs);
+    }).immediate();
     return { changed: result.changes };
   } finally {
     releaseMutation();
