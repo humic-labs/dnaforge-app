@@ -261,13 +261,10 @@ function extractTraceData(
     peakPositions = extractShortArray(buffer, ploc) || [];
   }
 
-  const maxValue = Math.max(
-    ...channel1.map(Math.abs),
-    ...channel2.map(Math.abs),
-    ...channel3.map(Math.abs),
-    ...channel4.map(Math.abs),
-    1
-  );
+  let maxValue = 1;
+  for (const channel of channelArrays) {
+    for (const sample of channel) maxValue = Math.max(maxValue, Math.abs(sample));
+  }
 
   return {
     channels,
