@@ -1,4 +1,4 @@
-import { prepareAuthenticatedCoverageCorridorFloorPayload } from './coverage-corridor-floor';
+import { prepareAuthenticatedCoverageCorridorFloorPayload } from './coverage-corridor-floor-payload';
 import type {
   CoverageCorridorFloorWorkerRequest,
   CoverageCorridorFloorWorkerResponse,
