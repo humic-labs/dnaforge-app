@@ -55,6 +55,18 @@ export interface WorkspaceSearchResult {
   nextCursor: string | null;
 }
 
+export const workspaceSearchIdentitySchema = z.object({
+  entityId: z.string(),
+  entityType,
+  name: z.string(),
+  workspaceRoot: z.string(),
+  workspaceName: z.string(),
+});
+
+export function workspaceSearchAgentResult(result: WorkspaceSearchResult) {
+  return { ...result, results: workspaceSearchIdentitySchema.array().parse(result.results) };
+}
+
 export class WorkspaceSearchError extends Error {
   constructor(
     readonly code: 'SEARCH_PROJECT_UNAVAILABLE' | 'SEARCH_CURSOR_INVALID' | 'SEARCH_SCOPE_CHANGED',

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { workspaceSearchIdentitySchema } from '../../../shared/workspace-search-owner';
 import { jsonObjectSchema } from '../../../shared/json-value';
 import {
   administrationHandoffSchema,
@@ -10,39 +11,12 @@ const count = z.number().int().nonnegative();
 const ok = { ok: z.literal(true) };
 const strings = z.array(z.string());
 const changed = z.union([z.boolean(), z.literal('unknown')]);
-const catalogKind = z.enum([
-  'track-view',
-  'molecular-document',
-  'sequence',
-  'primer',
-  'notebook',
-  'design',
-  'alignment',
-  'trace',
-  'report',
-  'construct',
-  'sample',
-  'record',
-  'structure',
-  'protein',
-  'protocol',
-  'protocol_run',
-  'file',
-]);
 export const searchWorkspaceOutputSchema = z
   .object({
     ...ok,
     query: z.string(),
     projects: z.array(z.object({ name: z.string(), root: z.string() })),
-    results: z.array(
-      z.object({
-        entityId: z.string(),
-        entityType: catalogKind,
-        name: z.string(),
-        workspaceRoot: z.string(),
-        workspaceName: z.string(),
-      })
-    ),
+    results: z.array(workspaceSearchIdentitySchema),
     nextCursor: z.string().nullable(),
   })
   .strict();

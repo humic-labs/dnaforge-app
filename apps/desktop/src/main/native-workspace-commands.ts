@@ -1,6 +1,10 @@
 import type Database from 'better-sqlite3';
 import { isAbsolute, join } from 'node:path';
-import { searchWorkspace, type WorkspaceSearchRequest } from '../shared/workspace-search-owner';
+import {
+  searchWorkspace,
+  workspaceSearchAgentResult,
+  type WorkspaceSearchRequest,
+} from '../shared/workspace-search-owner';
 import { createMountedCatalogSearch } from '../shared/workspace-search-catalog';
 import {
   projectHistoryAgentRequestSchema,
@@ -124,7 +128,7 @@ export function createNativeWorkspaceCommands(options: {
         input,
         () => ({ projects: projects() }),
         catalog.searchMountedCatalogEntityPage
-      );
+      ).then(workspaceSearchAgentResult);
     },
     history(input: ProjectHistoryAgentRequest) {
       const request = projectHistoryAgentRequestSchema.parse(input);

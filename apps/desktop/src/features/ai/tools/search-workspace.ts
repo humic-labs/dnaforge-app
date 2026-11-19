@@ -5,6 +5,7 @@ import { useDesignStore } from '../../design/public/store';
 import { resultTool, toolFailure, toolSuccess } from '../../agent-bridge/public/tool-result';
 import {
   searchWorkspace,
+  workspaceSearchAgentResult,
   workspaceSearchSchema,
   WorkspaceSearchError,
 } from '../../workspace/public/search-commands';
@@ -31,7 +32,7 @@ export function createSearchWorkspaceTool(folders: readonly WorkspaceFolder[]) {
           }),
           abortSignal
         );
-        return toolSuccess({ ...result });
+        return toolSuccess(workspaceSearchAgentResult(result));
       } catch (error) {
         return toolFailure({
           code: error instanceof WorkspaceSearchError ? error.code : 'WORKSPACE_SEARCH_FAILED',

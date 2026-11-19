@@ -31,6 +31,25 @@ beforeEach(() => {
 });
 
 describe('search_workspace adapter', () => {
+  it('returns the advertised identity fields for files that have sidebar icons', async () => {
+    native.select.mockImplementation(async (sql: string) =>
+      sql.includes('AS match_count') ? [{ match_count: 1 }] : [{
+        entity_id: 'sample-file', entity_type: 'file', name: 'Sample',
+        workspace_root: '/ws/admitted', workspace_name: 'Admitted',
+        storage_type: 'file', icon_kind: 'text', icon_path: 'notes/sample.txt',
+        metadata: null, updated_at: 1,
+      }]
+    );
+    const result = await execute({ query: 'sample' });
+    expect(result).toEqual({
+      ok: true, query: 'sample', projects: [{ name: 'Admitted', root: '/ws/admitted' }],
+      nextCursor: null, results: [{
+        entityId: 'sample-file', entityType: 'file', name: 'Sample',
+        workspaceRoot: '/ws/admitted', workspaceName: 'Admitted',
+      }],
+    });
+  });
+
   it('uses the current admitted mounted roots and returns explicit read-only outcomes', async () => {
     native.folders.push({ name: 'Other', path: '/ws/other', addedAt: 0 });
     expect(await execute({ query: 'sample' })).toMatchObject({
