@@ -475,14 +475,14 @@
           "kind": "mcp_tool",
           "execution_boundary": "ui_bridge",
           "tool": "mol_get_scene",
-          "description": "Supply the structureViewId from mol_list_structures. Parse the returned scene JSON and preserve its coordinate resource URI, parse format, canvas background and metadata version. Use the native chain inventory to choose real chain and residue IDs."
+          "description": "Supply the structureViewId from mol_list_structures and set includeScene to true for the full scene JSON. Preserve its coordinate resource URI, parse format, canvas background and metadata version. For exact chains and residue ranges, use mol_get_state with chainPage on the same structureViewId."
         },
         {
           "id": "apply",
           "kind": "mcp_tool",
           "execution_boundary": "ui_bridge",
           "tool": "mol_apply_scene",
-          "description": "Supply the same structureViewId and a stringified single-view MolViewSpec scene with a descriptive metadata.title. Set viewAction to edit-current for the active view or add for another named perspective. If a fresh external session returns STRUCTURE_GUIDANCE_REQUIRED, read that guidance before resubmitting the intended change."
+          "description": "Supply the same structureViewId and a stringified single-view MolViewSpec scene with a descriptive metadata.title. Set viewAction to edit-current for the active view or add for another named perspective. For a small change, use includeParameterSchema on mol_get_scene and send parameterEdits with expectedSceneSha256 from that read. If a fresh external session returns STRUCTURE_GUIDANCE_REQUIRED, read that guidance before resubmitting the intended change."
         },
         {
           "id": "verify",

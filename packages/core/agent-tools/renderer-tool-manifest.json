@@ -32350,6 +32350,7 @@
                           "totalResidueAtomCount": {
                             "$ref": "#/properties/result/properties/story/properties/activeIndex"
                           },
+                          "instanceId": { "type": "string" },
                           "baseChain": { "type": "string" },
                           "labelAsymId": { "type": "string" },
                           "authAsymId": { "type": "string" },
@@ -32462,6 +32463,58 @@
                   "required": ["label", "color", "selectable", "frontmostAtSampledCenters"],
                   "additionalProperties": false
                 }
+              },
+              "documentStorage": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": { "type": "string", "const": "available" },
+                      "maxCoordinateBytes": {
+                        "$ref": "#/properties/result/properties/story/properties/activeIndex"
+                      },
+                      "maxDocumentBytes": {
+                        "$ref": "#/properties/result/properties/story/properties/activeIndex"
+                      },
+                      "minimumDocumentBytes": {
+                        "$ref": "#/properties/result/properties/story/properties/activeIndex"
+                      }
+                    },
+                    "required": [
+                      "status",
+                      "maxCoordinateBytes",
+                      "maxDocumentBytes",
+                      "minimumDocumentBytes"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": { "type": "string", "const": "over-limit" },
+                      "maxCoordinateBytes": {
+                        "$ref": "#/properties/result/properties/story/properties/activeIndex"
+                      },
+                      "maxDocumentBytes": {
+                        "$ref": "#/properties/result/properties/story/properties/activeIndex"
+                      },
+                      "code": {
+                        "type": "string",
+                        "enum": ["MVS_VIEW_TOO_LARGE", "MVS_DOCUMENT_TOO_LARGE"]
+                      },
+                      "message": { "type": "string" }
+                    },
+                    "required": [
+                      "status",
+                      "maxCoordinateBytes",
+                      "maxDocumentBytes",
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  }
+                ],
+                "description": "Storage limits before authoring. The finished scene and preview also count toward the document limit."
               },
               "rendered": { "type": "boolean", "const": true },
               "alignment": {
@@ -34871,8 +34924,18 @@
     },
     {
       "name": "mol_list_structures",
-      "description": "List structures registered in the DNAForge Mol* viewer store.",
-      "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
+      "description": "List open structure views with their exact IDs, readiness and chain counts. Use detail:\"full\" for the complete inventory or mol_get_state with chainPage for exact chains in one view.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string",
+            "enum": ["summary", "full"],
+            "description": "Summary by default. Request full for the previous detailed response."
+          }
+        },
+        "additionalProperties": false
+      },
       "outputSchema": {
         "type": "object",
         "properties": {
@@ -35076,6 +35139,362 @@
                         { "type": "null" }
                       ]
                     },
+                    "inactiveReason": { "type": "string" },
+                    "reactivation": {
+                      "type": "object",
+                      "properties": {
+                        "tool": { "type": "string", "const": "mol_activate_view" },
+                        "structureViewId": { "type": "string" }
+                      },
+                      "required": ["tool", "structureViewId"],
+                      "additionalProperties": false
+                    },
+                    "savedViewReferenceId": { "type": ["string", "null"] },
+                    "retainedProtein": {
+                      "type": "object",
+                      "properties": {
+                        "proteinSequenceSha256": { "type": "string" },
+                        "proteinLength": { "type": "integer", "minimum": 0 },
+                        "candidateId": { "type": ["string", "null"] },
+                        "measurements": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+                              "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+                              "proteinSequenceSha256": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                              },
+                              "source": {
+                                "type": "object",
+                                "properties": {
+                                  "label": { "type": "string", "minLength": 1, "maxLength": 500 },
+                                  "analysisId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500
+                                  },
+                                  "revision": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500
+                                  },
+                                  "correspondence": {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "translated-cds" },
+                                      "version": { "type": "number", "const": 1 },
+                                      "reference": {
+                                        "type": "object",
+                                        "properties": {
+                                          "documentId": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 2000
+                                          },
+                                          "sequenceSha256": {
+                                            "type": "string",
+                                            "pattern": "^[0-9a-f]{64}$"
+                                          },
+                                          "length": { "type": "integer", "exclusiveMinimum": 0 },
+                                          "circular": { "type": "boolean" }
+                                        },
+                                        "required": [
+                                          "documentId",
+                                          "sequenceSha256",
+                                          "length",
+                                          "circular"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "featureKey": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 2000
+                                      },
+                                      "residueMoleculeId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 2000
+                                      },
+                                      "context": {
+                                        "type": "object",
+                                        "properties": {
+                                          "json": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 500000
+                                          },
+                                          "sha256": {
+                                            "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/measurements/items/properties/source/properties/correspondence/properties/reference/properties/sequenceSha256"
+                                          }
+                                        },
+                                        "required": ["json", "sha256"],
+                                        "additionalProperties": false
+                                      },
+                                      "molecule": {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "protein" },
+                                          "sequence": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 1000000
+                                          },
+                                          "identitySha256": {
+                                            "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/measurements/items/properties/source/properties/correspondence/properties/reference/properties/sequenceSha256"
+                                          }
+                                        },
+                                        "required": ["kind", "sequence", "identitySha256"],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "version",
+                                      "reference",
+                                      "featureKey",
+                                      "residueMoleculeId",
+                                      "context",
+                                      "molecule"
+                                    ],
+                                    "additionalProperties": false,
+                                    "description": "Optional exact translated-CDS sequence/annotation mapping snapshot from color_variant_protein result.source.correspondence. Copy the complete returned object unchanged; it is not a calculation recipe or an artifact list. If no exact returned snapshot is available, omit this optional field; the linked inspection still validates the measurement against its current protein mapping. Retain the calculation formula, original observations, program and output as workspace artifacts instead."
+                                  }
+                                },
+                                "required": ["label", "analysisId", "revision"],
+                                "additionalProperties": false
+                              },
+                              "units": { "type": "string", "maxLength": 80 },
+                              "values": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "residue": { "type": "integer", "exclusiveMinimum": 0 },
+                                    "value": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                                  },
+                                  "required": ["residue", "value"],
+                                  "additionalProperties": false
+                                },
+                                "minItems": 1,
+                                "maxItems": 5000
+                              },
+                              "scale": {
+                                "type": "object",
+                                "properties": {
+                                  "transform": { "type": "string", "enum": ["linear", "log10"] },
+                                  "domain": {
+                                    "type": "array",
+                                    "items": { "type": "number" },
+                                    "minItems": 2,
+                                    "maxItems": 2,
+                                    "description": "Exactly two endpoints [minimum, maximum] in measurement units. Do not include midpoint or one entry per color."
+                                  },
+                                  "colors": {
+                                    "type": "array",
+                                    "items": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+                                    "minItems": 2,
+                                    "maxItems": 20,
+                                    "description": "Palette stops spaced evenly between the two domain endpoints; a three-color diverging palette places its middle color halfway."
+                                  },
+                                  "missingColor": {
+                                    "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/measurements/items/properties/scale/properties/colors/items"
+                                  }
+                                },
+                                "required": ["transform", "domain", "colors", "missingColor"],
+                                "additionalProperties": false
+                              },
+                              "variantEvidence": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": ["vcf-allele-fraction", "vcf-log2-fraction-ratio"]
+                                  },
+                                  "referenceSha256": {
+                                    "type": "string",
+                                    "pattern": "^[0-9a-f]{64}$"
+                                  },
+                                  "proteinFeatureKey": { "type": "string", "minLength": 1 },
+                                  "filter": {
+                                    "type": "string",
+                                    "enum": ["pass", "pass-or-unfiltered", "all"]
+                                  },
+                                  "effect": {
+                                    "type": "string",
+                                    "enum": ["all", "amino-acid-changing"]
+                                  },
+                                  "aggregation": {
+                                    "type": "string",
+                                    "enum": ["maximum", "maximum-absolute"]
+                                  },
+                                  "pseudocount": { "type": "number", "exclusiveMinimum": 0 },
+                                  "sources": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "analysisId": { "type": "string", "minLength": 1 },
+                                        "name": { "type": "string" },
+                                        "sourceIdentity": { "type": "string", "minLength": 1 },
+                                        "sample": { "type": "string" },
+                                        "countBasis": { "type": "string" }
+                                      },
+                                      "required": [
+                                        "analysisId",
+                                        "name",
+                                        "sourceIdentity",
+                                        "sample",
+                                        "countBasis"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "minItems": 1,
+                                    "maxItems": 2
+                                  },
+                                  "rows": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "residue": { "type": "integer", "exclusiveMinimum": 0 },
+                                        "observed": {
+                                          "anyOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "callId": { "type": "string", "minLength": 1 },
+                                                "dnaPosition": {
+                                                  "type": "integer",
+                                                  "exclusiveMinimum": 0
+                                                },
+                                                "reference": { "type": "string", "minLength": 1 },
+                                                "alternate": { "type": "string", "minLength": 1 },
+                                                "alleleIndex": {
+                                                  "type": "integer",
+                                                  "exclusiveMinimum": 0
+                                                },
+                                                "alternateCount": {
+                                                  "anyOf": [
+                                                    { "type": "integer", "minimum": 0 },
+                                                    { "type": "null" }
+                                                  ]
+                                                },
+                                                "totalAlleleCount": {
+                                                  "anyOf": [
+                                                    { "type": "integer", "minimum": 0 },
+                                                    { "type": "null" }
+                                                  ]
+                                                },
+                                                "filters": {
+                                                  "type": "array",
+                                                  "items": { "type": "string" }
+                                                }
+                                              },
+                                              "required": [
+                                                "callId",
+                                                "dnaPosition",
+                                                "reference",
+                                                "alternate",
+                                                "alleleIndex",
+                                                "alternateCount",
+                                                "totalAlleleCount",
+                                                "filters"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            { "type": "null" }
+                                          ]
+                                        },
+                                        "baseline": {
+                                          "anyOf": [
+                                            {
+                                              "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/measurements/items/properties/variantEvidence/properties/rows/items/properties/observed/anyOf/0"
+                                            },
+                                            { "type": "null" }
+                                          ]
+                                        }
+                                      },
+                                      "required": ["residue", "observed", "baseline"],
+                                      "additionalProperties": false
+                                    },
+                                    "minItems": 1,
+                                    "maxItems": 10000
+                                  },
+                                  "excluded": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "analysisId": { "type": "string" },
+                                        "callId": { "type": "string" },
+                                        "reason": { "type": "string" }
+                                      },
+                                      "required": ["analysisId", "callId", "reason"],
+                                      "additionalProperties": false
+                                    },
+                                    "maxItems": 10000
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "referenceSha256",
+                                  "proteinFeatureKey",
+                                  "filter",
+                                  "effect",
+                                  "aggregation",
+                                  "sources",
+                                  "rows",
+                                  "excluded"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "derivation": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "log2-enrichment" },
+                                  "normalization": { "type": "string", "const": "table-total" },
+                                  "pseudocount": { "type": "number", "exclusiveMinimum": 0 },
+                                  "counts": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "residue": { "type": "integer", "exclusiveMinimum": 0 },
+                                        "before": { "type": "number", "minimum": 0 },
+                                        "after": { "type": "number", "minimum": 0 }
+                                      },
+                                      "required": ["residue", "before", "after"],
+                                      "additionalProperties": false
+                                    },
+                                    "minItems": 1,
+                                    "maxItems": 5000
+                                  }
+                                },
+                                "required": ["kind", "normalization", "pseudocount", "counts"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "proteinSequenceSha256",
+                              "source",
+                              "units",
+                              "values",
+                              "scale"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "activeMeasurementId": { "type": "string" }
+                      },
+                      "required": ["proteinSequenceSha256", "proteinLength", "measurements"],
+                      "additionalProperties": false
+                    },
                     "sourceId": { "type": ["string", "null"] },
                     "coordinateArtifact": {
                       "anyOf": [
@@ -35104,7 +35523,9 @@
                           "type": "object",
                           "properties": {
                             "proteinSequenceSha256": { "type": "string" },
-                            "proteinLength": { "type": "integer", "minimum": 0 },
+                            "proteinLength": {
+                              "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
+                            },
                             "label": { "type": "string" },
                             "residueTargets": {
                               "type": "array",
@@ -35139,367 +35560,12 @@
                             "measurements": {
                               "type": "array",
                               "items": {
-                                "type": "object",
-                                "properties": {
-                                  "id": { "type": "string", "minLength": 1, "maxLength": 200 },
-                                  "name": { "type": "string", "minLength": 1, "maxLength": 200 },
-                                  "proteinSequenceSha256": {
-                                    "type": "string",
-                                    "pattern": "^[0-9a-f]{64}$"
-                                  },
-                                  "source": {
-                                    "type": "object",
-                                    "properties": {
-                                      "label": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 500
-                                      },
-                                      "analysisId": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 500
-                                      },
-                                      "revision": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 500
-                                      },
-                                      "correspondence": {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": { "type": "string", "const": "translated-cds" },
-                                          "version": { "type": "number", "const": 1 },
-                                          "reference": {
-                                            "type": "object",
-                                            "properties": {
-                                              "documentId": {
-                                                "type": "string",
-                                                "minLength": 1,
-                                                "maxLength": 2000
-                                              },
-                                              "sequenceSha256": {
-                                                "type": "string",
-                                                "pattern": "^[0-9a-f]{64}$"
-                                              },
-                                              "length": {
-                                                "type": "integer",
-                                                "exclusiveMinimum": 0
-                                              },
-                                              "circular": { "type": "boolean" }
-                                            },
-                                            "required": [
-                                              "documentId",
-                                              "sequenceSha256",
-                                              "length",
-                                              "circular"
-                                            ],
-                                            "additionalProperties": false
-                                          },
-                                          "featureKey": {
-                                            "type": "string",
-                                            "minLength": 1,
-                                            "maxLength": 2000
-                                          },
-                                          "residueMoleculeId": {
-                                            "type": "string",
-                                            "minLength": 1,
-                                            "maxLength": 2000
-                                          },
-                                          "context": {
-                                            "type": "object",
-                                            "properties": {
-                                              "json": {
-                                                "type": "string",
-                                                "minLength": 1,
-                                                "maxLength": 500000
-                                              },
-                                              "sha256": {
-                                                "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/measurements/items/properties/source/properties/correspondence/properties/reference/properties/sequenceSha256"
-                                              }
-                                            },
-                                            "required": ["json", "sha256"],
-                                            "additionalProperties": false
-                                          },
-                                          "molecule": {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": { "type": "string", "const": "protein" },
-                                              "sequence": {
-                                                "type": "string",
-                                                "minLength": 1,
-                                                "maxLength": 1000000
-                                              },
-                                              "identitySha256": {
-                                                "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/measurements/items/properties/source/properties/correspondence/properties/reference/properties/sequenceSha256"
-                                              }
-                                            },
-                                            "required": ["kind", "sequence", "identitySha256"],
-                                            "additionalProperties": false
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "version",
-                                          "reference",
-                                          "featureKey",
-                                          "residueMoleculeId",
-                                          "context",
-                                          "molecule"
-                                        ],
-                                        "additionalProperties": false,
-                                        "description": "Optional exact translated-CDS sequence/annotation mapping snapshot from color_variant_protein result.source.correspondence. Copy the complete returned object unchanged; it is not a calculation recipe or an artifact list. If no exact returned snapshot is available, omit this optional field; the linked inspection still validates the measurement against its current protein mapping. Retain the calculation formula, original observations, program and output as workspace artifacts instead."
-                                      }
-                                    },
-                                    "required": ["label", "analysisId", "revision"],
-                                    "additionalProperties": false
-                                  },
-                                  "units": { "type": "string", "maxLength": 80 },
-                                  "values": {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "object",
-                                      "properties": {
-                                        "residue": { "type": "integer", "exclusiveMinimum": 0 },
-                                        "value": {
-                                          "anyOf": [{ "type": "number" }, { "type": "null" }]
-                                        }
-                                      },
-                                      "required": ["residue", "value"],
-                                      "additionalProperties": false
-                                    },
-                                    "minItems": 1,
-                                    "maxItems": 5000
-                                  },
-                                  "scale": {
-                                    "type": "object",
-                                    "properties": {
-                                      "transform": {
-                                        "type": "string",
-                                        "enum": ["linear", "log10"]
-                                      },
-                                      "domain": {
-                                        "type": "array",
-                                        "items": { "type": "number" },
-                                        "minItems": 2,
-                                        "maxItems": 2,
-                                        "description": "Exactly two endpoints [minimum, maximum] in measurement units. Do not include midpoint or one entry per color."
-                                      },
-                                      "colors": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "string",
-                                          "pattern": "^#[0-9a-fA-F]{6}$"
-                                        },
-                                        "minItems": 2,
-                                        "maxItems": 20,
-                                        "description": "Palette stops spaced evenly between the two domain endpoints; a three-color diverging palette places its middle color halfway."
-                                      },
-                                      "missingColor": {
-                                        "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/measurements/items/properties/scale/properties/colors/items"
-                                      }
-                                    },
-                                    "required": ["transform", "domain", "colors", "missingColor"],
-                                    "additionalProperties": false
-                                  },
-                                  "variantEvidence": {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "type": "string",
-                                        "enum": ["vcf-allele-fraction", "vcf-log2-fraction-ratio"]
-                                      },
-                                      "referenceSha256": {
-                                        "type": "string",
-                                        "pattern": "^[0-9a-f]{64}$"
-                                      },
-                                      "proteinFeatureKey": { "type": "string", "minLength": 1 },
-                                      "filter": {
-                                        "type": "string",
-                                        "enum": ["pass", "pass-or-unfiltered", "all"]
-                                      },
-                                      "effect": {
-                                        "type": "string",
-                                        "enum": ["all", "amino-acid-changing"]
-                                      },
-                                      "aggregation": {
-                                        "type": "string",
-                                        "enum": ["maximum", "maximum-absolute"]
-                                      },
-                                      "pseudocount": { "type": "number", "exclusiveMinimum": 0 },
-                                      "sources": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "analysisId": { "type": "string", "minLength": 1 },
-                                            "name": { "type": "string" },
-                                            "sourceIdentity": { "type": "string", "minLength": 1 },
-                                            "sample": { "type": "string" },
-                                            "countBasis": { "type": "string" }
-                                          },
-                                          "required": [
-                                            "analysisId",
-                                            "name",
-                                            "sourceIdentity",
-                                            "sample",
-                                            "countBasis"
-                                          ],
-                                          "additionalProperties": false
-                                        },
-                                        "minItems": 1,
-                                        "maxItems": 2
-                                      },
-                                      "rows": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "residue": { "type": "integer", "exclusiveMinimum": 0 },
-                                            "observed": {
-                                              "anyOf": [
-                                                {
-                                                  "type": "object",
-                                                  "properties": {
-                                                    "callId": { "type": "string", "minLength": 1 },
-                                                    "dnaPosition": {
-                                                      "type": "integer",
-                                                      "exclusiveMinimum": 0
-                                                    },
-                                                    "reference": {
-                                                      "type": "string",
-                                                      "minLength": 1
-                                                    },
-                                                    "alternate": {
-                                                      "type": "string",
-                                                      "minLength": 1
-                                                    },
-                                                    "alleleIndex": {
-                                                      "type": "integer",
-                                                      "exclusiveMinimum": 0
-                                                    },
-                                                    "alternateCount": {
-                                                      "anyOf": [
-                                                        { "type": "integer", "minimum": 0 },
-                                                        { "type": "null" }
-                                                      ]
-                                                    },
-                                                    "totalAlleleCount": {
-                                                      "anyOf": [
-                                                        { "type": "integer", "minimum": 0 },
-                                                        { "type": "null" }
-                                                      ]
-                                                    },
-                                                    "filters": {
-                                                      "type": "array",
-                                                      "items": { "type": "string" }
-                                                    }
-                                                  },
-                                                  "required": [
-                                                    "callId",
-                                                    "dnaPosition",
-                                                    "reference",
-                                                    "alternate",
-                                                    "alleleIndex",
-                                                    "alternateCount",
-                                                    "totalAlleleCount",
-                                                    "filters"
-                                                  ],
-                                                  "additionalProperties": false
-                                                },
-                                                { "type": "null" }
-                                              ]
-                                            },
-                                            "baseline": {
-                                              "anyOf": [
-                                                {
-                                                  "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/measurements/items/properties/variantEvidence/properties/rows/items/properties/observed/anyOf/0"
-                                                },
-                                                { "type": "null" }
-                                              ]
-                                            }
-                                          },
-                                          "required": ["residue", "observed", "baseline"],
-                                          "additionalProperties": false
-                                        },
-                                        "minItems": 1,
-                                        "maxItems": 10000
-                                      },
-                                      "excluded": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "analysisId": { "type": "string" },
-                                            "callId": { "type": "string" },
-                                            "reason": { "type": "string" }
-                                          },
-                                          "required": ["analysisId", "callId", "reason"],
-                                          "additionalProperties": false
-                                        },
-                                        "maxItems": 10000
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "referenceSha256",
-                                      "proteinFeatureKey",
-                                      "filter",
-                                      "effect",
-                                      "aggregation",
-                                      "sources",
-                                      "rows",
-                                      "excluded"
-                                    ],
-                                    "additionalProperties": false
-                                  },
-                                  "derivation": {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": { "type": "string", "const": "log2-enrichment" },
-                                      "normalization": { "type": "string", "const": "table-total" },
-                                      "pseudocount": { "type": "number", "exclusiveMinimum": 0 },
-                                      "counts": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "residue": { "type": "integer", "exclusiveMinimum": 0 },
-                                            "before": { "type": "number", "minimum": 0 },
-                                            "after": { "type": "number", "minimum": 0 }
-                                          },
-                                          "required": ["residue", "before", "after"],
-                                          "additionalProperties": false
-                                        },
-                                        "minItems": 1,
-                                        "maxItems": 5000
-                                      }
-                                    },
-                                    "required": ["kind", "normalization", "pseudocount", "counts"],
-                                    "additionalProperties": false
-                                  }
-                                },
-                                "required": [
-                                  "id",
-                                  "name",
-                                  "proteinSequenceSha256",
-                                  "source",
-                                  "units",
-                                  "values",
-                                  "scale"
-                                ],
-                                "additionalProperties": false
+                                "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/measurements/items"
                               }
                             },
                             "activeMeasurementId": { "type": "string" }
                           },
-                          "required": [
-                            "proteinSequenceSha256",
-                            "proteinLength",
-                            "label",
-                            "residueTargets",
-                            "measurements"
-                          ],
+                          "required": ["proteinSequenceSha256", "proteinLength", "label"],
                           "additionalProperties": false
                         },
                         { "type": "null" }
@@ -35537,6 +35603,14 @@
                         "additionalProperties": false
                       }
                     },
+                    "selectionCount": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
+                        },
+                        { "type": "null" }
+                      ]
+                    },
                     "currentSelection": {
                       "type": "object",
                       "properties": {
@@ -35560,11 +35634,12 @@
                               },
                               "compId": { "type": "string" },
                               "selectedAtomCount": {
-                                "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                               },
                               "totalResidueAtomCount": {
-                                "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                               },
+                              "instanceId": { "type": "string" },
                               "baseChain": {
                                 "$ref": "#/properties/result/properties/structures/items/properties/selectedResidues/items/properties/baseChain"
                               },
@@ -35595,7 +35670,7 @@
                         "molstarElementCount": {
                           "anyOf": [
                             {
-                              "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                              "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                             },
                             { "type": "null" }
                           ]
@@ -35616,6 +35691,20 @@
                       "type": "string",
                       "enum": ["active", "inactive", "loading", "error"]
                     },
+                    "chainCount": {
+                      "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
+                    },
+                    "chainPage": {
+                      "type": "object",
+                      "properties": {
+                        "offset": { "type": "integer", "minimum": 0 },
+                        "nextOffset": {
+                          "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }]
+                        }
+                      },
+                      "required": ["offset", "nextOffset"],
+                      "additionalProperties": false
+                    },
                     "chains": {
                       "type": "array",
                       "items": {
@@ -35631,7 +35720,7 @@
                           "operator": { "type": ["string", "null"] },
                           "instanceId": { "type": ["string", "null"] },
                           "residueCount": {
-                            "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                            "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                           },
                           "residueRange": {
                             "anyOf": [
@@ -35660,7 +35749,7 @@
                             }
                           },
                           "sequenceLength": {
-                            "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                            "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                           }
                         },
                         "required": [
@@ -35680,6 +35769,9 @@
                         "additionalProperties": false
                       }
                     },
+                    "ligandCount": {
+                      "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
+                    },
                     "ligands": {
                       "type": "array",
                       "items": {
@@ -35689,7 +35781,7 @@
                           "chainId": { "type": "string" },
                           "position": { "type": "integer" },
                           "atomCount": {
-                            "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                            "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                           },
                           "coloration": {
                             "anyOf": [
@@ -35813,7 +35905,7 @@
                             "properties": {
                               "id": { "type": "string" },
                               "structureIndex": {
-                                "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                               },
                               "kind": {
                                 "type": "string",
@@ -35973,24 +36065,24 @@
                           "type": "object",
                           "properties": {
                             "total": {
-                              "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                              "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                             },
                             "attachmentCount": {
-                              "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                              "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                             },
                             "incompleteAttachmentCount": {
-                              "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                              "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                             },
                             "countsByKind": {
                               "type": "object",
                               "additionalProperties": {
-                                "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                               }
                             },
                             "countsByStatus": {
                               "type": "object",
                               "additionalProperties": {
-                                "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                               }
                             },
                             "page": {
@@ -36022,21 +36114,21 @@
                                   "additionalProperties": false
                                 },
                                 "offset": {
-                                  "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                  "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                                 },
                                 "limit": {
-                                  "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                  "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                                 },
                                 "matched": {
-                                  "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                  "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                                 },
                                 "returned": {
-                                  "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                  "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                                 },
                                 "nextOffset": {
                                   "anyOf": [
                                     {
-                                      "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                      "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                                     },
                                     { "type": "null" }
                                   ]
@@ -36090,7 +36182,7 @@
                                 "properties": {
                                   "label": { "type": ["string", "null"] },
                                   "elementCount": {
-                                    "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                    "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                                   },
                                   "representations": {
                                     "type": "array",
@@ -36367,29 +36459,7 @@
                     },
                     "stateError": { "type": "string" }
                   },
-                  "required": [
-                    "comparison",
-                    "registrationId",
-                    "structureId",
-                    "structureViewId",
-                    "bindingId",
-                    "viewerId",
-                    "label",
-                    "source",
-                    "sourceId",
-                    "coordinateArtifact",
-                    "proteinMapping",
-                    "sceneFormat",
-                    "representation",
-                    "colorMode",
-                    "sideChains",
-                    "selectedResidues",
-                    "currentSelection",
-                    "viewerStatus",
-                    "chains",
-                    "ligands",
-                    "camera"
-                  ],
+                  "required": ["structureViewId", "label", "viewerStatus"],
                   "additionalProperties": false
                 }
               }
@@ -36406,14 +36476,13 @@
       "required_capabilities": ["read-workspace"],
       "audit_required": true,
       "requiresWorkspace": false,
-      "emptyInputReason": "mol_list_structures intentionally snapshots the registered Mol* viewer store.",
       "workspaceGrounding": "always",
       "mcpAnnotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true },
       "exposure": { "kind": "shared" }
     },
     {
       "name": "mol_get_state",
-      "description": "Read structure viewer state, active render profile, and molecular connections with endpoint identities, source provenance and depiction coverage. Optionally filter by one logical structureViewId, bindingId, or legacy viewerId.",
+      "description": "Read live structure status, camera, representation and inventory counts. Use chainPage:{offset,limit} on one exact view for chain identities and follow chainPage.nextOffset. Use connectionQuery for connection evidence or detail:\"full\" for native appearance, selected residues and the complete inventory. Prefer structureViewId or bindingId; legacy viewerId must resolve uniquely.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -36454,6 +36523,24 @@
             "type": "string",
             "minLength": 1,
             "description": "Legacy alternative target ID. Omit when using structureViewId or bindingId."
+          },
+          "detail": {
+            "type": "string",
+            "enum": ["summary", "full"],
+            "description": "Summary by default. Request full for the previous detailed response."
+          },
+          "chainPage": {
+            "type": "object",
+            "properties": {
+              "offset": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "limit": { "type": "integer", "minimum": 1, "maximum": 64 }
+            },
+            "additionalProperties": false,
+            "description": "Read a page of exact chain identities. Defaults to offset 0 and 16 chains."
           },
           "connectionQuery": {
             "type": "object",
@@ -36677,6 +36764,362 @@
                         { "type": "null" }
                       ]
                     },
+                    "inactiveReason": { "type": "string" },
+                    "reactivation": {
+                      "type": "object",
+                      "properties": {
+                        "tool": { "type": "string", "const": "mol_activate_view" },
+                        "structureViewId": { "type": "string" }
+                      },
+                      "required": ["tool", "structureViewId"],
+                      "additionalProperties": false
+                    },
+                    "savedViewReferenceId": { "type": ["string", "null"] },
+                    "retainedProtein": {
+                      "type": "object",
+                      "properties": {
+                        "proteinSequenceSha256": { "type": "string" },
+                        "proteinLength": { "type": "integer", "minimum": 0 },
+                        "candidateId": { "type": ["string", "null"] },
+                        "measurements": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+                              "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+                              "proteinSequenceSha256": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                              },
+                              "source": {
+                                "type": "object",
+                                "properties": {
+                                  "label": { "type": "string", "minLength": 1, "maxLength": 500 },
+                                  "analysisId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500
+                                  },
+                                  "revision": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500
+                                  },
+                                  "correspondence": {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": { "type": "string", "const": "translated-cds" },
+                                      "version": { "type": "number", "const": 1 },
+                                      "reference": {
+                                        "type": "object",
+                                        "properties": {
+                                          "documentId": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 2000
+                                          },
+                                          "sequenceSha256": {
+                                            "type": "string",
+                                            "pattern": "^[0-9a-f]{64}$"
+                                          },
+                                          "length": { "type": "integer", "exclusiveMinimum": 0 },
+                                          "circular": { "type": "boolean" }
+                                        },
+                                        "required": [
+                                          "documentId",
+                                          "sequenceSha256",
+                                          "length",
+                                          "circular"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "featureKey": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 2000
+                                      },
+                                      "residueMoleculeId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 2000
+                                      },
+                                      "context": {
+                                        "type": "object",
+                                        "properties": {
+                                          "json": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 500000
+                                          },
+                                          "sha256": {
+                                            "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/measurements/items/properties/source/properties/correspondence/properties/reference/properties/sequenceSha256"
+                                          }
+                                        },
+                                        "required": ["json", "sha256"],
+                                        "additionalProperties": false
+                                      },
+                                      "molecule": {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": { "type": "string", "const": "protein" },
+                                          "sequence": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 1000000
+                                          },
+                                          "identitySha256": {
+                                            "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/measurements/items/properties/source/properties/correspondence/properties/reference/properties/sequenceSha256"
+                                          }
+                                        },
+                                        "required": ["kind", "sequence", "identitySha256"],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "version",
+                                      "reference",
+                                      "featureKey",
+                                      "residueMoleculeId",
+                                      "context",
+                                      "molecule"
+                                    ],
+                                    "additionalProperties": false,
+                                    "description": "Optional exact translated-CDS sequence/annotation mapping snapshot from color_variant_protein result.source.correspondence. Copy the complete returned object unchanged; it is not a calculation recipe or an artifact list. If no exact returned snapshot is available, omit this optional field; the linked inspection still validates the measurement against its current protein mapping. Retain the calculation formula, original observations, program and output as workspace artifacts instead."
+                                  }
+                                },
+                                "required": ["label", "analysisId", "revision"],
+                                "additionalProperties": false
+                              },
+                              "units": { "type": "string", "maxLength": 80 },
+                              "values": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "residue": { "type": "integer", "exclusiveMinimum": 0 },
+                                    "value": { "anyOf": [{ "type": "number" }, { "type": "null" }] }
+                                  },
+                                  "required": ["residue", "value"],
+                                  "additionalProperties": false
+                                },
+                                "minItems": 1,
+                                "maxItems": 5000
+                              },
+                              "scale": {
+                                "type": "object",
+                                "properties": {
+                                  "transform": { "type": "string", "enum": ["linear", "log10"] },
+                                  "domain": {
+                                    "type": "array",
+                                    "items": { "type": "number" },
+                                    "minItems": 2,
+                                    "maxItems": 2,
+                                    "description": "Exactly two endpoints [minimum, maximum] in measurement units. Do not include midpoint or one entry per color."
+                                  },
+                                  "colors": {
+                                    "type": "array",
+                                    "items": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+                                    "minItems": 2,
+                                    "maxItems": 20,
+                                    "description": "Palette stops spaced evenly between the two domain endpoints; a three-color diverging palette places its middle color halfway."
+                                  },
+                                  "missingColor": {
+                                    "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/measurements/items/properties/scale/properties/colors/items"
+                                  }
+                                },
+                                "required": ["transform", "domain", "colors", "missingColor"],
+                                "additionalProperties": false
+                              },
+                              "variantEvidence": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": ["vcf-allele-fraction", "vcf-log2-fraction-ratio"]
+                                  },
+                                  "referenceSha256": {
+                                    "type": "string",
+                                    "pattern": "^[0-9a-f]{64}$"
+                                  },
+                                  "proteinFeatureKey": { "type": "string", "minLength": 1 },
+                                  "filter": {
+                                    "type": "string",
+                                    "enum": ["pass", "pass-or-unfiltered", "all"]
+                                  },
+                                  "effect": {
+                                    "type": "string",
+                                    "enum": ["all", "amino-acid-changing"]
+                                  },
+                                  "aggregation": {
+                                    "type": "string",
+                                    "enum": ["maximum", "maximum-absolute"]
+                                  },
+                                  "pseudocount": { "type": "number", "exclusiveMinimum": 0 },
+                                  "sources": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "analysisId": { "type": "string", "minLength": 1 },
+                                        "name": { "type": "string" },
+                                        "sourceIdentity": { "type": "string", "minLength": 1 },
+                                        "sample": { "type": "string" },
+                                        "countBasis": { "type": "string" }
+                                      },
+                                      "required": [
+                                        "analysisId",
+                                        "name",
+                                        "sourceIdentity",
+                                        "sample",
+                                        "countBasis"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "minItems": 1,
+                                    "maxItems": 2
+                                  },
+                                  "rows": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "residue": { "type": "integer", "exclusiveMinimum": 0 },
+                                        "observed": {
+                                          "anyOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "callId": { "type": "string", "minLength": 1 },
+                                                "dnaPosition": {
+                                                  "type": "integer",
+                                                  "exclusiveMinimum": 0
+                                                },
+                                                "reference": { "type": "string", "minLength": 1 },
+                                                "alternate": { "type": "string", "minLength": 1 },
+                                                "alleleIndex": {
+                                                  "type": "integer",
+                                                  "exclusiveMinimum": 0
+                                                },
+                                                "alternateCount": {
+                                                  "anyOf": [
+                                                    { "type": "integer", "minimum": 0 },
+                                                    { "type": "null" }
+                                                  ]
+                                                },
+                                                "totalAlleleCount": {
+                                                  "anyOf": [
+                                                    { "type": "integer", "minimum": 0 },
+                                                    { "type": "null" }
+                                                  ]
+                                                },
+                                                "filters": {
+                                                  "type": "array",
+                                                  "items": { "type": "string" }
+                                                }
+                                              },
+                                              "required": [
+                                                "callId",
+                                                "dnaPosition",
+                                                "reference",
+                                                "alternate",
+                                                "alleleIndex",
+                                                "alternateCount",
+                                                "totalAlleleCount",
+                                                "filters"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            { "type": "null" }
+                                          ]
+                                        },
+                                        "baseline": {
+                                          "anyOf": [
+                                            {
+                                              "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/measurements/items/properties/variantEvidence/properties/rows/items/properties/observed/anyOf/0"
+                                            },
+                                            { "type": "null" }
+                                          ]
+                                        }
+                                      },
+                                      "required": ["residue", "observed", "baseline"],
+                                      "additionalProperties": false
+                                    },
+                                    "minItems": 1,
+                                    "maxItems": 10000
+                                  },
+                                  "excluded": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "analysisId": { "type": "string" },
+                                        "callId": { "type": "string" },
+                                        "reason": { "type": "string" }
+                                      },
+                                      "required": ["analysisId", "callId", "reason"],
+                                      "additionalProperties": false
+                                    },
+                                    "maxItems": 10000
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "referenceSha256",
+                                  "proteinFeatureKey",
+                                  "filter",
+                                  "effect",
+                                  "aggregation",
+                                  "sources",
+                                  "rows",
+                                  "excluded"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "derivation": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "const": "log2-enrichment" },
+                                  "normalization": { "type": "string", "const": "table-total" },
+                                  "pseudocount": { "type": "number", "exclusiveMinimum": 0 },
+                                  "counts": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "residue": { "type": "integer", "exclusiveMinimum": 0 },
+                                        "before": { "type": "number", "minimum": 0 },
+                                        "after": { "type": "number", "minimum": 0 }
+                                      },
+                                      "required": ["residue", "before", "after"],
+                                      "additionalProperties": false
+                                    },
+                                    "minItems": 1,
+                                    "maxItems": 5000
+                                  }
+                                },
+                                "required": ["kind", "normalization", "pseudocount", "counts"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "proteinSequenceSha256",
+                              "source",
+                              "units",
+                              "values",
+                              "scale"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "activeMeasurementId": { "type": "string" }
+                      },
+                      "required": ["proteinSequenceSha256", "proteinLength", "measurements"],
+                      "additionalProperties": false
+                    },
                     "sourceId": { "type": ["string", "null"] },
                     "coordinateArtifact": {
                       "anyOf": [
@@ -36705,7 +37148,9 @@
                           "type": "object",
                           "properties": {
                             "proteinSequenceSha256": { "type": "string" },
-                            "proteinLength": { "type": "integer", "minimum": 0 },
+                            "proteinLength": {
+                              "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
+                            },
                             "label": { "type": "string" },
                             "residueTargets": {
                               "type": "array",
@@ -36740,367 +37185,12 @@
                             "measurements": {
                               "type": "array",
                               "items": {
-                                "type": "object",
-                                "properties": {
-                                  "id": { "type": "string", "minLength": 1, "maxLength": 200 },
-                                  "name": { "type": "string", "minLength": 1, "maxLength": 200 },
-                                  "proteinSequenceSha256": {
-                                    "type": "string",
-                                    "pattern": "^[0-9a-f]{64}$"
-                                  },
-                                  "source": {
-                                    "type": "object",
-                                    "properties": {
-                                      "label": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 500
-                                      },
-                                      "analysisId": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 500
-                                      },
-                                      "revision": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 500
-                                      },
-                                      "correspondence": {
-                                        "type": "object",
-                                        "properties": {
-                                          "kind": { "type": "string", "const": "translated-cds" },
-                                          "version": { "type": "number", "const": 1 },
-                                          "reference": {
-                                            "type": "object",
-                                            "properties": {
-                                              "documentId": {
-                                                "type": "string",
-                                                "minLength": 1,
-                                                "maxLength": 2000
-                                              },
-                                              "sequenceSha256": {
-                                                "type": "string",
-                                                "pattern": "^[0-9a-f]{64}$"
-                                              },
-                                              "length": {
-                                                "type": "integer",
-                                                "exclusiveMinimum": 0
-                                              },
-                                              "circular": { "type": "boolean" }
-                                            },
-                                            "required": [
-                                              "documentId",
-                                              "sequenceSha256",
-                                              "length",
-                                              "circular"
-                                            ],
-                                            "additionalProperties": false
-                                          },
-                                          "featureKey": {
-                                            "type": "string",
-                                            "minLength": 1,
-                                            "maxLength": 2000
-                                          },
-                                          "residueMoleculeId": {
-                                            "type": "string",
-                                            "minLength": 1,
-                                            "maxLength": 2000
-                                          },
-                                          "context": {
-                                            "type": "object",
-                                            "properties": {
-                                              "json": {
-                                                "type": "string",
-                                                "minLength": 1,
-                                                "maxLength": 500000
-                                              },
-                                              "sha256": {
-                                                "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/measurements/items/properties/source/properties/correspondence/properties/reference/properties/sequenceSha256"
-                                              }
-                                            },
-                                            "required": ["json", "sha256"],
-                                            "additionalProperties": false
-                                          },
-                                          "molecule": {
-                                            "type": "object",
-                                            "properties": {
-                                              "kind": { "type": "string", "const": "protein" },
-                                              "sequence": {
-                                                "type": "string",
-                                                "minLength": 1,
-                                                "maxLength": 1000000
-                                              },
-                                              "identitySha256": {
-                                                "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/measurements/items/properties/source/properties/correspondence/properties/reference/properties/sequenceSha256"
-                                              }
-                                            },
-                                            "required": ["kind", "sequence", "identitySha256"],
-                                            "additionalProperties": false
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "version",
-                                          "reference",
-                                          "featureKey",
-                                          "residueMoleculeId",
-                                          "context",
-                                          "molecule"
-                                        ],
-                                        "additionalProperties": false,
-                                        "description": "Optional exact translated-CDS sequence/annotation mapping snapshot from color_variant_protein result.source.correspondence. Copy the complete returned object unchanged; it is not a calculation recipe or an artifact list. If no exact returned snapshot is available, omit this optional field; the linked inspection still validates the measurement against its current protein mapping. Retain the calculation formula, original observations, program and output as workspace artifacts instead."
-                                      }
-                                    },
-                                    "required": ["label", "analysisId", "revision"],
-                                    "additionalProperties": false
-                                  },
-                                  "units": { "type": "string", "maxLength": 80 },
-                                  "values": {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "object",
-                                      "properties": {
-                                        "residue": { "type": "integer", "exclusiveMinimum": 0 },
-                                        "value": {
-                                          "anyOf": [{ "type": "number" }, { "type": "null" }]
-                                        }
-                                      },
-                                      "required": ["residue", "value"],
-                                      "additionalProperties": false
-                                    },
-                                    "minItems": 1,
-                                    "maxItems": 5000
-                                  },
-                                  "scale": {
-                                    "type": "object",
-                                    "properties": {
-                                      "transform": {
-                                        "type": "string",
-                                        "enum": ["linear", "log10"]
-                                      },
-                                      "domain": {
-                                        "type": "array",
-                                        "items": { "type": "number" },
-                                        "minItems": 2,
-                                        "maxItems": 2,
-                                        "description": "Exactly two endpoints [minimum, maximum] in measurement units. Do not include midpoint or one entry per color."
-                                      },
-                                      "colors": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "string",
-                                          "pattern": "^#[0-9a-fA-F]{6}$"
-                                        },
-                                        "minItems": 2,
-                                        "maxItems": 20,
-                                        "description": "Palette stops spaced evenly between the two domain endpoints; a three-color diverging palette places its middle color halfway."
-                                      },
-                                      "missingColor": {
-                                        "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/measurements/items/properties/scale/properties/colors/items"
-                                      }
-                                    },
-                                    "required": ["transform", "domain", "colors", "missingColor"],
-                                    "additionalProperties": false
-                                  },
-                                  "variantEvidence": {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "type": "string",
-                                        "enum": ["vcf-allele-fraction", "vcf-log2-fraction-ratio"]
-                                      },
-                                      "referenceSha256": {
-                                        "type": "string",
-                                        "pattern": "^[0-9a-f]{64}$"
-                                      },
-                                      "proteinFeatureKey": { "type": "string", "minLength": 1 },
-                                      "filter": {
-                                        "type": "string",
-                                        "enum": ["pass", "pass-or-unfiltered", "all"]
-                                      },
-                                      "effect": {
-                                        "type": "string",
-                                        "enum": ["all", "amino-acid-changing"]
-                                      },
-                                      "aggregation": {
-                                        "type": "string",
-                                        "enum": ["maximum", "maximum-absolute"]
-                                      },
-                                      "pseudocount": { "type": "number", "exclusiveMinimum": 0 },
-                                      "sources": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "analysisId": { "type": "string", "minLength": 1 },
-                                            "name": { "type": "string" },
-                                            "sourceIdentity": { "type": "string", "minLength": 1 },
-                                            "sample": { "type": "string" },
-                                            "countBasis": { "type": "string" }
-                                          },
-                                          "required": [
-                                            "analysisId",
-                                            "name",
-                                            "sourceIdentity",
-                                            "sample",
-                                            "countBasis"
-                                          ],
-                                          "additionalProperties": false
-                                        },
-                                        "minItems": 1,
-                                        "maxItems": 2
-                                      },
-                                      "rows": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "residue": { "type": "integer", "exclusiveMinimum": 0 },
-                                            "observed": {
-                                              "anyOf": [
-                                                {
-                                                  "type": "object",
-                                                  "properties": {
-                                                    "callId": { "type": "string", "minLength": 1 },
-                                                    "dnaPosition": {
-                                                      "type": "integer",
-                                                      "exclusiveMinimum": 0
-                                                    },
-                                                    "reference": {
-                                                      "type": "string",
-                                                      "minLength": 1
-                                                    },
-                                                    "alternate": {
-                                                      "type": "string",
-                                                      "minLength": 1
-                                                    },
-                                                    "alleleIndex": {
-                                                      "type": "integer",
-                                                      "exclusiveMinimum": 0
-                                                    },
-                                                    "alternateCount": {
-                                                      "anyOf": [
-                                                        { "type": "integer", "minimum": 0 },
-                                                        { "type": "null" }
-                                                      ]
-                                                    },
-                                                    "totalAlleleCount": {
-                                                      "anyOf": [
-                                                        { "type": "integer", "minimum": 0 },
-                                                        { "type": "null" }
-                                                      ]
-                                                    },
-                                                    "filters": {
-                                                      "type": "array",
-                                                      "items": { "type": "string" }
-                                                    }
-                                                  },
-                                                  "required": [
-                                                    "callId",
-                                                    "dnaPosition",
-                                                    "reference",
-                                                    "alternate",
-                                                    "alleleIndex",
-                                                    "alternateCount",
-                                                    "totalAlleleCount",
-                                                    "filters"
-                                                  ],
-                                                  "additionalProperties": false
-                                                },
-                                                { "type": "null" }
-                                              ]
-                                            },
-                                            "baseline": {
-                                              "anyOf": [
-                                                {
-                                                  "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/measurements/items/properties/variantEvidence/properties/rows/items/properties/observed/anyOf/0"
-                                                },
-                                                { "type": "null" }
-                                              ]
-                                            }
-                                          },
-                                          "required": ["residue", "observed", "baseline"],
-                                          "additionalProperties": false
-                                        },
-                                        "minItems": 1,
-                                        "maxItems": 10000
-                                      },
-                                      "excluded": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "analysisId": { "type": "string" },
-                                            "callId": { "type": "string" },
-                                            "reason": { "type": "string" }
-                                          },
-                                          "required": ["analysisId", "callId", "reason"],
-                                          "additionalProperties": false
-                                        },
-                                        "maxItems": 10000
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "referenceSha256",
-                                      "proteinFeatureKey",
-                                      "filter",
-                                      "effect",
-                                      "aggregation",
-                                      "sources",
-                                      "rows",
-                                      "excluded"
-                                    ],
-                                    "additionalProperties": false
-                                  },
-                                  "derivation": {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": { "type": "string", "const": "log2-enrichment" },
-                                      "normalization": { "type": "string", "const": "table-total" },
-                                      "pseudocount": { "type": "number", "exclusiveMinimum": 0 },
-                                      "counts": {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "object",
-                                          "properties": {
-                                            "residue": { "type": "integer", "exclusiveMinimum": 0 },
-                                            "before": { "type": "number", "minimum": 0 },
-                                            "after": { "type": "number", "minimum": 0 }
-                                          },
-                                          "required": ["residue", "before", "after"],
-                                          "additionalProperties": false
-                                        },
-                                        "minItems": 1,
-                                        "maxItems": 5000
-                                      }
-                                    },
-                                    "required": ["kind", "normalization", "pseudocount", "counts"],
-                                    "additionalProperties": false
-                                  }
-                                },
-                                "required": [
-                                  "id",
-                                  "name",
-                                  "proteinSequenceSha256",
-                                  "source",
-                                  "units",
-                                  "values",
-                                  "scale"
-                                ],
-                                "additionalProperties": false
+                                "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/measurements/items"
                               }
                             },
                             "activeMeasurementId": { "type": "string" }
                           },
-                          "required": [
-                            "proteinSequenceSha256",
-                            "proteinLength",
-                            "label",
-                            "residueTargets",
-                            "measurements"
-                          ],
+                          "required": ["proteinSequenceSha256", "proteinLength", "label"],
                           "additionalProperties": false
                         },
                         { "type": "null" }
@@ -37138,6 +37228,14 @@
                         "additionalProperties": false
                       }
                     },
+                    "selectionCount": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
+                        },
+                        { "type": "null" }
+                      ]
+                    },
                     "currentSelection": {
                       "type": "object",
                       "properties": {
@@ -37161,11 +37259,12 @@
                               },
                               "compId": { "type": "string" },
                               "selectedAtomCount": {
-                                "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                               },
                               "totalResidueAtomCount": {
-                                "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                               },
+                              "instanceId": { "type": "string" },
                               "baseChain": {
                                 "$ref": "#/properties/result/properties/structures/items/properties/selectedResidues/items/properties/baseChain"
                               },
@@ -37196,7 +37295,7 @@
                         "molstarElementCount": {
                           "anyOf": [
                             {
-                              "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                              "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                             },
                             { "type": "null" }
                           ]
@@ -37217,6 +37316,20 @@
                       "type": "string",
                       "enum": ["active", "inactive", "loading", "error"]
                     },
+                    "chainCount": {
+                      "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
+                    },
+                    "chainPage": {
+                      "type": "object",
+                      "properties": {
+                        "offset": { "type": "integer", "minimum": 0 },
+                        "nextOffset": {
+                          "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }]
+                        }
+                      },
+                      "required": ["offset", "nextOffset"],
+                      "additionalProperties": false
+                    },
                     "chains": {
                       "type": "array",
                       "items": {
@@ -37232,7 +37345,7 @@
                           "operator": { "type": ["string", "null"] },
                           "instanceId": { "type": ["string", "null"] },
                           "residueCount": {
-                            "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                            "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                           },
                           "residueRange": {
                             "anyOf": [
@@ -37261,7 +37374,7 @@
                             }
                           },
                           "sequenceLength": {
-                            "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                            "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                           }
                         },
                         "required": [
@@ -37281,6 +37394,9 @@
                         "additionalProperties": false
                       }
                     },
+                    "ligandCount": {
+                      "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
+                    },
                     "ligands": {
                       "type": "array",
                       "items": {
@@ -37290,7 +37406,7 @@
                           "chainId": { "type": "string" },
                           "position": { "type": "integer" },
                           "atomCount": {
-                            "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                            "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                           },
                           "coloration": {
                             "anyOf": [
@@ -37414,7 +37530,7 @@
                             "properties": {
                               "id": { "type": "string" },
                               "structureIndex": {
-                                "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                               },
                               "kind": {
                                 "type": "string",
@@ -37574,24 +37690,24 @@
                           "type": "object",
                           "properties": {
                             "total": {
-                              "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                              "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                             },
                             "attachmentCount": {
-                              "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                              "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                             },
                             "incompleteAttachmentCount": {
-                              "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                              "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                             },
                             "countsByKind": {
                               "type": "object",
                               "additionalProperties": {
-                                "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                               }
                             },
                             "countsByStatus": {
                               "type": "object",
                               "additionalProperties": {
-                                "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                               }
                             },
                             "page": {
@@ -37623,21 +37739,21 @@
                                   "additionalProperties": false
                                 },
                                 "offset": {
-                                  "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                  "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                                 },
                                 "limit": {
-                                  "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                  "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                                 },
                                 "matched": {
-                                  "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                  "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                                 },
                                 "returned": {
-                                  "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                  "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                                 },
                                 "nextOffset": {
                                   "anyOf": [
                                     {
-                                      "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                      "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                                     },
                                     { "type": "null" }
                                   ]
@@ -37691,7 +37807,7 @@
                                 "properties": {
                                   "label": { "type": ["string", "null"] },
                                   "elementCount": {
-                                    "$ref": "#/properties/result/properties/structures/items/properties/proteinMapping/anyOf/0/properties/proteinLength"
+                                    "$ref": "#/properties/result/properties/structures/items/properties/retainedProtein/properties/proteinLength"
                                   },
                                   "representations": {
                                     "type": "array",
@@ -37968,29 +38084,7 @@
                     },
                     "stateError": { "type": "string" }
                   },
-                  "required": [
-                    "comparison",
-                    "registrationId",
-                    "structureId",
-                    "structureViewId",
-                    "bindingId",
-                    "viewerId",
-                    "label",
-                    "source",
-                    "sourceId",
-                    "coordinateArtifact",
-                    "proteinMapping",
-                    "sceneFormat",
-                    "representation",
-                    "colorMode",
-                    "sideChains",
-                    "selectedResidues",
-                    "currentSelection",
-                    "viewerStatus",
-                    "chains",
-                    "ligands",
-                    "camera"
-                  ],
+                  "required": ["structureViewId", "label", "viewerStatus"],
                   "additionalProperties": false
                 }
               }
@@ -38013,7 +38107,7 @@
     },
     {
       "name": "mol_get_scene",
-      "description": "Address a documentReference or one exact runtime target. Set includeParameterSchema:true to discover supported parameter paths, values, defaults, types and constraints from the installed official schema; parameterOffset and parameterLimit page the result. The returned sceneSha256 fences atomic mol_apply_scene parameterEdits. Read the standard MolViewSpec scene or story for one exact structure view, its pinned coordinate resources, active render profile, supported native controls, and complete camera/component appearance. Set includeColorGroupSelections:true for declared group color and focus role plus exact namedColorGroupSelections and bounded frontmostAtSampledCenters picking information; interpret its featureExposureNotes and inspect the image rather than treating picking counts as proof of readability. A surface or cartoon owner pick does not prove that required atoms are depicted or legible. Use exact membership and depiction readback together with the final screenshot to distinguish missing geometry from camera obstruction; neither a group label nor a picking threshold certifies exposure. It reports the exact residue copies selected by each clickable color group in the active scene, so ligand labels can be checked against the camera and contact evidence. Includes a bounded, attachment-first page of recorded connection depiction coverage, with complete counts and nextOffset. Use connectionQuery to filter or continue; the scene document remains complete. Before first application, returns a marked starter rather than an export of the legacy recipe. Resolve structureViewId with mol_list_structures and preserve each used resource URI and parse format in its snapshot.",
+      "description": "Inspect one exact structure view or documentReference. Returns sceneSha256, activeIndex, perspective titles and pinned resources. Set includeScene:true to export the complete MolViewSpec JSON, or detail:\"full\" for the scene, renderProfileGuidance, full native appearance and scientificReviewInventory. Before first application the export is a proposed starter. Set includeParameterSchema:true for editable paths and use parameterNodeKind (such as \"camera\"), parameterSnapshotIndex, parameterOffset and parameterLimit to narrow discovery. Use sceneSha256 to fence mol_apply_scene. Request connectionQuery for a bounded page of connection depiction evidence. Set includeColorGroupSelections:true for exact selected residue copies and bounded frontmostAtSampledCenters picking information about clickable color groups. Inspect the resulting image to verify readability. Preserve each pinned resource URI and parse format when editing its scene.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -38055,12 +38149,32 @@
             "minLength": 1,
             "description": "Legacy alternative target ID. Omit when using structureViewId or bindingId."
           },
+          "detail": {
+            "type": "string",
+            "enum": ["summary", "full"],
+            "description": "Summary by default. Request full for the previous detailed response."
+          },
+          "includeScene": {
+            "type": "boolean",
+            "description": "Export the complete MolViewSpec JSON in scene without the full native readback."
+          },
           "includeParameterSchema": {
             "type": "boolean",
             "description": "Return revision-fenced paths, current values, defaults, types and constraints from the installed official MolViewSpec parameter schema."
           },
           "parameterOffset": { "type": "integer", "minimum": 0 },
           "parameterLimit": { "type": "integer", "minimum": 1, "maximum": 256 },
+          "parameterNodeKind": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Filter parameter discovery by exact node kind, such as camera."
+          },
+          "parameterSnapshotIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Filter parameter discovery to one zero-based perspective. Use 0 for a single-view scene."
+          },
           "includeColorGroupSelections": {
             "type": "boolean",
             "description": "Set true to resolve each clickable color group to its exact selected residues in the active scene; use this before saving a ligand close-up. The readback does not alter the current selection."
@@ -38990,6 +39104,7 @@
                           "totalResidueAtomCount": {
                             "$ref": "#/properties/result/properties/story/properties/activeIndex"
                           },
+                          "instanceId": { "type": "string" },
                           "baseChain": { "type": "string" },
                           "labelAsymId": { "type": "string" },
                           "authAsymId": { "type": "string" },
@@ -39154,6 +39269,22 @@
                   }
                 ],
                 "description": "Storage limits before authoring. The finished scene and preview also count toward the document limit."
+              },
+              "sceneSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "activeIndex": {
+                "$ref": "#/properties/result/properties/story/properties/activeIndex"
+              },
+              "viewCount": {
+                "$ref": "#/properties/result/properties/story/properties/activeIndex"
+              },
+              "molecularConnections": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/properties/result/properties/native/properties/molecularConnections/items"
+                }
+              },
+              "molecularConnectionSummary": {
+                "$ref": "#/properties/result/properties/native/properties/molecularConnectionSummary"
               }
             },
             "required": [
@@ -39162,14 +39293,9 @@
               "documentOwner",
               "format",
               "sceneOrigin",
-              "scene",
               "renderProfile",
-              "renderProfileGuidance",
               "resource",
-              "supportedMajorVersion",
-              "limitations",
-              "guidance",
-              "native"
+              "supportedMajorVersion"
             ],
             "additionalProperties": false
           }
@@ -40533,7 +40659,7 @@
     },
     {
       "name": "mol_structures",
-      "description": "Register, find and open reusable structures across all documents and workspaces. register takes workspaceRoot, filePath (PDB/mmCIF/BinaryCIF), optional full typed molecules, and source:{kind:\"import\",uri?} or source:{kind:\"prediction\",jobRecordId}. Predictions are verified against the native compute run and actual provider output; do not relabel imported coordinates as a prediction. list takes optional molecule:{kind:\"protein\"|\"rna\"|\"dna\",sequence:fullEncodedSequence}, requestHash for the complete client request, and providerRequestHash for the actual reported normalized inputs/model/version. Missing request evidence cannot match these hashes; undocumented defaults stay unknown; returns distinct import/run observations, original source chains/models, exact/partial/homolog relationships and coordinate coverage. mapping takes observationId, chainKey from list and optional molecule; returns the original chain inventory, immutable source/run provenance and persisted molecule-to-residue mappings without coordinate bytes. Sequence positions are one-based, observedResidueIndex is zero-based in chain.observedResidues, and labelSequenceId/authorSequenceId/insertionCode identify physical residues for mol_data selectors. Missing geometry has no mapping entry. Modified residues retain their actual chemistry while matching known encoded parents. open takes observationId and optional chainKey from list. Add documentId to attach a chosen text coordinate chain to an already-open mutation inspection. It opens stored original coordinates without rerunning or contacting a provider. Use mol_list_structures, mol_get_scene and mol_data to apply arbitrary signals and save visual variations. Ambiguous/incomplete sequences cannot assert exact identity.",
+      "description": "Register, find and open reusable structures across all documents and workspaces. register takes workspaceRoot, filePath (PDB/mmCIF/BinaryCIF), optional full typed molecules, and source:{kind:\"import\",uri?} or source:{kind:\"prediction\",jobRecordId}. Predictions are verified against the native compute run and actual provider output; do not relabel imported coordinates as a prediction. register and list return observation identities and chainCount by default. Use list with observationId and chainPage:{offset,limit} to read exact chains, then pass chainPage.nextOffset as the next offset. Keep the same filters between pages. Use detail:\"full\" for the complete observation and chain list. list takes optional molecule:{kind:\"protein\"|\"rna\"|\"dna\",sequence:fullEncodedSequence}, requestHash for the complete client request, and providerRequestHash for the actual reported normalized inputs/model/version. Missing request evidence cannot match these hashes; undocumented defaults stay unknown. mapping takes observationId, chainKey from list and optional molecule; returns the original chain inventory, immutable source/run provenance and persisted molecule-to-residue mappings without coordinate bytes. Sequence positions are one-based, observedResidueIndex is zero-based in chain.observedResidues, and labelSequenceId/authorSequenceId/insertionCode identify physical residues for mol_data selectors. Missing geometry has no mapping entry. Modified residues retain their actual chemistry while matching known encoded parents. open takes observationId and optional chainKey from list. Add documentId to attach a chosen text coordinate chain to an already-open mutation inspection. It opens stored original coordinates without rerunning or contacting a provider. Use mol_list_structures, mol_get_scene and mol_data to apply arbitrary signals and save visual variations. Ambiguous/incomplete sequences cannot assert exact identity.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -40578,6 +40704,7 @@
             },
             "maxItems": 100
           },
+          "observationId": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
           "molecule": {
             "type": "object",
             "properties": {
@@ -40591,8 +40718,25 @@
           "requestHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
           "providerRequestHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
           "limit": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 },
+          "detail": {
+            "type": "string",
+            "enum": ["summary", "full"],
+            "description": "Summary by default. Request full for the previous detailed response."
+          },
+          "chainPage": {
+            "type": "object",
+            "properties": {
+              "offset": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "limit": { "type": "integer", "minimum": 1, "maximum": 64 }
+            },
+            "additionalProperties": false,
+            "description": "Read a page of exact chain identities. Defaults to offset 0 and 16 chains."
+          },
           "operation": { "type": "string", "enum": ["register", "list", "mapping", "open"] },
-          "observationId": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
           "chainKey": { "type": "string", "minLength": 1, "maxLength": 4096 },
           "documentId": { "type": "string" }
         },
@@ -40716,10 +40860,20 @@
                           "sourceKind",
                           "origin",
                           "run",
-                          "metrics",
-                          "provenance",
                           "createdAt"
                         ],
+                        "additionalProperties": false
+                      },
+                      "chainCount": { "type": "integer", "minimum": 0 },
+                      "chainPage": {
+                        "type": "object",
+                        "properties": {
+                          "offset": { "type": "integer", "minimum": 0 },
+                          "nextOffset": {
+                            "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }]
+                          }
+                        },
+                        "required": ["offset", "nextOffset"],
                         "additionalProperties": false
                       },
                       "chains": {
@@ -40728,9 +40882,11 @@
                           "type": "object",
                           "properties": {
                             "key": { "type": "string" },
-                            "blockIndex": { "type": "integer", "minimum": 0 },
+                            "blockIndex": {
+                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
+                            },
                             "modelIndex": {
-                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/blockIndex"
+                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
                             },
                             "modelNumber": { "type": "integer" },
                             "labelAsymId": { "type": "string" },
@@ -40745,13 +40901,13 @@
                               "enum": ["declared", "observed-only", "unresolved", "non-polymer"]
                             },
                             "sequenceLength": {
-                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/blockIndex"
+                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
                             },
                             "observedResidueCount": {
-                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/blockIndex"
+                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
                             },
                             "unresolvedCount": {
-                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/blockIndex"
+                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
                             },
                             "relationship": {
                               "anyOf": [
@@ -40763,13 +40919,13 @@
                               ]
                             },
                             "mappedCount": {
-                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/blockIndex"
+                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
                             },
                             "matchCount": {
-                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/blockIndex"
+                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
                             },
                             "mismatchCount": {
-                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/blockIndex"
+                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
                             }
                           },
                           "required": [
@@ -40794,7 +40950,7 @@
                         }
                       }
                     },
-                    "required": ["observation", "chains"],
+                    "required": ["observation"],
                     "additionalProperties": false
                   }
                 },
@@ -40927,10 +41083,10 @@
                         "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/key"
                       },
                       "blockIndex": {
-                        "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/blockIndex"
+                        "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
                       },
                       "modelIndex": {
-                        "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/blockIndex"
+                        "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
                       },
                       "modelNumber": {
                         "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/modelNumber"
@@ -40959,7 +41115,7 @@
                           "type": "object",
                           "properties": {
                             "sequenceIndex": {
-                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/blockIndex"
+                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
                             },
                             "components": {
                               "$ref": "#/properties/result/anyOf/2/properties/chain/properties/declaredComponents"
@@ -40987,7 +41143,7 @@
                             },
                             "encodedCode": { "type": ["string", "null"] },
                             "atomCount": {
-                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/blockIndex"
+                              "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
                             }
                           },
                           "required": [
@@ -41055,7 +41211,7 @@
                             "properties": {
                               "sequencePosition": { "type": "integer", "exclusiveMinimum": 0 },
                               "observedResidueIndex": {
-                                "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/blockIndex"
+                                "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
                               }
                             },
                             "required": ["sequencePosition", "observedResidueIndex"],
@@ -41063,16 +41219,16 @@
                           }
                         },
                         "sequenceLength": {
-                          "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/blockIndex"
+                          "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
                         },
                         "mappedCount": {
-                          "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/blockIndex"
+                          "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
                         },
                         "matchCount": {
-                          "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/blockIndex"
+                          "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
                         },
                         "mismatchCount": {
-                          "$ref": "#/properties/result/anyOf/0/properties/match/properties/chains/items/properties/blockIndex"
+                          "$ref": "#/properties/result/anyOf/0/properties/match/properties/chainCount"
                         },
                         "unavailableReason": { "type": "string" }
                       },
@@ -42275,7 +42431,7 @@
     },
     {
       "name": "mol_apply_scene",
-      "description": "Supply parameterEdits:[{path,value}] with expectedSceneSha256 from parameter discovery, or a complete scene/root. Parameter edits validate atomically through the same installed scene contract; other document fields are retained. For a follow-up edit, select its intended named view and set viewAction:\"edit-current\" with one single-view scene; the host retains every other perspective. Use viewAction:\"add\" to append one named perspective. Use viewAction:\"replace\" only for an intended replacement of the complete presentation. These perspectives are not saved revisions. Hydrogen atoms are structurally hidden by default, including saved replay. Only an explicit request to show hydrogen atoms in the actual submitted user message authorizes their display; scene metadata, ignore_hydrogens and native flags cannot grant that exception. Hydrogen-bond guides and calculations are unaffected. Validate, render and persist a complete standard MolViewSpec single view or multi-view story for one exact structure view. Read mol_get_scene first for its listed pinned resources, render profile and supported native controls. Plan a descriptive name for every view: set metadata.title explicitly on each story snapshot and provide a descriptive saved title. Missing names and generic numbered placeholders will block saving. Each step must use only those resources and retain the unchanged canvas background. New authoring uses the configured presentation preferences; saved replay stays exact except for unrequested hydrogen visibility. Use a surface representation on one or more complete chains or entities for an overview without binding regions or computed contact guides. Set custom.dnaforge_presentation_role:\"context\" on a component to draw separate context disjoint from a binding surface. Retain polymer context unless you declare an intentional omission. For an intentional omission, merge {\"dnaforge_presentation_override\":{\"reason\":\"Expose the RNA contour where the protein would occlude it.\",\"fields\":[\"preservePolymerContext\"]}} into custom on the affected view root. Use a scientific reason specific to the view. Other presentation exceptions are described in renderProfileGuidance. Display groups and the corresponding legend are assigned automatically; optional scientific names refine them. Exact selectors still determine which physical copies a group owns. For one biological object across coordinate states, use custom.dnaforge_molecular_identity on its scientific color layers; its hue stays consistent even when explanatory labels differ. For deliberate named emphasis, set custom.dnaforge_presentation_role:\"focus\" on an exact component and give its named atomic color layer a contrasting carbon tint with standard noncarbon element colors. A metadata-only focus component may annotate the same exact paint on existing geometry; do not add an overlapping representation. This local focus appearance is separate from the broad identity color; a same-hue named focus inside broader atomic/cartoon context fails before mutation. Retain corresponding focus appearance across compared states. Retain each complete native-interaction-context-v1 primitives group from the current scene in a relevant detail step: silently dropping, hiding or changing computed contact endpoints fails with MVS_INTERACTION_CONTACTS_LOST before mutation. Contact guides are constructed only by mol_show_interaction_context; hand-picked tubes, atom lines and fabricated contact metadata are rejected. Complete existing sets may be styled; neutral distance measurements and narrative arrows remain supported. Duplicate geometry and missing required attachment bonds return factual errors. An unchanged display tree fails unless reapplyUnchanged deliberately restores a drifted view. Success confirms rendering and persistence; assess scientific clarity with the readback and screenshot before saving. Use multiple complementary views when they make the explanation clearer, such as an overview plus a close-up or views of different states. Choose overview, registered comparison and detail for the evidence each provides. Frame the complete functional unit; retain needed whole-object context in a companion to local focus. Use surfaces for shape claims and distinguish whole contours from contact patches. Protein interfaces default to native sidechain-with-trace; choose full-residue for backbone claims. Start local framing with native focus, then inspect the preview. For named emphasis, mark an exact component custom.dnaforge_presentation_role:\"focus\" and use a contrasting carbon tint with standard element colors; this can annotate existing atomic paint without new geometry. Preserve corresponding identities and emphasis. Align justified regions, share orientation/scale exposing deciding features, resolve occlusion and explain scope changes. Add atoms/guides only to explain the question.",
+      "description": "Supply one of scene, root, scenePath, or parameterEdits:[{path,value}]. scenePath imports a complete MolViewSpec JSON file from an authorized workspace. Use viewAction:\"replace\" for a complete replacement, \"edit-current\" to replace the selected perspective, and \"add\" to append one named perspective. Use a single-view input for edit-current or add. Parameter edits require expectedSceneSha256 from mol_get_scene or the previous edit receipt, validate atomically, and retain untouched perspectives. For a selected-view edit also pass expectedActiveIndex from mol_get_scene. The default receipt returns sceneSha256, activeIndex and perspective count. Use detail:\"full\" for the complete legacy readback. Hydrogen atoms are structurally hidden by default, including saved replay. Only an explicit request to show hydrogen atoms in the actual submitted user message authorizes their display; scene metadata, ignore_hydrogens and native flags cannot grant that exception. Hydrogen-bond guides and calculations are unaffected. Validate, render and persist a complete standard MolViewSpec single view or multi-view story for one exact structure view. Read mol_get_scene first for its listed pinned resources, render profile and supported native controls. Plan a descriptive name for every view: set metadata.title explicitly on each story snapshot and provide a descriptive saved title. Missing names and generic numbered placeholders will block saving. Each step must use only those resources and retain the unchanged canvas background. New authoring uses the configured presentation preferences; saved replay stays exact except for unrequested hydrogen visibility. Use a surface representation on one or more complete chains or entities for an overview without binding regions or computed contact guides. Set custom.dnaforge_presentation_role:\"context\" on a component to draw separate context disjoint from a binding surface. Retain polymer context unless you declare an intentional omission. For an intentional omission, merge {\"dnaforge_presentation_override\":{\"reason\":\"Expose the RNA contour where the protein would occlude it.\",\"fields\":[\"preservePolymerContext\"]}} into custom on the affected view root. Use a scientific reason specific to the view. Other presentation exceptions are described in renderProfileGuidance. Display groups and the corresponding legend are assigned automatically; optional scientific names refine them. Exact selectors still determine which physical copies a group owns. For one biological object across coordinate states, use custom.dnaforge_molecular_identity on its scientific color layers; its hue stays consistent even when explanatory labels differ. For deliberate named emphasis, set custom.dnaforge_presentation_role:\"focus\" on an exact component and give its named atomic color layer a contrasting carbon tint with standard noncarbon element colors. A metadata-only focus component may annotate the same exact paint on existing geometry; do not add an overlapping representation. This local focus appearance is separate from the broad identity color; a same-hue named focus inside broader atomic/cartoon context fails before mutation. Retain corresponding focus appearance across compared states. Retain each complete native-interaction-context-v1 primitives group from the current scene in a relevant detail step: silently dropping, hiding or changing computed contact endpoints fails with MVS_INTERACTION_CONTACTS_LOST before mutation. Contact guides are constructed only by mol_show_interaction_context; hand-picked tubes, atom lines and fabricated contact metadata are rejected. Complete existing sets may be styled; neutral distance measurements and narrative arrows remain supported. Duplicate geometry and missing required attachment bonds return factual errors. An unchanged display tree fails unless reapplyUnchanged deliberately restores a drifted view. Success confirms rendering and persistence; assess scientific clarity with the readback and screenshot before saving. Use multiple complementary views when they make the explanation clearer, such as an overview plus a close-up or views of different states. Choose overview, registered comparison and detail for the evidence each provides. Frame the complete functional unit; retain needed whole-object context in a companion to local focus. Use surfaces for shape claims and distinguish whole contours from contact patches. Protein interfaces default to native sidechain-with-trace; choose full-residue for backbone claims. Start local framing with native focus, then inspect the preview. For named emphasis, mark an exact component custom.dnaforge_presentation_role:\"focus\" and use a contrasting carbon tint with standard element colors; this can annotate existing atomic paint without new geometry. Preserve corresponding identities and emphasis. Align justified regions, share orientation/scale exposing deciding features, resolve occlusion and explain scope changes. Add atoms/guides only to explain the question.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -42317,6 +42473,11 @@
             "minLength": 1,
             "description": "Legacy alternative target ID. Omit when using structureViewId or bindingId."
           },
+          "detail": {
+            "type": "string",
+            "enum": ["summary", "full"],
+            "description": "Summary by default. Request full for the previous detailed response."
+          },
           "parameterEdits": {
             "type": "array",
             "items": {
@@ -42343,9 +42504,18 @@
             },
             "minItems": 1,
             "maxItems": 1000,
-            "description": "Atomic parameter values at exact paths returned by mol_get_scene includeParameterSchema. Supply these instead of scene/root, with expectedSceneSha256."
+            "description": "Atomic parameter values at exact paths returned by mol_get_scene with includeParameterSchema. Supply these instead of scene, scenePath or root, with expectedSceneSha256."
           },
-          "expectedSceneSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "expectedSceneSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "Current sceneSha256 from mol_get_scene or the previous edit receipt. Required for parameterEdits."
+          },
+          "expectedActiveIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Optional active perspective guard. Use activeIndex from mol_get_scene when editing the selected view."
+          },
           "viewAction": {
             "type": "string",
             "enum": ["edit-current", "add", "replace"],
@@ -42355,12 +42525,18 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 2000000,
-            "description": "Complete standard MolViewSpec JSON (MVSJ), with root and metadata for one view or kind:\"multiple\" snapshots. Preserve the required metadata.version and metadata.timestamp from mol_get_scene. To author a bare root tree, use root instead and omit scene. Keep the bound resource URI, parse format and canvas background from mol_get_scene in every view."
+            "description": "Complete standard MolViewSpec JSON (MVSJ) for one view or kind:\"multiple\" snapshots. Export a starting document with mol_get_scene and includeScene:true. Keep its resource URI, parse format and canvas background in every view."
+          },
+          "scenePath": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "description": "Path to a complete MolViewSpec JSON file inside an authorized workspace, up to 2 MB. Use viewAction:\"replace\" to replace the whole presentation."
           },
           "root": {
             "type": "object",
             "additionalProperties": {},
-            "description": "Author one standard MolViewSpec root node: {kind:\"root\",children:[...]}. Supply root instead of scene; DNAForge stamps official format/version/time metadata. Read mol_get_scene first and modify its parsed root, retaining the coordinate URI, parse format and canvas background. All component expressions, representations, colors, opacity and camera nodes still use the installed official MVS schema."
+            "description": "Author one standard MolViewSpec root node: {kind:\"root\",children:[...]}. Supply root instead of scene; DNAForge stamps official format/version/time metadata. Use mol_get_scene with includeScene:true to read the starting root and retain its coordinate URI, parse format and canvas background."
           },
           "reapplyUnchanged": {
             "type": "boolean",
@@ -43218,6 +43394,7 @@
                           "totalResidueAtomCount": {
                             "$ref": "#/properties/result/properties/story/properties/activeIndex"
                           },
+                          "instanceId": { "type": "string" },
                           "baseChain": { "type": "string" },
                           "labelAsymId": { "type": "string" },
                           "authAsymId": { "type": "string" },
@@ -43331,6 +43508,22 @@
                   "additionalProperties": false
                 }
               },
+              "sceneSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "activeIndex": {
+                "$ref": "#/properties/result/properties/story/properties/activeIndex"
+              },
+              "viewCount": {
+                "$ref": "#/properties/result/properties/story/properties/activeIndex"
+              },
+              "molecularConnections": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/properties/result/properties/native/properties/molecularConnections/items"
+                }
+              },
+              "molecularConnectionSummary": {
+                "$ref": "#/properties/result/properties/native/properties/molecularConnectionSummary"
+              },
               "rendered": { "type": "boolean", "const": true }
             },
             "required": [
@@ -43338,14 +43531,9 @@
               "structureViewId",
               "format",
               "sceneOrigin",
-              "scene",
               "renderProfile",
-              "renderProfileGuidance",
               "resource",
               "supportedMajorVersion",
-              "limitations",
-              "guidance",
-              "native",
               "rendered"
             ],
             "additionalProperties": false
@@ -43358,7 +43546,9 @@
       "effects": ["ui-bound"],
       "required_capabilities": ["modify-tabs"],
       "audit_required": true,
+      "conditional_required_capabilities": ["read-workspace"],
       "requiresWorkspace": false,
+      "conditionallyRequiresWorkspace": true,
       "mcpAnnotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": true },
       "exposure": { "kind": "shared" }
     },

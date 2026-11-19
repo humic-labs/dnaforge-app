@@ -25,6 +25,8 @@ import { getCurrentWorkspaceScope, type WorkspaceFolder } from '../../../stores/
 import { platform } from '../../../platform';
 import { assertMolecularDocumentStorage } from '../../../shared/molecular-document';
 import { MolecularStorageError } from '../../../shared/molecular-storage';
+import { getUserFolders } from '../../workspace/public/path-resolve';
+import { pageMolecularChains } from '../../../shared/molecular-tool-readback';
 import { inspectionMeasurementForLayer } from '../../structure-drawer/public/inspection-measurement-data';
 import { loadMolecularDataPublication } from './molecular-data-source';
 import {
@@ -34,6 +36,9 @@ import {
 import {
   inspectMolecularDocumentParameters,
   editMolecularDocumentParameters,
+  molecularSceneDigest,
+  requireMolecularSceneRevision,
+  preserveUneditedParameterSnapshots,
   retainsMolecularDataColors,
   rebaseMolecularDataParameters,
   requireAppliedMolecularParameterEdits,
@@ -123,6 +128,7 @@ import {
   type StructureSourceInput,
   type MolecularConnectionQuery,
   molApplySceneSchema,
+  MAX_MOL_SCENE_BYTES,
   molActivateViewSchema,
   molAlignStructuresSchema,
   molGetSceneSchema,
@@ -172,6 +178,8 @@ import {
   getMolViewSpecScene,
   activeMolViewSpecCoordinateAssets,
   samePinnedMolViewSpecAssets,
+  getMolViewSpecSceneDocument,
+  readMolViewSpecNativeState,
   getMolViewSpecCoordinates,
   sameMolViewSpecDisplayTree,
   sameLoadedMolViewSpecScene,
@@ -1236,8 +1244,81 @@ async function executeMolOpenDrawer(
   });
 }
 
-async function executeMolListStructures() {
-  return toolSuccess({ structures: await listRegisteredStructures() });
+function projectViewerReadback(
+  entry: Awaited<ReturnType<typeof listRegisteredStructures>>[number],
+  input: z.infer<typeof molGetStateSchema>,
+  includeState: boolean
+) {
+  const page = input.chainPage ? pageMolecularChains(entry.chains, input.chainPage) : {};
+  const inventory = { chainCount: entry.chains.length, ligandCount: entry.ligands.length, ...page };
+  if (input.detail === 'full') return { ...entry, ...inventory };
+  const identity = {
+    structureViewId: entry.structureViewId,
+    label: entry.label,
+    viewerStatus: entry.viewerStatus,
+    ...inventory,
+  };
+  if (!('registrationId' in entry))
+    return {
+      ...identity,
+      inactiveReason: entry.inactiveReason,
+      reactivation: entry.reactivation,
+      savedViewReferenceId: entry.savedViewReferenceId,
+    };
+  const {
+    registrationId,
+    structureId,
+    bindingId,
+    viewerId,
+    source,
+    sourceId,
+    camera,
+    sceneFormat,
+    representation,
+    colorMode,
+    sideChains,
+    currentSelection,
+    proteinMapping,
+    molecularConnections,
+    molecularConnectionSummary,
+    stateError,
+  } = entry;
+  return {
+    ...identity,
+    registrationId,
+    structureId,
+    bindingId,
+    viewerId,
+    source,
+    sourceId,
+    documentReference: 'documentReference' in entry ? entry.documentReference : undefined,
+    documentUnavailable: 'documentUnavailable' in entry ? entry.documentUnavailable : undefined,
+    stateError,
+    ...(includeState
+      ? {
+          camera,
+          sceneFormat,
+          representation,
+          colorMode,
+          sideChains,
+          selectionCount: currentSelection.molstarElementCount,
+          proteinMapping: proteinMapping && {
+            proteinSequenceSha256: proteinMapping.proteinSequenceSha256,
+            proteinLength: proteinMapping.proteinLength,
+            label: proteinMapping.label,
+          },
+          ...(input.connectionQuery ? { molecularConnections, molecularConnectionSummary } : {}),
+        }
+      : {}),
+  };
+}
+
+async function executeMolListStructures(args: unknown = {}) {
+  const input = molListStructuresSchema.parse(args);
+  const structures = await listRegisteredStructures();
+  return toolSuccess({
+    structures: structures.map((entry) => projectViewerReadback(entry, input, false)),
+  });
 }
 
 export interface RegisteredStructureSelectionContext {
@@ -1340,7 +1421,7 @@ async function executeMolGetState(args: unknown) {
   const viewerId = structureTargetRef(target);
   const filtered = await listRegisteredStructures({
     target: viewerId,
-    includeMolecularDetails: true,
+    includeMolecularDetails: target.detail === 'full' || Boolean(target.connectionQuery),
     connectionQuery: target.connectionQuery,
   });
   if (viewerId && filtered.length === 0) {
@@ -1349,7 +1430,9 @@ async function executeMolGetState(args: unknown) {
     });
   }
 
-  return toolSuccess({ structures: filtered });
+  return toolSuccess({
+    structures: filtered.map((entry) => projectViewerReadback(entry, target, true)),
+  });
 }
 
 export async function handleMolActivateView(args: unknown) {
@@ -1582,7 +1665,7 @@ async function withSceneTarget<T>(
       if (!current) throw new MolViewSpecSceneError('VIEW_CHANGED', 'The structure view closed.');
       requireActiveStructureTab(current.registrationId, current.structureViewId);
       if (documentReference?.viewId) {
-        const scene = getMolViewSpecScene(active.plugin);
+        const scene = getMolViewSpecSceneDocument(active.plugin);
         const saved = JSON.parse(scene.scene);
         const view =
           saved.kind === 'multiple' ? saved.snapshots[scene.story?.activeIndex ?? 0] : saved;
@@ -1616,6 +1699,33 @@ async function withSceneTarget<T>(
   );
 }
 
+async function summarizeScene(scene: ReturnType<typeof getMolViewSpecSceneDocument>) {
+  const { format, sceneOrigin, renderProfile, resource, resources, structureIdentities, supportedMajorVersion, story } =
+    scene;
+  return {
+    format,
+    sceneOrigin,
+    renderProfile,
+    resource,
+    resources,
+    structureIdentities,
+    supportedMajorVersion,
+    sceneSha256: await molecularSceneDigest(scene.scene),
+    activeIndex: story?.activeIndex ?? 0,
+    viewCount: story?.steps.length ?? 1,
+    ...(story
+      ? {
+          story: {
+            activeIndex: story.activeIndex,
+            steps: story.steps
+              .filter(({ index }) => index < 24 || index === story.activeIndex)
+              .map(({ index, title, key }) => ({ index, title: title.slice(0, 200), key })),
+          },
+        }
+      : {}),
+  };
+}
+
 export async function handleMolGetScene(args: unknown) {
   try {
     const input = molGetSceneSchema.parse(args);
@@ -1629,10 +1739,21 @@ export async function handleMolGetScene(args: unknown) {
           coordinates,
           ...pinnedAssets,
         ]);
-        const scene = getMolViewSpecScene(active.plugin, input.connectionQuery);
+        const detailed =
+          input.detail === 'full'
+            ? getMolViewSpecScene(active.plugin, input.connectionQuery)
+            : undefined;
+        const scene = detailed ?? getMolViewSpecSceneDocument(active.plugin);
         const activeIndex = scene.story?.activeIndex ?? 0;
-        const groups = nativeMolViewSpecColorGroups(active.plugin, scene.scene, activeIndex);
+        const groups =
+          detailed || input.includeColorGroupSelections
+            ? nativeMolViewSpecColorGroups(active.plugin, scene.scene, activeIndex)
+            : [];
         const hiddenChains = registered.entry.data.view?.hiddenChainInstanceIds ?? [];
+        const connections =
+          input.connectionQuery && !detailed
+            ? readMolViewSpecNativeState(active.plugin, input.connectionQuery)
+            : undefined;
         return toolSuccess({
           structureViewId: registered.structureViewId,
           ...binding,
@@ -1641,19 +1762,30 @@ export async function handleMolGetScene(args: unknown) {
                 parameterSchema: await inspectMolecularDocumentParameters(scene.scene, {
                   offset: input.parameterOffset,
                   limit: input.parameterLimit,
+                  nodeKind: input.parameterNodeKind,
+                  snapshotIndex: input.parameterSnapshotIndex,
                 }),
               }
             : {}),
           savedReferenceId: registered.entry.data.molViewSpecSavedReferenceId ?? null,
-          ...scene,
-          scientificReviewInventory: await molecularScientificReviewInventory(
-            scene.scene,
-            active.plugin,
-            {
-              index: activeIndex,
-              groups,
-            }
-          ),
+          ...(await summarizeScene(scene)),
+          ...detailed,
+          ...(input.includeScene ? { scene: scene.scene } : {}),
+          ...(connections
+            ? {
+                molecularConnections: connections.molecularConnections,
+                molecularConnectionSummary: connections.molecularConnectionSummary,
+              }
+            : {}),
+          ...(detailed || input.includeColorGroupSelections
+            ? {
+                scientificReviewInventory: await molecularScientificReviewInventory(
+                  scene.scene,
+                  active.plugin,
+                  { index: activeIndex, groups }
+                ),
+              }
+            : {}),
           ...(input.includeColorGroupSelections
             ? {
                 featureExposureNotes: FEATURE_EXPOSURE_NOTES,
@@ -2106,7 +2238,7 @@ export async function handleMolShowInteractionContext(args: unknown) {
       interactionContext: plan.context,
       renderProfile: applied.renderProfile,
       story: applied.story,
-      camera: applied.native.camera,
+      camera: applied.native!.camera,
       message:
         'The interaction environment and native contact measurements are in the canonical saved scene. Use mol_get_scene to inspect or edit that scene, then inspect the screenshot before saving.',
     });
@@ -2562,7 +2694,8 @@ export async function handleMolApplyScene(
     validateNative: (plugin: MolstarPlugin) => void;
     nativeAlignmentChange?: boolean;
   },
-  userHydrogenRequest?: string
+  userHydrogenRequest?: string,
+  context: { folders?: WorkspaceFolder[] } = {}
 ) {
   let nativeApplied = false;
   try {
@@ -2574,9 +2707,35 @@ export async function handleMolApplyScene(
         'VIEWER_NOT_FOUND',
         `No open structure view matches ${target}.`
       );
+    let fileScene: string | undefined;
+    if (input.scenePath) {
+      const folders = getUserFolders(context.folders ?? []);
+      if (!folders.length) {
+        throw new MolViewSpecSceneError(
+          'MVS_WORKSPACE_REQUIRED',
+          'Open an authorized workspace to import a scene file.'
+        );
+      }
+      const resolved = resolveMultiRootPath(folders, input.scenePath);
+      fileScene = await platform().fs.readAdmittedTextFile({
+        path: resolved.absolutePath,
+        projectRoots: folders.map((folder) => folder.path),
+        grantedFiles: [],
+        maxBytes: MAX_MOL_SCENE_BYTES,
+      });
+    }
     return await withSceneTarget(target, async (active) => {
-      let scene: ReturnType<typeof getMolViewSpecScene> | undefined;
-      const currentScene = getMolViewSpecScene(active.plugin);
+      let scene: ReturnType<typeof getMolViewSpecSceneDocument> | undefined;
+      let detailed: ReturnType<typeof getMolViewSpecScene> | undefined;
+      const currentScene = getMolViewSpecSceneDocument(active.plugin);
+      const activeIndex = currentScene.story?.activeIndex ?? 0;
+      if (input.expectedActiveIndex !== undefined && input.expectedActiveIndex !== activeIndex)
+        throw new MolViewSpecSceneError(
+          'MVS_SCENE_STALE',
+          'The active perspective changed. Read the current presentation before editing.'
+        );
+      if (input.expectedSceneSha256 && !input.parameterEdits)
+        await requireMolecularSceneRevision(currentScene.scene, input.expectedSceneSha256);
       const inputScene = input.root
         ? authorMolViewSpecRoot(input.root, currentScene.resource.uri)
         : input.parameterEdits
@@ -2585,11 +2744,11 @@ export async function handleMolApplyScene(
               input.expectedSceneSha256!,
               input.parameterEdits
             )
-          : input.scene;
+          : (fileScene ?? input.scene);
       if (!inputScene)
         throw new MolViewSpecSceneError(
           'MVS_INVALID_SCENE',
-          'Supply a complete scene or authored root.'
+          'Supply a complete scene, a workspace scene file, or an authored root.'
         );
       const edit = conditions
         ? {
@@ -2597,12 +2756,14 @@ export async function handleMolApplyScene(
             activeIndex: conditions.initialSnapshotIndex,
             action: input.viewAction,
           }
-        : editMolViewSpecPresentation(
-            currentScene.scene,
-            inputScene,
-            input.parameterEdits ? 'replace' : input.viewAction,
-            currentScene.story?.activeIndex ?? 0
-          );
+        : input.parameterEdits
+          ? { scene: inputScene, activeIndex, action: 'replace' as const }
+          : editMolViewSpecPresentation(
+              currentScene.scene,
+              inputScene,
+              input.viewAction,
+              activeIndex
+            );
       if (!conditions) requireConstructedInteractionGuides(currentScene.scene, edit.scene);
       const compiledScene = resolveMolViewSpecAgentScene(
         active.plugin,
@@ -2612,19 +2773,21 @@ export async function handleMolApplyScene(
         conditions?.nativeAlignmentChange,
         userHydrogenRequest
       );
-      let proposedScene = preserveUneditedMolViewSpecSnapshots(
-        currentScene.scene,
-        compiledScene,
-        edit.action,
-        currentScene.story?.activeIndex ?? 0
-      );
+      let proposedScene = input.parameterEdits
+        ? preserveUneditedParameterSnapshots(currentScene.scene, compiledScene, input.parameterEdits)
+        : preserveUneditedMolViewSpecSnapshots(
+            currentScene.scene,
+            compiledScene,
+            edit.action,
+            activeIndex
+          );
       if (conditions && edit.action === 'edit-current')
         proposedScene = preserveEquivalentGeneratedLegendEntries(currentScene.scene, proposedScene);
       requireUnchangedMolViewSpecBackground(
         currentScene.scene,
         proposedScene,
         currentScene.resources.map((resource) => resource.uri),
-        currentScene.story?.activeIndex ?? 0
+        activeIndex
       );
       if (!conditions) requireRetainedInteractionContacts(currentScene.scene, proposedScene);
       if (input.parameterEdits)
@@ -2674,7 +2837,8 @@ export async function handleMolApplyScene(
             );
           }
           requireActiveStructureTab(current.registrationId, current.structureViewId);
-          scene = getMolViewSpecScene(active.plugin);
+          if (input.detail === 'full' || conditions) detailed = getMolViewSpecScene(active.plugin);
+          scene = detailed ?? getMolViewSpecSceneDocument(active.plugin);
           const next = {
             ...current.entry.data,
             molecularData: current.entry.data.molecularData
@@ -2715,7 +2879,7 @@ export async function handleMolApplyScene(
           ? {
               initialSnapshotIndex: conditions.initialSnapshotIndex,
               beforeApply: () => {
-                const latest = getMolViewSpecScene(active.plugin);
+                const latest = getMolViewSpecSceneDocument(active.plugin);
                 if (
                   !sameMolViewSpecDisplayTree(
                     latest.scene,
@@ -2734,17 +2898,18 @@ export async function handleMolApplyScene(
           : {
               initialSnapshotIndex: edit.activeIndex,
               beforeApply: () => {
-                const latestState = getMolViewSpecScene(active.plugin);
+                const latestState = getMolViewSpecSceneDocument(active.plugin);
                 const latest = latestState.scene;
+                const revisionGuarded =
+                  input.expectedSceneSha256 !== undefined || input.expectedActiveIndex !== undefined;
                 if (
-                  (input.viewAction === 'edit-current' || input.viewAction === 'add') &&
+                  (revisionGuarded || edit.action === 'edit-current' || edit.action === 'add') &&
                   (latest !== currentScene.scene ||
-                    (latestState.story?.activeIndex ?? 0) !==
-                      (currentScene.story?.activeIndex ?? 0))
+                    (latestState.story?.activeIndex ?? 0) !== activeIndex)
                 )
                   throw new MolViewSpecSceneError(
-                    'VIEW_CHANGED',
-                    'The presentation changed before this view edit could be applied. Read the current presentation and retry.',
+                    revisionGuarded ? 'MVS_SCENE_STALE' : 'VIEW_CHANGED',
+                    'The presentation changed before this edit could be applied. Read the current presentation and retry.',
                     false
                   );
 
@@ -2765,7 +2930,12 @@ export async function handleMolApplyScene(
           'The renderer did not confirm scene persistence.',
           'unknown'
         );
-      return toolSuccess({ structureViewId: before.structureViewId, rendered: true, ...scene });
+      return toolSuccess({
+        structureViewId: before.structureViewId,
+        rendered: true,
+        ...(await summarizeScene(scene)),
+        ...detailed,
+      });
     });
   } catch (error) {
     return sceneToolFailure(error, nativeApplied);

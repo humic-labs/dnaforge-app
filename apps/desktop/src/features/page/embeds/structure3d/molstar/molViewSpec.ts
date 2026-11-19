@@ -1504,18 +1504,16 @@ function nativeStarterStructure(
   return structure;
 }
 
-export function getMolViewSpecScene(
+function buildMolViewSpecStarter(
   plugin: MolstarPlugin,
-  connectionQuery?: MolecularConnectionQuery
-) {
-  const runtime = runtimeFor(plugin);
+  runtime: SceneRuntime,
+  selection: MolecularRenderProfileSelection
+): string {
   const builder = MVSData.createBuilder();
   const parsed = builder
     .download({ url: runtime.resource.name })
     .parse({ format: runtime.resource.format });
-  const structure = runtime.scene
-    ? parsed.modelStructure()
-    : nativeStarterStructure(parsed, plugin, runtime.resource.format);
+  const structure = nativeStarterStructure(parsed, plugin, runtime.resource.format);
   structure
     .component({ selector: 'polymer' })
     .representation({ type: 'cartoon' })
@@ -1552,20 +1550,22 @@ export function getMolViewSpecScene(
     }
     pending.push(...((node.children ?? []) as typeof pending));
   }
-  const selection = getMolViewSpecRenderProfile(plugin);
-  const proposedStarter = resolveMolViewSpecRenderProfile(starter, selection);
-  const saved = runtime.scene ? MVSData.fromMVSJ(runtime.scene) : undefined;
-  const activeRoot =
-    saved?.kind === 'multiple'
-      ? saved.snapshots[activeMolViewSpecSnapshotIndex(plugin)]?.root
-      : saved?.root;
-  const recorded = (activeRoot as { custom?: Record<string, unknown> } | undefined)?.custom
-    ?.dnaforge_render_profile;
+  return MVSData.toMVSJ(resolveMolViewSpecRenderProfile(starter, selection), 2);
+}
 
-  return {
+function prepareMolViewSpecSceneReadback(plugin: MolstarPlugin) {
+  const runtime = runtimeFor(plugin);
+  const selection = getMolViewSpecRenderProfile(plugin);
+  const scene = runtime.scene ?? buildMolViewSpecStarter(plugin, runtime, selection);
+  const document = MVSData.fromMVSJ(scene);
+  const activeIndex = activeMolViewSpecSnapshotIndex(plugin);
+  const activeRoot =
+    document.kind === 'multiple' ? document.snapshots[activeIndex].root : document.root;
+  const recorded = runtime.scene ? activeRoot.custom?.dnaforge_render_profile : undefined;
+  const readback = {
     format: 'mvsj' as const,
     sceneOrigin: runtime.scene ? ('authored' as const) : ('starter' as const),
-    scene: runtime.scene ?? MVSData.toMVSJ(proposedStarter, 2),
+    scene,
     renderProfile: {
       selection,
       resolvedProfile:
@@ -1578,30 +1578,17 @@ export function getMolViewSpecScene(
                 ? currentMolecularRenderProfile()
                 : selection)),
     },
-    renderProfileGuidance: MOLECULAR_RENDER_PROFILE_GUIDANCE,
-    primaryConformers: {
-      default: 'primary-deposited-conformer-v1',
-      recorded: activeRoot?.custom?.dnaforge_primary_conformers ?? null,
-      comparison: activeRoot?.custom?.dnaforge_conformer_comparison ?? null,
-      guidance:
-        'New atomic authoring and computed contexts share one coherent occupancy-selected deposited residue alternative. Use root.custom.dnaforge_conformer_comparison:{reason:"scientific reason"} to compare alternatives; independent aligned structures are unaffected. Historical scenes retain their recorded atom/guide sets.',
-    },
-    interactionContacts: runtime.scene ? readManagedInteractionContacts(runtime.scene) : [],
     story:
-      runtime.scene && MVSData.fromMVSJ(runtime.scene).kind === 'multiple'
-        ? (() => {
-            const document = MVSData.fromMVSJ(runtime.scene!);
-            if (document.kind !== 'multiple') return undefined;
-            return {
-              activeIndex: activeMolViewSpecSnapshotIndex(plugin),
-              steps: document.snapshots.map((snapshot, index) => ({
-                index,
-                title: snapshot.metadata?.title ?? `View ${index + 1}`,
-                description: snapshot.metadata?.description,
-                key: snapshot.metadata?.key,
-              })),
-            };
-          })()
+      document.kind === 'multiple'
+        ? {
+            activeIndex,
+            steps: document.snapshots.map((snapshot, index) => ({
+              index,
+              title: snapshot.metadata?.title ?? `View ${index + 1}`,
+              description: snapshot.metadata?.description,
+              key: snapshot.metadata?.key,
+            })),
+          }
         : undefined,
     resource: {
       uri: runtime.resource.name,
@@ -1624,29 +1611,51 @@ export function getMolViewSpecScene(
     ],
     structureIdentities: molViewSpecStructureBindings(
       assignMolViewSpecStructureRefs(
-        MVSData.fromMVSJ(runtime.scene ?? MVSData.toMVSJ(proposedStarter))
+        document
       ),
-      activeMolViewSpecSnapshotIndex(plugin)
+      activeIndex
     ).map((binding) => ({
       ref: binding.ref,
       resourceUri: binding.resourceUri,
       structureParams: binding.node.params,
     })),
     supportedMajorVersion: MVSData.SupportedVersion,
+  };
+  return { runtime, document, activeIndex, activeRoot, readback };
+}
+
+export function getMolViewSpecSceneDocument(plugin: MolstarPlugin) {
+  return prepareMolViewSpecSceneReadback(plugin).readback;
+}
+
+export function getMolViewSpecScene(
+  plugin: MolstarPlugin,
+  connectionQuery?: MolecularConnectionQuery
+) {
+  const { runtime, document, activeIndex, activeRoot, readback } =
+    prepareMolViewSpecSceneReadback(plugin);
+  const { scene, sceneOrigin } = readback;
+  return {
+    ...readback,
+    renderProfileGuidance: MOLECULAR_RENDER_PROFILE_GUIDANCE,
+    primaryConformers: {
+      default: 'primary-deposited-conformer-v1',
+      recorded: activeRoot?.custom?.dnaforge_primary_conformers ?? null,
+      comparison: activeRoot?.custom?.dnaforge_conformer_comparison ?? null,
+      guidance:
+        'New atomic authoring and computed contexts share one coherent occupancy-selected deposited residue alternative. Use root.custom.dnaforge_conformer_comparison:{reason:"scientific reason"} to compare alternatives; independent aligned structures are unaffected. Historical scenes retain their recorded atom/guide sets.',
+    },
+    interactionContacts: sceneOrigin === 'authored' ? readManagedInteractionContacts(scene) : [],
     comparisonContract:
-      runtime.scene && MVSData.fromMVSJ(runtime.scene).kind
+      sceneOrigin === 'authored' && document.kind
         ? (() => {
-            const doc = MVSData.fromMVSJ(runtime.scene!);
-            const root =
-              doc.kind === 'multiple'
-                ? doc.snapshots[activeMolViewSpecSnapshotIndex(plugin)].root
-                : doc.root;
+            const root = activeRoot;
             return root.custom?.dnaforge_comparison
               ? {
                   ...(root.custom.dnaforge_comparison as Record<string, unknown>),
                   registration: readSharedComparisonRegistration(
-                    doc,
-                    activeMolViewSpecSnapshotIndex(plugin)
+                    document,
+                    activeIndex
                   ),
                   displayFraming: root.custom?.dnaforge_comparison_display ?? null,
                   displayFramingGuidance: MOLECULAR_COMPARISON_DISPLAY_GUIDANCE,

@@ -40,6 +40,7 @@ export type MolecularCatalogRegisterInput = z.infer<typeof molecularCatalogRegis
 
 export const molecularCatalogListSchema = z
   .object({
+    observationId: z.string().regex(/^[0-9a-f]{64}$/).optional(),
     molecule: encodedMoleculeSchema.optional(),
     jobRecordId: identifier.optional(),
 
