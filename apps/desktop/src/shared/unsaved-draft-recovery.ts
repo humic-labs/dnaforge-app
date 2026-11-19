@@ -187,7 +187,7 @@ export function useUnsavedDraftRecovery<T>({
   onRestore,
   discardTarget,
 }: UnsavedDraftRecoveryOptions<T>): {
-  completePublishedDraft: () => Promise<boolean>;
+  completePublishedDraft: (isCurrent?: () => boolean) => Promise<boolean>;
   recordDraft: (payload: T) => void;
   flushDraft: (snapshot: { baseline: string; payload: T } | null) => Promise<void>;
 } {
@@ -369,10 +369,11 @@ export function useUnsavedDraftRecovery<T>({
     dirtyDocumentKey.current = contextRef.current.key;
     scheduleWriteRef.current(draft);
   }).current;
-  const completePublishedDraft = async (): Promise<boolean> => {
+  const completePublishedDraft = async (isCurrent?: () => boolean): Promise<boolean> => {
     if (!key || payload === undefined) return false;
     const published = JSON.stringify(payload);
     const stillCurrent = () =>
+      (isCurrent?.() ?? true) &&
       mounted.current &&
       contextRef.current.key === key &&
       JSON.stringify(contextRef.current.payload) === published;

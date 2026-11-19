@@ -1,6 +1,6 @@
 export interface DraftSaveOperation {
   readonly generation: number;
-  readonly draft: string;
+  readonly revision: number;
 }
 
 export interface DraftReloadOperation {
@@ -14,14 +14,13 @@ type DraftSaveState = { phase: 'idle' } | { phase: 'saving'; operation: DraftSav
 export class DraftSaveOwner {
   private generation = 0;
   private state: DraftSaveState = { phase: 'idle' };
-  private draft = '';
   private revision = 0;
-  private reloadRequest = 0;
+  readonly readRevision = (): number => this.revision;
 
-  observeDraft(draft: string): void {
-    if (this.draft !== draft) this.revision += 1;
-    this.draft = draft;
+  edited(): void {
+    this.revision++;
   }
+  private reloadRequest = 0;
 
   beginReload(): DraftReloadOperation {
     return { generation: this.generation, revision: this.revision, request: ++this.reloadRequest };
@@ -43,7 +42,7 @@ export class DraftSaveOwner {
 
   begin(): DraftSaveOperation | null {
     if (this.state.phase === 'saving') return null;
-    const operation = { generation: ++this.generation, draft: this.draft };
+    const operation = { generation: ++this.generation, revision: this.revision };
     this.state = { phase: 'saving', operation };
     return operation;
   }
@@ -55,7 +54,7 @@ export class DraftSaveOwner {
   finish(operation: DraftSaveOperation): 'saved' | 'newer-draft' | 'retired' {
     if (this.state.phase !== 'saving' || this.state.operation !== operation) return 'retired';
     this.state = { phase: 'idle' };
-    return this.draft === operation.draft ? 'saved' : 'newer-draft';
+    return this.revision === operation.revision ? 'saved' : 'newer-draft';
   }
 
   retire(): void {

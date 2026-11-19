@@ -38,9 +38,14 @@ export function isRegisteredStructureAgentVisible(
   const inspectionTab = tabs.find(
     (tab) => tab.structureInspection && ownerId?.endsWith(`\u0000${tab.id}`)
   );
-  if (inspectionTab)
+  if (inspectionTab) {
+    const inspection = inspectionTab.structureInspection;
     return (
-      inspectionTab.structureInspection?.viewSettings?.structureViewId === candidate.structureViewId
+      inspection?.viewSettings?.structureViewId === candidate.structureViewId ||
+      Object.values(inspection?.retainedProteinViews ?? {}).some(
+        (view) => view.viewSettings?.structureViewId === candidate.structureViewId
+      )
     );
+  }
   return hasActiveMolstarViewerHost(candidate.viewerId, candidate.registrationId);
 }

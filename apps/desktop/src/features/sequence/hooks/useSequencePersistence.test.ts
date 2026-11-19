@@ -292,6 +292,7 @@ describe('useSequencePersistence.save ', () => {
         target: { kind: 'sequence-document', documentId: PATH },
         tabId: 'first-sequence-tab',
         isDirty: () => useSequenceStore.getState().isDirty(PATH),
+        readRevision: () => useSequenceStore.getState().getVersion(PATH),
         save: () => persistence.save(),
         discard: () => useSequenceStore.getState().discardEdits(PATH),
       });
@@ -309,6 +310,7 @@ describe('useSequencePersistence.save ', () => {
         target: { kind: 'sequence-document', documentId: otherId },
         tabId: 'other-sequence-tab',
         isDirty: () => useSequenceStore.getState().isDirty(otherId),
+        readRevision: () => useSequenceStore.getState().getVersion(otherId),
         save: () => persistence.save(),
         discard: () => useSequenceStore.getState().discardEdits(otherId),
       });

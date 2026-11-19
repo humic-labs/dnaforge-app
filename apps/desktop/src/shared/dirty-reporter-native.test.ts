@@ -96,6 +96,28 @@ describe('Save All shares the native dirty owner', () => {
     await expect(saveAllUnsavedWork()).rejects.toThrow('Pending renderer input.');
     expect(mocks.saveSequences).not.toHaveBeenCalled();
   });
+  it('saves metadata held by a mounted sequence editor after native sequence storage settles', async () => {
+    const documentId = 'native-sequence';
+    mocks.tabs = [{ type: 'sequence', id: 'metadata-tab', entityId: documentId }];
+    const write = vi.fn(async () => true);
+    const owner = documentLifecycle.register({
+      target: { kind: 'sequence-document', documentId },
+      tabId: 'metadata-tab',
+      readRevision: () => 1,
+      isDirty: () => true,
+      hasAdditionalEdits: () => true,
+      save: write,
+    });
+    try {
+      await saveAllUnsavedWork();
+      expect(write).toHaveBeenCalledExactlyOnceWith('all');
+      expect(mocks.settle.mock.invocationCallOrder[0]).toBeLessThan(
+        write.mock.invocationCallOrder[0]
+      );
+    } finally {
+      owner.release();
+    }
+  });
   it('awaits the embedded assembly owner independently of sequence bytes', async () => {
     const packageId = 'native-sequence';
     mocks.tabs = [
@@ -114,12 +136,14 @@ describe('Save All shares the native dirty owner', () => {
     const saveSequence = vi.fn(async () => true);
     const owners = [
       documentLifecycle.register({
+        readRevision: () => 1,
         target,
         tabId: 'assembly-tab',
         isDirty: () => true,
         save: saveAssembly,
       }),
       documentLifecycle.register({
+        readRevision: () => 1,
         target,
         tabId: 'sequence-tab',
         isDirty: () => true,
@@ -147,6 +171,7 @@ describe('Save All shares the native dirty owner', () => {
     mocks.tabs = [{ id: 'legacy-view', type: 'text', entityId: '/legacy.txt', isDirty: true }];
     const pending = Promise.withResolvers<boolean>();
     const registration = documentLifecycle.register({
+      readRevision: () => 1,
       target: { kind: 'file', filePath: '/legacy.txt' },
       tabId: 'legacy-view',
       isDirty: () => true,

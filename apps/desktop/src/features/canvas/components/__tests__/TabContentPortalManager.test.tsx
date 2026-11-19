@@ -18,8 +18,10 @@ import { ExplorerWorkspaceSurface } from '../../ExplorerWorkspaceSurface';
 import {
   leaseAgentStructureRenderer,
   releaseAgentStructureRenderer,
+  retainedInspectionRendererSlot,
   useAgentStructureRenderers,
 } from '../../../page/embeds/structure3d/agentStructureRenderers';
+import { inspectionProteinKey } from '../../../structure-drawer/structure-inspection';
 
 const {
   panelContentMapPolicySpy,
@@ -199,7 +201,11 @@ vi.mock('../PanelContent', async () => {
     tab,
     panelId,
   }: {
-    tab: { entityId: string; type: string } | null;
+    tab: {
+      entityId: string;
+      type: string;
+      structureInspection?: { request: { translation: string } };
+    } | null;
     panelId: string;
   }) => {
     const mountedEntityId = tab?.entityId ?? null;
@@ -223,6 +229,7 @@ vi.mock('../PanelContent', async () => {
         data-testid={`panel-content-${tab.entityId}`}
         data-panel-id={panelId}
         data-renderer-host={rendererHostId}
+        data-protein={tab.structureInspection?.request.translation}
       >
         Content: {tab.entityId}
       </div>
@@ -565,6 +572,63 @@ describe('TabPortalProvider', () => {
       expect(releaseCachedViewerLeaseSpy).toHaveBeenCalledWith(
         `pane-cache:agent:${backgroundTabId}`
       );
+    });
+
+    it('renders a retained inspection protein an agent is using without changing the displayed protein', () => {
+      const displayed = { entityId: 'dna', translation: 'MAG' };
+      const retained = { entityId: 'dna', translation: 'MKV' };
+      const retainedKey = inspectionProteinKey(retained);
+      const tabId = mockOpenTab('main', {
+        type: 'structure',
+        entityId: 'structure-inspection:dna',
+        label: 'Protein',
+      });
+      mockPanels = {
+        ...mockPanels,
+        main: {
+          ...mockPanels.main,
+          tabs: mockPanels.main.tabs.map((tab) => ({
+            ...tab,
+            structureInspection: {
+              request: displayed,
+              retainedProteinViews: {
+                [retainedKey]: {
+                  request: retained,
+                  candidateId: 'saved:retained',
+                  viewSettings: { candidateId: 'saved:retained', structureViewId: 'retained-view' },
+                },
+              },
+            },
+          })),
+        },
+      };
+      const view = () => (
+        <TabPortalProvider>
+          <div data-testid="panel-area">
+            <TabPortalTarget tab={getActiveTab('main')} />
+          </div>
+        </TabPortalProvider>
+      );
+      const { rerender } = render(view());
+      expect(screen.getAllByTestId('panel-content-structure-inspection:dna')).toHaveLength(1);
+
+      const slot = retainedInspectionRendererSlot(tabId, retainedKey);
+      act(() => leaseAgentStructureRenderer(slot));
+      rerender(view());
+      const copies = screen.getAllByTestId('panel-content-structure-inspection:dna');
+      expect(copies).toHaveLength(2);
+      const hidden = copies.find((copy) => copy.dataset.rendererHost === `agent:${slot}`)!;
+      expect(screen.getByTestId('agent-structure-stage')).toContainElement(hidden);
+      expect(hidden).toHaveAttribute('data-protein', 'MKV');
+      const shown = copies.find((copy) => copy !== hidden)!;
+      expect(screen.getByTestId('panel-area')).toContainElement(shown);
+      expect(shown).toHaveAttribute('data-protein', 'MAG');
+      expect(shown).toHaveAttribute('data-renderer-host', 'pane:main');
+
+      act(() => releaseAgentStructureRenderer(slot));
+      rerender(view());
+      expect(screen.getAllByTestId('panel-content-structure-inspection:dna')).toHaveLength(1);
+      expect(screen.getByTestId('agent-structure-stage')).toBeEmptyDOMElement();
     });
 
     it('hands a background structure to its pane renderer when the person selects it', () => {

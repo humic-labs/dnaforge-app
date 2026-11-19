@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BrowserWindow, MessageBoxOptions, MessageBoxReturnValue } from 'electron';
 import { configureUnsavedWorkSaver, showUnsavedWorkDialog } from './quit-consent';
-import { SaveAllError } from '../shared/save-all-result';
+import { SaveAllCancelled, SaveAllError } from '../shared/save-all-result';
 
 const { showMessageBox } = vi.hoisted(() => ({ showMessageBox: vi.fn() }));
 vi.mock('electron', () => ({
@@ -199,6 +199,23 @@ describe('saving from the unsaved-work warning ', () => {
 });
 
 describe('native save failure details', () => {
+  it('returns to the dirty document when the user cancels the Save As picker', async () => {
+    const discardRecoveryCopies = vi.fn();
+    configureUnsavedWorkSaver({
+      canSave: () => true,
+      saveAll: async () => {
+        throw new SaveAllCancelled();
+      },
+      readDirty: async () => ({ hasDirtyWork: true, details: '1 sequence' }),
+      discardRecoveryCopies,
+    });
+    showMessageBox.mockResolvedValueOnce({ response: 2 });
+    expect(
+      await showUnsavedWorkDialog(windowFixture(), { staged: false, details: '1 sequence' })
+    ).toBe('cancel');
+    expect(showMessageBox).toHaveBeenCalledTimes(1);
+    expect(discardRecoveryCopies).not.toHaveBeenCalled();
+  });
   it.each([
     ['win32', false],
     ['win32', true],

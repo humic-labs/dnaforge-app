@@ -9,6 +9,7 @@ export function useNotebookCloseRequests({
   tabId,
   owner,
   contentRef,
+  readRevision,
   saveNow,
   onDiscard,
 }: {
@@ -16,9 +17,22 @@ export function useNotebookCloseRequests({
   tabId?: string;
   owner: { isDestroyed: boolean } | null;
   contentRef: React.MutableRefObject<JSONContent | null>;
+  readRevision?: () => number;
   saveNow: () => Promise<boolean>;
   onDiscard: () => void | Promise<void>;
 }) {
+  const cached = useRef<{ content: JSONContent | null; canonical: string }>({
+    content: null,
+    canonical: '',
+  });
+  const contentRevision = () => {
+    if (readRevision) return readRevision();
+    const content = contentRef.current;
+    if (content !== cached.current.content) {
+      cached.current = { content, canonical: content ? canonicalNotebookJson(content) : '' };
+    }
+    return cached.current.canonical;
+  };
   const generation = useRef(0);
   useLayoutEffect(
     () => () => {
@@ -31,6 +45,7 @@ export function useNotebookCloseRequests({
       ? {
           target: { kind: 'page', pageId },
           tabId,
+          readRevision: contentRevision,
           isDirty: () => usePageStore.getState().dirtyIds.has(pageId),
           save: async () => {
             if (owner.isDestroyed) return false;

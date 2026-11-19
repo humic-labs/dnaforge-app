@@ -74,7 +74,7 @@ export function useDesignSaveOwner({
   }, [designId]);
 
   const design = useDesignStore((state) => state.designs[designId]);
-  const recovery = useDesignRecoveryStore((state) => state.records[designId]);
+  useDesignRecoveryStore((state) => state.records[designId]);
   const commitDraftDesign = useDesignStore((state) => state.commitDraftDesign);
   const updateTab = useCanvasStore((state) => state.updateTab);
   const draftContext =
@@ -107,6 +107,8 @@ export function useDesignSaveOwner({
       ? {
           target: { kind: 'tab', tabId: tab.id },
           tabId: tab.id,
+          readRevision: () =>
+            designContentIdentity(useDesignStore.getState().designs[designId] ?? null),
           isDirty: () => {
             const current = useDesignStore.getState().designs[designId];
             const baseline = draftBaselineRef.current;
@@ -117,7 +119,6 @@ export function useDesignSaveOwner({
             );
           },
           save: async () => {
-            let success = false;
             try {
               const state = useDesignStore.getState();
               const current = state.designs[designId];
@@ -133,6 +134,7 @@ export function useDesignSaveOwner({
                   : [];
               });
               const drafts = [current, ...siblingDrafts];
+              const captured = drafts.map((draft) => designContentIdentity(draft));
               let activeArtifactPath = '';
               for (const draft of drafts) {
                 const artifactPath = await ensureDesignArtifact({
@@ -148,6 +150,19 @@ export function useDesignSaveOwner({
                 });
                 if (draft.id === designId) activeArtifactPath = artifactPath;
               }
+              const latest = useDesignStore.getState();
+              const activeTab = useCanvasStore
+                .getState()
+                .panels[panelId]?.tabs.find((item) => item.id === tab.id);
+              if (
+                activeTab?.entityId !== designId ||
+                !drafts.every(
+                  (draft, index) =>
+                    latest.draftDesignIds?.[draft.id] &&
+                    designContentIdentity(latest.designs[draft.id] ?? null) === captured[index]
+                )
+              )
+                return false;
               for (const draft of drafts) commitDraftDesign(draft.id);
               updateTab(panelId, tab.id, { artifactDocument: undefined });
               window.dispatchEvent(
@@ -158,11 +173,11 @@ export function useDesignSaveOwner({
                   },
                 })
               );
-              success = true;
+              return { publishedRevision: captured[0] };
             } catch (error) {
               console.warn('[DesignTab] Failed to save draft assembly:', error);
+              return false;
             }
-            return success;
           },
           discard: () => {
             const state = useDesignStore.getState();
@@ -180,12 +195,17 @@ export function useDesignSaveOwner({
             target: saveTargetForTab(ownedTab),
             discard: () => discardDesignArtifactChanges(designId),
             tabId: ownedTab.id,
-            isDirty: () =>
-              Boolean(
-                design &&
+            readRevision: () =>
+              designContentIdentity(useDesignStore.getState().designs[designId] ?? null),
+            isDirty: () => {
+              const current = useDesignStore.getState().designs[designId];
+              const recovery = useDesignRecoveryStore.getState().records[designId];
+              return Boolean(
+                current &&
                 recovery &&
-                (recovery.pending || recovery.revision !== designContentIdentity(design))
-              ),
+                (recovery.pending || recovery.revision !== designContentIdentity(current))
+              );
+            },
             save: async () => {
               const ownsTarget = () => {
                 const current = panelId

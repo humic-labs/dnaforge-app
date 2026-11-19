@@ -14,6 +14,7 @@ export interface NativeDirtyDocument {
   saving: boolean;
   recovery: boolean;
   inspectionRequired: boolean;
+  saveDestinationRequired?: true;
 }
 
 export interface NativeDirtyDocumentPage {

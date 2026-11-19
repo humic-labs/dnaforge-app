@@ -30,6 +30,7 @@ import {
 import { fingerprintText, useUnsavedDraftRecovery } from '../shared/unsaved-draft-recovery';
 import {
   FileDocumentDraft,
+  saveCurrentFileEdits,
   waitForFileDocumentSaves,
 } from '../features/workspace/public/file-document-draft';
 import {
@@ -551,15 +552,16 @@ export function TabularFileViewerTab({
   useDocumentLifecycle({
     target: { kind: 'file', filePath },
     tabId: canvasTabId,
+    readRevision: () => document.revision,
     isDirty: () => !readOnly && document.dirty,
-    save: async () => {
-      let success: boolean;
-      do {
-        success = await saveChanges();
-        if (!mounted.current || currentDocument.current !== document) return false;
-      } while (success && !readOnly && document.dirty);
-      return success;
-    },
+    save: () =>
+      readOnly
+        ? Promise.resolve(true)
+        : saveCurrentFileEdits(
+            document,
+            saveChanges,
+            () => mounted.current && currentDocument.current === document
+          ),
     discard: () => {
       if (document instanceof FileDocumentClient) document.discard();
       else document.change(document.persistedContent);

@@ -9,6 +9,7 @@ import { useStore } from 'zustand';
 import { LazyStructure3dPanel } from '../../page/public/embeds/structure3d/components/LazyStructure3dPanel';
 import { useStructure3dStore } from '../../page/public/embeds/structure3d/store';
 import type { Structure3dAttrs } from '../../page/public/embeds/structure3d/types';
+import { useStructureRendererHostId } from '../../page/public/embeds/structure3d/agentStructureRenderers';
 import { useCanvasStore } from '../../canvas/public/store';
 import { useWorkspaceStore } from '../../../stores/workspaceStore';
 import { openSequenceDocument } from '../../document-opening/public/compat';
@@ -108,6 +109,9 @@ export function StructureDrawerContent({
   onViewSettingsChange,
   onViewerReady,
 }: StructureDrawerContentProps = {}) {
+  const viewerRendererHostId = useStructureRendererHostId(
+    paneHost ? `pane:${paneHost.panelId}` : undefined
+  );
   const panelMountStructureIdRef = useRef<string | null>(null);
   const activeHandoffIdRef = useRef<string | null>(null);
   const mountedRef = useRef(true);
@@ -670,7 +674,7 @@ export function StructureDrawerContent({
           viewerInstanceId={
             paneHost ? `tab:${paneHost.tabId}` : `drawer:${requestId}:${panelMount.structureId}`
           }
-          rendererHostId={paneHost ? `pane:${paneHost.panelId}` : undefined}
+          rendererHostId={viewerRendererHostId}
           hideStructureHeader
           onError={handleViewerErrorForRequest}
           onSlowLoad={handleViewerSlowForRequest}
@@ -682,7 +686,10 @@ export function StructureDrawerContent({
                 panelMount.attrs.structureViewIdentity?.structureViewId ?? panelMount.structureId;
               let attrs = useStructure3dStore.getState().expandedStructures[registrationId]?.data;
               if (attrs && paneHost && !attrs.molViewSpec)
-                attrs = await initializeInspectionScene(attrs, paneHost.panelId);
+                attrs = await initializeInspectionScene(
+                  attrs,
+                  viewerRendererHostId ?? `pane:${paneHost.panelId}`
+                );
               if (store.getState().requestId !== requestId) return;
               handleViewerLoad(panelMount.structureId);
               if (attrs) {
