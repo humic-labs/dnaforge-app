@@ -1269,8 +1269,6 @@ function projectViewerReadback(
     viewerId,
     source,
     sourceId,
-    documentReference,
-    documentUnavailable,
     camera,
     sceneFormat,
     representation,
@@ -1290,8 +1288,8 @@ function projectViewerReadback(
     viewerId,
     source,
     sourceId,
-    documentReference,
-    documentUnavailable,
+    documentReference: 'documentReference' in entry ? entry.documentReference : undefined,
+    documentUnavailable: 'documentUnavailable' in entry ? entry.documentUnavailable : undefined,
     stateError,
     ...(includeState
       ? {
