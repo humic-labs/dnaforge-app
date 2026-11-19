@@ -1459,8 +1459,6 @@ export const USER_MESSAGES = {
   'notice.could-not-open-that-quick-look-record': 'Could not open that Quick Look record.',
   'notice.save-or-cancel-the-unfinished-metadata-edits-before-switching-views':
     'Save or cancel the unfinished Metadata edits before switching views.',
-  'notice.save-or-cancel-the-unfinished-metadata-edits-in-its-drawer-before-clos':
-    'Save or cancel the unfinished Metadata edits in its drawer before closing this sequence.',
   'notice.update-entity-or-discard-the-unfinished-metadata-changes-before-editin':
     'Update entity or discard the unfinished Metadata changes before editing the assembly.',
   'notice.restore-was-already-published-its-git-delivery-could-not-be-verified-w':
