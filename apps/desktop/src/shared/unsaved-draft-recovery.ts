@@ -187,6 +187,7 @@ export function useUnsavedDraftRecovery<T>({
   onRestore,
   discardTarget,
 }: UnsavedDraftRecoveryOptions<T>): {
+  completePublishedDraft: () => Promise<boolean>;
   recordDraft: (payload: T) => void;
   flushDraft: (snapshot: { baseline: string; payload: T } | null) => Promise<void>;
 } {
@@ -292,8 +293,8 @@ export function useUnsavedDraftRecovery<T>({
     },
     [key, name, cancelPendingWrite]
   );
-  const contextRef = useRef({ key, name, baseline });
-  contextRef.current = { key, name, baseline };
+  const contextRef = useRef({ key, name, baseline, payload });
+  contextRef.current = { key, name, baseline, payload };
 
   const scheduleWrite = (draft: T) => {
     cancelPendingWrite();
@@ -341,7 +342,14 @@ export function useUnsavedDraftRecovery<T>({
     if (payload !== undefined) scheduleWriteRef.current(payload);
   }, [baseline, dirty, key, payload, cancelPendingWrite]);
 
-  useEffect(() => cancelPendingWrite, [cancelPendingWrite]);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      cancelPendingWrite();
+    };
+  }, [cancelPendingWrite]);
 
   const discardId = discardTarget ? saveDocumentTargetId(discardTarget) : null;
   const discardKind = discardTarget?.kind;
@@ -361,5 +369,28 @@ export function useUnsavedDraftRecovery<T>({
     dirtyDocumentKey.current = contextRef.current.key;
     scheduleWriteRef.current(draft);
   }).current;
-  return { recordDraft, flushDraft };
+  const completePublishedDraft = async (): Promise<boolean> => {
+    if (!key || payload === undefined) return false;
+    const published = JSON.stringify(payload);
+    const stillCurrent = () =>
+      mounted.current &&
+      contextRef.current.key === key &&
+      JSON.stringify(contextRef.current.payload) === published;
+    if (!stillCurrent()) return false;
+    try {
+      await flushPendingUnsavedDraftWrites([key]);
+      const entry = await readUnsavedDraft<T>(key);
+      if (
+        entry?.sessionId === SESSION_ID &&
+        entry.baseline === baseline &&
+        JSON.stringify(entry.payload) === published &&
+        stillCurrent()
+      )
+        await deleteUnsavedDraftIfUnchanged(key, JSON.stringify(entry));
+    } catch (error) {
+      logFailure('retire published draft')(error);
+    }
+    return stillCurrent();
+  };
+  return { recordDraft, flushDraft, completePublishedDraft };
 }
