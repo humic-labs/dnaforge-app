@@ -1,0 +1,19 @@
+# External files
+
+Use two fresh development profiles on different ports. Start each in the background as described in the verification skill. For changes to native registrations, also install the candidate and a competing viewer on disposable macOS and Windows desktops. Capture the source revision, actual paths, file digests, initial projects and OS choices before exercising the workflow.
+
+## Preview and import
+
+1. Drop one GenBank file onto unclaimed workspace space. Check for the Preview tab badge, outlined panel, read-only label and Import to Edit action. Select a different record in a multi-record file and verify its sequence. Duplicate record names must remain independently selectable.
+2. Drop a mixed group on the same space. Repeat with File → Open Files and the platform Open shortcut. Each supported document gets a preview and an unsupported file gets an explanation. Verify that the project contents and original file digests still match the starting state. Repeat opening a file and check tab reuse in the same panel.
+3. Open a FASTA containing duplicate headers with different sequence content. Select each by position and check its header, symbols and length. Open coordinates with known chain identifiers and verify the rendered model and chain readback. Open an ABIF trace and inspect its four channels, base calls and quality values. Confirm that malformed input produces a visible error.
+4. Import the FASTA into a new project. Confirm the tab loses the preview badge and outline. Hash the original and the project file, close the tab, and reopen the project file from Files. Recheck both same-named records. Repeat with a structure and chromatogram using the existing project as destination. Change a source file between preview and confirmation and check that the import fails without adding a partial file.
+5. In a multi-record GenBank preview, choose Import to Edit. Check the stated record count, select a project, and compare every imported sequence with its source record. Edit the project copy, then confirm the original still has its initial digest. Reopen a previously displayed GenBank or SnapGene after moving its source to exercise its saved local snapshot.
+
+## Default application
+
+On both development ports, open and close documents repeatedly and check for zero default-app prompts. Open Settings → File Handling and compare the reported extensions and defaults with the operating system. Check that a deliberate open works while another application is the default.
+
+On disposable desktops, record the effective handlers for each GenBank suffix, SnapGene DNA and an unrelated file. Use the installed application's File Handling control and confirm the system's choice. Open real files via Finder or Explorer while DNAForge is closed and again while it is running. Match each received document to the source. Check the competing and unrelated formats after the change. Record cancellation and restoration separately. Keep the screenshots and receipts outside the checkout.
+
+The platform verifiers are `apps/desktop/scripts/verify-macos-file-associations.mjs` and `apps/desktop/scripts/verify-windows-file-associations.ps1`. Candidate enumeration and an Open With selection provide evidence for different steps from a default launch. Record which actions ran with the installed candidate and which require a disposable desktop.
