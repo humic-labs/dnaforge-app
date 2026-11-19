@@ -1,7 +1,6 @@
 import { createContext, useContext, useRef, useMemo, useLayoutEffect, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useCanvasStore } from '../store';
-import { useWorkspaceVisibility } from '../workspace-visibility';
 import { PresentationHost } from '../../../presentation/PresentationSurface';
 import { debugLog } from '../../../utils/debug-log';
 import type { Tab } from '../types';
@@ -20,6 +19,11 @@ import {
   getPaneRendererHostCacheKey,
   releaseCachedViewerLease,
 } from '../../page/public/embeds/structure3d/molstar/cache';
+import {
+  agentStructureRendererHostId,
+  StructureRendererHostProvider,
+  useAgentStructureRenderers,
+} from '../../page/public/embeds/structure3d/agentStructureRenderers';
 
 export const SEQUENCE_TAB_RETENTION_BUDGETS = { normal: 8, moderate: 4, critical: 1 } as const;
 
@@ -46,14 +50,27 @@ interface TabPortalProviderProps {
   onChatHistoryPinnedChange?: (panelId: string, pinned: boolean) => void;
 }
 
-function PaneRendererHostLease({ panelId }: { panelId: string }) {
+function PaneRendererHostLease({ rendererHostId }: { rendererHostId: string }) {
   useEffect(() => {
-    const cacheKey = getPaneRendererHostCacheKey(`pane:${panelId}`);
+    const cacheKey = getPaneRendererHostCacheKey(rendererHostId);
     acquireCachedViewerLease(cacheKey);
     return () => releaseCachedViewerLease(cacheKey);
-  }, [panelId]);
+  }, [rendererHostId]);
   return null;
 }
+
+const AGENT_STRUCTURE_STAGE_STYLE: React.CSSProperties = {
+  position: 'fixed',
+  left: 0,
+  top: 0,
+  width: 768,
+  height: 768,
+  opacity: 0,
+  zIndex: -1,
+  pointerEvents: 'none',
+  overflow: 'hidden',
+  contain: 'strict',
+};
 
 export function TabPortalProvider({
   children,
@@ -69,7 +86,6 @@ export function TabPortalProvider({
   }, []);
 
   const panels = useCanvasStore((s) => s.panels);
-  const workspaceVisible = useWorkspaceVisibility();
 
   const allTabs = useMemo(() => {
     const tabs: Array<{ panelId: string; tab: Tab }> = [];
@@ -139,22 +155,61 @@ export function TabPortalProvider({
     if (host) host.dataset.testid = `tab-content-container-${tab.entityId}`;
   }
 
+  const agentRendererTabIds = useAgentStructureRenderers((state) => state.tabIds);
+  const agentHostedTabIds = useMemo(
+    () =>
+      new Set(
+        allTabs
+          .filter(
+            ({ tab }) =>
+              tab.type === 'structure' &&
+              !tab.structureInspection &&
+              !activeTabIds.has(tab.id) &&
+              agentRendererTabIds.includes(tab.id)
+          )
+          .map(({ tab }) => tab.id)
+      ),
+    [allTabs, activeTabIds, agentRendererTabIds]
+  );
+  const agentStageRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const stage = agentStageRef.current;
+    if (!stage) return;
+    for (const [id, host] of hostsRef.current) {
+      if (agentHostedTabIds.has(id)) {
+        if (host.parentNode !== stage) stage.appendChild(host);
+      } else if (host.parentNode === stage) {
+        stage.removeChild(host);
+      }
+    }
+  }, [agentHostedTabIds]);
+
   return (
     <TabPortalContext.Provider value={hostsRef.current}>
       {Object.keys(panels).map((panelId) => (
-        <PaneRendererHostLease key={panelId} panelId={panelId} />
+        <PaneRendererHostLease key={panelId} rendererHostId={`pane:${panelId}`} />
       ))}
-      {}
+      {[...agentHostedTabIds].map((tabId) => (
+        <PaneRendererHostLease key={tabId} rendererHostId={agentStructureRendererHostId(tabId)} />
+      ))}
+      <div
+        ref={agentStageRef}
+        aria-hidden="true"
+        data-testid="agent-structure-stage"
+        style={AGENT_STRUCTURE_STAGE_STYLE}
+      />
       {allTabs.map(({ panelId, tab }) => {
         const host = hostsRef.current.get(tab.id);
         if (!host) return null;
         const isActive = activeTabIds.has(tab.id);
+        const agentHosted = agentHostedTabIds.has(tab.id);
 
-        if (tab.type === 'structure' && (!isActive || !workspaceVisible)) return null;
+        if (tab.type === 'structure' && !isActive && !agentHosted) return null;
 
         const budgeted = isBudgetedSequenceTab(tab);
         if (!isActive && budgeted && !retainedSequenceTabIds.has(tab.id)) return null;
-        const content = (
+        const panelContent = (
           <PanelContent
             tab={tab}
             isActive={isActive}
@@ -163,6 +218,13 @@ export function TabPortalProvider({
             onConfigureHost={onConfigureHost}
             onChatHistoryPinnedChange={onChatHistoryPinnedChange}
           />
+        );
+        const content = agentHosted ? (
+          <StructureRendererHostProvider value={agentStructureRendererHostId(tab.id)}>
+            {panelContent}
+          </StructureRendererHostProvider>
+        ) : (
+          panelContent
         );
 
         return createPortal(

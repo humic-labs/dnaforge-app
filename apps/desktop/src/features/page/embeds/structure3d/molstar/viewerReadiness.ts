@@ -55,6 +55,7 @@ export async function waitForDimensions(
       hasDimensions = true;
       break;
     }
+    if (container.isConnected && !container.checkVisibility()) break;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   if (!hasDimensions) {
