@@ -23,33 +23,13 @@ function calculateInsertIndex(
   tabBarElement: HTMLElement,
   dragTabId: string
 ): number {
-  const tabs = tabBarElement.querySelectorAll('[role="tab"]');
-  if (tabs.length === 0) return 0;
-
-  const visibleTabs: { index: number; midpoint: number }[] = [];
-  let maxIndex = 0;
-
-  for (let i = 0; i < tabs.length; i++) {
-    const tab = tabs[i] as HTMLElement;
-    const tabIndex = parseInt(tab.getAttribute('data-tab-index') || '0', 10);
-    maxIndex = Math.max(maxIndex, tabIndex);
-
-    if (tab.getAttribute('data-tab-id') === dragTabId) continue;
-
+  const tabs = tabBarElement.querySelectorAll<HTMLElement>('[role="tab"]');
+  for (const [index, tab] of tabs.entries()) {
+    if (tab.dataset.tabId === dragTabId) continue;
     const rect = tab.getBoundingClientRect();
-    if (rect.width === 0) continue;
-
-    const midpoint = rect.left + rect.width / 2;
-    visibleTabs.push({ index: tabIndex, midpoint });
+    if (rect.width > 0 && mouseX < rect.left + rect.width / 2) return index;
   }
-
-  for (const { index, midpoint } of visibleTabs) {
-    if (mouseX < midpoint) {
-      return index;
-    }
-  }
-
-  return maxIndex + 1;
+  return tabs.length;
 }
 
 export function useTabDrag() {
@@ -349,7 +329,13 @@ export function useTabDrag() {
         });
 
         if (zone === 'center') {
-          moveTabAtIndex(dragFromPanelId, targetPanelId, dragTabId, insertIndex);
+          let destination = insertIndex;
+          if (dragFromPanelId === targetPanelId && destination !== null) {
+            const sourcePanel = useCanvasStore.getState().panels[dragFromPanelId];
+            const sourceIndex = sourcePanel?.tabs.findIndex((tab) => tab.id === dragTabId) ?? -1;
+            if (sourceIndex >= 0 && sourceIndex < destination) destination--;
+          }
+          moveTabAtIndex(dragFromPanelId, targetPanelId, dragTabId, destination);
         } else {
           const directionMap = {
             top: 'up',
