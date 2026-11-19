@@ -1,8 +1,9 @@
 ---
 name: verify-dnaforge
 description:
-  Verify saved read pileups, annotations, track palette edits and catalog-backed
-  restriction enzyme selection in an isolated DNAForge desktop development app.
+  Verify saved read pileups, annotations, track palette edits, catalog-backed
+  restriction enzyme selection and agent 3D structure work behind other screens
+  in an isolated DNAForge desktop development app.
 ---
 
 # Verify DNAForge desktop workflows
@@ -11,7 +12,10 @@ For release and usage analytics notices, follow the [desktop relaunch checks](fe
 
 Choose the [saved pileup map](features/saved-pileup.md) for read loading,
 annotations, zoom transitions and performance. Its source-start command owns
-launch, readiness checks and cleanup. The sections below describe the
+launch, readiness checks and cleanup. Choose the
+[covered workspace structure map](features/covered-workspace-structure.md) for
+agent structure commands while Home, References or Settings is on screen. The
+sections below describe the
 [palette and enzyme journey](features/palettes-and-enzymes.md).
 
 ## Launch
