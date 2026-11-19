@@ -247,7 +247,6 @@ export function registerAllIpcHandlers(deps: RegisterAllIpcHandlersDeps = {}): v
     },
     grantedCapabilities: () => [...DEFAULT_MCP_GRANT_CAPABILITIES],
     jobs: computeJobs,
-    recoverLegacyResult: recoverLegacyComputeResult,
     userManifestsDir: computeUserManifestsDir(app.getPath('userData')),
     restartSidecar,
   });

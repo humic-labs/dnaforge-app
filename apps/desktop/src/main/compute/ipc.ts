@@ -40,7 +40,6 @@ export interface ComputeIpcDeps {
   sidecarFetch: SidecarFetch;
 
   jobs?: ComputeJobRegistry;
-  recoverLegacyResult?: (job: ComputeJobRecord) => Promise<ComputeRecoveryResult>;
 
   grantedCapabilities: () => string[];
 
@@ -487,8 +486,7 @@ export function createComputeIpcHandlers(deps: ComputeIpcDeps) {
     const job = jobsOrThrow().get(id);
     if (!job || job.state !== 'imported' || !job.workspaceRoot || !job.remoteId)
       throw new Error('The imported compute job is unavailable.');
-    if (!deps.recoverLegacyResult) throw new Error('Compute recovery is unavailable.');
-    return deps.recoverLegacyResult(job);
+    return jobsOrThrow().recoverLegacyResult(job);
   }
 
   return {
