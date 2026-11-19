@@ -13,11 +13,22 @@ document view.
 
 ## Driving it with Playwright
 
-Use the parent skill's isolated desktop launch. Run the journey from the
-repository root with a fresh output directory.
+Use the parent skill's setup with a free renderer and debug port. Start the
+desktop against a fresh profile and workspace from the repository root.
 
 ```sh
-node apps/desktop/scripts/split-plasmid-map-journey.mjs --out "$HOME/DNAForge-proof/split-map"
+session_dir=$(mktemp -d "$HOME/split-map.XXXXXX")
+git init -q "$session_dir/workspace"
+DNAFORGE_BACKGROUND_WINDOW=1 pnpm --dir apps/desktop dev -- \
+  "--user-data-dir=$session_dir/profile" "--workspace=$session_dir/workspace"
+```
+
+Open Files in that window. In a second terminal, use the same session path
+and a fresh output directory. The journey opens a new copy of pUC19.
+
+```sh
+node apps/desktop/scripts/split-plasmid-map-journey.mjs \
+  --session "$session_dir" --out "$session_dir/captures"
 ```
 
 Compare the lower map with the available width under the sequence and the

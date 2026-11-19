@@ -197,6 +197,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     width: options.width,
     height: options.height,
     geometryHeight: options.geometryHeight ?? options.height,
+    centerStadiumOverview: options.centerStadiumOverview,
     themeMode: options.themeMode ?? currentWebGLThemeMode(),
     selectedIds: new Set(options.selectedFeatureIds ?? []),
     selectedCanonicalIdentities: new Set(options.selectedFeatureCanonicalIdentities ?? []),
@@ -444,6 +445,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     });
     const backingChanged = mutateDisplayGeometryPreservingCenter(() => {
       const s = stateRef.current;
+      s.centerStadiumOverview = options.centerStadiumOverview;
       const app = appRef.current;
       if (app && options.width > 0 && options.height > 0) {
         const size = resizePixiCanvas(app, options.width, options.height, 'display-props');
@@ -470,6 +472,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     options.width,
     options.height,
     options.geometryHeight,
+    options.centerStadiumOverview,
     options.morph,
   ]);
 

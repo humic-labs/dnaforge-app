@@ -2224,7 +2224,7 @@ function WorkspaceViewerInternal({
     renderHeight: minimapRenderHeight,
     shapeGeometryHeight: mapRenderShapeGeometryHeight,
     morphToCircle: mapRenderMorphToCircle,
-    minHeight: MIN_MINIMAP_GEOMETRY,
+    minHeight: MIN_MINIMAP_PANE,
   });
   const sideSplitWidth = usableSideSplitWidth(surfaceLayoutWidth, showSideResizeHandle);
   const sideMapPaneWidth = clampSideMapPaneWidth(
@@ -2330,12 +2330,9 @@ function WorkspaceViewerInternal({
       const applySize = (size: { width: number; height: number }) => {
         latestSize = size;
         if (axis === 'horizontal') {
-          pane.style.flex = `0 0 ${size.width}px`;
+          pane.style.flexBasis = `${size.width}px`;
           pane.style.width = `${size.width}px`;
-          pane.style.height = `${size.height}px`;
         } else {
-          pane.style.flex = `0 0 ${size.height}px`;
-          pane.style.width = `${size.width}px`;
           pane.style.height = `${size.height}px`;
         }
         if (webglRoot) {
@@ -2911,6 +2908,12 @@ function WorkspaceViewerInternal({
                     width={minimapWidth}
                     height={webglMapGeometry.renderHeight}
                     geometryHeight={webglMapGeometry.geometryHeight}
+                    centerStadiumOverview={
+                      sequenceSurfaceVisible &&
+                      activeMapLayout === 'vertical' &&
+                      surface !== 'assembly' &&
+                      mapTopologyCircular
+                    }
                     circular={mapTopologyCircular}
                     morphToCircle={workspaceViewerMapMorphToCircle(
                       mapTopologyCircular,
