@@ -63,6 +63,28 @@ describe('FileHandlingSettings', () => {
     mocks.openExternalPreview.mockResolvedValue('tab-1');
   });
 
+  it('shows each suffix and its current application for mixed defaults', async () => {
+    mocks.queryHandlers.mockResolvedValue([
+      {
+        familyId: 'genbank',
+        state: 'other',
+        handlerName: 'Multiple applications',
+        defaultAction: 'native',
+        mixedHandlers: [
+          { extension: 'gb', handlerName: 'SnapGene' },
+          { extension: 'gbk', handlerName: null },
+        ],
+      },
+    ]);
+    render(<FileHandlingSettings />);
+    expect((await screen.findByText('No default app')).previousElementSibling).toHaveTextContent(
+      '.gbk'
+    );
+    expect(
+      screen.getByText('SnapGene', { selector: 'dd' }).previousElementSibling
+    ).toHaveTextContent('.gb');
+  });
+
   it('keeps the newest status when an older native query finishes last', async () => {
     let finishOldQuery: (value: unknown) => void = () => {};
     mocks.queryHandlers.mockImplementationOnce(

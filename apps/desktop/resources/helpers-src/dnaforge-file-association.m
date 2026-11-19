@@ -112,6 +112,7 @@ int main(int argc, const char *argv[]) {
     if ([command isEqualToString:@"query-extension"]) return QueryHandlerForExtension(identifier);
     if ([command isEqualToString:@"query-extensions"]) {
       NSMutableSet *handlers = [NSMutableSet set];
+      NSMutableDictionary *byExtension = [NSMutableDictionary dictionary];
       for (int index = 2; index < argc; index++) {
         UTType *type = [UTType typeWithFilenameExtension:[NSString stringWithUTF8String:argv[index]]];
         if (type == nil) {
@@ -119,10 +120,12 @@ int main(int argc, const char *argv[]) {
           return 2;
         }
         NSURL *url = [[NSWorkspace sharedWorkspace] URLForApplicationToOpenContentType:type];
-        [handlers addObject:HandlerInfo(url) ?: [NSNull null]];
+        id handler = HandlerInfo(url) ?: [NSNull null];
+        byExtension[[NSString stringWithUTF8String:argv[index]]] = handler;
+        [handlers addObject:handler];
       }
       id handler = handlers.count == 1 ? handlers.anyObject : @{ @"name": @"Multiple applications" };
-      PrintJSON(@{ @"ok": @YES, @"handler": handler });
+      PrintJSON(@{ @"ok": @YES, @"handler": handler, @"byExtension": byExtension });
       return 0;
     }
     if ([command isEqualToString:@"inspect-file"] && argc == 3) return InspectFile(identifier);

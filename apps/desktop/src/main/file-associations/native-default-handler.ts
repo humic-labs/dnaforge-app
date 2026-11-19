@@ -7,6 +7,7 @@ import { HANDLER_FAMILIES, handlerFamily } from '../../shared/file-associations'
 import type {
   DefaultHandlerServiceDependencies,
   MacHandlerIdentity,
+  WindowsHandlers,
 } from './default-handler-service';
 
 export interface NativeCommandResult {
@@ -75,7 +76,15 @@ export function parseMacHandlerResponse(stdout: string): MacHandlerIdentity | nu
     throw new Error('The native handler helper omitted its handler result.');
   }
   const handler = response.handler as Record<string, unknown>;
+  const mixedHandlers =
+    handler.name === 'Multiple applications' && response.byExtension
+      ? Object.entries(response.byExtension).map(([extension, entry]) => ({
+          extension,
+          handlerName: entry?.name ?? entry?.bundleId ?? null,
+        }))
+      : undefined;
   return {
+    ...(mixedHandlers && { mixedHandlers }),
     bundleId:
       typeof handler.bundleId === 'string' && handler.bundleId !== '' ? handler.bundleId : null,
     name: typeof handler.name === 'string' && handler.name !== '' ? handler.name : null,
@@ -230,12 +239,24 @@ export function createNativeDefaultHandlerDependencies(
       if (result.code !== 0)
         throw new Error(result.stderr.trim() || 'Windows default-app query failed.');
       const raw = parseObject(result.stdout);
-      const defaults: Record<string, string | null> = {};
+      const defaults: Record<string, WindowsHandlers[string]> = {};
       for (const extension of extensions) {
         const value = raw[extension];
-        if (value !== null && typeof value !== 'string')
+        if (value === null) {
+          defaults[extension] = null;
+          continue;
+        }
+        if (
+          !value ||
+          typeof value !== 'object' ||
+          !('progId' in value) ||
+          typeof value.progId !== 'string' ||
+          !('name' in value) ||
+          typeof value.name !== 'string'
+        ) {
           throw new Error(`Invalid Windows handler for .${extension}.`);
-        defaults[extension] = value;
+        }
+        defaults[extension] = { progId: value.progId, name: value.name };
       }
       return defaults;
     },

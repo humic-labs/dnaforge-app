@@ -84,6 +84,16 @@ function FamilyRow({
           >
             {handlerSummary(status)}
           </p>
+          {status?.mixedHandlers && (
+            <dl className="mt-2 text-xs text-fg-muted">
+              {status.mixedHandlers.map(({ extension, handlerName }) => (
+                <div className="flex gap-2" key={extension}>
+                  <dt>.{extension}</dt>
+                  <dd>{handlerName ?? 'No default app'}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </div>
         <div className="flex flex-wrap items-start gap-2">
           {label && status?.defaultAction !== 'instructions' ? (

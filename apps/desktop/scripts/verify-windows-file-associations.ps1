@@ -1,6 +1,7 @@
 param(
   [Parameter(Mandatory = $true)][string] $InstalledExe,
-  [Parameter(Mandatory = $true)][string] $GenBankFile
+  [Parameter(Mandatory = $true)][string] $GenBankFile,
+  [Parameter(Mandatory = $true)][string] $ReportPath
 )
 $ErrorActionPreference = 'Stop'
 
@@ -44,41 +45,105 @@ $extension = [IO.Path]::GetExtension($GenBankFile).TrimStart('.').ToLowerInvaria
 if ($extension -notin @('gb','gbk','gbff','genbank')) { throw 'Supply a GenBank document.' }
 $script = Join-Path (Split-Path $exe) 'resources\query-windows-associations.ps1'
 if (!(Test-Path -LiteralPath $script)) { throw 'Install the candidate in this sandbox first.' }
-$before = & $script -Extensions $extension | ConvertFrom-Json
-if ($before.$extension -eq 'DNAForge.GenBank') { throw 'Start a new sandbox where DNAForge is not already the default.' }
-$source = Join-Path $env:TEMP ("native-preview-{0}.$extension" -f [guid]::NewGuid())
-Copy-Item -LiteralPath $GenBankFile -Destination $source
-$hash = (Get-FileHash $source -Algorithm SHA256).Hash
-$profileRoot = Join-Path $env:APPDATA 'DNAForge\quick-look-packages'
-Start-Process 'ms-settings:defaultapps?registeredAppUser=DNAForge'
-Find-SettingsControl ".$extension"
-Find-SettingsControl 'DNAForge' $true
-Find-SettingsControl 'Set default' $true
-$deadline = [DateTime]::UtcNow.AddMinutes(3)
-do {
-  Start-Sleep -Milliseconds 750
-  $current = & powershell.exe -NoProfile -NonInteractive -File $script -Extensions $extension | ConvertFrom-Json
+$extensions = @('gb', 'gbk', 'gbff', 'genbank')
+$all = $extensions + @('dna')
+function Read-Handlers {
+  $result = & powershell.exe -NoProfile -NonInteractive -File $script -Extensions ($all -join ',')
   if ($LASTEXITCODE -ne 0) { throw 'Effective shell query failed.' }
-} while ($current.$extension -ne 'DNAForge.GenBank' -and [DateTime]::UtcNow -lt $deadline)
-if ($current.$extension -ne 'DNAForge.GenBank') { throw 'Windows did not confirm the new default.' }
-Start-Process -FilePath $source
-$deadline = [DateTime]::UtcNow.AddSeconds(90)
-$receipt = $null
-do {
-  foreach ($file in @(Get-ChildItem -Path $profileRoot -Filter quick-look.json -Recurse -ErrorAction SilentlyContinue)) {
-    $candidate = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json
-    if ($candidate.sourceFileName -ceq [IO.Path]::GetFileName($source) -and
-        $candidate.sourceContentHash -eq $hash -and $candidate.records.Count -gt 0) {
-      $receipt = $file
-      break
-    }
-  }
-  if (!$receipt) { Start-Sleep -Milliseconds 500 }
-} while (!$receipt -and [DateTime]::UtcNow -lt $deadline)
-if (!$receipt) { throw 'Shell opening the actual file did not produce the matching preview.' }
-if (!(Get-Process DNAForge -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe })) {
-  throw 'The installed candidate is not running.'
+  return $result | ConvertFrom-Json
 }
-if ((Get-FileHash $source -Algorithm SHA256).Hash -ne $hash) { throw 'The source changed.' }
-[ordered]@{ application = $exe; source = $source; before = $before; after = $current;
-  sourceHash = $hash; preview = $receipt.FullName } | ConvertTo-Json
+function App-Processes {
+  return @(Get-Process DNAForge -ErrorAction SilentlyContinue |
+    Where-Object { $_.Path -eq $exe -and $_.SessionId -eq (Get-Process -Id $PID).SessionId })
+}
+function Select-Default([string]$suffix, [string]$name, [bool]$cancel) {
+  Start-Process 'ms-settings:defaultapps?registeredAppUser=DNAForge'
+  Find-SettingsControl ".$suffix"
+  Find-SettingsControl $name $true
+  if ($cancel) { Find-SettingsControl 'Cancel' $true }
+  else { Find-SettingsControl 'Set default' $true }
+}
+function Wait-ForDefault([string]$suffix, [string]$expected) {
+  $deadline = [DateTime]::UtcNow.AddSeconds(20)
+  do {
+    $value = (Read-Handlers).$suffix
+    if ($value.progId -eq $expected) { return }
+    Start-Sleep -Milliseconds 250
+  } while ([DateTime]::UtcNow -lt $deadline)
+  throw "Windows reported '$($value.progId)' for .$suffix; expected '$expected'."
+}
+if (Test-Path -LiteralPath $ReportPath) { throw 'Supply a new report path.' }
+if (@(App-Processes).Count -ne 0) { throw 'Close the installed candidate before the cold-launch proof.' }
+$before = Read-Handlers
+foreach ($suffix in $extensions) {
+  if (!$before.$suffix.progId -or $before.$suffix.progId -eq 'DNAForge.GenBank') {
+    throw "Select an alternate application for .$suffix in the disposable profile first."
+  }
+}
+$hash = (Get-FileHash $GenBankFile -Algorithm SHA256).Hash
+$profileRoot = Join-Path $env:APPDATA 'DNAForge\quick-look-packages'
+$run = New-Item -ItemType Directory -Path (Join-Path $env:TEMP ("file-open-" + [guid]::NewGuid()))
+$report = [ordered]@{application=$exe; before=$before; opens=@(); cancel='not exercised'; restored=$false}
+try {
+  Select-Default 'gb' 'DNAForge' $true
+  $cancelled = Read-Handlers
+  foreach ($suffix in $all) {
+    if ($cancelled.$suffix.progId -ne $before.$suffix.progId) { throw "Cancel changed .$suffix." }
+  }
+  $report.cancel='passed'
+  foreach ($suffix in $extensions) {
+    Select-Default $suffix 'DNAForge' $false
+    Wait-ForDefault $suffix 'DNAForge.GenBank'
+  }
+  $report.after = Read-Handlers
+  foreach ($suffix in $extensions) {
+    if ($report.after.$suffix.progId -ne 'DNAForge.GenBank') { throw "Wrong handler for .$suffix." }
+  }
+  if ($report.after.dna.progId -ne $before.dna.progId) { throw 'Unrelated .dna default changed.' }
+  $coldPid = $null
+  foreach ($suffix in $extensions) {
+    $name = "native-preview-{0}.$suffix" -f [guid]::NewGuid()
+    $source = Join-Path $run.FullName $name
+    Copy-Item -LiteralPath $GenBankFile -Destination $source
+    Start-Process -FilePath $source
+    $deadline = [DateTime]::UtcNow.AddSeconds(90)
+    $receipt = $null
+    do {
+      foreach ($file in @(Get-ChildItem -Path $profileRoot -Filter quick-look.json -Recurse -ErrorAction SilentlyContinue)) {
+        if ($file.FullName -match '[\\/]\.staging-') { continue }
+        $manifest = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json
+        if ($manifest.sourceFileName -ceq $name -and $manifest.sourceContentHash -eq $hash -and $manifest.records.Count) {
+          $receipt = $file.FullName
+          break
+        }
+      }
+      if (!$receipt) { Start-Sleep -Milliseconds 400 }
+    } while (!$receipt -and [DateTime]::UtcNow -lt $deadline)
+    if (!$receipt) { throw "No matching preview for .$suffix." }
+    $running = @(App-Processes)
+    $main = @($running | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero })
+    if ($main.Count -ne 1) { throw 'Expected one visible window process of the installed candidate.' }
+    if ($null -eq $coldPid) { $coldPid = $main[0].Id }
+    if ($main[0].Id -ne $coldPid) { throw 'Warm open did not reach the same process.' }
+    if ((Get-FileHash $source -Algorithm SHA256).Hash -ne $hash) { throw "The .$suffix source changed." }
+    $report.opens += @{ file=$source; sourceHash=$hash; manifest=$receipt; processId=$coldPid }
+  }
+  $report.openVerdict = 'passed'
+} finally {
+  try {
+    $actual = Read-Handlers
+    foreach ($suffix in $all) {
+      if ($actual.$suffix.progId -eq $before.$suffix.progId) { continue }
+      Select-Default $suffix $before.$suffix.name $false
+      Wait-ForDefault $suffix $before.$suffix.progId
+    }
+    $restored = Read-Handlers
+    foreach ($suffix in $all) {
+      if ($restored.$suffix.progId -ne $before.$suffix.progId) { throw "Restoration failed for .$suffix." }
+    }
+    $report.restored = $true
+    $report.final = $restored
+  } finally {
+    $report | ConvertTo-Json -Depth 6 | Out-File -FilePath $ReportPath -Encoding utf8 -NoClobber
+  }
+}

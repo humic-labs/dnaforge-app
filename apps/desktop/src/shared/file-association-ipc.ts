@@ -20,6 +20,10 @@ export interface FileAssociationHandlerStatus {
   readonly state: FileAssociationHandlerState;
   readonly handlerName: string | null;
   readonly handlerPath: string | null;
+  readonly mixedHandlers?: readonly {
+    readonly extension: string;
+    readonly handlerName: string | null;
+  }[];
   readonly defaultAction: FileAssociationDefaultAction;
   readonly detail: string | null;
 }

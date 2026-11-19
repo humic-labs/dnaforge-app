@@ -80,6 +80,21 @@ describe(' native default-handler adapters', () => {
     );
   });
 
+  it('preserves the individual macOS handlers when a family has mixed defaults', () => {
+    expect(
+      parseMacHandlerResponse(
+        JSON.stringify({
+          ok: true,
+          handler: { name: 'Multiple applications' },
+          byExtension: { gb: { name: 'SnapGene', bundleId: 'com.gslbiotech.snapgene' }, gbk: null },
+        })
+      )?.mixedHandlers
+    ).toEqual([
+      { extension: 'gb', handlerName: 'SnapGene' },
+      { extension: 'gbk', handlerName: null },
+    ]);
+  });
+
   it('distinguishes a Windows shell query failure from a genuinely unassociated extension', async () => {
     const runCommand = vi
       .fn()
@@ -95,10 +110,10 @@ describe(' native default-handler adapters', () => {
     });
     await expect(deps.queryWindowsProgIds()).rejects.toThrow('COM query failed');
     const extensions = runCommand.mock.calls[0][1].at(-1).split(',') as string[];
-    const results: Record<string, string | null> = Object.fromEntries(
+    const results: Record<string, { progId: string; name: string } | null> = Object.fromEntries(
       extensions.map((extension) => [extension, null])
     );
-    results.dna = 'SnapGene.DNA';
+    results.dna = { progId: 'SnapGene.DNA', name: 'SnapGene' };
     runCommand.mockResolvedValue({ code: 0, stderr: '', stdout: JSON.stringify(results) });
     await expect(deps.queryWindowsProgIds()).resolves.toEqual(results);
   });

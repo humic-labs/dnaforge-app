@@ -14,7 +14,10 @@ export interface MacHandlerIdentity {
   readonly bundleId: string | null;
   readonly name: string | null;
   readonly path: string | null;
+  readonly mixedHandlers?: FileAssociationHandlerStatus['mixedHandlers'];
 }
+
+export type WindowsHandlers = Readonly<Record<string, { progId: string; name: string } | null>>;
 
 export interface DefaultHandlerServiceDependencies {
   readonly platform: NodeJS.Platform;
@@ -23,7 +26,7 @@ export interface DefaultHandlerServiceDependencies {
   readonly setMacHandler: (
     familyId: HandlerFamilyId
   ) => Promise<{ readonly ok: boolean; readonly detail: string | null }>;
-  readonly queryWindowsProgIds: () => Promise<Readonly<Record<string, string | null>>>;
+  readonly queryWindowsProgIds: () => Promise<WindowsHandlers>;
   readonly openWindowsDefaultApps: () => Promise<void>;
   readonly windowsDefaultAction?: FileAssociationDefaultAction;
   readonly macDefaultAction?: FileAssociationDefaultAction;
@@ -74,6 +77,7 @@ async function queryMacFamily(
       state: handler.bundleId === dependencies.appBundleId ? 'default' : 'other',
       handlerName: handler.name,
       handlerPath: handler.path,
+      ...(handler.mixedHandlers && { mixedHandlers: handler.mixedHandlers }),
       defaultAction,
       detail:
         handler.name === 'Multiple applications'
@@ -92,13 +96,13 @@ async function queryMacFamily(
 function queryWindowsFamily(
   familyId: HandlerFamilyId,
   dependencies: DefaultHandlerServiceDependencies,
-  defaults: Readonly<Record<string, string | null>>
+  defaults: WindowsHandlers
 ): FileAssociationHandlerStatus {
   const family = handlerFamily(familyId);
   try {
     const progIds = family.extensions.map((extension) => {
       if (!(extension in defaults)) throw new Error(`No Windows query result for .${extension}.`);
-      return defaults[extension] ?? null;
+      return defaults[extension]?.progId ?? null;
     });
     const unique = new Set(progIds.map((value) => value?.toLowerCase() ?? null));
     const allDnaForge = progIds.every(
@@ -113,8 +117,14 @@ function queryWindowsFamily(
         ? 'DNAForge'
         : mixed
           ? 'Multiple applications'
-          : (progIds[0] ?? null),
+          : (defaults[family.extensions[0] ?? '']?.name ?? null),
       handlerPath: null,
+      ...(mixed && {
+        mixedHandlers: family.extensions.map((extension) => ({
+          extension,
+          handlerName: defaults[extension]?.name ?? null,
+        })),
+      }),
       defaultAction: dependencies.windowsDefaultAction ?? 'system-settings',
       detail: mixed
         ? `The registered ${family.displayName} extensions use different default applications.`

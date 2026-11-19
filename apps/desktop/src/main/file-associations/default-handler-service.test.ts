@@ -61,7 +61,14 @@ describe(' effective default-handler service', () => {
     const service = createDefaultHandlerService(
       dependencies({
         platform: 'win32',
-        queryWindowsProgIds: vi.fn(async () => Object.fromEntries(defaults)),
+        queryWindowsProgIds: vi.fn(async () =>
+          Object.fromEntries(
+            Array.from(defaults, ([ext, progId]) => [
+              ext,
+              { progId, name: progId === 'Other.GenBank' ? 'SnapGene' : 'DNAForge' },
+            ])
+          )
+        ),
       })
     );
 
@@ -72,6 +79,10 @@ describe(' effective default-handler service', () => {
           state: 'other',
           defaultAction: 'system-settings',
           detail: 'The registered GenBank extensions use different default applications.',
+          mixedHandlers: expect.arrayContaining([
+            { extension: 'gbff', handlerName: 'SnapGene' },
+            { extension: 'gb', handlerName: 'DNAForge' },
+          ]),
         }),
         expect.objectContaining({ familyId: 'snapgene', state: 'default' }),
       ])
