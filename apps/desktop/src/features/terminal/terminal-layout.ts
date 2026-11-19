@@ -51,6 +51,18 @@ export function moveTerminalGroupToView(
   );
 }
 
+export function moveIndividualTerminalToView(
+  groups: TerminalGroup[],
+  sessionId: string,
+  viewId: string
+): TerminalGroup[] {
+  const source = groups.find((group) => group.sessions.includes(sessionId));
+  if (!source) return groups;
+  if (source.sessions.length === 1) return moveTerminalGroupToView(groups, sessionId, viewId);
+  const separate = unsplitTerminalPane(groups, sessionId, viewId);
+  return moveTerminalGroupToView(separate, sessionId, viewId);
+}
+
 export const TERMINAL_DRAG_TYPE = 'application/x-dnaforge-terminal';
 export const TERMINAL_PANE_MINIMUM_PX = 80;
 

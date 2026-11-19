@@ -26,13 +26,14 @@ it('marks Terminal as the active left navigation destination', () => {
   expect(screen.getByTestId('terminal-toggle')).toHaveClass('text-accent');
 });
 
-it('gives the terminal workspace the main surface instead of overlaying document tabs', () => {
+it('keeps document tabs visible alongside the terminal list and shell', () => {
   function Layout() {
     const mode = useWorkspaceMainMode('terminal' as ActivityView, true);
     return <output>{JSON.stringify(mode)}</output>;
   }
   render(<Layout />);
   const mode = JSON.parse(screen.getByRole('status').textContent!);
-  expect(mode.workspaceTakeoverActive).toBe(true);
+  expect(mode.workspaceTakeoverActive).toBe(false);
+  expect(mode.terminalViewActive).toBe(true);
   expect(mode.sidebarChromeVisible).toBe(false);
 });
