@@ -85,7 +85,7 @@ export function createInlinePickerPopup({
     trigger: 'manual',
     placement: 'bottom-start',
     offset: [0, 0],
-    theme: 'notebook-picker',
+    theme: 'wp-inline-picker',
     animation: false,
     arrow: false,
     maxWidth: 'none',

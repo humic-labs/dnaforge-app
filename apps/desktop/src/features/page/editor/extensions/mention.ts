@@ -261,6 +261,7 @@ export const MentionExtension = NotebookMentionNode.extend<MentionOptions>({
   addNodeView() {
     return ReactNodeViewRenderer(ReferenceNodeView, {
       as: 'span',
+      className: 'wp-inline-reference-boundary',
       update: ({ oldNode, newNode, oldDecorations, newDecorations, updateProps }) => {
         if (
           oldNode !== newNode ||

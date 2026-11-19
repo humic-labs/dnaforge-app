@@ -399,3 +399,118 @@
 .wp-interactive[data-interaction-group='true']:focus-within [data-interaction-cover] {
   background: var(--interaction-hover);
 }
+
+.wp-inline-query[data-entity-query],
+.tippy-box[data-theme~='wp-inline-picker'] {
+  --picker-surface: hsl(var(--color-bg-subtle));
+  background-color: var(--picker-surface);
+}
+
+.wp-inline-query[data-entity-query] {
+  color: color-mix(in srgb, hsl(var(--chat-chip-fg)) 70%, hsl(var(--color-accent)));
+  padding-block: 2px;
+}
+
+.wp-inline-query[data-tab-start] {
+  border-start-start-radius: 4px;
+  padding-inline-start: 4px;
+}
+
+.wp-inline-query[data-tab-end] {
+  border-start-end-radius: 4px;
+  padding-inline-end: 4px;
+  margin-inline-end: 3px;
+}
+
+[data-picker-above] .wp-inline-query[data-tab-start] {
+  border-start-start-radius: 0;
+  border-end-start-radius: 4px;
+}
+
+[data-picker-above] .wp-inline-query[data-tab-end] {
+  border-start-end-radius: 0;
+  border-end-end-radius: 4px;
+}
+
+.tippy-box[data-theme~='wp-inline-picker'] {
+  position: relative;
+  border-radius: 6px;
+  --picker-shadow-top: -48px;
+  --picker-shadow-bottom: calc(100% + 48px);
+  --picker-contact: -1px;
+  --picker-join-radius: 4px;
+  --picker-curve-origin: top;
+  clip-path: polygon(
+    -48px var(--picker-shadow-top),
+    var(--picker-join-start) var(--picker-shadow-top),
+    var(--picker-join-start) var(--picker-contact),
+    var(--picker-join-end) var(--picker-contact),
+    var(--picker-join-end) var(--picker-shadow-top),
+    calc(100% + 48px) var(--picker-shadow-top),
+    calc(100% + 48px) var(--picker-shadow-bottom),
+    -48px var(--picker-shadow-bottom)
+  );
+  box-shadow: var(--shadow-md);
+}
+
+.tippy-box[data-theme~='wp-inline-picker'] > .tippy-content {
+  padding: 0;
+}
+
+.tippy-box[data-theme~='wp-inline-picker']::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: 100%;
+  height: var(--picker-join-radius);
+  --curve-stops: transparent calc(var(--picker-join-radius) - 0.5px),
+    var(--picker-surface) var(--picker-join-radius);
+  background-image:
+    radial-gradient(circle at left var(--picker-curve-origin), var(--curve-stops)),
+    radial-gradient(circle at right var(--picker-curve-origin), var(--curve-stops));
+  background-size: var(--picker-join-radius) 100%;
+  background-position: calc(var(--picker-join-start) - var(--picker-join-radius)) 0, var(--picker-join-end) 0;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+.tippy-box[data-theme~='wp-inline-picker']::after {
+  content: '';
+  position: absolute;
+  left: var(--picker-join-start);
+  right: calc(100% - var(--picker-join-end));
+  height: 3px;
+  background: inherit;
+  pointer-events: none;
+}
+
+.tippy-box[data-theme~='wp-inline-picker'][data-placement^='bottom'] {
+  border-top-left-radius: var(--picker-left-radius);
+  border-top-right-radius: var(--picker-right-radius);
+}
+
+.tippy-box[data-theme~='wp-inline-picker'][data-placement^='bottom']::after {
+  top: -1.5px;
+}
+
+.tippy-box[data-theme~='wp-inline-picker'][data-placement^='top'] {
+  --picker-shadow-top: calc(100% + 48px);
+  --picker-shadow-bottom: -48px;
+  --picker-contact: calc(100% + 1px);
+  --picker-curve-origin: bottom;
+  border-bottom-left-radius: var(--picker-left-radius);
+  border-bottom-right-radius: var(--picker-right-radius);
+}
+
+.tippy-box[data-theme~='wp-inline-picker'][data-placement^='top']::before {
+  top: 100%;
+  bottom: auto;
+}
+
+.tippy-box[data-theme~='wp-inline-picker'][data-placement^='top']::after {
+  bottom: -1.5px;
+}
+
+.wp-inline-reference-boundary {
+  padding-inline: 2px;
+}

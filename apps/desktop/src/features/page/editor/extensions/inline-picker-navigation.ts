@@ -164,7 +164,7 @@ export function inlinePickerQueryDecoration(key: PluginKey<InlineSuggestionState
           decorations.push(
             Decoration.inline(start, end, {
               'data-entity-query': suggestion.decorationId ?? '',
-              class: 'text-accent',
+              class: 'wp-inline-query text-accent',
               ...(start === from && { 'data-tab-start': '' }),
               ...(end === to && { 'data-tab-end': '' }),
             })
