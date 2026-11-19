@@ -200,6 +200,7 @@ vi.mock('./platform', () => ({
       setPosition: vi.fn(),
       getSize: vi.fn().mockResolvedValue({ width: 1200, height: 800 }),
       getPosition: vi.fn().mockResolvedValue({ x: 0, y: 0 }),
+      getDisplayColorSpace: vi.fn().mockResolvedValue(null),
       setZoomLevel: vi.fn(),
     },
     on: vi.fn((channel: string, callback: (...args: unknown[]) => void) => {

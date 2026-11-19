@@ -1154,6 +1154,7 @@ export interface PlatformBridge {
     setPosition(x: number, y: number): Promise<void>;
     getSize(): Promise<{ width: number; height: number }>;
     getPosition(): Promise<{ x: number; y: number }>;
+    getDisplayColorSpace(): Promise<import('../shared/ipc/window.contract').WindowDisplayColorSpace | null>;
     setZoomLevel(level: number): Promise<import('../shared/window-zoom').WindowZoomResult>;
   };
   on<C extends GenericMainSendChannel>(

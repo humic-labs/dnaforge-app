@@ -2653,6 +2653,7 @@ ORIGIN
     setPosition: async () => {},
     getSize: async () => ({ width: 1200, height: 800 }),
     getPosition: async () => ({ x: 0, y: 0 }),
+    getDisplayColorSpace: async () => null,
     setZoomLevel: async () => ({ status: 'unavailable' }),
   },
   on: () => () => {},
