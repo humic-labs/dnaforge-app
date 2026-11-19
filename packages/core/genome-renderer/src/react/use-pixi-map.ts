@@ -11,7 +11,7 @@ import {
 } from '../contact-projection';
 import type { PixiPresentedFrame } from './types';
 
-import { useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { Application } from 'pixi.js';
 import {
   PixiStadiumRenderer,
@@ -847,7 +847,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     };
 
     const resizePreviewActive = () =>
-      container.getAttribute('data-webgl-resize-preview') === 'true';
+      container.closest('[data-webgl-resize-preview="true"]') !== null;
 
     const resumeLiveApp = (reason: string) => {
       if (
@@ -870,6 +870,15 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
         return false;
       }
 
+      const wasVisible = visibleRef.current;
+      if (
+        reason === 'container-resize-observer' &&
+        wasVisible &&
+        stateRef.current.width === size.width &&
+        stateRef.current.height === size.height
+      ) {
+        return true;
+      }
       const current = optionsRef.current;
       const liveApp = app;
       const appliedSize = mutateDisplayGeometryPreservingCenter(() => {
@@ -898,8 +907,8 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
         },
         { snapshot: true }
       );
+      if (!wasVisible || reason === 'tab-portal-host-settled') renderLoopRef.current?.resume();
       renderLoopRef.current?.renderNow();
-      renderLoopRef.current?.resume();
       return true;
     };
 
@@ -1691,15 +1700,15 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     };
   }, [getViewCenter]);
 
-  const handle: PixiMapHandle = {
-    getComparisonCamera: useCallback(() => {
-      const state = stateRef.current;
-      return state.comparisonProjection
-        ? resolveComparisonCamera(state.comparisonProjection, state.comparisonCamera)
-        : null;
-    }, []),
-    setComparisonCamera: useCallback(
-      (camera) => {
+  const handle = useMemo<PixiMapHandle>(
+    () => ({
+      getComparisonCamera: () => {
+        const state = stateRef.current;
+        return state.comparisonProjection
+          ? resolveComparisonCamera(state.comparisonProjection, state.comparisonCamera)
+          : null;
+      },
+      setComparisonCamera: (camera) => {
         const state = stateRef.current;
         if (!state.comparisonProjection) return null;
         interactionRef.current?.cancelGesture?.();
@@ -1709,16 +1718,13 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
         invalidateRender();
         return { ...state.comparisonCamera };
       },
-      [invalidateRender]
-    ),
-    getContactCamera: useCallback(() => {
-      const state = stateRef.current;
-      return state.contactProjection
-        ? resolveContactCamera(state.contactProjection, state.contactCamera)
-        : null;
-    }, []),
-    setContactCamera: useCallback(
-      (camera) => {
+      getContactCamera: () => {
+        const state = stateRef.current;
+        return state.contactProjection
+          ? resolveContactCamera(state.contactProjection, state.contactCamera)
+          : null;
+      },
+      setContactCamera: (camera) => {
         const state = stateRef.current;
         if (!state.contactProjection) return null;
         interactionRef.current?.cancelGesture?.();
@@ -1728,77 +1734,71 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
         invalidateRender();
         return { ...state.contactCamera };
       },
-      [invalidateRender]
-    ),
-    getState: useCallback(() => stateRef.current, []),
-    requestRender: useCallback(() => {
-      invalidateRender();
-    }, [invalidateRender]),
-    subscribeToPresentedFrames: useCallback((listener: (receipt: PixiPresentedFrame) => void) => {
-      presentedFrameListenersRef.current.add(listener);
-      return () => presentedFrameListenersRef.current.delete(listener);
-    }, []),
-    schedulePostPresentWork: useCallback(
-      (work: (deadlineMs: number) => void) => {
+      getState: () => stateRef.current,
+      requestRender: () => {
+        invalidateRender();
+      },
+      subscribeToPresentedFrames: (listener: (receipt: PixiPresentedFrame) => void) => {
+        presentedFrameListenersRef.current.add(listener);
+        return () => presentedFrameListenersRef.current.delete(listener);
+      },
+      schedulePostPresentWork: (work: (deadlineMs: number) => void) => {
         postPresentWorkRef.current.add(work);
         invalidateRender();
       },
-      [invalidateRender]
-    ),
-    getViewCenter,
-    getViewportRange,
-    getZoomBounds: useCallback(() => {
-      const comparison = stateRef.current.comparisonProjection;
-      if (comparison) return { min: 1, max: comparison.layout.columnLength };
-      const projection = stateRef.current.contactProjection;
-      if (projection)
-        return {
-          min: 1,
-          max: Math.min(projection.xReference.length, projection.yReference.length),
-        };
-      const renderer = rendererRef.current as
-        | {
-            getMinZoom?: (state: RenderState) => number;
-            getMaxZoom?: (state: RenderState) => number;
-          }
-        | null
-        | undefined;
-      const state = stateRef.current;
-      const rawMin = renderer?.getMinZoom?.(state);
-      const rawMax = renderer?.getMaxZoom?.(state);
-      const min = Number.isFinite(rawMin) ? Math.max(0.01, Number(rawMin)) : 0.5;
-      const max = Number.isFinite(rawMax) ? Math.max(0.01, Number(rawMax)) : 5000;
-      return max < min ? { min: max, max: min } : { min, max };
-    }, []),
-    getCameraCenter: useCallback(() => {
-      const current = stateRef.current;
-      if (current.comparisonProjection) {
-        const camera = resolveComparisonCamera(
-          current.comparisonProjection,
-          current.comparisonCamera
-        );
-        return (camera.startColumn + camera.endColumn) / 2;
-      }
-      if (current.contactProjection) {
-        const camera = resolveContactCamera(current.contactProjection, current.contactCamera);
-        return (camera.xStart + camera.xEnd) / 2;
-      }
-      const renderer = rendererRef.current as
-        | {
-            getViewCenterBp?: (state: RenderState) => number;
-            screenToBp?: (x: number, y: number, state: RenderState) => number;
-          }
-        | null
-        | undefined;
-      const state = stateRef.current;
-      if (!renderer || !state) return null;
-      const centerBp =
-        renderer.getViewCenterBp?.(state) ??
-        renderer.screenToBp?.(state.width / 2, state.height / 2, state);
-      return Number.isFinite(centerBp) ? (centerBp as number) : null;
-    }, []),
-    setDisplaySize: useCallback(
-      (size: {
+      getViewCenter,
+      getViewportRange,
+      getZoomBounds: () => {
+        const comparison = stateRef.current.comparisonProjection;
+        if (comparison) return { min: 1, max: comparison.layout.columnLength };
+        const projection = stateRef.current.contactProjection;
+        if (projection)
+          return {
+            min: 1,
+            max: Math.min(projection.xReference.length, projection.yReference.length),
+          };
+        const renderer = rendererRef.current as
+          | {
+              getMinZoom?: (state: RenderState) => number;
+              getMaxZoom?: (state: RenderState) => number;
+            }
+          | null
+          | undefined;
+        const state = stateRef.current;
+        const rawMin = renderer?.getMinZoom?.(state);
+        const rawMax = renderer?.getMaxZoom?.(state);
+        const min = Number.isFinite(rawMin) ? Math.max(0.01, Number(rawMin)) : 0.5;
+        const max = Number.isFinite(rawMax) ? Math.max(0.01, Number(rawMax)) : 5000;
+        return max < min ? { min: max, max: min } : { min, max };
+      },
+      getCameraCenter: () => {
+        const current = stateRef.current;
+        if (current.comparisonProjection) {
+          const camera = resolveComparisonCamera(
+            current.comparisonProjection,
+            current.comparisonCamera
+          );
+          return (camera.startColumn + camera.endColumn) / 2;
+        }
+        if (current.contactProjection) {
+          const camera = resolveContactCamera(current.contactProjection, current.contactCamera);
+          return (camera.xStart + camera.xEnd) / 2;
+        }
+        const renderer = rendererRef.current as
+          | {
+              getViewCenterBp?: (state: RenderState) => number;
+              screenToBp?: (x: number, y: number, state: RenderState) => number;
+            }
+          | null
+          | undefined;
+        const state = stateRef.current;
+        if (!renderer || !state) return null;
+        const centerBp =
+          renderer.getViewCenterBp?.(state) ??
+          renderer.screenToBp?.(state.width / 2, state.height / 2, state);
+        return Number.isFinite(centerBp) ? (centerBp as number) : null;
+      },
+      setDisplaySize: (size: {
         width: number;
         height: number;
         geometryHeight?: number;
@@ -1840,10 +1840,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
 
         if (backingChanged || size.immediate !== false) renderLoopRef.current?.renderNow();
       },
-      [frameCircuitIsOpen, invalidateRender, mutateDisplayGeometryPreservingCenter]
-    ),
-    setZoom: useCallback(
-      (zoom: number) => {
+      setZoom: (zoom: number) => {
         if (frameCircuitIsOpen()) return;
         const state = stateRef.current;
         if (state.comparisonProjection) {
@@ -1886,19 +1883,13 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
         stateRef.current.zoom = zoom;
         invalidateRender();
       },
-      [frameCircuitIsOpen, invalidateRender]
-    ),
-    setViewport: useCallback(
-      (startBp: number, endBp: number) => {
+      setViewport: (startBp: number, endBp: number) => {
         if (frameCircuitIsOpen()) return;
         stateRef.current.viewportRange = [startBp, endBp];
         recordWebGLTrace('viewport-sync', { startBp, endBp });
         invalidateRender();
       },
-      [frameCircuitIsOpen, invalidateRender]
-    ),
-    setCameraViewport: useCallback(
-      (startBp: number, endBp: number) => {
+      setCameraViewport: (startBp: number, endBp: number) => {
         if (frameCircuitIsOpen()) return null;
         const state = stateRef.current;
         if (state.comparisonProjection) {
@@ -1973,10 +1964,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
         invalidateRender();
         return committedRange;
       },
-      [frameCircuitIsOpen, getViewCenter, getViewportRange, invalidateRender]
-    ),
-    setViewCenter: useCallback(
-      (centerBp: number) => {
+      setViewCenter: (centerBp: number) => {
         if (frameCircuitIsOpen()) return;
         const state = stateRef.current;
         if (state.comparisonProjection) {
@@ -2035,10 +2023,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
         recordWebGLTrace('camera-center-sync', { centerBp });
         invalidateRender();
       },
-      [frameCircuitIsOpen, getViewCenter, getViewportRange, invalidateRender]
-    ),
-    setResidueLinkRange: useCallback(
-      (range: [number, number] | null) => {
+      setResidueLinkRange: (range: [number, number] | null) => {
         applySelectionAction(stateRef.current, {
           type: 'set-residue-link-range',
           range,
@@ -2046,34 +2031,36 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
         recordWebGLTrace('residue-link-range-sync', { range: stateRef.current.residueLinkRange });
         invalidateRender();
       },
-      [invalidateRender]
-    ),
-    setHoveredCodon: useCallback(
-      (codon: { start: number; end: number; strand: 1 | -1 } | null) => {
+      setHoveredCodon: (codon: { start: number; end: number; strand: 1 | -1 } | null) => {
         stateRef.current.hoveredCodon = codon
           ? { start: codon.start, end: codon.end, strand: codon.strand }
           : null;
         recordWebGLTrace('codon-hover-sync', { codon: stateRef.current.hoveredCodon });
         invalidateRender();
       },
-      [invalidateRender]
-    ),
-    setSelectedCodons: useCallback(
-      (codons: ReadonlyArray<{ start: number; end: number; strand: 1 | -1 }>) => {
+      setSelectedCodons: (
+        codons: ReadonlyArray<{ start: number; end: number; strand: 1 | -1 }>
+      ) => {
         stateRef.current.selectedCodons = codons;
         recordWebGLTrace('codon-selection-sync', { count: codons.length });
         invalidateRender();
       },
-      [invalidateRender]
-    ),
 
-    getLinearRenderer: useCallback(() => {
-      const r = rendererRef.current;
-      if (!r) return null;
-      if (optionsRef.current.circular) return null;
-      return r as PixiLinearRenderer;
-    }, []),
-  };
+      getLinearRenderer: () => {
+        const r = rendererRef.current;
+        if (!r) return null;
+        if (optionsRef.current.circular) return null;
+        return r as PixiLinearRenderer;
+      },
+    }),
+    [
+      frameCircuitIsOpen,
+      getViewCenter,
+      getViewportRange,
+      invalidateRender,
+      mutateDisplayGeometryPreservingCenter,
+    ]
+  );
 
   return { containerRef, handle };
 }

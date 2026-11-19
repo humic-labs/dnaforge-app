@@ -1104,6 +1104,31 @@ describe('usePixiMap annotation/source lifecycle', () => {
     expect(lifecycle.renderNowCount).toBe(renderNowCountBeforeResize + 1);
   });
 
+  it('draws a visible resize once when props and the container observer report the same size', async () => {
+    const source = genome('A');
+    const view = render(<Harness genome={source} width={800} height={500} />);
+    await waitFor(() => expect(latestHandle?.getLinearRenderer()).not.toBeNull());
+
+    view.rerender(<Harness genome={source} width={1_200} height={600} />);
+    const drawn = lifecycle.renderNowCount;
+    const resumed = lifecycle.resumeCount;
+    act(() => lifecycle.resizeCallbacks[0]?.());
+
+    expect(lifecycle.renderNowCount).toBe(drawn);
+    expect(lifecycle.resumeCount).toBe(resumed);
+  });
+
+  it('keeps the attached map handle when only the pane dimensions change', async () => {
+    const source = genome('A');
+    const view = render(<Harness genome={source} width={800} height={500} />);
+    await waitFor(() => expect(latestHandle?.getLinearRenderer()).not.toBeNull());
+    const attached = latestHandle;
+
+    view.rerender(<Harness genome={source} width={1_200} height={600} />);
+
+    expect(latestHandle).toBe(attached);
+  });
+
   it('preserves the biological camera center across live container resume geometry', async () => {
     lifecycle.geometryDependentCamera = true;
     const source = genome('A');
