@@ -393,7 +393,7 @@ dependencies = [
  "clap",
  "flate2",
  "gb-io",
- "noodles-bgzf 0.37.0",
+ "noodles-bgzf 0.40.0",
  "noodles-core 0.17.0",
  "noodles-csi 0.45.0",
  "noodles-fasta",
