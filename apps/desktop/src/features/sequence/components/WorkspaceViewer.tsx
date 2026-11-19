@@ -613,6 +613,10 @@ function WorkspaceViewerInternal({
     };
   }, []);
 
+  const { tabStateKey } = workspaceViewerEntityKeys(entityId, undefined, undefined);
+  const [viewState, setViewState] = useTabViewState(tabStateKey);
+  const [seqView, patchSeqView] = useSequenceViewState(tabStateKey, { circular, surface });
+  const activeMapLayout = mapLayoutForPlacement(seqView.mapPlacement);
   const drawerSurfaceOpen = workspaceViewerDrawerSurfaceOpen(
     drawerSlot,
     isRestrictionEnzymeDrawerOpen
@@ -636,11 +640,8 @@ function WorkspaceViewerInternal({
       if (width > 0) setMinimapWidth(width);
       if (height > 0) setMinimapContainerHeight(height);
     }
-  }, [drawerSurfaceOpen]);
+  }, [drawerSurfaceOpen, activeMapLayout]);
 
-  const { tabStateKey } = workspaceViewerEntityKeys(entityId, undefined, undefined);
-  const [viewState, setViewState] = useTabViewState(tabStateKey);
-  const [seqView, patchSeqView] = useSequenceViewState(tabStateKey, { circular, surface });
   const [liveZoom, setLiveZoom] = useState<{ key: string; value: number } | null>(null);
   const [canvasMinZoom, setCanvasMinZoom] = useState(MIN_SEQUENCE_ZOOM);
   const zoomLevel = liveZoom?.key === tabStateKey ? liveZoom.value : seqView.zoom;
@@ -802,7 +803,6 @@ function WorkspaceViewerInternal({
     commandEntityId,
     cutSitesScopeKey,
   } = workspaceViewerEntityKeys(entityId, sequence.id, plasmid.name);
-  const activeMapLayout = mapLayoutForPlacement(seqView.mapPlacement);
   const mapPlacement = seqView.mapPlacement;
   const {
     webglCameraZoom,

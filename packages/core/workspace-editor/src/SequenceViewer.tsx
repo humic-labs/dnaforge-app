@@ -1213,7 +1213,8 @@ function WorkspaceEditorInner(
     onCopyDraftSelection,
   });
 
-  useEffect(() => {
+  const measureScrollContainerRef = useRef<(() => void) | null>(null);
+  useLayoutEffect(() => {
     const container = scrollContainerElement;
     if (!container) return;
     let lastWidth = 0;
@@ -1284,6 +1285,7 @@ function WorkspaceEditorInner(
       }
     };
 
+    measureScrollContainerRef.current = handleResize;
     handleResize();
     rafId = requestAnimationFrame(handleResize);
 
@@ -1317,6 +1319,7 @@ function WorkspaceEditorInner(
     window.addEventListener('waypoint:tab-portal-host-attached', onPortalHostAttachedForWidth);
 
     return () => {
+      measureScrollContainerRef.current = null;
       if (rafId !== null) cancelAnimationFrame(rafId);
       if (settleRafId !== null) cancelAnimationFrame(settleRafId);
       reattachWidthSettling = false;
@@ -1326,6 +1329,10 @@ function WorkspaceEditorInner(
       window.removeEventListener('waypoint:tab-portal-host-attached', onPortalHostAttachedForWidth);
     };
   }, [scrollContainerElement, getPreviousLayoutForScrollPreservation, freezeViewportHeight]);
+
+  useLayoutEffect(() => {
+    measureScrollContainerRef.current?.();
+  }, [initialContainerWidth]);
 
   const zoomWrapAnchorRef = useRef<WrapScreenAnchor | null>(null);
   const releasedZoomAnchorRef = useRef<{
