@@ -35,6 +35,7 @@ import {
   subscribeWorkspaceResidueSelectionsStores,
 } from '../state/selected-codon-registry';
 import { textCoordinates } from '../../../shared/binary-coordinates';
+import { useStructureRendererHostId } from '../../page/public/embeds/structure3d/agentStructureRenderers';
 
 export function StructureInspectionTab({
   inspection,
@@ -46,6 +47,7 @@ export function StructureInspectionTab({
   panelId: string;
 }) {
   const proteinKey = inspectionProteinKey(inspection.request);
+  const rendererHostId = useStructureRendererHostId(`pane:${panelId}`) ?? `pane:${panelId}`;
   const store = useMemo(
     () => getStructureInspectionSession(tabId, proteinKey),
     [tabId, proteinKey]
@@ -366,14 +368,22 @@ export function StructureInspectionTab({
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inspection.request, selectionStoresVersion, panelId, tabId]);
+  const ownedView = useCallback(() => {
+    const saved = useCanvasStore
+      .getState()
+      .panels[panelId]?.tabs.find((tab) => tab.id === tabId)?.structureInspection;
+    if (!saved) return null;
+    if (saved.request === inspection.request) return { saved, view: saved, retained: false };
+    const retained = saved.retainedProteinViews?.[proteinKey];
+    return retained?.request === inspection.request
+      ? { saved, view: retained, retained: true }
+      : null;
+  }, [panelId, tabId, inspection.request, proteinKey]);
   const saveViewSettings = useCallback(
     (candidateId: string | undefined, attrs: Structure3dAttrs) => {
-      const canvas = useCanvasStore.getState();
-      const saved = canvas.panels[panelId]?.tabs.find(
-        (tab) => tab.id === tabId
-      )?.structureInspection;
-      if (!saved || saved.request !== inspection.request || saved.candidateId !== candidateId)
-        return;
+      const owned = ownedView();
+      if (!owned || owned.view.candidateId !== candidateId) return;
+      const { saved, view } = owned;
       latestAttrs.current = attrs;
       const viewSettings = {
         candidateId,
@@ -386,30 +396,33 @@ export function StructureInspectionTab({
         molecularData: attrs.molecularData,
       };
       if (
-        JSON.stringify(saved.viewSettings) === JSON.stringify(viewSettings) &&
-        JSON.stringify(saved.measurements) ===
-          JSON.stringify(attrs.measurements ?? saved.measurements) &&
-        saved.activeMeasurementId === attrs.activeMeasurementId
+        JSON.stringify(view.viewSettings) === JSON.stringify(viewSettings) &&
+        JSON.stringify(view.measurements) ===
+          JSON.stringify(attrs.measurements ?? view.measurements) &&
+        view.activeMeasurementId === attrs.activeMeasurementId
       )
         return;
-      canvas.updateTab(panelId, tabId, {
-        structureInspection: {
-          ...saved,
-          viewSettings,
-          measurements: attrs.measurements ?? saved.measurements,
-          activeMeasurementId: attrs.activeMeasurementId,
-        },
+      const nextView = {
+        ...view,
+        viewSettings,
+        measurements: attrs.measurements ?? view.measurements,
+        activeMeasurementId: attrs.activeMeasurementId,
+      };
+      useCanvasStore.getState().updateTab(panelId, tabId, {
+        structureInspection: owned.retained
+          ? {
+              ...saved,
+              retainedProteinViews: { ...saved.retainedProteinViews, [proteinKey]: nextView },
+            }
+          : { ...saved, ...nextView },
       });
     },
-    [panelId, tabId, inspection.request, proteinKey]
+    [panelId, tabId, proteinKey, ownedView]
   );
   const markNativeViewerReady = useCallback(
     (candidateId: string | undefined, attrs: Structure3dAttrs) => {
-      const saved = useCanvasStore
-        .getState()
-        .panels[panelId]?.tabs.find((tab) => tab.id === tabId)?.structureInspection;
-      if (!saved || saved.request !== inspection.request || saved.candidateId !== candidateId)
-        return;
+      const owned = ownedView();
+      if (!owned || owned.view.candidateId !== candidateId) return;
       saveViewSettings(candidateId, attrs);
       const nextBinding = { proteinKey, candidateId, hasScene: !!attrs.molViewSpec };
       setLoadedBinding((previous) =>
@@ -420,7 +433,7 @@ export function StructureInspectionTab({
           : nextBinding
       );
     },
-    [panelId, tabId, inspection.request, proteinKey, saveViewSettings]
+    [proteinKey, saveViewSettings, ownedView]
   );
   useEffect(() => {
     const intent = inspection.focusSelectionId;
@@ -433,7 +446,7 @@ export function StructureInspectionTab({
     const isCurrent = () =>
       !cancelled && current()?.mutationCamera !== 'keep' && current()?.focusSelectionId === intent;
     const selected = current()?.selections ?? [];
-    void focusInspectionSelection(attrs, panelId, selected, isCurrent)
+    void focusInspectionSelection(attrs, rendererHostId, selected, isCurrent)
       .then(() => {
         const latest = current();
         if (isCurrent() && latest)
@@ -447,7 +460,14 @@ export function StructureInspectionTab({
     return () => {
       cancelled = true;
     };
-  }, [inspection.focusSelectionId, inspection.mutationCamera, canEditView, panelId, tabId]);
+  }, [
+    inspection.focusSelectionId,
+    inspection.mutationCamera,
+    canEditView,
+    panelId,
+    tabId,
+    rendererHostId,
+  ]);
 
   const restoringScene =
     !!inspection.savedViewReferenceId &&

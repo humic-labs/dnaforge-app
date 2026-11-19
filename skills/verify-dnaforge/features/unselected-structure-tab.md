@@ -13,6 +13,9 @@
   background renderer is released.
 - At most two background renderers run at once, and each is released after a
   minute without agent commands.
+- Parallel commands on three unselected tabs all succeed with their own
+  structures: a renderer running a command is never taken away, and a command
+  that needs one waits for a free renderer.
 
 ## How to get to it (user POV)
 
