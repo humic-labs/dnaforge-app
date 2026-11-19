@@ -808,7 +808,6 @@ export const IndexedGenomeTileNativeMap = memo(
             width,
             height,
             overflow: 'hidden',
-            clipPath: 'inset(0)',
             position: 'relative',
             pointerEvents: interactionEnabled ? 'auto' : 'none',
             ...style,
