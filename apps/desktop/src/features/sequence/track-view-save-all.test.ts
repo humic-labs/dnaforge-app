@@ -99,6 +99,86 @@ it('Save All writes both unnamed, unmounted Track views with their own viewports
   expect(second.session.isDirty()).toBe(false);
 });
 
+it.each(['partially loaded', 'explicitly cleared'])(
+  'saves a %s background Track view before its renderer first mounts',
+  async (mode) => {
+    const document = validateTrackViewDocument({
+      ...trackViewFixture(),
+      bamTracks: [
+        {
+          trackId: 'local-reads',
+          label: 'Reads',
+          visible: true,
+          coverageCutoffDepth: 20,
+          source: { bamPath: '/project/reads.bam', indexPath: '/project/reads.bam.bai' },
+        },
+      ],
+      primerBindings: [
+        {
+          id: 'binding',
+          primerId: 'primer',
+          primerName: 'Marker',
+          primerBases: 'ATCG',
+          chrom: 'pUC19',
+          start0: 10,
+          end0: 14,
+          strand: '+',
+          source: 'attached',
+        },
+      ],
+      userAnnotations: [
+        {
+          id: 'annotation',
+          chrom: 'pUC19',
+          annotation: { name: 'Mark', type: 'gene', start: 10, end: 14, direction: 1 },
+        },
+      ],
+    });
+    const viewport = { start0: 750, end0: 1250 };
+    const scope = { kind: 'locus' as const, chrom: 'pUC19', start: 750, end: 1250 };
+    const state = useCanvasStore.getState();
+    const tabId = state.openTab('main', {
+      type: 'sequence',
+      entityId: document.id,
+      label: document.name,
+      sequenceDocument: { kind: 'indexed-sequence', documentId: document.id },
+      trackView: { document, path: '/project/genes.json', revision: 'a'.repeat(64) },
+      isDirty: true,
+      indexedGenome: {
+        sourcePath: '/project/pUC19.fa',
+        sourceSizeBytes: 2686,
+        sourceMtimeMs: 0,
+        sourceExt: 'fa',
+        chrom: 'pUC19',
+        scope,
+        assembly: {
+          assemblyId: document.reference.assemblyId,
+          displayName: document.reference.name,
+          chromosomes: [],
+        },
+        ...(mode === 'explicitly cleared'
+          ? { dataTracks: [], bamTracks: [], primerBindings: [], userAnnotations: [] }
+          : {}),
+      },
+      viewState: { indexedViewport: viewport },
+    });
+    state.openTab('main', { type: 'text', entityId: '/other.txt', label: 'Other' });
+    write.mockImplementation(async (request: SaveTrackViewRequest) => saved(request));
+    await saveAllUnsavedWork();
+    expect(write).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        document: expect.objectContaining({ id: document.id, viewport, scope }),
+      })
+    );
+    const savedDraft = validateTrackViewDocument(write.mock.calls[0][0].document);
+    for (const field of ['bamTracks', 'primerBindings', 'userAnnotations'] as const)
+      expect(savedDraft[field] ?? []).toEqual(mode === 'explicitly cleared' ? [] : document[field]);
+    expect(
+      useCanvasStore.getState().panels.main.tabs.find((tab) => tab.id === tabId)?.isDirty
+    ).toBe(false);
+  }
+);
+
 it('Save All waits for the active Track view write and reuses its result', async () => {
   const { session } = openDraft('writing', 55);
   const finish = Promise.withResolvers<void>();
