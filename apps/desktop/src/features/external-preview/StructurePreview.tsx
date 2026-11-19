@@ -3,6 +3,7 @@ import { getStructureFileFormat } from '../../shared/scientific-file-types';
 import { SOFT_WARN_BYTES } from '../../shared/oversized-guard';
 import { LazyMolstarViewer } from '../page/public/embeds/structure3d/LazyMolstarViewer';
 import type { MolstarPlugin } from '../page/public/embeds/structure3d/molstar/cache';
+import { DocumentInfoRow } from './DocumentInfoRow';
 import { useDisplayedSnapshot, usePreviewSource, type PreviewProps } from './use-preview-source';
 
 function readCoordinates(bytes: Uint8Array, path: string) {
@@ -25,10 +26,12 @@ function CoordinateViewer({
   document,
   sha256,
   onSnapshot,
+  controls,
 }: {
   document: ReturnType<typeof readCoordinates>;
   sha256: string;
   onSnapshot?: PreviewProps['onSnapshot'];
+  controls?: PreviewProps['controls'];
 }) {
   const [plugin, setPlugin] = useState<MolstarPlugin | null>(null);
   const [ready, setReady] = useState(false);
@@ -54,20 +57,17 @@ function CoordinateViewer({
   useDisplayedSnapshot(onSnapshot, summary?.elements ? sha256 : null);
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="external-structure-preview">
-      {summary &&
-        (summary.elements ? (
-          <p
-            className="px-4 py-2 text-xs text-fg-muted"
-            data-testid="external-structure-chains"
-          >
-            {summary.elements.toLocaleString()} coordinate sites
-            {summary.chainIds.length > 0 && ` · Model chains ${summary.chainIds.join(', ')}`}
-          </p>
-        ) : (
-          <p role="alert" className="p-4">
-            No coordinate sites could be displayed.
-          </p>
-        ))}
+      <DocumentInfoRow controls={controls}>
+        {summary &&
+          (summary.elements ? (
+            <span data-testid="external-structure-chains">
+              {summary.elements.toLocaleString()} coordinate sites
+              {summary.chainIds.length > 0 && ` · Model chains ${summary.chainIds.join(', ')}`}
+            </span>
+          ) : (
+            <span role="alert">No coordinate sites could be displayed.</span>
+          ))}
+      </DocumentInfoRow>
       <div className="relative min-h-0 flex-1">
         <LazyMolstarViewer
           structureData={document.data}
@@ -84,20 +84,16 @@ function CoordinateViewer({
   );
 }
 
-export function StructurePreview({ path, onSnapshot }: PreviewProps) {
+export function StructurePreview({ path, onSnapshot, controls }: PreviewProps) {
   const source = usePreviewSource(path, SOFT_WARN_BYTES, readCoordinates);
   useDisplayedSnapshot(source?.status === 'loaded' ? undefined : onSnapshot, null);
-  if (!source)
+  if (source?.status !== 'loaded')
     return (
-      <p role="status" className="p-4 text-sm">
-        Reading coordinates…
-      </p>
-    );
-  if (source.status === 'error')
-    return (
-      <p role="alert" className="p-4 text-sm">
-        {source.message}
-      </p>
+      <DocumentInfoRow controls={controls}>
+        <span role={source ? 'alert' : 'status'}>
+          {source ? source.message : 'Reading coordinates…'}
+        </span>
+      </DocumentInfoRow>
     );
   return (
     <CoordinateViewer
@@ -105,6 +101,7 @@ export function StructurePreview({ path, onSnapshot }: PreviewProps) {
       document={source.document}
       sha256={source.sha256}
       onSnapshot={onSnapshot}
+      controls={controls}
     />
   );
 }

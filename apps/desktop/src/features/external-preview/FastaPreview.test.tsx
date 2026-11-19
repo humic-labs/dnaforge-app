@@ -1,13 +1,54 @@
 import { createHash } from 'node:crypto';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { FastaPreview } from './FastaPreview';
+import { SourceFileViewer } from './SourceFileViewer';
 
 const readFileBounded = vi.hoisted(() => vi.fn());
+const importNew = vi.hoisted(() => vi.fn());
 vi.mock('../../platform', () => ({
-  platform: () => ({ fileAssociations: { readPreviewBytes: readFileBounded } }),
+  platform: () => ({
+    fileAssociations: { readPreviewBytes: readFileBounded },
+    workspace: { importFileAsNewWorkspace: importNew },
+  }),
 }));
+vi.mock('../../stores/workspaceStore', () => ({ useWorkspaceStore: () => [] }));
+vi.mock('../canvas/public/store', () => ({ useCanvasStore: { getState: () => ({ panels: {} }) } }));
+vi.mock('./StructurePreview', () => ({ StructurePreview: () => null }));
+vi.mock('./ChromatogramPreview', () => ({ ChromatogramPreview: () => null }));
 afterEach(cleanup);
+
+it('shows import beside the external record selector and removes it in a project', async () => {
+  const bytes = new TextEncoder().encode('>first\nACGT\n>second\nTTAA\n');
+  readFileBounded.mockResolvedValue(bytes);
+  importNew.mockRejectedValueOnce(new Error('Changed source'));
+  const view = { format: 'fasta' as const, path: '/input.fa' };
+  const { rerender } = render(
+    <SourceFileViewer tabId="doc" view={{ ...view, location: 'external' }} />
+  );
+  expect(await screen.findByText('2 records')).toBeVisible();
+  const row = within(screen.getByRole('group', { name: 'Read-only preview · Not imported' }));
+  expect(row.getByText('Preview')).toBeVisible();
+  expect(row.getByRole('combobox', { name: 'FASTA record' })).toBeVisible();
+  fireEvent.click(row.getByRole('button', { name: 'Import to Project…' }));
+  const picker = within(screen.getByRole('region', { name: 'Import destination' }));
+  fireEvent.click(picker.getByRole('button', { name: 'Import' }));
+  expect(await picker.findByRole('alert')).toBeVisible();
+  expect(importNew).toHaveBeenCalledWith({
+    sourcePath: view.path,
+    preserveOriginal: true,
+    expectedSourceSha256: createHash('sha256').update(bytes).digest('hex'),
+  });
+  fireEvent.click(picker.getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByRole('region', { name: 'Import destination' })).toBeNull();
+
+  rerender(<SourceFileViewer tabId="doc" view={{ ...view, location: 'project' }} />);
+  expect(await screen.findByText('2 records')).toBeVisible();
+  expect(screen.getByRole('combobox', { name: 'FASTA record' })).toBeVisible();
+  expect(screen.queryByText('Preview')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Import to Project…' })).toBeNull();
+  expect(document.querySelector('.external-preview-toolbar')).toBeNull();
+});
 
 it('shows every record in source order with its own case, name, description, alphabet and snapshot', async () => {
   const source =

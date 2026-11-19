@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { platform } from '../../platform';
 import { sha256Hex } from '../../shared/sha256';
+import type { PreviewControls } from './DocumentInfoRow';
 
 export interface PreviewProps {
   path: string;
   onSnapshot?: (sha256: string | null) => void;
+  controls?: PreviewControls;
 }
 
 type Source<T> =

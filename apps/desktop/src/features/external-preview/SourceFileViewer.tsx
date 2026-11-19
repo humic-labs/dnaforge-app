@@ -15,12 +15,9 @@ import type { ImportDestination } from '../workspace-loader/public/resolve-impor
 import { FastaPreview } from './FastaPreview';
 import { StructurePreview } from './StructurePreview';
 import { ChromatogramPreview } from './ChromatogramPreview';
-import { PreviewFrame } from './PreviewFrame';
+import type { PreviewProps } from './use-preview-source';
 
-const viewers: Record<
-  SourceViewerFormat,
-  ComponentType<{ path: string; onSnapshot?: (digest: string | null) => void }>
-> = {
+const viewers: Record<SourceViewerFormat, ComponentType<PreviewProps>> = {
   fasta: FastaPreview,
   structure: StructurePreview,
   chromatogram: ChromatogramPreview,
@@ -43,8 +40,7 @@ export function SourceFileViewer({ view, tabId }: { view: SourceFileView; tabId:
   const [error, setError] = useState('');
   const folders = useWorkspaceStore((s) => s.folders);
   const Viewer = viewers[view.format];
-  const content = <Viewer path={view.path} onSnapshot={setDigest} />;
-  if (view.location === 'project') return content;
+  if (view.location === 'project') return <Viewer path={view.path} />;
 
   async function importFile() {
     if (!digest || !target || target.kind === 'registry' || inFlight.current) return;
@@ -100,56 +96,60 @@ export function SourceFileViewer({ view, tabId }: { view: SourceFileView; tabId:
     }
   }
 
-  return (
-    <PreviewFrame
-      action={
+  const action = (
+    <Button
+      type="button"
+      variant="appbar"
+      disabled={!digest || pending || choosing}
+      onClick={() => {
+        setChoosing(true);
+        setError('');
+      }}
+    >
+      Import to Project…
+    </Button>
+  );
+  const destination = choosing && (
+    <section
+      aria-label="Import destination"
+      className="max-h-[50%] shrink-0 overflow-auto border-b border-border bg-bg-subtle p-3"
+    >
+      <h2 className="mb-2 text-sm font-semibold text-fg">Add a copy to a project</h2>
+      <ImportDestinationPicker
+        autoFocus
+        roots={folders.filter((f) => !f.pinned).map((f) => ({ name: f.name, path: f.path }))}
+        selected={target}
+        onSelect={setTarget}
+        listSubfolders={listSubfolders}
+      />
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-fg">
+          {error}
+        </p>
+      )}
+      <div className="mt-3 flex gap-2">
         <Button
           type="button"
-          disabled={!digest || pending || choosing}
-          onClick={() => {
-            setChoosing(true);
-            setError('');
-          }}
+          variant="primary"
+          disabled={!target || !digest || pending}
+          onClick={() => void importFile()}
         >
-          Import to Project…
+          {pending ? 'Importing…' : 'Import'}
         </Button>
-      }
-    >
-      <div className="flex h-full min-h-0 flex-col">
-        {choosing && (
-          <section
-            aria-label="Import destination"
-            className="max-h-[50%] shrink-0 overflow-auto border-b border-border bg-bg-subtle p-3"
-          >
-            <h2 className="mb-2 text-sm font-semibold text-fg">Add a copy to a project</h2>
-            <ImportDestinationPicker
-              roots={folders.filter((f) => !f.pinned).map((f) => ({ name: f.name, path: f.path }))}
-              selected={target}
-              onSelect={setTarget}
-              listSubfolders={listSubfolders}
-            />
-            {error && (
-              <p role="alert" className="mt-2 text-sm text-fg">
-                {error}
-              </p>
-            )}
-            <div className="mt-3 flex gap-2">
-              <Button
-                type="button"
-                variant="primary"
-                disabled={!target || !digest || pending}
-                onClick={() => void importFile()}
-              >
-                {pending ? 'Importing…' : 'Import'}
-              </Button>
-              <Button type="button" disabled={pending} onClick={() => setChoosing(false)}>
-                Cancel
-              </Button>
-            </div>
-          </section>
-        )}
-        <div className="min-h-0 flex-1">{content}</div>
+        <Button type="button" disabled={pending} onClick={() => setChoosing(false)}>
+          Cancel
+        </Button>
       </div>
-    </PreviewFrame>
+    </section>
+  );
+
+  return (
+    <section
+      aria-label="External file preview"
+      data-testid="external-preview-frame"
+      className="h-full min-h-0"
+    >
+      <Viewer path={view.path} onSnapshot={setDigest} controls={{ action, destination }} />
+    </section>
   );
 }

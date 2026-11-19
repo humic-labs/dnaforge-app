@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { decodeSequenceDocument, type TraceData } from '@waypoint/sequence-utils';
 import { SequenceViewer1D } from '@waypoint/workspace-editor';
 import { chromatogramLane } from '../sequence/public/chromatogram-lane';
+import { DocumentInfoRow } from './DocumentInfoRow';
 import { useDisplayedSnapshot, usePreviewSource, type PreviewProps } from './use-preview-source';
 
 const MAX_TRACE_BYTES = 8 * 1024 * 1024;
@@ -31,10 +32,12 @@ function TraceViewer({
   document,
   sha256,
   onSnapshot,
+  controls,
 }: {
   document: ReturnType<typeof readChromatogram>;
   sha256: string;
   onSnapshot?: PreviewProps['onSnapshot'];
+  controls?: PreviewProps['controls'];
 }) {
   const [ready, setReady] = useState(false);
   const reportViewport = useCallback(() => setReady(true), []);
@@ -45,10 +48,12 @@ function TraceViewer({
   const quality = cursor === null ? undefined : sequence.quality?.[cursor];
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="external-chromatogram-preview">
-      <p className="px-4 py-2 text-xs text-fg-muted">
-        {sequence.length.toLocaleString()} base calls · {trace.channels.A.length.toLocaleString()}{' '}
-        samples per channel
-      </p>
+      <DocumentInfoRow controls={controls}>
+        <span>
+          {sequence.length.toLocaleString()} base calls · {trace.channels.A.length.toLocaleString()}{' '}
+          samples per channel
+        </span>
+      </DocumentInfoRow>
       <div className="min-h-0 flex-1">
         <SequenceViewer1D
           sequence={sequence}
@@ -73,20 +78,16 @@ function TraceViewer({
   );
 }
 
-export function ChromatogramPreview({ path, onSnapshot }: PreviewProps) {
+export function ChromatogramPreview({ path, onSnapshot, controls }: PreviewProps) {
   const source = usePreviewSource(path, MAX_TRACE_BYTES, readChromatogram);
   useDisplayedSnapshot(source?.status === 'loaded' ? undefined : onSnapshot, null);
-  if (!source)
+  if (source?.status !== 'loaded')
     return (
-      <p role="status" className="p-4 text-sm">
-        Reading chromatogram…
-      </p>
-    );
-  if (source.status === 'error')
-    return (
-      <p role="alert" className="p-4 text-sm">
-        {source.message}
-      </p>
+      <DocumentInfoRow controls={controls}>
+        <span role={source ? 'alert' : 'status'}>
+          {source ? source.message : 'Reading chromatogram…'}
+        </span>
+      </DocumentInfoRow>
     );
   return (
     <TraceViewer
@@ -94,6 +95,7 @@ export function ChromatogramPreview({ path, onSnapshot }: PreviewProps) {
       document={source.document}
       sha256={source.sha256}
       onSnapshot={onSnapshot}
+      controls={controls}
     />
   );
 }
