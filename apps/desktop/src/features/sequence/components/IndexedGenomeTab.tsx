@@ -1,3 +1,8 @@
+import { useIndexedSequenceDataLayers } from '../data-layers/useIndexedSequenceDataLayers';
+import { useComparisonProjectionSource } from './useComparisonProjectionSource';
+import type { ComparisonCamera } from '@waypoint/genome-renderer';
+import { useContactProjectionSource } from './useContactProjectionSource';
+import type { ContactCamera } from '@waypoint/genome-renderer';
 import { useTrackViewSessionSource } from './useTrackViewSessionSource';
 import {
   usePresentationListener,
@@ -909,14 +914,20 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
   const initialIndexedViewportRef = useRef<{
     tabId: string;
     range: { start0: number; end0: number } | null;
+    restoreId?: string;
+    annotation?: NonNullable<Tab['viewState']>['indexedAnnotationDraft'];
   }>({
     tabId: tab.id,
     range: tab.viewState?.indexedViewport ?? null,
+    restoreId: tab.viewState?.indexedGenomeViewRestoreCommand?.id,
+    annotation: tab.viewState?.indexedAnnotationDraft,
   });
   if (initialIndexedViewportRef.current.tabId !== tab.id) {
     initialIndexedViewportRef.current = {
       tabId: tab.id,
       range: tab.viewState?.indexedViewport ?? null,
+      restoreId: tab.viewState?.indexedGenomeViewRestoreCommand?.id,
+      annotation: tab.viewState?.indexedAnnotationDraft,
     };
   }
   const appliedInitialIndexedViewportRef = useRef<string | null>(null);
@@ -1183,7 +1194,19 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         ? { isoformMode: requested.isoformMode, laneLimit: requested.laneLimit }
         : { ...DEFAULT_INDEXED_ANNOTATION_MAPPER_POLICY };
     });
-  const portableViewRestoreCommand = tab.viewState?.indexedGenomeViewRestoreCommand;
+  const issuedRestoreCommand = tab.viewState?.indexedGenomeViewRestoreCommand;
+  const initialDraft = initialIndexedViewportRef.current;
+  const portableViewRestoreCommand = useMemo(() => {
+    if (!issuedRestoreCommand || issuedRestoreCommand.id !== initialDraft.restoreId)
+      return issuedRestoreCommand;
+    return {
+      ...issuedRestoreCommand,
+      ...(initialDraft.annotation?.id === issuedRestoreCommand.id ? initialDraft.annotation : {}),
+      ...(initialDraft.range
+        ? { viewport: { kind: 'assembly-range' as const, ...initialDraft.range } }
+        : {}),
+    };
+  }, [issuedRestoreCommand, initialDraft]);
   const appliedPortableViewRestoreCommandRef = useRef<string | null>(null);
   useEffect(() => {
     if (
@@ -1222,6 +1245,54 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
   const commitAnnotationMapperPolicy = useCallback((next: IndexedGenomeAnnotationMapperPolicy) => {
     setAnnotationMapperPolicy(next);
   }, []);
+  useEffect(() => {
+    if (
+      !issuedRestoreCommand ||
+      committedViewRestoreId !== issuedRestoreCommand.id ||
+      !orderedAnnotationTrackIds ||
+      !visibleAnnotationTrackIds
+    )
+      return;
+    const canvas = useCanvasStore.getState();
+    const panel = Object.values(canvas.panels).find((panel) =>
+      panel.tabs.some((t) => t.id === tab.id)
+    );
+    const current = panel?.tabs.find((t) => t.id === tab.id);
+    if (
+      !panel ||
+      current?.viewState?.indexedGenomeViewRestoreCommand?.id !== issuedRestoreCommand.id
+    )
+      return;
+    const previous =
+      current.viewState.indexedAnnotationDraft?.id === issuedRestoreCommand.id
+        ? current.viewState.indexedAnnotationDraft
+        : issuedRestoreCommand;
+    const visible = [...visibleAnnotationTrackIds];
+    if (
+      previous.annotationPolicy.isoformMode === annotationMapperPolicy.isoformMode &&
+      previous.annotationPolicy.laneLimit === annotationMapperPolicy.laneLimit &&
+      previous.visibleAnnotationTrackIds.length === visible.length &&
+      previous.visibleAnnotationTrackIds.every((id) => visibleAnnotationTrackIds.has(id)) &&
+      previous.orderedAnnotationTrackIds.length === orderedAnnotationTrackIds.length &&
+      previous.orderedAnnotationTrackIds.every((id, i) => id === orderedAnnotationTrackIds[i])
+    )
+      return;
+    canvas.setTabViewState(panel.id, tab.id, {
+      indexedAnnotationDraft: {
+        id: issuedRestoreCommand.id,
+        annotationPolicy: annotationMapperPolicy,
+        orderedAnnotationTrackIds: [...orderedAnnotationTrackIds],
+        visibleAnnotationTrackIds: visible,
+      },
+    });
+  }, [
+    annotationMapperPolicy,
+    committedViewRestoreId,
+    issuedRestoreCommand,
+    orderedAnnotationTrackIds,
+    tab.id,
+    visibleAnnotationTrackIds,
+  ]);
   const [savingPortableView, setSavingPortableView] = useState(false);
   const savePortableView = useCallback(async () => {
     const current = indexedStateRef.current;
@@ -2641,6 +2712,86 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
     }
   );
 
+  const contactResource = useContactProjectionSource(
+    indexedState?.comparisonProjection ? undefined : indexedState?.contactProjection,
+    assembly?.chromosomes ?? []
+  );
+  const contactProjection =
+    contactResource.status === 'ready' ? contactResource.value.projection : null;
+  const contactSourceHash = indexedState?.contactProjection?.source.sha256;
+  const contactProjectionId = contactProjection?.id;
+  const handleContactCameraChange = useCallback(
+    (camera: ContactCamera) => {
+      const latestTab = Object.values(useCanvasStore.getState().panels)
+        .flatMap((panel) => panel.tabs)
+        .find((candidate) => candidate.id === tab.id);
+      const current = latestTab?.indexedGenome;
+      if (
+        !current?.contactProjection ||
+        current.contactProjection.source.sha256 !== contactSourceHash ||
+        camera.projectionId !== contactProjectionId
+      )
+        return;
+      const next = {
+        ...current,
+        contactProjection: { ...current.contactProjection, camera: { ...camera } },
+      };
+      const panel = Object.entries(useCanvasStore.getState().panels).find(([, panel]) =>
+        panel.tabs.some((candidate) => candidate.id === tab.id)
+      );
+      if (!panel) return;
+      indexedStateRef.current = next;
+      setIndexedState(next);
+      useCanvasStore.getState().updateTab(panel[0], tab.id, { indexedGenome: next });
+    },
+    [contactProjectionId, contactSourceHash, tab.id]
+  );
+
+  const comparisonResource = useComparisonProjectionSource(
+    indexedState?.contactProjection ? undefined : indexedState?.comparisonProjection,
+    assembly?.chromosomes ?? []
+  );
+  const comparisonProjection =
+    comparisonResource.status === 'ready' ? comparisonResource.projection : null;
+  const comparisonSourceHash = indexedState?.comparisonProjection?.source.sha256;
+  const comparisonProjectionId = comparisonProjection?.id;
+  const handleComparisonCameraChange = useCallback(
+    (camera: ComparisonCamera) => {
+      const panel = Object.entries(useCanvasStore.getState().panels).find(([, value]) =>
+        value.tabs.some((candidate) => candidate.id === tab.id)
+      );
+      const current = panel?.[1].tabs.find((candidate) => candidate.id === tab.id)?.indexedGenome;
+      if (
+        !panel ||
+        !current?.comparisonProjection ||
+        current.contactProjection ||
+        current.comparisonProjection.source.sha256 !== comparisonSourceHash ||
+        camera.projectionId !== comparisonProjectionId
+      )
+        return;
+      const next = {
+        ...current,
+        comparisonProjection: { ...current.comparisonProjection, camera: { ...camera } },
+      };
+      indexedStateRef.current = next;
+      setIndexedState(next);
+      useCanvasStore.getState().updateTab(panel[0], tab.id, { indexedGenome: next });
+    },
+    [comparisonProjectionId, comparisonSourceHash, tab.id]
+  );
+  const nativeProjectionError =
+    indexedState?.contactProjection && indexedState?.comparisonProjection
+      ? 'A genome view can use only one native coordinate projection at a time.'
+      : contactResource.status === 'error'
+        ? contactResource.message
+        : comparisonResource.status === 'error'
+          ? comparisonResource.message
+          : null;
+  const nativeProjectionLoading =
+    contactResource.status === 'loading' || comparisonResource.status === 'loading';
+
+  const indexedLayers = useIndexedSequenceDataLayers(tab, indexedState);
+
   const trackViewSession = useTrackViewSessionSource(tab, {
     referenceName: assembly?.displayName ?? tab.label,
     readyForDirtyCheck:
@@ -2649,6 +2800,9 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
       orderedAnnotationTrackIds !== null &&
       bamTrackRestore.status === 'ready' &&
       dataTrackRestore.status === 'ready' &&
+      !nativeProjectionError &&
+      !nativeProjectionLoading &&
+      indexedLayers.ready &&
       (!portableViewRestoreCommand || committedViewRestoreId === portableViewRestoreCommand.id),
     capturePortableReference: async () => {
       const current = indexedStateRef.current;
@@ -2664,9 +2818,15 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
       const savedViewport = normalizeIndexedViewportForPersistence(viewport, length);
       if (!savedViewport) throw new Error('The displayed view has no valid viewport.');
       const liveLanes = useLaneContractStore.getState().lanesForOwner(tab.id);
+      const sequenceDataLayers = indexedLayers.capture();
       return {
         reference: trackViewReference(current),
+        ...(sequenceDataLayers ? { sequenceDataLayers } : {}),
         viewport: savedViewport,
+        ...(current.contactProjection ? { contactProjection: current.contactProjection } : {}),
+        ...(current.comparisonProjection
+          ? { comparisonProjection: current.comparisonProjection }
+          : {}),
         scope: current.scope ?? { kind: 'all' },
         annotation: {
           policy: { ...annotationMapperPolicy },
@@ -2739,6 +2899,11 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         savingPortableView={savingPortableView}
         onSavePortableView={() => void savePortableView()}
         dataRestoreIssues={[
+          ...indexedLayers.trackControls.errors.map((message) => ({
+            trackId: 'saved-data-layer',
+            label: 'Data layer',
+            message,
+          })),
           ...dataTrackRestore.issues,
           ...bamTrackRestore.issues.filter((issue) => issue.kind === 'remote-signal'),
         ]}
@@ -2750,10 +2915,21 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         }
       />
       <IndexedGenomeTabRuntime
+        dataLayerTracks={indexedLayers.tracks}
+        dataLayerControls={indexedLayers.trackControls}
+        annotationColorsByIdentity={indexedLayers.annotationColorsByIdentity}
+        missingAnnotationColor={indexedLayers.missingColor}
         tabId={tab.id}
         allowAutomaticSignalReadPileupViews={!tab.trackView && !portableViewRestoreCommand}
+        comparisonProjection={comparisonProjection}
+        comparisonCamera={indexedState?.comparisonProjection?.camera}
+        onComparisonCameraChange={handleComparisonCameraChange}
+        contactProjection={contactProjection}
+        contactCamera={indexedState?.contactProjection?.camera}
+        contactUnit={contactResource.status === 'ready' ? contactResource.value.unit : undefined}
+        onContactCameraChange={handleContactCameraChange}
         assembly={assembly}
-        canShowViewer={canShowViewer}
+        canShowViewer={canShowViewer && !nativeProjectionLoading && !nativeProjectionError}
         rangeStatus={rangeStatus}
         rangeError={toOptionalUserMessage(rangeError)}
         manifest={manifest}
@@ -2804,12 +2980,14 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         allocateAnnotationMapperPolicyRequestId={allocateAnnotationMapperPolicyRequestId}
         requireFullAssemblyReadiness={fullAssemblyReadinessRequired}
         allowTrackOnlyInteraction={allowTrackOnlyInteraction}
-        loadPhase={loadPhase}
+        loadPhase={
+          nativeProjectionError ? 'error' : nativeProjectionLoading ? 'opening' : loadPhase
+        }
         visualChrom={visualChrom}
         fileName={fileName}
         sourceSizeBytes={indexedState?.sourceSizeBytes}
         tabFileSizeBytes={tab.fileSizeBytes}
-        prepareError={toOptionalUserMessage(prepareError)}
+        prepareError={toOptionalUserMessage(nativeProjectionError ?? prepareError)}
         viewerLoadError={toOptionalUserMessage(viewerLoadError)}
         sequenceSearchReady={sequenceSearchReady}
         search={search}

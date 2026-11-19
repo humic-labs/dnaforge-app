@@ -1,4 +1,9 @@
 /** @vitest-environment jsdom */
+import 'fake-indexeddb/auto';
+import {
+  flushPendingUnsavedDraftWrites,
+  readUnsavedDraft,
+} from '../../../shared/unsaved-draft-recovery';
 import { documentLifecycle } from '../../../shared/document-lifecycle';
 import { isTabDirty } from '../../canvas/public/artifact-document-lifecycle';
 
@@ -415,6 +420,7 @@ describe('PrimerCreationTab', () => {
         })
       )
     );
+    await waitFor(() => expect(useCanvasStore.getState().panels.main.tabs).toHaveLength(0));
   });
 
   it('saves one unbound file-authoritative primer and closes only its draft tab', async () => {
@@ -432,6 +438,9 @@ describe('PrimerCreationTab', () => {
     fireEvent.change(screen.getByTestId('primer-name-input'), {
       target: { value: 'Library_F1' },
     });
+    const recoveryKey = `new:${tab.id}`;
+    await flushPendingUnsavedDraftWrites([recoveryKey]);
+    expect(await readUnsavedDraft(recoveryKey)).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'Save Primer' }));
 
     await waitFor(() => {
@@ -452,7 +461,8 @@ describe('PrimerCreationTab', () => {
         })
       );
     });
-    expect(useCanvasStore.getState().panels.main.tabs).toHaveLength(0);
+    await waitFor(() => expect(useCanvasStore.getState().panels.main.tabs).toHaveLength(0));
+    expect(await readUnsavedDraft(recoveryKey)).toBeUndefined();
     expect(changed).toHaveBeenCalledTimes(1);
     window.removeEventListener('waypoint:workspace-files-changed', changed);
   });
@@ -480,7 +490,26 @@ describe('PrimerCreationTab', () => {
       )
     );
     expect(screen.queryByTestId('primer-form-error')).not.toBeInTheDocument();
-    expect(useCanvasStore.getState().panels.main.tabs).toHaveLength(0);
+    await waitFor(() => expect(useCanvasStore.getState().panels.main.tabs).toHaveLength(0));
+  });
+
+  it('projects a loaded RNA oligo into the existing tab context', async () => {
+    const existing = existingPrimerRead();
+    const rnaArtifact = {
+      ...existing.artifact,
+      oligo: { ...existing.artifact.oligo, orderType: 'rna' as const },
+    };
+    commandMocks.readArtifactAtPath.mockResolvedValue({ ...existing, artifact: rnaArtifact });
+    const savedTab = existingPrimerTab();
+    useCanvasStore.setState({
+      panels: { main: { id: 'main', tabs: [savedTab], activeTabId: savedTab.id } },
+    });
+    render(<SavedPrimerHarness />);
+    await waitFor(() =>
+      expect(useCanvasStore.getState().panels.main.tabs[0].artifactDocument?.orderType).toBe('rna')
+    );
+    expect(commandMocks.updateArtifactContent).not.toHaveBeenCalled();
+    expect(commandMocks.createPrimer).not.toHaveBeenCalled();
   });
 
   it('opens an existing authoritative primer in the same editable tab', async () => {

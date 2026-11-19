@@ -8,7 +8,7 @@ import type { CatalogRecordPresentationKind } from '../../shared/catalog-entity'
 import { isSafeWorkspaceRelativePath, pathIsAtOrUnder } from '../../shared/path-boundary';
 import type {
   WorkspaceBrowserCatalogEntry,
-  WorkspaceBrowserEntry,
+  WorkspaceBrowserFilesystemEntry,
   WorkspaceListChildrenRequest,
   WorkspaceListChildrenResult,
   NativeCatalogRecordReconcileRequest,
@@ -21,6 +21,7 @@ import { reconcileNativeCatalogRecordsFromFile } from '../native-catalog-record-
 import { developerImportSourceRootsInDb } from '../registry-source-eligibility';
 import { isDeveloperImportSourcePath } from '../../shared/developer-import-sources';
 import { workspaceBrowserContract } from '../../shared/ipc/workspace-browser.contract';
+import { catalogIconContext } from '../../shared/catalog-icon-context';
 
 type WorkspaceRow = Readonly<{ id: number; path: string }>;
 
@@ -60,8 +61,8 @@ export async function listWorkspaceChildren(
     throw new Error('WORKSPACE_BROWSER_UNSAFE_PARENT: parent resolves outside the workspace.');
   }
 
-  const filesystemEntries = (await readdir(safeParentPath, { withFileTypes: true })).map(
-    (entry): WorkspaceBrowserEntry => ({
+  let filesystemEntries = (await readdir(safeParentPath, { withFileTypes: true })).map(
+    (entry): WorkspaceBrowserFilesystemEntry => ({
       kind: 'filesystem',
       entryId: `filesystem:${join(safeParentPath, entry.name)}`,
       name: entry.name,
@@ -83,10 +84,47 @@ export async function listWorkspaceChildren(
   let catalogEntries: WorkspaceBrowserCatalogEntry[] = [];
   let partialError: WorkspaceListChildrenResult['partialError'] = null;
   try {
+    const contexts = new Map<string, ReturnType<typeof catalogIconContext>>();
+    for (let offset = 0; offset < filesystemEntries.length; offset += 500) {
+      const paths = filesystemEntries.slice(offset, offset + 500).map((entry) => entry.path);
+      const rows = db
+        .prepare(
+          `SELECT binding.path, entity.type, entity.metadata, lims.kind AS icon_kind
+           FROM catalog_entity_files AS binding
+           JOIN catalog_entities AS entity ON entity.id = binding.entity_id
+           LEFT JOIN lims_entity AS lims ON lims.id = entity.id
+           WHERE binding.workspace_id = ?
+             AND entity.workspace_id = ?
+             AND binding.status = 'current'
+             AND entity.status = 'active'
+             AND binding.path IN (${paths.map(() => '?').join(', ')})`
+        )
+        .all(workspace.id, workspace.id, ...paths) as Array<{
+        path: string;
+        type: string;
+        metadata: string | null;
+        icon_kind: string | null;
+      }>;
+      for (const row of rows) {
+        contexts.set(
+          row.path,
+          catalogIconContext({
+            kind: row.icon_kind ?? row.type,
+            path: row.path,
+            metadata: row.metadata,
+          })
+        );
+      }
+    }
+    filesystemEntries = filesystemEntries.map((entry) => {
+      const iconContext = contexts.get(entry.path);
+      return iconContext ? { ...entry, iconContext } : entry;
+    });
     catalogEntries = db
       .prepare(
         `SELECT placement.entity_id, placement.parent_relative_path,
                 placement.display_name, placement.presentation_kind,
+                entity.metadata, lims.kind AS icon_kind,
                 (SELECT CASE WHEN COUNT(*) = 1 THEN MIN(binding.stable_object_id) ELSE NULL END
                    FROM catalog_provider_bindings AS binding
                   WHERE binding.entity_id = placement.entity_id
@@ -94,6 +132,7 @@ export async function listWorkspaceChildren(
                     AND binding.binding_kind IN ('observed', 'reviewed')) AS source_record_id
          FROM catalog_workspace_placements AS placement
          JOIN catalog_entities AS entity ON entity.id = placement.entity_id
+         LEFT JOIN lims_entity AS lims ON lims.id = entity.id
          WHERE placement.workspace_id = ?
            AND placement.parent_relative_path = ?
            AND placement.status = 'active'
@@ -108,7 +147,13 @@ export async function listWorkspaceChildren(
           display_name: string;
           presentation_kind: CatalogRecordPresentationKind;
           source_record_id: string | null;
+          metadata: string | null;
+          icon_kind: string | null;
         };
+        const iconContext = catalogIconContext({
+          kind: placement.icon_kind,
+          metadata: placement.metadata,
+        });
         return {
           kind: 'catalog' as const,
           entryId: `catalog:${placement.entity_id}`,
@@ -118,6 +163,7 @@ export async function listWorkspaceChildren(
           name: placement.display_name,
           parentRelativePath: placement.parent_relative_path,
           presentationKind: placement.presentation_kind,
+          ...(iconContext ? { iconContext } : {}),
         };
       });
   } catch (error) {

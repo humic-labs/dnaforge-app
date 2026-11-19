@@ -1,3 +1,4 @@
+import type { AnnotationDataColorsV1 } from '../../../annotation-data-appearance';
 import type { PartitionedInstancedTranscriptLayer } from '../overview/partitioned-instanced-transcript-layer';
 import type { PrepackedAnnotationSceneLoadInput } from '../overview/prepacked-annotation-scene';
 import type { PrepackedAnnotationSceneMetadata } from '../overview/prepacked-annotation-scene';
@@ -23,6 +24,7 @@ export type PrepackedSceneTeardownHost = {
     viewportHeight: number;
     cdsDetail: number;
     themeMode: 'light' | 'dark';
+    annotationDataColors?: AnnotationDataColorsV1;
     rolePalette?: AnnotationRolePaletteOverridesV1;
   } | null;
   prepackedAnnotationSceneLayer: PartitionedInstancedTranscriptLayer | null;
@@ -76,7 +78,8 @@ export function primeInactivePrepackedAnnotationSceneResident(
     lastPresentation.cdsDetail,
     host.prepackedAnnotationTrackBaseOffsetPx() ?? 0,
     lastPresentation.themeMode,
-    lastPresentation.rolePalette
+    lastPresentation.rolePalette,
+    lastPresentation.annotationDataColors
   );
   resident.visiblePartitionCount = submissions.length;
   resident.visibleInstanceCount = submissions.reduce(

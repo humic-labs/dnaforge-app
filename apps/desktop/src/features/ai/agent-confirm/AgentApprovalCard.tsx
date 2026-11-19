@@ -158,7 +158,7 @@ export function AgentApprovalCard({
                   onClick={() => onChoose(choice)}
                   onMouseEnter={() => setHighlighted(index)}
                   className={`flex cursor-pointer items-baseline gap-2 rounded-md px-2.5 py-1.5 text-xs ${
-                    active ? 'bg-accent/10 text-fg' : 'text-fg hover:bg-bg-muted'
+                    active ? 'bg-accent/10 text-fg' : 'text-fg wp-interactive'
                   }`}
                   data-testid={CHOICE_TEST_IDS[choice]}
                 >

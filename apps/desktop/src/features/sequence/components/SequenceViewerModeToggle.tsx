@@ -81,7 +81,7 @@ function ModeButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`${BTN_BASE} ${active ? 'text-fg' : 'text-fg-muted hover:text-fg'}`}
+      className={`${BTN_BASE} ${active ? 'text-fg' : 'text-fg-muted wp-interactive'}`}
       data-ph-name={testId}
       data-testid={testId}
       title={label}

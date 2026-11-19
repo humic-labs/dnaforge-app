@@ -99,7 +99,7 @@ export function TableToolbar({
         <button
           onClick={onRemoveRow}
           disabled={readOnly || rows <= 1}
-          className="px-1.5 py-0.5 rounded hover:bg-bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-1.5 py-0.5 rounded wp-interactive disabled:opacity-40 disabled:cursor-not-allowed"
           title="Remove last row"
           aria-label="Remove row"
         >
@@ -109,7 +109,7 @@ export function TableToolbar({
         <button
           onClick={onAddRow}
           disabled={readOnly}
-          className="px-1.5 py-0.5 rounded hover:bg-bg-muted"
+          className="px-1.5 py-0.5 rounded wp-interactive"
           title="Add row"
           aria-label="Add row"
         >
@@ -125,7 +125,7 @@ export function TableToolbar({
         <button
           onClick={onRemoveColumn}
           disabled={readOnly || cols <= 1}
-          className="px-1.5 py-0.5 rounded hover:bg-bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-1.5 py-0.5 rounded wp-interactive disabled:opacity-40 disabled:cursor-not-allowed"
           title="Remove last column"
           aria-label="Remove column"
         >
@@ -135,7 +135,7 @@ export function TableToolbar({
         <button
           onClick={onAddColumn}
           disabled={readOnly}
-          className="px-1.5 py-0.5 rounded hover:bg-bg-muted"
+          className="px-1.5 py-0.5 rounded wp-interactive"
           title="Add column"
           aria-label="Add column"
         >
@@ -149,7 +149,7 @@ export function TableToolbar({
           <div className="w-px h-4 bg-border" />
           <button
             onClick={onClearFilters}
-            className="px-2 py-0.5 rounded text-fg-muted hover:bg-bg-muted hover:text-fg"
+            className="px-2 py-0.5 rounded text-fg-muted wp-interactive "
             title="Clear all filters"
           >
             Clear filters
@@ -167,7 +167,7 @@ export function TableToolbar({
             void handleCopy();
           }}
           disabled={copyState === 'pending'}
-          className="px-2 py-0.5 rounded text-fg-muted hover:bg-bg-muted hover:text-fg"
+          className="px-2 py-0.5 rounded text-fg-muted wp-interactive "
           title="Copy table as CSV"
         >
           {copyState === 'pending'
@@ -180,7 +180,7 @@ export function TableToolbar({
         </button>
         <button
           onClick={onExportCSV}
-          className="px-2 py-0.5 rounded text-fg-muted hover:bg-bg-muted hover:text-fg"
+          className="px-2 py-0.5 rounded text-fg-muted wp-interactive "
           title="Download as CSV"
         >
           Export
@@ -192,7 +192,7 @@ export function TableToolbar({
           type="button"
           disabled={readOnly}
           onClick={() => setReplacementOpen(true)}
-          className="px-2 py-0.5 rounded text-fg-muted hover:bg-bg-muted hover:text-fg"
+          className="px-2 py-0.5 rounded text-fg-muted wp-interactive "
         >
           Replace table…
         </button>

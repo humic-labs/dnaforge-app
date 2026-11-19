@@ -25,7 +25,7 @@ export const REGISTRY_SORT_OPTIONS: Array<{ value: LimsRegistrySort; label: stri
 
 export const REGISTRY_PAGE_SIZE = 50;
 
-export type RegistryFilterType = 'text' | 'categorical' | 'date';
+export type RegistryFilterType = 'text' | 'categorical' | 'date' | 'schema-date';
 
 export interface RegistryColumnDef {
   key: string;
@@ -90,6 +90,9 @@ export function registryColumnsForSchema(
       label: field.label,
       width: field.type === 'long_text' ? 190 : field.type === 'string_array' ? 170 : 140,
       field,
+      ...(field.type === 'date' || field.type === 'datetime'
+        ? { filter: 'schema-date' as const }
+        : {}),
     })
   );
   const actions = system.find((column) => column.key === 'actions')!;

@@ -1,6 +1,7 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { toUserMessage } from '@waypoint/user-messages';
-import { Button, UI_FIELD_CLASS } from '../../components/ui';
+import { Button } from '../../components/ui';
 import { platform } from '../../platform';
 import {
   LIMS_BUILTIN_ENTITY_SCHEMAS,
@@ -226,52 +227,59 @@ export function SpreadsheetImportReview({ item, selected, submitted, onChange }:
               <div className="flex flex-wrap items-center gap-3 text-xs">
                 <label className="flex items-center gap-2">
                   Record type
-                  <select
-                    aria-label="Record type"
-                    value={kind}
-                    disabled={busy}
-                    className={UI_FIELD_CLASS}
-                    onChange={(event) => {
-                      const forcedKind = event.currentTarget.value;
-                      changePlan((current) =>
-                        executeLimsImportReview(current, { kind: 'set-source-options', forcedKind })
-                      );
-                    }}
-                  >
-                    <option value="" disabled>
-                      Choose record type
-                    </option>
-                    {[...choices].map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {sheets.length > 1 && (
-                  <label className="flex items-center gap-2">
-                    Sheet
-                    <select
-                      aria-label="Sheet"
-                      value={plan.selectedSheet ?? ''}
+                  <span className="block min-w-0 w-full">
+                    <MenuNativeSelect
+                      density="form"
+                      aria-label="Record type"
+                      value={kind}
                       disabled={busy}
-                      className={UI_FIELD_CLASS}
                       onChange={(event) => {
-                        const sheetName = event.currentTarget.value;
+                        const forcedKind = event.currentTarget.value;
                         changePlan((current) =>
                           executeLimsImportReview(current, {
                             kind: 'set-source-options',
-                            sheetName,
+                            forcedKind,
                           })
                         );
                       }}
                     >
-                      {sheets.map((sheet) => (
-                        <option key={sheet.sheetName} value={sheet.sheetName}>
-                          {sheet.sheetName}
+                      <option value="" disabled>
+                        Choose record type
+                      </option>
+                      {[...choices].map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
                         </option>
                       ))}
-                    </select>
+                    </MenuNativeSelect>
+                  </span>
+                </label>
+                {sheets.length > 1 && (
+                  <label className="flex items-center gap-2">
+                    Sheet
+                    <span className="block min-w-0 w-full">
+                      <MenuNativeSelect
+                        density="form"
+                        aria-label="Sheet"
+                        value={plan.selectedSheet ?? ''}
+                        disabled={busy}
+                        onChange={(event) => {
+                          const sheetName = event.currentTarget.value;
+                          changePlan((current) =>
+                            executeLimsImportReview(current, {
+                              kind: 'set-source-options',
+                              sheetName,
+                            })
+                          );
+                        }}
+                      >
+                        {sheets.map((sheet) => (
+                          <option key={sheet.sheetName} value={sheet.sheetName}>
+                            {sheet.sheetName}
+                          </option>
+                        ))}
+                      </MenuNativeSelect>
+                    </span>
                   </label>
                 )}
               </div>

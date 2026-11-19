@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DBEntityReference } from '../../db/entity-references';
@@ -8,6 +8,10 @@ import {
   molecularDocumentReferenceLocator,
   molecularDocumentReferenceRecord,
 } from '../../shared/molecular-document-reference';
+
+vi.mock('../../features/primers/primer-references', () => ({
+  getCanonicalOligoEntity: async () => ({ id: 'oligo-rna', kind: 'rna_oligo' }),
+}));
 
 beforeEach(() => {
   vi.stubGlobal(
@@ -78,6 +82,25 @@ const CANONICAL_DESCRIPTOR = {
 };
 
 describe('ReferenceChip', () => {
+  it('colors a legacy canonical RNA primer reference from its current owner', async () => {
+    const reference = structureReference(null, {
+      id: 'legacy-rna-ref',
+      entity_type: 'primer',
+      locator: 'entity://primer/oligo-rna',
+      display_label: 'Saved oligo',
+      data: JSON.stringify({ registryEntityId: 'oligo-rna', localOnly: true }),
+    });
+    const original = structuredClone(reference);
+    const { container } = render(<ReferenceChip reference={reference} inline />);
+    await waitFor(() =>
+      expect(container.querySelector('.entity-reference-chip__icon svg')).toHaveAttribute(
+        'data-entity-color-family',
+        'rna'
+      )
+    );
+    expect(reference).toEqual(original);
+  });
+
   it('exposes the exact native named-view target independently of its presentation id', () => {
     const document = {
       kind: 'molecular-document' as const,

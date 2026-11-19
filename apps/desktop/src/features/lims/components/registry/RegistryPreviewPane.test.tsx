@@ -1,3 +1,4 @@
+import { emptyWorkTaskQuery } from '../../../../test/fixtures/work-tasks';
 import { userMessage } from '@waypoint/user-messages';
 /** @vitest-environment jsdom */
 
@@ -47,6 +48,7 @@ vi.mock('../../../../services/lims-entity-mutations', () => ({
 
 vi.mock('../../../../platform', () => ({
   platform: () => ({
+    workTasks: { query: emptyWorkTaskQuery },
     db: { select: async () => [] },
     fs: { readTextFile: async () => '', exists: async () => false },
     trackViews: {

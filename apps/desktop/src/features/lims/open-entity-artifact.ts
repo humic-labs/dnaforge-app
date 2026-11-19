@@ -22,7 +22,12 @@ export async function openSavedEntityRecord(
   const loaded = await loadSavedEntityRecord(entityId, request.signal);
   if (request.signal?.aborted) return cancelledDocumentOpen();
   const result = presentDocument(
-    { type: 'record', entityId: loaded.artifact.id, label: loaded.artifact.name },
+    {
+      type: 'record',
+      entityId: loaded.artifact.id,
+      entityKind: loaded.artifact.kind,
+      label: loaded.artifact.name,
+    },
     request.placement
   );
   if (result.status === 'presented') {
@@ -51,7 +56,12 @@ export async function openEntityArtifact(
       }
       if (request.signal?.aborted) return cancelledDocumentOpen();
       const result = presentDocument(
-        { type: 'record', entityId: artifact.id, label: artifact.name },
+        {
+          type: 'record',
+          entityId: artifact.id,
+          entityKind: artifact.kind,
+          label: artifact.name,
+        },
         request.placement
       );
       if (result.status === 'presented')

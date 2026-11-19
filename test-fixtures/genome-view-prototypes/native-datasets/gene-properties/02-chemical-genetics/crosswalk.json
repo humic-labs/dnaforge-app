@@ -1,0 +1,1326 @@
+{
+  "datasetId": "02-chemical-genetics",
+  "targetAnnotationPath": "MG1655-NC_000913.3.gff3",
+  "targetAnnotationSha256": "8654e5413df05d47649deb8cd86eb09a91012dfd0d2c9979f39ea2a60f137326",
+  "records": [
+    {
+      "originalSourceId": "ECK2281-NUOB",
+      "originalSourceName": "NUOB",
+      "sourceExcelRow": 19,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK2281"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "nuoB.gene.1",
+          "featureType": "gene",
+          "gene": "nuoB",
+          "locusTag": "b2287",
+          "geneSynonymTokens": [
+            "ECK2281"
+          ],
+          "gffLine": 4973
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "nuoB.gene.1"
+    },
+    {
+      "originalSourceId": "ECK2282-NUOA",
+      "originalSourceName": "NUOA",
+      "sourceExcelRow": 94,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK2282"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "nuoA.gene.1",
+          "featureType": "gene",
+          "gene": "nuoA",
+          "locusTag": "b2288",
+          "geneSynonymTokens": [
+            "ECK2282"
+          ],
+          "gffLine": 4975
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "nuoA.gene.1"
+    },
+    {
+      "originalSourceId": "ECK2278-NUOF",
+      "originalSourceName": "NUOF",
+      "sourceExcelRow": 459,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK2278"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "nuoF.gene.1",
+          "featureType": "gene",
+          "gene": "nuoF",
+          "locusTag": "b2284",
+          "geneSynonymTokens": [
+            "ECK2278"
+          ],
+          "gffLine": 4967
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "nuoF.gene.1"
+    },
+    {
+      "originalSourceId": "ECK2279-NUOE",
+      "originalSourceName": "NUOE",
+      "sourceExcelRow": 532,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK2279"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "nuoE.gene.1",
+          "featureType": "gene",
+          "gene": "nuoE",
+          "locusTag": "b2285",
+          "geneSynonymTokens": [
+            "ECK2279"
+          ],
+          "gffLine": 4969
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "nuoE.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3620-RFAP",
+      "originalSourceName": "RFAP",
+      "sourceExcelRow": 1348,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3620"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "waaP.gene.1",
+          "featureType": "gene",
+          "gene": "waaP",
+          "locusTag": "b3630",
+          "geneSynonymTokens": [
+            "ECK3620",
+            "rfaP"
+          ],
+          "gffLine": 7839
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "waaP.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3609-RFAD",
+      "originalSourceName": "RFAD",
+      "sourceExcelRow": 1439,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3609"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "rfaD.gene.1",
+          "featureType": "gene",
+          "gene": "rfaD",
+          "locusTag": "b3619",
+          "geneSynonymTokens": [
+            "ECK3609",
+            "hldD",
+            "htrM",
+            "nbsB",
+            "waaD"
+          ],
+          "gffLine": 7812
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "rfaD.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3621-RFAG",
+      "originalSourceName": "RFAG",
+      "sourceExcelRow": 1443,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3621"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "waaG.gene.1",
+          "featureType": "gene",
+          "gene": "waaG",
+          "locusTag": "b3631",
+          "geneSynonymTokens": [
+            "ECK3621",
+            "rfaG"
+          ],
+          "gffLine": 7841
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "waaG.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3610-RFAF",
+      "originalSourceName": "RFAF",
+      "sourceExcelRow": 1528,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3610"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "waaF.gene.1",
+          "featureType": "gene",
+          "gene": "waaF",
+          "locusTag": "b3620",
+          "geneSynonymTokens": [
+            "ECK3610",
+            "rfaF"
+          ],
+          "gffLine": 7814
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "waaF.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3622-RFAQ",
+      "originalSourceName": "RFAQ",
+      "sourceExcelRow": 1532,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3622"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "waaQ.gene.1",
+          "featureType": "gene",
+          "gene": "waaQ",
+          "locusTag": "b3632",
+          "geneSynonymTokens": [
+            "ECK3622",
+            "rfaQ"
+          ],
+          "gffLine": 7843
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "waaQ.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3617-RFAI",
+      "originalSourceName": "RFAI",
+      "sourceExcelRow": 1890,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3617"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "waaO.gene.1",
+          "featureType": "gene",
+          "gene": "waaO",
+          "locusTag": "b3627",
+          "geneSynonymTokens": [
+            "ECK3617",
+            "rfaI",
+            "waaI"
+          ],
+          "gffLine": 7833
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "waaO.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3042-RFAE",
+      "originalSourceName": "RFAE",
+      "sourceExcelRow": 1989,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3042"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "hldE.gene.1",
+          "featureType": "gene",
+          "gene": "hldE",
+          "locusTag": "b3052",
+          "geneSynonymTokens": [
+            "ECK3042",
+            "gmhC",
+            "rfaE",
+            "waaE",
+            "yqiF"
+          ],
+          "gffLine": 6591
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "hldE.gene.1"
+    },
+    {
+      "originalSourceId": "ECK1525-MARB",
+      "originalSourceName": "MARB",
+      "sourceExcelRow": 2434,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK1525"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "marB.gene.1",
+          "featureType": "gene",
+          "gene": "marB",
+          "locusTag": "b1532",
+          "geneSynonymTokens": [
+            "ECK1525"
+          ],
+          "gffLine": 3334
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "marB.gene.1"
+    },
+    {
+      "originalSourceId": "ECK1523-MARR",
+      "originalSourceName": "MARR",
+      "sourceExcelRow": 2695,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK1523"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "marR.gene.1",
+          "featureType": "gene",
+          "gene": "marR",
+          "locusTag": "b1530",
+          "geneSynonymTokens": [
+            "cfxB",
+            "ECK1523",
+            "inaR",
+            "soxQ"
+          ],
+          "gffLine": 3330
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "marR.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3852-DSBA",
+      "originalSourceName": "DSBA",
+      "sourceExcelRow": 3067,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3852"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "dsbA.gene.1",
+          "featureType": "gene",
+          "gene": "dsbA",
+          "locusTag": "b3860",
+          "geneSynonymTokens": [
+            "dsf",
+            "ECK3852",
+            "iarA",
+            "ppfA"
+          ],
+          "gffLine": 8342
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "dsbA.gene.1"
+    },
+    {
+      "originalSourceId": "ECK1173-DSBB",
+      "originalSourceName": "DSBB",
+      "sourceExcelRow": 3144,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK1173"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "dsbB.gene.1",
+          "featureType": "gene",
+          "gene": "dsbB",
+          "locusTag": "b1185",
+          "geneSynonymTokens": [
+            "dsbX",
+            "ECK1173",
+            "iarB",
+            "rosB",
+            "roxB",
+            "ycgA"
+          ],
+          "gffLine": 2551
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "dsbB.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3618-RFAB",
+      "originalSourceName": "RFAB",
+      "sourceExcelRow": 3720,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3618"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "waaB.gene.1",
+          "featureType": "gene",
+          "gene": "waaB",
+          "locusTag": "b3628",
+          "geneSynonymTokens": [
+            "ECK3618",
+            "lps",
+            "rfaB",
+            "syn"
+          ],
+          "gffLine": 7835
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "waaB.gene.1"
+    },
+    {
+      "originalSourceId": "ECK2280-NUOC",
+      "originalSourceName": "NUOC",
+      "sourceExcelRow": 3968,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK2280"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "nuoC.gene.1",
+          "featureType": "gene",
+          "gene": "nuoC",
+          "locusTag": "b2286",
+          "geneSynonymTokens": [
+            "ECK2280",
+            "nuoD"
+          ],
+          "gffLine": 4971
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "nuoC.gene.1"
+    },
+    {
+      "originalSourceId": "ECK0075-LEUB",
+      "originalSourceName": "LEUB",
+      "sourceExcelRow": 3564,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK0075"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "leuB.gene.1",
+          "featureType": "gene",
+          "gene": "leuB",
+          "locusTag": "b0073",
+          "geneSynonymTokens": [
+            "ECK0075"
+          ],
+          "gffLine": 163
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "leuB.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3026-TOLC",
+      "originalSourceName": "TOLC",
+      "sourceExcelRow": 2783,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3026"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "tolC.gene.1",
+          "featureType": "gene",
+          "gene": "tolC",
+          "locusTag": "b3035",
+          "geneSynonymTokens": [
+            "colE1-i",
+            "ECK3026",
+            "mtcB",
+            "mukA",
+            "refI",
+            "toc",
+            "weeA"
+          ],
+          "gffLine": 6543
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "tolC.gene.1"
+    },
+    {
+      "originalSourceId": "ECK0729-TOLB",
+      "originalSourceName": "TOLB",
+      "sourceExcelRow": 2830,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK0729"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "tolB.gene.1",
+          "featureType": "gene",
+          "gene": "tolB",
+          "locusTag": "b0740",
+          "geneSynonymTokens": [
+            "ECK0729",
+            "lky",
+            "lkyA",
+            "tol-3"
+          ],
+          "gffLine": 1608
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "tolB.gene.1"
+    },
+    {
+      "originalSourceId": "ECK0050-APAH",
+      "originalSourceName": "APAH",
+      "sourceExcelRow": 2297,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK0050"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "apaH.gene.1",
+          "featureType": "gene",
+          "gene": "apaH",
+          "locusTag": "b0049",
+          "geneSynonymTokens": [
+            "cfcB",
+            "ECK0050"
+          ],
+          "gffLine": 107
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "apaH.gene.1"
+    },
+    {
+      "originalSourceId": "ECK0457-ACRA",
+      "originalSourceName": "ACRA",
+      "sourceExcelRow": 3967,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK0457"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "acrA.gene.1",
+          "featureType": "gene",
+          "gene": "acrA",
+          "locusTag": "b0463",
+          "geneSynonymTokens": [
+            "ECK0457",
+            "lir",
+            "Mb",
+            "mbl",
+            "mtcA",
+            "nbsA",
+            "sipB"
+          ],
+          "gffLine": 1008
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "acrA.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3998-PURH",
+      "originalSourceName": "PURH",
+      "sourceExcelRow": 3675,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3998"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "purH.gene.1",
+          "featureType": "gene",
+          "gene": "purH",
+          "locusTag": "b4006",
+          "geneSynonymTokens": [
+            "ECK3998"
+          ],
+          "gffLine": 8658
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "purH.gene.1"
+    },
+    {
+      "originalSourceId": "ECK0033-CARA",
+      "originalSourceName": "CARA",
+      "sourceExcelRow": 3673,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK0033"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "carA.gene.1",
+          "featureType": "gene",
+          "gene": "carA",
+          "locusTag": "b0032",
+          "geneSynonymTokens": [
+            "arg",
+            "ECK0033",
+            "pyrA"
+          ],
+          "gffLine": 73
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "carA.gene.1"
+    },
+    {
+      "originalSourceId": "ECK0726-TOLQ",
+      "originalSourceName": "TOLQ",
+      "sourceExcelRow": 2010,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK0726"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "tolQ.gene.1",
+          "featureType": "gene",
+          "gene": "tolQ",
+          "locusTag": "b0737",
+          "geneSynonymTokens": [
+            "ECK0726",
+            "fii",
+            "tolP"
+          ],
+          "gffLine": 1602
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "tolQ.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3164-SECG",
+      "originalSourceName": "SECG",
+      "sourceExcelRow": 1556,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3164"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "secG.gene.1",
+          "featureType": "gene",
+          "gene": "secG",
+          "locusTag": "b3175",
+          "geneSynonymTokens": [
+            "ECK3164",
+            "prlH"
+          ],
+          "gffLine": 6842
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "secG.gene.1"
+    },
+    {
+      "originalSourceId": "ECK2504-GUAB",
+      "originalSourceName": "GUAB",
+      "sourceExcelRow": 2702,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK2504"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "guaB.gene.1",
+          "featureType": "gene",
+          "gene": "guaB",
+          "locusTag": "b2508",
+          "geneSynonymTokens": [
+            "ECK2504",
+            "guaR"
+          ],
+          "gffLine": 5437
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "guaB.gene.1"
+    },
+    {
+      "originalSourceId": "ECK2555-PURL",
+      "originalSourceName": "PURL",
+      "sourceExcelRow": 2620,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK2555"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "purL.gene.1",
+          "featureType": "gene",
+          "gene": "purL",
+          "locusTag": "b2557",
+          "geneSynonymTokens": [
+            "ECK2555",
+            "purI"
+          ],
+          "gffLine": 5551
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "purL.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3699-MNME",
+      "originalSourceName": "MNME",
+      "sourceExcelRow": 1240,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3699"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "mnmE.gene.1",
+          "featureType": "gene",
+          "gene": "mnmE",
+          "locusTag": "b3706",
+          "geneSynonymTokens": [
+            "ECK3699",
+            "thdF",
+            "trmE"
+          ],
+          "gffLine": 8015
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "mnmE.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3234-YHDP",
+      "originalSourceName": "YHDP",
+      "sourceExcelRow": 2790,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3234"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "yhdP.gene.1",
+          "featureType": "gene",
+          "gene": "yhdP",
+          "locusTag": "b4472",
+          "geneSynonymTokens": [
+            "b3245",
+            "b3246",
+            "ECK3234",
+            "yhdQ",
+            "yhdR"
+          ],
+          "gffLine": 6989
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "yhdP.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3997-PURD",
+      "originalSourceName": "PURD",
+      "sourceExcelRow": 2172,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3997"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "purD.gene.1",
+          "featureType": "gene",
+          "gene": "purD",
+          "locusTag": "b4005",
+          "geneSynonymTokens": [
+            "adth",
+            "adth(a)",
+            "ECK3997"
+          ],
+          "gffLine": 8656
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "purD.gene.1"
+    },
+    {
+      "originalSourceId": "ECK2836-LYSA",
+      "originalSourceName": "LYSA",
+      "sourceExcelRow": 1858,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK2836"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "lysA.gene.1",
+          "featureType": "gene",
+          "gene": "lysA",
+          "locusTag": "b2838",
+          "geneSynonymTokens": [
+            "ECK2836"
+          ],
+          "gffLine": 6145
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "lysA.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3951-ARGH",
+      "originalSourceName": "ARGH",
+      "sourceExcelRow": 1419,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3951"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "argH.gene.1",
+          "featureType": "gene",
+          "gene": "argH",
+          "locusTag": "b3960",
+          "geneSynonymTokens": [
+            "ECK3951"
+          ],
+          "gffLine": 8552
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "argH.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3831-TATB",
+      "originalSourceName": "TATB",
+      "sourceExcelRow": 3075,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3831"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "tatB.gene.1",
+          "featureType": "gene",
+          "gene": "tatB",
+          "locusTag": "b3838",
+          "geneSynonymTokens": [
+            "ECK3831",
+            "mttA2",
+            "ysgB"
+          ],
+          "gffLine": 8295
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "tatB.gene.1"
+    },
+    {
+      "originalSourceId": "ECK2021-HISI",
+      "originalSourceName": "HISI",
+      "sourceExcelRow": 1850,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK2021"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "hisI.gene.1",
+          "featureType": "gene",
+          "gene": "hisI",
+          "locusTag": "b2026",
+          "geneSynonymTokens": [
+            "ECK2021",
+            "hisE",
+            "hisIE"
+          ],
+          "gffLine": 4422
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "hisI.gene.1"
+    },
+    {
+      "originalSourceId": "ECK1255-TRPB",
+      "originalSourceName": "TRPB",
+      "sourceExcelRow": 1205,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK1255"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "trpB.gene.1",
+          "featureType": "gene",
+          "gene": "trpB",
+          "locusTag": "b1261",
+          "geneSynonymTokens": [
+            "ECK1255"
+          ],
+          "gffLine": 2734
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "trpB.gene.1"
+    },
+    {
+      "originalSourceId": "ECK0730-PAL",
+      "originalSourceName": "PAL",
+      "sourceExcelRow": 414,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK0730"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "pal.gene.1",
+          "featureType": "gene",
+          "gene": "pal",
+          "locusTag": "b0741",
+          "geneSynonymTokens": [
+            "ECK0730",
+            "excC"
+          ],
+          "gffLine": 1610
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "pal.gene.1"
+    },
+    {
+      "originalSourceId": "ECK1866-NUDB",
+      "originalSourceName": "NUDB",
+      "sourceExcelRow": 1541,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK1866"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "nudB.gene.1",
+          "featureType": "gene",
+          "gene": "nudB",
+          "locusTag": "b1865",
+          "geneSynonymTokens": [
+            "ECK1866",
+            "ntpA",
+            "yebD"
+          ],
+          "gffLine": 4056
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "nudB.gene.1"
+    },
+    {
+      "originalSourceId": "ECK2019-HISA",
+      "originalSourceName": "HISA",
+      "sourceExcelRow": 2236,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK2019"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "hisA.gene.1",
+          "featureType": "gene",
+          "gene": "hisA",
+          "locusTag": "b2024",
+          "geneSynonymTokens": [
+            "ECK2019"
+          ],
+          "gffLine": 4418
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "hisA.gene.1"
+    },
+    {
+      "originalSourceId": "ECK2758-CYSI",
+      "originalSourceName": "CYSI",
+      "sourceExcelRow": 1900,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK2758"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "cysI.gene.1",
+          "featureType": "gene",
+          "gene": "cysI",
+          "locusTag": "b2763",
+          "geneSynonymTokens": [
+            "ECK2758"
+          ],
+          "gffLine": 5975
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "cysI.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3933-METF",
+      "originalSourceName": "METF",
+      "sourceExcelRow": 1463,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3933"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "metF.gene.1",
+          "featureType": "gene",
+          "gene": "metF",
+          "locusTag": "b3941",
+          "geneSynonymTokens": [
+            "ECK3933"
+          ],
+          "gffLine": 8516
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "metF.gene.1"
+    },
+    {
+      "originalSourceId": "ECK3161-ARGG",
+      "originalSourceName": "ARGG",
+      "sourceExcelRow": 861,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK3161"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "argG.gene.1",
+          "featureType": "gene",
+          "gene": "argG",
+          "locusTag": "b3172",
+          "geneSynonymTokens": [
+            "ECK3161"
+          ],
+          "gffLine": 6835
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "argG.gene.1"
+    },
+    {
+      "originalSourceId": "ECK0244-PROA",
+      "originalSourceName": "PROA",
+      "sourceExcelRow": 1383,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK0244"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "proA.gene.1",
+          "featureType": "gene",
+          "gene": "proA",
+          "locusTag": "b0243",
+          "geneSynonymTokens": [
+            "ECK0244",
+            "pro(1)",
+            "pro1"
+          ],
+          "gffLine": 533
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "proA.gene.1"
+    },
+    {
+      "originalSourceId": "ECK2909-SERA",
+      "originalSourceName": "SERA",
+      "sourceExcelRow": 1316,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK2909"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "serA.gene.1",
+          "featureType": "gene",
+          "gene": "serA",
+          "locusTag": "b2913",
+          "geneSynonymTokens": [
+            "ECK2909"
+          ],
+          "gffLine": 6301
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "serA.gene.1"
+    },
+    {
+      "originalSourceId": "ECK0727-TOLR",
+      "originalSourceName": "TOLR",
+      "sourceExcelRow": 2103,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK0727"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "tolR.gene.1",
+          "featureType": "gene",
+          "gene": "tolR",
+          "locusTag": "b0738",
+          "geneSynonymTokens": [
+            "ECK0727"
+          ],
+          "gffLine": 1604
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "tolR.gene.1"
+    },
+    {
+      "originalSourceId": "ECK2323-AROC",
+      "originalSourceName": "AROC",
+      "sourceExcelRow": 1583,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK2323"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "aroC.gene.1",
+          "featureType": "gene",
+          "gene": "aroC",
+          "locusTag": "b2329",
+          "geneSynonymTokens": [
+            "ECK2323"
+          ],
+          "gffLine": 5057
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "aroC.gene.1"
+    },
+    {
+      "originalSourceId": "ECK2814-ARGA",
+      "originalSourceName": "ARGA",
+      "sourceExcelRow": 1769,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK2814"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "argA.gene.1",
+          "featureType": "gene",
+          "gene": "argA",
+          "locusTag": "b2818",
+          "geneSynonymTokens": [
+            "Arg1",
+            "Arg2",
+            "ECK2814"
+          ],
+          "gffLine": 6097
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "argA.gene.1"
+    },
+    {
+      "originalSourceId": "ECK2597-TYRA",
+      "originalSourceName": "TYRA",
+      "sourceExcelRow": 1587,
+      "method": "exact ECK token in decoded comma-separated root-feature gene_synonym qualifier",
+      "query": {
+        "qualifier": "gene_synonym",
+        "token": "ECK2597"
+      },
+      "sourceOccurrenceCount": 1,
+      "candidates": [
+        {
+          "annotationId": "tyrA.gene.1",
+          "featureType": "gene",
+          "gene": "tyrA",
+          "locusTag": "b2600",
+          "geneSynonymTokens": [
+            "ECK2597"
+          ],
+          "gffLine": 5657
+        }
+      ],
+      "outcome": "mapped",
+      "reason": "One root gene/pseudogene feature contains the exact ECK token in its decoded comma-separated gene_synonym qualifier.",
+      "targetAnnotationId": "tyrA.gene.1"
+    }
+  ]
+}

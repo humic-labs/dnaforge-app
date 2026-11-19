@@ -1,6 +1,7 @@
 import { XIcon, PaperclipIcon } from '../icons';
 import { ChatEntityReferenceChip } from './ChatEntityReferenceChip';
-import { iconForEntityKind } from '../icons/entity-icon-registry';
+import { FileTypeIcon } from '../icons/file-type-icon';
+import { getFileIconCategory } from '../../utils/fileTypes';
 import type { AgentAttachmentManifest } from '../../shared/agent-attachments';
 
 export type AttachedFile = AgentAttachmentManifest;
@@ -17,9 +18,6 @@ function formatSize(bytes: number) {
 }
 
 export function FilePill({ file, onRemove }: FilePillProps) {
-  const extension = file.name.split('.').pop()?.toLowerCase() || '';
-  const isBioFile = ['gb', 'gbk', 'fasta', 'fa', 'fas', 'seq'].includes(extension);
-
   const phase = onRemove ? 'draft' : 'sent';
   return (
     <span title={`${file.name} (${formatSize(file.size)})`}>
@@ -28,7 +26,14 @@ export function FilePill({ file, onRemove }: FilePillProps) {
         label={file.name}
         preserveExtension
         attachmentPhase={phase}
-        iconOverride={isBioFile ? iconForEntityKind('sequence', 'h-3.5 w-3.5') : undefined}
+        iconContext={{ path: file.name }}
+        iconOverride={
+          <FileTypeIcon
+            category={getFileIconCategory(file.name)}
+            path={file.name}
+            className="h-3.5 w-3.5"
+          />
+        }
         endSlot={
           onRemove ? (
             <button

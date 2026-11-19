@@ -1,8 +1,4 @@
-import {
-  usePresentationOverlay,
-  PresentationScopeContext,
-  usePresentationListener,
-} from '../presentation/PresentationSurface';
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import {
   toUserMessage,
   userMessage,
@@ -20,6 +16,7 @@ import {
   useMemo,
   type DragEvent as ReactDragEvent,
   type MouseEvent as ReactMouseEvent,
+  type ReactNode,
 } from 'react';
 import type { CatalogRecordPresentationKind } from '../shared/catalog-entity';
 import { useWorkspaceStore, type WorkspaceFolder } from '../stores/workspaceStore';
@@ -29,6 +26,7 @@ import { useToastStore } from '../stores/toast-store';
 import { notifyGitStatusChanged } from '../hooks/useGitStatus';
 import { useFolderGitState } from '../hooks/useFolderGitState';
 import { FileContextMenu } from './FileContextMenu';
+import { ActionMenu, type ActionMenuEntry } from './ActionMenu';
 import { FileTrash } from './FileTrash';
 import {
   FileLifecycleError,
@@ -74,6 +72,9 @@ import { nextAvailableFolderName, createFolderArtifact } from './folder-create';
 import { RootFolder } from './RootFolder';
 import {
   ExplorerAddPicker,
+  ExplorerAddHeader,
+  buildExplorerAddEntries,
+  type ExplorerAddEntriesOptions,
   type ExplorerAssemblyCreateRequest,
   type ExplorerEntityCreateRequest,
   type ExplorerEntityImportRequest,
@@ -254,8 +255,10 @@ function ContextMenuWithGit({
   onNewAssembly,
   onNewTextFile,
   onNewFolder,
-  onOpenAddPicker,
-  onCloseAddPicker,
+  newMenuEntries,
+  newMenuHeader,
+  newMenuLabel,
+  newMenuDataAttributes,
   onFindInFolder,
   onCollapseOthers,
   onRemoveFromWorkspace,
@@ -277,8 +280,10 @@ function ContextMenuWithGit({
   onNewAssembly?: () => void;
   onNewTextFile?: () => void;
   onNewFolder?: () => void;
-  onOpenAddPicker?: (position: { x: number; y: number }) => void;
-  onCloseAddPicker?: () => void;
+  newMenuEntries?: readonly ActionMenuEntry[];
+  newMenuHeader?: ReactNode;
+  newMenuLabel?: string;
+  newMenuDataAttributes?: Record<`data-${string}`, string | undefined>;
   onFindInFolder?: () => void;
   onCollapseOthers?: () => void;
   onRemoveFromWorkspace?: () => void;
@@ -328,8 +333,10 @@ function ContextMenuWithGit({
       onNewAssembly={onNewAssembly}
       onNewTextFile={onNewTextFile}
       onNewFolder={onNewFolder}
-      onOpenAddPicker={onOpenAddPicker}
-      onCloseAddPicker={onCloseAddPicker}
+      newMenuEntries={newMenuEntries}
+      newMenuHeader={newMenuHeader}
+      newMenuLabel={newMenuLabel}
+      newMenuDataAttributes={newMenuDataAttributes}
       onFindInFolder={contextMenu.isDirectory ? onFindInFolder : undefined}
       onCollapseOthers={onCollapseOthers}
       pinnedRoot={contextMenu.pinned}
@@ -353,59 +360,19 @@ function CatalogContextMenu({
   onOpen: () => void;
   onViewOriginalSource: () => void;
 }) {
-  const presentationOverlay = usePresentationOverlay('keyboard');
-  const presentationEvents = usePresentationListener(presentationOverlay.scope);
-
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const closeOnPointer = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) onClose();
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.addEventListener('mousedown', closeOnPointer);
-    presentationEvents.add(document, 'keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('mousedown', closeOnPointer);
-      presentationEvents.remove(document, 'keydown', closeOnEscape);
-    };
-  }, [onClose, presentationEvents]);
-
-  const run = (action: () => void) => {
-    action();
-    onClose();
-  };
-
   return (
-    <PresentationScopeContext.Provider value={presentationOverlay.scope}>
-      <div
-        ref={presentationOverlay.bindRef(menuRef, '0')}
-        role="menu"
-        data-testid="catalog-entry-context-menu"
-        data-analytics-block
-        className="fixed z-50 min-w-52 rounded-md border border-border bg-bg py-1 shadow-lg"
-        style={{ left: contextMenu.x, top: contextMenu.y }}
-      >
-        <button
-          type="button"
-          role="menuitem"
-          className="flex min-h-7 w-full items-center px-3 py-1 text-left text-sm text-fg hover:bg-bg-muted"
-          onClick={() => run(onOpen)}
-        >
-          Open in Registry
-        </button>
-        <button
-          type="button"
-          role="menuitem"
-          className="flex min-h-7 w-full items-center px-3 py-1 text-left text-sm text-fg hover:bg-bg-muted"
-          onClick={() => run(onViewOriginalSource)}
-        >
-          View original source
-        </button>
-      </div>
-    </PresentationScopeContext.Provider>
+    <ActionMenu
+      open
+      label={`Actions for ${contextMenu.displayName}`}
+      anchorPoint={{ x: contextMenu.x, y: contextMenu.y }}
+      onClose={onClose}
+      testId="catalog-entry-context-menu"
+      dataAttributes={{ 'data-analytics-block': 'true' }}
+      entries={[
+        { id: 'open-registry', label: 'Open in Registry', onSelect: onOpen },
+        { id: 'view-source', label: 'View original source', onSelect: onViewOriginalSource },
+      ]}
+    />
   );
 }
 
@@ -663,7 +630,7 @@ export function FileBrowser({
       setContextMenu(null);
       setProjectSwitcher(null);
       setAddPickerLaunch({
-        anchorPoint: { x: rect.left, y: rect.bottom + 48 },
+        anchorPoint: { x: rect.left, y: rect.bottom + 4 },
         destinationLabel: project.name,
         destinationPath: project.repoPath,
       });
@@ -1545,22 +1512,6 @@ export function FileBrowser({
     void beginPendingArtifact('folder', getCreationContext(filesystemContextMenu, folders));
   }, [beginPendingArtifact, filesystemContextMenu, folders]);
 
-  const handleOpenAddPickerFromContext = useCallback(
-    (anchorPoint: { x: number; y: number }) => {
-      if (!filesystemContextMenu) return;
-      const creationContext = getCreationContext(filesystemContextMenu, folders);
-      const destinationPath = creationContext.parentPath ?? filesystemContextMenu.path;
-      setAddPickerLaunch({
-        anchorPoint,
-        destinationLabel: filesystemContextMenu.isDirectory
-          ? filesystemContextMenu.displayName
-          : basename(destinationPath),
-        destinationPath,
-      });
-    },
-    [filesystemContextMenu, folders]
-  );
-
   const handleCreateEntityFromPicker = useCallback(
     (request: ExplorerEntityCreateRequest) => {
       if (request.destinationPath && !projectAllowsWritesForPath(request.destinationPath)) {
@@ -1811,6 +1762,36 @@ export function FileBrowser({
     setSelectionAnchorEntryId(entryId);
   }, [revealRequestId, revealTargetPaths]);
 
+  const explorerActions: ExplorerAddEntriesOptions = {
+    launchSource: 'context-menu',
+    hasWorkspace: folders.some((folder) => !folder.pinned),
+    onCreateEntity:
+      onCreateEntity || onNewNotebook || onNewAssembly || !isBrowserOnly()
+        ? handleCreateEntityFromPicker
+        : undefined,
+    canCreateEntity: (entityType) => {
+      if (entityType === 'table') return !isBrowserOnly();
+      if (entityType === 'notebook') return Boolean(onNewNotebook || onCreateEntity);
+      if (entityType === 'assembly') return Boolean(onNewAssembly || onCreateEntity);
+      return Boolean(onCreateEntity);
+    },
+    onCreateAssembly,
+    onImportEntity,
+    onImportProject: onImportProject ?? onAddFolder,
+    onImportProjectWithAgent,
+    onMigrateFromBenchling,
+  };
+  const contextMenuCreation = filesystemContextMenu
+    ? getCreationContext(filesystemContextMenu, folders)
+    : null;
+  const contextMenuDestinationPath =
+    contextMenuCreation?.parentPath ?? filesystemContextMenu?.path ?? null;
+  const contextMenuDestinationLabel = filesystemContextMenu?.isDirectory
+    ? filesystemContextMenu.displayName
+    : contextMenuDestinationPath
+      ? basename(contextMenuDestinationPath)
+      : undefined;
+
   return (
     <div
       data-analytics-block
@@ -1840,35 +1821,18 @@ export function FileBrowser({
               aria-haspopup="dialog"
               aria-expanded={projectSwitcher !== null}
               onClick={handleProjectSwitcherClick}
-              className={`${projectSwitcher ? 'invisible ' : ''}inline-flex h-7 items-center rounded px-2 text-xs font-medium text-fg-muted hover:bg-bg-muted hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent`}
+              className={`${INTERACTION_CLASS} ${projectSwitcher ? 'invisible ' : ''}inline-flex h-7 items-center rounded px-2 text-xs font-medium text-fg-muted`}
             >
               Manage projects
             </button>
             <ExplorerAddPicker
+              {...explorerActions}
               open={addPickerLaunch !== null}
               anchorPoint={addPickerLaunch?.anchorPoint}
-              launchSource="context-menu"
               destinationLabel={addPickerLaunch?.destinationLabel}
               destinationPath={addPickerLaunch?.destinationPath}
-              hasWorkspace={folders.some((folder) => !folder.pinned)}
               onRequestClose={() => setAddPickerLaunch(null)}
               onCommitAction={() => setContextMenu(null)}
-              onCreateEntity={
-                onCreateEntity || onNewNotebook || onNewAssembly || !isBrowserOnly()
-                  ? handleCreateEntityFromPicker
-                  : undefined
-              }
-              canCreateEntity={(entityType) => {
-                if (entityType === 'table') return !isBrowserOnly();
-                if (entityType === 'notebook') return Boolean(onNewNotebook || onCreateEntity);
-                if (entityType === 'assembly') return Boolean(onNewAssembly || onCreateEntity);
-                return Boolean(onCreateEntity);
-              }}
-              onCreateAssembly={onCreateAssembly}
-              onImportEntity={onImportEntity}
-              onImportProject={onImportProject ?? onAddFolder}
-              onImportProjectWithAgent={onImportProjectWithAgent}
-              onMigrateFromBenchling={onMigrateFromBenchling}
             />
           </div>
         </div>
@@ -1902,7 +1866,7 @@ export function FileBrowser({
             <p className="text-sm text-fg-subtle mb-3">No projects</p>
             <button
               onClick={onAddFolder}
-              className="inline-flex items-center gap-2 px-4 py-2 border border-border text-sm text-fg rounded-lg hover:bg-bg-muted transition-colors"
+              className={`${INTERACTION_CLASS} inline-flex items-center gap-2 px-4 py-2 border border-border text-sm text-fg rounded-lg transition-colors`}
               data-testid={
                 isHostedBrowserRuntime() ? 'hosted-new-project' : 'file-browser-open-folder'
               }
@@ -2048,8 +2012,25 @@ export function FileBrowser({
           onNewAssembly={contextAllowsWrites && onNewAssembly ? handleNewAssembly : undefined}
           onNewTextFile={contextAllowsWrites ? handleNewTextFile : undefined}
           onNewFolder={contextAllowsWrites ? handleNewFolder : undefined}
-          onOpenAddPicker={contextAllowsWrites ? handleOpenAddPickerFromContext : undefined}
-          onCloseAddPicker={() => setAddPickerLaunch(null)}
+          newMenuEntries={
+            contextAllowsWrites
+              ? buildExplorerAddEntries({
+                  ...explorerActions,
+                  destinationPath: contextMenuDestinationPath,
+                })
+              : undefined
+          }
+          newMenuHeader={
+            <ExplorerAddHeader
+              launchSource="context-menu"
+              destinationLabel={contextMenuDestinationLabel}
+            />
+          }
+          newMenuLabel={`Add to folder ${contextMenuDestinationLabel ?? 'project'}/`}
+          newMenuDataAttributes={{
+            'data-launch-source': 'context-menu',
+            'data-destination-path': contextMenuDestinationPath ?? '',
+          }}
           onFindInFolder={
             onFindInFolder && filesystemContextMenu.isDirectory ? handleFindInFolder : undefined
           }

@@ -8,6 +8,7 @@ import type { IndexedGenomeTileNativeMapHandle } from './IndexedGenomeTileNative
 import type { LaneBand, LaneScreenBands } from './lane-screen-bands';
 import {
   QuantitativeTrackAxis,
+  QuantitativeColorLegend,
   quantitativeAxisRangeFromDiagnostics,
   quantitativeAxisRangeFromPresentation,
   type QuantitativeAxisRange,
@@ -205,6 +206,16 @@ function RendererQuantitativeTrackAxis({
     webglRef,
   ]);
 
+  if (displayedRange && presentation.graph === 'band') {
+    return (
+      <QuantitativeColorLegend
+        trackId={dataset.trackId}
+        label={dataset.label}
+        range={displayedRange}
+        palette={presentation.palette}
+      />
+    );
+  }
   return displayedRange ? (
     <QuantitativeTrackAxis trackId={dataset.trackId} label={dataset.label} range={displayedRange} />
   ) : null;

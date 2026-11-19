@@ -46,7 +46,7 @@ export interface ScientificWorkspaceSubmission {
           readonly resourceId: string;
           readonly path: string;
           readonly representation: {
-            readonly format: 'primer-v2' | 'strain-entity-v1' | 'genbank-v1';
+            readonly format: 'primer-v2' | 'strain-entity-v1' | 'genbank-v1' | 'work-task-v1';
             readonly text: string;
           };
 

@@ -130,8 +130,8 @@ export function CopyThreadButton({
           aria-keyshortcuts="Shift+F10 ContextMenu"
           aria-describedby={failed ? errorId : undefined}
           data-testid="copy-thread-button"
-          className={`inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md transition-colors hover:bg-bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 disabled:cursor-wait disabled:opacity-60 ${
-            copied ? 'text-accent' : failed ? 'text-error' : 'text-fg-subtle hover:text-fg'
+          className={`inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md transition-colors wp-interactive disabled:cursor-wait disabled:opacity-60 ${
+            copied ? 'text-accent' : failed ? 'text-error' : 'text-fg-subtle wp-interactive'
           }`}
         >
           {copied ? <CheckIcon size={13} /> : <CopyIcon size={13} />}

@@ -1,3 +1,4 @@
+import { MenuNativeSelect } from '@waypoint/ui-components';
 import {
   toUserMessage,
   userMessage,
@@ -620,19 +621,21 @@ export function MolecularPresentationControls({
               </p>
               <label className="grid gap-1">
                 Notebook
-                <select
-                  aria-label="Notebook destination"
-                  value={notebookId}
-                  onChange={(event) => setNotebookId(event.target.value)}
-                  className="rounded border border-border bg-bg px-2 py-1"
-                >
-                  <option value="new">New notebook</option>
-                  {notebooks.map((page) => (
-                    <option key={page.id} value={page.id}>
-                      {page.title}
-                    </option>
-                  ))}
-                </select>
+                <span className="inline-block min-w-0">
+                  <MenuNativeSelect
+                    density="compact"
+                    aria-label="Notebook destination"
+                    value={notebookId}
+                    onChange={(event) => setNotebookId(event.target.value)}
+                  >
+                    <option value="new">New notebook</option>
+                    {notebooks.map((page) => (
+                      <option key={page.id} value={page.id}>
+                        {page.title}
+                      </option>
+                    ))}
+                  </MenuNativeSelect>
+                </span>
               </label>
               {notebookId === 'new' && (
                 <>
@@ -650,20 +653,22 @@ export function MolecularPresentationControls({
                   {roots.length > 1 && (
                     <label className="grid gap-1">
                       Project
-                      <select
-                        aria-label="Notebook project"
-                        value={notebookRoot}
-                        onChange={(event) => setNotebookRoot(event.target.value)}
-                        required
-                        className="rounded border border-border bg-bg px-2 py-1"
-                      >
-                        <option value="">Choose project</option>
-                        {roots.map((root) => (
-                          <option key={root.path} value={root.path}>
-                            {root.name}
-                          </option>
-                        ))}
-                      </select>
+                      <span className="inline-block min-w-0">
+                        <MenuNativeSelect
+                          density="compact"
+                          aria-label="Notebook project"
+                          value={notebookRoot}
+                          onChange={(event) => setNotebookRoot(event.target.value)}
+                          required
+                        >
+                          <option value="">Choose project</option>
+                          {roots.map((root) => (
+                            <option key={root.path} value={root.path}>
+                              {root.name}
+                            </option>
+                          ))}
+                        </MenuNativeSelect>
+                      </span>
                     </label>
                   )}
                 </>

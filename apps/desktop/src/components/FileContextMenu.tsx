@@ -1,14 +1,8 @@
-import {
-  usePresentationOverlay,
-  PresentationScopeContext,
-  usePresentationListener,
-} from '../presentation/PresentationSurface';
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import type { FolderGitState } from '../hooks/useFolderGitState';
-import { ChevronRightIcon } from './icons';
+import { ActionMenu, type ActionMenuEntry } from './ActionMenu';
 import { formatShortcutHint, type ShortcutDefinition } from './menuShortcuts';
 import { shortcutChord } from '../keyboard/shortcutRegistry';
-import { useMenuAim } from '@waypoint/ui-components';
 
 interface FileContextMenuProps {
   position: { x: number; y: number };
@@ -50,14 +44,16 @@ interface FileContextMenuProps {
   onNewTextFile?: () => void;
   onNewFolder?: () => void;
 
-  onOpenAddPicker?: (position: { x: number; y: number }) => void;
-
-  onCloseAddPicker?: () => void;
+  newMenuEntries?: readonly ActionMenuEntry[];
+  newMenuHeader?: ReactNode;
+  newMenuLabel?: string;
+  newMenuDataAttributes?: Record<`data-${string}`, string | undefined>;
   onFindInFolder?: () => void;
   onCollapseOthers?: () => void;
 }
 
 interface BaseMenuItem {
+  id: string;
   label: string;
   shortcut?: ShortcutDefinition;
   isDestructive?: boolean;
@@ -80,51 +76,12 @@ interface SubmenuItem extends BaseMenuItem {
 type MenuItem = ActionMenuItem | CascadeMenuItem | SubmenuItem;
 type MenuEntry = MenuItem | 'separator';
 
-const MENU_ROW_CLASS =
-  'flex min-h-7 w-full items-center justify-between gap-3 whitespace-nowrap px-3 py-1 text-left text-sm leading-5';
-const MENU_ROW_INTERACTIVE_CLASS =
-  'text-fg hover:bg-bg-muted focus:bg-bg-muted focus:outline-none focus-visible:outline-none';
-const MENU_ROW_DISABLED_CLASS = 'cursor-default text-fg-muted';
-const MENU_ROW_DESTRUCTIVE_CLASS = 'text-error hover:bg-error/10 focus:bg-error/10';
-const MENU_SEPARATOR_CLASS = 'my-1 h-px bg-border';
-const MENU_SHORTCUT_CLASS = 'ml-auto pl-6 text-xs tabular-nums text-fg-muted/45';
-
-function isActionItem(item: MenuItem): item is ActionMenuItem {
-  return 'action' in item;
-}
-
 function isCascadeItem(item: MenuItem): item is CascadeMenuItem {
   return 'opensCascade' in item;
 }
 
 function isSubmenuItem(item: MenuItem): item is SubmenuItem {
   return 'submenu' in item;
-}
-
-function MenuItemContents({
-  label,
-  shortcut,
-  hasSubmenu,
-}: {
-  label: string;
-  shortcut?: ShortcutDefinition;
-  hasSubmenu?: boolean;
-}) {
-  const shortcutHint = formatShortcutHint(shortcut);
-
-  return (
-    <>
-      <span>{label}</span>
-      <span className="ml-auto flex items-center gap-2" aria-hidden="true">
-        {shortcutHint && (
-          <span data-testid="context-menu-shortcut" className={MENU_SHORTCUT_CLASS}>
-            {shortcutHint}
-          </span>
-        )}
-        {hasSubmenu && <ChevronRightIcon className="w-3 h-3 text-fg-muted" />}
-      </span>
-    </>
-  );
 }
 
 export function FileContextMenu({
@@ -156,32 +113,19 @@ export function FileContextMenu({
   onNewAssembly,
   onNewTextFile,
   onNewFolder,
-  onOpenAddPicker,
-  onCloseAddPicker,
+  newMenuEntries,
+  newMenuHeader,
+  newMenuLabel,
+  newMenuDataAttributes,
   onFindInFolder,
   onCollapseOthers,
 }: FileContextMenuProps) {
-  const presentationOverlay = usePresentationOverlay('keyboard');
-  const presentationEvents = usePresentationListener(presentationOverlay.scope);
-
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [focusedIndex, setFocusedIndex] = useState(0);
-  const [openSubmenuLabel, setOpenSubmenuLabel] = useState<string | null>(null);
-  const menuAim = useMenuAim();
-
-  const executeAction = useCallback(
-    (action: () => void) => {
-      action();
-      onClose();
-    },
-    [onClose]
-  );
-
   const getMenuItems = useCallback((): MenuEntry[] => {
     const items: MenuEntry[] = [];
 
     if (onOpen) {
       items.push({
+        id: 'open',
         label: 'Open',
         shortcut: shortcutChord('files.open'),
         action: onOpen,
@@ -190,6 +134,7 @@ export function FileContextMenu({
 
     if (!isDirectory && onOpenInNewPanel) {
       items.push({
+        id: 'open-panel',
         label: 'Open in New Panel',
         shortcut: shortcutChord('files.open-in-new-panel'),
         action: onOpenInNewPanel,
@@ -200,6 +145,7 @@ export function FileContextMenu({
 
     if (onNewFolder) {
       items.push({
+        id: 'new-folder',
         label: 'New Folder',
         shortcut: shortcutChord('files.new-folder'),
         action: onNewFolder,
@@ -207,33 +153,38 @@ export function FileContextMenu({
     }
 
     const newFileItems: ActionMenuItem[] = [];
-    if (onNewNotebook && !onOpenAddPicker) {
+    if (onNewNotebook && !newMenuEntries) {
       newFileItems.push({
+        id: 'new-notebook',
         label: 'Notebook Entry',
         action: onNewNotebook,
       });
     }
-    if (onNewAssembly && !onOpenAddPicker) {
+    if (onNewAssembly && !newMenuEntries) {
       newFileItems.push({
+        id: 'new-assembly',
         label: 'Assembly',
         action: onNewAssembly,
       });
     }
     if (onNewTextFile) {
       newFileItems.push({
+        id: 'new-text',
         label: 'Text File',
         action: onNewTextFile,
       });
     }
 
-    if (onOpenAddPicker) {
+    if (newMenuEntries) {
       items.push({
+        id: 'new-entity',
         label: 'New…',
         opensCascade: true,
       });
       items.push(...newFileItems);
     } else if (newFileItems.length > 0) {
       items.push({
+        id: 'new-files',
         label: 'New File(s)...',
         submenu: newFileItems,
       });
@@ -241,6 +192,7 @@ export function FileContextMenu({
 
     if (isDirectory && onFindInFolder) {
       items.push({
+        id: 'find-folder',
         label: 'Find in Folder...',
         action: onFindInFolder,
       });
@@ -248,6 +200,7 @@ export function FileContextMenu({
 
     if (isDirectory && onCollapseOthers) {
       items.push({
+        id: 'collapse-others',
         label: isRootFolder ? 'Collapse Other Projects' : 'Collapse Other Folders',
         action: onCollapseOthers,
       });
@@ -255,7 +208,7 @@ export function FileContextMenu({
 
     if (
       onNewFolder ||
-      onOpenAddPicker ||
+      newMenuEntries ||
       newFileItems.length > 0 ||
       (isDirectory && (onFindInFolder || onCollapseOthers))
     ) {
@@ -263,8 +216,13 @@ export function FileContextMenu({
     }
 
     if (onOpenInTerminal)
-      items.push({ label: 'Open in Integrated Terminal', action: onOpenInTerminal });
+      items.push({
+        id: 'open-terminal',
+        label: 'Open in Integrated Terminal',
+        action: onOpenInTerminal,
+      });
     items.push({
+      id: 'copy-path',
       label: 'Copy Path',
       shortcut: shortcutChord('files.copy-path'),
       action: onCopyPath,
@@ -272,6 +230,7 @@ export function FileContextMenu({
 
     if (onCopyRelativePath) {
       items.push({
+        id: 'copy-relative-path',
         label: 'Copy Relative Path',
         shortcut: shortcutChord('files.copy-relative-path'),
         action: onCopyRelativePath,
@@ -279,6 +238,7 @@ export function FileContextMenu({
     }
 
     items.push({
+      id: 'reveal',
       label: 'Show in folder',
       shortcut: shortcutChord('files.reveal'),
       action: onRevealInFinder,
@@ -288,12 +248,14 @@ export function FileContextMenu({
       items.push('separator');
       if (onDuplicate && !isRootFolder) {
         items.push({
+          id: 'duplicate',
           label: 'Duplicate',
           action: onDuplicate,
         });
       }
       if (onRename) {
         items.push({
+          id: 'rename',
           label: 'Rename',
           shortcut: shortcutChord('files.rename'),
           action: onRename,
@@ -302,12 +264,14 @@ export function FileContextMenu({
 
       if (onMoveTo && !isRootFolder) {
         items.push({
+          id: 'move',
           label: 'Move to…',
           action: onMoveTo,
         });
       }
       if (onDelete && !isRootFolder) {
         items.push({
+          id: 'delete',
           label: 'Delete',
           shortcut: shortcutChord('files.move-to-trash'),
           action: onDelete,
@@ -320,18 +284,21 @@ export function FileContextMenu({
       items.push('separator');
       if (gitState === 'not-initialized' && onInitGit) {
         items.push({
+          id: 'git-init',
           label: gitInitInProgress ? 'Initializing git repo…' : 'Initialize git repo',
           action: onInitGit,
           disabled: gitInitInProgress,
         });
       } else if (gitState === 'no-git') {
         items.push({
+          id: 'git-missing',
           label: 'Git not installed (install to enable tracking)',
           action: () => {},
           disabled: true,
         });
       } else if (gitState === 'no-commits') {
         items.push({
+          id: 'git-no-commits',
           label: 'No commits yet — open Source Control to commit',
           action: () => {},
           disabled: true,
@@ -343,6 +310,7 @@ export function FileContextMenu({
       if (pinnedRoot && onRemoveFromWorkspace) {
         items.push('separator');
         items.push({
+          id: 'hide-project',
           label: 'Hide project from Files',
           shortcut: ['delete'],
           action: onRemoveFromWorkspace,
@@ -354,16 +322,29 @@ export function FileContextMenu({
       ) {
         items.push('separator');
         if (onRenameProject) {
-          items.push({ label: 'Rename project…', action: onRenameProject });
+          items.push({ id: 'rename-project', label: 'Rename project…', action: onRenameProject });
         }
         if (onProjectHistory) {
-          items.push({ label: 'Project history…', action: onProjectHistory });
+          items.push({
+            id: 'project-history',
+            label: 'Project history…',
+            action: onProjectHistory,
+          });
         }
         if (onArchiveProject) {
-          items.push({ label: 'Archive project…', action: onArchiveProject });
+          items.push({
+            id: 'archive-project',
+            label: 'Archive project…',
+            action: onArchiveProject,
+          });
         }
         if (onTrashProject) {
-          items.push({ label: 'Move to Trash…', action: onTrashProject, isDestructive: true });
+          items.push({
+            id: 'trash-project',
+            label: 'Move to Trash…',
+            action: onTrashProject,
+            isDestructive: true,
+          });
         }
       }
     }
@@ -392,7 +373,7 @@ export function FileContextMenu({
     onNewAssembly,
     onNewTextFile,
     onNewFolder,
-    onOpenAddPicker,
+    newMenuEntries,
     onFindInFolder,
     onCollapseOthers,
     gitState,
@@ -400,212 +381,48 @@ export function FileContextMenu({
     gitInitInProgress,
   ]);
 
-  const menuItems = getMenuItems();
-  const actionItems = menuItems.filter((item): item is MenuItem => item !== 'separator');
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target;
-      if (
-        target instanceof Element &&
-        target.closest('[data-file-context-linked-cascade="true"]')
-      ) {
-        return;
-      }
-      if (menuRef.current && !menuRef.current.contains(target as Node)) {
-        onClose();
-      }
+  const actionEntry = (item: MenuItem): ActionMenuEntry => {
+    const shortcut = formatShortcutHint(item.shortcut);
+    const common = {
+      id: item.id,
+      label: item.label,
+      disabled: item.disabled,
+      tone: item.isDestructive ? ('danger' as const) : ('default' as const),
+      shortcut: shortcut ? <span data-testid="context-menu-shortcut">{shortcut}</span> : undefined,
     };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [onClose]);
-
-  const openLinkedCascade = useCallback(
-    (element: HTMLElement) => {
-      if (!onOpenAddPicker) return;
-      const rect = element.getBoundingClientRect();
-      onOpenAddPicker({ x: rect.right - 1, y: rect.top });
-    },
-    [onOpenAddPicker]
-  );
-
-  const getOpenSubmenuElement = useCallback((): HTMLElement | null => {
-    const linkedCascade = document.querySelector<HTMLElement>(
-      '[data-file-context-linked-cascade="true"]'
-    );
-    if (linkedCascade) return linkedCascade;
-    return menuRef.current?.querySelector<HTMLElement>('[data-menu-aim-submenu="true"]') ?? null;
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
+    if (isSubmenuItem(item))
+      return {
+        ...common,
+        children: item.submenu.map(actionEntry),
+        submenuLabel: `${item.label} options`,
+      };
+    if (isCascadeItem(item))
+      return {
+        ...common,
+        children: newMenuEntries ?? [],
+        submenuHeader: newMenuHeader,
+        submenuLabel: newMenuLabel ?? 'Add to project',
+        submenuTestId: 'explorer-add-picker',
+        submenuDataAttributes: newMenuDataAttributes,
+      };
+    return {
+      ...common,
+      closeReason:
+        item.id === 'copy-path' || item.id === 'copy-relative-path' ? 'selection' : 'handoff',
+      onSelect: item.action,
     };
-
-    presentationEvents.add(document, 'keydown', handleKeyDown);
-    return () => presentationEvents.remove(document, 'keydown', handleKeyDown);
-  }, [onClose, presentationEvents]);
-
-  const handleMenuKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLButtonElement>, item: MenuItem, index: number) => {
-      if ((e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') && isCascadeItem(item)) {
-        e.preventDefault();
-        menuAim.cancelPendingActivation();
-        setOpenSubmenuLabel(item.label);
-        openLinkedCascade(e.currentTarget);
-      } else if ((e.key === 'Enter' || e.key === ' ') && isActionItem(item)) {
-        e.preventDefault();
-        menuAim.cancelPendingActivation();
-        executeAction(item.action);
-      } else if (
-        (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') &&
-        isSubmenuItem(item)
-      ) {
-        e.preventDefault();
-        menuAim.cancelPendingActivation();
-        setOpenSubmenuLabel(item.label);
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const nextIndex = (index + 1) % actionItems.length;
-        setFocusedIndex(nextIndex);
-
-        const buttons = menuRef.current?.querySelectorAll('[data-context-menu-root-item="true"]');
-        if (buttons && buttons[nextIndex]) {
-          (buttons[nextIndex] as HTMLElement).focus();
-        }
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const prevIndex = (index - 1 + actionItems.length) % actionItems.length;
-        setFocusedIndex(prevIndex);
-        const buttons = menuRef.current?.querySelectorAll('[data-context-menu-root-item="true"]');
-        if (buttons && buttons[prevIndex]) {
-          (buttons[prevIndex] as HTMLElement).focus();
-        }
-      }
-    },
-    [actionItems.length, executeAction, menuAim, openLinkedCascade]
+  };
+  const entries = getMenuItems().map(
+    (item, index): ActionMenuEntry =>
+      item === 'separator' ? { id: `separator-${index}`, separator: true } : actionEntry(item)
   );
-
-  let actionIndex = 0;
-
   return (
-    <PresentationScopeContext.Provider value={presentationOverlay.scope}>
-      <div
-        ref={presentationOverlay.bindRef(menuRef, '0')}
-        role="menu"
-        aria-label={`File actions for ${displayName}`}
-        className="fixed z-50 min-w-[280px] bg-bg-subtle border border-border rounded-md shadow-lg py-1"
-        style={{ left: `${position.x}px`, top: `${position.y}px` }}
-      >
-        {menuItems.map((item, index) => {
-          if (item === 'separator') {
-            return (
-              <div key={`separator-${index}`} role="separator" className={MENU_SEPARATOR_CLASS} />
-            );
-          }
-
-          const currentActionIndex = actionIndex;
-          actionIndex++;
-
-          return (
-            <div
-              key={item.label}
-              className="relative"
-              onPointerEnter={(event) => {
-                if (openSubmenuLabel === item.label) return;
-                const row = event.currentTarget;
-                menuAim.requestActivation({
-                  pointer: event,
-                  submenuElement: getOpenSubmenuElement(),
-                  activate: () => {
-                    if (isCascadeItem(item)) {
-                      setOpenSubmenuLabel(item.label);
-                      openLinkedCascade(row);
-                      return;
-                    }
-                    setOpenSubmenuLabel(isSubmenuItem(item) ? item.label : null);
-                    onCloseAddPicker?.();
-                  },
-                });
-              }}
-            >
-              <button
-                role="menuitem"
-                data-context-menu-root-item="true"
-                data-menu-label={item.label}
-                tabIndex={currentActionIndex === focusedIndex ? 0 : -1}
-                disabled={item.disabled}
-                aria-haspopup={isSubmenuItem(item) || isCascadeItem(item) ? 'menu' : undefined}
-                aria-expanded={
-                  isSubmenuItem(item) || isCascadeItem(item)
-                    ? openSubmenuLabel === item.label
-                    : undefined
-                }
-                onClick={(event) => {
-                  if (item.disabled) return;
-                  menuAim.cancelPendingActivation();
-                  if (isCascadeItem(item)) {
-                    setOpenSubmenuLabel(item.label);
-                    openLinkedCascade(event.currentTarget);
-                  } else if (isActionItem(item)) {
-                    executeAction(item.action);
-                  } else {
-                    setOpenSubmenuLabel((current) => (current === item.label ? null : item.label));
-                  }
-                }}
-                onKeyDown={(e) => !item.disabled && handleMenuKeyDown(e, item, currentActionIndex)}
-                className={[
-                  MENU_ROW_CLASS,
-                  item.disabled ? MENU_ROW_DISABLED_CLASS : MENU_ROW_INTERACTIVE_CLASS,
-                  item.isDestructive && !item.disabled ? MENU_ROW_DESTRUCTIVE_CLASS : '',
-                ].join(' ')}
-              >
-                <MenuItemContents
-                  label={item.label}
-                  shortcut={item.shortcut}
-                  hasSubmenu={isSubmenuItem(item) || isCascadeItem(item)}
-                />
-              </button>
-              {isSubmenuItem(item) && openSubmenuLabel === item.label && (
-                <PresentationScopeContext.Provider value={presentationOverlay.scope}>
-                  <div
-                    role="menu"
-                    aria-label={`${item.label} options`}
-                    data-menu-aim-submenu="true"
-                    onPointerEnter={menuAim.cancelPendingActivation}
-                    className="absolute left-full top-0 z-50 min-w-[240px] bg-bg-subtle border border-border rounded-md shadow-lg py-1"
-                    ref={presentationOverlay.bindRef(undefined, '1')}
-                  >
-                    {item.submenu.map((submenuItem) => (
-                      <button
-                        key={submenuItem.label}
-                        role="menuitem"
-                        data-menu-label={submenuItem.label}
-                        disabled={submenuItem.disabled}
-                        onClick={() => !submenuItem.disabled && executeAction(submenuItem.action)}
-                        className={[
-                          MENU_ROW_CLASS,
-                          submenuItem.disabled
-                            ? MENU_ROW_DISABLED_CLASS
-                            : MENU_ROW_INTERACTIVE_CLASS,
-                        ].join(' ')}
-                      >
-                        <MenuItemContents
-                          label={submenuItem.label}
-                          shortcut={submenuItem.shortcut}
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </PresentationScopeContext.Provider>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </PresentationScopeContext.Provider>
+    <ActionMenu
+      open
+      label={`File actions for ${displayName}`}
+      entries={entries}
+      anchorPoint={position}
+      onClose={onClose}
+    />
   );
 }

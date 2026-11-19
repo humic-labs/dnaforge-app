@@ -11,7 +11,7 @@ const MIN_PRIMER_LENGTH = 10;
 
 function primerFormSegClass(active: boolean): string {
   return `rounded px-1 py-1 text-xs transition-colors ${
-    active ? 'bg-bg font-medium text-fg shadow-sm' : 'text-fg-muted hover:text-fg'
+    active ? 'bg-bg font-medium text-fg shadow-sm' : 'text-fg-muted wp-interactive'
   }`;
 }
 

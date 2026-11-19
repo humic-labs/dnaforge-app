@@ -18,6 +18,10 @@ export function createHostedGenome(
       getAssemblyOverview: async () => unavailable('genome.getAssemblyOverview'),
       readAssemblyOverviewTexture: async () => null,
       readAssemblyAnnotationRasterV2: async () => null,
+      prepareAssemblyAnnotationAppearanceV1: async () => ({
+        status: 'unavailable',
+        reason: 'source-unavailable',
+      }),
       readAssemblyCompiledBroadRasterManifestV1: async (request) =>
         (await references()).readAssemblyCompiledBroadRasterManifestV1(request),
       readAssemblyCompiledBroadRasterCellsV1: async (request) =>

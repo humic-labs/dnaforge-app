@@ -10,15 +10,19 @@ describe('annotation color selection', () => {
   it('retains named palettes and applies the selected palette swatch', () => {
     const onChange = vi.fn();
     const { container } = render(<ColorPaletteSelector value="#123456" onChange={onChange} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Classic' }));
-    expect(
-      screen
-        .getAllByRole('button')
-        .slice(1, 7)
-        .map((button) => button.textContent)
-    ).toEqual(['Classic', 'Vivid', 'Pastel', 'Bold', 'Accessible', 'Muted']);
-    fireEvent.click(screen.getByRole('button', { name: 'Accessible' }));
-    const swatches = container.querySelectorAll<HTMLButtonElement>('button[style]');
+    fireEvent.click(screen.getByRole('combobox', { name: 'Annotation color palette' }));
+    expect(screen.getAllByRole('option').map((button) => button.textContent)).toEqual([
+      'Classic',
+      'Vivid',
+      'Pastel',
+      'Bold',
+      'Accessible',
+      'Muted',
+    ]);
+    fireEvent.click(screen.getByRole('option', { name: 'Accessible' }));
+    const swatches = container.querySelectorAll<HTMLButtonElement>(
+      'button[style*="background-color"]'
+    );
     expect(swatches).toHaveLength(10);
     expect(swatches[0]).toHaveStyle({ backgroundColor: '#000000' });
     expect(swatches[9]).toHaveStyle({ backgroundColor: '#88CCEE' });

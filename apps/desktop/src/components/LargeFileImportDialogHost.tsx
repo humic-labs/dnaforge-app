@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import {
   usePresentationOverlay,
   PresentationScopeContext,
@@ -133,7 +134,7 @@ export function LargeFileImportDialogHost() {
               type="button"
               aria-label="Close dialog"
               onClick={() => respond('cancel')}
-              className="-mr-1 -mt-1 rounded-md p-1.5 text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className={`${INTERACTION_CLASS} -mr-1 -mt-1 rounded-md p-1.5 text-fg-muted transition-colors`}
             >
               <CloseIcon size={16} />
             </button>
@@ -179,7 +180,7 @@ export function LargeFileImportDialogHost() {
               type="button"
               data-testid="large-file-import-cancel"
               onClick={() => respond('cancel')}
-              className="rounded-md border border-border bg-bg px-4 py-2 text-sm font-medium text-fg transition-colors hover:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className={`${INTERACTION_CLASS} rounded-md border border-border bg-bg px-4 py-2 text-sm font-medium text-fg transition-colors`}
             >
               Cancel
             </button>
@@ -187,7 +188,7 @@ export function LargeFileImportDialogHost() {
               type="button"
               data-testid="large-file-import-symlink"
               onClick={() => respond('symlink')}
-              className="rounded-md border border-border bg-bg px-4 py-2 text-sm font-medium text-fg transition-colors hover:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className={`${INTERACTION_CLASS} rounded-md border border-border bg-bg px-4 py-2 text-sm font-medium text-fg transition-colors`}
             >
               Keep files in place
             </button>

@@ -5,200 +5,178 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
-  useState,
 } from 'react';
-import { cn } from '@/shared/lib/cn';
+import {
+  MenuRow,
+  MenuStatus,
+  MenuSurface,
+  useMenu,
+  type MenuCloseReason,
+} from '@waypoint/ui-components';
+import {
+  usePresentationSurface,
+  usePresentationScope,
+} from '../../../../presentation/PresentationSurface';
 import type { SlashCommand } from '../lib/commands';
 import { groupCommandsByCategory } from '../lib/commands';
 
 export interface SlashCommandMenuRef {
   onKeyDown: (props: { event: KeyboardEvent }) => boolean;
+  close: (reason: MenuCloseReason) => void;
 }
 
 export interface SlashCommandMenuProps {
   items: SlashCommand[];
   command: (cmd: SlashCommand) => void;
+  presentationParentId?: string;
 }
 
 export const SlashCommandMenu = forwardRef<SlashCommandMenuRef, SlashCommandMenuProps>(
-  function SlashCommandMenu({ items, command }, ref) {
-    const [selectedColumn, setSelectedColumn] = useState<'left' | 'right'>('left');
-    const [selectedRow, setSelectedRow] = useState(0);
-    const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
-
+  function SlashCommandMenu({ items, command, presentationParentId }, ref) {
+    const itemRefs = useRef(new Map<string, HTMLButtonElement>());
+    const origin = usePresentationScope();
     const grouped = useMemo(() => groupCommandsByCategory(items), [items]);
-
     const leftColumn = useMemo(
-      () => [...(grouped.format || []), ...(grouped.insert || [])],
+      () => [...(grouped.format ?? []), ...(grouped.insert ?? [])],
       [grouped]
     );
-    const rightColumn = useMemo(() => grouped.embed || [], [grouped]);
-
-    const selectedCommand = useMemo(() => {
-      const column = selectedColumn === 'left' ? leftColumn : rightColumn;
-      return column[selectedRow];
-    }, [selectedColumn, selectedRow, leftColumn, rightColumn]);
-
-    useEffect(() => {
-      const key = `${selectedColumn}-${selectedRow}`;
-      const el = itemRefs.current.get(key);
-      if (el) {
-        el.scrollIntoView({ block: 'nearest' });
-      }
-    }, [selectedColumn, selectedRow]);
-
-    const setItemRef = useCallback(
-      (column: 'left' | 'right', row: number, el: HTMLButtonElement | null) => {
-        const key = `${column}-${row}`;
-        if (el) {
-          itemRefs.current.set(key, el);
-        } else {
-          itemRefs.current.delete(key);
-        }
-      },
-      []
+    const rightColumn = useMemo(() => grouped.embed ?? [], [grouped]);
+    const commands = useMemo(() => [...leftColumn, ...rightColumn], [leftColumn, rightColumn]);
+    const menuItems = useMemo(
+      () =>
+        commands.map((item) => ({ id: item.name, textValue: item.label, closeOnActivate: false })),
+      [commands]
     );
-
+    const menu = useMenu({
+      items: menuItems,
+      defaultOpen: true,
+      onActivate: (id) => {
+        const item = commands.find((candidate) => candidate.name === id);
+        if (!item) return;
+        menu.close('handoff');
+        command(item);
+      },
+    });
+    const presentation = usePresentationSurface({
+      parentId: presentationParentId,
+      active: menu.isOpen,
+    });
+    const activeId = commands.some((item) => item.name === menu.activeId)
+      ? menu.activeId
+      : (commands[0]?.name ?? null);
+    const bindSurface = useCallback(
+      (node: HTMLDivElement | null) => {
+        presentation.bindRef(node);
+        menu.bindSurface(node);
+      },
+      [presentation.bindRef, menu.bindSurface]
+    );
+    useLayoutEffect(() => menu.positioned(), [menu.positioned]);
+    useEffect(() => {
+      if (activeId !== null) itemRefs.current.get(activeId)?.scrollIntoView({ block: 'nearest' });
+    }, [activeId]);
     useImperativeHandle(ref, () => ({
+      close: menu.close,
       onKeyDown: ({ event }) => {
-        const currentColumn = selectedColumn === 'left' ? leftColumn : rightColumn;
-
-        if (currentColumn.length === 0) {
-          if (selectedColumn === 'left' && rightColumn.length > 0) {
-            setSelectedColumn('right');
-            setSelectedRow(0);
-          } else if (selectedColumn === 'right' && leftColumn.length > 0) {
-            setSelectedColumn('left');
-            setSelectedRow(0);
-          }
+        if (
+          !menu.isOpen ||
+          event.defaultPrevented ||
+          event.isComposing ||
+          event.keyCode === 229 ||
+          !presentation.owner.allowsEvent(presentationParentId ?? origin.id, 'keyboard', event)
+        )
           return false;
-        }
-
-        if (event.key === 'ArrowDown') {
+        const inLeft = leftColumn.some((item) => item.name === activeId);
+        const currentColumn = inLeft ? leftColumn : rightColumn;
+        if (currentColumn.length === 0) return false;
+        const otherColumn =
+          event.key === 'ArrowRight' && inLeft
+            ? rightColumn
+            : event.key === 'ArrowLeft' && !inLeft
+              ? leftColumn
+              : null;
+        if (otherColumn?.length) {
           event.preventDefault();
-          setSelectedRow((r) => (r + 1) % currentColumn.length);
+          const index = currentColumn.findIndex((item) => item.name === activeId);
+          menu.point(otherColumn[Math.max(0, Math.min(index, otherColumn.length - 1))].name);
           return true;
         }
-        if (event.key === 'ArrowUp') {
-          event.preventDefault();
-          setSelectedRow((r) => (r - 1 + currentColumn.length) % currentColumn.length);
-          return true;
-        }
-        if (event.key === 'ArrowRight' && selectedColumn === 'left' && rightColumn.length > 0) {
-          event.preventDefault();
-          setSelectedColumn('right');
-          setSelectedRow((r) => Math.min(r, rightColumn.length - 1));
-          return true;
-        }
-        if (event.key === 'ArrowLeft' && selectedColumn === 'right' && leftColumn.length > 0) {
-          event.preventDefault();
-          setSelectedColumn('left');
-          setSelectedRow((r) => Math.min(r, leftColumn.length - 1));
-          return true;
-        }
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          if (selectedCommand) command(selectedCommand);
-          return true;
-        }
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter')
+          return menu.handleKeyDown(event, {
+            wrap: true,
+            itemIds: currentColumn.map((item) => item.name),
+          });
         return false;
       },
     }));
-
-    useEffect(() => {
-      if (leftColumn.length > 0) {
-        setSelectedColumn('left');
-        setSelectedRow(0);
-      } else if (rightColumn.length > 0) {
-        setSelectedColumn('right');
-        setSelectedRow(0);
-      } else {
-        setSelectedColumn('left');
-        setSelectedRow(0);
-      }
-    }, [items, leftColumn.length, rightColumn.length]);
-
-    if (items.length === 0) {
-      return (
-        <div className="bg-bg text-fg border border-border rounded-lg shadow-lg p-2 w-72 max-w-[calc(100vw-16px)]">
-          <div className="text-sm text-fg-muted px-2 py-1">No matching commands</div>
-        </div>
-      );
-    }
-
-    const renderCommand = (cmd: SlashCommand, column: 'left' | 'right', row: number) => {
-      const isSelected = selectedColumn === column && selectedRow === row;
-      return (
-        <button
-          key={cmd.name}
-          ref={(el) => setItemRef(column, row, el)}
-          onClick={() => command(cmd)}
-          className={cn(
-            'w-full px-2 py-1.5 text-left rounded flex items-center gap-2 transition-colors',
-            isSelected ? 'bg-accent/10 text-accent' : 'hover:bg-bg-muted'
-          )}
-        >
-          <span className="w-5 h-5 flex items-center justify-center text-sm flex-shrink-0">
-            {cmd.icon}
-          </span>
-          <span className="text-sm font-medium truncate">{cmd.label}</span>
-        </button>
-      );
-    };
-
+    if (!menu.isOpen) return null;
     const hasBothColumns = leftColumn.length > 0 && rightColumn.length > 0;
-
-    return (
-      <div
-        className={cn(
-          'bg-bg text-fg border border-border rounded-lg shadow-lg p-1.5 max-w-[calc(100vw-16px)] max-h-[min(20rem,calc(100vh-16px))] overflow-auto',
-          hasBothColumns ? 'w-[420px]' : 'w-52'
-        )}
+    const renderCommand = (item: SlashCommand) => (
+      <MenuRow
+        key={item.name}
+        ref={(node) => {
+          if (node) itemRefs.current.set(item.name, node);
+          else itemRefs.current.delete(item.name);
+        }}
+        role="option"
+        tabIndex={-1}
+        active={activeId === item.name}
+        aria-selected={activeId === item.name}
+        icon={item.icon}
+        data-command-name={item.name}
+        onMouseDown={(event) => event.preventDefault()}
+        onMouseEnter={() => menu.point(item.name)}
+        onClick={() => menu.activate(item.name)}
       >
-        {hasBothColumns ? (
-          <div className="flex gap-1.5">
-            {}
-            <div className="flex-1 min-w-0">
-              <div className="px-2 py-1 text-xs text-fg-subtle font-medium uppercase tracking-wide">
-                Format
-              </div>
-              {leftColumn.map((cmd, i) => renderCommand(cmd, 'left', i))}
-            </div>
-
-            {}
-            <div className="w-px bg-border-subtle" />
-
-            {}
-            <div className="flex-1 min-w-0">
-              <div className="px-2 py-1 text-xs text-fg-subtle font-medium uppercase tracking-wide">
-                Embed
-              </div>
-              {rightColumn.map((cmd, i) => renderCommand(cmd, 'right', i))}
-            </div>
-          </div>
+        {item.label}
+      </MenuRow>
+    );
+    return (
+      <MenuSurface
+        surface="workspace"
+        ref={bindSurface}
+        density="form"
+        selection={false}
+        icons
+        role="listbox"
+        aria-label="Notebook commands"
+        data-menu-id="root"
+        data-presentation-surface={presentation.id}
+        layout={{
+          width: hasBothColumns ? 420 : '13rem',
+          maxWidth: 'calc(100vw - 16px)',
+          maxHeight: 'min(20rem, calc(100vh - 16px))',
+          overflow: 'auto',
+          display: presentation.visible ? undefined : 'none',
+        }}
+      >
+        {commands.length === 0 ? (
+          <MenuStatus>No matching commands</MenuStatus>
         ) : (
-          <div>
+          <div className={hasBothColumns ? 'flex gap-1.5' : undefined}>
             {leftColumn.length > 0 && (
-              <>
+              <div className="flex-1 min-w-0" role="group" aria-label="Format">
                 <div className="px-2 py-1 text-xs text-fg-subtle font-medium uppercase tracking-wide">
                   Format
                 </div>
-                {leftColumn.map((cmd, i) => renderCommand(cmd, 'left', i))}
-              </>
+                {leftColumn.map(renderCommand)}
+              </div>
             )}
+            {hasBothColumns && <div className="w-px bg-border-subtle" />}
             {rightColumn.length > 0 && (
-              <>
+              <div className="flex-1 min-w-0" role="group" aria-label="Embed">
                 <div className="px-2 py-1 text-xs text-fg-subtle font-medium uppercase tracking-wide">
                   Embed
                 </div>
-                {rightColumn.map((cmd, i) => renderCommand(cmd, 'right', i))}
-              </>
+                {rightColumn.map(renderCommand)}
+              </div>
             )}
           </div>
         )}
-      </div>
+      </MenuSurface>
     );
   }
 );

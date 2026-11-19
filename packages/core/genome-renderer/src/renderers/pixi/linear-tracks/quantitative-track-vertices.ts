@@ -35,6 +35,7 @@ export interface QuantitativeTrackVertices {
     readonly start: number;
     readonly end: number;
     readonly value: number;
+    readonly rawValue: number;
   }>;
 }
 
@@ -114,10 +115,17 @@ export function buildQuantitativeTrackVertices(input: {
       vertex += 1;
     }
   }
-  const presentedIntervals = presentedRecords.flatMap((record) => {
+  const presentedIntervals = presentedRecords.flatMap((record, index) => {
     const presentedValue = recordValue(record, input.mode);
     return Number.isFinite(presentedValue) && record.end > record.start
-      ? [{ start: record.start, end: record.end, value: presentedValue }]
+      ? [
+          {
+            start: record.start,
+            end: record.end,
+            value: presentedValue,
+            rawValue: recordValue(input.records[index], input.mode),
+          },
+        ]
       : [];
   });
   return {

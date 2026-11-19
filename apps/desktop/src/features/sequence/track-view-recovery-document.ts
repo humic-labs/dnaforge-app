@@ -1,9 +1,60 @@
+import { platform } from '../../platform';
 import { createIndexedBbiTrackId, type PortableGenomeViewDocument } from '@waypoint/genome-data';
+import { canonicalJson } from '../../shared/canonical-json';
+import { isAbsolutePath } from '../../shared/resolve-entity-path';
 import { validateTrackViewDocument, type TrackViewDocument } from '../../shared/track-view';
 import type { AdmitPortableTracksResult } from './portable-genome-view-restore';
 import { portableFingerprintFromIdentity } from './portable-genome-view-adapter';
 import { projectPortableGenomeView } from './portable-genome-view-adapter';
 import { referenceSignature } from './bbi-reference-compatibility';
+
+function restoresFromNativeAlignmentSource(track: TrackViewDocument['bamTracks'][number]): boolean {
+  return (
+    Boolean(track.source.remote) ||
+    (!track.admittedSource?.request &&
+      isAbsolutePath(track.source.bamPath) &&
+      isAbsolutePath(track.source.indexPath))
+  );
+}
+
+export function sameSavedReference(
+  captured: Pick<TrackViewDocument, 'reference' | 'portableReference'>,
+  saved: TrackViewDocument
+): boolean {
+  return (
+    canonicalJson(captured.reference) === canonicalJson(saved.reference) &&
+    (!captured.portableReference ||
+      canonicalJson(captured.portableReference) === canonicalJson(saved.portableReference ?? null))
+  );
+}
+
+export function trackViewSourceBindings(document: TrackViewDocument): string {
+  const projectionBinding = (
+    projection: TrackViewDocument['contactProjection'] | TrackViewDocument['comparisonProjection']
+  ) =>
+    projection && { kind: projection.kind, project: projection.project, source: projection.source };
+  const dataLayers = document.sequenceDataLayers;
+  return canonicalJson({
+    reference: document.reference,
+    portableReference: document.portableReference,
+    dataTracks: document.dataTracks
+      .map(({ trackId, source, remoteSignal }) => ({ trackId, source, remoteSignal }))
+      .sort((a, b) => a.trackId.localeCompare(b.trackId)),
+    bamTracks: document.bamTracks
+      .map(({ trackId, source, admittedSource }) => ({ trackId, source, admittedSource }))
+      .sort((a, b) => a.trackId.localeCompare(b.trackId)),
+    variantSource: document.variantSource,
+    contactProjection: projectionBinding(document.contactProjection),
+    comparisonProjection: projectionBinding(document.comparisonProjection),
+    sequenceDataLayers: dataLayers && {
+      project: dataLayers.project,
+      targetDocumentId: dataLayers.targetDocumentId,
+      layers: dataLayers.layers
+        .map(({ id, revision }) => ({ id, revision }))
+        .sort((a, b) => a.id.localeCompare(b.id)),
+    },
+  });
+}
 
 export async function trackViewRecoveryDocument(
   input: TrackViewDocument
@@ -29,6 +80,37 @@ export async function trackViewRecoveryDocument(
     }
   }
 
+  if (document.sequenceDataLayers) {
+    for (const source of document.sequenceDataLayers.layers) {
+      const layer = await platform().sequenceDataLayers.run({
+        operation: 'inspect',
+        project: document.sequenceDataLayers.project,
+        id: source.id,
+      });
+      if (
+        layer.status !== 'published' ||
+        layer.revision !== source.revision ||
+        layer.document.target.documentId !== document.sequenceDataLayers.targetDocumentId ||
+        layer.availability.status !== 'current'
+      )
+        throw new Error('A saved data layer version is unavailable. Nothing was saved or opened.');
+    }
+  }
+
+  if (document.contactProjection) {
+    await platform().contactSources.read({
+      project: document.contactProjection.project,
+      source: document.contactProjection.source,
+    });
+  }
+
+  if (document.comparisonProjection) {
+    await platform().comparisonSources.read({
+      project: document.comparisonProjection.project,
+      source: document.comparisonProjection.source,
+    });
+  }
+
   const projected = await projectPortableGenomeView({
     id: document.id,
     name: document.name,
@@ -43,7 +125,7 @@ export async function trackViewRecoveryDocument(
       assembly: { assemblyId: document.reference.assemblyId },
       scope: document.scope,
       dataTracks: document.dataTracks.filter((track) => !track.remoteSignal),
-      bamTracks: document.bamTracks.filter((track) => !track.source.remote),
+      bamTracks: document.bamTracks.filter((track) => !restoresFromNativeAlignmentSource(track)),
       variantSource: document.variantSource,
       ...(reference.kind === 'hosted-reference'
         ? {
@@ -81,7 +163,15 @@ export function managedRestoredTracks(
   admitted: AdmitPortableTracksResult,
   referenceContext?: { readonly assemblyId: string }
 ): Pick<AdmitPortableTracksResult, 'dataTracks' | 'bamTracks' | 'variantSource'> &
-  Pick<TrackViewDocument, 'signalReadPileupViews' | 'primerBindings' | 'userAnnotations'> {
+  Pick<
+    TrackViewDocument,
+    | 'signalReadPileupViews'
+    | 'primerBindings'
+    | 'userAnnotations'
+    | 'sequenceDataLayers'
+    | 'contactProjection'
+    | 'comparisonProjection'
+  > {
   const document = validateTrackViewDocument(input);
   const dataById = new Map(admitted.dataTracks.map((track) => [track.trackId, track]));
   const bamById = new Map(admitted.bamTracks.map((track) => [track.trackId, track]));
@@ -104,7 +194,7 @@ export function managedRestoredTracks(
       return restored ? [{ ...saved, source: restored.source }] : [];
     }),
     bamTracks: document.bamTracks.flatMap((saved) => {
-      if (saved.source.remote) return [saved];
+      if (restoresFromNativeAlignmentSource(saved)) return [saved];
       const restored = bamById.get(saved.trackId);
       return restored
         ? [
@@ -150,6 +240,9 @@ export function managedRestoredTracks(
         },
       ];
     }),
+    sequenceDataLayers: document.sequenceDataLayers,
+    contactProjection: document.contactProjection,
+    comparisonProjection: document.comparisonProjection,
     primerBindings: document.primerBindings,
     userAnnotations: document.userAnnotations,
   };

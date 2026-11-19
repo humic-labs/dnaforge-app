@@ -88,6 +88,7 @@ export async function openAssemblyCompiledBroadRasterCatalogV1(
   const surfaceManifest = await buildSurfaceManifest({
     sceneManifest: indexed.manifest,
     artifact: indexed.artifact,
+    appearance: input.appearance,
   });
   const artifactDirectory = (
     deps.artifactDirectory ?? assemblyCompiledBroadRasterArtifactDirectory

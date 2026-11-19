@@ -1,3 +1,4 @@
+import type { ComparisonHit } from '../../comparison-projection';
 import { inputTargetAllows, subscribeInputRevocation } from '@waypoint/platform/input-ownership';
 import {
   WheelMotion,
@@ -5,6 +6,7 @@ import {
   shouldAnimateWheel,
 } from '@waypoint/platform/wheel-motion';
 import type { RenderState } from '../../types';
+import type { ContactHit } from '../../contact-projection';
 import { assemblyScaffoldTooltip } from '@waypoint/sequence-utils';
 import { log as plog, mark as pmark, time as ptime } from '../../perf-log';
 import { recordWebGLSelectionDebug } from './selection-debug';
@@ -307,6 +309,17 @@ const STABILITY_MAX_ZOOM_LOG_STEP = Math.log(STABILITY_MAX_ZOOM_RATIO_STEP);
 const DEFAULT_MIN_ZOOM = 0.5;
 
 export interface InteractionHandle {
+  hitTestComparison?: (x: number, y: number) => ComparisonHit | null;
+  panComparison?: (deltaX: number, deltaY: number) => void;
+  zoomComparison?: (factor: number, x: number, y: number) => void;
+  onComparisonHover?: (hit: ComparisonHit | null) => void;
+  onComparisonClick?: (hit: ComparisonHit | null) => void;
+  cancelGesture?: () => void;
+  hitTestContact?: (x: number, y: number) => ContactHit | null;
+  panContact?: (deltaX: number, deltaY: number) => void;
+  zoomContact?: (factor: number, x: number, y: number) => void;
+  onContactHover?: (hit: ContactHit | null) => void;
+  onContactClick?: (hit: ContactHit | null) => void;
   isInputEnabled?: (() => boolean) | null;
   cleanup: () => void;
   cancelMotion: () => void;
@@ -574,6 +587,14 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
 
   let activePointerId: number | null = null;
   let isDragging = false;
+  let contactPointer: {
+    projection: NonNullable<RenderState['contactProjection'] | RenderState['comparisonProjection']>;
+    x: number;
+    y: number;
+    startX: number;
+    startY: number;
+    moved: boolean;
+  } | null = null;
   let dragMode: DragMode = null;
   let dragStartX = 0;
   let dragStartY = 0;
@@ -691,6 +712,26 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
     hasPointer = true;
     markHoverDirty();
     const deltaPx = normalizeWheelDeltaPx(e, canvas);
+    if (state.contactProjection || state.comparisonProjection) {
+      cancelMotion();
+      if (e.ctrlKey || e.metaKey) {
+        (state.comparisonProjection ? handle.zoomComparison : handle.zoomContact)?.(
+          Math.exp(Math.max(-1, Math.min(1, -deltaPx * 0.008))),
+          e.clientX,
+          e.clientY
+        );
+      } else {
+        const unitX =
+          e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? canvas.clientWidth || state.width : 1;
+        const unitY =
+          e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? canvas.clientHeight || state.height : 1;
+        (state.comparisonProjection ? handle.panComparison : handle.panContact)?.(
+          state.comparisonProjection ? deltaPx : e.deltaX * unitX,
+          e.deltaY * unitY
+        );
+      }
+      return;
+    }
     if (e.ctrlKey || e.metaKey) {
       mouseMotion.cancel();
 
@@ -726,6 +767,19 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
     if (!acceptsInput()) return;
     cancelMotion();
     if (!inputTargetAllows(canvas, 'keyboard', e)) return;
+    if (state.contactProjection || state.comparisonProjection) {
+      if (e.key === 'Escape') {
+        if (state.comparisonProjection) {
+          state.selectedComparison = null;
+          handle.onComparisonClick?.(null);
+        } else {
+          state.selectedContact = null;
+          handle.onContactClick?.(null);
+        }
+        markHoverDirty();
+      }
+      return;
+    }
     if (e.key === 'p' || e.key === 'P') {
       state.perfPanelVisible = !state.perfPanelVisible;
       const perf = document.getElementById('perf');
@@ -745,6 +799,7 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
     cursorY = e.clientY;
     hasPointer = true;
     markHoverDirty();
+    if (state.contactProjection || state.comparisonProjection) return;
 
     if (isDragging && activeBackbonePart && handle.screenToBoundaryBp) {
       const boundaryBp = handle.screenToBoundaryBp(e.clientX, e.clientY, state);
@@ -867,6 +922,20 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
     pointerDownTime = performance.now();
     lastSelectionChangeKey = null;
     lastSelectionPreviewKey = null;
+    if (state.contactProjection || state.comparisonProjection) {
+      e.preventDefault();
+      contactPointer = {
+        projection: (state.comparisonProjection ?? state.contactProjection)!,
+        x: e.clientX,
+        y: e.clientY,
+        startX: e.clientX,
+        startY: e.clientY,
+        moved: false,
+      };
+      if (typeof e.pointerId === 'number') canvas.setPointerCapture?.(e.pointerId);
+      canvas.style.cursor = 'grab';
+      return;
+    }
 
     const directHit = handle.hitTestFn?.(e.clientX, e.clientY) ?? null;
     const backboneBoundaryHandle = backboneBoundaryHandleHitPayload(directHit);
@@ -952,7 +1021,34 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
 
   const onPointerMove = (e: PointerEvent) => {
     if (!acceptsInput() || !inputTargetAllows(canvas, 'pointer')) return;
+    if (
+      contactPointer &&
+      contactPointer.projection !== (state.comparisonProjection ?? state.contactProjection)
+    ) {
+      cancelGesture();
+      return;
+    }
     markHoverDirty();
+    if (state.contactProjection || state.comparisonProjection) {
+      if (!contactPointer) return;
+      if (
+        Math.hypot(e.clientX - contactPointer.startX, e.clientY - contactPointer.startY) >=
+        DRAG_THRESHOLD
+      ) {
+        contactPointer.moved = true;
+      }
+      if (contactPointer.moved) {
+        handle.isDragging = true;
+        (state.comparisonProjection ? handle.panComparison : handle.panContact)?.(
+          contactPointer.x - e.clientX,
+          contactPointer.y - e.clientY
+        );
+        canvas.style.cursor = 'grabbing';
+      }
+      contactPointer.x = e.clientX;
+      contactPointer.y = e.clientY;
+      return;
+    }
     if (!isDragging && pendingBackbonePart) {
       const dx = e.clientX - dragStartX;
       const dy = e.clientY - dragStartY;
@@ -1012,8 +1108,33 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
 
   const onPointerUp = (e: PointerEvent) => {
     if (!acceptsInput() || !inputTargetAllows(canvas, 'pointer')) return;
-    activePointerId = null;
     if (e.button !== 0) return;
+    if (
+      contactPointer &&
+      contactPointer.projection !== (state.comparisonProjection ?? state.contactProjection)
+    ) {
+      cancelGesture();
+      return;
+    }
+    activePointerId = null;
+    if (state.contactProjection || state.comparisonProjection) {
+      if (contactPointer && !contactPointer.moved) {
+        if (state.comparisonProjection) {
+          state.selectedComparison = handle.hitTestComparison?.(e.clientX, e.clientY) ?? null;
+          handle.onComparisonClick?.(state.selectedComparison);
+        } else {
+          state.selectedContact = handle.hitTestContact?.(e.clientX, e.clientY) ?? null;
+          handle.onContactClick?.(state.selectedContact);
+        }
+      }
+      contactPointer = null;
+      handle.isDragging = false;
+      canvas.style.cursor = '';
+      if (typeof e.pointerId === 'number' && canvas.hasPointerCapture?.(e.pointerId))
+        canvas.releasePointerCapture?.(e.pointerId);
+      markHoverDirty();
+      return;
+    }
 
     if (isTrackHitConsumed(e)) return;
     plog('pointerup', { x: e.clientX, y: e.clientY, isDragging });
@@ -1244,6 +1365,15 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
   };
 
   const onDoubleClick = (e: MouseEvent) => {
+    if (state.contactProjection || state.comparisonProjection) {
+      if (acceptsInput() && inputTargetAllows(canvas, 'pointer'))
+        (state.comparisonProjection ? handle.zoomComparison : handle.zoomContact)?.(
+          2,
+          e.clientX,
+          e.clientY
+        );
+      return;
+    }
     if (!acceptsInput()) return;
     if ((e.target as HTMLElement)?.tagName !== 'CANVAS') return;
     cancelPendingHostClear();
@@ -1359,6 +1489,7 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
     if (!acceptsInput()) return;
     if ((e.target as HTMLElement)?.tagName !== 'CANVAS') return;
     e.preventDefault();
+    if (state.contactProjection || state.comparisonProjection) return;
     cancelPendingHostClear();
     markHoverDirty();
     dragStartBp = -1;
@@ -1421,9 +1552,10 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
   const cancelGesture = () => {
     cancelMotion();
     cancelPendingHostClear();
-    const hadGesture = isDragging || pendingBackbonePart !== null;
+    const hadGesture = isDragging || pendingBackbonePart !== null || Boolean(contactPointer?.moved);
     const pointerId = activePointerId;
     activePointerId = null;
+    contactPointer = null;
     isDragging = false;
     handle.isDragging = false;
     dragMode = null;
@@ -1463,6 +1595,7 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
 
   const handle: InteractionHandle = {
     cancelMotion,
+    cancelGesture,
     commitPresentedCamera: () => {
       presentedCamera = {
         zoom: state.zoom,
@@ -1496,6 +1629,31 @@ export function setupInteraction(canvas: HTMLCanvasElement, state: RenderState):
         cancelPendingHostClear();
         cancelMotion();
         onPointerLeave();
+        return;
+      }
+      if (state.contactProjection || state.comparisonProjection) {
+        if (!hoverDirty) return;
+        hoverDirty = false;
+        if (state.comparisonProjection) {
+          const hit = hasPointer ? (handle.hitTestComparison?.(cursorX, cursorY) ?? null) : null;
+          if (
+            hit?.column !== state.hoveredComparison?.column ||
+            hit?.side !== state.hoveredComparison?.side ||
+            hit?.projectionId !== state.hoveredComparison?.projectionId
+          ) {
+            state.hoveredComparison = hit;
+            handle.onComparisonHover?.(hit);
+          }
+          return;
+        }
+        const hit = hasPointer ? (handle.hitTestContact?.(cursorX, cursorY) ?? null) : null;
+        if (
+          hit?.cellId !== state.hoveredContact?.cellId ||
+          hit?.projectionId !== state.hoveredContact?.projectionId
+        ) {
+          state.hoveredContact = hit;
+          handle.onContactHover?.(hit);
+        }
         return;
       }
       let cameraChanged = false;

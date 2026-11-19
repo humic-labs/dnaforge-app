@@ -1,0 +1,114 @@
+{
+  "schema": "dnaforge.sequence-data-layer-fixture.v1",
+  "dataset": {
+    "number": 14,
+    "id": "14-supercoiling",
+    "title": "Chromosome supercoiling proxy",
+    "study": "Lal et al. 2016"
+  },
+  "files": {
+    "csv": "data.csv",
+    "snapshot": "snapshot.json",
+    "sourceRecords": "source-records.json",
+    "crosswalk": "crosswalk.json"
+  },
+  "snapshot": {
+    "file": "snapshot.json",
+    "sha256": "841e981a54eca6f7015a91bf0f0b9b194b2672d3b8c6cc007b55c20e8f027006",
+    "originalPreparedSnapshotSha256": "841e981a54eca6f7015a91bf0f0b9b194b2672d3b8c6cc007b55c20e8f027006",
+    "omittedPresentationFields": []
+  },
+  "sourceFiles": [
+    {
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE77nnn/GSE77687/suppl/GSE77687_stat_1.txt.gz",
+      "file": "raw/regulation/GSE77687_stat_1.txt.gz",
+      "sha256": "64e48a7ce3250dab2cf41da535ca1901e2441696119b7e2c82f064a69ffbd9fc",
+      "bytes": 20592032,
+      "citation": "https://doi.org/10.1038/ncomms11055"
+    },
+    {
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE77nnn/GSE77687/suppl/GSE77687_exp_1.txt.gz",
+      "file": "raw/regulation/GSE77687_exp_1.txt.gz",
+      "sha256": "2a63d4e6f99362ddefb5d1dce45e9e043f6b81501dbced7313daf7921b6f9c93",
+      "bytes": 20653763,
+      "citation": "https://doi.org/10.1038/ncomms11055"
+    },
+    {
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM2056050&targ=self&form=text&view=full",
+      "file": "raw/regulation/GSM2056050.soft",
+      "sha256": "eeee3da7f5755d485e10b84197760465da627d0010ac3a7f677bb2a43ebde6ef",
+      "bytes": 4914,
+      "citation": "https://doi.org/10.1038/ncomms11055"
+    }
+  ],
+  "targetReference": {
+    "accession": "NC_000913.2",
+    "organism": "Escherichia coli K-12 MG1655",
+    "length": 4639675,
+    "normalizedSequenceSha256": "b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+    "fasta": {
+      "file": "NC_000913.2.fasta",
+      "sha256": "2a8e2f78bc145fa82fa325acf7d34dc944612795cee74f793045dc64d782176c"
+    },
+    "citation": "https://www.ncbi.nlm.nih.gov/nuccore/NC_000913.2"
+  },
+  "referenceEvidence": {
+    "platform": "GPL8585",
+    "platformUrl": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GPL8585",
+    "sourcePlatformField": "GSE77687 Series_platform_id",
+    "reportedDesignReference": "NC_000913.2",
+    "checkedProbeCount": 1150080,
+    "coordinateAndSequenceColumnsIdenticalAcrossConditions": true,
+    "exactForwardProbeMatches": 575092,
+    "exactReverseComplementProbeMatches": 574988,
+    "mismatchedProbes": 0
+  },
+  "coordinateSystem": "zero-based-half-open",
+  "mapping": {
+    "kind": "positions",
+    "startColumn": "start0",
+    "endColumn": "end0",
+    "coordinateSystem": "zero-based-half-open"
+  },
+  "valueColumns": [
+    "stationary",
+    "exponential"
+  ],
+  "unit": "log2(crosslinked / non-crosslinked signal)",
+  "aggregation": "none",
+  "unresolvedPolicy": "reject",
+  "measurements": [
+    {
+      "column": "stationary",
+      "originalSourceCondition": "stat",
+      "replicate": 1,
+      "quantity": "mean supplied psoralen probe signal"
+    },
+    {
+      "column": "exponential",
+      "originalSourceCondition": "exp",
+      "replicate": 1,
+      "quantity": "mean supplied psoralen probe signal"
+    }
+  ],
+  "counts": {
+    "originalRecords": 928,
+    "csvRows": 464,
+    "measurements": 928,
+    "missing": 0,
+    "sourceProbesPerCondition": 1150080,
+    "clippedSourceBins": 2
+  },
+  "geometry": {
+    "binSizeBp": 10000,
+    "clippingRule": "Clip interval end to the exact reference length; retain original bin bounds, supplied mean and probe count.",
+    "lastOriginalEnd0": 4640000,
+    "lastEnd0": 4639675,
+    "lastBinProbeCount": 2390
+  },
+  "limits": [
+    "This signal is a psoralen-binding proxy, not an absolute superhelical density.",
+    "Each value is the supplied mean of probes in its bin; it is not a per-base measurement.",
+    "Only replicate 1 is represented for each condition."
+  ]
+}

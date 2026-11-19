@@ -175,8 +175,10 @@ export function ImportReviewList({
               <td className="min-w-0 px-2 py-2">
                 <div className="flex min-h-10 min-w-0 items-center gap-2">
                   <FileTypeIcon
-                    category={getFileIconCategory(name)}
-                    className="h-4 w-4 shrink-0 text-fg-muted"
+                    category={getFileIconCategory(source)}
+                    path={source}
+                    molecule={item.confirmedNucleicAcid}
+                    className="h-4 w-4 shrink-0"
                   />
                   <span className="truncate text-fg" title={name}>
                     {name}
@@ -209,7 +211,7 @@ export function ImportReviewList({
                 {canConfirmDna && (
                   <button
                     type="button"
-                    className="ml-6 mt-2 rounded border border-border px-2 py-1 text-xs text-fg hover:bg-bg-muted disabled:opacity-40"
+                    className="ml-6 mt-2 rounded border border-border px-2 py-1 text-xs text-fg wp-interactive disabled:opacity-40"
                     disabled={confirmingDnaSources?.has(source)}
                     onClick={() => onConfirmDnaIdentity?.(item, 'dna')}
                   >
@@ -223,7 +225,7 @@ export function ImportReviewList({
                 {canConvertToRna && (
                   <button
                     type="button"
-                    className="ml-2 mt-2 rounded border border-border px-2 py-1 text-xs text-fg hover:bg-bg-muted disabled:opacity-40"
+                    className="ml-2 mt-2 rounded border border-border px-2 py-1 text-xs text-fg wp-interactive disabled:opacity-40"
                     disabled={confirmingDnaSources?.has(source)}
                     onClick={() => onConfirmDnaIdentity?.(item, 'rna')}
                   >

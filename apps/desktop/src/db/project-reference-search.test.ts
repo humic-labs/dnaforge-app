@@ -38,6 +38,26 @@ beforeEach(() => {
 });
 
 describe('project reference search', () => {
+  it('retains canonical RNA classification beside a generic sequence transport type', async () => {
+    select.mockResolvedValue([
+      row({
+        entity_type: 'sequence',
+        icon_kind: 'rna_sequence',
+        metadata: JSON.stringify({ classificationDecision: { molecule: 'rna' } }),
+        path: '/lib/alpha/repo/transcript.gb',
+        relative_path: 'transcript.gb',
+      }),
+    ]);
+    const result = await searchProjectReferencesByName({
+      query: '',
+      entityTypes: ['sequence'],
+      workspaceRoots: ['/lib/alpha/repo'],
+    });
+    expect(result.candidates[0]).toMatchObject({
+      iconContext: { kind: 'rna_sequence', molecule: 'rna' },
+    });
+  });
+
   it('queries every given project in one statement and ranks the preferred project first', async () => {
     await searchProjectReferencesByName({
       query: '1BNA',

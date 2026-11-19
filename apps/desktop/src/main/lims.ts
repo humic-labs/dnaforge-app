@@ -1,4 +1,5 @@
 import { withUserMessage } from '@waypoint/user-messages';
+import { assertLimsTemporalEdits } from '@waypoint/scientific-artifacts/shared/lims-temporal';
 import { getLimsEntityHistoryInDb } from './lims-entity-history';
 export { getLimsEntityHistoryInDb, queryLimsEntitiesInDb, countLimsEntitiesByKindInDb };
 
@@ -121,6 +122,7 @@ import {
 import {
   limsEntityFromRow,
   parseLimsSchemaFields,
+  requireSupportedLimsFieldDefinitions,
   serializeLimsSchemaDefinition,
   type DnaSequenceRef,
   type FileDnaSequenceRef,
@@ -186,6 +188,7 @@ import {
   registerLimsEntityInsideTx,
   resetLimsRegistryInDb,
   seedLimsBuiltinsInDb,
+  resolveSchemaRevisionForKind,
   setLimsIdSchemeInDb,
   updateLimsEntityInsideTx,
   upsertLimsSchemaProjectionInsideTx,
@@ -331,6 +334,14 @@ export function registerLimsEntityInDb(
   input: LimsRegisterEntityInput
 ): LimsEntity {
   seedLimsBuiltinsInDb(db);
+  if (!input.id || !db.prepare('SELECT 1 FROM lims_entity WHERE id=?').get(input.id)) {
+    const fields = input.schemaSnapshot
+      ? requireSupportedLimsFieldDefinitions(input.schemaSnapshot.fields)
+      : parseLimsSchemaFields(
+          resolveSchemaRevisionForKind(db, input.kind, input.schemaRevisionId).fieldsJson
+        ).fields;
+    assertLimsTemporalEdits(input.fields, fields);
+  }
   const entity = db.transaction(() => registerLimsEntityInsideTx(db, input))();
   materializeLimsGitExportForWorkspaceIds(db, [entity.workspaceId]);
   return entity;

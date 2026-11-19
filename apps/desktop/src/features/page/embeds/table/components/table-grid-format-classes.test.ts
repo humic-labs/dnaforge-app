@@ -3,7 +3,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   tableGridAlignButtonClass,
-  tableGridColorButtonClass,
   tableGridFindWidth,
   tableGridFormatControlsDisabled,
   tableGridFormatToggleClass,
@@ -23,7 +22,7 @@ describe('tableGridFormatToggleClass', () => {
     expect(tableGridFormatToggleClass(true, true)).toContain('opacity-40');
     expect(tableGridFormatToggleClass(false, true)).toContain('bg-accent');
     expect(tableGridFormatToggleClass(false, 'mixed')).toContain('bg-bg-muted');
-    expect(tableGridFormatToggleClass(false, false)).toContain('hover:bg-bg-muted');
+    expect(tableGridFormatToggleClass(false, false)).toContain('wp-interactive');
   });
 });
 
@@ -31,7 +30,6 @@ describe('tableGridAlignButtonClass / color / swatch', () => {
   it('marks the active alignment and falls color swatches back when mixed', () => {
     expect(tableGridAlignButtonClass(false, true)).toContain('bg-accent');
     expect(tableGridAlignButtonClass(true, true)).toContain('opacity-40');
-    expect(tableGridColorButtonClass(true)).toContain('opacity-40');
     expect(tableGridSwatchColor('#ef4444', 'currentColor')).toBe('#ef4444');
     expect(tableGridSwatchColor('mixed', 'currentColor')).toBe('mixed');
     expect(tableGridSwatchColor(null, 'transparent')).toBe('transparent');

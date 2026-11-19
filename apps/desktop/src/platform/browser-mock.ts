@@ -257,6 +257,44 @@ export const browserMockBridge: PlatformBridge = {
     takePending: async () => [],
     onOpen: () => () => undefined,
   },
+  workTasks: {
+    split: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+    dates: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+    reminders: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+    reminderCommand: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+    placements: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+    finishPlacement: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+    assignees: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+    occurrences: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+    query: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+    read: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+    history: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+    mutate: async () => {
+      throw new Error('Project work is unavailable in this workspace.');
+    },
+  },
   scientificObjects: {
     catalog: async () => {
       throw new Error('Scientific objects are unavailable in this workspace.');
@@ -2106,6 +2144,24 @@ export const browserMockBridge: PlatformBridge = {
       throw new Error('Native Track View commands require the desktop app.');
     },
   },
+  comparisonSources: {
+    read: async () => {
+      throw new Error('Comparison sources require the native desktop owner.');
+    },
+    readWindow: async () => {
+      throw new Error('Comparison source windows require the native desktop owner.');
+    },
+  },
+  contactSources: {
+    read: async () => {
+      throw new Error('Contact sources require the native desktop owner.');
+    },
+  },
+  sequenceDataLayers: {
+    run: async () => {
+      throw new Error('Sequence data layers require the native desktop owner.');
+    },
+  },
   trackViews: {
     command: async () => {
       throw new Error('Native Track View commands require the desktop app.');
@@ -2503,6 +2559,10 @@ ORIGIN
     }),
     readAssemblyOverviewTexture: async () => null,
     readAssemblyAnnotationRasterV2: async () => null,
+    prepareAssemblyAnnotationAppearanceV1: async () => ({
+      status: 'unavailable',
+      reason: 'source-unavailable',
+    }),
     readAssemblyCompiledBroadRasterManifestV1: async () => null,
     readAssemblyCompiledBroadRasterCellsV1: async () => ({
       contract: ASSEMBLY_COMPILED_BROAD_RASTER_WIRE_V1,

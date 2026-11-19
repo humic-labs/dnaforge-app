@@ -23,6 +23,12 @@ export function EntityRecordTab({ tab, panelId }: { tab: Tab; panelId: string })
     else if (state.error) failReadableContent(tab.entityId);
   }, [state.loading, state.definition, state.error, tab.entityId]);
 
+  useEffect(() => {
+    const artifact = state.definition?.savedRecord?.loaded.artifact;
+    if (!artifact || artifact.id !== tab.entityId || artifact.kind === tab.entityKind) return;
+    updateTab(panelId, tab.id, { entityKind: artifact.kind });
+  }, [state.definition, tab.entityId, tab.entityKind, tab.id, panelId, updateTab]);
+
   useDocumentLifecycle({
     target: { kind: 'tab', tabId: tab.id },
     tabId: tab.id,

@@ -1440,6 +1440,38 @@ describe('renderer analytics', () => {
     expect(config).toHaveProperty('session_recording');
   });
 
+  it.each([
+    { buildKind: 'test', synthetic: false, actor: 'user', expected: 'private' },
+    { buildKind: 'unknown', synthetic: false, actor: 'user', expected: 'unknown' },
+    { buildKind: 'test', synthetic: true, actor: 'canary', expected: 'synthetic' },
+  ] as const)(
+    'keeps $expected runtime provenance on renderer custom and SDK events',
+    async ({ buildKind, synthetic, actor, expected }) => {
+      vi.stubGlobal('__DNAFORGE_APP_BUILD__', { kind: buildKind });
+      installBridge({
+        getRuntimeConfig: vi.fn(async () => ({
+          ...testRuntimeConfig(),
+          environment: 'production',
+          isSynthetic: synthetic,
+          telemetryActor: actor,
+        })),
+      });
+      const analytics = await initializeAndEnable();
+      analytics.trackRendererEvent('screen_viewed', { feature_area: 'navigation' });
+      expect(mockPosthog.capture).toHaveBeenCalledWith(
+        'screen_viewed',
+        expect.objectContaining({ runtime_origin_class: expected })
+      );
+      const config = mockPosthog.init.mock.calls.at(-1)?.[1];
+      expect(
+        config?.before_send?.({
+          event: '$autocapture',
+          properties: { $elements: [], runtime_origin_class: '/private/reference.gb' },
+        })?.properties
+      ).toMatchObject({ runtime_origin_class: expected });
+    }
+  );
+
   it('stamps environment and actor onto SDK events the sanitizer strips ', async () => {
     installBridge();
     await initializeAndEnable();

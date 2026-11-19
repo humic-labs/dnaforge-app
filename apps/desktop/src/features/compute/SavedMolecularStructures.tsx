@@ -58,7 +58,7 @@ export function SavedMolecularStructures({
                 type="button"
                 key={key}
                 disabled={!!opening}
-                className="mb-1 flex w-full items-center justify-between rounded px-2 py-1 text-left hover:bg-bg-muted"
+                className="mb-1 flex w-full items-center justify-between rounded px-2 py-1 text-left wp-interactive"
                 onClick={() => {
                   setOpening(key);
                   setError(undefined);

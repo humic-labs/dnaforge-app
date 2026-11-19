@@ -1,0 +1,196 @@
+{
+  "schema": "dnaforge.sequence-data-layer-fixture.v1",
+  "dataset": {
+    "number": 15,
+    "id": "15-methylation",
+    "title": "MG1655 measured per-site DNA methylation",
+    "study": "Cohen et al. 2016",
+    "citation": "https://doi.org/10.1038/ng.3530",
+    "replacementDisclosure": "Substitute site-resolved K-12 dataset for the original Fang et al. 2012 motif-level census. The original census is retained separately; these are not Fang et al. measurements."
+  },
+  "sourceFiles": [
+    {
+      "file": "41588_2016_BFng3530_MOESM18_ESM.xlsx",
+      "url": "https://static-content.springer.com/esm/art%3A10.1038%2Fng.3530/MediaObjects/41588_2016_BFng3530_MOESM18_ESM.xlsx",
+      "sha256": "2901db3c54fc213475a007459f1e2120be5839d80a7ddbc09b80c16ee01c46a7",
+      "bytes": 10857769,
+      "sheet": "GATC raw Frac",
+      "headerRow": 6
+    },
+    {
+      "file": "41588_2016_BFng3530_MOESM19_ESM.xlsx",
+      "url": "https://static-content.springer.com/esm/art%3A10.1038%2Fng.3530/MediaObjects/41588_2016_BFng3530_MOESM19_ESM.xlsx",
+      "sha256": "ca44ba21332e910e97f13de8f4c8f6f7040a87121cc49af3a39f6bf82d6a3770",
+      "bytes": 6468626,
+      "sheet": "COVERAGE",
+      "headerRow": 6
+    }
+  ],
+  "targetReference": {
+    "referenceId": "NC_000913.2",
+    "accession": "NC_000913.2",
+    "length": 4639675,
+    "normalizedSequenceSha256": "b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+    "normalizedSequenceFingerprint": "sha256:b1d61ce0fac63311a301966a65d052c8061b6747afc537f879192027f14308f1",
+    "referenceSubstitutionApplied": false,
+    "availableNativeReferenceDirectory": "native-references/NC_000913.2",
+    "methodsSource": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4848143/",
+    "methodsEvidence": "The base-modification analysis methods identify the FASTA reference as E. coli K12 MG1655 accession NC_000913.2, obtained from Pacific Biosciences."
+  },
+  "mapping": {
+    "kind": "positions",
+    "startColumn": "start0",
+    "endColumn": "end0",
+    "coordinateSystem": "zero-based-half-open"
+  },
+  "coordinateSystem": "zero-based-half-open",
+  "coordinateEvidence": {
+    "conversion": "start0 = supplied Site - 1; end0 = supplied Site. Source Site identifies the modified adenine on its stated strand, not the start of the four-base motif.",
+    "strand": "Source + and - retained. Plus calls anchor reference A in GATC; minus calls anchor reference T, whose complementary base is A.",
+    "scope": "All 38,227 supplied site/strand records checked against their supplied GATC motif on NC_000913.2; zero mismatches. Validation uses provided sites only and generates no calls.",
+    "plusAnchor": "reference[Site-2:Site+2] == GATC, using zero-based Python slices",
+    "minusAnchor": "reference[Site-3:Site+1] == GATC, using zero-based Python slices"
+  },
+  "unit": "fraction of molecules with methylation signal (0–1)",
+  "aggregation": "none",
+  "unresolvedPolicy": "reject",
+  "valueColumns": [
+    "0h_1",
+    "0h_2",
+    "0h_3"
+  ],
+  "files": {
+    "csv": "data.csv",
+    "snapshot": "snapshot.json",
+    "sourceRecords": "source-records.json",
+    "legacyMotifCensus": "legacy-motif-census.json"
+  },
+  "layers": [
+    {
+      "id": "fractions",
+      "file": "data.csv",
+      "label": "0 h baseline methylated fractions",
+      "unit": "fraction of molecules with methylation signal (0–1)",
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start0",
+        "endColumn": "end0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "valueColumns": [
+        "0h_1",
+        "0h_2",
+        "0h_3"
+      ],
+      "aggregation": "none",
+      "unresolvedPolicy": "reject",
+      "sourceRows": 4197,
+      "sourceStrandColumn": "strand",
+      "presentation": "matrix, fixed domain 0–1"
+    },
+    {
+      "id": "coverage",
+      "file": "data.csv",
+      "label": "0 h baseline site coverage",
+      "unit": "source-reported per-site read coverage",
+      "mapping": {
+        "kind": "positions",
+        "startColumn": "start0",
+        "endColumn": "end0",
+        "coordinateSystem": "zero-based-half-open"
+      },
+      "valueColumns": [
+        "0h_1_coverage",
+        "0h_2_coverage",
+        "0h_3_coverage"
+      ],
+      "aggregation": "none",
+      "unresolvedPolicy": "reject",
+      "sourceRows": 4197,
+      "sourceStrandColumn": "strand",
+      "presentation": "bars, selected biological replicate"
+    }
+  ],
+  "counts": {
+    "fullSourceSiteStrandRows": 38227,
+    "fullCoverageSiteStrandRows": 38228,
+    "coverageOnlySiteStrandMotifKeys": [
+      [
+        399121,
+        "-",
+        "GATC"
+      ]
+    ],
+    "selectedSiteStrandRows": 4197,
+    "selectedInterval1": [
+      1,
+      500000
+    ],
+    "selectedStrands": {
+      "+": 2099,
+      "-": 2098
+    },
+    "minimumStart0": 619,
+    "maximumEnd0": 499762,
+    "sourceSelectedSampleNumericFractionCells": 114614,
+    "sourceSelectedSampleExplicitNumericZeroFractionCells": 0,
+    "sourceBelowFractionReportingThresholdBySample": {
+      "0h_2": 21,
+      "0h_3": 33,
+      "0h_1": 13
+    },
+    "subset": {
+      "numericFractionCells": 12587,
+      "explicitNumericZeroFractionCells": 0,
+      "numericCoverageCells": 12591,
+      "explicitNumericZeroCoverageCells": 0
+    },
+    "subsetBelowFractionReportingThresholdBySample": {
+      "0h_1": 0,
+      "0h_2": 1,
+      "0h_3": 3
+    },
+    "subsetMissingCoverageBySample": {
+      "0h_1": 0,
+      "0h_2": 0,
+      "0h_3": 0
+    }
+  },
+  "measurementMeaning": {
+    "methylatedFraction": "Direct published per-site fraction from the raw Frac sheet for each baseline biological replicate separately. No averaging or fraction calculation from counts.",
+    "coverage": "Direct published coverage for the identical Site/Strand/Motif/sample key from Supplementary Data Set 2. Coverage is read support, not fraction or methylated-molecule count.",
+    "quality": "No per-site quality/QV supplied by these selected spreadsheets. Quality remains absent.",
+    "sourceFractionStatus": "reported-fraction for numeric cells; below-fraction-reporting-threshold for source N/A; missing-source-cell only for absent source cells."
+  },
+  "missingness": {
+    "sourceDefinition": "Sheet A4 defines N/A as methylation signal below the threshold needed to calculate a fraction.",
+    "numericPolicy": "Source N/A stays an empty numeric CSV cell and null in JSON, with reporting-threshold status and literal source value preserved. It is never zero-filled. Reported numeric zero stays zero.",
+    "coveragePolicy": "Coverage and fraction reporting status are independent; below-threshold fraction can retain source coverage.",
+    "omittedGenomicPositions": "Only author-supplied fraction rows in the selected interval are retained. Positions absent from the fraction table are not added, inferred, or treated as unmethylated. Coverage-only rows are not invented as fraction calls."
+  },
+  "selection": {
+    "policy": "All supplied fraction site/strand rows with Site <= 500000 and the three baseline 0h biological replicates; no filtering by value.",
+    "sampleScope": "0 h baseline only. No antibiotic-treated samples or engineered-strain measurements included.",
+    "sourceRowsRetained": "Original Excel row numbers and exact underlying XML cell strings retained in source-records.json."
+  },
+  "limits": [
+    "First 500 kb subset, not complete chromosome coverage.",
+    "Only source GATC site/strand calls represented; other modification contexts are not asserted.",
+    "Fraction estimates pooled-molecule methylation signal; it is neither a count nor quality.",
+    "Below-threshold N/A is not measured zero or a universal unmethylated call.",
+    "No measured calls inferred by scanning motifs.",
+    "Source-declared NC_000913.2 with supplied anchors is used; NC_000913.3 is not substituted."
+  ],
+  "rejectedCandidate": {
+    "accession": "GSM1711631",
+    "reason": "Supplied GFF uses custom ecoliK12_mutated reference length 4639560, distinct from NC_000913.2 and NC_000913.3. No alias or coordinate transplantation applied."
+  },
+  "retrievedAt": "2026-11-17T22:37:06.882130+00:00",
+  "confidence": "high for source preservation, accession binding and strand-coordinate validation",
+  "legacyMotifCensus": {
+    "file": "legacy-motif-census.json",
+    "sha256": "76afe99e2a3ff20d45535e701c141cbfc0dde2f05d5afdc28f16a7915d501cd1",
+    "citation": "https://doi.org/10.1038/nbt.2432",
+    "meaning": "Five motif-level detection totals from Fang et al.2012, retained as an aggregate census. No site positions or methylation calls are inferred from these totals."
+  }
+}

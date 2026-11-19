@@ -1,3 +1,4 @@
+import { RegistryTemporalInput } from '../RegistryTemporalInput';
 import { toOptionalUserMessage, toUserMessage, userMessage } from '@waypoint/user-messages';
 import {
   useCallback,
@@ -336,12 +337,28 @@ export function EntityMetadataFieldEditor({
           onValueChange={changeDraft}
           onSelect={() => session.finish(true)}
         />
+      ) : field.type === 'date' || field.type === 'datetime' ? (
+        <RegistryTemporalInput
+          type={field.type}
+          label={field.label}
+          text={draft}
+          change={changeDraft}
+          id={inputId}
+          testId={inputTestId}
+          disabled={disabled || busy}
+          min={field.minDate}
+          max={field.maxDate}
+          required={field.required}
+          autoFocus
+          onFinish={() => session.finish(true)}
+          onCancel={() => session.cancel()}
+        />
       ) : field.type === 'long_text' || field.type === 'string_array' ? (
         <TextArea {...shared} rows={compact ? 1 : 5} />
       ) : (
         <TextField
           {...shared}
-          type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+          type={field.type === 'number' ? 'number' : 'text'}
           step={field.type === 'number' ? 'any' : undefined}
           min={field.type === 'number' ? field.minValue : field.minDate}
           max={field.type === 'number' ? field.maxValue : field.maxDate}

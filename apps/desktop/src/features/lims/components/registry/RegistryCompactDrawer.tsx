@@ -54,7 +54,7 @@ export function RegistryCompactDrawer({
           title="Expand registry"
           aria-label="Expand registry"
           onClick={expandRegistry}
-          className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded border border-border text-fg-muted hover:bg-bg-muted hover:text-fg"
+          className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded border border-border text-fg-muted wp-interactive "
         >
           <ChevronRightIcon className="h-4 w-4" />
         </button>

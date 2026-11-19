@@ -33,7 +33,7 @@ describe('SequenceContextMenu — View Structure', () => {
         onViewStructure={onViewStructure}
       />
     );
-    const item = screen.getByRole('button', { name: /View Structure \(thrL\)/ });
+    const item = screen.getByRole('menuitem', { name: /View Structure \(thrL\)/ });
     expect(item).toBeInTheDocument();
     fireEvent.mouseDown(item);
     expect(onViewStructure).toHaveBeenCalledOnce();
@@ -51,7 +51,7 @@ describe('SequenceContextMenu — View Structure', () => {
         onViewStructure={onViewStructure}
       />
     );
-    const item = screen.getByRole('button', { name: /View Structure \(16S ribosomal RNA\)/ });
+    const item = screen.getByRole('menuitem', { name: /View Structure \(16S ribosomal RNA\)/ });
     expect(item).toBeInTheDocument();
     fireEvent.mouseDown(item);
     expect(onViewStructure).toHaveBeenCalledOnce();

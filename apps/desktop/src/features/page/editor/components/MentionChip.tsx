@@ -4,6 +4,8 @@ import { memo, useCallback, useMemo } from 'react';
 import { EntityReferenceChip } from '../../../../components/entity-reference/EntityReferenceChip';
 import { iconForEntityKind } from '../../../../components/icons/entity-icon-registry';
 import { readMentionReference } from '../../../../shared/notebook-reference';
+import { parseWorkTaskReferenceHref } from '../../../../shared/work-task-reference';
+import { WorkTaskReferenceChip } from './WorkTaskReferenceChip';
 import { SavedReferenceChip } from './SavedReferenceChip';
 import { ProjectResourceReferenceChip } from './ProjectResourceReferenceChip';
 import { isProjectResourceReferenceHref } from '../../../../shared/project-resource-reference';
@@ -62,10 +64,7 @@ function WorkspaceMentionChip({ node, extension }: NodeViewProps) {
     shape.kind === 'record' ? shape.ref.path : shape.kind === 'legacy-path' ? shape.path : null;
 
   const localOnly = !portablePath && Boolean(intent.entityId);
-  const registryKind =
-    intent.entityType === 'registry' && typeof node.attrs.registryKind === 'string'
-      ? node.attrs.registryKind
-      : null;
+  const registryKind = typeof node.attrs.registryKind === 'string' ? node.attrs.registryKind : null;
   const registryIcon = useMemo(
     () =>
       intent.entityType === 'registry'
@@ -112,6 +111,10 @@ function WorkspaceMentionChip({ node, extension }: NodeViewProps) {
         entityType={intent.entityType}
         kindLabel={intent.entityType === 'registry' ? registryKindLabel(registryKind) : undefined}
         iconOverride={registryIcon}
+        iconContext={{
+          kind: registryKind ?? intent.entityType,
+          path: portablePath ?? intent.path ?? undefined,
+        }}
         label={intent.label}
         onOpen={canOpen ? open : undefined}
         onReveal={portablePath ? reveal : undefined}
@@ -126,6 +129,8 @@ function WorkspaceMentionChip({ node, extension }: NodeViewProps) {
 }
 
 function MentionChipInner(props: NodeViewProps) {
+  const task = parseWorkTaskReferenceHref(props.node.attrs.referenceUri);
+  if (task) return <WorkTaskReferenceChip {...props} reference={task} />;
   if (
     props.node.attrs.entityType === 'project-resource' ||
     (typeof props.node.attrs.referenceUri === 'string' &&

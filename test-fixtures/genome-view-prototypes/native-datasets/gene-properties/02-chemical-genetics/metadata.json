@@ -1,0 +1,288 @@
+{
+  "datasetId": "02-chemical-genetics",
+  "title": "Chemical and environmental fitness",
+  "study": "Nichols et al., 2011",
+  "sourceReference": "K-12 mutant collections; exact ECK strain identifiers preserved; no genome coordinate alignment",
+  "transferLabel": "Source-strain gene property transferred to matching MG1655 annotation; no source-strain coordinate or MG1655 physiology claim",
+  "coordinateSystem": "annotation-based",
+  "mapping": {
+    "kind": "annotation",
+    "identifierColumn": "target_annotation_id",
+    "identifierField": "ID"
+  },
+  "valueColumns": [
+    "SDS0.5%/EDTA0.1 -",
+    "SDS0.5%/EDTA0.5 -",
+    "BILE-0.1% - UNSPECIFIED",
+    "BILE-0.5% - UNSPECIFIED",
+    "NOVOBIOCIN-10 - UNSPECIFIED",
+    "NOVOBIOCIN-12 - UNSPECIFIED",
+    "TRIMETHOPRIM-0.1 - UNSPECIFIED",
+    "TRIMETHOPRIM-0.2 - UNSPECIFIED",
+    "SULFAMETHIZOLE-100 - UNSPECIFIED",
+    "SULFAMETHIZOLE-200 - UNSPECIFIED",
+    "TETRACYCLINE-0.25 - UNSPECIFIED",
+    "TETRACYCLINE-0.5 - UNSPECIFIED",
+    "CIPROFLOXACIN-0.004 - UNSPECIFIED",
+    "CIPROFLOXACIN-0.006 - UNSPECIFIED",
+    "PH4 - UNSPECIFIED",
+    "PH10 - UNSPECIFIED",
+    "16C -",
+    "45C -",
+    "ANAEROBIC - UNSPECIFIED",
+    "GLUCOSE - UNSPECIFIED",
+    "GLYCEROL - UNSPECIFIED"
+  ],
+  "aggregation": "none",
+  "unresolvedPolicy": "exclude",
+  "counts": {
+    "csvRows": 48,
+    "mapped": 48,
+    "unmapped": 0,
+    "sourceAmbiguous": 0,
+    "excluded": 0,
+    "expectedNativeMapped": 48,
+    "expectedNativeUnmapped": 0,
+    "selectedConditions": 21,
+    "selectedMeasuredScores": 999,
+    "selectedMissingScores": 9,
+    "retainedSourceConditions": 324,
+    "derivedSnapshotCorrelations": 142
+  },
+  "quantities": [
+    {
+      "column": "SDS0.5%/EDTA0.1 -",
+      "originalLabel": "SDS0.5%/EDTA0.1 - ",
+      "snapshotDisplayLabel": "SDS0.5%/EDTA0.1 -",
+      "snapshotValuesIndex": 0,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "SDS0.5%/EDTA0.5 -",
+      "originalLabel": "SDS0.5%/EDTA0.5 - ",
+      "snapshotDisplayLabel": "SDS0.5%/EDTA0.5 -",
+      "snapshotValuesIndex": 1,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "BILE-0.1% - UNSPECIFIED",
+      "originalLabel": "BILE-0.1% - UNSPECIFIED",
+      "snapshotDisplayLabel": "BILE-0.1% - UNSPECIFIED",
+      "snapshotValuesIndex": 2,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "BILE-0.5% - UNSPECIFIED",
+      "originalLabel": "BILE-0.5% - UNSPECIFIED",
+      "snapshotDisplayLabel": "BILE-0.5% - UNSPECIFIED",
+      "snapshotValuesIndex": 3,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "NOVOBIOCIN-10 - UNSPECIFIED",
+      "originalLabel": "NOVOBIOCIN-10 - UNSPECIFIED",
+      "snapshotDisplayLabel": "NOVOBIOCIN-10 - UNSPECIFIED",
+      "snapshotValuesIndex": 4,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "NOVOBIOCIN-12 - UNSPECIFIED",
+      "originalLabel": "NOVOBIOCIN-12 - UNSPECIFIED",
+      "snapshotDisplayLabel": "NOVOBIOCIN-12 - UNSPECIFIED",
+      "snapshotValuesIndex": 5,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "TRIMETHOPRIM-0.1 - UNSPECIFIED",
+      "originalLabel": "TRIMETHOPRIM-0.1 - UNSPECIFIED",
+      "snapshotDisplayLabel": "TRIMETHOPRIM-0.1 - UNSPECIFIED",
+      "snapshotValuesIndex": 6,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "TRIMETHOPRIM-0.2 - UNSPECIFIED",
+      "originalLabel": "TRIMETHOPRIM-0.2 - UNSPECIFIED",
+      "snapshotDisplayLabel": "TRIMETHOPRIM-0.2 - UNSPECIFIED",
+      "snapshotValuesIndex": 7,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "SULFAMETHIZOLE-100 - UNSPECIFIED",
+      "originalLabel": "SULFAMETHIZOLE-100 - UNSPECIFIED",
+      "snapshotDisplayLabel": "SULFAMETHIZOLE-100 - UNSPECIFIED",
+      "snapshotValuesIndex": 8,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "SULFAMETHIZOLE-200 - UNSPECIFIED",
+      "originalLabel": "SULFAMETHIZOLE-200 - UNSPECIFIED",
+      "snapshotDisplayLabel": "SULFAMETHIZOLE-200 - UNSPECIFIED",
+      "snapshotValuesIndex": 9,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "TETRACYCLINE-0.25 - UNSPECIFIED",
+      "originalLabel": "TETRACYCLINE-0.25 - UNSPECIFIED",
+      "snapshotDisplayLabel": "TETRACYCLINE-0.25 - UNSPECIFIED",
+      "snapshotValuesIndex": 10,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "TETRACYCLINE-0.5 - UNSPECIFIED",
+      "originalLabel": "TETRACYCLINE-0.5 - UNSPECIFIED",
+      "snapshotDisplayLabel": "TETRACYCLINE-0.5 - UNSPECIFIED",
+      "snapshotValuesIndex": 11,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "CIPROFLOXACIN-0.004 - UNSPECIFIED",
+      "originalLabel": "CIPROFLOXACIN-0.004 - UNSPECIFIED",
+      "snapshotDisplayLabel": "CIPROFLOXACIN-0.004 - UNSPECIFIED",
+      "snapshotValuesIndex": 12,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "CIPROFLOXACIN-0.006 - UNSPECIFIED",
+      "originalLabel": "CIPROFLOXACIN-0.006 - UNSPECIFIED",
+      "snapshotDisplayLabel": "CIPROFLOXACIN-0.006 - UNSPECIFIED",
+      "snapshotValuesIndex": 13,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "PH4 - UNSPECIFIED",
+      "originalLabel": "PH4 - UNSPECIFIED",
+      "snapshotDisplayLabel": "PH4 - UNSPECIFIED",
+      "snapshotValuesIndex": 14,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "PH10 - UNSPECIFIED",
+      "originalLabel": "PH10 - UNSPECIFIED",
+      "snapshotDisplayLabel": "PH10 - UNSPECIFIED",
+      "snapshotValuesIndex": 15,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "16C -",
+      "originalLabel": "16C - ",
+      "snapshotDisplayLabel": "16C -",
+      "snapshotValuesIndex": 16,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "45C -",
+      "originalLabel": "45C - ",
+      "snapshotDisplayLabel": "45C -",
+      "snapshotValuesIndex": 17,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "ANAEROBIC - UNSPECIFIED",
+      "originalLabel": "ANAEROBIC - UNSPECIFIED",
+      "snapshotDisplayLabel": "ANAEROBIC - UNSPECIFIED",
+      "snapshotValuesIndex": 18,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "GLUCOSE - UNSPECIFIED",
+      "originalLabel": "GLUCOSE - UNSPECIFIED",
+      "snapshotDisplayLabel": "GLUCOSE - UNSPECIFIED",
+      "snapshotValuesIndex": 19,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "GLYCEROL - UNSPECIFIED",
+      "originalLabel": "GLYCEROL - UNSPECIFIED",
+      "snapshotDisplayLabel": "GLYCEROL - UNSPECIFIED",
+      "snapshotValuesIndex": 20,
+      "unit": "published drug-gene growth score (dimensionless)",
+      "meaning": "Published mutant growth score for this condition"
+    },
+    {
+      "column": "value",
+      "unit": "published drug-gene growth score (dimensionless)",
+      "aliasOf": "SDS0.5%/EDTA0.1 -"
+    },
+    {
+      "column": "x",
+      "unit": "published drug-gene growth score (dimensionless)",
+      "aliasOf": "SDS0.5%/EDTA0.1 -"
+    },
+    {
+      "column": "y",
+      "unit": "published drug-gene growth score (dimensionless)",
+      "aliasOf": "SDS0.5%/EDTA0.5 -"
+    },
+    {
+      "column": "category",
+      "kind": "categorical",
+      "meaning": "Snapshot selection category; not a source phenotype measurement"
+    }
+  ],
+  "snapshot": {
+    "file": "snapshot.json",
+    "sha256": "de5ea6950f31677e862d19f69f04b33a24621ec45322a9ccece3aa930bf1af34",
+    "originalSnapshotSha256": "9c5d48dcdcb9f192941c5b564b68ffcd804be6e6778f64b17d051520d6309a14",
+    "omittedPresentationFields": [
+      "suggestedViews"
+    ]
+  },
+  "sourceFiles": [
+    {
+      "path": "raw/genes/Nichols2011-elsevier-mmc2.xls",
+      "url": "https://ars.els-cdn.com/content/image/1-s2.0-S0092867410013747-mmc2.xls",
+      "citation": "https://doi.org/10.1016/j.cell.2010.11.052",
+      "sha256": "54be9cbc384bdbc7b1aa5a1da872d0e10ca513526f1f446ed068d27675f10fa8"
+    }
+  ],
+  "targetReference": {
+    "accession": "NC_000913.3",
+    "annotation": {
+      "path": "MG1655-NC_000913.3.gff3",
+      "sha256": "8654e5413df05d47649deb8cd86eb09a91012dfd0d2c9979f39ea2a60f137326",
+      "rootFeatureTypes": [
+        "gene",
+        "pseudogene"
+      ],
+      "rootFeatures": 4651
+    },
+    "sequence": {
+      "path": "MG1655-NC_000913.3.fasta",
+      "sha256": "03c41475639fe8de50f23f2b9456402668411ccaf488d39d8f99cafea6552ced"
+    }
+  },
+  "sourceRecordEncoding": "Workbook numeric values are retained as their exact XML value strings; absent cells are null.",
+  "limits": [
+    "Negative growth scores denote increased sensitivity; positive scores denote increased resistance in the published assay.",
+    "Scores are not raw growth rates, survival percentages, or correlation coefficients.",
+    "Network edges are computed profile similarity, not proven molecular interactions.",
+    "Missing table entries remain null; do not color as zero.",
+    "Concentrations and UNSPECIFIED text are preserved in original source column labels."
+  ],
+  "headerNormalization": "Trim leading/trailing whitespace for native CSV column lookup; original labels are preserved in quantities and source-records.json.",
+  "derivedCorrelations": {
+    "count": 142,
+    "meaning": "Snapshot Pearson profile similarities across source conditions",
+    "nativeMapping": "Excluded from annotation property columns; no molecular interaction claim"
+  }
+}

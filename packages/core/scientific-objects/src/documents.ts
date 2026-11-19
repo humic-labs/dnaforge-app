@@ -1,3 +1,4 @@
+import { parseWorkTaskDocument } from './work-task';
 import { IUPAC_EXPANSION } from '@waypoint/sequence-utils/iupac';
 import {
   defineBlob,
@@ -61,6 +62,10 @@ export function parseScientificDocument(input: unknown): ScientificDocument {
   const kind = text(document.kind);
   const common = ['formatVersion', 'kind'];
   switch (kind) {
+    case 'work-task':
+      return freezeJson(
+        parseWorkTaskDocument(document) as unknown as CanonicalValue
+      ) as unknown as ScientificDocument;
     case 'primer': {
       keys(document, [...common, 'name', 'molecule', 'bases', 'modifications', 'fields']);
       named(document);

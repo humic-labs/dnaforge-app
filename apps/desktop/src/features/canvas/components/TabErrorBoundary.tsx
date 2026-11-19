@@ -60,7 +60,7 @@ export class TabErrorBoundary extends Component<TabErrorBoundaryProps, TabErrorB
               {this.props.onClose && (
                 <button
                   onClick={this.props.onClose}
-                  className="px-3 py-1 text-sm bg-bg-muted text-fg-muted rounded hover:bg-bg hover:text-fg border border-border"
+                  className="px-3 py-1 text-sm bg-bg-muted text-fg-muted rounded wp-interactive border border-border"
                 >
                   Close Tab
                 </button>

@@ -1,0 +1,755 @@
+{
+  "schema": "dnaforge.empirical-interval-coordinate-evidence.v1",
+  "publisherArticle": {
+    "url": "https://doi.org/10.1093/nar/gkq934",
+    "xmlSha256": "4d7d5867ac6482fada6f3b6f9e70be46f5d4fe19066bb90ceeee6c89514ff78e",
+    "declaredGenomeSource": "KEGG E. coli K12 MG1655; interval table and methods do not state an accession version",
+    "declaredGeneAnnotation": "EcoCyc 11.5",
+    "supplementPdfSha256": "825d9d63e9ed077e99defd73b81e7cfced4214af9d45f758b2474dc793e8d457"
+  },
+  "processedSignalSource": "https://www.ebi.ac.uk/biostudies/studies/E-MTAB-332",
+  "processedSignalProbes": [
+    {
+      "track": "FisA",
+      "url": "https://www.ebi.ac.uk/biostudies/files/E-MTAB-332/FisA.blat.basecount.pruned",
+      "requestedRange": "bytes=0-262143",
+      "contentRange": "bytes 0-262143/53967312",
+      "bytes": 262144,
+      "sha256": "ef5ab4ed9c1695c16c3cd81405583c9fc7989f37f0e0919d85013a447157ca8d",
+      "firstCompletePosition": 1,
+      "lastCompletePosition": 27705
+    },
+    {
+      "track": "FisA",
+      "url": "https://www.ebi.ac.uk/biostudies/files/E-MTAB-332/FisA.blat.basecount.pruned",
+      "requestedRange": "bytes=-4096",
+      "contentRange": "bytes 53963216-53967311/53967312",
+      "bytes": 4096,
+      "sha256": "78c9cd3863cabbba89df509f16323962a8218d845f084e0a547cb9a72a9f28d9",
+      "firstCompletePosition": 4639335,
+      "lastCompletePosition": 4639675
+    },
+    {
+      "track": "FisB",
+      "url": "https://www.ebi.ac.uk/biostudies/files/E-MTAB-332/FisB.blat.basecount.pruned",
+      "requestedRange": "bytes=0-262143",
+      "contentRange": "bytes 0-262143/54332004",
+      "bytes": 262144,
+      "sha256": "67d2b1407de9cd307ae90fec617af0b45982d3346908c754d257a7589b6f6379",
+      "firstCompletePosition": 1,
+      "lastCompletePosition": 27647
+    },
+    {
+      "track": "FisB",
+      "url": "https://www.ebi.ac.uk/biostudies/files/E-MTAB-332/FisB.blat.basecount.pruned",
+      "requestedRange": "bytes=-4096",
+      "contentRange": "bytes 54327908-54332003/54332004",
+      "bytes": 4096,
+      "sha256": "ae28f91561c94942317f7068d892c3625c6d0be0d3e6ff5c050ecce902448439",
+      "firstCompletePosition": 4639335,
+      "lastCompletePosition": 4639675
+    },
+    {
+      "track": "HnsA",
+      "url": "https://www.ebi.ac.uk/biostudies/files/E-MTAB-332/HnsA.blat.basecount.pruned",
+      "requestedRange": "bytes=0-262143",
+      "contentRange": "bytes 0-262143/54691801",
+      "bytes": 262144,
+      "sha256": "13a63f3e403d0f2e7cda1f147f7d1c3cc6e3060b0e916c8b6e7d1cee7818466f",
+      "firstCompletePosition": 1,
+      "lastCompletePosition": 27673
+    },
+    {
+      "track": "HnsA",
+      "url": "https://www.ebi.ac.uk/biostudies/files/E-MTAB-332/HnsA.blat.basecount.pruned",
+      "requestedRange": "bytes=-4096",
+      "contentRange": "bytes 54687705-54691800/54691801",
+      "bytes": 4096,
+      "sha256": "b6e2429437af5a290d840e0c67f4491073f0484f09b7003d9b22647b87a750ba",
+      "firstCompletePosition": 4639334,
+      "lastCompletePosition": 4639675
+    },
+    {
+      "track": "HnsB",
+      "url": "https://www.ebi.ac.uk/biostudies/files/E-MTAB-332/HnsB.blat.basecount.pruned",
+      "requestedRange": "bytes=0-262143",
+      "contentRange": "bytes 0-262143/53921000",
+      "bytes": 262144,
+      "sha256": "038cec484374bede15c335bf47cbf550fdc06e6520237476c66b627ca9f9c15a",
+      "firstCompletePosition": 1,
+      "lastCompletePosition": 28135
+    },
+    {
+      "track": "HnsB",
+      "url": "https://www.ebi.ac.uk/biostudies/files/E-MTAB-332/HnsB.blat.basecount.pruned",
+      "requestedRange": "bytes=-4096",
+      "contentRange": "bytes 53916904-53920999/53921000",
+      "bytes": 4096,
+      "sha256": "c19fa2a543bb02f1b1e42b31dcd5cde5cdf49bd0fa2621a3d260155aba9c1c20",
+      "firstCompletePosition": 4639332,
+      "lastCompletePosition": 4639675
+    }
+  ],
+  "boundarySamples": [
+    {
+      "track": "FisA",
+      "sourceLine": 2,
+      "reportedStart": 2687,
+      "reportedEnd": 2976,
+      "empiricalIntegerThreshold": 296,
+      "signalAtStartMinus1": 294,
+      "signalAtStart": 297,
+      "signalAtEndMinus1": 297,
+      "signalAtEnd": 295
+    },
+    {
+      "track": "FisA",
+      "sourceLine": 3,
+      "reportedStart": 4135,
+      "reportedEnd": 4162,
+      "empiricalIntegerThreshold": 296,
+      "signalAtStartMinus1": 295,
+      "signalAtStart": 297,
+      "signalAtEndMinus1": 299,
+      "signalAtEnd": 291
+    },
+    {
+      "track": "FisA",
+      "sourceLine": 4,
+      "reportedStart": 6331,
+      "reportedEnd": 6484,
+      "empiricalIntegerThreshold": 296,
+      "signalAtStartMinus1": 294,
+      "signalAtStart": 300,
+      "signalAtEndMinus1": 296,
+      "signalAtEnd": 292
+    },
+    {
+      "track": "FisA",
+      "sourceLine": 5,
+      "reportedStart": 7415,
+      "reportedEnd": 7577,
+      "empiricalIntegerThreshold": 296,
+      "signalAtStartMinus1": 294,
+      "signalAtStart": 300,
+      "signalAtEndMinus1": 298,
+      "signalAtEnd": 293
+    },
+    {
+      "track": "FisA",
+      "sourceLine": 6,
+      "reportedStart": 7839,
+      "reportedEnd": 7915,
+      "empiricalIntegerThreshold": 296,
+      "signalAtStartMinus1": 294,
+      "signalAtStart": 297,
+      "signalAtEndMinus1": 297,
+      "signalAtEnd": 288
+    },
+    {
+      "track": "FisA",
+      "sourceLine": 7,
+      "reportedStart": 10542,
+      "reportedEnd": 10554,
+      "empiricalIntegerThreshold": 296,
+      "signalAtStartMinus1": 292,
+      "signalAtStart": 298,
+      "signalAtEndMinus1": 297,
+      "signalAtEnd": 293
+    },
+    {
+      "track": "FisA",
+      "sourceLine": 8,
+      "reportedStart": 12449,
+      "reportedEnd": 12457,
+      "empiricalIntegerThreshold": 296,
+      "signalAtStartMinus1": 295,
+      "signalAtStart": 297,
+      "signalAtEndMinus1": 296,
+      "signalAtEnd": 290
+    },
+    {
+      "track": "FisA",
+      "sourceLine": 9,
+      "reportedStart": 12709,
+      "reportedEnd": 12910,
+      "empiricalIntegerThreshold": 296,
+      "signalAtStartMinus1": 292,
+      "signalAtStart": 298,
+      "signalAtEndMinus1": 300,
+      "signalAtEnd": 294
+    },
+    {
+      "track": "FisA",
+      "sourceLine": 10,
+      "reportedStart": 13877,
+      "reportedEnd": 14568,
+      "empiricalIntegerThreshold": 296,
+      "signalAtStartMinus1": 295,
+      "signalAtStart": 296,
+      "signalAtEndMinus1": 296,
+      "signalAtEnd": 295
+    },
+    {
+      "track": "FisA",
+      "sourceLine": 11,
+      "reportedStart": 18793,
+      "reportedEnd": 19104,
+      "empiricalIntegerThreshold": 296,
+      "signalAtStartMinus1": 295,
+      "signalAtStart": 296,
+      "signalAtEndMinus1": 296,
+      "signalAtEnd": 291
+    },
+    {
+      "track": "FisA",
+      "sourceLine": 12,
+      "reportedStart": 19539,
+      "reportedEnd": 19724,
+      "empiricalIntegerThreshold": 296,
+      "signalAtStartMinus1": 293,
+      "signalAtStart": 296,
+      "signalAtEndMinus1": 297,
+      "signalAtEnd": 295
+    },
+    {
+      "track": "FisA",
+      "sourceLine": 13,
+      "reportedStart": 20921,
+      "reportedEnd": 21933,
+      "empiricalIntegerThreshold": 296,
+      "signalAtStartMinus1": 295,
+      "signalAtStart": 299,
+      "signalAtEndMinus1": 296,
+      "signalAtEnd": 292
+    },
+    {
+      "track": "FisA",
+      "sourceLine": 14,
+      "reportedStart": 22210,
+      "reportedEnd": 22877,
+      "empiricalIntegerThreshold": 296,
+      "signalAtStartMinus1": 289,
+      "signalAtStart": 297,
+      "signalAtEndMinus1": 297,
+      "signalAtEnd": 295
+    },
+    {
+      "track": "FisB",
+      "sourceLine": 2,
+      "reportedStart": 2652,
+      "reportedEnd": 2994,
+      "empiricalIntegerThreshold": 351,
+      "signalAtStartMinus1": 350,
+      "signalAtStart": 358,
+      "signalAtEndMinus1": 351,
+      "signalAtEnd": 348
+    },
+    {
+      "track": "FisB",
+      "sourceLine": 3,
+      "reportedStart": 4083,
+      "reportedEnd": 4232,
+      "empiricalIntegerThreshold": 351,
+      "signalAtStartMinus1": 349,
+      "signalAtStart": 355,
+      "signalAtEndMinus1": 351,
+      "signalAtEnd": 345
+    },
+    {
+      "track": "FisB",
+      "sourceLine": 4,
+      "reportedStart": 6332,
+      "reportedEnd": 6553,
+      "empiricalIntegerThreshold": 351,
+      "signalAtStartMinus1": 347,
+      "signalAtStart": 352,
+      "signalAtEndMinus1": 352,
+      "signalAtEnd": 348
+    },
+    {
+      "track": "FisB",
+      "sourceLine": 5,
+      "reportedStart": 7424,
+      "reportedEnd": 7646,
+      "empiricalIntegerThreshold": 351,
+      "signalAtStartMinus1": 348,
+      "signalAtStart": 352,
+      "signalAtEndMinus1": 352,
+      "signalAtEnd": 346
+    },
+    {
+      "track": "FisB",
+      "sourceLine": 6,
+      "reportedStart": 10440,
+      "reportedEnd": 10549,
+      "empiricalIntegerThreshold": 351,
+      "signalAtStartMinus1": 349,
+      "signalAtStart": 352,
+      "signalAtEndMinus1": 351,
+      "signalAtEnd": 349
+    },
+    {
+      "track": "FisB",
+      "sourceLine": 7,
+      "reportedStart": 12340,
+      "reportedEnd": 12492,
+      "empiricalIntegerThreshold": 351,
+      "signalAtStartMinus1": 349,
+      "signalAtStart": 351,
+      "signalAtEndMinus1": 352,
+      "signalAtEnd": 348
+    },
+    {
+      "track": "FisB",
+      "sourceLine": 8,
+      "reportedStart": 13905,
+      "reportedEnd": 14823,
+      "empiricalIntegerThreshold": 351,
+      "signalAtStartMinus1": 350,
+      "signalAtStart": 352,
+      "signalAtEndMinus1": 351,
+      "signalAtEnd": 350
+    },
+    {
+      "track": "FisB",
+      "sourceLine": 9,
+      "reportedStart": 18789,
+      "reportedEnd": 19115,
+      "empiricalIntegerThreshold": 351,
+      "signalAtStartMinus1": 344,
+      "signalAtStart": 355,
+      "signalAtEndMinus1": 351,
+      "signalAtEnd": 343
+    },
+    {
+      "track": "FisB",
+      "sourceLine": 10,
+      "reportedStart": 19532,
+      "reportedEnd": 19756,
+      "empiricalIntegerThreshold": 351,
+      "signalAtStartMinus1": 349,
+      "signalAtStart": 352,
+      "signalAtEndMinus1": 352,
+      "signalAtEnd": 350
+    },
+    {
+      "track": "FisB",
+      "sourceLine": 11,
+      "reportedStart": 20973,
+      "reportedEnd": 21971,
+      "empiricalIntegerThreshold": 351,
+      "signalAtStartMinus1": 348,
+      "signalAtStart": 353,
+      "signalAtEndMinus1": 353,
+      "signalAtEnd": 346
+    },
+    {
+      "track": "FisB",
+      "sourceLine": 12,
+      "reportedStart": 22194,
+      "reportedEnd": 22814,
+      "empiricalIntegerThreshold": 351,
+      "signalAtStartMinus1": 349,
+      "signalAtStart": 354,
+      "signalAtEndMinus1": 353,
+      "signalAtEnd": 349
+    },
+    {
+      "track": "HnsA",
+      "sourceLine": 2,
+      "reportedStart": 17294,
+      "reportedEnd": 17660,
+      "empiricalIntegerThreshold": 478,
+      "signalAtStartMinus1": 475,
+      "signalAtStart": 479,
+      "signalAtEndMinus1": 478,
+      "signalAtEnd": 476
+    },
+    {
+      "track": "HnsB",
+      "sourceLine": 2,
+      "reportedStart": 11316,
+      "reportedEnd": 11497,
+      "empiricalIntegerThreshold": 258,
+      "signalAtStartMinus1": 256,
+      "signalAtStart": 258,
+      "signalAtEndMinus1": 258,
+      "signalAtEnd": 257
+    },
+    {
+      "track": "HnsB",
+      "sourceLine": 3,
+      "reportedStart": 17205,
+      "reportedEnd": 17674,
+      "empiricalIntegerThreshold": 258,
+      "signalAtStartMinus1": 257,
+      "signalAtStart": 263,
+      "signalAtEndMinus1": 260,
+      "signalAtEnd": 255
+    }
+  ],
+  "referencePrimerAnchors": [
+    {
+      "sourceLabel": "Fis AB peak 1",
+      "reportedRegionStart": 2561245,
+      "reportedRegionEnd": 2561638,
+      "forwardPrimer": "TCACCCATCTTTCCGTTTTC",
+      "reversePrimer": "TGAAGGGAAAAAGCGATCTG",
+      "nearbyPrimerPairMatches": {
+        "NC_000913.2": [
+          {
+            "start1": 2561329,
+            "end1": 2561472
+          }
+        ],
+        "NC_000913.3": [
+          {
+            "start1": 2563307,
+            "end1": 2563450
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "Fis AB peak 2",
+      "reportedRegionStart": 344211,
+      "reportedRegionEnd": 344578,
+      "forwardPrimer": "GGTTCCACCTGCAAGTTGTT",
+      "reversePrimer": "TCGCCGATCACAACAAAATA",
+      "nearbyPrimerPairMatches": {
+        "NC_000913.2": [
+          {
+            "start1": 344225,
+            "end1": 344352
+          }
+        ],
+        "NC_000913.3": [
+          {
+            "start1": 345001,
+            "end1": 345128
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "H-NS ABCD peak 1",
+      "reportedRegionStart": 3803128,
+      "reportedRegionEnd": 3806280,
+      "forwardPrimer": "GCCTTCCCACGACTGTGTAT",
+      "reversePrimer": "GGAAAAGCTGTTGCCAGAAG",
+      "nearbyPrimerPairMatches": {
+        "NC_000913.2": [
+          {
+            "start1": 3804962,
+            "end1": 3805141
+          }
+        ],
+        "NC_000913.3": [
+          {
+            "start1": 3806939,
+            "end1": 3807118
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "H-NS AB peak 2",
+      "reportedRegionStart": 3797432,
+      "reportedRegionEnd": 3802332,
+      "forwardPrimer": "ACCTGGATACCGCCTTTTCT",
+      "reversePrimer": "AACGCTTGATCGTTTGCTTT",
+      "nearbyPrimerPairMatches": {
+        "NC_000913.2": [
+          {
+            "start1": 3799518,
+            "end1": 3799660
+          }
+        ],
+        "NC_000913.3": [
+          {
+            "start1": 3801495,
+            "end1": 3801637
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "H-NS CD peak 2",
+      "reportedRegionStart": 2126381,
+      "reportedRegionEnd": 2128756,
+      "forwardPrimer": "GCGACCAGGCAAATATTGTT",
+      "reversePrimer": "GGCATTTACGCCAACGTACT",
+      "nearbyPrimerPairMatches": {
+        "NC_000913.2": [
+          {
+            "start1": 2126807,
+            "end1": 2126983
+          }
+        ],
+        "NC_000913.3": [
+          {
+            "start1": 2128783,
+            "end1": 2128959
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "Fis A no peak 1",
+      "reportedRegionStart": 1647438,
+      "reportedRegionEnd": 1648461,
+      "forwardPrimer": "AGGACGCGATAATGAAAACG",
+      "reversePrimer": "CATTGTGCACATCCTTTTGG",
+      "nearbyPrimerPairMatches": {
+        "NC_000913.2": [
+          {
+            "start1": 1647622,
+            "end1": 1647820
+          }
+        ],
+        "NC_000913.3": [
+          {
+            "start1": 1649598,
+            "end1": 1649796
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "Fis A no peak 2",
+      "reportedRegionStart": 3802200,
+      "reportedRegionEnd": 3803224,
+      "forwardPrimer": "CGCTTGCCATGTTCAATAAA",
+      "reversePrimer": "AATATTGGCCTGACGCAAAG",
+      "nearbyPrimerPairMatches": {
+        "NC_000913.2": [
+          {
+            "start1": 3803223,
+            "end1": 3803331
+          }
+        ],
+        "NC_000913.3": [
+          {
+            "start1": 3805200,
+            "end1": 3805308
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "Fis B no peak 1",
+      "reportedRegionStart": 3266434,
+      "reportedRegionEnd": 3267440,
+      "forwardPrimer": "CTGGTCGTCCCCCAAATTA",
+      "reversePrimer": "ATATTCCCCGACCTCAAAGC",
+      "nearbyPrimerPairMatches": {
+        "NC_000913.2": [
+          {
+            "start1": 3267406,
+            "end1": 3267537
+          }
+        ],
+        "NC_000913.3": [
+          {
+            "start1": 3269384,
+            "end1": 3269515
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "Fis B no peak 2",
+      "reportedRegionStart": 1526350,
+      "reportedRegionEnd": 1527376,
+      "forwardPrimer": "TCGAGAGCCGCTACCTCTAC",
+      "reversePrimer": "ACCGTCTGGATACGTGTGGT",
+      "nearbyPrimerPairMatches": {
+        "NC_000913.2": [
+          {
+            "start1": 1526734,
+            "end1": 1526911
+          }
+        ],
+        "NC_000913.3": [
+          {
+            "start1": 1528710,
+            "end1": 1528887
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "H-NS AB no peak 1",
+      "reportedRegionStart": 380642,
+      "reportedRegionEnd": 381655,
+      "forwardPrimer": "GTTATCGGAGAGCTGCCAAC",
+      "reversePrimer": "GATCCGGTAAACACGTTTGG",
+      "nearbyPrimerPairMatches": {
+        "NC_000913.2": [
+          {
+            "start1": 381072,
+            "end1": 381182
+          }
+        ],
+        "NC_000913.3": [
+          {
+            "start1": 381848,
+            "end1": 381958
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "H-NS A no peak 2",
+      "reportedRegionStart": 3128239,
+      "reportedRegionEnd": 3129265,
+      "forwardPrimer": "AGCTGGGTAATCTGCTGCAT",
+      "reversePrimer": "GTTGATGGCCGTTTTGTTCT",
+      "nearbyPrimerPairMatches": {
+        "NC_000913.2": [
+          {
+            "start1": 3128849,
+            "end1": 3129024
+          }
+        ],
+        "NC_000913.3": [
+          {
+            "start1": 3130827,
+            "end1": 3131002
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "H-NS B no peak 2",
+      "reportedRegionStart": 3363691,
+      "reportedRegionEnd": 3364695,
+      "forwardPrimer": "CATTACCAGCCTTGGGGTAA",
+      "reversePrimer": "GCCGTCAGACCAGAAAAGAG",
+      "nearbyPrimerPairMatches": {
+        "NC_000913.2": [
+          {
+            "start1": 3364554,
+            "end1": 3364658
+          }
+        ],
+        "NC_000913.3": [
+          {
+            "start1": 3366532,
+            "end1": 3366636
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "H-NS C no peak 1",
+      "reportedRegionStart": 2287078,
+      "reportedRegionEnd": 2288078,
+      "forwardPrimer": "CAAGGTGCCTTGAGTCATCA",
+      "reversePrimer": "CTGTACGAAATCGCCTCCAT",
+      "nearbyPrimerPairMatches": {
+        "NC_000913.2": [
+          {
+            "start1": 2287645,
+            "end1": 2287827
+          }
+        ],
+        "NC_000913.3": [
+          {
+            "start1": 2289623,
+            "end1": 2289805
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "H-NS C no peak 2",
+      "reportedRegionStart": 2064262,
+      "reportedRegionEnd": 2065276,
+      "forwardPrimer": "GTTGATGGCCGTTTTGTTCT",
+      "reversePrimer": "AGCTGGGTAATCTGCTGCAT",
+      "nearbyPrimerPairMatches": {
+        "NC_000913.2": [
+          {
+            "start1": 2064521,
+            "end1": 2064696
+          }
+        ],
+        "NC_000913.3": [
+          {
+            "start1": 2066497,
+            "end1": 2066672
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "H-NS D no peak 1",
+      "reportedRegionStart": 4505644,
+      "reportedRegionEnd": 4506661,
+      "forwardPrimer": "CTTCACGTGAGATCGTCGAA",
+      "reversePrimer": "GTCTGAGCGCGAGGAGATAC",
+      "nearbyPrimerPairMatches": {
+        "NC_000913.2": [
+          {
+            "start1": 4506358,
+            "end1": 4506458
+          }
+        ],
+        "NC_000913.3": [
+          {
+            "start1": 4508335,
+            "end1": 4508435
+          }
+        ]
+      }
+    },
+    {
+      "sourceLabel": "H-NS D no peak 2",
+      "reportedRegionStart": 391095,
+      "reportedRegionEnd": 392119,
+      "forwardPrimer": "ACCGTAACGCTGTTTTGACC",
+      "reversePrimer": "CAGGCTGAGTTCAGCATCAA",
+      "nearbyPrimerPairMatches": {
+        "NC_000913.2": [
+          {
+            "start1": 391635,
+            "end1": 391802
+          }
+        ],
+        "NC_000913.3": [
+          {
+            "start1": 392411,
+            "end1": 392578
+          }
+        ]
+      }
+    }
+  ],
+  "referenceLengths": {
+    "NC_000913.2": 4639675,
+    "NC_000913.3": 4641652
+  },
+  "interpretation": {
+    "origin": "Processed tracks enumerate positions from 1 through 4639675, matching the exact NC_000913.2 reference length. This establishes a one-based position domain empirically.",
+    "endMeaning": "Across all 27 complete source intervals in the four valid head probes, start is the first threshold-passing position and end is the first threshold-failing position after the interval. All six full interval tables reproduce the published Table 1 total bases using end-start.",
+    "conversion": "start0 = sourceStart - 1; end0 = sourceEnd - 1. Source end is exclusive in the one-based processed-signal coordinate domain.",
+    "referenceBinding": "Five publisher validation primer pairs lie within their reported peak intervals on NC_000913.2. Four of those five no longer lie within those intervals on NC_000913.3; its shifts range from 776 to 1978 bases. Every valid signal tail ends at the NC_000913.2 length. The version binding is an empirical coordinate inference, not an author-declared accession.",
+    "confidence": {
+      "selectedIntervalCoordinateConversion": "high",
+      "coordinateCompatibilityWithNC_000913.2": "high",
+      "originalAuthorAccessionAttribution": "moderate; neither accession nor original KEGG FASTA bytes were supplied"
+    }
+  },
+  "unavailableAdditionalSignalProbes": [
+    {
+      "track": "HnsC",
+      "observation": "BioStudies processed-signal request returned HTTP 403; no body was accepted."
+    },
+    {
+      "track": "HnsD",
+      "observation": "BioStudies serves a truncated 4096-byte object although study metadata lists 55022594 bytes. Excluded from coordinate validation."
+    }
+  ]
+}

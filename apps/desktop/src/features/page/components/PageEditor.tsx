@@ -1,3 +1,4 @@
+import { NotebookWorkControl } from './NotebookWorkControl';
 import { Button } from '../../../components/ui';
 import { useNotebookConflictStore } from '../notebook-conflict-store';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
@@ -615,6 +616,9 @@ function PageEditorInner({
           <RelativeSavedLabel updatedAt={page.updatedAt} />
         )}
         <NotebookSourceDetailsControl details={sourceDetails} />
+        {editor && nativeNotebook?.snapshot && (
+          <NotebookWorkControl key={pageId} editor={editor} client={nativeNotebook} />
+        )}
         {nativeNotebook?.snapshot?.publication?.status === 'pending' && (
           <div role="status" className="flex items-center gap-2">
             <span>The notebook is saved. Its project update needs to finish.</span>

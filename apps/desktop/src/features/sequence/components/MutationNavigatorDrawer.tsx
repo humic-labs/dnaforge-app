@@ -59,7 +59,7 @@ export function MutationNavigatorDrawer({
             type="button"
             aria-label="Close mutations"
             onClick={onClose}
-            className="rounded px-1.5 py-0.5 text-lg leading-none text-fg-muted hover:bg-bg-subtle"
+            className="rounded px-1.5 py-0.5 text-lg leading-none text-fg-muted wp-interactive"
           >
             ×
           </button>
@@ -100,7 +100,8 @@ export function MutationNavigatorDrawer({
             type="button"
             onClick={onChooseSource}
             disabled={busy}
-            className="mt-4 rounded border border-border px-3 py-2 text-sm font-medium text-fg hover:border-accent hover:bg-bg-subtle disabled:cursor-wait disabled:opacity-50"
+            data-interaction-border="true"
+            className="mt-4 rounded border border-border px-3 py-2 text-sm font-medium text-fg wp-interactive disabled:cursor-wait disabled:opacity-50"
           >
             {phase === 'preparing' ? 'Preparing calls…' : 'Choose VCF or BCF…'}
           </button>
@@ -132,7 +133,7 @@ export function MutationNavigatorDrawer({
                       aria-label={`${coordinate} ${allele}`}
                       aria-pressed={selected}
                       onClick={() => onSelectVariant(variant)}
-                      className={`w-full px-3 py-2.5 text-left hover:bg-bg-subtle ${
+                      className={`w-full px-3 py-2.5 text-left wp-interactive ${
                         selected ? 'bg-accent/10' : ''
                       }`}
                     >
@@ -175,7 +176,7 @@ export function MutationNavigatorDrawer({
                 aria-label="Load more mutations"
                 onClick={onLoadMore}
                 disabled={busy}
-                className="w-full rounded border border-border px-3 py-1.5 text-xs text-fg hover:bg-bg-subtle disabled:cursor-wait disabled:opacity-50"
+                className="w-full rounded border border-border px-3 py-1.5 text-xs text-fg wp-interactive disabled:cursor-wait disabled:opacity-50"
               >
                 {phase === 'loading-more' ? 'Loading…' : 'Load more'}
               </button>

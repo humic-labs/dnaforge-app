@@ -258,7 +258,7 @@ export function InlineAgentQuestion({
                 {question.options.map((option) => (
                   <label
                     key={option.id}
-                    className="flex cursor-pointer items-start gap-2 rounded-md border border-border bg-bg px-2.5 py-2 text-xs hover:bg-bg-muted"
+                    className="flex cursor-pointer items-start gap-2 rounded-md border border-border bg-bg px-2.5 py-2 text-xs wp-interactive"
                   >
                     <input
                       type={inputType}
@@ -304,7 +304,7 @@ export function InlineAgentQuestion({
             <button
               type="button"
               onClick={() => onCancel({ outcome: 'cancelled', answers: {} })}
-              className="rounded-md border border-border bg-bg px-3 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-bg-muted"
+              className="rounded-md border border-border bg-bg px-3 py-1.5 text-xs font-medium text-fg transition-colors wp-interactive"
               data-testid="agent-question-cancel"
             >
               Cancel turn

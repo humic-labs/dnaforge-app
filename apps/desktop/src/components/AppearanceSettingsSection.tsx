@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { userMessage } from '@waypoint/user-messages';
 import { useEffect, type Ref, type ReactNode } from 'react';
 import { useDarkMode } from '../shared/context/DarkModeContext';
@@ -51,11 +52,10 @@ function AssemblyColorSchemePicker({
             type="button"
             data-testid={`assembly-color-scheme-${scheme.value}`}
             aria-pressed={selected}
+            data-selected={selected}
             onClick={() => onChange(scheme.value)}
-            className={`rounded-md p-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-              selected
-                ? 'bg-accent/10'
-                : 'bg-black/[0.025] hover:bg-black/[0.06] dark:bg-white/[0.035] dark:hover:bg-white/[0.075]'
+            className={`${INTERACTION_CLASS} rounded-md p-2 text-left transition-colors ${
+              selected ? 'bg-accent/10' : 'bg-black/[0.025] dark:bg-white/[0.035] '
             }`}
           >
             <div className="flex min-w-0 items-center gap-2">

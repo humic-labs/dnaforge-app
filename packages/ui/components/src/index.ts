@@ -62,3 +62,51 @@ export {
   buildCleavedBorderPath,
 } from './primer';
 export type { PrimerPathConfig } from './primer';
+export { createMenuState, transitionMenu, menuShouldRestoreFocus } from './menu/menu-state';
+export type {
+  MenuItem,
+  MenuCloseReason,
+  MenuCollections,
+  MenuDirection,
+  MenuMoveOptions,
+  MenuLevel,
+  MenuState,
+  MenuEvent,
+  MenuEffect,
+  MenuTransition,
+} from './menu/menu-state';
+export { useMenu } from './menu/use-menu';
+export type {
+  UseMenuOptions,
+  MenuController,
+  MenuKeyboardEvent,
+  MenuKeyboardOptions,
+} from './menu/use-menu';
+export { menuDensityStyle, INTERACTION_CLASS } from './menu/appearance';
+export type { MenuDensity, MenuTone } from './menu/appearance';
+export {
+  MenuSurface,
+  MenuTrigger,
+  MenuRow,
+  MenuSeparator,
+  MenuCaret,
+  MenuNativeSelect,
+  MenuStatus,
+  MenuSearchInput,
+  MenuRowGroup,
+  MenuRowAction,
+  MenuSectionLabel,
+  MenuLink,
+} from './menu/presentation';
+export type {
+  MenuSurfaceProps,
+  MenuLayout,
+  MenuTriggerProps,
+  MenuRowProps,
+  MenuCaretProps,
+  MenuNativeSelectProps,
+  MenuSearchInputProps,
+  MenuRowGroupProps,
+  MenuRowActionProps,
+  MenuLinkProps,
+} from './menu/presentation';

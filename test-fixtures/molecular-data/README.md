@@ -25,3 +25,10 @@ choosing a source model retains that exact model during agent coloring and save/
 Source: https://www.rcsb.org/structure/1D3Z. Downloaded from
 https://files.rcsb.org/download/1D3Z.cif on 2026-10-08.
 SHA-256: `7242859f3508ff1711e5b38a78b14c960f137c096f36302406223c93b909c407`.
+
+## Overview contour
+
+The `overview-contour.mvs.json` example uses `1URN.cif`. It draws the
+complete RNA entity as a Gaussian surface and keeps the protein entity as a
+cartoon. Use the coordinate URI, structure identity, and canvas settings from
+`mol_get_scene` when applying the example to an open view.

@@ -31,26 +31,6 @@ export const DEFAULT_MOLECULAR_PRESENTATION_PREFERENCES: MolecularPresentationPr
   comparisonPresentation: 'authored',
 };
 
-export const molecularPresentationOverrideSchema = z
-  .object({
-    reason: z.string().trim().min(1).max(500),
-    fields: z
-      .array(
-        z.enum([
-          'nucleotideDetail',
-          'nucleotideBackbone',
-          'cartoonScale',
-          'preservePolymerContext',
-          'bindingSiteDetail',
-          'bindingSiteSurface',
-          'interfaceSurface',
-          'comparisonPresentation',
-        ])
-      )
-      .min(1),
-  })
-  .strict();
-
 export const useMolecularPresentationPreferences = create<{
   preferences: MolecularPresentationPreferences;
   update: (patch: Partial<MolecularPresentationPreferences>) => void;

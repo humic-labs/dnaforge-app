@@ -2,12 +2,12 @@ import {
   usePresentationOverlay,
   PresentationScopeContext,
 } from '../../presentation/PresentationSurface';
+import { MenuRow, useMenu } from '@waypoint/ui-components';
 import { isReferenceCreationTool } from '../../features/ai/references/constants';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type {
   CSSProperties,
-  FocusEvent as ReactFocusEvent,
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
 } from 'react';
@@ -81,7 +81,6 @@ function AskAiPicker({ picker }: { picker: PendingAskAiPicker }) {
   const presentationOverlay = usePresentationOverlay('modal');
 
   const [conversations, setConversations] = useState<DBConversation[]>([]);
-  const [cursor, setCursor] = useState(0);
   const [question, setQuestion] = useState(picker.seedText ?? '');
   const [previewMessages, setPreviewMessages] = useState<DBMessage[] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -107,8 +106,38 @@ function AskAiPicker({ picker }: { picker: PendingAskAiPicker }) {
     startTop: number;
   } | null>(null);
 
-  const targetCount = conversations.length + 1;
-  const activeConversation = cursor === 0 ? null : (conversations[cursor - 1] ?? null);
+  const alive = useRef(true);
+  const menu = useMenu({
+    defaultOpen: true,
+    items: [
+      { id: 'new-chat', textValue: 'New chat', closeOnActivate: false },
+      ...conversations.map((conversation) => ({
+        id: `conversation:${conversation.id}`,
+        textValue: conversation.title || 'Untitled conversation',
+        closeOnActivate: false,
+      })),
+    ],
+    onActivate: (id) => void confirmTarget(id),
+    onClose: (reason) => {
+      presentationOverlay.setReturnFocusPolicy(reason === 'escape' ? 'restore' : 'preserve');
+      if (useChatStore.getState().pendingAskAiPicker === picker)
+        useChatStore.getState().setPendingAskAiPicker(null);
+    },
+  });
+  const activeConversation =
+    conversations.find((conversation) => `conversation:${conversation.id}` === menu.activeId) ??
+    null;
+  const isNewTarget = activeConversation === null;
+  const { bindSurface, positioned } = menu;
+  useLayoutEffect(() => {
+    alive.current = true;
+    bindSurface(cardRef.current);
+    positioned();
+    return () => {
+      alive.current = false;
+      bindSurface(null);
+    };
+  }, [bindSurface, positioned]);
   const destinationTitle = activeConversation
     ? activeConversation.title || 'Untitled conversation'
     : 'New chat';
@@ -120,7 +149,6 @@ function AskAiPicker({ picker }: { picker: PendingAskAiPicker }) {
       if (cancelled) return;
       const sorted = [...convs].sort((a, b) => b.updated_at - a.updated_at);
       setConversations(sorted);
-      setCursor(0);
     })();
     return () => {
       cancelled = true;
@@ -157,17 +185,6 @@ function AskAiPicker({ picker }: { picker: PendingAskAiPicker }) {
 
   useLayoutEffect(() => {
     safeFocus(inputRef.current);
-  }, []);
-
-  const handleInputBlur = useCallback((e: ReactFocusEvent<HTMLInputElement>) => {
-    const next = e.relatedTarget as Node | null;
-    if (next && cardRef.current?.contains(next)) return;
-    setTimeout(() => {
-      const input = inputRef.current;
-      if (input && input.isConnected && !cardRef.current?.contains(document.activeElement)) {
-        safeFocus(input);
-      }
-    }, 0);
   }, []);
 
   useLayoutEffect(() => {
@@ -211,73 +228,65 @@ function AskAiPicker({ picker }: { picker: PendingAskAiPicker }) {
     if (active && typeof (active as HTMLElement).scrollIntoView === 'function') {
       (active as HTMLElement).scrollIntoView({ block: 'nearest' });
     }
-  }, [cursor, conversations.length]);
+  }, [menu.activeId, conversations.length]);
 
-  const cancel = useCallback(() => {
-    useChatStore.getState().setPendingAskAiPicker(null);
-  }, []);
+  const cancel = () => menu.close('escape');
 
-  const confirmTarget = useCallback(
-    async (targetCursor: number) => {
-      if (submittingRef.current) return;
-      submittingRef.current = true;
-      try {
-        const chat = useChatStore.getState();
-        const targetId =
-          targetCursor === 0
-            ? await chat.newConversation(picker.chatWorkspacePath)
-            : conversations[targetCursor - 1].id;
-
-        const trimmed = question.trim();
-        chat.setPendingDraft({
-          conversationId: targetId,
-          text: trimmed.length > 0 ? trimmed : undefined,
-          references: [picker.reference],
-        });
-
-        chat.setAskAiInlineChat({
-          conversationId: targetId,
-          workspacePath: picker.chatWorkspacePath,
-          anchor: picker.anchor,
-          sourcePanelId: picker.sourcePanelId,
-        });
-
-        chat.setPendingAskAiPicker(null);
-      } catch (error) {
-        submittingRef.current = false;
-        console.error('[AskAiPicker] confirm failed — leaving picker open', error);
-      }
-    },
-    [conversations, question, picker]
-  );
-
-  const confirm = useCallback(() => confirmTarget(cursor), [confirmTarget, cursor]);
-
-  const handleKeyDown = useCallback(
-    (e: ReactKeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        cancel();
+  const confirmTarget = async (targetKey: string) => {
+    if (
+      submittingRef.current ||
+      !menu.isOpen ||
+      useChatStore.getState().pendingAskAiPicker !== picker
+    )
+      return;
+    const selectedConversation = conversations.find(
+      (conversation) => `conversation:${conversation.id}` === targetKey
+    );
+    if (targetKey !== 'new-chat' && !selectedConversation) return;
+    const session = menu.stateRef.current.session;
+    submittingRef.current = true;
+    try {
+      const chat = useChatStore.getState();
+      const targetId =
+        targetKey === 'new-chat'
+          ? await chat.newConversation(picker.chatWorkspacePath)
+          : selectedConversation?.id;
+      if (!targetId) return;
+      if (
+        !alive.current ||
+        menu.stateRef.current.session !== session ||
+        menu.stateRef.current.phase === 'closed' ||
+        useChatStore.getState().pendingAskAiPicker !== picker
+      )
         return;
-      }
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setCursor((c) => Math.min(c + 1, targetCount - 1));
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setCursor((c) => Math.max(c - 1, 0));
-        return;
-      }
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        void confirm();
-        return;
-      }
-    },
-    [cancel, confirm, targetCount]
-  );
+      presentationOverlay.setReturnFocusPolicy('preserve');
+
+      const trimmed = question.trim();
+      chat.setPendingDraft({
+        conversationId: targetId,
+        text: trimmed.length > 0 ? trimmed : undefined,
+        references: [picker.reference],
+      });
+
+      chat.setAskAiInlineChat({
+        conversationId: targetId,
+        workspacePath: picker.chatWorkspacePath,
+        anchor: picker.anchor,
+        sourcePanelId: picker.sourcePanelId,
+      });
+
+      menu.close('handoff', session);
+    } catch (error) {
+      submittingRef.current = false;
+      console.error('[AskAiPicker] confirm failed — leaving picker open', error);
+    }
+  };
+
+  const confirm = () => menu.activate();
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (['Escape', 'ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) menu.handleKeyDown(event);
+  };
 
   const handleHeaderPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -402,13 +411,12 @@ function AskAiPicker({ picker }: { picker: PendingAskAiPicker }) {
               data-testid="ask-ai-picker-composer"
               className="flex items-center gap-2 rounded-lg border border-border bg-bg px-2 py-1.5 transition-colors focus-within:border-accent/60 focus-within:ring-2 focus-within:ring-accent/40"
             >
-              {cursor === 0 && (
+              {isNewTarget && (
                 <button
                   type="button"
                   data-testid="ask-ai-picker-new-badge"
                   data-active={true}
                   onClick={() => {
-                    setCursor(0);
                     safeFocus(inputRef.current);
                   }}
                   className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
@@ -423,23 +431,22 @@ function AskAiPicker({ picker }: { picker: PendingAskAiPicker }) {
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 onKeyDown={handleKeyDown}
-                onBlur={handleInputBlur}
-                onClick={() => setCursor(0)}
+                onClick={() => menu.point('new-chat')}
                 placeholder={`Ask about this ${picker.contextKind ?? 'selection'}…`}
                 aria-label={`Your question for this ${picker.contextKind ?? 'selection'}`}
                 className="h-6 w-full flex-1 border-0 bg-transparent p-0 text-sm text-fg outline-none placeholder:text-fg-subtle"
               />
             </div>
             {}
-            {cursor === 0 && conversations.length > 0 ? (
+            {isNewTarget && conversations.length > 0 ? (
               <button
                 type="button"
                 data-testid="ask-ai-picker-expand-hint"
                 onClick={() => {
-                  setCursor(1);
+                  menu.point(`conversation:${conversations[0].id}`);
                   safeFocus(inputRef.current);
                 }}
-                className="inline-flex w-fit items-center gap-1 text-[11px] text-fg-subtle transition-colors hover:text-fg-muted focus:outline-none focus-visible:text-fg-muted"
+                className="inline-flex w-fit items-center gap-1 text-[11px] text-fg-subtle transition-colors wp-interactive "
               >
                 <span aria-hidden="true">↓</span>
                 earlier conversations
@@ -448,7 +455,7 @@ function AskAiPicker({ picker }: { picker: PendingAskAiPicker }) {
           </div>
 
           {}
-          {cursor > 0 ? (
+          {!isNewTarget ? (
             <div className="flex min-h-[20rem]">
               <div
                 ref={listRef}
@@ -457,22 +464,22 @@ function AskAiPicker({ picker }: { picker: PendingAskAiPicker }) {
                 aria-label="Conversation targets"
                 className="max-h-72 w-2/5 space-y-0.5 overflow-y-auto border-r border-border p-1.5"
               >
-                {conversations.map((conv, i) => {
-                  const index = i + 1;
+                {conversations.map((conv) => {
+                  const targetKey = `conversation:${conv.id}`;
                   return (
                     <TargetRow
                       key={conv.id}
                       testId={`ask-ai-picker-target-${conv.id}`}
-                      active={cursor === index}
+                      active={menu.activeId === targetKey}
                       onClick={() => {
-                        if (cursor === index) {
-                          void confirmTarget(index);
+                        if (menu.activeId === targetKey) {
+                          menu.activate(targetKey);
                         } else {
-                          setCursor(index);
+                          menu.point(targetKey);
                           safeFocus(inputRef.current);
                         }
                       }}
-                      onDoubleClick={() => void confirmTarget(index)}
+                      onDoubleClick={() => menu.activate(targetKey)}
                       title={conv.title || 'Untitled conversation'}
                       subtitle={new Date(conv.updated_at).toLocaleString()}
                     />
@@ -493,7 +500,7 @@ function AskAiPicker({ picker }: { picker: PendingAskAiPicker }) {
                 </div>
                 <div className="space-y-3 p-3">
                   <AskAiPickerPreview
-                    isNewTarget={cursor === 0}
+                    isNewTarget={isNewTarget}
                     loading={previewLoading}
                     messages={previewMessages}
                     question={question}
@@ -528,7 +535,7 @@ function AskAiPicker({ picker }: { picker: PendingAskAiPicker }) {
                 ↵
               </kbd>
               <span data-testid="ask-ai-picker-confirm-label">
-                {cursor === 0 ? 'Start new chat' : `Add to "${truncate(destinationTitle)}"`}
+                {isNewTarget ? 'Start new chat' : `Add to "${truncate(destinationTitle)}"`}
               </span>
             </button>
           </div>
@@ -704,20 +711,18 @@ function TargetRow({
   subtitle: string;
 }) {
   return (
-    <button
-      type="button"
+    <MenuRow
       data-testid={testId}
-      data-active={active}
+      active={active}
       role="option"
       aria-selected={active}
+      tabIndex={-1}
+      description={subtitle}
+      onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
-      className={`flex w-full flex-col gap-0.5 rounded-lg px-3 py-2 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
-        active ? 'bg-accent/10 text-accent' : 'text-fg hover:bg-bg-muted'
-      }`}
     >
-      <span className="truncate text-sm font-medium">{title}</span>
-      <span className="truncate text-[11px] text-fg-muted">{subtitle}</span>
-    </button>
+      {title}
+    </MenuRow>
   );
 }

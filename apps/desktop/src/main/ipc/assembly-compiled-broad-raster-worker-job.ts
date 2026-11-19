@@ -1,3 +1,4 @@
+import type { AnnotationDataAppearanceV1 } from '@waypoint/genome-renderer/pure';
 import { randomUUID } from 'node:crypto';
 import { readFile, realpath, rename } from 'node:fs/promises';
 
@@ -23,6 +24,8 @@ const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
 export interface AssemblyCompiledBroadRasterWorkerJobV1 {
   readonly request: AssemblyAnnotationSceneReadRequest;
+  readonly appearance?: AnnotationDataAppearanceV1;
+  readonly artifactDirectory?: string;
   readonly sourceFingerprint: string;
   readonly scenePath: string;
   readonly authorizedSceneRealPath: string;
@@ -86,15 +89,18 @@ export async function prepareAssemblyCompiledBroadRasterWorkerJobV1(
   const surfaceManifest = await buildSurfaceManifest({
     sceneManifest: job.sceneManifest,
     artifact: job.request.artifact,
+    appearance: job.appearance,
   });
   if (surfaceManifest.manifestFingerprint !== job.expectedSurfaceManifestFingerprint) {
     throw new Error('Compiled broad raster worker rejected a changed surface identity.');
   }
-  const artifactDirectory = resolveArtifactDirectory({
-    request: job.request,
-    sourceFingerprint: job.sourceFingerprint,
-    surfaceManifestFingerprint: surfaceManifest.manifestFingerprint,
-  });
+  const artifactDirectory =
+    job.artifactDirectory ??
+    resolveArtifactDirectory({
+      request: job.request,
+      sourceFingerprint: job.sourceFingerprint,
+      surfaceManifestFingerprint: surfaceManifest.manifestFingerprint,
+    });
   if (!artifactDirectory) {
     throw new Error('Compiled broad raster worker rejected an invalid artifact directory.');
   }
@@ -130,6 +136,8 @@ export async function prepareAssemblyCompiledBroadRasterWorkerJobV1(
     request: job.request,
     sourceFingerprint: job.sourceFingerprint,
     packed,
+    appearance: job.appearance,
+    artifactDirectory,
   });
   const published = await openArtifact({
     artifactDirectory,

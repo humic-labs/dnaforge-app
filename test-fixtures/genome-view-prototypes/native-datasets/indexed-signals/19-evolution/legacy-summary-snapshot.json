@@ -1,0 +1,4001 @@
+{
+  "number": 19,
+  "title": "Evolution across 50,000 generations",
+  "study": "Tenaillon et al., 2016 \u00b7 LTEE \u00b7 Dryad 10.5061/dryad.6226d",
+  "description": "264 sequenced clones from 12 long-term populations, summarized as the mean published substitution count for each population and sampled generation. These are counts relative to the ancestral reference, not rates.",
+  "organism": "E. coli",
+  "reference": "LTEE ancestor REL606 \u00b7 source-defined mutation calls",
+  "unit": "mean reported substitutions per sampled clone",
+  "sources": [
+    {
+      "file": "raw/comparison/ltee-count.txt",
+      "url": "https://datadryad.org/api/v2/files/69993/download",
+      "sha256": "260049e0a44ca11efb97188b4b0fe927c5d280e8dfff5c90c6b3d56d6c6e1c0f",
+      "citation": "https://doi.org/10.5061/dryad.6226d"
+    }
+  ],
+  "processing": "Parse first twelve tab-separated columns from count.LTEE.final_masked.csv (stored locally as ltee-count.txt). Group by population and generation; arithmetic mean of muts column across available clones. Keep clone counts and IDs. No pseudotime or genomic positions inferred.",
+  "dimensions": [
+    {
+      "key": "value",
+      "label": "Mean substitution count",
+      "unit": "substitutions / clone"
+    },
+    {
+      "key": "clones",
+      "label": "Sampled clones",
+      "unit": "clones"
+    }
+  ],
+  "records": [
+    {
+      "id": "Aram1:500",
+      "label": "Aram1 \u00b7 generation 500",
+      "population": "Aram1",
+      "generation": 500,
+      "condition": "500",
+      "gene": "Aram1",
+      "category": "Aram1",
+      "value": 2.5,
+      "clones": 2,
+      "cloneIds": "Aram1_500gen_762B; Aram1_500gen_762C"
+    },
+    {
+      "id": "Aram1:1000",
+      "label": "Aram1 \u00b7 generation 1,000",
+      "population": "Aram1",
+      "generation": 1000,
+      "condition": "1000",
+      "gene": "Aram1",
+      "category": "Aram1",
+      "value": 3.0,
+      "clones": 2,
+      "cloneIds": "Aram1_1000gen_964B; Aram1_1000gen_964C"
+    },
+    {
+      "id": "Aram1:1500",
+      "label": "Aram1 \u00b7 generation 1,500",
+      "population": "Aram1",
+      "generation": 1500,
+      "condition": "1500",
+      "gene": "Aram1",
+      "category": "Aram1",
+      "value": 3.0,
+      "clones": 2,
+      "cloneIds": "Aram1_1500gen_1068B; Aram1_1500gen_1068C"
+    },
+    {
+      "id": "Aram1:2000",
+      "label": "Aram1 \u00b7 generation 2,000",
+      "population": "Aram1",
+      "generation": 2000,
+      "condition": "2000",
+      "gene": "Aram1",
+      "category": "Aram1",
+      "value": 3.0,
+      "clones": 2,
+      "cloneIds": "Aram1_2000gen_1164A; Aram1_2000gen_1164B"
+    },
+    {
+      "id": "Aram1:5000",
+      "label": "Aram1 \u00b7 generation 5,000",
+      "population": "Aram1",
+      "generation": 5000,
+      "condition": "5000",
+      "gene": "Aram1",
+      "category": "Aram1",
+      "value": 8.5,
+      "clones": 2,
+      "cloneIds": "Aram1_5000gen_2179A; Aram1_5000gen_2179B"
+    },
+    {
+      "id": "Aram1:10000",
+      "label": "Aram1 \u00b7 generation 10,000",
+      "population": "Aram1",
+      "generation": 10000,
+      "condition": "10000",
+      "gene": "Aram1",
+      "category": "Aram1",
+      "value": 17.0,
+      "clones": 2,
+      "cloneIds": "Aram1_10000gen_4536A; Aram1_10000gen_4536B"
+    },
+    {
+      "id": "Aram1:15000",
+      "label": "Aram1 \u00b7 generation 15,000",
+      "population": "Aram1",
+      "generation": 15000,
+      "condition": "15000",
+      "gene": "Aram1",
+      "category": "Aram1",
+      "value": 22.0,
+      "clones": 2,
+      "cloneIds": "Aram1_15000gen_7177A; Aram1_15000gen_7177B"
+    },
+    {
+      "id": "Aram1:20000",
+      "label": "Aram1 \u00b7 generation 20,000",
+      "population": "Aram1",
+      "generation": 20000,
+      "condition": "20000",
+      "gene": "Aram1",
+      "category": "Aram1",
+      "value": 26.5,
+      "clones": 2,
+      "cloneIds": "Aram1_20000gen_8593A; Aram1_20000gen_8593B"
+    },
+    {
+      "id": "Aram1:30000",
+      "label": "Aram1 \u00b7 generation 30,000",
+      "population": "Aram1",
+      "generation": 30000,
+      "condition": "30000",
+      "gene": "Aram1",
+      "category": "Aram1",
+      "value": 440.5,
+      "clones": 2,
+      "cloneIds": "Aram1_30000gen_10391; Aram1_30000gen_10392"
+    },
+    {
+      "id": "Aram1:40000",
+      "label": "Aram1 \u00b7 generation 40,000",
+      "population": "Aram1",
+      "generation": 40000,
+      "condition": "40000",
+      "gene": "Aram1",
+      "category": "Aram1",
+      "value": 719.5,
+      "clones": 2,
+      "cloneIds": "Aram1_40000gen_10938; Aram1_40000gen_10939"
+    },
+    {
+      "id": "Aram1:50000",
+      "label": "Aram1 \u00b7 generation 50,000",
+      "population": "Aram1",
+      "generation": 50000,
+      "condition": "50000",
+      "gene": "Aram1",
+      "category": "Aram1",
+      "value": 1067.5,
+      "clones": 2,
+      "cloneIds": "Aram1_50000gen_11330; Aram1_50000gen_11331"
+    },
+    {
+      "id": "Aram2:500",
+      "label": "Aram2 \u00b7 generation 500",
+      "population": "Aram2",
+      "generation": 500,
+      "condition": "500",
+      "gene": "Aram2",
+      "category": "Aram2",
+      "value": 1.0,
+      "clones": 2,
+      "cloneIds": "Aram2_500gen_763A; Aram2_500gen_763B"
+    },
+    {
+      "id": "Aram2:1000",
+      "label": "Aram2 \u00b7 generation 1,000",
+      "population": "Aram2",
+      "generation": 1000,
+      "condition": "1000",
+      "gene": "Aram2",
+      "category": "Aram2",
+      "value": 3.5,
+      "clones": 2,
+      "cloneIds": "Aram2_1000gen_965A; Aram2_1000gen_965B"
+    },
+    {
+      "id": "Aram2:1500",
+      "label": "Aram2 \u00b7 generation 1,500",
+      "population": "Aram2",
+      "generation": 1500,
+      "condition": "1500",
+      "gene": "Aram2",
+      "category": "Aram2",
+      "value": 3.0,
+      "clones": 2,
+      "cloneIds": "Aram2_1500gen_1069A; Aram2_1500gen_1069B"
+    },
+    {
+      "id": "Aram2:2000",
+      "label": "Aram2 \u00b7 generation 2,000",
+      "population": "Aram2",
+      "generation": 2000,
+      "condition": "2000",
+      "gene": "Aram2",
+      "category": "Aram2",
+      "value": 4.0,
+      "clones": 2,
+      "cloneIds": "Aram2_2000gen_1165A; Aram2_2000gen_2000"
+    },
+    {
+      "id": "Aram2:5000",
+      "label": "Aram2 \u00b7 generation 5,000",
+      "population": "Aram2",
+      "generation": 5000,
+      "condition": "5000",
+      "gene": "Aram2",
+      "category": "Aram2",
+      "value": 106.0,
+      "clones": 2,
+      "cloneIds": "Aram2_5000gen_2180A; Aram2_5000gen_2180B"
+    },
+    {
+      "id": "Aram2:10000",
+      "label": "Aram2 \u00b7 generation 10,000",
+      "population": "Aram2",
+      "generation": 10000,
+      "condition": "10000",
+      "gene": "Aram2",
+      "category": "Aram2",
+      "value": 246.5,
+      "clones": 2,
+      "cloneIds": "Aram2_10000gen_4537A; Aram2_10000gen_4537B"
+    },
+    {
+      "id": "Aram2:15000",
+      "label": "Aram2 \u00b7 generation 15,000",
+      "population": "Aram2",
+      "generation": 15000,
+      "condition": "15000",
+      "gene": "Aram2",
+      "category": "Aram2",
+      "value": 452.0,
+      "clones": 2,
+      "cloneIds": "Aram2_15000gen_7178A; Aram2_15000gen_7178B"
+    },
+    {
+      "id": "Aram2:20000",
+      "label": "Aram2 \u00b7 generation 20,000",
+      "population": "Aram2",
+      "generation": 20000,
+      "condition": "20000",
+      "gene": "Aram2",
+      "category": "Aram2",
+      "value": 525.5,
+      "clones": 2,
+      "cloneIds": "Aram2_20000gen_20KmS1; Aram2_20000gen_20KmLA"
+    },
+    {
+      "id": "Aram2:30000",
+      "label": "Aram2 \u00b7 generation 30,000",
+      "population": "Aram2",
+      "generation": 30000,
+      "condition": "30000",
+      "gene": "Aram2",
+      "category": "Aram2",
+      "value": 612.5,
+      "clones": 2,
+      "cloneIds": "Aram2_30000gen_30KmS1; Aram2_30000gen_30KmL1"
+    },
+    {
+      "id": "Aram2:40000",
+      "label": "Aram2 \u00b7 generation 40,000",
+      "population": "Aram2",
+      "generation": 40000,
+      "condition": "40000",
+      "gene": "Aram2",
+      "category": "Aram2",
+      "value": 878.5,
+      "clones": 2,
+      "cloneIds": "Aram2_40000gen_11035; Aram2_40000gen_11036"
+    },
+    {
+      "id": "Aram2:50000",
+      "label": "Aram2 \u00b7 generation 50,000",
+      "population": "Aram2",
+      "generation": 50000,
+      "condition": "50000",
+      "gene": "Aram2",
+      "category": "Aram2",
+      "value": 871.5,
+      "clones": 2,
+      "cloneIds": "Aram2_50000gen_11333; Aram2_50000gen_11335"
+    },
+    {
+      "id": "Aram3:500",
+      "label": "Aram3 \u00b7 generation 500",
+      "population": "Aram3",
+      "generation": 500,
+      "condition": "500",
+      "gene": "Aram3",
+      "category": "Aram3",
+      "value": 1.5,
+      "clones": 2,
+      "cloneIds": "Aram3_500gen_764A; Aram3_500gen_764B"
+    },
+    {
+      "id": "Aram3:1000",
+      "label": "Aram3 \u00b7 generation 1,000",
+      "population": "Aram3",
+      "generation": 1000,
+      "condition": "1000",
+      "gene": "Aram3",
+      "category": "Aram3",
+      "value": 2.0,
+      "clones": 2,
+      "cloneIds": "Aram3_1000gen_966A; Aram3_1000gen_966B"
+    },
+    {
+      "id": "Aram3:1500",
+      "label": "Aram3 \u00b7 generation 1,500",
+      "population": "Aram3",
+      "generation": 1500,
+      "condition": "1500",
+      "gene": "Aram3",
+      "category": "Aram3",
+      "value": 3.0,
+      "clones": 2,
+      "cloneIds": "Aram3_1500gen_1070A; Aram3_1500gen_1070B"
+    },
+    {
+      "id": "Aram3:2000",
+      "label": "Aram3 \u00b7 generation 2,000",
+      "population": "Aram3",
+      "generation": 2000,
+      "condition": "2000",
+      "gene": "Aram3",
+      "category": "Aram3",
+      "value": 3.5,
+      "clones": 2,
+      "cloneIds": "Aram3_2000gen_1166A; Aram3_2000gen_1166B"
+    },
+    {
+      "id": "Aram3:5000",
+      "label": "Aram3 \u00b7 generation 5,000",
+      "population": "Aram3",
+      "generation": 5000,
+      "condition": "5000",
+      "gene": "Aram3",
+      "category": "Aram3",
+      "value": 6.5,
+      "clones": 2,
+      "cloneIds": "Aram3_5000gen_2181A; Aram3_5000gen_ZDB409"
+    },
+    {
+      "id": "Aram3:10000",
+      "label": "Aram3 \u00b7 generation 10,000",
+      "population": "Aram3",
+      "generation": 10000,
+      "condition": "10000",
+      "gene": "Aram3",
+      "category": "Aram3",
+      "value": 11.0,
+      "clones": 2,
+      "cloneIds": "Aram3_10000gen_4538A; Aram3_10000gen_ZDB429"
+    },
+    {
+      "id": "Aram3:15000",
+      "label": "Aram3 \u00b7 generation 15,000",
+      "population": "Aram3",
+      "generation": 15000,
+      "condition": "15000",
+      "gene": "Aram3",
+      "category": "Aram3",
+      "value": 15.5,
+      "clones": 2,
+      "cloneIds": "Aram3_15000gen_ZDB446; Aram3_15000gen_7179B"
+    },
+    {
+      "id": "Aram3:20000",
+      "label": "Aram3 \u00b7 generation 20,000",
+      "population": "Aram3",
+      "generation": 20000,
+      "condition": "20000",
+      "gene": "Aram3",
+      "category": "Aram3",
+      "value": 18.0,
+      "clones": 2,
+      "cloneIds": "Aram3_20000gen_ZDB458; Aram3_20000gen_ZDB464"
+    },
+    {
+      "id": "Aram3:30000",
+      "label": "Aram3 \u00b7 generation 30,000",
+      "population": "Aram3",
+      "generation": 30000,
+      "condition": "30000",
+      "gene": "Aram3",
+      "category": "Aram3",
+      "value": 28.5,
+      "clones": 2,
+      "cloneIds": "Aram3_30000gen_ZDB16; Aram3_30000gen_ZDB357"
+    },
+    {
+      "id": "Aram3:40000",
+      "label": "Aram3 \u00b7 generation 40,000",
+      "population": "Aram3",
+      "generation": 40000,
+      "condition": "40000",
+      "gene": "Aram3",
+      "category": "Aram3",
+      "value": 161.0,
+      "clones": 2,
+      "cloneIds": "Aram3_40000gen_10979; Aram3_40000gen_10988"
+    },
+    {
+      "id": "Aram3:50000",
+      "label": "Aram3 \u00b7 generation 50,000",
+      "population": "Aram3",
+      "generation": 50000,
+      "condition": "50000",
+      "gene": "Aram3",
+      "category": "Aram3",
+      "value": 626.0,
+      "clones": 2,
+      "cloneIds": "Aram3_50000gen_11364; Aram3_50000gen_11365"
+    },
+    {
+      "id": "Aram4:500",
+      "label": "Aram4 \u00b7 generation 500",
+      "population": "Aram4",
+      "generation": 500,
+      "condition": "500",
+      "gene": "Aram4",
+      "category": "Aram4",
+      "value": 2.0,
+      "clones": 2,
+      "cloneIds": "Aram4_500gen_765A; Aram4_500gen_765B"
+    },
+    {
+      "id": "Aram4:1000",
+      "label": "Aram4 \u00b7 generation 1,000",
+      "population": "Aram4",
+      "generation": 1000,
+      "condition": "1000",
+      "gene": "Aram4",
+      "category": "Aram4",
+      "value": 2.5,
+      "clones": 2,
+      "cloneIds": "Aram4_1000gen_967A; Aram4_1000gen_967B"
+    },
+    {
+      "id": "Aram4:1500",
+      "label": "Aram4 \u00b7 generation 1,500",
+      "population": "Aram4",
+      "generation": 1500,
+      "condition": "1500",
+      "gene": "Aram4",
+      "category": "Aram4",
+      "value": 5.0,
+      "clones": 2,
+      "cloneIds": "Aram4_1500gen_1071A; Aram4_1500gen_1071B"
+    },
+    {
+      "id": "Aram4:2000",
+      "label": "Aram4 \u00b7 generation 2,000",
+      "population": "Aram4",
+      "generation": 2000,
+      "condition": "2000",
+      "gene": "Aram4",
+      "category": "Aram4",
+      "value": 6.0,
+      "clones": 2,
+      "cloneIds": "Aram4_2000gen_1167A; Aram4_2000gen_1167B"
+    },
+    {
+      "id": "Aram4:5000",
+      "label": "Aram4 \u00b7 generation 5,000",
+      "population": "Aram4",
+      "generation": 5000,
+      "condition": "5000",
+      "gene": "Aram4",
+      "category": "Aram4",
+      "value": 9.0,
+      "clones": 2,
+      "cloneIds": "Aram4_5000gen_2182A; Aram4_5000gen_2182B"
+    },
+    {
+      "id": "Aram4:10000",
+      "label": "Aram4 \u00b7 generation 10,000",
+      "population": "Aram4",
+      "generation": 10000,
+      "condition": "10000",
+      "gene": "Aram4",
+      "category": "Aram4",
+      "value": 215.0,
+      "clones": 2,
+      "cloneIds": "Aram4_10000gen_4539A; Aram4_10000gen_4539B"
+    },
+    {
+      "id": "Aram4:15000",
+      "label": "Aram4 \u00b7 generation 15,000",
+      "population": "Aram4",
+      "generation": 15000,
+      "condition": "15000",
+      "gene": "Aram4",
+      "category": "Aram4",
+      "value": 385.0,
+      "clones": 2,
+      "cloneIds": "Aram4_15000gen_7180A; Aram4_15000gen_7180B"
+    },
+    {
+      "id": "Aram4:20000",
+      "label": "Aram4 \u00b7 generation 20,000",
+      "population": "Aram4",
+      "generation": 20000,
+      "condition": "20000",
+      "gene": "Aram4",
+      "category": "Aram4",
+      "value": 515.0,
+      "clones": 2,
+      "cloneIds": "Aram4_20000gen_8596A; Aram4_20000gen_8596B"
+    },
+    {
+      "id": "Aram4:30000",
+      "label": "Aram4 \u00b7 generation 30,000",
+      "population": "Aram4",
+      "generation": 30000,
+      "condition": "30000",
+      "gene": "Aram4",
+      "category": "Aram4",
+      "value": 740.0,
+      "clones": 2,
+      "cloneIds": "Aram4_30000gen_10401; Aram4_30000gen_10402"
+    },
+    {
+      "id": "Aram4:40000",
+      "label": "Aram4 \u00b7 generation 40,000",
+      "population": "Aram4",
+      "generation": 40000,
+      "condition": "40000",
+      "gene": "Aram4",
+      "category": "Aram4",
+      "value": 889.5,
+      "clones": 2,
+      "cloneIds": "Aram4_40000gen_10944; Aram4_40000gen_10945"
+    },
+    {
+      "id": "Aram4:50000",
+      "label": "Aram4 \u00b7 generation 50,000",
+      "population": "Aram4",
+      "generation": 50000,
+      "condition": "50000",
+      "gene": "Aram4",
+      "category": "Aram4",
+      "value": 1041.0,
+      "clones": 2,
+      "cloneIds": "Aram4_50000gen_11336; Aram4_50000gen_11337"
+    },
+    {
+      "id": "Aram5:500",
+      "label": "Aram5 \u00b7 generation 500",
+      "population": "Aram5",
+      "generation": 500,
+      "condition": "500",
+      "gene": "Aram5",
+      "category": "Aram5",
+      "value": 2.0,
+      "clones": 2,
+      "cloneIds": "Aram5_500gen_766A; Aram5_500gen_766B"
+    },
+    {
+      "id": "Aram5:1000",
+      "label": "Aram5 \u00b7 generation 1,000",
+      "population": "Aram5",
+      "generation": 1000,
+      "condition": "1000",
+      "gene": "Aram5",
+      "category": "Aram5",
+      "value": 3.5,
+      "clones": 2,
+      "cloneIds": "Aram5_1000gen_968A; Aram5_1000gen_968B"
+    },
+    {
+      "id": "Aram5:1500",
+      "label": "Aram5 \u00b7 generation 1,500",
+      "population": "Aram5",
+      "generation": 1500,
+      "condition": "1500",
+      "gene": "Aram5",
+      "category": "Aram5",
+      "value": 4.5,
+      "clones": 2,
+      "cloneIds": "Aram5_1500gen_1072A; Aram5_1500gen_1072B"
+    },
+    {
+      "id": "Aram5:2000",
+      "label": "Aram5 \u00b7 generation 2,000",
+      "population": "Aram5",
+      "generation": 2000,
+      "condition": "2000",
+      "gene": "Aram5",
+      "category": "Aram5",
+      "value": 6.5,
+      "clones": 2,
+      "cloneIds": "Aram5_2000gen_1168A; Aram5_2000gen_1168B"
+    },
+    {
+      "id": "Aram5:5000",
+      "label": "Aram5 \u00b7 generation 5,000",
+      "population": "Aram5",
+      "generation": 5000,
+      "condition": "5000",
+      "gene": "Aram5",
+      "category": "Aram5",
+      "value": 8.5,
+      "clones": 2,
+      "cloneIds": "Aram5_5000gen_2183A; Aram5_5000gen_2183B"
+    },
+    {
+      "id": "Aram5:10000",
+      "label": "Aram5 \u00b7 generation 10,000",
+      "population": "Aram5",
+      "generation": 10000,
+      "condition": "10000",
+      "gene": "Aram5",
+      "category": "Aram5",
+      "value": 17.5,
+      "clones": 2,
+      "cloneIds": "Aram5_10000gen_4540A; Aram5_10000gen_4540B"
+    },
+    {
+      "id": "Aram5:15000",
+      "label": "Aram5 \u00b7 generation 15,000",
+      "population": "Aram5",
+      "generation": 15000,
+      "condition": "15000",
+      "gene": "Aram5",
+      "category": "Aram5",
+      "value": 20.5,
+      "clones": 2,
+      "cloneIds": "Aram5_15000gen_7181A; Aram5_15000gen_7181B"
+    },
+    {
+      "id": "Aram5:20000",
+      "label": "Aram5 \u00b7 generation 20,000",
+      "population": "Aram5",
+      "generation": 20000,
+      "condition": "20000",
+      "gene": "Aram5",
+      "category": "Aram5",
+      "value": 22.0,
+      "clones": 2,
+      "cloneIds": "Aram5_20000gen_8597A; Aram5_20000gen_8597B"
+    },
+    {
+      "id": "Aram5:30000",
+      "label": "Aram5 \u00b7 generation 30,000",
+      "population": "Aram5",
+      "generation": 30000,
+      "condition": "30000",
+      "gene": "Aram5",
+      "category": "Aram5",
+      "value": 28.5,
+      "clones": 2,
+      "cloneIds": "Aram5_30000gen_10404; Aram5_30000gen_10405"
+    },
+    {
+      "id": "Aram5:40000",
+      "label": "Aram5 \u00b7 generation 40,000",
+      "population": "Aram5",
+      "generation": 40000,
+      "condition": "40000",
+      "gene": "Aram5",
+      "category": "Aram5",
+      "value": 43.5,
+      "clones": 2,
+      "cloneIds": "Aram5_40000gen_10947; Aram5_40000gen_10948"
+    },
+    {
+      "id": "Aram5:50000",
+      "label": "Aram5 \u00b7 generation 50,000",
+      "population": "Aram5",
+      "generation": 50000,
+      "condition": "50000",
+      "gene": "Aram5",
+      "category": "Aram5",
+      "value": 51.0,
+      "clones": 2,
+      "cloneIds": "Aram5_50000gen_11339; Aram5_50000gen_11340"
+    },
+    {
+      "id": "Aram6:500",
+      "label": "Aram6 \u00b7 generation 500",
+      "population": "Aram6",
+      "generation": 500,
+      "condition": "500",
+      "gene": "Aram6",
+      "category": "Aram6",
+      "value": 1.0,
+      "clones": 2,
+      "cloneIds": "Aram6_500gen_767A; Aram6_500gen_767B"
+    },
+    {
+      "id": "Aram6:1000",
+      "label": "Aram6 \u00b7 generation 1,000",
+      "population": "Aram6",
+      "generation": 1000,
+      "condition": "1000",
+      "gene": "Aram6",
+      "category": "Aram6",
+      "value": 3.0,
+      "clones": 2,
+      "cloneIds": "Aram6_1000gen_969A; Aram6_1000gen_969B"
+    },
+    {
+      "id": "Aram6:1500",
+      "label": "Aram6 \u00b7 generation 1,500",
+      "population": "Aram6",
+      "generation": 1500,
+      "condition": "1500",
+      "gene": "Aram6",
+      "category": "Aram6",
+      "value": 4.5,
+      "clones": 2,
+      "cloneIds": "Aram6_1500gen_1073A; Aram6_1500gen_1073B"
+    },
+    {
+      "id": "Aram6:2000",
+      "label": "Aram6 \u00b7 generation 2,000",
+      "population": "Aram6",
+      "generation": 2000,
+      "condition": "2000",
+      "gene": "Aram6",
+      "category": "Aram6",
+      "value": 7.5,
+      "clones": 2,
+      "cloneIds": "Aram6_2000gen_1169A; Aram6_2000gen_1169B"
+    },
+    {
+      "id": "Aram6:5000",
+      "label": "Aram6 \u00b7 generation 5,000",
+      "population": "Aram6",
+      "generation": 5000,
+      "condition": "5000",
+      "gene": "Aram6",
+      "category": "Aram6",
+      "value": 10.0,
+      "clones": 2,
+      "cloneIds": "Aram6_5000gen_2184A; Aram6_5000gen_2184B"
+    },
+    {
+      "id": "Aram6:10000",
+      "label": "Aram6 \u00b7 generation 10,000",
+      "population": "Aram6",
+      "generation": 10000,
+      "condition": "10000",
+      "gene": "Aram6",
+      "category": "Aram6",
+      "value": 13.0,
+      "clones": 2,
+      "cloneIds": "Aram6_10000gen_4541A; Aram6_10000gen_4541B"
+    },
+    {
+      "id": "Aram6:15000",
+      "label": "Aram6 \u00b7 generation 15,000",
+      "population": "Aram6",
+      "generation": 15000,
+      "condition": "15000",
+      "gene": "Aram6",
+      "category": "Aram6",
+      "value": 19.0,
+      "clones": 2,
+      "cloneIds": "Aram6_15000gen_7182A; Aram6_15000gen_7182B"
+    },
+    {
+      "id": "Aram6:20000",
+      "label": "Aram6 \u00b7 generation 20,000",
+      "population": "Aram6",
+      "generation": 20000,
+      "condition": "20000",
+      "gene": "Aram6",
+      "category": "Aram6",
+      "value": 19.5,
+      "clones": 2,
+      "cloneIds": "Aram6_20000gen_8598A; Aram6_20000gen_8598B"
+    },
+    {
+      "id": "Aram6:30000",
+      "label": "Aram6 \u00b7 generation 30,000",
+      "population": "Aram6",
+      "generation": 30000,
+      "condition": "30000",
+      "gene": "Aram6",
+      "category": "Aram6",
+      "value": 29.0,
+      "clones": 2,
+      "cloneIds": "Aram6_30000gen_10447; Aram6_30000gen_10448"
+    },
+    {
+      "id": "Aram6:40000",
+      "label": "Aram6 \u00b7 generation 40,000",
+      "population": "Aram6",
+      "generation": 40000,
+      "condition": "40000",
+      "gene": "Aram6",
+      "category": "Aram6",
+      "value": 33.0,
+      "clones": 2,
+      "cloneIds": "Aram6_40000gen_11005; Aram6_40000gen_11006"
+    },
+    {
+      "id": "Aram6:50000",
+      "label": "Aram6 \u00b7 generation 50,000",
+      "population": "Aram6",
+      "generation": 50000,
+      "condition": "50000",
+      "gene": "Aram6",
+      "category": "Aram6",
+      "value": 39.5,
+      "clones": 2,
+      "cloneIds": "Aram6_50000gen_11389; Aram6_50000gen_11390"
+    },
+    {
+      "id": "Arap1:500",
+      "label": "Arap1 \u00b7 generation 500",
+      "population": "Arap1",
+      "generation": 500,
+      "condition": "500",
+      "gene": "Arap1",
+      "category": "Arap1",
+      "value": 2.0,
+      "clones": 2,
+      "cloneIds": "Arap1_500gen_768A; Arap1_500gen_768B"
+    },
+    {
+      "id": "Arap1:1000",
+      "label": "Arap1 \u00b7 generation 1,000",
+      "population": "Arap1",
+      "generation": 1000,
+      "condition": "1000",
+      "gene": "Arap1",
+      "category": "Arap1",
+      "value": 1.5,
+      "clones": 2,
+      "cloneIds": "Arap1_1000gen_958A; Arap1_1000gen_958B"
+    },
+    {
+      "id": "Arap1:1500",
+      "label": "Arap1 \u00b7 generation 1,500",
+      "population": "Arap1",
+      "generation": 1500,
+      "condition": "1500",
+      "gene": "Arap1",
+      "category": "Arap1",
+      "value": 5.0,
+      "clones": 2,
+      "cloneIds": "Arap1_1500gen_1062A; Arap1_1500gen_1062B"
+    },
+    {
+      "id": "Arap1:2000",
+      "label": "Arap1 \u00b7 generation 2,000",
+      "population": "Arap1",
+      "generation": 2000,
+      "condition": "2000",
+      "gene": "Arap1",
+      "category": "Arap1",
+      "value": 3.0,
+      "clones": 2,
+      "cloneIds": "Arap1_2000gen_1158A; Arap1_2000gen_1158C"
+    },
+    {
+      "id": "Arap1:5000",
+      "label": "Arap1 \u00b7 generation 5,000",
+      "population": "Arap1",
+      "generation": 5000,
+      "condition": "5000",
+      "gene": "Arap1",
+      "category": "Arap1",
+      "value": 5.5,
+      "clones": 2,
+      "cloneIds": "Arap1_5000gen_2173A; Arap1_5000gen_2173B"
+    },
+    {
+      "id": "Arap1:10000",
+      "label": "Arap1 \u00b7 generation 10,000",
+      "population": "Arap1",
+      "generation": 10000,
+      "condition": "10000",
+      "gene": "Arap1",
+      "category": "Arap1",
+      "value": 9.0,
+      "clones": 2,
+      "cloneIds": "Arap1_10000gen_4530A; Arap1_10000gen_4530B"
+    },
+    {
+      "id": "Arap1:15000",
+      "label": "Arap1 \u00b7 generation 15,000",
+      "population": "Arap1",
+      "generation": 15000,
+      "condition": "15000",
+      "gene": "Arap1",
+      "category": "Arap1",
+      "value": 15.5,
+      "clones": 2,
+      "cloneIds": "Arap1_15000gen_7183A; Arap1_15000gen_7183B"
+    },
+    {
+      "id": "Arap1:20000",
+      "label": "Arap1 \u00b7 generation 20,000",
+      "population": "Arap1",
+      "generation": 20000,
+      "condition": "20000",
+      "gene": "Arap1",
+      "category": "Arap1",
+      "value": 17.0,
+      "clones": 2,
+      "cloneIds": "Arap1_20000gen_9282A; Arap1_20000gen_9282B"
+    },
+    {
+      "id": "Arap1:30000",
+      "label": "Arap1 \u00b7 generation 30,000",
+      "population": "Arap1",
+      "generation": 30000,
+      "condition": "30000",
+      "gene": "Arap1",
+      "category": "Arap1",
+      "value": 26.5,
+      "clones": 2,
+      "cloneIds": "Arap1_30000gen_10450; Arap1_30000gen_10451"
+    },
+    {
+      "id": "Arap1:40000",
+      "label": "Arap1 \u00b7 generation 40,000",
+      "population": "Arap1",
+      "generation": 40000,
+      "condition": "40000",
+      "gene": "Arap1",
+      "category": "Arap1",
+      "value": 31.0,
+      "clones": 2,
+      "cloneIds": "Arap1_40000gen_11008; Arap1_40000gen_11009"
+    },
+    {
+      "id": "Arap1:50000",
+      "label": "Arap1 \u00b7 generation 50,000",
+      "population": "Arap1",
+      "generation": 50000,
+      "condition": "50000",
+      "gene": "Arap1",
+      "category": "Arap1",
+      "value": 45.0,
+      "clones": 2,
+      "cloneIds": "Arap1_50000gen_11392; Arap1_50000gen_11393"
+    },
+    {
+      "id": "Arap2:500",
+      "label": "Arap2 \u00b7 generation 500",
+      "population": "Arap2",
+      "generation": 500,
+      "condition": "500",
+      "gene": "Arap2",
+      "category": "Arap2",
+      "value": 2.0,
+      "clones": 2,
+      "cloneIds": "Arap2_500gen_769A; Arap2_500gen_769B"
+    },
+    {
+      "id": "Arap2:1000",
+      "label": "Arap2 \u00b7 generation 1,000",
+      "population": "Arap2",
+      "generation": 1000,
+      "condition": "1000",
+      "gene": "Arap2",
+      "category": "Arap2",
+      "value": 3.0,
+      "clones": 2,
+      "cloneIds": "Arap2_1000gen_959A; Arap2_1000gen_959B"
+    },
+    {
+      "id": "Arap2:1500",
+      "label": "Arap2 \u00b7 generation 1,500",
+      "population": "Arap2",
+      "generation": 1500,
+      "condition": "1500",
+      "gene": "Arap2",
+      "category": "Arap2",
+      "value": 4.0,
+      "clones": 2,
+      "cloneIds": "Arap2_1500gen_1063A; Arap2_1500gen_1063B"
+    },
+    {
+      "id": "Arap2:2000",
+      "label": "Arap2 \u00b7 generation 2,000",
+      "population": "Arap2",
+      "generation": 2000,
+      "condition": "2000",
+      "gene": "Arap2",
+      "category": "Arap2",
+      "value": 5.5,
+      "clones": 2,
+      "cloneIds": "Arap2_2000gen_1159A; Arap2_2000gen_1159B"
+    },
+    {
+      "id": "Arap2:5000",
+      "label": "Arap2 \u00b7 generation 5,000",
+      "population": "Arap2",
+      "generation": 5000,
+      "condition": "5000",
+      "gene": "Arap2",
+      "category": "Arap2",
+      "value": 5.0,
+      "clones": 2,
+      "cloneIds": "Arap2_5000gen_2174A; Arap2_5000gen_2174B"
+    },
+    {
+      "id": "Arap2:10000",
+      "label": "Arap2 \u00b7 generation 10,000",
+      "population": "Arap2",
+      "generation": 10000,
+      "condition": "10000",
+      "gene": "Arap2",
+      "category": "Arap2",
+      "value": 12.0,
+      "clones": 2,
+      "cloneIds": "Arap2_10000gen_4531A; Arap2_10000gen_4531B"
+    },
+    {
+      "id": "Arap2:15000",
+      "label": "Arap2 \u00b7 generation 15,000",
+      "population": "Arap2",
+      "generation": 15000,
+      "condition": "15000",
+      "gene": "Arap2",
+      "category": "Arap2",
+      "value": 16.0,
+      "clones": 2,
+      "cloneIds": "Arap2_15000gen_7184A; Arap2_15000gen_7184B"
+    },
+    {
+      "id": "Arap2:20000",
+      "label": "Arap2 \u00b7 generation 20,000",
+      "population": "Arap2",
+      "generation": 20000,
+      "condition": "20000",
+      "gene": "Arap2",
+      "category": "Arap2",
+      "value": 17.0,
+      "clones": 2,
+      "cloneIds": "Arap2_20000gen_8601A; Arap2_20000gen_8601B"
+    },
+    {
+      "id": "Arap2:30000",
+      "label": "Arap2 \u00b7 generation 30,000",
+      "population": "Arap2",
+      "generation": 30000,
+      "condition": "30000",
+      "gene": "Arap2",
+      "category": "Arap2",
+      "value": 22.5,
+      "clones": 2,
+      "cloneIds": "Arap2_30000gen_10407; Arap2_30000gen_10408"
+    },
+    {
+      "id": "Arap2:40000",
+      "label": "Arap2 \u00b7 generation 40,000",
+      "population": "Arap2",
+      "generation": 40000,
+      "condition": "40000",
+      "gene": "Arap2",
+      "category": "Arap2",
+      "value": 30.0,
+      "clones": 2,
+      "cloneIds": "Arap2_40000gen_10950; Arap2_40000gen_10951"
+    },
+    {
+      "id": "Arap2:50000",
+      "label": "Arap2 \u00b7 generation 50,000",
+      "population": "Arap2",
+      "generation": 50000,
+      "condition": "50000",
+      "gene": "Arap2",
+      "category": "Arap2",
+      "value": 37.5,
+      "clones": 2,
+      "cloneIds": "Arap2_50000gen_11342; Arap2_50000gen_11343"
+    },
+    {
+      "id": "Arap3:500",
+      "label": "Arap3 \u00b7 generation 500",
+      "population": "Arap3",
+      "generation": 500,
+      "condition": "500",
+      "gene": "Arap3",
+      "category": "Arap3",
+      "value": 1.0,
+      "clones": 2,
+      "cloneIds": "Arap3_500gen_770A; Arap3_500gen_770B"
+    },
+    {
+      "id": "Arap3:1000",
+      "label": "Arap3 \u00b7 generation 1,000",
+      "population": "Arap3",
+      "generation": 1000,
+      "condition": "1000",
+      "gene": "Arap3",
+      "category": "Arap3",
+      "value": 2.0,
+      "clones": 2,
+      "cloneIds": "Arap3_1000gen_960A; Arap3_1000gen_960B"
+    },
+    {
+      "id": "Arap3:1500",
+      "label": "Arap3 \u00b7 generation 1,500",
+      "population": "Arap3",
+      "generation": 1500,
+      "condition": "1500",
+      "gene": "Arap3",
+      "category": "Arap3",
+      "value": 3.5,
+      "clones": 2,
+      "cloneIds": "Arap3_1500gen_1064A; Arap3_1500gen_1064B"
+    },
+    {
+      "id": "Arap3:2000",
+      "label": "Arap3 \u00b7 generation 2,000",
+      "population": "Arap3",
+      "generation": 2000,
+      "condition": "2000",
+      "gene": "Arap3",
+      "category": "Arap3",
+      "value": 4.0,
+      "clones": 2,
+      "cloneIds": "Arap3_2000gen_1160A; Arap3_2000gen_1160B"
+    },
+    {
+      "id": "Arap3:5000",
+      "label": "Arap3 \u00b7 generation 5,000",
+      "population": "Arap3",
+      "generation": 5000,
+      "condition": "5000",
+      "gene": "Arap3",
+      "category": "Arap3",
+      "value": 111.5,
+      "clones": 2,
+      "cloneIds": "Arap3_5000gen_2175A; Arap3_5000gen_2175B"
+    },
+    {
+      "id": "Arap3:10000",
+      "label": "Arap3 \u00b7 generation 10,000",
+      "population": "Arap3",
+      "generation": 10000,
+      "condition": "10000",
+      "gene": "Arap3",
+      "category": "Arap3",
+      "value": 294.5,
+      "clones": 2,
+      "cloneIds": "Arap3_10000gen_4532A; Arap3_10000gen_4532B"
+    },
+    {
+      "id": "Arap3:15000",
+      "label": "Arap3 \u00b7 generation 15,000",
+      "population": "Arap3",
+      "generation": 15000,
+      "condition": "15000",
+      "gene": "Arap3",
+      "category": "Arap3",
+      "value": 527.0,
+      "clones": 2,
+      "cloneIds": "Arap3_15000gen_7185A; Arap3_15000gen_7185B"
+    },
+    {
+      "id": "Arap3:20000",
+      "label": "Arap3 \u00b7 generation 20,000",
+      "population": "Arap3",
+      "generation": 20000,
+      "condition": "20000",
+      "gene": "Arap3",
+      "category": "Arap3",
+      "value": 728.5,
+      "clones": 2,
+      "cloneIds": "Arap3_20000gen_8602A; Arap3_20000gen_8602B"
+    },
+    {
+      "id": "Arap3:30000",
+      "label": "Arap3 \u00b7 generation 30,000",
+      "population": "Arap3",
+      "generation": 30000,
+      "condition": "30000",
+      "gene": "Arap3",
+      "category": "Arap3",
+      "value": 952.0,
+      "clones": 2,
+      "cloneIds": "Arap3_30000gen_10410; Arap3_30000gen_10411"
+    },
+    {
+      "id": "Arap3:40000",
+      "label": "Arap3 \u00b7 generation 40,000",
+      "population": "Arap3",
+      "generation": 40000,
+      "condition": "40000",
+      "gene": "Arap3",
+      "category": "Arap3",
+      "value": 1266.0,
+      "clones": 2,
+      "cloneIds": "Arap3_40000gen_10953; Arap3_40000gen_10954"
+    },
+    {
+      "id": "Arap3:50000",
+      "label": "Arap3 \u00b7 generation 50,000",
+      "population": "Arap3",
+      "generation": 50000,
+      "condition": "50000",
+      "gene": "Arap3",
+      "category": "Arap3",
+      "value": 1404.5,
+      "clones": 2,
+      "cloneIds": "Arap3_50000gen_11345; Arap3_50000gen_11346"
+    },
+    {
+      "id": "Arap4:500",
+      "label": "Arap4 \u00b7 generation 500",
+      "population": "Arap4",
+      "generation": 500,
+      "condition": "500",
+      "gene": "Arap4",
+      "category": "Arap4",
+      "value": 1.5,
+      "clones": 2,
+      "cloneIds": "Arap4_500gen_771A; Arap4_500gen_771B"
+    },
+    {
+      "id": "Arap4:1000",
+      "label": "Arap4 \u00b7 generation 1,000",
+      "population": "Arap4",
+      "generation": 1000,
+      "condition": "1000",
+      "gene": "Arap4",
+      "category": "Arap4",
+      "value": 1.5,
+      "clones": 2,
+      "cloneIds": "Arap4_1000gen_961A; Arap4_1000gen_961B"
+    },
+    {
+      "id": "Arap4:1500",
+      "label": "Arap4 \u00b7 generation 1,500",
+      "population": "Arap4",
+      "generation": 1500,
+      "condition": "1500",
+      "gene": "Arap4",
+      "category": "Arap4",
+      "value": 6.5,
+      "clones": 2,
+      "cloneIds": "Arap4_1500gen_1065A; Arap4_1500gen_1065B"
+    },
+    {
+      "id": "Arap4:2000",
+      "label": "Arap4 \u00b7 generation 2,000",
+      "population": "Arap4",
+      "generation": 2000,
+      "condition": "2000",
+      "gene": "Arap4",
+      "category": "Arap4",
+      "value": 3.5,
+      "clones": 2,
+      "cloneIds": "Arap4_2000gen_1161A; Arap4_2000gen_1161B"
+    },
+    {
+      "id": "Arap4:5000",
+      "label": "Arap4 \u00b7 generation 5,000",
+      "population": "Arap4",
+      "generation": 5000,
+      "condition": "5000",
+      "gene": "Arap4",
+      "category": "Arap4",
+      "value": 6.5,
+      "clones": 2,
+      "cloneIds": "Arap4_5000gen_2176A; Arap4_5000gen_2176B"
+    },
+    {
+      "id": "Arap4:10000",
+      "label": "Arap4 \u00b7 generation 10,000",
+      "population": "Arap4",
+      "generation": 10000,
+      "condition": "10000",
+      "gene": "Arap4",
+      "category": "Arap4",
+      "value": 12.0,
+      "clones": 2,
+      "cloneIds": "Arap4_10000gen_4533A; Arap4_10000gen_4533B"
+    },
+    {
+      "id": "Arap4:15000",
+      "label": "Arap4 \u00b7 generation 15,000",
+      "population": "Arap4",
+      "generation": 15000,
+      "condition": "15000",
+      "gene": "Arap4",
+      "category": "Arap4",
+      "value": 14.5,
+      "clones": 2,
+      "cloneIds": "Arap4_15000gen_7186A; Arap4_15000gen_7186B"
+    },
+    {
+      "id": "Arap4:20000",
+      "label": "Arap4 \u00b7 generation 20,000",
+      "population": "Arap4",
+      "generation": 20000,
+      "condition": "20000",
+      "gene": "Arap4",
+      "category": "Arap4",
+      "value": 21.0,
+      "clones": 2,
+      "cloneIds": "Arap4_20000gen_8603A; Arap4_20000gen_8603B"
+    },
+    {
+      "id": "Arap4:30000",
+      "label": "Arap4 \u00b7 generation 30,000",
+      "population": "Arap4",
+      "generation": 30000,
+      "condition": "30000",
+      "gene": "Arap4",
+      "category": "Arap4",
+      "value": 24.5,
+      "clones": 2,
+      "cloneIds": "Arap4_30000gen_10414; Arap4_30000gen_10415"
+    },
+    {
+      "id": "Arap4:40000",
+      "label": "Arap4 \u00b7 generation 40,000",
+      "population": "Arap4",
+      "generation": 40000,
+      "condition": "40000",
+      "gene": "Arap4",
+      "category": "Arap4",
+      "value": 31.5,
+      "clones": 2,
+      "cloneIds": "Arap4_40000gen_10956; Arap4_40000gen_10957"
+    },
+    {
+      "id": "Arap4:50000",
+      "label": "Arap4 \u00b7 generation 50,000",
+      "population": "Arap4",
+      "generation": 50000,
+      "condition": "50000",
+      "gene": "Arap4",
+      "category": "Arap4",
+      "value": 41.0,
+      "clones": 2,
+      "cloneIds": "Arap4_50000gen_11348; Arap4_50000gen_11349"
+    },
+    {
+      "id": "Arap5:500",
+      "label": "Arap5 \u00b7 generation 500",
+      "population": "Arap5",
+      "generation": 500,
+      "condition": "500",
+      "gene": "Arap5",
+      "category": "Arap5",
+      "value": 1.5,
+      "clones": 2,
+      "cloneIds": "Arap5_500gen_772A; Arap5_500gen_772B"
+    },
+    {
+      "id": "Arap5:1000",
+      "label": "Arap5 \u00b7 generation 1,000",
+      "population": "Arap5",
+      "generation": 1000,
+      "condition": "1000",
+      "gene": "Arap5",
+      "category": "Arap5",
+      "value": 2.5,
+      "clones": 2,
+      "cloneIds": "Arap5_1000gen_962A; Arap5_1000gen_962B"
+    },
+    {
+      "id": "Arap5:1500",
+      "label": "Arap5 \u00b7 generation 1,500",
+      "population": "Arap5",
+      "generation": 1500,
+      "condition": "1500",
+      "gene": "Arap5",
+      "category": "Arap5",
+      "value": 3.0,
+      "clones": 2,
+      "cloneIds": "Arap5_1500gen_1066A; Arap5_1500gen_1066B"
+    },
+    {
+      "id": "Arap5:2000",
+      "label": "Arap5 \u00b7 generation 2,000",
+      "population": "Arap5",
+      "generation": 2000,
+      "condition": "2000",
+      "gene": "Arap5",
+      "category": "Arap5",
+      "value": 4.0,
+      "clones": 2,
+      "cloneIds": "Arap5_2000gen_1162A; Arap5_2000gen_1162B"
+    },
+    {
+      "id": "Arap5:5000",
+      "label": "Arap5 \u00b7 generation 5,000",
+      "population": "Arap5",
+      "generation": 5000,
+      "condition": "5000",
+      "gene": "Arap5",
+      "category": "Arap5",
+      "value": 8.5,
+      "clones": 2,
+      "cloneIds": "Arap5_5000gen_2177A; Arap5_5000gen_2177B"
+    },
+    {
+      "id": "Arap5:10000",
+      "label": "Arap5 \u00b7 generation 10,000",
+      "population": "Arap5",
+      "generation": 10000,
+      "condition": "10000",
+      "gene": "Arap5",
+      "category": "Arap5",
+      "value": 13.5,
+      "clones": 2,
+      "cloneIds": "Arap5_10000gen_4534A; Arap5_10000gen_4534B"
+    },
+    {
+      "id": "Arap5:15000",
+      "label": "Arap5 \u00b7 generation 15,000",
+      "population": "Arap5",
+      "generation": 15000,
+      "condition": "15000",
+      "gene": "Arap5",
+      "category": "Arap5",
+      "value": 18.0,
+      "clones": 2,
+      "cloneIds": "Arap5_15000gen_7187A; Arap5_15000gen_7187B"
+    },
+    {
+      "id": "Arap5:20000",
+      "label": "Arap5 \u00b7 generation 20,000",
+      "population": "Arap5",
+      "generation": 20000,
+      "condition": "20000",
+      "gene": "Arap5",
+      "category": "Arap5",
+      "value": 20.0,
+      "clones": 2,
+      "cloneIds": "Arap5_20000gen_8604A; Arap5_20000gen_8604B"
+    },
+    {
+      "id": "Arap5:30000",
+      "label": "Arap5 \u00b7 generation 30,000",
+      "population": "Arap5",
+      "generation": 30000,
+      "condition": "30000",
+      "gene": "Arap5",
+      "category": "Arap5",
+      "value": 27.5,
+      "clones": 2,
+      "cloneIds": "Arap5_30000gen_10432; Arap5_30000gen_10433"
+    },
+    {
+      "id": "Arap5:40000",
+      "label": "Arap5 \u00b7 generation 40,000",
+      "population": "Arap5",
+      "generation": 40000,
+      "condition": "40000",
+      "gene": "Arap5",
+      "category": "Arap5",
+      "value": 36.0,
+      "clones": 2,
+      "cloneIds": "Arap5_40000gen_10982; Arap5_40000gen_10983"
+    },
+    {
+      "id": "Arap5:50000",
+      "label": "Arap5 \u00b7 generation 50,000",
+      "population": "Arap5",
+      "generation": 50000,
+      "condition": "50000",
+      "gene": "Arap5",
+      "category": "Arap5",
+      "value": 43.5,
+      "clones": 2,
+      "cloneIds": "Arap5_50000gen_11367; Arap5_50000gen_11368"
+    },
+    {
+      "id": "Arap6:500",
+      "label": "Arap6 \u00b7 generation 500",
+      "population": "Arap6",
+      "generation": 500,
+      "condition": "500",
+      "gene": "Arap6",
+      "category": "Arap6",
+      "value": 1.5,
+      "clones": 2,
+      "cloneIds": "Arap6_500gen_773A; Arap6_500gen_773B"
+    },
+    {
+      "id": "Arap6:1000",
+      "label": "Arap6 \u00b7 generation 1,000",
+      "population": "Arap6",
+      "generation": 1000,
+      "condition": "1000",
+      "gene": "Arap6",
+      "category": "Arap6",
+      "value": 3.0,
+      "clones": 2,
+      "cloneIds": "Arap6_1000gen_963A; Arap6_1000gen_963B"
+    },
+    {
+      "id": "Arap6:1500",
+      "label": "Arap6 \u00b7 generation 1,500",
+      "population": "Arap6",
+      "generation": 1500,
+      "condition": "1500",
+      "gene": "Arap6",
+      "category": "Arap6",
+      "value": 4.0,
+      "clones": 2,
+      "cloneIds": "Arap6_1500gen_1067A; Arap6_1500gen_1067B"
+    },
+    {
+      "id": "Arap6:2000",
+      "label": "Arap6 \u00b7 generation 2,000",
+      "population": "Arap6",
+      "generation": 2000,
+      "condition": "2000",
+      "gene": "Arap6",
+      "category": "Arap6",
+      "value": 4.0,
+      "clones": 2,
+      "cloneIds": "Arap6_2000gen_1163A; Arap6_2000gen_1163B"
+    },
+    {
+      "id": "Arap6:5000",
+      "label": "Arap6 \u00b7 generation 5,000",
+      "population": "Arap6",
+      "generation": 5000,
+      "condition": "5000",
+      "gene": "Arap6",
+      "category": "Arap6",
+      "value": 6.0,
+      "clones": 2,
+      "cloneIds": "Arap6_5000gen_2178A; Arap6_5000gen_2178B"
+    },
+    {
+      "id": "Arap6:10000",
+      "label": "Arap6 \u00b7 generation 10,000",
+      "population": "Arap6",
+      "generation": 10000,
+      "condition": "10000",
+      "gene": "Arap6",
+      "category": "Arap6",
+      "value": 633.5,
+      "clones": 2,
+      "cloneIds": "Arap6_10000gen_4535A; Arap6_10000gen_4535B"
+    },
+    {
+      "id": "Arap6:15000",
+      "label": "Arap6 \u00b7 generation 15,000",
+      "population": "Arap6",
+      "generation": 15000,
+      "condition": "15000",
+      "gene": "Arap6",
+      "category": "Arap6",
+      "value": 990.5,
+      "clones": 2,
+      "cloneIds": "Arap6_15000gen_7188A; Arap6_15000gen_7188B"
+    },
+    {
+      "id": "Arap6:20000",
+      "label": "Arap6 \u00b7 generation 20,000",
+      "population": "Arap6",
+      "generation": 20000,
+      "condition": "20000",
+      "gene": "Arap6",
+      "category": "Arap6",
+      "value": 1289.5,
+      "clones": 2,
+      "cloneIds": "Arap6_20000gen_8605A; Arap6_20000gen_8605B"
+    },
+    {
+      "id": "Arap6:30000",
+      "label": "Arap6 \u00b7 generation 30,000",
+      "population": "Arap6",
+      "generation": 30000,
+      "condition": "30000",
+      "gene": "Arap6",
+      "category": "Arap6",
+      "value": 1850.5,
+      "clones": 2,
+      "cloneIds": "Arap6_30000gen_10417; Arap6_30000gen_10418"
+    },
+    {
+      "id": "Arap6:40000",
+      "label": "Arap6 \u00b7 generation 40,000",
+      "population": "Arap6",
+      "generation": 40000,
+      "condition": "40000",
+      "gene": "Arap6",
+      "category": "Arap6",
+      "value": 2090.5,
+      "clones": 2,
+      "cloneIds": "Arap6_40000gen_10985; Arap6_40000gen_10986"
+    },
+    {
+      "id": "Arap6:50000",
+      "label": "Arap6 \u00b7 generation 50,000",
+      "population": "Arap6",
+      "generation": 50000,
+      "condition": "50000",
+      "gene": "Arap6",
+      "category": "Arap6",
+      "value": 2412.0,
+      "clones": 2,
+      "cloneIds": "Arap6_50000gen_11370; Arap6_50000gen_11371"
+    }
+  ],
+  "cloneRecords": [
+    {
+      "clone": "Arap1_500gen_768A",
+      "population": "Arap1",
+      "generation": 500,
+      "substitutions": 3,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap1_500gen_768B",
+      "population": "Arap1",
+      "generation": 500,
+      "substitutions": 1,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap1_1000gen_958A",
+      "population": "Arap1",
+      "generation": 1000,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap1_1000gen_958B",
+      "population": "Arap1",
+      "generation": 1000,
+      "substitutions": 1,
+      "isInsertions": 1,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap1_1500gen_1062A",
+      "population": "Arap1",
+      "generation": 1500,
+      "substitutions": 5,
+      "isInsertions": 0,
+      "largeDeletions": 2,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap1_1500gen_1062B",
+      "population": "Arap1",
+      "generation": 1500,
+      "substitutions": 5,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap1_2000gen_1158A",
+      "population": "Arap1",
+      "generation": 2000,
+      "substitutions": 4,
+      "isInsertions": 3,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap1_2000gen_1158C",
+      "population": "Arap1",
+      "generation": 2000,
+      "substitutions": 2,
+      "isInsertions": 3,
+      "largeDeletions": 3,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap1_5000gen_2173A",
+      "population": "Arap1",
+      "generation": 5000,
+      "substitutions": 4,
+      "isInsertions": 13,
+      "largeDeletions": 3,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Arap1_5000gen_2173B",
+      "population": "Arap1",
+      "generation": 5000,
+      "substitutions": 7,
+      "isInsertions": 10,
+      "largeDeletions": 2,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap1_10000gen_4530A",
+      "population": "Arap1",
+      "generation": 10000,
+      "substitutions": 10,
+      "isInsertions": 16,
+      "largeDeletions": 6,
+      "smallIndels": 3
+    },
+    {
+      "clone": "Arap1_10000gen_4530B",
+      "population": "Arap1",
+      "generation": 10000,
+      "substitutions": 8,
+      "isInsertions": 18,
+      "largeDeletions": 5,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap1_15000gen_7183A",
+      "population": "Arap1",
+      "generation": 15000,
+      "substitutions": 15,
+      "isInsertions": 19,
+      "largeDeletions": 10,
+      "smallIndels": 4
+    },
+    {
+      "clone": "Arap1_15000gen_7183B",
+      "population": "Arap1",
+      "generation": 15000,
+      "substitutions": 16,
+      "isInsertions": 18,
+      "largeDeletions": 9,
+      "smallIndels": 4
+    },
+    {
+      "clone": "Arap1_20000gen_9282A",
+      "population": "Arap1",
+      "generation": 20000,
+      "substitutions": 16,
+      "isInsertions": 24,
+      "largeDeletions": 10,
+      "smallIndels": 4
+    },
+    {
+      "clone": "Arap1_20000gen_9282B",
+      "population": "Arap1",
+      "generation": 20000,
+      "substitutions": 18,
+      "isInsertions": 21,
+      "largeDeletions": 12,
+      "smallIndels": 5
+    },
+    {
+      "clone": "Arap1_30000gen_10450",
+      "population": "Arap1",
+      "generation": 30000,
+      "substitutions": 26,
+      "isInsertions": 34,
+      "largeDeletions": 14,
+      "smallIndels": 8
+    },
+    {
+      "clone": "Arap1_30000gen_10451",
+      "population": "Arap1",
+      "generation": 30000,
+      "substitutions": 27,
+      "isInsertions": 28,
+      "largeDeletions": 17,
+      "smallIndels": 6
+    },
+    {
+      "clone": "Arap1_40000gen_11008",
+      "population": "Arap1",
+      "generation": 40000,
+      "substitutions": 32,
+      "isInsertions": 36,
+      "largeDeletions": 17,
+      "smallIndels": 8
+    },
+    {
+      "clone": "Arap1_40000gen_11009",
+      "population": "Arap1",
+      "generation": 40000,
+      "substitutions": 30,
+      "isInsertions": 37,
+      "largeDeletions": 20,
+      "smallIndels": 8
+    },
+    {
+      "clone": "Arap1_50000gen_11392",
+      "population": "Arap1",
+      "generation": 50000,
+      "substitutions": 46,
+      "isInsertions": 37,
+      "largeDeletions": 20,
+      "smallIndels": 8
+    },
+    {
+      "clone": "Arap1_50000gen_11393",
+      "population": "Arap1",
+      "generation": 50000,
+      "substitutions": 44,
+      "isInsertions": 42,
+      "largeDeletions": 20,
+      "smallIndels": 9
+    },
+    {
+      "clone": "Arap2_500gen_769A",
+      "population": "Arap2",
+      "generation": 500,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap2_500gen_769B",
+      "population": "Arap2",
+      "generation": 500,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap2_1000gen_959A",
+      "population": "Arap2",
+      "generation": 1000,
+      "substitutions": 3,
+      "isInsertions": 1,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap2_1000gen_959B",
+      "population": "Arap2",
+      "generation": 1000,
+      "substitutions": 3,
+      "isInsertions": 1,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap2_1500gen_1063A",
+      "population": "Arap2",
+      "generation": 1500,
+      "substitutions": 3,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap2_1500gen_1063B",
+      "population": "Arap2",
+      "generation": 1500,
+      "substitutions": 5,
+      "isInsertions": 1,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap2_2000gen_1159A",
+      "population": "Arap2",
+      "generation": 2000,
+      "substitutions": 6,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap2_2000gen_1159B",
+      "population": "Arap2",
+      "generation": 2000,
+      "substitutions": 5,
+      "isInsertions": 3,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap2_5000gen_2174A",
+      "population": "Arap2",
+      "generation": 5000,
+      "substitutions": 5,
+      "isInsertions": 4,
+      "largeDeletions": 1,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Arap2_5000gen_2174B",
+      "population": "Arap2",
+      "generation": 5000,
+      "substitutions": 5,
+      "isInsertions": 3,
+      "largeDeletions": 1,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Arap2_10000gen_4531A",
+      "population": "Arap2",
+      "generation": 10000,
+      "substitutions": 12,
+      "isInsertions": 3,
+      "largeDeletions": 5,
+      "smallIndels": 3
+    },
+    {
+      "clone": "Arap2_10000gen_4531B",
+      "population": "Arap2",
+      "generation": 10000,
+      "substitutions": 12,
+      "isInsertions": 3,
+      "largeDeletions": 6,
+      "smallIndels": 4
+    },
+    {
+      "clone": "Arap2_15000gen_7184A",
+      "population": "Arap2",
+      "generation": 15000,
+      "substitutions": 15,
+      "isInsertions": 3,
+      "largeDeletions": 8,
+      "smallIndels": 5
+    },
+    {
+      "clone": "Arap2_15000gen_7184B",
+      "population": "Arap2",
+      "generation": 15000,
+      "substitutions": 17,
+      "isInsertions": 3,
+      "largeDeletions": 8,
+      "smallIndels": 5
+    },
+    {
+      "clone": "Arap2_20000gen_8601A",
+      "population": "Arap2",
+      "generation": 20000,
+      "substitutions": 18,
+      "isInsertions": 5,
+      "largeDeletions": 8,
+      "smallIndels": 6
+    },
+    {
+      "clone": "Arap2_20000gen_8601B",
+      "population": "Arap2",
+      "generation": 20000,
+      "substitutions": 16,
+      "isInsertions": 3,
+      "largeDeletions": 8,
+      "smallIndels": 6
+    },
+    {
+      "clone": "Arap2_30000gen_10407",
+      "population": "Arap2",
+      "generation": 30000,
+      "substitutions": 23,
+      "isInsertions": 8,
+      "largeDeletions": 8,
+      "smallIndels": 7
+    },
+    {
+      "clone": "Arap2_30000gen_10408",
+      "population": "Arap2",
+      "generation": 30000,
+      "substitutions": 22,
+      "isInsertions": 7,
+      "largeDeletions": 10,
+      "smallIndels": 8
+    },
+    {
+      "clone": "Arap2_40000gen_10950",
+      "population": "Arap2",
+      "generation": 40000,
+      "substitutions": 32,
+      "isInsertions": 9,
+      "largeDeletions": 8,
+      "smallIndels": 9
+    },
+    {
+      "clone": "Arap2_40000gen_10951",
+      "population": "Arap2",
+      "generation": 40000,
+      "substitutions": 28,
+      "isInsertions": 9,
+      "largeDeletions": 8,
+      "smallIndels": 9
+    },
+    {
+      "clone": "Arap2_50000gen_11342",
+      "population": "Arap2",
+      "generation": 50000,
+      "substitutions": 37,
+      "isInsertions": 10,
+      "largeDeletions": 10,
+      "smallIndels": 10
+    },
+    {
+      "clone": "Arap2_50000gen_11343",
+      "population": "Arap2",
+      "generation": 50000,
+      "substitutions": 38,
+      "isInsertions": 10,
+      "largeDeletions": 9,
+      "smallIndels": 10
+    },
+    {
+      "clone": "Arap3_500gen_770A",
+      "population": "Arap3",
+      "generation": 500,
+      "substitutions": 1,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap3_500gen_770B",
+      "population": "Arap3",
+      "generation": 500,
+      "substitutions": 1,
+      "isInsertions": 1,
+      "largeDeletions": 0,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap3_1000gen_960A",
+      "population": "Arap3",
+      "generation": 1000,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap3_1000gen_960B",
+      "population": "Arap3",
+      "generation": 1000,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap3_1500gen_1064A",
+      "population": "Arap3",
+      "generation": 1500,
+      "substitutions": 3,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap3_1500gen_1064B",
+      "population": "Arap3",
+      "generation": 1500,
+      "substitutions": 4,
+      "isInsertions": 1,
+      "largeDeletions": 0,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap3_2000gen_1160A",
+      "population": "Arap3",
+      "generation": 2000,
+      "substitutions": 4,
+      "isInsertions": 2,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap3_2000gen_1160B",
+      "population": "Arap3",
+      "generation": 2000,
+      "substitutions": 4,
+      "isInsertions": 2,
+      "largeDeletions": 2,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap3_5000gen_2175A",
+      "population": "Arap3",
+      "generation": 5000,
+      "substitutions": 107,
+      "isInsertions": 1,
+      "largeDeletions": 2,
+      "smallIndels": 37
+    },
+    {
+      "clone": "Arap3_5000gen_2175B",
+      "population": "Arap3",
+      "generation": 5000,
+      "substitutions": 116,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 34
+    },
+    {
+      "clone": "Arap3_10000gen_4532A",
+      "population": "Arap3",
+      "generation": 10000,
+      "substitutions": 279,
+      "isInsertions": 2,
+      "largeDeletions": 4,
+      "smallIndels": 46
+    },
+    {
+      "clone": "Arap3_10000gen_4532B",
+      "population": "Arap3",
+      "generation": 10000,
+      "substitutions": 310,
+      "isInsertions": 3,
+      "largeDeletions": 4,
+      "smallIndels": 58
+    },
+    {
+      "clone": "Arap3_15000gen_7185A",
+      "population": "Arap3",
+      "generation": 15000,
+      "substitutions": 530,
+      "isInsertions": 1,
+      "largeDeletions": 3,
+      "smallIndels": 119
+    },
+    {
+      "clone": "Arap3_15000gen_7185B",
+      "population": "Arap3",
+      "generation": 15000,
+      "substitutions": 524,
+      "isInsertions": 2,
+      "largeDeletions": 3,
+      "smallIndels": 115
+    },
+    {
+      "clone": "Arap3_20000gen_8602A",
+      "population": "Arap3",
+      "generation": 20000,
+      "substitutions": 730,
+      "isInsertions": 1,
+      "largeDeletions": 2,
+      "smallIndels": 140
+    },
+    {
+      "clone": "Arap3_20000gen_8602B",
+      "population": "Arap3",
+      "generation": 20000,
+      "substitutions": 727,
+      "isInsertions": 1,
+      "largeDeletions": 2,
+      "smallIndels": 141
+    },
+    {
+      "clone": "Arap3_30000gen_10410",
+      "population": "Arap3",
+      "generation": 30000,
+      "substitutions": 942,
+      "isInsertions": 3,
+      "largeDeletions": 4,
+      "smallIndels": 179
+    },
+    {
+      "clone": "Arap3_30000gen_10411",
+      "population": "Arap3",
+      "generation": 30000,
+      "substitutions": 962,
+      "isInsertions": 3,
+      "largeDeletions": 4,
+      "smallIndels": 174
+    },
+    {
+      "clone": "Arap3_40000gen_10953",
+      "population": "Arap3",
+      "generation": 40000,
+      "substitutions": 1262,
+      "isInsertions": 4,
+      "largeDeletions": 5,
+      "smallIndels": 261
+    },
+    {
+      "clone": "Arap3_40000gen_10954",
+      "population": "Arap3",
+      "generation": 40000,
+      "substitutions": 1270,
+      "isInsertions": 4,
+      "largeDeletions": 4,
+      "smallIndels": 259
+    },
+    {
+      "clone": "Arap3_50000gen_11345",
+      "population": "Arap3",
+      "generation": 50000,
+      "substitutions": 1448,
+      "isInsertions": 4,
+      "largeDeletions": 6,
+      "smallIndels": 271
+    },
+    {
+      "clone": "Arap3_50000gen_11346",
+      "population": "Arap3",
+      "generation": 50000,
+      "substitutions": 1361,
+      "isInsertions": 5,
+      "largeDeletions": 5,
+      "smallIndels": 269
+    },
+    {
+      "clone": "Arap4_500gen_771A",
+      "population": "Arap4",
+      "generation": 500,
+      "substitutions": 1,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap4_500gen_771B",
+      "population": "Arap4",
+      "generation": 500,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap4_1000gen_961A",
+      "population": "Arap4",
+      "generation": 1000,
+      "substitutions": 1,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap4_1000gen_961B",
+      "population": "Arap4",
+      "generation": 1000,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap4_1500gen_1065A",
+      "population": "Arap4",
+      "generation": 1500,
+      "substitutions": 5,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap4_1500gen_1065B",
+      "population": "Arap4",
+      "generation": 1500,
+      "substitutions": 8,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap4_2000gen_1161A",
+      "population": "Arap4",
+      "generation": 2000,
+      "substitutions": 4,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap4_2000gen_1161B",
+      "population": "Arap4",
+      "generation": 2000,
+      "substitutions": 3,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap4_5000gen_2176A",
+      "population": "Arap4",
+      "generation": 5000,
+      "substitutions": 7,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Arap4_5000gen_2176B",
+      "population": "Arap4",
+      "generation": 5000,
+      "substitutions": 6,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap4_10000gen_4533A",
+      "population": "Arap4",
+      "generation": 10000,
+      "substitutions": 12,
+      "isInsertions": 1,
+      "largeDeletions": 3,
+      "smallIndels": 5
+    },
+    {
+      "clone": "Arap4_10000gen_4533B",
+      "population": "Arap4",
+      "generation": 10000,
+      "substitutions": 12,
+      "isInsertions": 1,
+      "largeDeletions": 3,
+      "smallIndels": 5
+    },
+    {
+      "clone": "Arap4_15000gen_7186A",
+      "population": "Arap4",
+      "generation": 15000,
+      "substitutions": 14,
+      "isInsertions": 2,
+      "largeDeletions": 5,
+      "smallIndels": 6
+    },
+    {
+      "clone": "Arap4_15000gen_7186B",
+      "population": "Arap4",
+      "generation": 15000,
+      "substitutions": 15,
+      "isInsertions": 2,
+      "largeDeletions": 4,
+      "smallIndels": 6
+    },
+    {
+      "clone": "Arap4_20000gen_8603A",
+      "population": "Arap4",
+      "generation": 20000,
+      "substitutions": 21,
+      "isInsertions": 5,
+      "largeDeletions": 8,
+      "smallIndels": 6
+    },
+    {
+      "clone": "Arap4_20000gen_8603B",
+      "population": "Arap4",
+      "generation": 20000,
+      "substitutions": 21,
+      "isInsertions": 2,
+      "largeDeletions": 7,
+      "smallIndels": 6
+    },
+    {
+      "clone": "Arap4_30000gen_10414",
+      "population": "Arap4",
+      "generation": 30000,
+      "substitutions": 24,
+      "isInsertions": 3,
+      "largeDeletions": 10,
+      "smallIndels": 7
+    },
+    {
+      "clone": "Arap4_30000gen_10415",
+      "population": "Arap4",
+      "generation": 30000,
+      "substitutions": 25,
+      "isInsertions": 3,
+      "largeDeletions": 7,
+      "smallIndels": 7
+    },
+    {
+      "clone": "Arap4_40000gen_10956",
+      "population": "Arap4",
+      "generation": 40000,
+      "substitutions": 32,
+      "isInsertions": 6,
+      "largeDeletions": 8,
+      "smallIndels": 8
+    },
+    {
+      "clone": "Arap4_40000gen_10957",
+      "population": "Arap4",
+      "generation": 40000,
+      "substitutions": 31,
+      "isInsertions": 7,
+      "largeDeletions": 8,
+      "smallIndels": 8
+    },
+    {
+      "clone": "Arap4_50000gen_11348",
+      "population": "Arap4",
+      "generation": 50000,
+      "substitutions": 41,
+      "isInsertions": 6,
+      "largeDeletions": 10,
+      "smallIndels": 11
+    },
+    {
+      "clone": "Arap4_50000gen_11349",
+      "population": "Arap4",
+      "generation": 50000,
+      "substitutions": 41,
+      "isInsertions": 6,
+      "largeDeletions": 10,
+      "smallIndels": 10
+    },
+    {
+      "clone": "Arap5_500gen_772A",
+      "population": "Arap5",
+      "generation": 500,
+      "substitutions": 1,
+      "isInsertions": 1,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap5_500gen_772B",
+      "population": "Arap5",
+      "generation": 500,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap5_1000gen_962A",
+      "population": "Arap5",
+      "generation": 1000,
+      "substitutions": 3,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap5_1000gen_962B",
+      "population": "Arap5",
+      "generation": 1000,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap5_1500gen_1066A",
+      "population": "Arap5",
+      "generation": 1500,
+      "substitutions": 3,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap5_1500gen_1066B",
+      "population": "Arap5",
+      "generation": 1500,
+      "substitutions": 3,
+      "isInsertions": 1,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap5_2000gen_1162A",
+      "population": "Arap5",
+      "generation": 2000,
+      "substitutions": 4,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap5_2000gen_1162B",
+      "population": "Arap5",
+      "generation": 2000,
+      "substitutions": 4,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap5_5000gen_2177A",
+      "population": "Arap5",
+      "generation": 5000,
+      "substitutions": 9,
+      "isInsertions": 4,
+      "largeDeletions": 2,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap5_5000gen_2177B",
+      "population": "Arap5",
+      "generation": 5000,
+      "substitutions": 8,
+      "isInsertions": 2,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap5_10000gen_4534A",
+      "population": "Arap5",
+      "generation": 10000,
+      "substitutions": 15,
+      "isInsertions": 2,
+      "largeDeletions": 3,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap5_10000gen_4534B",
+      "population": "Arap5",
+      "generation": 10000,
+      "substitutions": 12,
+      "isInsertions": 2,
+      "largeDeletions": 3,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap5_15000gen_7187A",
+      "population": "Arap5",
+      "generation": 15000,
+      "substitutions": 18,
+      "isInsertions": 7,
+      "largeDeletions": 4,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap5_15000gen_7187B",
+      "population": "Arap5",
+      "generation": 15000,
+      "substitutions": 18,
+      "isInsertions": 7,
+      "largeDeletions": 5,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap5_20000gen_8604A",
+      "population": "Arap5",
+      "generation": 20000,
+      "substitutions": 20,
+      "isInsertions": 5,
+      "largeDeletions": 6,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Arap5_20000gen_8604B",
+      "population": "Arap5",
+      "generation": 20000,
+      "substitutions": 20,
+      "isInsertions": 5,
+      "largeDeletions": 6,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap5_30000gen_10432",
+      "population": "Arap5",
+      "generation": 30000,
+      "substitutions": 27,
+      "isInsertions": 10,
+      "largeDeletions": 9,
+      "smallIndels": 4
+    },
+    {
+      "clone": "Arap5_30000gen_10433",
+      "population": "Arap5",
+      "generation": 30000,
+      "substitutions": 28,
+      "isInsertions": 10,
+      "largeDeletions": 9,
+      "smallIndels": 4
+    },
+    {
+      "clone": "Arap5_40000gen_10982",
+      "population": "Arap5",
+      "generation": 40000,
+      "substitutions": 36,
+      "isInsertions": 14,
+      "largeDeletions": 8,
+      "smallIndels": 6
+    },
+    {
+      "clone": "Arap5_40000gen_10983",
+      "population": "Arap5",
+      "generation": 40000,
+      "substitutions": 36,
+      "isInsertions": 15,
+      "largeDeletions": 9,
+      "smallIndels": 6
+    },
+    {
+      "clone": "Arap5_50000gen_11367",
+      "population": "Arap5",
+      "generation": 50000,
+      "substitutions": 45,
+      "isInsertions": 16,
+      "largeDeletions": 8,
+      "smallIndels": 8
+    },
+    {
+      "clone": "Arap5_50000gen_11368",
+      "population": "Arap5",
+      "generation": 50000,
+      "substitutions": 42,
+      "isInsertions": 16,
+      "largeDeletions": 9,
+      "smallIndels": 9
+    },
+    {
+      "clone": "Arap6_500gen_773A",
+      "population": "Arap6",
+      "generation": 500,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap6_500gen_773B",
+      "population": "Arap6",
+      "generation": 500,
+      "substitutions": 1,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap6_1000gen_963A",
+      "population": "Arap6",
+      "generation": 1000,
+      "substitutions": 3,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap6_1000gen_963B",
+      "population": "Arap6",
+      "generation": 1000,
+      "substitutions": 3,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap6_1500gen_1067A",
+      "population": "Arap6",
+      "generation": 1500,
+      "substitutions": 4,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap6_1500gen_1067B",
+      "population": "Arap6",
+      "generation": 1500,
+      "substitutions": 4,
+      "isInsertions": 0,
+      "largeDeletions": 2,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap6_2000gen_1163A",
+      "population": "Arap6",
+      "generation": 2000,
+      "substitutions": 4,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap6_2000gen_1163B",
+      "population": "Arap6",
+      "generation": 2000,
+      "substitutions": 4,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Arap6_5000gen_2178A",
+      "population": "Arap6",
+      "generation": 5000,
+      "substitutions": 6,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap6_5000gen_2178B",
+      "population": "Arap6",
+      "generation": 5000,
+      "substitutions": 6,
+      "isInsertions": 0,
+      "largeDeletions": 2,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Arap6_10000gen_4535A",
+      "population": "Arap6",
+      "generation": 10000,
+      "substitutions": 593,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 3
+    },
+    {
+      "clone": "Arap6_10000gen_4535B",
+      "population": "Arap6",
+      "generation": 10000,
+      "substitutions": 674,
+      "isInsertions": 2,
+      "largeDeletions": 1,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Arap6_15000gen_7188A",
+      "population": "Arap6",
+      "generation": 15000,
+      "substitutions": 987,
+      "isInsertions": 3,
+      "largeDeletions": 2,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Arap6_15000gen_7188B",
+      "population": "Arap6",
+      "generation": 15000,
+      "substitutions": 994,
+      "isInsertions": 3,
+      "largeDeletions": 2,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Arap6_20000gen_8605A",
+      "population": "Arap6",
+      "generation": 20000,
+      "substitutions": 1228,
+      "isInsertions": 3,
+      "largeDeletions": 2,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Arap6_20000gen_8605B",
+      "population": "Arap6",
+      "generation": 20000,
+      "substitutions": 1351,
+      "isInsertions": 2,
+      "largeDeletions": 2,
+      "smallIndels": 3
+    },
+    {
+      "clone": "Arap6_30000gen_10417",
+      "population": "Arap6",
+      "generation": 30000,
+      "substitutions": 1827,
+      "isInsertions": 4,
+      "largeDeletions": 4,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Arap6_30000gen_10418",
+      "population": "Arap6",
+      "generation": 30000,
+      "substitutions": 1874,
+      "isInsertions": 2,
+      "largeDeletions": 5,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Arap6_40000gen_10985",
+      "population": "Arap6",
+      "generation": 40000,
+      "substitutions": 2172,
+      "isInsertions": 3,
+      "largeDeletions": 8,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Arap6_40000gen_10986",
+      "population": "Arap6",
+      "generation": 40000,
+      "substitutions": 2009,
+      "isInsertions": 4,
+      "largeDeletions": 4,
+      "smallIndels": 4
+    },
+    {
+      "clone": "Arap6_50000gen_11370",
+      "population": "Arap6",
+      "generation": 50000,
+      "substitutions": 2548,
+      "isInsertions": 2,
+      "largeDeletions": 5,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Arap6_50000gen_11371",
+      "population": "Arap6",
+      "generation": 50000,
+      "substitutions": 2276,
+      "isInsertions": 6,
+      "largeDeletions": 8,
+      "smallIndels": 3
+    },
+    {
+      "clone": "Aram1_500gen_762B",
+      "population": "Aram1",
+      "generation": 500,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram1_500gen_762C",
+      "population": "Aram1",
+      "generation": 500,
+      "substitutions": 3,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram1_1000gen_964B",
+      "population": "Aram1",
+      "generation": 1000,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram1_1000gen_964C",
+      "population": "Aram1",
+      "generation": 1000,
+      "substitutions": 4,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram1_1500gen_1068B",
+      "population": "Aram1",
+      "generation": 1500,
+      "substitutions": 2,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram1_1500gen_1068C",
+      "population": "Aram1",
+      "generation": 1500,
+      "substitutions": 4,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Aram1_2000gen_1164A",
+      "population": "Aram1",
+      "generation": 2000,
+      "substitutions": 3,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram1_2000gen_1164B",
+      "population": "Aram1",
+      "generation": 2000,
+      "substitutions": 3,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Aram1_5000gen_2179A",
+      "population": "Aram1",
+      "generation": 5000,
+      "substitutions": 9,
+      "isInsertions": 2,
+      "largeDeletions": 1,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Aram1_5000gen_2179B",
+      "population": "Aram1",
+      "generation": 5000,
+      "substitutions": 8,
+      "isInsertions": 2,
+      "largeDeletions": 1,
+      "smallIndels": 3
+    },
+    {
+      "clone": "Aram1_10000gen_4536A",
+      "population": "Aram1",
+      "generation": 10000,
+      "substitutions": 16,
+      "isInsertions": 3,
+      "largeDeletions": 3,
+      "smallIndels": 4
+    },
+    {
+      "clone": "Aram1_10000gen_4536B",
+      "population": "Aram1",
+      "generation": 10000,
+      "substitutions": 18,
+      "isInsertions": 1,
+      "largeDeletions": 3,
+      "smallIndels": 4
+    },
+    {
+      "clone": "Aram1_15000gen_7177A",
+      "population": "Aram1",
+      "generation": 15000,
+      "substitutions": 22,
+      "isInsertions": 7,
+      "largeDeletions": 3,
+      "smallIndels": 4
+    },
+    {
+      "clone": "Aram1_15000gen_7177B",
+      "population": "Aram1",
+      "generation": 15000,
+      "substitutions": 22,
+      "isInsertions": 5,
+      "largeDeletions": 4,
+      "smallIndels": 5
+    },
+    {
+      "clone": "Aram1_20000gen_8593A",
+      "population": "Aram1",
+      "generation": 20000,
+      "substitutions": 27,
+      "isInsertions": 7,
+      "largeDeletions": 3,
+      "smallIndels": 5
+    },
+    {
+      "clone": "Aram1_20000gen_8593B",
+      "population": "Aram1",
+      "generation": 20000,
+      "substitutions": 26,
+      "isInsertions": 7,
+      "largeDeletions": 3,
+      "smallIndels": 4
+    },
+    {
+      "clone": "Aram1_30000gen_10391",
+      "population": "Aram1",
+      "generation": 30000,
+      "substitutions": 394,
+      "isInsertions": 8,
+      "largeDeletions": 5,
+      "smallIndels": 8
+    },
+    {
+      "clone": "Aram1_30000gen_10392",
+      "population": "Aram1",
+      "generation": 30000,
+      "substitutions": 487,
+      "isInsertions": 9,
+      "largeDeletions": 5,
+      "smallIndels": 9
+    },
+    {
+      "clone": "Aram1_40000gen_10938",
+      "population": "Aram1",
+      "generation": 40000,
+      "substitutions": 616,
+      "isInsertions": 10,
+      "largeDeletions": 8,
+      "smallIndels": 8
+    },
+    {
+      "clone": "Aram1_40000gen_10939",
+      "population": "Aram1",
+      "generation": 40000,
+      "substitutions": 823,
+      "isInsertions": 11,
+      "largeDeletions": 6,
+      "smallIndels": 10
+    },
+    {
+      "clone": "Aram1_50000gen_11330",
+      "population": "Aram1",
+      "generation": 50000,
+      "substitutions": 1059,
+      "isInsertions": 11,
+      "largeDeletions": 7,
+      "smallIndels": 10
+    },
+    {
+      "clone": "Aram1_50000gen_11331",
+      "population": "Aram1",
+      "generation": 50000,
+      "substitutions": 1076,
+      "isInsertions": 11,
+      "largeDeletions": 7,
+      "smallIndels": 11
+    },
+    {
+      "clone": "Aram2_500gen_763A",
+      "population": "Aram2",
+      "generation": 500,
+      "substitutions": 1,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram2_500gen_763B",
+      "population": "Aram2",
+      "generation": 500,
+      "substitutions": 1,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram2_1000gen_965A",
+      "population": "Aram2",
+      "generation": 1000,
+      "substitutions": 4,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram2_1000gen_965B",
+      "population": "Aram2",
+      "generation": 1000,
+      "substitutions": 3,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram2_1500gen_1069A",
+      "population": "Aram2",
+      "generation": 1500,
+      "substitutions": 3,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram2_1500gen_1069B",
+      "population": "Aram2",
+      "generation": 1500,
+      "substitutions": 3,
+      "isInsertions": 1,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram2_2000gen_1165A",
+      "population": "Aram2",
+      "generation": 2000,
+      "substitutions": 4,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram2_2000gen_2000",
+      "population": "Aram2",
+      "generation": 2000,
+      "substitutions": 4,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram2_5000gen_2180A",
+      "population": "Aram2",
+      "generation": 5000,
+      "substitutions": 105,
+      "isInsertions": 0,
+      "largeDeletions": 3,
+      "smallIndels": 28
+    },
+    {
+      "clone": "Aram2_5000gen_2180B",
+      "population": "Aram2",
+      "generation": 5000,
+      "substitutions": 107,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 19
+    },
+    {
+      "clone": "Aram2_10000gen_4537A",
+      "population": "Aram2",
+      "generation": 10000,
+      "substitutions": 241,
+      "isInsertions": 0,
+      "largeDeletions": 3,
+      "smallIndels": 56
+    },
+    {
+      "clone": "Aram2_10000gen_4537B",
+      "population": "Aram2",
+      "generation": 10000,
+      "substitutions": 252,
+      "isInsertions": 1,
+      "largeDeletions": 3,
+      "smallIndels": 60
+    },
+    {
+      "clone": "Aram2_15000gen_7178A",
+      "population": "Aram2",
+      "generation": 15000,
+      "substitutions": 497,
+      "isInsertions": 3,
+      "largeDeletions": 5,
+      "smallIndels": 74
+    },
+    {
+      "clone": "Aram2_15000gen_7178B",
+      "population": "Aram2",
+      "generation": 15000,
+      "substitutions": 407,
+      "isInsertions": 0,
+      "largeDeletions": 4,
+      "smallIndels": 90
+    },
+    {
+      "clone": "Aram2_20000gen_20KmS1",
+      "population": "Aram2",
+      "generation": 20000,
+      "substitutions": 524,
+      "isInsertions": 7,
+      "largeDeletions": 8,
+      "smallIndels": 104
+    },
+    {
+      "clone": "Aram2_20000gen_20KmLA",
+      "population": "Aram2",
+      "generation": 20000,
+      "substitutions": 527,
+      "isInsertions": 1,
+      "largeDeletions": 4,
+      "smallIndels": 119
+    },
+    {
+      "clone": "Aram2_30000gen_30KmS1",
+      "population": "Aram2",
+      "generation": 30000,
+      "substitutions": 711,
+      "isInsertions": 6,
+      "largeDeletions": 4,
+      "smallIndels": 111
+    },
+    {
+      "clone": "Aram2_30000gen_30KmL1",
+      "population": "Aram2",
+      "generation": 30000,
+      "substitutions": 514,
+      "isInsertions": 0,
+      "largeDeletions": 5,
+      "smallIndels": 115
+    },
+    {
+      "clone": "Aram2_40000gen_11035",
+      "population": "Aram2",
+      "generation": 40000,
+      "substitutions": 847,
+      "isInsertions": 3,
+      "largeDeletions": 7,
+      "smallIndels": 179
+    },
+    {
+      "clone": "Aram2_40000gen_11036",
+      "population": "Aram2",
+      "generation": 40000,
+      "substitutions": 910,
+      "isInsertions": 18,
+      "largeDeletions": 10,
+      "smallIndels": 139
+    },
+    {
+      "clone": "Aram2_50000gen_11333",
+      "population": "Aram2",
+      "generation": 50000,
+      "substitutions": 831,
+      "isInsertions": 6,
+      "largeDeletions": 8,
+      "smallIndels": 181
+    },
+    {
+      "clone": "Aram2_50000gen_11335",
+      "population": "Aram2",
+      "generation": 50000,
+      "substitutions": 912,
+      "isInsertions": 22,
+      "largeDeletions": 12,
+      "smallIndels": 142
+    },
+    {
+      "clone": "Aram3_500gen_764A",
+      "population": "Aram3",
+      "generation": 500,
+      "substitutions": 1,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram3_500gen_764B",
+      "population": "Aram3",
+      "generation": 500,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram3_1000gen_966A",
+      "population": "Aram3",
+      "generation": 1000,
+      "substitutions": 2,
+      "isInsertions": 2,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram3_1000gen_966B",
+      "population": "Aram3",
+      "generation": 1000,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram3_1500gen_1070A",
+      "population": "Aram3",
+      "generation": 1500,
+      "substitutions": 4,
+      "isInsertions": 2,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram3_1500gen_1070B",
+      "population": "Aram3",
+      "generation": 1500,
+      "substitutions": 2,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram3_2000gen_1166A",
+      "population": "Aram3",
+      "generation": 2000,
+      "substitutions": 3,
+      "isInsertions": 3,
+      "largeDeletions": 2,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram3_2000gen_1166B",
+      "population": "Aram3",
+      "generation": 2000,
+      "substitutions": 4,
+      "isInsertions": 4,
+      "largeDeletions": 2,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram3_5000gen_2181A",
+      "population": "Aram3",
+      "generation": 5000,
+      "substitutions": 6,
+      "isInsertions": 5,
+      "largeDeletions": 3,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram3_5000gen_ZDB409",
+      "population": "Aram3",
+      "generation": 5000,
+      "substitutions": 7,
+      "isInsertions": 7,
+      "largeDeletions": 2,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram3_10000gen_4538A",
+      "population": "Aram3",
+      "generation": 10000,
+      "substitutions": 11,
+      "isInsertions": 9,
+      "largeDeletions": 3,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram3_10000gen_ZDB429",
+      "population": "Aram3",
+      "generation": 10000,
+      "substitutions": 11,
+      "isInsertions": 11,
+      "largeDeletions": 3,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Aram3_15000gen_ZDB446",
+      "population": "Aram3",
+      "generation": 15000,
+      "substitutions": 15,
+      "isInsertions": 15,
+      "largeDeletions": 4,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram3_15000gen_7179B",
+      "population": "Aram3",
+      "generation": 15000,
+      "substitutions": 16,
+      "isInsertions": 11,
+      "largeDeletions": 3,
+      "smallIndels": 3
+    },
+    {
+      "clone": "Aram3_20000gen_ZDB458",
+      "population": "Aram3",
+      "generation": 20000,
+      "substitutions": 18,
+      "isInsertions": 15,
+      "largeDeletions": 7,
+      "smallIndels": 3
+    },
+    {
+      "clone": "Aram3_20000gen_ZDB464",
+      "population": "Aram3",
+      "generation": 20000,
+      "substitutions": 18,
+      "isInsertions": 16,
+      "largeDeletions": 8,
+      "smallIndels": 3
+    },
+    {
+      "clone": "Aram3_30000gen_ZDB16",
+      "population": "Aram3",
+      "generation": 30000,
+      "substitutions": 25,
+      "isInsertions": 12,
+      "largeDeletions": 8,
+      "smallIndels": 5
+    },
+    {
+      "clone": "Aram3_30000gen_ZDB357",
+      "population": "Aram3",
+      "generation": 30000,
+      "substitutions": 32,
+      "isInsertions": 20,
+      "largeDeletions": 8,
+      "smallIndels": 4
+    },
+    {
+      "clone": "Aram3_40000gen_10979",
+      "population": "Aram3",
+      "generation": 40000,
+      "substitutions": 281,
+      "isInsertions": 29,
+      "largeDeletions": 15,
+      "smallIndels": 54
+    },
+    {
+      "clone": "Aram3_40000gen_10988",
+      "population": "Aram3",
+      "generation": 40000,
+      "substitutions": 41,
+      "isInsertions": 41,
+      "largeDeletions": 17,
+      "smallIndels": 5
+    },
+    {
+      "clone": "Aram3_50000gen_11364",
+      "population": "Aram3",
+      "generation": 50000,
+      "substitutions": 621,
+      "isInsertions": 31,
+      "largeDeletions": 21,
+      "smallIndels": 92
+    },
+    {
+      "clone": "Aram3_50000gen_11365",
+      "population": "Aram3",
+      "generation": 50000,
+      "substitutions": 631,
+      "isInsertions": 31,
+      "largeDeletions": 23,
+      "smallIndels": 95
+    },
+    {
+      "clone": "Aram4_500gen_765A",
+      "population": "Aram4",
+      "generation": 500,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram4_500gen_765B",
+      "population": "Aram4",
+      "generation": 500,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram4_1000gen_967A",
+      "population": "Aram4",
+      "generation": 1000,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram4_1000gen_967B",
+      "population": "Aram4",
+      "generation": 1000,
+      "substitutions": 3,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram4_1500gen_1071A",
+      "population": "Aram4",
+      "generation": 1500,
+      "substitutions": 5,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram4_1500gen_1071B",
+      "population": "Aram4",
+      "generation": 1500,
+      "substitutions": 5,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Aram4_2000gen_1167A",
+      "population": "Aram4",
+      "generation": 2000,
+      "substitutions": 7,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram4_2000gen_1167B",
+      "population": "Aram4",
+      "generation": 2000,
+      "substitutions": 5,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram4_5000gen_2182A",
+      "population": "Aram4",
+      "generation": 5000,
+      "substitutions": 11,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Aram4_5000gen_2182B",
+      "population": "Aram4",
+      "generation": 5000,
+      "substitutions": 7,
+      "isInsertions": 1,
+      "largeDeletions": 2,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Aram4_10000gen_4539A",
+      "population": "Aram4",
+      "generation": 10000,
+      "substitutions": 204,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 38
+    },
+    {
+      "clone": "Aram4_10000gen_4539B",
+      "population": "Aram4",
+      "generation": 10000,
+      "substitutions": 226,
+      "isInsertions": 1,
+      "largeDeletions": 2,
+      "smallIndels": 36
+    },
+    {
+      "clone": "Aram4_15000gen_7180A",
+      "population": "Aram4",
+      "generation": 15000,
+      "substitutions": 378,
+      "isInsertions": 1,
+      "largeDeletions": 3,
+      "smallIndels": 57
+    },
+    {
+      "clone": "Aram4_15000gen_7180B",
+      "population": "Aram4",
+      "generation": 15000,
+      "substitutions": 392,
+      "isInsertions": 1,
+      "largeDeletions": 4,
+      "smallIndels": 64
+    },
+    {
+      "clone": "Aram4_20000gen_8596A",
+      "population": "Aram4",
+      "generation": 20000,
+      "substitutions": 523,
+      "isInsertions": 1,
+      "largeDeletions": 3,
+      "smallIndels": 107
+    },
+    {
+      "clone": "Aram4_20000gen_8596B",
+      "population": "Aram4",
+      "generation": 20000,
+      "substitutions": 507,
+      "isInsertions": 1,
+      "largeDeletions": 3,
+      "smallIndels": 91
+    },
+    {
+      "clone": "Aram4_30000gen_10401",
+      "population": "Aram4",
+      "generation": 30000,
+      "substitutions": 749,
+      "isInsertions": 1,
+      "largeDeletions": 7,
+      "smallIndels": 164
+    },
+    {
+      "clone": "Aram4_30000gen_10402",
+      "population": "Aram4",
+      "generation": 30000,
+      "substitutions": 731,
+      "isInsertions": 1,
+      "largeDeletions": 7,
+      "smallIndels": 161
+    },
+    {
+      "clone": "Aram4_40000gen_10944",
+      "population": "Aram4",
+      "generation": 40000,
+      "substitutions": 892,
+      "isInsertions": 2,
+      "largeDeletions": 9,
+      "smallIndels": 223
+    },
+    {
+      "clone": "Aram4_40000gen_10945",
+      "population": "Aram4",
+      "generation": 40000,
+      "substitutions": 887,
+      "isInsertions": 1,
+      "largeDeletions": 7,
+      "smallIndels": 211
+    },
+    {
+      "clone": "Aram4_50000gen_11336",
+      "population": "Aram4",
+      "generation": 50000,
+      "substitutions": 1046,
+      "isInsertions": 2,
+      "largeDeletions": 9,
+      "smallIndels": 256
+    },
+    {
+      "clone": "Aram4_50000gen_11337",
+      "population": "Aram4",
+      "generation": 50000,
+      "substitutions": 1036,
+      "isInsertions": 3,
+      "largeDeletions": 9,
+      "smallIndels": 263
+    },
+    {
+      "clone": "Aram5_500gen_766A",
+      "population": "Aram5",
+      "generation": 500,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram5_500gen_766B",
+      "population": "Aram5",
+      "generation": 500,
+      "substitutions": 2,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram5_1000gen_968A",
+      "population": "Aram5",
+      "generation": 1000,
+      "substitutions": 4,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram5_1000gen_968B",
+      "population": "Aram5",
+      "generation": 1000,
+      "substitutions": 3,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram5_1500gen_1072A",
+      "population": "Aram5",
+      "generation": 1500,
+      "substitutions": 4,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram5_1500gen_1072B",
+      "population": "Aram5",
+      "generation": 1500,
+      "substitutions": 5,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram5_2000gen_1168A",
+      "population": "Aram5",
+      "generation": 2000,
+      "substitutions": 6,
+      "isInsertions": 1,
+      "largeDeletions": 2,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram5_2000gen_1168B",
+      "population": "Aram5",
+      "generation": 2000,
+      "substitutions": 7,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram5_5000gen_2183A",
+      "population": "Aram5",
+      "generation": 5000,
+      "substitutions": 8,
+      "isInsertions": 4,
+      "largeDeletions": 3,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram5_5000gen_2183B",
+      "population": "Aram5",
+      "generation": 5000,
+      "substitutions": 9,
+      "isInsertions": 3,
+      "largeDeletions": 2,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram5_10000gen_4540A",
+      "population": "Aram5",
+      "generation": 10000,
+      "substitutions": 15,
+      "isInsertions": 9,
+      "largeDeletions": 3,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram5_10000gen_4540B",
+      "population": "Aram5",
+      "generation": 10000,
+      "substitutions": 20,
+      "isInsertions": 11,
+      "largeDeletions": 3,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram5_15000gen_7181A",
+      "population": "Aram5",
+      "generation": 15000,
+      "substitutions": 22,
+      "isInsertions": 9,
+      "largeDeletions": 3,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Aram5_15000gen_7181B",
+      "population": "Aram5",
+      "generation": 15000,
+      "substitutions": 19,
+      "isInsertions": 9,
+      "largeDeletions": 4,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Aram5_20000gen_8597A",
+      "population": "Aram5",
+      "generation": 20000,
+      "substitutions": 22,
+      "isInsertions": 13,
+      "largeDeletions": 4,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Aram5_20000gen_8597B",
+      "population": "Aram5",
+      "generation": 20000,
+      "substitutions": 22,
+      "isInsertions": 13,
+      "largeDeletions": 4,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Aram5_30000gen_10404",
+      "population": "Aram5",
+      "generation": 30000,
+      "substitutions": 17,
+      "isInsertions": 35,
+      "largeDeletions": 16,
+      "smallIndels": 7
+    },
+    {
+      "clone": "Aram5_30000gen_10405",
+      "population": "Aram5",
+      "generation": 30000,
+      "substitutions": 40,
+      "isInsertions": 13,
+      "largeDeletions": 7,
+      "smallIndels": 3
+    },
+    {
+      "clone": "Aram5_40000gen_10947",
+      "population": "Aram5",
+      "generation": 40000,
+      "substitutions": 43,
+      "isInsertions": 16,
+      "largeDeletions": 8,
+      "smallIndels": 4
+    },
+    {
+      "clone": "Aram5_40000gen_10948",
+      "population": "Aram5",
+      "generation": 40000,
+      "substitutions": 44,
+      "isInsertions": 18,
+      "largeDeletions": 8,
+      "smallIndels": 4
+    },
+    {
+      "clone": "Aram5_50000gen_11339",
+      "population": "Aram5",
+      "generation": 50000,
+      "substitutions": 50,
+      "isInsertions": 23,
+      "largeDeletions": 8,
+      "smallIndels": 5
+    },
+    {
+      "clone": "Aram5_50000gen_11340",
+      "population": "Aram5",
+      "generation": 50000,
+      "substitutions": 52,
+      "isInsertions": 24,
+      "largeDeletions": 8,
+      "smallIndels": 6
+    },
+    {
+      "clone": "Aram6_500gen_767A",
+      "population": "Aram6",
+      "generation": 500,
+      "substitutions": 1,
+      "isInsertions": 1,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram6_500gen_767B",
+      "population": "Aram6",
+      "generation": 500,
+      "substitutions": 1,
+      "isInsertions": 0,
+      "largeDeletions": 0,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram6_1000gen_969A",
+      "population": "Aram6",
+      "generation": 1000,
+      "substitutions": 3,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram6_1000gen_969B",
+      "population": "Aram6",
+      "generation": 1000,
+      "substitutions": 3,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram6_1500gen_1073A",
+      "population": "Aram6",
+      "generation": 1500,
+      "substitutions": 5,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram6_1500gen_1073B",
+      "population": "Aram6",
+      "generation": 1500,
+      "substitutions": 4,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram6_2000gen_1169A",
+      "population": "Aram6",
+      "generation": 2000,
+      "substitutions": 7,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram6_2000gen_1169B",
+      "population": "Aram6",
+      "generation": 2000,
+      "substitutions": 8,
+      "isInsertions": 0,
+      "largeDeletions": 1,
+      "smallIndels": 0
+    },
+    {
+      "clone": "Aram6_5000gen_2184A",
+      "population": "Aram6",
+      "generation": 5000,
+      "substitutions": 8,
+      "isInsertions": 0,
+      "largeDeletions": 2,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram6_5000gen_2184B",
+      "population": "Aram6",
+      "generation": 5000,
+      "substitutions": 12,
+      "isInsertions": 1,
+      "largeDeletions": 2,
+      "smallIndels": 1
+    },
+    {
+      "clone": "Aram6_10000gen_4541A",
+      "population": "Aram6",
+      "generation": 10000,
+      "substitutions": 12,
+      "isInsertions": 6,
+      "largeDeletions": 1,
+      "smallIndels": 2
+    },
+    {
+      "clone": "Aram6_10000gen_4541B",
+      "population": "Aram6",
+      "generation": 10000,
+      "substitutions": 14,
+      "isInsertions": 6,
+      "largeDeletions": 2,
+      "smallIndels": 4
+    },
+    {
+      "clone": "Aram6_15000gen_7182A",
+      "population": "Aram6",
+      "generation": 15000,
+      "substitutions": 18,
+      "isInsertions": 6,
+      "largeDeletions": 4,
+      "smallIndels": 5
+    },
+    {
+      "clone": "Aram6_15000gen_7182B",
+      "population": "Aram6",
+      "generation": 15000,
+      "substitutions": 20,
+      "isInsertions": 7,
+      "largeDeletions": 3,
+      "smallIndels": 5
+    },
+    {
+      "clone": "Aram6_20000gen_8598A",
+      "population": "Aram6",
+      "generation": 20000,
+      "substitutions": 19,
+      "isInsertions": 9,
+      "largeDeletions": 8,
+      "smallIndels": 6
+    },
+    {
+      "clone": "Aram6_20000gen_8598B",
+      "population": "Aram6",
+      "generation": 20000,
+      "substitutions": 20,
+      "isInsertions": 9,
+      "largeDeletions": 7,
+      "smallIndels": 7
+    },
+    {
+      "clone": "Aram6_30000gen_10447",
+      "population": "Aram6",
+      "generation": 30000,
+      "substitutions": 29,
+      "isInsertions": 13,
+      "largeDeletions": 9,
+      "smallIndels": 7
+    },
+    {
+      "clone": "Aram6_30000gen_10448",
+      "population": "Aram6",
+      "generation": 30000,
+      "substitutions": 29,
+      "isInsertions": 12,
+      "largeDeletions": 9,
+      "smallIndels": 7
+    },
+    {
+      "clone": "Aram6_40000gen_11005",
+      "population": "Aram6",
+      "generation": 40000,
+      "substitutions": 32,
+      "isInsertions": 23,
+      "largeDeletions": 13,
+      "smallIndels": 8
+    },
+    {
+      "clone": "Aram6_40000gen_11006",
+      "population": "Aram6",
+      "generation": 40000,
+      "substitutions": 34,
+      "isInsertions": 14,
+      "largeDeletions": 8,
+      "smallIndels": 10
+    },
+    {
+      "clone": "Aram6_50000gen_11389",
+      "population": "Aram6",
+      "generation": 50000,
+      "substitutions": 40,
+      "isInsertions": 25,
+      "largeDeletions": 13,
+      "smallIndels": 8
+    },
+    {
+      "clone": "Aram6_50000gen_11390",
+      "population": "Aram6",
+      "generation": 50000,
+      "substitutions": 39,
+      "isInsertions": 17,
+      "largeDeletions": 8,
+      "smallIndels": 11
+    }
+  ],
+  "limits": [
+    "The published muts column is visualized without reclassifying mutation calls.",
+    "Counts shared by related clones are not independent mutation events.",
+    "Mean of typically two clones per population/time; no uncertainty interval inferred.",
+    "Mutator and non-mutator populations are mixed; scale and population identity matter."
+  ],
+  "id": "19-evolution"
+}

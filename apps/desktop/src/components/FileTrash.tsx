@@ -1,3 +1,4 @@
+import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import {
   usePresentationOverlay,
   PresentationScopeContext,
@@ -93,7 +94,7 @@ export function FileTrash({
         type="button"
         data-testid="file-trash-open"
         onClick={() => setOpen(true)}
-        className="inline-flex h-7 items-center rounded px-2 text-xs font-medium text-fg-muted hover:bg-bg-muted hover:text-fg"
+        className={`${INTERACTION_CLASS} inline-flex h-7 items-center rounded px-2 text-xs font-medium text-fg-muted`}
       >
         File Trash
       </button>
@@ -113,7 +114,7 @@ export function FileTrash({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded px-2 py-1 text-xs hover:bg-bg-muted"
+                className={`${INTERACTION_CLASS} rounded px-2 py-1 text-xs`}
               >
                 Close
               </button>

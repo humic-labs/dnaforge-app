@@ -90,10 +90,15 @@ export function TerminalDimensions({
           </label>
           {error && <p role="alert">{toUserMessage(error, 'operation.failed')}</p>}
           <div className="dnaforge-terminal-toolbar">
-            <button type="submit" aria-label="Apply terminal dimensions" disabled={busy}>
+            <button
+              className="wp-interactive"
+              type="submit"
+              aria-label="Apply terminal dimensions"
+              disabled={busy}
+            >
               Apply
             </button>
-            <button type="button" disabled={busy} onClick={close}>
+            <button className="wp-interactive" type="button" disabled={busy} onClick={close}>
               Cancel
             </button>
           </div>

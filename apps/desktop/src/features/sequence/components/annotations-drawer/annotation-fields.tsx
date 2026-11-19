@@ -1,5 +1,7 @@
-import { usePresentationListener } from '../../../../presentation/PresentationSurface';
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { MenuRow, useMenu } from '@waypoint/ui-components';
+import { PortalMenu } from '../../../../components/PortalMenu';
+import { Select } from '../../../../components/ui/controls';
+import React, { useState, useMemo, useEffect, useRef, useId } from 'react';
 import { ANNOTATION_COLOR_PALETTES, type Annotation } from '@waypoint/sequence-utils';
 import { ANNOTATION_TYPES } from './helpers';
 
@@ -57,7 +59,6 @@ export function TypeCombobox({
   onChange: (value: string) => void;
   allAnnotations: Annotation[];
 }) {
-  const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -80,6 +81,17 @@ export function TypeCombobox({
     return suggestions.filter((t) => t.toLowerCase().includes(lower));
   }, [suggestions, inputValue]);
 
+  const listId = useId();
+  const menu = useMenu({
+    items: filtered.map((type) => ({ id: type, textValue: type, closeOnActivate: false })),
+    selectedId: value,
+    onActivate: (type) => {
+      menu.close('handoff');
+      setInputValue(type);
+      onChange(type);
+    },
+  });
+
   return (
     <div className="relative">
       <input
@@ -90,35 +102,49 @@ export function TypeCombobox({
         onChange={(e) => {
           setInputValue(e.target.value);
           onChange(e.target.value);
-          setOpen(true);
+          if (!menu.isOpen) menu.openMenu();
         }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => {
-          setTimeout(() => setOpen(false), 150);
+        role="combobox"
+        aria-expanded={menu.isOpen}
+        aria-controls={listId}
+        aria-activedescendant={
+          menu.activeId === null ? undefined : `${listId}-${encodeURIComponent(menu.activeId)}`
+        }
+        onKeyDown={menu.handleKeyDown}
+        onFocus={() => {
+          if (!menu.isOpen) menu.openMenu();
         }}
+        onBlur={() => menu.close('outside-pointer')}
         className="w-full px-2 py-1 text-sm border border-border rounded bg-bg focus:outline-none focus:ring-1 focus:ring-accent"
       />
-      {open && filtered.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-bg border border-border rounded shadow-lg z-20 max-h-[200px] overflow-y-auto">
-          {filtered.map((type) => (
-            <button
-              key={type}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                setInputValue(type);
-                onChange(type);
-                setOpen(false);
-                inputRef.current?.blur();
-              }}
-              className={`w-full text-left px-2 py-1 text-xs hover:bg-bg-subtle ${
-                type === value ? 'text-accent font-medium' : 'text-fg'
-              }`}
-            >
-              {type}
-            </button>
-          ))}
-        </div>
-      )}
+      <PortalMenu
+        id={listId}
+        open={menu.isOpen && filtered.length > 0}
+        menu={menu}
+        anchorRef={inputRef}
+        onRequestClose={menu.close}
+        role="listbox"
+        aria-label="Annotation types"
+        preferredSide="bottom"
+        horizontalAlign="start"
+      >
+        {filtered.map((type) => (
+          <MenuRow
+            key={type}
+            id={`${listId}-${encodeURIComponent(type)}`}
+            role="option"
+            aria-selected={type === value}
+            selected={type === value}
+            active={type === menu.activeId}
+            tabIndex={-1}
+            onMouseDown={(event) => event.preventDefault()}
+            onPointerMove={() => menu.point(type)}
+            onClick={() => menu.activate(type)}
+          >
+            {type}
+          </MenuRow>
+        ))}
+      </PortalMenu>
     </div>
   );
 }
@@ -201,9 +227,7 @@ export function StrandToggle({
           key={val}
           title={title}
           onClick={() => onChange(val)}
-          className={`px-2 py-1 rounded ${
-            value === val ? 'bg-green-500/15' : 'hover:bg-bg-subtle'
-          }`}
+          className={`px-2 py-1 rounded ${value === val ? 'bg-green-500/15' : 'wp-interactive'}`}
         >
           {icon}
         </button>
@@ -221,86 +245,42 @@ export function ColorPaletteSelector({
   onChange: (color: string) => void;
   compact?: boolean;
 }) {
-  const presentationEvents = usePresentationListener();
-
-  const [open, setOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const activePaletteIndex = ANNOTATION_COLOR_PALETTES.findIndex((p) => p.colors.includes(value));
+  const activePalette = ANNOTATION_COLOR_PALETTES.find((palette) => palette.colors.includes(value));
   const [selectedPalette, setSelectedPalette] = useState(
-    activePaletteIndex >= 0 ? activePaletteIndex : 0
+    activePalette?.name ?? ANNOTATION_COLOR_PALETTES[0].name
   );
-  const palette = ANNOTATION_COLOR_PALETTES[selectedPalette];
-
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    const handleClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    presentationEvents.add(document, 'keydown', handleKey);
-    document.addEventListener('mousedown', handleClick);
-    return () => {
-      presentationEvents.remove(document, 'keydown', handleKey);
-      document.removeEventListener('mousedown', handleClick);
-    };
-  }, [open, presentationEvents]);
+  const palette =
+    ANNOTATION_COLOR_PALETTES.find((entry) => entry.name === selectedPalette) ??
+    ANNOTATION_COLOR_PALETTES[0];
 
   return (
     <div>
       <div className="flex items-baseline gap-1.5 mb-0.5">
         <span className="text-xs text-fg-muted">Color</span>
-        <div ref={dropdownRef} className="relative">
-          <button
-            onClick={() => setOpen((v) => !v)}
-            className="text-[10px] text-fg-muted/60 hover:text-fg-muted px-1 py-0.5 rounded hover:bg-bg-muted cursor-pointer"
-          >
-            {palette.name}
-            <svg
-              width="8"
-              height="8"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="inline-block ml-0.5 -mt-px"
-            >
-              <path d="M3 4.5l3 3 3-3" />
-            </svg>
-          </button>
-          {open && (
-            <div className="absolute top-full left-0 mt-1 bg-bg border border-border rounded shadow-lg z-20 min-w-[100px]">
-              {ANNOTATION_COLOR_PALETTES.map((p, i) => (
-                <button
-                  key={p.name}
-                  onClick={() => {
-                    setSelectedPalette(i);
-                    setOpen(false);
-                  }}
-                  className={`w-full text-left px-2 py-1 text-xs hover:bg-bg-subtle flex items-center gap-1.5 ${
-                    i === selectedPalette ? 'text-accent font-medium' : 'text-fg'
-                  }`}
-                >
-                  <span className="flex gap-0.5">
-                    {p.colors.slice(0, 4).map((c) => (
-                      <span
-                        key={c}
-                        className="w-2 h-2 rounded-full inline-block"
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
-                  </span>
-                  {p.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <Select
+          value={palette.name}
+          ariaLabel="Annotation color palette"
+          onValueChange={setSelectedPalette}
+          options={ANNOTATION_COLOR_PALETTES.map((entry) => ({
+            value: entry.name,
+            selectedLabel: entry.name,
+            searchText: entry.name,
+            label: (
+              <span className="flex items-center gap-1.5">
+                <span className="flex gap-0.5">
+                  {entry.colors.slice(0, 4).map((color) => (
+                    <span
+                      key={color}
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </span>
+                {entry.name}
+              </span>
+            ),
+          }))}
+        />
       </div>
       <div className={`flex gap-1 ${compact ? 'flex-nowrap' : 'flex-wrap'}`}>
         {palette.colors.map((c) => (

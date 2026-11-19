@@ -307,7 +307,7 @@ export function LimsImportWizard({
               data-testid="lims-import-cancel"
               aria-label="Close"
               onClick={onCancel}
-              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-fg-muted hover:bg-bg-muted hover:text-fg"
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-fg-muted wp-interactive "
             >
               <XIcon />
             </button>
@@ -597,7 +597,7 @@ function DataTabButton({
       className={`flex-shrink-0 rounded-t-md border px-4 py-1.5 text-sm font-medium ${
         active
           ? '-mb-px border-border border-b-bg bg-bg text-fg'
-          : 'border-transparent bg-bg-muted/40 text-fg-muted hover:bg-bg-muted/70 hover:text-fg'
+          : 'border-transparent bg-bg-muted/40 text-fg-muted wp-interactive '
       }`}
     >
       {children}
@@ -699,7 +699,7 @@ function StepRail({
             disabled={!row.enabled}
             onClick={() => onGoto(row.step)}
             className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-              isActive ? 'bg-bg font-medium text-fg shadow-sm' : 'text-fg-muted hover:bg-bg/60'
+              isActive ? 'bg-bg font-medium text-fg shadow-sm' : 'text-fg-muted wp-interactive'
             }`}
           >
             <span
@@ -843,7 +843,7 @@ function SheetTabStrip({
             className={`flex max-w-[220px] flex-shrink-0 items-center gap-2 rounded-t-md border px-3 py-1.5 text-xs ${
               isActive
                 ? '-mb-px border-border border-b-bg bg-bg font-semibold text-fg'
-                : 'border-transparent bg-bg-muted/40 text-fg-muted hover:bg-bg-muted/70 hover:text-fg'
+                : 'border-transparent bg-bg-muted/40 text-fg-muted wp-interactive '
             } ${tab.selected ? '' : 'opacity-70'}`}
           >
             <input

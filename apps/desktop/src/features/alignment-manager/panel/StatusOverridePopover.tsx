@@ -30,7 +30,7 @@ export function StatusOverridePopover({
       aria-label={`Alignment review for ${track.label}`}
       horizontalAlign="start"
       preferredSide="bottom"
-      className="p-3 w-52"
+      layout={{ width: '13rem' }}
     >
       <div onClick={(e) => e.stopPropagation()}>
         <div className="text-xs text-fg-muted mb-2">
@@ -44,7 +44,7 @@ export function StatusOverridePopover({
               className={`flex-1 px-2 py-1 text-xs rounded border transition-colors ${
                 track.userStatus === s.value
                   ? 'border-accent bg-accent/20 font-medium'
-                  : 'border-border hover:bg-bg-subtle'
+                  : 'border-border wp-interactive'
               } ${s.color}`}
             >
               {s.label}

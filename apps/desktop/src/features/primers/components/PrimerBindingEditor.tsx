@@ -144,7 +144,7 @@ export function PrimerBindingEditor({
                 aria-label={strand === 1 ? 'Forward binding' : 'Reverse binding'}
                 aria-pressed={site.strand === strand}
                 disabled={!editable}
-                className={`rounded px-1 text-xs transition-colors disabled:opacity-50 ${site.strand === strand ? 'bg-bg text-fg shadow-sm' : 'text-fg-muted hover:text-fg'}`}
+                className={`rounded px-1 text-xs transition-colors disabled:opacity-50 ${site.strand === strand ? 'bg-bg text-fg shadow-sm' : 'text-fg-muted wp-interactive'}`}
                 onClick={() => setSite({ ...site, strand })}
               >
                 {strand === 1 ? 'Fwd' : 'Rev'}
@@ -194,7 +194,7 @@ export function PrimerBindingEditor({
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="rounded bg-bg-muted px-3 py-2 text-sm text-fg-muted hover:text-fg disabled:opacity-50"
+          className="rounded bg-bg-muted px-3 py-2 text-sm text-fg-muted wp-interactive disabled:opacity-50"
         >
           Cancel
         </button>

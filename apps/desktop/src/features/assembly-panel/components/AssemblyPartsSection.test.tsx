@@ -1153,9 +1153,9 @@ describe('AssemblyPartsSection', () => {
     expect(spacerButton).toHaveClass('cursor-pointer');
     expect(spacerButton).not.toHaveClass('hover:bg-bg-muted');
     expect(createButton).toHaveClass('text-fg-subtle');
-    expect(createButton).toHaveClass('hover:text-fg');
+    expect(createButton).toHaveClass('wp-interactive');
     expect(spacerButton).toHaveClass('text-fg-subtle');
-    expect(spacerButton).toHaveClass('hover:text-fg');
+    expect(spacerButton).toHaveClass('wp-interactive');
     expect(createButton.parentElement).toHaveClass('w-[128px]');
 
     fireEvent.pointerEnter(screen.getAllByTestId('assembly-part-card-shell')[0]);

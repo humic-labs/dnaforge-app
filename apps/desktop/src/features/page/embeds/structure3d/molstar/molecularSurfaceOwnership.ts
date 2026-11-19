@@ -2,7 +2,7 @@ import { bindingRegionSchema, surfaceOwnerSchema } from './molecularBindingInten
 export { bindingRegionSchema, surfaceOwnerSchema } from './molecularBindingIntent';
 import { molecularAtomSelector } from './molecularConnections';
 import type { MVSData } from 'molstar/lib/extensions/mvs/mvs-data';
-import { Structure, Unit } from 'molstar/lib/mol-model/structure';
+import { Structure, StructureElement, Unit } from 'molstar/lib/mol-model/structure';
 import { componentPropsFromSelector } from 'molstar/lib/extensions/mvs/load-helpers';
 import { substructureFromSelector } from 'molstar/lib/extensions/mvs/components/selector';
 import type { MolecularProfileNode as Node } from './nucleotidePresentationSettings';
@@ -66,6 +66,23 @@ function select(source: Structure, selector: unknown): Structure {
     componentPropsFromSelector(selector as Parameters<typeof componentPropsFromSelector>[0])
   );
 }
+
+function visibleSurface(node: Node): boolean {
+  return (
+    node.kind === 'representation' &&
+    surfaceTypes.has(String(node.params?.type)) &&
+    molecularRepresentationVisible(node)
+  );
+}
+
+function selectsCompleteChains(selection: Structure, source: Structure): boolean {
+  const loci = StructureElement.Loci.remap(Structure.toStructureElementLoci(selection), source);
+  return (
+    StructureElement.Loci.size(StructureElement.Loci.extendToWholeChains(loci)) ===
+    selection.elementCount
+  );
+}
+
 function keys(source: Structure) {
   return new Set(
     source.units.flatMap((u) =>
@@ -322,11 +339,7 @@ export function requireMolecularSurfaceOwnership(
         (n) => n.kind === 'component' && n.custom?.is_hidden !== true
       );
       const regions = components.filter((n) => n.custom?.dnaforge_binding_region !== undefined);
-      const surfaces = components.filter((n) =>
-        n.children?.some(
-          (r) => surfaceTypes.has(String(r.params?.type)) && molecularRepresentationVisible(r)
-        )
-      );
+      const surfaces = components.filter((n) => n.children?.some(visibleSurface));
       const guides = walk(structure).filter(
         (n) => n.kind === 'primitives' && n.custom?.dnaforge_interaction_context
       );
@@ -437,23 +450,39 @@ export function requireMolecularSurfaceOwnership(
       }
       const used = new Map<string, string>();
       for (const component of surfaces) {
-        const owner = surfaceOwnerSchema.safeParse(component.custom?.dnaforge_surface_owner);
-        const selected = keys(select(source, component.params?.selector ?? 'all'));
+        const custom = component.custom;
+        const owner = surfaceOwnerSchema.safeParse(custom?.dnaforge_surface_owner);
+        const contour = select(source, component.params?.selector ?? 'all');
         if (!owner.success) {
           if (
-            component.custom?.dnaforge_presentation_role === 'context' &&
-            component.custom?.dnaforge_surface_owner === undefined &&
-            ![...declared.values()].some((r) =>
-              r.side === 'target'
-                ? intersects(selected, r.target)
-                : r.side === 'partner'
-                  ? intersects(selected, r.partner)
-                  : intersects(selected, r.target) || intersects(selected, r.partner)
+            custom?.dnaforge_surface_owner === undefined &&
+            custom?.dnaforge_binding_region === undefined &&
+            contour.elementCount > 0 &&
+            !component.children?.some(
+              (r) => visibleSurface(r) && r.custom?.dnaforge_interface_surface_patch !== undefined
             )
-          )
-            continue;
+          ) {
+            if (custom?.dnaforge_presentation_role === 'context') {
+              const selected = keys(contour);
+              if (
+                ![...declared.values()].some(
+                  (region) =>
+                    (region.side !== 'partner' && intersects(selected, region.target)) ||
+                    (region.side !== 'target' && intersects(selected, region.partner))
+                )
+              )
+                continue;
+            }
+            if (
+              custom?.dnaforge_presentation_role === undefined &&
+              !regions.length &&
+              !guides.length &&
+              selectsCompleteChains(contour, source)
+            )
+              continue;
+          }
           fail(
-            'Every binding surface requires an explicit surface owner {regionRef,side}; context surfaces must be disjoint from declared binding surface owners.'
+            'A binding surface requires an explicit surface owner {regionRef,side}. For an overview without binding regions, select one or more complete chains or entities. To draw separate context, set custom.dnaforge_presentation_role to "context" on the component and keep its selection disjoint from the binding surface side.'
           );
         }
         const region = declared.get(owner.data.regionRef);
@@ -465,6 +494,7 @@ export function requireMolecularSurfaceOwnership(
           (used.has(owner.data.regionRef) && used.get(owner.data.regionRef) !== side)
         )
           fail('An interaction can have surfaces on only one declared side.');
+        const selected = keys(contour);
         const expected = region[side];
         if (selected.size !== expected.size || !contains(expected, selected))
           fail(
@@ -644,11 +674,14 @@ export function constructMolecularBindingRegions(
           const claimed =
             (component.custom?.dnaforge_surface_owner as { regionRef?: string } | undefined)
               ?.regionRef === ref;
-          const independentContext =
-            !claimed &&
+          const context =
             component.custom?.dnaforge_surface_owner === undefined &&
-            component.custom?.dnaforge_presentation_role === 'context' &&
-            !intersects(componentAtoms, surfaceAtoms);
+            component.custom?.dnaforge_presentation_role === 'context';
+          const independentContext = context && !intersects(componentAtoms, surfaceAtoms);
+          if (context && !independentContext && component.children.some(visibleSurface))
+            fail(
+              'The context surface overlaps the declared binding surface side. Use a disjoint context selection or edit the existing binding surface.'
+            );
           const relevant = claimed || (!independentContext && intersects(componentAtoms, owns));
           const representations = component.children ?? [];
           const surfaces = relevant

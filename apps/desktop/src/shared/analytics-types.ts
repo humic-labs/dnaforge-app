@@ -2,6 +2,7 @@ import type {
   AnalyticsIdentityContext,
   ConsentPolicyDecision,
   TelemetryActor,
+  TelemetryOriginClassification,
 } from '@waypoint/analytics-policy';
 
 export type { AnalyticsIdentityContext, ConsentPolicyDecision };
@@ -29,7 +30,7 @@ export type OptionalTelemetryOrigin = Readonly<{
   consentScope: string;
   contextId: string;
   processId: string;
-  classification: 'synthetic' | 'private' | 'unknown' | 'eligible_release';
+  classification: TelemetryOriginClassification;
 }>;
 
 export interface RendererWorkflowTelemetryRequest {

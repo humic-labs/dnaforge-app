@@ -769,7 +769,7 @@ export function JunctionWorkbench({ design, readOnly = false }: JunctionWorkbenc
             data-testid="assembly-workbench-undo"
             title="Undo last assembly edit"
             onClick={undoLastWorkbenchChange}
-            className="h-6 rounded-[4px] border border-border bg-bg-muted px-2 text-xs leading-5 text-fg hover:bg-bg-emphasis"
+            className="h-6 rounded-[4px] border border-border bg-bg-muted px-2 text-xs leading-5 text-fg wp-interactive"
           >
             Undo
           </button>
@@ -1301,7 +1301,7 @@ function GoldenGateOptimizerPanel({
               }}
               style={{ gridTemplateColumns }}
               className={`grid min-w-0 items-center gap-x-1 border-0 px-1 py-1 text-left text-xs leading-5 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ${
-                selected ? 'bg-bg text-fg' : 'text-fg-muted hover:bg-fg/5 hover:text-fg'
+                selected ? 'bg-bg text-fg' : 'text-fg-muted wp-interactive '
               }`}
               title={summary}
             >
@@ -1945,7 +1945,7 @@ function ProductJunctionHeader({
             aria-label={`Jump ${junction.label} in sequence viewer`}
             title={`Jump ${junction.label} in sequence viewer`}
             onClick={onJumpToSequenceViewer}
-            className="grid h-4 w-4 shrink-0 place-items-center rounded-[3px] text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-accent"
+            className="grid h-4 w-4 shrink-0 place-items-center rounded-[3px] text-fg-muted transition-colors wp-interactive "
           >
             <OpenExternalIcon size={10} />
           </button>
