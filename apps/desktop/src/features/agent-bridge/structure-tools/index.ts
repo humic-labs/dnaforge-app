@@ -90,7 +90,7 @@ import {
 import {
   agentStructureRendererHostId,
   hasAgentStructureRenderer,
-  leaseAgentStructureRenderer,
+  acquireAgentStructureRenderer,
 } from '../../page/public/embeds/structure3d/agentStructureRenderers';
 import {
   extractMolstarSelectionReadback,
@@ -941,24 +941,34 @@ const BACKGROUND_RENDERER_START_MS = 30_000;
 async function startBackgroundStructureRenderer(
   host: StructureTabHost,
   found: RegisteredStructureCandidate
-): Promise<void> {
-  leaseAgentStructureRenderer(host.tab.id);
+): Promise<() => void> {
+  const release = await acquireAgentStructureRenderer(host.tab.id);
+  if (!release)
+    throw new MolViewSpecSceneError(
+      'PLUGIN_NOT_READY',
+      'Background structure renderers are busy with other structure commands. Retry this command.'
+    );
   const cacheKey = structureTabRendererCacheKey(host);
   const deadline = Date.now() + BACKGROUND_RENDERER_START_MS;
-  for (;;) {
-    const ready = await withActivePlugin(
-      found.viewerId,
-      ({ plugin }) => {
-        const scene = findRegisteredStructure(found.structureViewId)?.entry.data.molViewSpec;
-        return !scene || sameLoadedMolViewSpecScene(activeMolViewSpecScene(plugin), scene);
-      },
-      { cacheKey, registrationId: found.registrationId }
-    ).catch((error: unknown) => {
-      if (!(error instanceof ActiveMolstarViewerError)) throw error;
-      return typeof error.details?.error === 'string' && error.details.error.length > 0;
-    });
-    if (ready || Date.now() > deadline) return;
-    await new Promise((resolve) => setTimeout(resolve, 50));
+  try {
+    for (;;) {
+      const ready = await withActivePlugin(
+        found.viewerId,
+        ({ plugin }) => {
+          const scene = findRegisteredStructure(found.structureViewId)?.entry.data.molViewSpec;
+          return !scene || sameLoadedMolViewSpecScene(activeMolViewSpecScene(plugin), scene);
+        },
+        { cacheKey, registrationId: found.registrationId }
+      ).catch((error: unknown) => {
+        if (!(error instanceof ActiveMolstarViewerError)) throw error;
+        return typeof error.details?.error === 'string' && error.details.error.length > 0;
+      });
+      if (ready || Date.now() > deadline) return release;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  } catch (error) {
+    release();
+    throw error;
   }
 }
 
@@ -979,6 +989,11 @@ function requireActiveStructureTab(
     host.panel.activeTabId !== host.tab.id &&
     !(rendersInBackground(host) && hasAgentStructureRenderer(host.tab.id))
   ) {
+    if (rendersInBackground(host))
+      throw new MolViewSpecSceneError(
+        'VIEW_NOT_ACTIVE',
+        `The selected tab in the pane of structure view ${structureViewId} changed while this command ran. Check the reported effects, then run the command again; it renders the view in the background without changing the selected tab.`
+      );
     throw new MolViewSpecSceneError(
       'VIEW_NOT_ACTIVE',
       `Structure view ${structureViewId} is open but its tab is not active. Call mol_activate_view with structureViewId "${structureViewId}", then retry this scene command.`
@@ -1736,15 +1751,17 @@ function sceneToolFailure(error: unknown, nativeApplied = false) {
   });
 }
 
+type SceneTargetOptions = {
+  waitForViewReady?: boolean;
+  readOnly?: boolean;
+  copy?: boolean;
+  retargetsTabOnSave?: boolean;
+};
+
 async function withSceneTarget<T>(
   target: string,
   operation: (active: ActiveMolstarViewer) => Promise<T> | T,
-  options: {
-    waitForViewReady?: boolean;
-    readOnly?: boolean;
-    copy?: boolean;
-    retargetsTabOnSave?: boolean;
-  } = {}
+  options: SceneTargetOptions = {}
 ): Promise<T> {
   const documentReference = await requireMolecularDocumentTarget(target);
   const found = findRegisteredStructure(target);
@@ -1784,8 +1801,24 @@ async function withSceneTarget<T>(
     );
   if (found.entry.data.molecularDocumentId) await inspectMolecularDocumentBinding(found.entry.data);
   const tabHost = findStructureTabHost(found.registrationId, found.structureViewId, target);
-  if (tabHost && rendersInBackground(tabHost) && !structureTabError(tabHost.tab))
-    await startBackgroundStructureRenderer(tabHost, found);
+  const releaseBackground =
+    tabHost && rendersInBackground(tabHost) && !structureTabError(tabHost.tab)
+      ? await startBackgroundStructureRenderer(tabHost, found)
+      : undefined;
+  try {
+    return await runSceneTarget(target, operation, options, found, documentReference);
+  } finally {
+    releaseBackground?.();
+  }
+}
+
+async function runSceneTarget<T>(
+  target: string,
+  operation: (active: ActiveMolstarViewer) => Promise<T> | T,
+  options: SceneTargetOptions,
+  found: RegisteredStructureCandidate,
+  documentReference: Awaited<ReturnType<typeof requireMolecularDocumentTarget>>
+): Promise<T> {
   const host = requireActiveStructureTab(found.registrationId, found.structureViewId, target);
   if (
     host?.tab.structureInspection &&
