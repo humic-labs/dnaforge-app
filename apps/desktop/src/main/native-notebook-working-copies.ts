@@ -648,7 +648,8 @@ export function createNativeNotebookWorkingCopies(options: {
   };
   const prepareLegacyNotebook = async (
     scope: NativeNotebookScope,
-    record?: NativeNotebookRecord
+    record?: NativeNotebookRecord,
+    assertScanningProject?: () => void
   ): Promise<{ scope: NativeNotebookScope; migrated: boolean }> => {
     if (scope.readOnly) return { scope, migrated: false };
     const legacyFlat = scope.path.toLowerCase().endsWith('.wpnote.json');
@@ -663,8 +664,33 @@ export function createNativeNotebookWorkingCopies(options: {
     }
     if (record?.dirty && !resuming) return { scope, migrated: false };
     const state = await currentLegacyMigration();
-    if (!resuming && (!state || state.pendingIds.includes(scope.documentId)))
-      return { scope, migrated: false };
+    const ready = resuming || Boolean(state && !state.pendingIds.includes(scope.documentId));
+    if (!ready && !assertScanningProject) return { scope, migrated: false };
+
+    const change = async (publish: () => Promise<boolean>) => {
+      const source = scope;
+      const mutate = () =>
+        withKnownWorkspacePathMutation(options.db(), [source.path], async () => {
+          scope = await resolveDocument(source.documentId, true);
+          if (
+            workspaceMutationRootIdentity(source.path) !==
+              workspaceMutationRootIdentity(scope.path) ||
+            workspaceMutationRootIdentity(source.workspaceRoot) !==
+              workspaceMutationRootIdentity(scope.workspaceRoot)
+          )
+            throw new Error('The notebook migration source moved before publication.');
+          return publish();
+        });
+      if (!assertScanningProject) return mutate();
+      return owner.withCleanPaths([source.path], async () => {
+        assertScanningProject();
+        if (!ready) return false;
+        const migrated = await mutate();
+        if (migrated) await owner.refreshAfterMigration(source.documentId, scope);
+        return migrated;
+      });
+    };
+
     if (!legacyFlat) {
       const metadata = JSON.parse(
         await readFile(notebookPackagePaths(scope.path).metaPath, 'utf8')
@@ -724,8 +750,7 @@ export function createNativeNotebookWorkingCopies(options: {
               captured = true;
           }
           if (captured) continue;
-          await withKnownWorkspacePathMutation(options.db(), [scope.path], async () => {
-            scope = await resolveDocument(scope.documentId, true);
+          await change(async () => {
             const current = await readCanonicalNotebookPackage(
               {
                 exists: async (path) => {
@@ -772,15 +797,14 @@ export function createNativeNotebookWorkingCopies(options: {
               },
               [path]
             );
+            return false;
           });
         }
         return { scope, migrated: false };
       }
     }
-    return withKnownWorkspacePathMutation(options.db(), [scope.path], async () => {
-      scope = await resolveDocument(scope.documentId, true);
-      if ((await readRetainedRecord(scope.documentId))?.dirty && !resuming)
-        return { scope, migrated: false };
+    const migrated = await change(async () => {
+      if ((await readRetainedRecord(scope.documentId))?.dirty && !resuming) return false;
       scope.assertCurrent();
       let result: PublishNotebookPackageResult;
       let retained: string[] = [];
@@ -848,8 +872,9 @@ export function createNativeNotebookWorkingCopies(options: {
       }
       if (!legacyFlat) await captureMigration(scope, result, retained);
       await publishProjection(scope, result.parsed);
-      return { scope, migrated: true };
+      return true;
     });
+    return { scope, migrated };
   };
   const owner: NativeNotebookWorkingCopyOwner = new NativeNotebookWorkingCopyOwner({
     async resolveTableSource(reference, context) {
@@ -1001,15 +1026,15 @@ export function createNativeNotebookWorkingCopies(options: {
         (row) => findKnownWorkspaceRoot(options.db(), row.path) === root
       )) {
         try {
-          await owner.withCleanPaths([row.path], async () => {
-            assertCurrent();
-            const scope = await resolveDocument(row.id, false);
-            const prepared = await prepareLegacyNotebook(scope, await readRetainedRecord(row.id));
-            if (prepared.migrated) {
-              result.migrated++;
-              await owner.refreshAfterMigration(row.id, prepared.scope);
-            }
-          });
+          assertCurrent();
+          const scope = await resolveDocument(row.id, false);
+          if (
+            workspaceMutationRootIdentity(scope.workspaceRoot) !== root ||
+            workspaceMutationRootIdentity(scope.path) !== workspaceMutationRootIdentity(row.path)
+          )
+            throw new Error('The notebook migration source moved during the project scan.');
+          const prepared = await prepareLegacyNotebook(scope, undefined, assertCurrent);
+          if (prepared.migrated) result.migrated++;
         } catch (error) {
           result.issues.push({
             path: row.path,
