@@ -15,13 +15,13 @@ export type PackagedCoordinateFormat = 'pdb' | 'cif' | 'bcif';
 export function packagedCoordinateFormat(fileName: string): PackagedCoordinateFormat | null {
   const lower = fileName.toLowerCase();
   if (lower.endsWith('.pdb') || lower.endsWith('.ent')) return 'pdb';
-  if (lower.endsWith('.cif') || lower.endsWith('.mmcif')) return 'cif';
+  if (lower.endsWith('.cif') || lower.endsWith('.mmcif') || lower.endsWith('.mcif')) return 'cif';
   if (lower.endsWith('.bcif')) return 'bcif';
   return null;
 }
 
 export function coordinateFileStem(fileName: string): string {
-  return fileName.replace(/\.(pdb|ent|cif|mmcif|bcif)$/i, '');
+  return fileName.replace(/\.(pdb|ent|cif|mmcif|mcif|bcif)$/i, '');
 }
 
 export function isDefaultMolecularScene(scene: string): boolean {

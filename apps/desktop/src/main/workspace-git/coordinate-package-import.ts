@@ -46,7 +46,7 @@ export async function materializeCoordinatePackage(
   }
 }
 
-async function materializeCoordinatePackageWithJournal(
+export async function materializeCoordinatePackageWithJournal(
   coordinatePath: string,
   options: MolecularMigrationOptions & {
     removeSource: (path: string) => Promise<unknown>;
@@ -198,7 +198,7 @@ export async function convertTreeToMolecularPackages(
   return result;
 }
 
-const EXTENSION_NAMED_VIEW = /\.(pdb|ent|cif|mmcif|bcif)(\.dnaforge-molecular\.json)$/i;
+const EXTENSION_NAMED_VIEW = /\.(pdb|ent|cif|mmcif|mcif|bcif)(\.dnaforge-molecular\.json)$/i;
 
 export function extensionFreeMolecularViewPath(path: string): string | null {
   return EXTENSION_NAMED_VIEW.test(path) ? path.replace(EXTENSION_NAMED_VIEW, '$2') : null;

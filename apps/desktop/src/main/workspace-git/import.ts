@@ -46,7 +46,7 @@ import {
   type QuickLookPromotionWriteLease,
   withManagedWorkspaceMutationLock,
 } from './index';
-import { materializeCoordinatePackage } from './coordinate-package-import';
+import { materializeCoordinatePackageWithJournal } from './coordinate-package-import';
 import { packagedCoordinateFormat } from '../../shared/default-molecular-view';
 import {
   existingPlasmidPackageRootForProduct,
@@ -1782,6 +1782,26 @@ async function markPreservedFasta(
   await writeFile(marker, request.expectedSourceSha256 + '\n', { flag: 'wx' });
 }
 
+async function packageImportedCoordinates(path: string, expectedSourceSha256?: string) {
+  const copiedIdentity = await physicalFileIdentity(path);
+  try {
+    return await materializeCoordinatePackageWithJournal(path, {
+      expectedSourceSha256,
+      removeSource: (member) => unlinkIfIdentityMatches(member, copiedIdentity),
+    });
+  } catch (error) {
+    await assertExpectedSourceDigest(path, expectedSourceSha256);
+    console.warn(`[importFile] kept ${basename(path)} as a coordinate file:`, error);
+    return null;
+  }
+}
+
+function coordinateGitFiles(result: Awaited<ReturnType<typeof packageImportedCoordinates>>) {
+  return Object.keys(result?.expectedContentSha256 ?? {}).filter(
+    (path) => result?.expectedContentSha256[path] != null
+  );
+}
+
 export async function importFileIntoWorkspaceRoot(
   request: ImportFileRequest,
   deps: ImportFileIntoWorkspaceDeps
@@ -1947,26 +1967,13 @@ export async function importFileIntoWorkspaceRoot(
     }
   }
 
-  if (
-    !request.preserveOriginal &&
-    !replaced &&
-    !packageProductPaths &&
-    packagedCoordinateFormat(relPath)
-  ) {
-    try {
-      const copiedIdentity = await physicalFileIdentity(destPath);
-      const packaged = await materializeCoordinatePackage(destPath, {
-        removeSource: (path) => unlinkIfIdentityMatches(path, copiedIdentity),
-      });
-      if (packaged.converted) {
-        destPath = packaged.productPath;
-        relPath = relative(request.targetRoot, packaged.productPath);
-      } else if (packaged.skippedReason) {
-        console.warn(`[importFile] kept ${relPath} as a coordinate file:`, packaged.skippedReason);
-      }
-    } catch (err) {
-      console.warn(`[importFile] imported ${relPath} but could not make a molecular view:`, err);
-    }
+  const coordinate =
+    !replaced && !packageProductPaths && packagedCoordinateFormat(relPath)
+      ? await packageImportedCoordinates(destPath, request.expectedSourceSha256)
+      : null;
+  if (coordinate) {
+    destPath = coordinate.productPath;
+    relPath = relative(request.targetRoot, destPath);
   }
 
   let committed = false;
@@ -1974,7 +1981,10 @@ export async function importFileIntoWorkspaceRoot(
   if (repoRoot) {
     try {
       const oid = await commitAllIfDirty(repoRoot, `Import ${relPath}`, {
-        forceInclude: requiredGitFilesForProducts(packageProductPaths),
+        forceInclude: [
+          ...requiredGitFilesForProducts(packageProductPaths),
+          ...coordinateGitFiles(coordinate),
+        ],
       });
       committed = oid !== null;
     } catch (err) {
@@ -3379,6 +3389,7 @@ export async function importFileAsNewManagedWorkspace(
   const containerPath = dirname(repoPath);
   await mkdir(containerPath);
   let packageProductPaths: string[] | undefined;
+  let entryPath = join(repoPath, destName);
   try {
     await mkdir(repoPath);
     await copyFile(realSource, join(repoPath, destName));
@@ -3395,6 +3406,11 @@ export async function importFileAsNewManagedWorkspace(
         );
       }
     }
+    const coordinate =
+      !packageProductPaths?.length && packagedCoordinateFormat(destName)
+        ? await packageImportedCoordinates(entryPath, request.expectedSourceSha256)
+        : null;
+    entryPath = coordinate?.productPath ?? packageProductPaths?.[0] ?? entryPath;
     await writeFile(
       join(repoPath, MANAGED_WORKSPACE_MARKER),
       `${JSON.stringify({ schema: 1, workspaceUuid, originPath: realSource, importedAt: createdAt }, null, 2)}\n`,
@@ -3402,7 +3418,10 @@ export async function importFileAsNewManagedWorkspace(
     );
     await initManagedRepo(repoPath);
     await commitAllIfDirty(repoPath, 'Initial import', {
-      forceInclude: requiredGitFilesForProducts(packageProductPaths),
+      forceInclude: [
+        ...requiredGitFilesForProducts(packageProductPaths),
+        ...coordinateGitFiles(coordinate),
+      ],
     });
 
     db.prepare(
@@ -3421,7 +3440,7 @@ export async function importFileAsNewManagedWorkspace(
   return {
     workspaceUuid,
     repoPath,
-    entryPath: packageProductPaths?.[0] ?? join(repoPath, destName),
+    entryPath,
     displayName,
     originPath: realSource,
     createdAt,

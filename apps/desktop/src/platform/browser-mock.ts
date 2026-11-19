@@ -2172,6 +2172,7 @@ export const browserMockBridge: PlatformBridge = {
     },
   },
   molecularDocuments: {
+    resolveImportedCoordinate: async () => null,
     reconcileSourceLinks: async () => {
       throw new Error('Molecular document source projection requires the desktop app.');
     },

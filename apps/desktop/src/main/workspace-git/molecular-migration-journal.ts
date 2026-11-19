@@ -17,10 +17,16 @@ import { z } from 'zod';
 import { syncDirectory } from '../fs-durability';
 import { claimRegularFileNoClobber, publishFileContentNoClobber } from './exclusive-file-claim';
 import { migrationPathsIntersect, type MigrationPathOptions } from './migration-paths';
+import {
+  MOLECULAR_DOCUMENT_MAX_BYTES,
+  MOLECULAR_DOCUMENT_SUFFIX,
+  parseMolecularDocument,
+} from '../../shared/molecular-document';
+import { coordinateStructureData } from '../../shared/binary-coordinates';
 
 export const MOLECULAR_MIGRATION_DIRECTORY = '.dnaforge-molecular-migrations';
 export type MolecularMigrationKind = 'coordinate' | 'extension-name';
-export type MolecularMigrationOptions = MigrationPathOptions;
+export type MolecularMigrationOptions = MigrationPathOptions & { expectedSourceSha256?: string };
 
 const hash = (bytes: string | Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 const member = z
@@ -95,13 +101,16 @@ async function directory(path: string): Promise<void> {
 }
 
 async function readRegular(
-  path: string
+  path: string,
+  maxBytes = Infinity
 ): Promise<{ bytes: Buffer; stat: NonNullable<Awaited<ReturnType<typeof optionalStat>>> }> {
   const before = await optionalStat(path);
   if (!before?.isFile()) throw new Error(`MOLECULAR_MIGRATION_SOURCE_NOT_REGULAR: ${path}`);
   const handle = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
   try {
     const opened = await handle.stat({ bigint: true });
+    if (Number(opened.size) > maxBytes)
+      throw new Error(`MOLECULAR_MIGRATION_FILE_TOO_LARGE: ${path}`);
     if (!sameIdentity(identity(opened), identity(before)))
       throw new Error(`MOLECULAR_MIGRATION_SOURCE_CHANGED: ${path}`);
     const bytes = await handle.readFile();
@@ -280,6 +289,70 @@ async function pendingGenerations(root: string): Promise<Manifest[]> {
   return pending;
 }
 
+export async function findMigratedCoordinate(
+  sourcePath: string,
+  looseExists: boolean,
+  expectedSourceSha256?: string
+) {
+  const sourceName = basename(sourcePath);
+  const base = join(dirname(sourcePath), MOLECULAR_MIGRATION_DIRECTORY);
+  const root = join(base, key('coordinate', sourceName));
+  if (!(await optionalStat(base))?.isDirectory() || !(await optionalStat(root))?.isDirectory())
+    return null;
+  let match: { manifest: Manifest; attempt: string } | undefined;
+  for (const entry of await readdir(root, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !/^attempt-[a-zA-Z0-9]+$/u.test(entry.name)) continue;
+    const attempt = join(root, entry.name);
+    const completePath = join(attempt, 'complete.json');
+    if (!(await optionalStat(completePath))) continue;
+    const manifest = manifestSchema.parse(
+      JSON.parse((await readRegular(join(attempt, 'manifest.json'), 16384)).bytes.toString('utf8'))
+    );
+    if (
+      manifest.kind !== 'coordinate' ||
+      manifest.sourceName !== sourceName ||
+      manifest.attempt !== entry.name ||
+      !manifest.productName.endsWith(MOLECULAR_DOCUMENT_SUFFIX)
+    )
+      throw new Error('The coordinate migration receipt no longer identifies this file.');
+    if (looseExists && !expectedSourceSha256)
+      throw new Error(
+        'Another coordinate file now occupies the original path. Open the intended structure from its project.'
+      );
+    if (expectedSourceSha256 && manifest.source.sha256 !== expectedSourceSha256) continue;
+    const complete = completionSchema.parse(
+      JSON.parse((await readRegular(completePath, 4096)).bytes.toString('utf8'))
+    );
+    if (
+      complete.sourceSha256 !== manifest.source.sha256 ||
+      complete.productSha256 !== manifest.product.sha256
+    )
+      throw new Error('The coordinate migration receipt has changed.');
+    if (match) {
+      if (looseExists)
+        throw new Error(
+          'Multiple imported structures share this original path. Open the intended structure from its project.'
+        );
+      return null;
+    }
+    match = { manifest, attempt };
+  }
+  if (!match) return null;
+  const { manifest, attempt } = match;
+  const { bytes } = await readRegular(join(attempt, 'product'), MOLECULAR_DOCUMENT_MAX_BYTES);
+  if (hash(bytes) !== manifest.product.sha256) return null;
+  const document = parseMolecularDocument(bytes.toString('utf8'));
+  const initial = document.history[0];
+  if (hash(coordinateStructureData(initial.snapshot.coordinates)) !== manifest.source.sha256)
+    return null;
+  return {
+    productName: manifest.productName,
+    documentId: document.id,
+    referenceId: initial.referenceId,
+    coordinateSha256: initial.snapshot.coordinates.sha256,
+  };
+}
+
 export async function settleCompletedMolecularMigrationLinks(
   rootPath: string,
   options: { scope: 'unpublished-compute-staging'; assertCurrent?: () => void }
@@ -412,17 +485,22 @@ async function migrateMolecularFileWithinCleanSource(
     if (pending.length > 1) throw new Error(`MOLECULAR_MIGRATION_PENDING_AMBIGUOUS: ${root}`);
     if (pending.length === 1) {
       manifest = pending[0];
+      if (options.expectedSourceSha256 && manifest.source.sha256 !== options.expectedSourceSha256)
+        throw new Error('The imported coordinates changed after preview.');
       if (manifest.kind !== kind || manifest.sourceName !== basename(sourcePath))
         throw new Error(`MOLECULAR_MIGRATION_RECEIPT_CHANGED: ${root}`);
     } else {
       const original = await readRegular(sourcePath);
+      const sourceSha256 = hash(original.bytes);
+      if (options.expectedSourceSha256 && sourceSha256 !== options.expectedSourceSha256)
+        throw new Error('The imported coordinates changed after preview.');
       const prepared = await prepare(original.bytes);
       const source: Manifest['source'] = {
         ...identity(original.stat),
         size: String(original.stat.size),
         modified: String(original.stat.mtimeNs),
         changed: String(original.stat.ctimeNs),
-        sha256: hash(original.bytes),
+        sha256: sourceSha256,
       };
       await assertSource(sourcePath, source);
       let productName: string | undefined;

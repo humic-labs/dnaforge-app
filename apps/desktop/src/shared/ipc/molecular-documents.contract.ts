@@ -1,4 +1,5 @@
 import type {
+  ImportedCoordinateLocation,
   MolecularDocumentLocation,
   ReconcileMolecularDocumentSourcesRequest,
   MolecularDocumentSourceProjection,
@@ -8,6 +9,10 @@ import type {
 import { defineGroup, invoke } from './contract';
 
 export const molecularDocumentsContract = defineGroup('molecularDocuments', {
+  resolveImportedCoordinate: invoke<
+    [request: ImportedCoordinateLocation],
+    MolecularDocumentLocation | null
+  >(),
   reconcileSourceLinks: invoke<
     [request: ReconcileMolecularDocumentSourcesRequest, mutationToken?: string],
     MolecularDocumentSourceProjection

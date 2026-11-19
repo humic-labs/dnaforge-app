@@ -53,19 +53,22 @@ describe('coordinate files become molecular view packages ', () => {
     expect(isDefaultMolecularScene(snapshot.scene)).toBe(true);
   });
 
-  it('keeps an existing view and picks the next free name', async () => {
-    writeFileSync(join(tmp, '1ABC.dnaforge-molecular.json'), 'existing view');
-    const source = join(tmp, '1ABC.cif');
-    writeFileSync(source, 'data_1ABC\n_atom_site.id 1\n');
-    const result = await materializeCoordinatePackage(source, {
-      removeSource: (path) => unlink(path),
-    });
-    expect(result).toEqual({
-      converted: true,
-      productPath: join(tmp, '1ABC 2.dnaforge-molecular.json'),
-    });
-    expect(readFileSync(join(tmp, '1ABC.dnaforge-molecular.json'), 'utf8')).toBe('existing view');
-  });
+  it.each(['cif', 'mmcif', 'mcif'])(
+    'keeps an existing view and picks the next free name for .%s',
+    async (extension) => {
+      writeFileSync(join(tmp, '1ABC.dnaforge-molecular.json'), 'existing view');
+      const source = join(tmp, `1ABC.${extension}`);
+      writeFileSync(source, 'data_1ABC\n_atom_site.id 1\n');
+      const result = await materializeCoordinatePackage(source, {
+        removeSource: (path) => unlink(path),
+      });
+      expect(result).toEqual({
+        converted: true,
+        productPath: join(tmp, '1ABC 2.dnaforge-molecular.json'),
+      });
+      expect(readFileSync(join(tmp, '1ABC.dnaforge-molecular.json'), 'utf8')).toBe('existing view');
+    }
+  );
 
   it('leaves non-coordinate files alone', async () => {
     const path = join(tmp, 'notes.txt');
