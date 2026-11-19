@@ -18,7 +18,10 @@ import {
 } from '../../structure-drawer/public/structure-inspection';
 import { inspectionViewStatus } from '../../structure-drawer/public/state/structure-inspection-sessions';
 import { sha256Hex } from '../../structure-drawer/public/api/protein-identity';
-import { requireMolViewSpecSurfaceOwnership } from '../../page/public/embeds/structure3d/molstar/molViewSpec';
+import {
+  hasMolViewSpecController,
+  requireMolViewSpecSurfaceOwnership,
+} from '../../page/public/embeds/structure3d/molstar/molViewSpec';
 import { useCanvasStore } from '../../canvas/public/store';
 import type { PanelState, Tab } from '../../canvas/public/types';
 import { loadCatalogStructure } from '../../compute/public/molecular-catalog';
@@ -960,7 +963,7 @@ function structureTabRendererCacheKey(host: StructureTabHost): string {
   );
 }
 
-const BACKGROUND_RENDERER_START_MS = 30_000;
+const BACKGROUND_RENDERER_START_MS = 90_000;
 
 async function startBackgroundStructureRenderer(
   host: StructureTabHost,
@@ -982,6 +985,7 @@ async function startBackgroundStructureRenderer(
           const scene = findRegisteredStructure(found.structureViewId)?.entry.data.molViewSpec;
           return (
             inspectionReady(host) &&
+            hasMolViewSpecController(plugin) &&
             (!scene || sameLoadedMolViewSpecScene(activeMolViewSpecScene(plugin), scene))
           );
         },
@@ -1026,10 +1030,14 @@ async function startRetainedInspectionRenderer(
       const found = findRegisteredStructure(target);
       const ready =
         !!found &&
-        (await withActivePlugin(found.viewerId, () => inspectionReady(host), {
-          cacheKey: structureTabRendererCacheKey(host),
-          registrationId: found.registrationId,
-        }).catch((error: unknown) => {
+        (await withActivePlugin(
+          found.viewerId,
+          ({ plugin }) => inspectionReady(host) && hasMolViewSpecController(plugin),
+          {
+            cacheKey: structureTabRendererCacheKey(host),
+            registrationId: found.registrationId,
+          }
+        ).catch((error: unknown) => {
           if (!(error instanceof ActiveMolstarViewerError)) throw error;
           return false;
         }));

@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react';
 import { create } from 'zustand';
 
 export const AGENT_STRUCTURE_RENDERER_BUDGET = 2;
-export const AGENT_STRUCTURE_RENDERER_IDLE_MS = 60_000;
+export const AGENT_STRUCTURE_RENDERER_IDLE_MS = 300_000;
 export const AGENT_STRUCTURE_RENDERER_WAIT_MS = 60_000;
 
 export const useAgentStructureRenderers = create<{ tabIds: readonly string[] }>(() => ({
