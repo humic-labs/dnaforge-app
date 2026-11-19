@@ -359,6 +359,11 @@ export const Tab = React.memo(function Tab({
               : stripDisplayExtension(tab.label)}
           </span>
         )}
+        {!isEditing && tab.isExternalPreview && (
+          <span className="shrink-0 rounded border border-accent/50 px-1 text-[10px] font-medium text-accent">
+            Preview
+          </span>
+        )}
         {!isEditing && (
           <span
             className={`tab-trailing relative flex-shrink-0 w-4 h-4 flex items-center justify-center${

@@ -11,7 +11,13 @@ import { subscribeLimsRegistrationChanged } from '../lims/public/events';
 import { requestManagedSequenceMetadata } from '../sequence/public/managed-sequence-metadata';
 
 export function tabRegistryReference(tab: Tab | undefined): EntityRegistryReference | null {
-  if (!tab || tab.artifactDocument?.persistence === 'draft' || tab.quickLookSource) return null;
+  if (
+    !tab ||
+    tab.artifactDocument?.persistence === 'draft' ||
+    tab.quickLookSource ||
+    tab.sourceFileView
+  )
+    return null;
   if (tab.trackView) return { kind: 'entity', entityId: tab.trackView.document.id };
   if (tab.type === 'sequence') {
     const document = tab.sequenceDocument;

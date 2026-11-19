@@ -80,6 +80,7 @@ export function isWorkspaceCoordinateFileTab(tab: Tab): boolean {
 }
 
 export function fileBackedTabPath(tab: Tab): string | null {
+  if (tab.sourceFileView) return null;
   if (tab.legacyMigrationRead) return tab.legacyMigrationRead.path;
   if (isWorkspaceCoordinateFileTab(tab)) {
     return tab.initialStructureAttrs?.coordinateFilePath ?? null;

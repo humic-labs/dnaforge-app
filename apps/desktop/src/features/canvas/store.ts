@@ -133,6 +133,8 @@ function retargetTabDocument(tab: Tab, identity: CanvasTabIdentity, updates: Tab
       tab.type === identity.type && tab.entityId === entityId
         ? tab.structureRenderError
         : undefined,
+    sourceFileView:
+      identity.type === tab.type && entityId === tab.entityId ? tab.sourceFileView : undefined,
     sequenceDocument: identity.type === 'sequence' ? identity.sequenceDocument : undefined,
     assemblyEditDesignId:
       tab.type === identity.type && tab.entityId === entityId

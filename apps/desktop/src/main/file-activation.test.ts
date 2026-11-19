@@ -40,6 +40,22 @@ describe(' file activation transport', () => {
     ).toEqual(['D:\\Lab Work\\inputs\\plasmid.gbk']);
   });
 
+  it('delivers a mixed Explorer selection in order, including new preview formats', () => {
+    const cwd = 'D:\\Lab';
+    const queue = new FileActivationQueue({ platform: 'win32', cwd, realpath: (value) => value });
+    const inputs = extractAssociationPathsFromArgv(
+      ['reads.FAA', 'model.BCIF', 'trace.abi', 'reads.faa', 'notes.txt'],
+      cwd,
+      'win32'
+    );
+    queue.enqueue(inputs);
+    expect(queue.takePendingAndMarkReady().map((file) => [file.path, file.familyId])).toEqual([
+      [path.win32.join(cwd, 'reads.FAA'), 'fasta'],
+      [path.win32.join(cwd, 'model.BCIF'), 'structure'],
+      [path.win32.join(cwd, 'trace.abi'), 'chromatogram'],
+    ]);
+  });
+
   it('suppresses the secondary-instance warning for supported file and protocol launches', () => {
     expect(shouldShowSecondInstanceError(true, ['D:\\Lab Work\\plasmid.gb'], null, [])).toBe(false);
     expect(shouldShowSecondInstanceError(true, [], 'dnaforge://auth-callback?code=ok', [])).toBe(

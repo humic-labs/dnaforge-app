@@ -215,6 +215,8 @@ export const USER_MESSAGES = {
   'attachments.changeFailed': 'We couldn’t update the attachments. Try again.',
   'genome.searchFailed': 'We couldn’t search this reference. Try again.',
   'file.defaultAppFailed': 'Could not change the default app. Try again.',
+  'file.previewImportFailed':
+    'Could not import the displayed file. Reopen the original if it has changed, then try again.',
   'file.previewFailed': 'Could not preview this file. Try again.',
   'document.referenceUnavailable': 'This project reference could not be opened. Try again.',
   'sequence.parseFailed': 'We couldn’t read this sequence. Check the file format and try again.',
@@ -2561,6 +2563,8 @@ export const USER_MESSAGE_TEMPLATES = {
   'genome.queryLimit': 'Annotation queries are limited to {count} characters.',
   'sequence.enzymesMissing': 'Digest source enzymes are not in the enzyme catalog: {names}',
   'menu.openFailed': 'Could not open {name}. Try again.',
+  'document.externalPreviewUnsupported':
+    'No preview is available for “{name}”. Use File → Import Files to add it to a project.',
   'document.quickLookOpenFailed': 'Could not open “{name}”.',
   'document.quickLookOpenFailedBecause': 'Could not open “{name}”. {reason}',
   'assistant.attachmentLimit': 'You can attach at most {count} files to one turn.',

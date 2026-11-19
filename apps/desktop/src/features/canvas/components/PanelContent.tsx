@@ -72,9 +72,16 @@ import { resolveNativeFastaSourceAuthority } from '../../../services/native-cata
 import type { FastaKindReadAuthority } from '../../../shared/fasta-kind';
 import { inferCatalogFileKind } from '../../../shared/catalog-file-kind';
 import { LegacyMigrationFastaTab } from './LegacyMigrationFastaTab';
+import { PreviewFrame } from '../../external-preview/PreviewFrame';
 import { FastaKindReadStatus } from '../../../components/FastaKindReadStatus';
 import { sequencePresentation } from '../../../shared/sequence-presentation';
 import { EntityDetailsDrawer } from '../../entity-details/public/EntityDetails';
+
+const SourceFileViewer = lazy(() =>
+  import('../../external-preview/SourceFileViewer').then((module) => ({
+    default: module.SourceFileViewer,
+  }))
+);
 
 const [adjacencyGraphModule] = Object.values(
   import.meta.glob<{ AdjacencyGraphWizard: ComponentType }>(
@@ -543,6 +550,16 @@ function PanelContentInternal({
     if (found) closeTab(found.panelId, found.tabId);
   };
 
+  if (tab.sourceFileView) {
+    return (
+      <TabErrorBoundary key={tab.id} label={tab.label} onClose={handleClose}>
+        <Suspense fallback={<LoadingTab />}>
+          <SourceFileViewer key={tab.entityId} view={tab.sourceFileView} tabId={tab.id} />
+        </Suspense>
+      </TabErrorBoundary>
+    );
+  }
+
   const isFileTab =
     fileBackedTabPath(tab) !== null || (tab.type === 'sequence' && !!tab.sequenceDocument);
   const filePath = fileBackedTabPath(tab);
@@ -827,7 +844,7 @@ function PanelContentInternal({
 
   return (
     <TabErrorBoundary key={tab.id} label={tab.label} onClose={handleClose}>
-      {content}
+      {tab.quickLookSource ? <PreviewFrame>{content}</PreviewFrame> : content}
       {tab.type !== 'primer' &&
       tab.viewState?.entityDetailsOpen &&
       tab.viewState.entityDetailsEntityId ? (

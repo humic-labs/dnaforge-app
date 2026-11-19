@@ -49,7 +49,7 @@ import {
 import { WORKSPACE_IMPORT_FILE_FILTERS } from '../features/workspace-loader/public/import-file-filters';
 import { processFileActivation } from '../features/file-associations/process-file-activation';
 import { FileActivationReceiptLedger } from '../features/file-associations/file-activation-receipts';
-import { openQuickLookSource } from '../lib/open-quick-look-source';
+import { openExternalPreview } from '../lib/open-external-preview';
 import { useLimsOverlayStore } from '../features/lims/lims-overlay-store';
 import { openRecentlyEditedItem } from '../features/home/open-recently-edited';
 import { restoreRegisteredActiveProjects } from '../features/workspace-loader/restore-active-projects';
@@ -605,12 +605,7 @@ export function useWorkspaceProjectActions(options: WorkspaceProjectActionsOptio
   const handleFileActivation = useCallback(
     async (delivery: FileActivationDelivery): Promise<void> => {
       await processFileActivation(delivery, {
-        openQuickLook: (activation) =>
-          openQuickLookSource({
-            sourcePath: activation.path,
-            familyId: activation.familyId,
-            sourceSurface: 'startup',
-          }),
+        openQuickLook: (activation) => openExternalPreview(activation.path, 'startup'),
         reportError: (message) =>
           useToastStore
             .getState()

@@ -306,9 +306,9 @@ export const APP_SHORTCUTS: readonly AppShortcut[] = [
     commandBindings: [{ command: COMMAND_IDS.fileNewFolder }],
   },
   {
-    id: 'files.import-files',
+    id: 'files.open-files',
     area: 'files',
-    label: 'Import Files',
+    label: 'Open Files',
     scope: 'global',
     availability: 'active',
     chords: [['cmd', 'o']],

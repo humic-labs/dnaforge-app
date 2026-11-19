@@ -12,8 +12,8 @@ import { buildImportWizardState } from './build-import-wizard-state';
 import { runImportFlow } from './run-import-flow';
 import { openImportWizard, useImportWizardStore } from './import-wizard-store';
 import { summarizeImportResult } from './import-result-summary';
-import { associationFamilyForPath } from '../../shared/file-associations';
-import { openQuickLookSource } from '../../lib/open-quick-look-source';
+import { externalPreviewFilters, externalFormatForPath } from '../../shared/external-preview';
+import { openExternalFiles } from '../../lib/open-external-preview';
 import type {
   DnaSequenceImportIntent,
   EntityImportDestination,
@@ -248,16 +248,24 @@ export function useImportWizard(): ImportWizardController {
 
   const handleUnclaimedDropPaths = useCallback(
     async (paths: string[]): Promise<void> => {
-      if (paths.length === 1) {
-        const family = associationFamilyForPath(paths[0]);
-        if (family) {
-          await openQuickLookSource({
-            sourcePath: paths[0],
-            familyId: family.id,
-            sourceSurface: 'unknown',
-          });
-          return;
+      if (!isBrowserOnly()) {
+        const files: string[] = [];
+        const folders: string[] = [];
+        for (const path of paths) {
+          if (
+            !externalFormatForPath(path) &&
+            (
+              await platform()
+                .fs.stat(path)
+                .catch(() => null)
+            )?.isDirectory
+          )
+            folders.push(path);
+          else files.push(path);
         }
+        await openExternalFiles(files, 'unknown');
+        if (folders.length) await importPaths(folders);
+        return;
       }
       await importPaths(paths);
     },
@@ -326,6 +334,20 @@ export function useImportWizard(): ImportWizardController {
 
   useEffect(() => {
     const p = platform();
+    const offOpen = p.on('menu:open-files', () => {
+      void (async () => {
+        const picked = await p.dialog.open({
+          title: 'Open Files',
+          multiple: true,
+          filters: externalPreviewFilters(),
+        });
+        await openExternalFiles(Array.isArray(picked) ? picked : picked ? [picked] : [], 'menu');
+      })().catch((error) =>
+        useToastStore
+          .getState()
+          .addToast(toUserMessage(error, 'file.previewFailed'), { definition: 'file-open-failed' })
+      );
+    });
     const offFiles = p.on('menu:import-files', () => {
       void (async () => {
         const picked = await p.dialog.open({
@@ -346,6 +368,7 @@ export function useImportWizard(): ImportWizardController {
       openLimsImportFromSharedPicker(null, null);
     });
     return () => {
+      offOpen();
       offFiles();
       offFolder();
       offRegistryRecords();

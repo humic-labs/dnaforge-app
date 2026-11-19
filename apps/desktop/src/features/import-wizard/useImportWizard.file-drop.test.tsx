@@ -41,10 +41,10 @@ vi.mock('../canvas', () => ({
 
 import { useImportWizard } from './useImportWizard';
 
-function fileDrop(file: File): Event {
+function fileDrop(...files: File[]): Event {
   const event = new Event('drop', { bubbles: true, cancelable: true });
   Object.defineProperty(event, 'dataTransfer', {
-    value: { files: [file], types: ['Files'], dropEffect: 'none' },
+    value: { files, types: ['Files'], dropEffect: 'none' },
   });
   return event;
 }
@@ -114,6 +114,18 @@ describe('useImportWizard window file-drop boundary', () => {
     );
     expect(event.defaultPrevented).toBe(true);
     expect(mocks.getPathForFile).toHaveBeenCalledWith(file);
+  });
+
+  it('previews every supported file in a drop without starting an import', async () => {
+    mocks.getPathForFile.mockImplementation((file: File) => `/selected/${file.name}`);
+    renderHook(() => useImportWizard());
+    act(() => window.dispatchEvent(fileDrop(new File([], 'one.gb'), new File([], 'two.dna'))));
+    await waitFor(() => expect(mocks.openQuickLookSource).toHaveBeenCalledTimes(2));
+    expect(mocks.openQuickLookSource.mock.calls.map(([input]) => input.sourcePath)).toEqual([
+      '/selected/one.gb',
+      '/selected/two.dna',
+    ]);
+    expect(mocks.runImportFlow).not.toHaveBeenCalled();
   });
 
   it('does not also open a file drop already claimed by another surface', async () => {
