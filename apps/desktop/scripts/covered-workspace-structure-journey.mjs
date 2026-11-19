@@ -64,6 +64,10 @@ const listed = async (structureViewId) =>
   (await tool('handleMolListStructures')).structures.find(
     (structure) => structure.structureViewId === structureViewId
   );
+const cameraOf = async (structureViewId) =>
+  (await tool('handleMolGetState', { structureViewId })).structures.find(
+    (structure) => structure.structureViewId === structureViewId
+  )?.camera;
 const agentImage = async (structureViewId, name) => {
   const shot = await tool('handleMolCaptureScreenshot', { structureViewId });
   assert.equal(shot.ok, true, `${name}: ${JSON.stringify(shot.error ?? shot)}`);
@@ -106,7 +110,7 @@ assert.equal(
 receipt.steps.ready = {
   structureViewId,
   secondsToActive: (Date.now() - openedAt) / 1000,
-  chains: ready.chains.length,
+  chains: ready.chainCount,
 };
 
 const scene = await tool('handleMolGetScene', { structureViewId });
@@ -121,7 +125,8 @@ assert.notEqual(
   afterEdit.sha256,
   'The agent edit must change the rendered image.'
 );
-const camera = (await listed(structureViewId)).camera;
+const camera = await cameraOf(structureViewId);
+assert.ok(camera, 'The covered structure must report its camera.');
 receipt.steps.agentWorkWhileCovered = { beforeEdit, afterEdit };
 
 for (const view of ['home-button', 'reference-picker-open', 'settings-button']) {
@@ -141,7 +146,11 @@ assert.ok(
   'Files must paint the structure.'
 );
 assert.equal(returned?.viewerStatus, 'active');
-assert.deepEqual(returned.camera, camera, 'Returning to Files must keep the camera.');
+assert.deepEqual(
+  await cameraOf(structureViewId),
+  camera,
+  'Returning to Files must keep the camera.'
+);
 receipt.steps.files = { ...shown, capture: await capture('files-after-return') };
 
 assert.deepEqual(pageErrors, []);
