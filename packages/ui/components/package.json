@@ -20,7 +20,7 @@
       "import": "./src/menu/index.ts",
       "default": "./src/menu/index.ts"
     },
-    "./menu-density": "./src/menu/density.ts",
+    "./menu-density": "./src/menu-density.ts",
     "./menu.css": "./src/menu/menu.css",
     "./styling-check": "./src/menu/styling-check.mjs"
   },
