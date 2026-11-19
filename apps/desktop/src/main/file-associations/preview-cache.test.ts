@@ -13,6 +13,18 @@ const open = () => new PreviewCache(roots, join(dir, 'journal.json'), 15, () => 
 async function create(key: PreviewCacheKey) {
   await mkdir(path(key), { recursive: true });
   await writeFile(join(path(key), 'member'), '0123456789');
+  if (key.startsWith('sequence:'))
+    await writeFile(
+      join(path(key), 'quick-look.json'),
+      JSON.stringify({ version: 3, sourceContentHash: 'a'.repeat(64), records: [] })
+    );
+  else {
+    await mkdir(join(path(key), '.forge'));
+    await writeFile(
+      join(path(key), '.forge/source-document.json'),
+      JSON.stringify({ schema: 'dnaforge.source-document.v1', packageId: key.split(':')[1] })
+    );
+  }
 }
 const exists = (key: PreviewCacheKey) =>
   access(path(key)).then(
@@ -80,5 +92,22 @@ it('refuses a new generation when protected snapshots occupy the budget', async 
     await expect(cache.admit(b, before)).rejects.toThrow('storage is full');
     expect(await exists(a)).toBe(true);
     expect(await exists(b)).toBe(false);
+  });
+});
+
+it('hands an old caller’s acquisition to the published tabs and preserves an unrelated directory', async () => {
+  const cache = open();
+  await create(a);
+  await create(b);
+  await rm(join(path(b), '.forge/source-document.json'));
+  await cache.run(async () => {
+    await cache.acquire(1, a, true);
+    await cache.sync(1, 'workspace-canvas', [a]);
+    await cache.sync(1, 'workspace-canvas', []);
+    await cache.sweep();
+    now += 21;
+    await cache.sweep();
+    expect(await exists(a)).toBe(false);
+    expect(await exists(b)).toBe(true);
   });
 });

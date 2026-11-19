@@ -15,6 +15,7 @@ import {
 import { readFileBoundedFromHandle } from '../ipc/bounded-file-read';
 import { getDb } from '../ipc/database';
 import { managedRootDir } from '../ipc/workspace-git';
+import { assertSharedProjectContentWritable } from '../shared-project-write-access';
 import { findKnownWorkspaceRoot } from '../workspace-git/known-workspace-scope';
 import {
   QUICK_LOOK_STORE_MAX_BYTES,
@@ -90,7 +91,11 @@ export function createExternalPreviewLifecycle(
   );
   const native = () => import('../source-document-package-store');
   const workspaces = () => ({ db: getDb(), managedRootDir: managedRootDir() });
-  const claim = async (sender: number, make: () => Promise<ExternalPreviewReceipt>) => {
+  const claim = async (
+    sender: number,
+    make: () => Promise<ExternalPreviewReceipt>,
+    legacy = false
+  ) => {
     const before = new Set((await cache.packages()).keys());
     let receipt: ExternalPreviewReceipt;
     try {
@@ -102,7 +107,7 @@ export function createExternalPreviewLifecycle(
       receipt = await make();
     }
     await cache.admit(key(receipt), before);
-    return { ...receipt, acquisitionId: await cache.acquire(sender, key(receipt)) };
+    return { ...receipt, acquisitionId: await cache.acquire(sender, key(receipt), legacy) };
   };
 
   async function verifySourceIdentity(receipt: ExternalPreviewReceipt) {
@@ -134,35 +139,42 @@ export function createExternalPreviewLifecycle(
   async function projectLocation(workspaceRoot: string, path: string) {
     const root = await realpath(workspaceRoot);
     const physicalPath = await realpath(path);
-    if (root !== (await findKnownWorkspaceRoot(physicalPath, workspaces())))
+    const owner = await findKnownWorkspaceRoot(physicalPath, workspaces());
+    if (!owner || (await realpath(owner)) !== root)
       throw Error('This package is outside its registered project.');
     return { root, physicalPath };
   }
 
   return {
-    open: (sender: number, path: string, familyId: HandlerFamilyId) =>
+    open: (sender: number, path: string, familyId: HandlerFamilyId, legacy = false) =>
       cache.run(() =>
-        claim(sender, async () => {
-          if (externalFormatForPath(path) !== familyId)
-            throw Error('The requested file format does not match its name.');
-          if (familyId === 'genbank' || familyId === 'snapgene')
-            return sequenceReceipt(await sequenceStore.materialize({ sourcePath: path, familyId }));
-          const descriptor = await (
-            await native()
-          ).prepareSourceDocumentPackage(
-            source,
-            { familyId, sourcePath: path },
-            readFileBoundedFromHandle
-          );
-          return {
-            version: 1 as const,
-            packageId: descriptor.packageId,
-            familyId,
-            sourcePath: path,
-            sourceFileName: descriptor.sourceName,
-            contentHash: descriptor.sha256,
-          };
-        })
+        claim(
+          sender,
+          async () => {
+            if (externalFormatForPath(path) !== familyId)
+              throw Error('The requested file format does not match its name.');
+            if (familyId === 'genbank' || familyId === 'snapgene')
+              return sequenceReceipt(
+                await sequenceStore.materialize({ sourcePath: path, familyId })
+              );
+            const descriptor = await (
+              await native()
+            ).prepareSourceDocumentPackage(
+              source,
+              { familyId, sourcePath: path },
+              readFileBoundedFromHandle
+            );
+            return {
+              version: 1 as const,
+              packageId: descriptor.packageId,
+              familyId,
+              sourcePath: path,
+              sourceFileName: descriptor.sourceName,
+              contentHash: descriptor.sha256,
+            };
+          },
+          legacy
+        )
       ),
     adopt: (sender: number, saved: SavedReceipt) =>
       cache.run(() =>
@@ -214,7 +226,15 @@ export function createExternalPreviewLifecycle(
             : typeof destination.rootPath !== 'string' || !isAbsolute(destination.rootPath))
         )
           throw Error('A project destination is required.');
-        if (receipt.sequence) return saveSequence({ receipt: receipt.sequence, destination });
+        if (receipt.sequence) {
+          if (destination.kind === 'existing-workspace') {
+            const deps = workspaces();
+            const root = await findKnownWorkspaceRoot(destination.rootPath, deps);
+            if (!root) throw Error('Choose a registered project for this sequence.');
+            assertSharedProjectContentWritable(deps.db, root);
+          }
+          return saveSequence({ receipt: receipt.sequence, destination });
+        }
         await verifiedSource(receipt);
         return (await native()).importSourceDocumentPackage(
           source,

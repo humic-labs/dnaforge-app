@@ -102,11 +102,7 @@ export interface ProjectPreviewPackage {
   readonly contentHash: string;
   readonly entryPath: string;
   readonly productPaths: readonly string[];
-  readonly presentation:
-    | 'sequence-package'
-    | 'fasta-collection'
-    | 'molecular-document'
-    | 'chromatogram';
+  readonly presentation: import('./source-document-package').SourceDocumentPresentation;
   readonly bytes: Uint8Array;
 }
 

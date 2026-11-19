@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { lstat, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { lstat, mkdir, readFile, readdir, realpath, rename, rm, writeFile } from 'node:fs/promises';
+import { dirname, join, relative } from 'node:path';
 
 export type PreviewCacheKey = `${'sequence' | 'source'}:${string}`;
 const KEY = /^(?:sequence|source):[a-f0-9]{64}$/u;
@@ -22,9 +22,26 @@ async function size(path: string): Promise<number> {
   return bytes;
 }
 
+async function ownsGeneration(key: PreviewCacheKey, path: string) {
+  const sequence = key.startsWith('sequence:');
+  const marker = join(path, sequence ? 'quick-look.json' : '.forge/source-document.json');
+  try {
+    if (!(await lstat(marker)).isFile()) return false;
+    const value = JSON.parse(await readFile(marker, 'utf8'));
+    return sequence
+      ? value.version === 3 && ID.test(value.sourceContentHash) && Array.isArray(value.records)
+      : value.schema === 'dnaforge.source-document.v1' && value.packageId === key.split(':')[1];
+  } catch {
+    return false;
+  }
+}
+
 export class PreviewCache {
   private tail: Promise<unknown> = Promise.resolve();
-  private readonly acquired = new Map<string, { sender: number; key: PreviewCacheKey }>();
+  private readonly acquired = new Map<
+    string,
+    { sender: number; key: PreviewCacheKey; handoffUntil?: number }
+  >();
   private readonly windows = new Map<number, Set<PreviewCacheKey>>();
   private journal?: CacheJournal;
   private hydrated = false;
@@ -94,9 +111,13 @@ export class PreviewCache {
     }
   }
 
-  async acquire(sender: number, key: PreviewCacheKey) {
+  async acquire(sender: number, key: PreviewCacheKey, legacy = false) {
     const id = randomUUID();
-    this.acquired.set(id, { sender, key });
+    this.acquired.set(id, {
+      sender,
+      key,
+      handoffUntil: legacy ? this.now() + this.retention : undefined,
+    });
     delete this.journal!.idle[key];
     try {
       await this.persist();
@@ -118,7 +139,11 @@ export class PreviewCache {
   async sync(sender: number, owner: string, keys: PreviewCacheKey[]) {
     if (owner !== 'workspace-canvas') throw Error('Unknown preview tab owner.');
     const previous = this.windows.get(sender) ?? [];
-    this.windows.set(sender, new Set(keys));
+    const presented = new Set(keys);
+    this.windows.set(sender, presented);
+    for (const [id, claim] of this.acquired)
+      if (claim.sender === sender && claim.handoffUntil !== undefined && presented.has(claim.key))
+        this.acquired.delete(id);
     const active = this.active();
     for (const key of previous) if (!active.has(key)) this.journal!.idle[key] = this.now();
     for (const key of keys) delete this.journal!.idle[key];
@@ -142,6 +167,14 @@ export class PreviewCache {
     const found = new Map<PreviewCacheKey, string>();
     for (const family of ['sequence', 'source'] as const) {
       const root = this.roots[family];
+      const canonical = await realpath(root).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+      });
+      if (!canonical) continue;
+      const profile = dirname(this.journalPath);
+      if (canonical !== join(await realpath(profile), relative(profile, root)))
+        throw Error('The preview cache directory was redirected.');
       const entries = await readdir(root, { withFileTypes: true }).catch((error) => {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
         throw error;
@@ -156,6 +189,15 @@ export class PreviewCache {
 
   async sweep(pressure = false, protect?: PreviewCacheKey) {
     const found = await this.packages();
+    for (const [id, claim] of this.acquired)
+      if (
+        claim.handoffUntil !== undefined &&
+        claim.handoffUntil <= this.now() &&
+        this.windows.has(claim.sender)
+      ) {
+        this.acquired.delete(id);
+        this.journal!.idle[claim.key] ??= this.now();
+      }
     const active = this.active();
     if (protect) active.add(protect);
     const journal = this.journal!;
@@ -167,7 +209,10 @@ export class PreviewCache {
         if (journal.recovery[key] === undefined) journal.recovery[key] = now + this.retention;
         continue;
       }
-      if (pressure || now - journal.idle[key] >= this.retention) {
+      if (
+        (pressure || now - journal.idle[key] >= this.retention) &&
+        (await ownsGeneration(key, path))
+      ) {
         await rm(path, { recursive: true });
         found.delete(key);
       }

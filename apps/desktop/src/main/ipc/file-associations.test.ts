@@ -95,7 +95,12 @@ describe('fileAssociations:materializeQuickLookPackage', () => {
       { sourcePath: '/allowed/alias.gb', familyId: 'genbank' }
     );
 
-    expect(dependencies.lifecycle.open).toHaveBeenCalledWith(7, '/allowed/canonical.gb', 'genbank');
+    expect(dependencies.lifecycle.open).toHaveBeenCalledWith(
+      7,
+      '/allowed/canonical.gb',
+      'genbank',
+      true
+    );
   });
 
   it('routes protected package preparation to the main-owned store', async () => {

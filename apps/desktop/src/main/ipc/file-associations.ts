@@ -207,7 +207,12 @@ export function registerFileAssociationHandlers(deps: RegisterFileAssociationHan
       const sourcePath = await resolvePreviewSource(parsed.sourcePath, (path) =>
         assertSafePath(path, { requireAbsolute: true, errorPrefix: 'Quick Look source' })
       );
-      const acquired = await deps.lifecycle.open(owner(event.sender), sourcePath, parsed.familyId);
+      const acquired = await deps.lifecycle.open(
+        owner(event.sender),
+        sourcePath,
+        parsed.familyId,
+        true
+      );
       return acquired.sequence!;
     },
     prepareQuickLookPackage: (_event, request: unknown) =>
