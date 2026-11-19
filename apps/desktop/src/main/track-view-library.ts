@@ -1,3 +1,4 @@
+import type { ComparisonSourceCommands } from './comparison-source-commands';
 import { createHash, randomUUID } from 'node:crypto';
 import { reconcileTrackView } from './reconcile-track-view';
 import type Database from 'better-sqlite3';
@@ -25,7 +26,12 @@ import {
 export class TrackViewLibrary {
   constructor(
     private readonly root: string,
-    private readonly store?: { db(): Database.Database; blobRoot?: string }
+    private readonly store?: {
+      db(): Database.Database;
+      blobRoot?: string;
+      comparisons?: Pick<ComparisonSourceCommands, 'retain'>;
+      contacts?: Pick<ComparisonSourceCommands, 'retain'>;
+    }
   ) {}
 
   private isLibraryPath(path: string): boolean {
@@ -231,6 +237,18 @@ export class TrackViewLibrary {
     let result: Awaited<ReturnType<typeof writeWorkspaceTextFileAtomicInMain>>;
     try {
       const db = this.store?.db() ?? (await import('./ipc/database')).getDb();
+      const projection = document.comparisonProjection ?? document.contactProjection;
+      if (projection) {
+        const owner = document.comparisonProjection
+          ? this.store?.comparisons
+          : this.store?.contacts;
+        if (!owner) throw new Error('The saved projection source requires its admitted project.');
+        await owner.retain(
+          db,
+          { project: projection.project, source: projection.source },
+          this.store?.blobRoot
+        );
+      }
       result = await publishTypedSavedText(
         db,
         {

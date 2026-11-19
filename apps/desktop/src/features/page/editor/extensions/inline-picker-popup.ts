@@ -1,6 +1,8 @@
 import type { Editor } from '@tiptap/core';
 import tippy, { type GetReferenceClientRect } from 'tippy.js';
 
+import { presentationSurfaceFor } from '../../../../presentation/browser-input';
+import { presentationOwner } from '../../../../presentation/ownership';
 import type { entityLinkSuggestionKey } from './inline-picker-navigation';
 
 export interface InlinePickerPopup {
@@ -71,6 +73,9 @@ export function createInlinePickerPopup({
     },
     { contextElement }
   );
+  const origin = presentationSurfaceFor(contextElement);
+  const window = contextElement.ownerDocument.defaultView;
+  let releasePresentation: (() => void) | undefined;
   const popup = tippy(contextElement, {
     getReferenceClientRect,
     appendTo: () => contextElement.ownerDocument.body,
@@ -85,8 +90,18 @@ export function createInlinePickerPopup({
     arrow: false,
     maxWidth: 'none',
     aria: { content: null, expanded: false },
+    onCreate(instance) {
+      instance.popper.dataset.presentationSurface = origin;
+      window?.addEventListener('blur', dismiss);
+      releasePresentation = presentationOwner.subscribe(() => {
+        if (!contextElement.isConnected || !presentationOwner.allows(origin, 'presentation'))
+          dismiss();
+      });
+    },
     onClickOutside: dismiss,
     onDestroy: () => {
+      window?.removeEventListener('blur', dismiss);
+      releasePresentation?.();
       contextElement.removeAttribute('data-picker-above');
       destroyed = true;
     },

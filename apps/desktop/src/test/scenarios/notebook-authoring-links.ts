@@ -7,6 +7,7 @@ import {
   NOTEBOOK_PACKAGE_FORMAT_VERSION,
   serializeNotebookPackageMetadata,
 } from '../../db/notebook-package';
+import { assertToolOperationResult } from '../../features/agent-bridge/public/tool-result';
 import type { AppScenario } from './types';
 
 export const NOTEBOOK_AUTHORING_PRESET_ID = 'notebook-authoring-links';
@@ -118,6 +119,7 @@ export async function prepareNotebookAuthoringLinks(): Promise<void> {
       },
       { toolCallId: `notebook-authoring-fixture-${primer.name}`, messages: [] }
     );
+    assertToolOperationResult(result);
     if (!result.ok) throw new Error(result.error);
   }
   const opened = await openWorkspaceDocument({

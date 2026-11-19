@@ -1,6 +1,14 @@
+import {
+  sequenceLayerIdentity,
+  resolveSequenceLayerCreationId,
+} from './sequence-data-layer-identity';
 import type Database from 'better-sqlite3';
 import { publishTypedSavedText, savedFileWorkspace } from './saved-file-publication';
-import { captureSavedFileSource, recoverPendingSavedFileSources } from './saved-file-sources';
+import {
+  captureSavedFileSource,
+  recoverPendingSavedFileSources,
+  restoreSavedFileSource,
+} from './saved-file-sources';
 import { createHash, randomUUID } from 'node:crypto';
 import { readdir } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
@@ -63,10 +71,6 @@ interface Dependencies {
 
 function digest(value: string): string {
   return `sha256:${createHash('sha256').update(value, 'utf8').digest('hex')}`;
-}
-
-function layerId(root: string, requestId: string): string {
-  return `layer-${createHash('sha256').update(`${root}\0${requestId}`).digest('hex')}`;
 }
 
 function message(error: unknown): string {
@@ -264,10 +268,23 @@ export class SequenceDataLayerCommands {
       assertCurrent();
       return { status: 'listed', layers, errors };
     }
-    const id = layerId(root, request.requestId);
+    const { id, restore } = await resolveSequenceLayerCreationId(
+      this.dependencies.database(),
+      root,
+      request.requestId
+    );
     const path = join(root, SEQUENCE_DATA_LAYER_DIRECTORY, `${id}${SEQUENCE_DATA_LAYER_SUFFIX}`);
     await this.dependencies.assertWritable(root, path);
     assertCurrent();
+    if (restore) {
+      await restoreSavedFileSource(this.dependencies.database(), {
+        ...restore,
+        entityId: id,
+        destination: path,
+        assertCurrent,
+      });
+      assertCurrent();
+    }
     const retained = await this.readSource(root, id, request, assertCurrent);
     const source = retained.source;
     const assertPublicationCurrent = () => {
@@ -345,7 +362,7 @@ export class SequenceDataLayerCommands {
     }
     const sourceRoot = await this.dependencies.resolveProject(reference.project);
     assertTargetCurrent();
-    if (!isAbsolute(reference.project) || sourceRoot !== reference.project)
+    if (!isAbsolute(reference.project))
       throw new Error('Use the dataset source project returned by the native layer owner.');
     const assertCurrent = await this.dependencies.capture(sourceRoot, false);
     assertCurrent();
@@ -408,9 +425,14 @@ export class SequenceDataLayerCommands {
     const bytes = await readFileBoundedFromHandle(path, MAX_SEQUENCE_DATA_LAYER_DOCUMENT_BYTES);
     const content = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     const document = parseSequenceDataLayerDocument(content);
+    const owner = sequenceLayerIdentity(
+      this.dependencies.database(),
+      root,
+      document.creationRequest.id
+    );
     if (
       document.id !== id ||
-      layerId(root, document.creationRequest.id) !== id ||
+      (owner.stableId !== id && owner.localId !== id && !owner.legacyIds().includes(id)) ||
       digest(document.source.csv) !== document.source.sha256 ||
       identity(document) !== document.creationRequest.inputHash
     ) {

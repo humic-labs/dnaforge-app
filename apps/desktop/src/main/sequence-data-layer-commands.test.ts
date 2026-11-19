@@ -1,7 +1,17 @@
-import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  rename,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SequenceDataLayerCommands } from './sequence-data-layer-commands';
 import {
@@ -26,6 +36,13 @@ vi.mock('electron', () => ({
   dialog: { showErrorBox: vi.fn() },
 }));
 vi.mock('./analytics', () => ({ trackEvent: vi.fn() }));
+import { relinkWorkspaceRoot } from './workspace-root-recovery';
+import { resolveAdmittedProjectRoot } from './admitted-scientific-project';
+import { MANAGED_WORKSPACE_MARKER } from '../shared/workspace-git-types';
+import { sequenceDataLayerIndexedTargetId } from '../shared/sequence-data-layer-indexed-target';
+import { TrackViewLibrary } from './track-view-library';
+import { trackViewFixture } from '../shared/track-view-fixture';
+import { parseTrackViewDocument } from '../shared/track-view';
 const databases: Array<ReturnType<typeof createFileTestDb>> = [];
 const sequenceFingerprint = `sha256:${'a'.repeat(64)}`;
 const annotationFingerprint = `annotation-document-v1:sha256:${'b'.repeat(64)}`;
@@ -38,9 +55,11 @@ afterEach(async () => {
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'dnaforge-layer-'));
   folders.push(root);
-  const database = createFileTestDb('retained-sequence-layer');
-  databases.push(database);
-  ensureSchema(database.db, database.dbPath);
+  const database = databases[0] ?? createFileTestDb('retained-sequence-layer');
+  if (!databases.length) {
+    databases.push(database);
+    ensureSchema(database.db, database.dbPath);
+  }
   let target: SequenceDataLayerTargetSnapshot = {
     documentId: 'existing-sequence',
     sequenceFingerprint,
@@ -125,6 +144,11 @@ it('restores the exact published layer and its embedded dataset under the origin
   await rm(result.path);
   await restoreSavedFileSource(db, { ...owner, revisionId: version.id, destination: result.path });
   expect(await readFile(result.path)).toEqual(original);
+  await rm(result.path);
+  expect(await f.commands.run({ ...f.request, label: 'replace a missing layer' })).toMatchObject({
+    status: 'failed',
+  });
+  expect(await readFile(result.path)).toEqual(original);
   expect(await f.commands.run(f.request)).toMatchObject({
     status: 'published',
     alreadyPublished: true,
@@ -132,6 +156,130 @@ it('restores the exact published layer and its embedded dataset under the origin
     document: { id: result.document.id, source: result.document.source },
   });
 });
+
+it.each(['current', 'legacy'])(
+  'keeps the original %s layer usable after moving and relinking its project',
+  async (format) => {
+    const f = await fixture(),
+      db = f.dependencies.database(),
+      repo = randomUUID();
+    db.prepare('INSERT INTO workspaces(name,path,repo_uuid,created_at) VALUES(?,?,?,1)').run(
+      'Project',
+      f.root,
+      repo
+    );
+    await mkdir(join(f.root, '.git'));
+    await writeFile(
+      join(f.root, MANAGED_WORKSPACE_MARKER),
+      JSON.stringify({ schema: 1, workspaceUuid: repo })
+    );
+    const viewDocument = parseTrackViewDocument(JSON.stringify(trackViewFixture()));
+    const indexedTarget = sequenceDataLayerIndexedTargetId({
+      referenceId: viewDocument.reference.assemblyId,
+      chrom: 'pUC19',
+      sequenceIdentity: 'a'.repeat(64),
+      annotationIdentity: 'b'.repeat(64),
+    });
+    f.setTarget({ ...f.getTarget(), documentId: indexedTarget });
+    const request = { ...f.request, targetDocumentId: indexedTarget };
+    let id: string, bytes: string;
+    if (format === 'legacy') {
+      const sample = await fixture();
+      sample.setTarget({ ...sample.getTarget(), documentId: indexedTarget });
+      const result = await sample.commands.run({
+        ...sample.request,
+        targetDocumentId: indexedTarget,
+      });
+      if (result.status !== 'published') throw Error(JSON.stringify(result));
+      id =
+        'layer-' +
+        createHash('sha256').update(f.root).update('\0').update(f.request.requestId).digest('hex');
+      bytes = (await readFile(result.path, 'utf8')).replaceAll(result.document.id, id);
+      await mkdir(join(f.root, SEQUENCE_DATA_LAYER_DIRECTORY), { recursive: true });
+      await writeFile(join(f.root, SEQUENCE_DATA_LAYER_DIRECTORY, id + '.dnalayer.json'), bytes);
+    } else {
+      const result = await f.commands.run(request);
+      if (result.status !== 'published') throw Error(JSON.stringify(result));
+      id = result.document.id;
+      bytes = await readFile(result.path, 'utf8');
+    }
+    const before = await f.commands.run({ operation: 'inspect', project: f.root, id });
+    if (before.status !== 'published') throw Error(JSON.stringify(before));
+    const library = new TrackViewLibrary(join(dirname(db.name), 'views'), { db: () => db });
+    const recorded = await library.save({
+      document: {
+        ...viewDocument,
+        sequenceDataLayers: {
+          project: f.root,
+          targetDocumentId: indexedTarget,
+          selectedLayerId: id,
+          visibleLayerIds: [id],
+          layers: [{ id, revision: before.revision, presentation: before.document.presentation }],
+        },
+      },
+      expectedRevision: null,
+    });
+    const relocated = f.root + '-renamed';
+    await rename(f.root, relocated);
+    folders.push(relocated);
+    const movedRoot = await realpath(relocated);
+    expect(relinkWorkspaceRoot(db, { repoPath: f.root, selectedPath: movedRoot })).toMatchObject({
+      status: 'relinked',
+      repoPath: movedRoot,
+    });
+    const resolveProject = async (project: string) => {
+      const result = resolveAdmittedProjectRoot(db, [movedRoot], project);
+      if (!result) throw Error('PROJECT_NOT_ADMITTED');
+      return result.path;
+    };
+    const reopened = new SequenceDataLayerCommands({ ...f.dependencies, resolveProject });
+    expect(await reopened.run({ operation: 'inspect', project: f.root, id })).toMatchObject({
+      status: 'published',
+      project: movedRoot,
+      document: { id },
+    });
+    expect(await reopened.run({ ...request, project: movedRoot })).toMatchObject({
+      status: 'published',
+      alreadyPublished: true,
+      document: { id },
+    });
+    expect(
+      await readFile(join(movedRoot, SEQUENCE_DATA_LAYER_DIRECTORY, id + '.dnalayer.json'), 'utf8')
+    ).toBe(bytes);
+    expect(
+      await reopened.run({ ...request, project: movedRoot, label: 'Different inputs' })
+    ).toMatchObject({ status: 'failed' });
+    expect(
+      await reopened.run({
+        ...request,
+        project: movedRoot,
+        requestId: 'updated-fitness',
+        label: 'Revised fitness',
+      })
+    ).toMatchObject({ status: 'published', document: { label: 'Revised fitness' } });
+    const savedView = await library.read(recorded.document.id);
+    const selection = savedView.document.sequenceDataLayers!;
+    expect(
+      await reopened.run({
+        operation: 'inspect',
+        project: selection.project,
+        id: selection.layers[0].id,
+      })
+    ).toMatchObject({ status: 'published', revision: selection.layers[0].revision });
+    const edited = await library.save({
+      document: {
+        ...savedView.document,
+        sequenceDataLayers: { ...selection, visibleLayerIds: [] },
+      },
+      expectedRevision: savedView.revision,
+    });
+    expect((await library.read(edited.document.id)).document.sequenceDataLayers).toEqual({
+      ...selection,
+      visibleLayerIds: [],
+    });
+    expect(resolveAdmittedProjectRoot(db, [], f.root)).toBeNull();
+  }
+);
 
 describe('native sequence data layer commands', () => {
   it('publishes a replayable immutable dataset through native atomic storage and its operation reducer', async () => {

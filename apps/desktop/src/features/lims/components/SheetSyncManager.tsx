@@ -398,7 +398,6 @@ export function SheetSyncManagerButton() {
           setError(null);
           setOpen(true);
         }}
-        className="h-7 rounded-md border border-border bg-bg px-2 text-xs text-fg-muted wp-interactive "
       >
         Connected spreadsheets…
       </Button>

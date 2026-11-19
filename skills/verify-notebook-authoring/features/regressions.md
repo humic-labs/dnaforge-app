@@ -60,6 +60,14 @@ caret clearance rather than typing a character that might create the spacing.
 Repeat link insertions through @, slash-name, slash-category and any reachable
 legacy picker. Include same-named targets in different projects.
 
+## Saved links and file recovery
+
+In a disposable project, save a notebook with a native table containing a reference to a file-backed entity. Keep its record ID, reference ID, working bytes and project path. Rename the file through the app and follow the saved link. Reopen the notebook and verify the same IDs, updated path and table contents.
+
+Move the working file outside the disposable project while the app is closed or the document is clean. Check discovery by both name and ID. List saved versions by record ID through the native saved-file command. Restore the recorded version to an unused project path and compare the bytes with the held original. For a notebook, also check the Markdown and each block and asset it references. Try restoring to an occupied path and verify its existing bytes survive. Return the disposable fixture to its starting state.
+
+When checking keyboard edits, keep a table immediately before the test paragraph. After deleting a link or cancelling an edit, save and reopen and verify that the table and its links survive.
+
 ## Gotchas
 
 The component menu tests mock native discovery. The database census does not

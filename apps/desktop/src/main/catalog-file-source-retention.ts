@@ -1,3 +1,4 @@
+import { assertPublishedCatalogFilePath } from '../shared/catalog-binding';
 import { retainTablePackage } from './retain-table-package';
 import type Database from 'better-sqlite3';
 import { lstat, readFile } from 'node:fs/promises';
@@ -30,6 +31,7 @@ export async function stageCatalogFileSource(
   input: Binding,
   assertCurrent?: () => void
 ) {
+  assertPublishedCatalogFilePath(input.path);
   if ((input.status && input.status !== 'current') || input.fileKind === 'folder') return;
   if (!isAbsolute(input.path))
     throw new Error('Catalog file retention requires an absolute file location.');

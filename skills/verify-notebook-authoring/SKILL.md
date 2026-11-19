@@ -1,6 +1,6 @@
 ---
 name: verify-notebook-authoring
-description: Verify notebook links, command menus, reference editing and tables in the desktop app.
+description: Verify notebook links, command menus, reference editing and tables and saved-record recovery in the desktop app.
 ---
 
 # Verify notebook authoring
@@ -15,7 +15,7 @@ From the repository root, run the group for the affected behavior.
 node skills/verify-notebook-authoring/scripts/check.mjs --group menu --out /absolute/path/to/results
 ```
 
-The available groups are `menu`, `discovery`, `caret`, `references`, `tables` and `registry`. The report records the test files, source fingerprint and exit status.
+The available groups are `menu`, `discovery`, `caret`, `references`, `tables`, `registry` and `retention`. The report records the test files, source fingerprint and exit status.
 
 ## Desktop checks
 

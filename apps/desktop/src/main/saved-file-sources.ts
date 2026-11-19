@@ -1,17 +1,8 @@
+import { restoreSavedDirectory } from './restore-saved-directory';
 import type Database from 'better-sqlite3';
 import { createReadStream, lstatSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
-import {
-  lstat,
-  mkdir,
-  readdir,
-  realpath,
-  unlink,
-  rmdir,
-  chmod,
-  link,
-  rename,
-} from 'node:fs/promises';
+import { lstat, readdir, realpath, unlink, chmod, link, rename } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { z } from 'zod';
 import { isSafeWorkspaceRelativePath, pathIsAtOrUnder } from '../shared/path-boundary';
@@ -418,45 +409,36 @@ export async function restoreSavedFileSource(
     throw new Error('Cannot restore into the retained source store.');
   for (const m of manifest.members)
     if (m.kind === 'file') await verifyWorkspaceSyncBlob(m, { cacheRoot: root });
-  const directories: string[] = [];
-  const createdFiles: Array<{ path: string; dev: number; ino: number; sha256: string }> = [];
-  try {
-    for (const member of manifest.members) {
-      input.assertCurrent?.();
-      const dest = join(path, member.relativePath);
-      assertWorkspaceProjectionPathSafe(parent, dest);
-      if (member.kind === 'directory') {
-        await mkdir(dest, { mode: 0o700 });
-        directories.push(dest);
-      } else {
-        await materializeWorkspaceSyncFile({ ...member, encoding: 'blob', content: '' }, dest, {
-          cacheRoot: root,
-        });
-        const identity = await lstat(dest);
-        createdFiles.push({
-          path: dest,
-          dev: identity.dev,
-          ino: identity.ino,
-          sha256: member.sha256,
-        });
-      }
-    }
-    for (const dir of directories.reverse()) await syncDirectory(dir);
+  const first = manifest.members[0];
+  if (first.kind === 'directory') {
+    await restoreSavedDirectory({
+      revision: source.id,
+      destination: path,
+      blobRoot: root,
+      members: manifest.members,
+      matchesManifest: (candidate) => matchesWorkingSource(candidate, manifest),
+      assertCurrent: input.assertCurrent,
+    });
+  } else {
     input.assertCurrent?.();
-    await syncDirectory(parent);
-  } catch (error) {
-    for (const item of createdFiles.reverse()) {
-      const current = await lstat(item.path).catch(() => null);
+    assertWorkspaceProjectionPathSafe(parent, path);
+    await materializeWorkspaceSyncFile({ ...first, encoding: 'blob', content: '' }, path, {
+      cacheRoot: root,
+    });
+    const created = await lstat(path);
+    try {
+      input.assertCurrent?.();
+      await syncDirectory(parent);
+    } catch (error) {
+      const current = await lstat(path).catch(() => null);
       if (
-        current?.dev === item.dev &&
-        current?.ino === item.ino &&
-        (await hashWorkspaceSyncFileOnDisk(item.path)).sha256 === item.sha256
+        current?.dev === created.dev &&
+        current.ino === created.ino &&
+        (await hashWorkspaceSyncFileOnDisk(path)).sha256 === first.sha256
       )
-        await unlink(item.path);
+        await unlink(path);
+      throw error;
     }
-    for (const dir of directories.sort((a, b) => b.length - a.length))
-      await rmdir(dir).catch(() => {});
-    throw error;
   }
   return { id: source.id };
 }

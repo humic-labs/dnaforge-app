@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, readdirSync, lstatSync } from 'node:fs';
 import { mkdir, readFile, writeFile, rename, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -239,6 +240,85 @@ describe('native retained source recovery', () => {
       destination: join(root, 'from-cache'),
     });
     expect(await readFile(join(root, 'from-cache'))).toEqual(cache);
+  });
+  it('resumes a partial package privately and atomically claims a still-empty destination', async () => {
+    const source = join(root, 'original-package'),
+      dest = join(root, 'restored-package');
+    await mkdir(source);
+    await writeFile(join(source, 'first.txt'), 'first');
+    await writeFile(join(source, 'second.txt'), 'second');
+    const owner = { workspaceId: 1, entityId: 'resumable-package' };
+    const saved = await captureSavedFileSource(profile.db, { ...owner, path: source });
+    await rm(source, { recursive: true });
+    const operations = join(profile.tmpDir, 'retained-file-blobs', '.restore-operations');
+    const stage = () => {
+      if (!existsSync(operations)) return;
+      const json = readdirSync(operations).find((member) => member.endsWith('.json'));
+      if (!json) return;
+      return (JSON.parse(readFileSync(join(operations, json), 'utf8')) as { stage: string }).stage;
+    };
+    await expect(
+      restoreSavedFileSource(profile.db, {
+        ...owner,
+        destination: dest,
+        assertCurrent: () => {
+          const current = stage();
+          if (
+            current &&
+            existsSync(join(current, 'package', 'first.txt')) &&
+            !existsSync(join(current, 'package', 'second.txt'))
+          )
+            throw new Error('Interrupted after the first member');
+        },
+      })
+    ).rejects.toThrow('Interrupted after the first member');
+    expect(existsSync(dest)).toBe(false);
+    const partial = stage()!;
+    expect(await readFile(join(partial, 'package', 'first.txt'), 'utf8')).toBe('first');
+    const { parseCatalogFileBindingRequest } = await import('../shared/catalog-binding');
+    expect(() =>
+      parseCatalogFileBindingRequest({
+        path: join(partial, 'package', 'first.txt'),
+        entityId: owner.entityId,
+      })
+    ).toThrow(/restored|restor/i);
+    const { discoverWorkspaceArtifacts } = await import('./workspace-artifact-discovery');
+    expect(
+      (await discoverWorkspaceArtifacts({ rootPath: root, knownFiles: [] })).catalogProjection
+        ?.candidates
+    ).toEqual([]);
+
+    await mkdir(dest);
+    const empty = lstatSync(dest).ino;
+    await expect(
+      restoreSavedFileSource(profile.db, { ...owner, destination: dest })
+    ).rejects.toThrow(/occupied/);
+    expect(lstatSync(dest).ino).toBe(empty);
+    await rm(dest, { recursive: true });
+    let racing: number | undefined;
+    await expect(
+      restoreSavedFileSource(profile.db, {
+        ...owner,
+        destination: dest,
+        assertCurrent: () => {
+          if (!racing && existsSync(join(partial, 'package', 'second.txt'))) {
+            mkdirSync(dest);
+            racing = lstatSync(dest).ino;
+          }
+        },
+      })
+    ).rejects.toThrow();
+    expect(lstatSync(dest).ino).toBe(racing);
+    expect(readdirSync(dest)).toEqual([]);
+    await rm(dest, { recursive: true });
+    expect(await restoreSavedFileSource(profile.db, { ...owner, destination: dest })).toEqual(
+      saved
+    );
+    expect(readdirSync(dest).sort()).toEqual(['first.txt', 'second.txt']);
+    expect(await readFile(join(dest, 'first.txt'), 'utf8')).toBe('first');
+    expect(await readFile(join(dest, 'second.txt'), 'utf8')).toBe('second');
+    expect(existsSync(partial)).toBe(false);
+    expect(readdirSync(operations)).toEqual([]);
   });
   it('restores complete independent directories and rejects a damaged retained blob', async () => {
     const source = join(root, 'package');

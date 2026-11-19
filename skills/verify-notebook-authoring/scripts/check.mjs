@@ -38,6 +38,11 @@ const groups = {
     'features/page/embeds/table/components/TableCell.rich-content.test.tsx',
     'shared/notebook-model/table/table-data-model.occurrences.test.ts',
   ],
+  retention: [
+    'main/saved-entity-row-versions.test.ts',
+    'main/saved-file-sources.test.ts',
+    'main/notebook-package-retention.test.ts',
+  ],
   registry: [
     'features/lims/components/SheetSyncManager.conflict-description.audit.test.tsx',
     'features/lims/components/SheetSyncManager.setup.test.tsx',

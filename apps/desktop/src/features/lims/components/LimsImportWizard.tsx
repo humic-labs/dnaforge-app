@@ -333,6 +333,7 @@ export function LimsImportWizard({
                   (job ? (
                     <SheetPickerPane
                       job={job}
+                      noun={kindNoun(job.kind, schemas, true)}
                       onSelectTab={onSelectTab}
                       onToggleTabSelected={onToggleTabSelected}
                     />
@@ -877,10 +878,12 @@ function SheetTabStrip({
 
 function SheetPickerPane({
   job,
+  noun,
   onSelectTab,
   onToggleTabSelected,
 }: {
   job: WorkbookReviewView;
+  noun: string;
   onSelectTab?(sheetName: string): void;
   onToggleTabSelected?(sheetName: string): void;
 }) {
@@ -894,7 +897,7 @@ function SheetPickerPane({
       />
       <div className="border-b border-border px-4 py-2 text-xs text-fg-muted">
         Check the sheets to import — all import as{' '}
-        <span className="font-medium text-fg">{kindNounFromView(job)}</span>.
+        <span className="font-medium text-fg">{noun}</span>.
       </div>
       {activeTab?.planError ? (
         <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-error">
@@ -909,10 +912,6 @@ function SheetPickerPane({
       )}
     </div>
   );
-}
-
-function kindNounFromView(job: WorkbookReviewView): string {
-  return FRIENDLY_PLURAL[job.kind] ?? `${job.kind}s`;
 }
 
 function ReviewPane({
