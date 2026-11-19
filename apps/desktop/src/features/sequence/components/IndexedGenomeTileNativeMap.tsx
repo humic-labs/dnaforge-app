@@ -24,6 +24,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type RefObject,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 
@@ -50,6 +51,12 @@ import {
   pileupReadQualityGradientCss,
 } from '@waypoint/genome-renderer';
 
+import {
+  READ_HOVER_FILTERS,
+  READ_SELECTION_FILTERS,
+  READ_MARKUP_RADIUS,
+} from './read-hover-surface';
+import { useReadHoverSurface } from './use-read-hover-surface';
 import { cdsRegionHoverLine } from '@waypoint/workspace-editor/codon-hover-tooltip-lines';
 
 import { CheckIcon, CopyIcon, XIcon } from '../../../components/icons/glyphs';
@@ -705,22 +712,70 @@ export const IndexedGenomeTileNativeMap = memo(
         }
       }, [hoveredReadIdentity, readHover, readSourcesByTrackId]);
 
+      const { getLinearRenderer, subscribeToPresentedFrames, requestRender } = handle;
+      const readMarkerRef = useRef<HTMLDivElement>(null);
+      const currentReadRef = useRef(readHover);
+      const readSurface = useReadHoverSurface(containerRef, Boolean(readSourcesByTrackId?.size));
+      const foreground = pinnedRead ? null : readSurface;
+      const nativeFilter = READ_HOVER_FILTERS[themeMode];
+
+      useLayoutEffect(() => {
+        currentReadRef.current = readHover;
+      }, [readHover]);
+
+      useLayoutEffect(() => {
+        if (readSurface) readSurface.canvas.style.visibility = 'hidden';
+        const marker = readMarkerRef.current;
+        if (marker) marker.style.backdropFilter = foreground ? 'none' : nativeFilter;
+      }, [hoveredReadIdentity, readSurface, foreground, nativeFilter]);
+
       useEffect(() => {
         if (!hoveredReadIdentity) return;
-        return handle.subscribeToPresentedFrames(() => {
-          const renderer = handle.getLinearRenderer();
-          if (!renderer) return;
-          setReadHover((current) => {
-            if (!current || readHitIdentityKey(current) !== hoveredReadIdentity) return current;
-            const located = renderer.locateRead(current);
-            if (!located || !pointInsideRead(current.screenX, current.screenY, located))
-              return null;
-            return sameReadScreenGeometry(current, located)
-              ? current
-              : { ...located, screenX: current.screenX, screenY: current.screenY };
-          });
+        const unsubscribe = subscribeToPresentedFrames(() => {
+          const current = currentReadRef.current;
+          const renderer = getLinearRenderer();
+          if (!current || !renderer || readHitIdentityKey(current) !== hoveredReadIdentity) return;
+          const located = renderer.locateRead(current);
+          const marker = readMarkerRef.current;
+          if (!located || !pointInsideRead(current.screenX, current.screenY, located)) {
+            if (foreground) foreground.canvas.style.visibility = 'hidden';
+            setReadHover((latest) => (latest === current ? null : latest));
+            return;
+          }
+          if (marker && foreground) {
+            const canvas = containerRef.current?.querySelector<HTMLCanvasElement>(
+              ':scope > canvas:not([data-read-hover-surface])'
+            );
+            const painted =
+              canvas &&
+              canvas.offsetLeft === 0 &&
+              canvas.offsetTop === 0 &&
+              foreground.paint(canvas, located.bodyRect, themeMode);
+            if (painted && canvas.nextElementSibling !== foreground.canvas) {
+              foreground.canvas.dataset.readHoverSurface = '';
+              foreground.canvas.style.zIndex = '92';
+              canvas.after(foreground.canvas);
+            }
+            marker.style.backdropFilter = painted ? 'none' : nativeFilter;
+            if (!painted) foreground.canvas.style.visibility = 'hidden';
+          }
+          if (!sameReadScreenGeometry(current, located)) {
+            const anchored = { ...located, screenX: current.screenX, screenY: current.screenY };
+            setReadHover((latest) => (latest === current ? anchored : latest));
+          }
         });
-      }, [handle, hoveredReadIdentity]);
+        if (foreground) requestRender();
+        return unsubscribe;
+      }, [
+        containerRef,
+        foreground,
+        getLinearRenderer,
+        hoveredReadIdentity,
+        nativeFilter,
+        requestRender,
+        subscribeToPresentedFrames,
+        themeMode,
+      ]);
 
       useEffect(() => {
         if (!pinnedRead) return;
@@ -1029,7 +1084,9 @@ export const IndexedGenomeTileNativeMap = memo(
               containerHeight={height}
             />
           )}
-          {hoverPreviewRead && <ReadHoverHighlight hit={hoverPreviewRead} themeMode={themeMode} />}
+          {hoverPreviewRead && (
+            <ReadHoverHighlight hit={hoverPreviewRead} markerRef={readMarkerRef} />
+          )}
           {pinnedRead && <ReadSelectionHighlight hit={pinnedRead.hit} themeMode={themeMode} />}
           {hoverPreviewRead && (
             <ReadTooltip
@@ -1168,30 +1225,23 @@ const READ_MARKUP_BASE_STYLE: CSSProperties = {
   boxSizing: 'border-box',
 };
 
-const LIGHT_READ_HOVER_FILTER = 'brightness(0.82) saturate(2)';
-const DARK_READ_HOVER_FILTER = 'brightness(1.18)';
-const LIGHT_READ_SELECTION_FILTER = LIGHT_READ_HOVER_FILTER;
-const DARK_READ_SELECTION_FILTER = 'brightness(1.1)';
-
 function ReadHoverHighlight({
   hit,
-  themeMode,
+  markerRef,
 }: {
   hit: ReadHitPayload;
-  themeMode: IndexedGenomeTileNativeMapProps['themeMode'];
+  markerRef: RefObject<HTMLDivElement>;
 }) {
-  const hoverFilter = themeMode === 'dark' ? DARK_READ_HOVER_FILTER : LIGHT_READ_HOVER_FILTER;
   return (
     <div
+      ref={markerRef}
       data-testid="indexed-read-hover-highlight"
       data-read-state="hovered"
       style={{
         ...READ_MARKUP_BASE_STYLE,
         zIndex: 92,
-        borderRadius: 2,
+        borderRadius: READ_MARKUP_RADIUS,
         backgroundColor: 'transparent',
-        backdropFilter: hoverFilter,
-        WebkitBackdropFilter: hoverFilter,
         left: hit.bodyRect.left,
         top: hit.bodyRect.top,
         width: hit.bodyRect.width,
@@ -1209,8 +1259,7 @@ function ReadSelectionHighlight({
   themeMode: IndexedGenomeTileNativeMapProps['themeMode'];
 }) {
   const trackRect = hit.trackRect ?? hit.bodyRect;
-  const selectionFilter =
-    themeMode === 'dark' ? DARK_READ_SELECTION_FILTER : LIGHT_READ_SELECTION_FILTER;
+  const selectionFilter = READ_SELECTION_FILTERS[themeMode];
   return (
     <div
       data-testid="indexed-read-selection-track-clip"
@@ -1230,7 +1279,7 @@ function ReadSelectionHighlight({
         style={{
           ...READ_MARKUP_BASE_STYLE,
           zIndex: 91,
-          borderRadius: 2,
+          borderRadius: READ_MARKUP_RADIUS,
           backgroundColor: 'transparent',
           backdropFilter: selectionFilter,
           WebkitBackdropFilter: selectionFilter,
