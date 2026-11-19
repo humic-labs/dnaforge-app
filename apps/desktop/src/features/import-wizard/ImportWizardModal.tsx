@@ -188,13 +188,13 @@ export function ImportWizardModal({
     setConfirmingDnaSources((current) => new Set([...current, sourcePath]));
     try {
       const preview = await previewSequenceImport({
-        sourcePath,
+        sourcePath: item.packageInputPath ?? sourcePath,
         confirmedDnaSourceSha256,
         confirmedNucleicAcid,
       });
       const replacement = sequenceItemsFromPreview(
         item,
-        preview,
+        { ...preview, sourcePath },
         confirmedDnaSourceSha256,
         confirmedNucleicAcid
       );

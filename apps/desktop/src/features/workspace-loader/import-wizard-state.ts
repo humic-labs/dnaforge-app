@@ -21,6 +21,7 @@ export type SpreadsheetImport =
 export interface ImportItem {
   path: string;
   sourcePath?: string;
+  packageInputPath?: string;
   expectedSourceSha256?: string;
   confirmedDnaSourceSha256?: string;
   confirmedNucleicAcid?: import('@waypoint/sequence-utils').NucleicAcid;

@@ -32,7 +32,7 @@ vi.mock('../../utils/environment', async (importOriginal) => ({
 vi.mock('../canvas/public', () => ({
   useCanvasStore: { getState: () => ({ openChatTab: vi.fn() }) },
 }));
-vi.mock('../../lib/open-quick-look-source', () => ({ openQuickLookSource: vi.fn() }));
+vi.mock('../../lib/open-external-preview', () => ({ openExternalFiles: vi.fn() }));
 
 import { useImportWizard } from './useImportWizard';
 
