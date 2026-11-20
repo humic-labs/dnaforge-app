@@ -346,7 +346,7 @@ export const Tab = React.memo(function Tab({
         ) : (
           <span
             data-testid={`tab-label-${tab.id}`}
-            title={tab.isExternalPreview ? `${tab.label} — read-only preview` : undefined}
+            title={tab.isExternalPreview ? `${tab.label} — read-only preview` : tab.label}
             className={`tab-label flex-1 ${tab.isExternalPreview ? 'italic' : ''} ${
               gitStatus === 'modified'
                 ? 'text-yellow-600 dark:text-yellow-300'
@@ -363,11 +363,7 @@ export const Tab = React.memo(function Tab({
           </span>
         )}
         {!isEditing && (
-          <span
-            className={`tab-trailing relative flex-shrink-0 w-4 h-4 flex items-center justify-center${
-              isActive ? ' tab-trailing-pinned' : ''
-            }`}
-          >
+          <span className="relative flex h-4 w-4 shrink-0 items-center justify-center">
             {tab.isDirty && (
               <span
                 data-testid={`tab-dirty-${tab.id}`}
