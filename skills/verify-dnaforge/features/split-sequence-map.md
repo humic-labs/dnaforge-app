@@ -78,6 +78,16 @@ the original frames, settled reference screenshot, and receipt together.
 node apps/desktop/scripts/cold-side-by-side-journey.mjs --session "$session_dir" --out "$session_dir/cold-side-by-side"
 ```
 
+### Remember the map zoom in each layout
+
+Open pUC19 and turn scroll sync off. In Side by side, reset the map zoom and click
+Zoom in once. In Top and bottom, reset the map zoom and click Zoom in three
+times. Record the map's displayed percentage in each layout. Switch back to
+each layout and check that its percentage and apparent map size return on
+the first draw. Repeat through Map only and after reopening the document.
+Left and right share a zoom, as do top and bottom. Capture the interaction
+with the map zoom control visible.
+
 ### Continuous resizing and frame pacing
 
 With Files open in the same disposable project, run the native resizing journey against a fresh output directory. It drives a 1.5-second drag in each direction, resizes the native window in both dimensions, and drags the separator between the sequence and an adjacent HTML document in both split directions.

@@ -78,6 +78,7 @@ export interface TabViewState {
   sequenceWebglScrollSynced?: boolean;
 
   sequenceWebglZoom?: number | null;
+  sequenceMapZoomByLayout?: Partial<Record<'map' | 'horizontal' | 'vertical', number>>;
 
   sequenceWebglCenterBp?: number | null;
 

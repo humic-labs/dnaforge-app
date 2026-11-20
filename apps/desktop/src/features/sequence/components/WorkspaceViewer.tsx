@@ -153,6 +153,7 @@ import {
   isMapSurfaceVisible,
   isSequenceSurfaceVisible,
   mapLayoutForPlacement,
+  mapZoomLayout,
   type SequenceMapPlacement,
   type SequenceMapShape,
   type SequenceRendererVisibility,
@@ -615,7 +616,9 @@ function WorkspaceViewerInternal({
 
   const { tabStateKey } = workspaceViewerEntityKeys(entityId, undefined, undefined);
   const [viewState, setViewState] = useTabViewState(tabStateKey);
-  const [seqView, patchSeqView] = useSequenceViewState(tabStateKey, { circular, surface });
+  const [seqView, patchSeqView] = useSequenceViewState(tabStateKey, { circular, surface }, () =>
+    minimapRef.current?.getCameraZoom?.()
+  );
   const activeMapLayout = mapLayoutForPlacement(seqView.mapPlacement);
   const drawerSurfaceOpen = workspaceViewerDrawerSurfaceOpen(
     drawerSlot,
@@ -793,6 +796,17 @@ function WorkspaceViewerInternal({
     cutSitesScopeKey,
   } = workspaceViewerEntityKeys(entityId, sequence.id, plasmid.name);
   const mapPlacement = seqView.mapPlacement;
+  const zoomLayout =
+    surface === 'sequence' && !seqView.scrollSynced && seqView.mapZoomByLayout
+      ? mapZoomLayout(seqView.rendererVisibility, mapPlacement)
+      : null;
+  const layoutZoom = useMemo(
+    () =>
+      zoomLayout && seqView.webglZoom != null
+        ? { key: sequenceViewportScopeKey + ':' + zoomLayout, zoom: seqView.webglZoom }
+        : undefined,
+    [zoomLayout, seqView.webglZoom, sequenceViewportScopeKey]
+  );
   const {
     webglCameraZoom,
     webglCameraZoomBounds,
@@ -1667,6 +1681,8 @@ function WorkspaceViewerInternal({
     webglEnabled: actualWebGLMapVisible,
     webglRendererReadyEpoch,
     isWebglSyncLocked,
+    restoreLayoutZoom: layoutZoom !== undefined,
+    onZoomRestored: commitWebglCameraZoomState,
     scrollToPositionWithTimeoutRef,
     scrollActiveSequenceViewerToBiologicalPosition,
     morphToCircleRef,
@@ -2896,6 +2912,7 @@ function WorkspaceViewerInternal({
                     height={webglMapGeometry.renderHeight}
                     geometryHeight={webglMapGeometry.geometryHeight}
                     surfaceVisible={actualWebGLMapVisible}
+                    layoutZoom={layoutZoom}
                     reserveCanvasSpace={
                       surface === 'sequence' && mapTopologyCircular && mapCanvasCapacity
                     }

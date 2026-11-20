@@ -84,6 +84,7 @@ export interface SequenceViewState {
   webglPerformancePreference: SequenceWebGLPerformancePreference;
   scrollSynced: boolean;
   webglZoom: number | null;
+  mapZoomByLayout?: TabViewState['sequenceMapZoomByLayout'];
   webglCenterBp: number | null;
   webglMorph: number | null;
   minimapHeight: number | null;
@@ -111,6 +112,7 @@ export interface SequenceViewStatePatch {
   webglPerformancePreference?: SequenceWebGLPerformancePreference;
   scrollSynced?: boolean;
   webglZoom?: number | null;
+  mapZoomByLayout?: TabViewState['sequenceMapZoomByLayout'];
   webglCenterBp?: number | null;
   webglMorph?: number | null;
   minimapHeight?: number | null;
@@ -169,6 +171,46 @@ export function effectiveSequenceMapShape(
 
 export function mapLayoutForPlacement(placement: SequenceMapPlacement): SequenceMapLayout {
   return placement === 'left' || placement === 'right' ? 'horizontal' : 'vertical';
+}
+
+export function mapZoomLayout(
+  visibility: SequenceRendererVisibility,
+  placement: SequenceMapPlacement
+) {
+  if (visibility === 'sequence') return null;
+  return visibility === 'map' ? 'map' : mapLayoutForPlacement(placement);
+}
+
+export function rememberMapLayoutZoom(
+  current: Pick<
+    SequenceViewState,
+    'rendererVisibility' | 'mapPlacement' | 'scrollSynced' | 'webglZoom' | 'mapZoomByLayout'
+  >,
+  patch: SequenceViewStatePatch,
+  readCameraZoom?: () => number | null | undefined
+): SequenceViewStatePatch {
+  if (current.scrollSynced || patch.scrollSynced) return patch;
+  const from = mapZoomLayout(current.rendererVisibility, current.mapPlacement);
+  const to = mapZoomLayout(
+    patch.rendererVisibility ?? current.rendererVisibility,
+    patch.mapPlacement ?? current.mapPlacement
+  );
+  if (
+    from === to &&
+    (!to || patch.mapPlacement === undefined || patch.mapPlacement === current.mapPlacement)
+  )
+    return patch;
+  const saved = { ...current.mapZoomByLayout };
+  if (from) {
+    const zoom = readCameraZoom?.() ?? current.webglZoom;
+    if (typeof zoom === 'number' && Number.isFinite(zoom) && zoom > 0) saved[from] = zoom;
+  }
+  const legacyZoom = !from && !current.mapZoomByLayout ? current.webglZoom : null;
+  return {
+    ...patch,
+    mapZoomByLayout: saved,
+    ...(to ? { webglZoom: patch.webglZoom ?? saved[to] ?? legacyZoom ?? 1 } : {}),
+  };
 }
 
 export function defaultMapPlacementForLayout(layout: SequenceMapLayout): SequenceMapPlacement {
@@ -447,6 +489,14 @@ export function normalizeSequenceViewStatePatch(input: unknown): SequenceViewSta
   assignScrollSynced(input, patch);
   assignAnnotationColorMode(input, patch);
   assignNullableCameraNumberFields(input, patch);
+  if (isPlainObject(input.mapZoomByLayout)) {
+    const saved: NonNullable<SequenceViewState['mapZoomByLayout']> = {};
+    for (const layout of ['map', 'horizontal', 'vertical'] as const) {
+      const zoom = input.mapZoomByLayout[layout];
+      if (typeof zoom === 'number' && Number.isFinite(zoom) && zoom > 0) saved[layout] = zoom;
+    }
+    patch.mapZoomByLayout = saved;
+  }
   assignClampedWebglMorph(input, patch);
   assignNormalizedDisplay(input, patch);
   assignParsedAnnotationCatalogLayout(input, patch);
@@ -595,6 +645,7 @@ export function resolveSeededViewState(layers: {
       'scrollSynced',
       DEFAULT_SEQUENCE_VIEW_STATE.scrollSynced
     ),
+    mapZoomByLayout: tab.mapZoomByLayout ?? memory.mapZoomByLayout,
     webglZoom: pickPresentNullable(tab, memory, 'webglZoom', DEFAULT_SEQUENCE_VIEW_STATE.webglZoom),
     webglCenterBp: pickPresentNullable(
       tab,
@@ -650,6 +701,7 @@ const SEQUENCE_VIEW_PATCH_SCALAR_KEYS = [
   'webglRenderer',
   'webglPerformancePreference',
   'scrollSynced',
+  'mapZoomByLayout',
   'webglZoom',
   'webglCenterBp',
   'webglMorph',
@@ -725,6 +777,7 @@ const TAB_TO_MODEL_SCALAR = [
   { tab: 'sequenceWebglPerformancePreference', model: 'webglPerformancePreference' },
   { tab: 'sequenceWebglScrollSynced', model: 'scrollSynced' },
   { tab: 'sequenceWebglZoom', model: 'webglZoom' },
+  { tab: 'sequenceMapZoomByLayout', model: 'mapZoomByLayout' },
   { tab: 'sequenceWebglCenterBp', model: 'webglCenterBp' },
   { tab: 'sequenceWebglMorph', model: 'webglMorph' },
   { tab: 'sequenceMinimapHeight', model: 'minimapHeight' },

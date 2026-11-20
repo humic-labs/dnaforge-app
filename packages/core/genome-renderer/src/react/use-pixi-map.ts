@@ -448,9 +448,14 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     invalidateRender();
   }, [frameCircuitIsOpen, invalidateRender, options.performanceMode]);
 
+  const zoomLayoutKey = options.layoutZoom?.key;
+  const previousZoomLayout = useRef<string | undefined>(undefined);
   useLayoutEffect(() => {
     if (frameCircuitIsOpen()) return;
     const state = stateRef.current;
+    const enteringLayout = zoomLayoutKey !== previousZoomLayout.current;
+    previousZoomLayout.current = zoomLayoutKey;
+    const layoutZoom = enteringLayout ? optionsRef.current.layoutZoom?.zoom : undefined;
     const revealed =
       options.surfaceVisible &&
       !visibleRef.current &&
@@ -471,6 +476,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
       morph,
     });
     const backingChanged = mutateDisplayGeometryPreservingCenter(() => {
+      if (layoutZoom !== undefined) state.zoom = layoutZoom;
       state.centerStadiumOverview = options.centerStadiumOverview;
       state.geometryHeight = geometryHeight;
       state.morph = morph;
@@ -492,7 +498,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
       state.height = options.height;
       return false;
     });
-    if (backingChanged || geometryChanged || revealed) {
+    if (backingChanged || geometryChanged || revealed || layoutZoom !== undefined) {
       invalidateRender();
       renderLoopRef.current?.renderNow();
     }
@@ -505,6 +511,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     options.geometryHeight,
     options.centerStadiumOverview,
     options.reserveCanvasSpace,
+    zoomLayoutKey,
     options.surfaceVisible,
     options.morph,
   ]);

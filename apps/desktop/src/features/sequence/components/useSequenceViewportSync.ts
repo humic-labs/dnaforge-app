@@ -60,6 +60,8 @@ interface UseSequenceViewportSyncInput {
   webglEnabled: boolean;
   webglRendererReadyEpoch: number;
   isWebglSyncLocked: boolean;
+  restoreLayoutZoom?: boolean;
+  onZoomRestored?: (zoom: number) => void;
   scrollToPositionWithTimeoutRef: CurrentRef<ScrollToPositionWithTimeout | null>;
   scrollActiveSequenceViewerToBiologicalPosition: (
     position: number,
@@ -85,6 +87,8 @@ export function useSequenceViewportSync({
   webglEnabled,
   webglRendererReadyEpoch,
   isWebglSyncLocked,
+  restoreLayoutZoom,
+  onZoomRestored,
   scrollToPositionWithTimeoutRef,
   scrollActiveSequenceViewerToBiologicalPosition,
   morphToCircleRef,
@@ -155,7 +159,10 @@ export function useSequenceViewportSync({
       owner === 'map'
         ? (mapCenter ?? lastViewportCenterRef.current)
         : (lastViewportCenterRef.current ?? mapCenter);
-    const cameraZoom = minimapRef.current?.getCameraZoom?.() ?? seqView.webglZoom;
+    const cameraZoom =
+      restoreLayoutZoom && webglEnabled
+        ? seqView.webglZoom
+        : (minimapRef.current?.getCameraZoom?.() ?? seqView.webglZoom);
     paneHandoffRef.current =
       centerBp == null
         ? null
@@ -175,21 +182,26 @@ export function useSequenceViewportSync({
     key: paneLayoutKey,
     visibility: paneLayout?.rendererVisibility,
   };
-  const syncViewportTarget = useCallback((target: WebGLMapHandle | null) => {
-    const range = lastViewportRangeRef.current.range;
-    if (target && range) target.setViewport(range);
-    const handoff = paneHandoffRef.current;
-    if (target && handoff?.mapPending) {
-      if (handoff.mapZoom != null) {
-        const bounds = resolveWebglMapZoomBounds(target.getCameraZoomBounds?.());
-        target.setZoom?.(clampWebglMapZoom(handoff.mapZoom, bounds));
-      }
-      target.setViewCenter?.(handoff.centerBp - 1);
+  const syncViewportTarget = useCallback(
+    (target: WebGLMapHandle | null) => {
+      const range = lastViewportRangeRef.current.range;
+      if (target && range) target.setViewport(range);
+      const handoff = paneHandoffRef.current;
+      if (target && handoff?.mapPending) {
+        if (handoff.mapZoom != null) {
+          const bounds = resolveWebglMapZoomBounds(target.getCameraZoomBounds?.());
+          const zoom = clampWebglMapZoom(handoff.mapZoom, bounds);
+          target.setZoom?.(zoom);
+          onZoomRestored?.(zoom);
+        }
+        target.setViewCenter?.(handoff.centerBp - 1);
 
-      handoff.mapPending = false;
-      if (handoff.applied && !handoff.sequencePending) paneHandoffRef.current = null;
-    }
-  }, []);
+        handoff.mapPending = false;
+        if (handoff.applied && !handoff.sequencePending) paneHandoffRef.current = null;
+      }
+    },
+    [onZoomRestored]
+  );
   useEffect(() => {
     if (webglEnabled) syncViewportTarget(minimapRef.current);
   }, [

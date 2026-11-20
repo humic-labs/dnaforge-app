@@ -70,6 +70,7 @@ export interface WebGLMapProps {
 
   geometryHeight?: number;
   centerStadiumOverview?: boolean;
+  layoutZoom?: UsePixiMapOptions['layoutZoom'];
   reserveCanvasSpace?: UsePixiMapOptions['reserveCanvasSpace'];
   surfaceVisible?: boolean;
   width?: number;
@@ -183,6 +184,7 @@ export const WebGLMap = memo(
       height = 200,
       geometryHeight,
       centerStadiumOverview,
+      layoutZoom,
       reserveCanvasSpace,
       surfaceVisible,
       width = 800,
@@ -589,6 +591,7 @@ export const WebGLMap = memo(
       height,
       geometryHeight,
       centerStadiumOverview,
+      layoutZoom,
       reserveCanvasSpace,
       surfaceVisible,
       morph: morphToCircle,
