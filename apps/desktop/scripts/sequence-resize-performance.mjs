@@ -119,8 +119,18 @@ async function runPhase(label, sendInput) {
         observer.observe(wrap);
         return window.__sequenceViewerDiagnostics.layoutGeometry().summary.cpr;
       });
+  let clock;
+  for (let i = 0; i < 7; i++) {
+    const before = performance.now();
+    const rendererEpoch = await page.evaluate(() => performance.timeOrigin + performance.now());
+    const after = performance.now();
+    const roundTripMs = after - before;
+    if (!clock || roundTripMs < clock.roundTripMs) {
+      clock = { roundTripMs, epochAtNodeZero: rendererEpoch - (before + after) / 2 };
+    }
+  }
   const start = performance.now();
-  const inputStartEpochMs = performance.timeOrigin + start;
+  const inputStartEpochMs = clock.epochAtNodeZero + start;
   const requests = [];
   const dispatchTimesMs = [];
   for (let i = 1; i <= count; i++) {
@@ -128,7 +138,7 @@ async function runPhase(label, sendInput) {
     dispatchTimesMs.push(performance.now() - start);
     requests.push(sendInput(i / count));
   }
-  const inputEndEpochMs = performance.timeOrigin + performance.now();
+  const inputEndEpochMs = clock.epochAtNodeZero + performance.now();
   await Promise.all(requests);
   if (values.video) {
     await cdp.send('Page.stopScreencast');
@@ -201,6 +211,12 @@ async function runPhase(label, sendInput) {
     result,
     scoringWindowTraceTimestampsUs: bounds,
   } = JSON.parse(await readFile(path.join(output, `${label}.presentation.json`), 'utf8'));
+  if (result.status === 'invalid') {
+    receipt.phases[label] = { traceStatus: result.status, traceFailures: result.failures, clock };
+    receipt.failures.push(label + ': invalid trace (' + result.failures.join(', ') + ')');
+    await cdp.detach();
+    return;
+  }
   const native =
     parsed.presentation?.nativeTimestampsUs?.filter((t) => t >= bounds.start && t <= bounds.end) ??
     [];
@@ -249,6 +265,7 @@ async function runPhase(label, sendInput) {
     ([time]) => time >= inputStartEpochMs && time <= inputEndEpochMs
   );
   const phase = {
+    clock,
     inputCount: count,
     requestedInputHz: inputHz,
     dispatchTimesMs,
