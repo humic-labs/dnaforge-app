@@ -142,6 +142,10 @@ export interface UsePixiMapOptions {
   width: number;
   height: number;
   geometryHeight?: number;
+  centerStadiumOverview?: boolean;
+  layoutZoom?: { key: string; zoom: number };
+  reserveCanvasSpace?: boolean | { width: number; height: number };
+  surfaceVisible?: boolean;
   morph?: number;
   selectionStart?: number | null;
   selectionEnd?: number | null;

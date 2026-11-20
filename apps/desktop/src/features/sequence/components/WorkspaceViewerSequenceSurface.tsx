@@ -8,6 +8,7 @@ import type { EmptySequenceEntryCue as EmptySequenceEntryCueVariant } from '../e
 
 export function WorkspaceViewerSequenceSurface({
   sequenceSurfaceVisible,
+  retainWrappedSequence,
   sequenceViewMode,
   tracks,
   canvas2d,
@@ -22,6 +23,7 @@ export function WorkspaceViewerSequenceSurface({
   onZoomChange,
 }: {
   sequenceSurfaceVisible: boolean;
+  retainWrappedSequence: boolean;
   sequenceViewMode: SequenceViewMode;
   tracks: ReactNode;
   canvas2d: ReactNode;
@@ -36,18 +38,11 @@ export function WorkspaceViewerSequenceSurface({
   onZoomChange: (zoom: number) => void;
 }): ReactNode {
   const mode = sequenceSurfaceMode(sequenceSurfaceVisible, sequenceViewMode);
-  if (mode === 'hidden') {
-    return emptySequenceEntryVisible ? (
-      <EmptySequenceEntryCue
-        variant={emptySequenceEntryCue}
-        marginLeft={DEFAULT_EDITOR_CONFIG.marginLeft}
-        rowHeight={emptyCueRowHeight}
-      />
-    ) : null;
-  }
+  const renderWrapped =
+    mode === '2d' || (mode === 'hidden' && retainWrappedSequence && sequenceViewMode === '2d');
   return (
     <>
-      {mode === 'tracks' ? tracks : canvas2d}
+      {mode === 'tracks' ? tracks : renderWrapped ? canvas2d : null}
       {emptySequenceEntryVisible ? (
         <EmptySequenceEntryCue
           variant={emptySequenceEntryCue}
@@ -55,15 +50,17 @@ export function WorkspaceViewerSequenceSurface({
           rowHeight={emptyCueRowHeight}
         />
       ) : null}
-      <SequencePaneControls
-        mode={sequenceViewMode}
-        onModeChange={onModeChange}
-        showModeToggle={showModeToggle}
-        tracksLabel={tracksLabel}
-        zoom={zoom}
-        minZoom={minZoom}
-        onZoomChange={onZoomChange}
-      />
+      {sequenceSurfaceVisible && (
+        <SequencePaneControls
+          mode={sequenceViewMode}
+          onModeChange={onModeChange}
+          showModeToggle={showModeToggle}
+          tracksLabel={tracksLabel}
+          zoom={zoom}
+          minZoom={minZoom}
+          onZoomChange={onZoomChange}
+        />
+      )}
     </>
   );
 }

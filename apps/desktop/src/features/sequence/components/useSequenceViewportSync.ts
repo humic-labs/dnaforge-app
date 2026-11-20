@@ -60,6 +60,8 @@ interface UseSequenceViewportSyncInput {
   webglEnabled: boolean;
   webglRendererReadyEpoch: number;
   isWebglSyncLocked: boolean;
+  restoreLayoutZoom?: boolean;
+  onZoomRestored?: (zoom: number) => void;
   scrollToPositionWithTimeoutRef: CurrentRef<ScrollToPositionWithTimeout | null>;
   scrollActiveSequenceViewerToBiologicalPosition: (
     position: number,
@@ -85,6 +87,8 @@ export function useSequenceViewportSync({
   webglEnabled,
   webglRendererReadyEpoch,
   isWebglSyncLocked,
+  restoreLayoutZoom,
+  onZoomRestored,
   scrollToPositionWithTimeoutRef,
   scrollActiveSequenceViewerToBiologicalPosition,
   morphToCircleRef,
@@ -155,7 +159,10 @@ export function useSequenceViewportSync({
       owner === 'map'
         ? (mapCenter ?? lastViewportCenterRef.current)
         : (lastViewportCenterRef.current ?? mapCenter);
-    const cameraZoom = minimapRef.current?.getCameraZoom?.() ?? seqView.webglZoom;
+    const cameraZoom =
+      restoreLayoutZoom && webglEnabled
+        ? seqView.webglZoom
+        : (minimapRef.current?.getCameraZoom?.() ?? seqView.webglZoom);
     paneHandoffRef.current =
       centerBp == null
         ? null
@@ -175,21 +182,26 @@ export function useSequenceViewportSync({
     key: paneLayoutKey,
     visibility: paneLayout?.rendererVisibility,
   };
-  const syncViewportTarget = useCallback((target: WebGLMapHandle | null) => {
-    const range = lastViewportRangeRef.current.range;
-    if (target && range) target.setViewport(range);
-    const handoff = paneHandoffRef.current;
-    if (target && handoff?.mapPending) {
-      if (handoff.mapZoom != null) {
-        const bounds = resolveWebglMapZoomBounds(target.getCameraZoomBounds?.());
-        target.setZoom?.(clampWebglMapZoom(handoff.mapZoom, bounds));
-      }
-      target.setViewCenter?.(handoff.centerBp - 1);
+  const syncViewportTarget = useCallback(
+    (target: WebGLMapHandle | null) => {
+      const range = lastViewportRangeRef.current.range;
+      if (target && range) target.setViewport(range);
+      const handoff = paneHandoffRef.current;
+      if (target && handoff?.mapPending) {
+        if (handoff.mapZoom != null) {
+          const bounds = resolveWebglMapZoomBounds(target.getCameraZoomBounds?.());
+          const zoom = clampWebglMapZoom(handoff.mapZoom, bounds);
+          target.setZoom?.(zoom);
+          onZoomRestored?.(zoom);
+        }
+        target.setViewCenter?.(handoff.centerBp - 1);
 
-      handoff.mapPending = false;
-      if (handoff.applied && !handoff.sequencePending) paneHandoffRef.current = null;
-    }
-  }, []);
+        handoff.mapPending = false;
+        if (handoff.applied && !handoff.sequencePending) paneHandoffRef.current = null;
+      }
+    },
+    [onZoomRestored]
+  );
   useEffect(() => {
     if (webglEnabled) syncViewportTarget(minimapRef.current);
   }, [
@@ -201,6 +213,11 @@ export function useSequenceViewportSync({
   ]);
   const ownedWorkspaceViewerTestBridgeRef = useRef<object | null>(null);
   const webglRestoreCancelRef = useRef(false);
+  const appliedCameraRef = useRef<{
+    scope: string;
+    epoch: number;
+    target: WebGLMapHandle;
+  } | null>(null);
   const webglCameraRestoreStatusRef = useRef<WebglCameraRestoreStatus>({
     scopeKey: sequenceViewportScopeKey,
     phase:
@@ -234,6 +251,20 @@ export function useSequenceViewportSync({
     initialViewportRestoreCompleteRef.current = true;
     lastViewportCenterRef.current = handoff.centerBp;
     latestLiveWebglCameraRef.current = null;
+    const target = minimapRef.current;
+    if (webglEnabled && target) {
+      if (handoff.mapPending) syncViewportTarget(target);
+      appliedCameraRef.current = {
+        scope: sequenceViewportScopeKey,
+        epoch: webglRendererReadyEpoch,
+        target,
+      };
+      webglCameraRestoreStatusRef.current = {
+        scopeKey: sequenceViewportScopeKey,
+        phase: 'settled',
+        appliedFrames: 1,
+      };
+    }
 
     pendingSequenceViewportPersistRef.current = null;
     pendingWebglCameraPersistRef.current = null;
@@ -256,7 +287,16 @@ export function useSequenceViewportSync({
         { animate: false, completion: 'viewer' }
       );
     }
-  }, [paneLayoutKey, patchSeqView, scrollToPositionWithTimeoutRef, sequenceViewportScopeKey]);
+  }, [
+    minimapRef,
+    paneLayoutKey,
+    patchSeqView,
+    scrollToPositionWithTimeoutRef,
+    sequenceViewportScopeKey,
+    syncViewportTarget,
+    webglEnabled,
+    webglRendererReadyEpoch,
+  ]);
 
   useEffect(
     () => () => {
@@ -397,6 +437,13 @@ export function useSequenceViewportSync({
       };
       return;
     }
+    const applied = appliedCameraRef.current;
+    if (
+      applied?.scope === sequenceViewportScopeKey &&
+      applied.epoch === webglRendererReadyEpoch &&
+      applied.target === minimapRef.current
+    )
+      return;
     const handoff = paneHandoffRef.current;
     const liveCamera =
       latestLiveWebglCameraRef.current?.scopeKey === sequenceViewportScopeKey
@@ -423,36 +470,38 @@ export function useSequenceViewportSync({
       phase: 'running',
       appliedFrames: 0,
     };
-    let frame = 0;
-    let raf = requestAnimationFrame(function apply() {
+    const raf = requestAnimationFrame(() => {
       if (webglRestoreCancelRef.current) {
         webglCameraRestoreStatusRef.current = {
           scopeKey: sequenceViewportScopeKey,
           phase: 'cancelled',
-          appliedFrames: frame,
+          appliedFrames: 0,
         };
         return;
       }
       const map = minimapRef.current;
+      if (!map) return;
 
       if (savedZoom != null) {
-        const bounds = resolveWebglMapZoomBounds(map?.getCameraZoomBounds?.());
-        map?.setZoom?.(clampWebglMapZoom(savedZoom, bounds));
+        const bounds = resolveWebglMapZoomBounds(map.getCameraZoomBounds?.());
+        map.setZoom?.(clampWebglMapZoom(savedZoom, bounds));
       }
-      if (savedCenterBp != null) map?.setViewCenter?.(Math.max(0, savedCenterBp - 1));
+      if (savedCenterBp != null) map.setViewCenter?.(Math.max(0, savedCenterBp - 1));
 
-      webglRestoreCancelRef.current = false;
-      frame += 1;
+      appliedCameraRef.current = {
+        scope: sequenceViewportScopeKey,
+        epoch: webglRendererReadyEpoch,
+        target: map,
+      };
       webglCameraRestoreStatusRef.current = {
         scopeKey: sequenceViewportScopeKey,
-        phase: frame < 10 ? 'running' : 'settled',
-        appliedFrames: frame,
+        phase: 'settled',
+        appliedFrames: 1,
       };
-      if (frame === 10 && map && paneHandoffRef.current === handoff && handoff) {
+      if (paneHandoffRef.current === handoff && handoff) {
         handoff.mapPending = false;
         if (!handoff.sequencePending) paneHandoffRef.current = null;
       }
-      if (frame < 10) raf = requestAnimationFrame(apply);
     });
     return () => {
       cancelAnimationFrame(raf);

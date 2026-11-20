@@ -76,7 +76,11 @@ function rulerGlyphAdvance(ctx: CanvasRenderingContext2D, font: string, glyph: s
   return width;
 }
 import { destroyPixiText } from './shared/pixi-text-lifecycle';
-import { solveStadiumCamera, type StadiumCameraDebug } from './shared/stadium-camera';
+import {
+  centeredOverviewWeight,
+  solveStadiumCamera,
+  type StadiumCameraDebug,
+} from './shared/stadium-camera';
 import { buildStadiumFrameLayoutContract, type FrameLayoutContract } from './shared/frame-contract';
 import { resetLabelOccupancy } from './shared/label-occupancy';
 import {
@@ -142,8 +146,11 @@ type StadiumFrame = {
   frameContract: FrameLayoutContract;
 };
 
-function stadiumGeometryHeight(state: RenderState): number {
-  return Math.max(1, state.geometryHeight ?? state.height);
+function stadiumGeometryHeight(state: RenderState, zoom = state.zoom): number {
+  const requestedHeight = state.geometryHeight ?? state.height;
+  const excessHeight = Math.max(0, requestedHeight - state.height);
+  const weight = centeredOverviewWeight(state.centerStadiumOverview, zoom);
+  return Math.max(1, requestedHeight - weight * excessHeight);
 }
 
 function clamp01(value: number): number {
@@ -462,6 +469,7 @@ export class PixiStadiumRenderer {
       state.width,
       state.height,
       state.geometryHeight ?? '',
+      state.centerStadiumOverview,
       state.morph,
       state.showResidueNumbers ?? false,
       state.performanceMode ?? 'default',
@@ -533,6 +541,7 @@ export class PixiStadiumRenderer {
       state.width,
       state.height,
       state.geometryHeight ?? '',
+      state.centerStadiumOverview,
       state.morph,
       this.annotationOverlay.maxAnnotationLane,
       this.annotationOverlay.maxCdsLane,
@@ -732,7 +741,7 @@ export class PixiStadiumRenderer {
   private computeFrameForState(state: RenderState, zoom = state.zoom): StadiumFrame {
     const cx = state.width / 2;
     const cy = state.height / 2;
-    const geometryHeight = stadiumGeometryHeight(state);
+    const geometryHeight = stadiumGeometryHeight(state, zoom);
     const layoutState = zoom === state.zoom ? state : { ...state, zoom };
     const minPadding = STADIUM_MIN_PADDING_PX;
     const exteriorMargin = 12;
@@ -795,6 +804,8 @@ export class PixiStadiumRenderer {
     };
 
     const camera = solveStadiumCamera({
+      centerStadiumOverview: state.centerStadiumOverview,
+      morph: state.morph,
       viewportWidth: state.width,
       viewportHeight: state.height,
       dims,

@@ -61,7 +61,7 @@ const lifecycle = vi.hoisted(() => ({
   hoverHitTestInvalidationCount: 0,
   intersectionCallbacks: [] as Array<(entries: Array<{ isIntersecting: boolean }>) => void>,
   geometryDependentCamera: false,
-  resizeCallbacks: [] as Array<() => void>,
+  resizeCallbacks: [] as Array<(entries?: Pick<ResizeObserverEntry, 'contentRect'>[]) => void>,
   resizeCalls: [] as Array<{ width: number; height: number; reason: string }>,
   loadGates: new Map<string, Deferred[]>(),
   mutateBeforeLoadAwait: false,
@@ -300,11 +300,12 @@ vi.mock('./pixi-canvas', () => ({
     reason: string
   ) => {
     lifecycle.resizeCalls.push({ width, height, reason });
+    const backingChanged = app.canvas?.width !== width || app.canvas?.height !== height;
     if (app.canvas) {
       app.canvas.width = width;
       app.canvas.height = height;
     }
-    return { width, height, backingChanged: true };
+    return { width, height, backingChanged };
   },
 }));
 vi.mock('./pixi-theme', () => ({
@@ -416,12 +417,14 @@ function Harness(
     | 'morph'
     | 'backboneSegments'
     | 'performanceMode'
+    | 'surfaceVisible'
   > &
     Partial<Pick<UsePixiMapOptions, 'width' | 'height'>> & { indexed?: boolean }
 ) {
   const hook = props.indexed ? useIndexedPixiMap : usePixiMap;
   const { containerRef, handle } = hook({
     genome: props.genome,
+    surfaceVisible: props.surfaceVisible,
     hiddenMapIdlePolicy: props.hiddenMapIdlePolicy,
     compiledBroadSurfaceRequirement: props.compiledBroadSurfaceRequirement,
     annotationPresentationSnapshot: props.annotationPresentationSnapshot,
@@ -503,7 +506,7 @@ describe('usePixiMap annotation/source lifecycle', () => {
     vi.stubGlobal(
       'ResizeObserver',
       class {
-        constructor(callback: () => void) {
+        constructor(callback: (entries?: Pick<ResizeObserverEntry, 'contentRect'>[]) => void) {
           lifecycle.resizeCallbacks.push(callback);
         }
         observe() {}
@@ -1102,6 +1105,69 @@ describe('usePixiMap annotation/source lifecycle', () => {
       reason: 'display-props',
     });
     expect(lifecycle.renderNowCount).toBe(renderNowCountBeforeResize + 1);
+  });
+
+  it('draws a visible resize once when props and the container observer report the same size', async () => {
+    const source = genome('A');
+    const view = render(<Harness genome={source} width={800} height={500} />);
+    await waitFor(() => expect(latestHandle?.getLinearRenderer()).not.toBeNull());
+
+    view.rerender(<Harness genome={source} width={1_200} height={600} />);
+    const drawn = lifecycle.renderNowCount;
+    const resumed = lifecycle.resumeCount;
+    act(() => lifecycle.resizeCallbacks[0]?.());
+
+    expect(lifecycle.renderNowCount).toBe(drawn);
+    expect(lifecycle.resumeCount).toBe(resumed);
+  });
+
+  it('repaints a map shape change before paint when the canvas dimensions stay the same', async () => {
+    const source = genome('A');
+    const view = render(<Harness genome={source} width={800} height={500} morph={0} />);
+    await waitFor(() => expect(latestHandle?.getLinearRenderer()).not.toBeNull());
+    const drawn = lifecycle.renderNowCount;
+
+    view.rerender(<Harness genome={source} width={800} height={500} morph={1} />);
+
+    expect(lifecycle.renderNowCount).toBe(drawn + 1);
+  });
+
+  it('keeps the attached map handle when only the pane dimensions change', async () => {
+    const source = genome('A');
+    const view = render(<Harness genome={source} width={800} height={500} />);
+    await waitFor(() => expect(latestHandle?.getLinearRenderer()).not.toBeNull());
+    const attached = latestHandle;
+
+    view.rerender(<Harness genome={source} width={1_200} height={600} />);
+
+    expect(latestHandle).toBe(attached);
+  });
+
+  it('leaves an occluded map idle when its host reports a zero-sized resize', async () => {
+    render(<Harness genome={genome('A')} />);
+    await waitFor(() => expect(latestHandle?.getLinearRenderer()).not.toBeNull());
+    act(() => lifecycle.intersections[0]?.(false));
+    const drawn = lifecycle.renderNowCount;
+    const resumed = lifecycle.resumeCount;
+
+    act(() => lifecycle.resizeCallbacks[0]?.([{ contentRect: new DOMRectReadOnly(0, 0, 0, 0) }]));
+
+    expect(lifecycle.renderNowCount).toBe(drawn);
+    expect(lifecycle.resumeCount).toBe(resumed);
+  });
+
+  it('paints a retained map on reveal before the intersection observer runs again', async () => {
+    const source = genome('A');
+    const view = render(<Harness genome={source} surfaceVisible={false} />);
+    await waitFor(() => expect(latestHandle?.getLinearRenderer()).not.toBeNull());
+    act(() => lifecycle.intersections[0]?.(false));
+    const host = view.container.firstElementChild as HTMLElement;
+    vi.spyOn(host, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 800, 500));
+    const drawn = lifecycle.renderNowCount;
+
+    view.rerender(<Harness genome={source} surfaceVisible />);
+
+    expect(lifecycle.renderNowCount).toBe(drawn + 1);
   });
 
   it('preserves the biological camera center across live container resume geometry', async () => {

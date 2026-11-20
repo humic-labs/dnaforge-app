@@ -117,6 +117,7 @@ describe('useSequenceViewportSync', () => {
             );
           }
           if (nextLayout.rendererVisibility !== 'sequence') {
+            expect(setViewCenter).toHaveBeenCalledTimes(1);
             expect(setViewCenter).toHaveBeenLastCalledWith(expectedCenter - 1);
           }
           expect(result.current.lastViewportCenterRef.current).toBe(expectedCenter);
@@ -833,7 +834,7 @@ describe('useSequenceViewportSync', () => {
     expect(testState.workspaceViewer).toBeUndefined();
   });
 
-  it('publishes a positive WebGL restore lifecycle until all replay frames settle', () => {
+  it('settles the saved camera once when the map is ready', () => {
     (window as unknown as { __test: Record<string, unknown> }).__test = {};
     const callbacks: FrameRequestCallback[] = [];
     vi.stubGlobal(
@@ -902,20 +903,17 @@ describe('useSequenceViewportSync', () => {
     setZoom.mockClear();
     setViewCenter.mockClear();
 
-    for (let frame = 1; frame <= 10; frame += 1) {
-      const callback = callbacks.shift();
-      expect(callback, `restore frame ${frame} should be scheduled`).toBeDefined();
-      act(() => {
-        callback?.(frame * 16);
-      });
-    }
+    const callback = callbacks.shift();
+    expect(callback).toBeDefined();
+    act(() => callback?.(16));
+    expect(callbacks).toHaveLength(0);
 
-    expect(setZoom).toHaveBeenCalledTimes(10);
-    expect(setViewCenter).toHaveBeenCalledTimes(10);
+    expect(setZoom).toHaveBeenCalledOnce();
+    expect(setViewCenter).toHaveBeenCalledOnce();
     expect(restoreStatus()).toEqual({
       scopeKey: 'example.gb',
       phase: 'settled',
-      appliedFrames: 10,
+      appliedFrames: 1,
     });
   });
 

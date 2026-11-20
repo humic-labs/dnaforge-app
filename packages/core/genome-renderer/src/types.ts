@@ -520,6 +520,7 @@ export interface RenderState {
   width: number;
 
   geometryHeight?: number;
+  centerStadiumOverview?: boolean;
   height: number;
   themeMode?: 'light' | 'dark';
 

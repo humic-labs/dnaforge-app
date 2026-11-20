@@ -70,6 +70,52 @@ describe('canvas viewport sizing', () => {
     expect(result.selectionResized).toBe(true);
   });
 
+  it('keeps the backing buffers when switching between a split and the full document pane', () => {
+    const mainCanvas = document.createElement('canvas');
+    const selectionCanvas = document.createElement('canvas');
+    const options = {
+      mainCanvas,
+      selectionCanvas,
+      width: 1024,
+      reservedViewportHeight: 686,
+      totalHeight: 5000,
+      dpr: 2,
+      mainCanvasTransferred: false,
+    };
+    const split = syncViewportCanvasSizes({ ...options, viewportHeight: 226 });
+    const full = syncViewportCanvasSizes({ ...options, viewportHeight: 686 });
+    const stacked = syncViewportCanvasSizes({ ...options, viewportHeight: 226 });
+    expect(split.cssHeight).toBeGreaterThanOrEqual(786);
+    expect(full.mainResized || full.selectionResized).toBe(false);
+    expect(stacked.mainResized || stacked.selectionResized).toBe(false);
+  });
+
+  it('retains full-resolution buffers throughout a continuous height resize', () => {
+    const mainCanvas = document.createElement('canvas');
+    const selectionCanvas = document.createElement('canvas');
+    let allocations = 0;
+    for (const viewportHeight of Array.from(
+      { length: 180 },
+      (_, step) => 350 + Math.abs(90 - step)
+    )) {
+      const sizing = syncViewportCanvasSizes({
+        mainCanvas,
+        selectionCanvas,
+        width: 640,
+        viewportHeight,
+        totalHeight: 10_000,
+        dpr: 2,
+        mainCanvasTransferred: false,
+      });
+      if (sizing.mainResized) allocations++;
+      expect(sizing.selectionResized).toBe(sizing.mainResized);
+      expect(sizing.cssHeight).toBeGreaterThanOrEqual(viewportHeight + 100);
+      expect(mainCanvas.height).toBe(sizing.cssHeight * 2);
+      expect(selectionCanvas.height).toBe(mainCanvas.height);
+    }
+    expect(allocations).toBeLessThanOrEqual(3);
+  });
+
   it('keeps a fractional-DPR backing surface intact across repeated draws', () => {
     const mainCanvas = document.createElement('canvas');
     const selectionCanvas = document.createElement('canvas');

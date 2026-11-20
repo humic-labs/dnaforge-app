@@ -19,7 +19,12 @@ import type {
   BackboneSegment as MapBackboneSegment,
 } from '../map-types';
 import { convertPlasmid, cssColorToHex, primerRenderId } from './plasmid-to-genome';
-import { useHiddenMapIdlePolicy, usePixiMap, type HoverFeatureInfo } from './use-pixi-map';
+import {
+  useHiddenMapIdlePolicy,
+  usePixiMap,
+  type HoverFeatureInfo,
+  type UsePixiMapOptions,
+} from './use-pixi-map';
 import {
   resolveWebGLPerformanceMode,
   type WebGLPerformanceMode,
@@ -64,6 +69,10 @@ export interface WebGLMapProps {
   height?: number;
 
   geometryHeight?: number;
+  centerStadiumOverview?: boolean;
+  layoutZoom?: UsePixiMapOptions['layoutZoom'];
+  reserveCanvasSpace?: UsePixiMapOptions['reserveCanvasSpace'];
+  surfaceVisible?: boolean;
   width?: number;
   circular?: boolean;
   morphToCircle?: number;
@@ -174,6 +183,10 @@ export const WebGLMap = memo(
       missingAnnotationColor,
       height = 200,
       geometryHeight,
+      centerStadiumOverview,
+      layoutZoom,
+      reserveCanvasSpace,
+      surfaceVisible,
       width = 800,
       circular = true,
       morphToCircle = 0,
@@ -577,6 +590,10 @@ export const WebGLMap = memo(
       width,
       height,
       geometryHeight,
+      centerStadiumOverview,
+      layoutZoom,
+      reserveCanvasSpace,
+      surfaceVisible,
       morph: morphToCircle,
       highlightRange,
       digestFocusRange: webglDigestFocusRange,

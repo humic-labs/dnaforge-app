@@ -7,6 +7,7 @@ import {
   modelPatchToTabViewState,
   mergeSequenceViewStatePatch,
   readSequenceViewMemory,
+  rememberMapLayoutZoom,
   resolveSeededViewState,
   sequenceViewPatchMissingFrom,
   tabViewStateToModelPatch,
@@ -44,7 +45,8 @@ function hasLiveTabForDocument(documentId: string): boolean {
 
 export function useSequenceViewState(
   documentId: string,
-  context?: SequenceViewContext
+  context?: SequenceViewContext,
+  readCameraZoom?: () => number | null | undefined
 ): readonly [SequenceViewState, SequenceViewStatePatchFn] {
   const [tabViewState, setTabViewState] = useTabViewState(documentId);
 
@@ -80,6 +82,8 @@ export function useSequenceViewState(
     [tabPatch, documentId, capabilityCtx, surface]
   );
 
+  const mapViewRef = useRef({ viewState, readCameraZoom });
+  mapViewRef.current = { viewState, readCameraZoom };
   const setTabViewStateRef = useRef(setTabViewState);
   setTabViewStateRef.current = setTabViewState;
   const documentIdRef = useRef(documentId);
@@ -121,7 +125,14 @@ export function useSequenceViewState(
 
   const patch = useCallback<SequenceViewStatePatchFn>(
     (incoming, opts) => {
-      const gated = gate(incoming);
+      let gated = gate(incoming);
+      if (
+        capabilityCtxRef.current?.surface === 'sequence' &&
+        (gated.rendererVisibility !== undefined || gated.mapPlacement !== undefined)
+      ) {
+        const { viewState: current, readCameraZoom: readZoom } = mapViewRef.current;
+        gated = rememberMapLayoutZoom({ ...current, ...pendingTabRef.current }, gated, readZoom);
+      }
       if (Object.keys(gated).length === 0) return;
       pendingMemoryRef.current = mergeSequenceViewStatePatch(pendingMemoryRef.current, gated);
       if (opts?.debounce) {

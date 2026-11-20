@@ -406,14 +406,12 @@ export function SequenceToolbarSidebar({
                   axis="horizontal"
                   rendererVisibility={rendererVisibility}
                   mapPlacement={mapPlacement}
-                  onRendererVisibilityChange={onRendererVisibilityChange}
                   onMapPlacementChange={onMapPlacementChange}
                 />
                 <MapPlacementAxisButton
                   axis="vertical"
                   rendererVisibility={rendererVisibility}
                   mapPlacement={mapPlacement}
-                  onRendererVisibilityChange={onRendererVisibilityChange}
                   onMapPlacementChange={onMapPlacementChange}
                 />
               </>
@@ -615,13 +613,11 @@ function MapPlacementAxisButton({
   axis,
   rendererVisibility,
   mapPlacement,
-  onRendererVisibilityChange,
   onMapPlacementChange,
 }: {
   axis: 'horizontal' | 'vertical';
   rendererVisibility?: SequenceRendererVisibility;
   mapPlacement: SequenceMapPlacement;
-  onRendererVisibilityChange?: (visibility: SequenceRendererVisibility) => void;
   onMapPlacementChange?: (placement: SequenceMapPlacement) => void;
 }) {
   const options = axis === 'horizontal' ? HORIZONTAL_PLACEMENTS : VERTICAL_PLACEMENTS;
@@ -646,10 +642,7 @@ function MapPlacementAxisButton({
       title={title}
       ariaLabel={`${title}, ${spokenPlacement}`}
       active={active}
-      onClick={() => {
-        onMapPlacementChange?.(next);
-        if (!inSplit) onRendererVisibilityChange?.('both');
-      }}
+      onClick={() => onMapPlacementChange?.(next)}
       testId={`sequence-map-placement-${axis}`}
       icon={<MapPlacementGlyph placement={shown} />}
     />

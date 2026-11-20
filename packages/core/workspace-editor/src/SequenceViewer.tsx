@@ -114,6 +114,7 @@ import {
 
 const EMPTY_PRIMERS: PrimerDisplay[] = [];
 const AUTO_WRAP_FALLBACK_WIDTH = 920;
+const SEQUENCE_SCROLLBAR_WIDTH = 28;
 const VIEWPORT_SCOPED_LAYOUT_SEQUENCE_THRESHOLD = 100_000;
 const DISTAL_ROW_X_MORPH_MS = 48;
 const DISTAL_ROW_X_STEP_PX = 3;
@@ -307,6 +308,9 @@ function WorkspaceEditorInner(
     onMinZoomChange,
     circularBufferViewportHeight,
     initialContainerWidth,
+    surfaceVisible = true,
+    mapPlacement,
+    viewportCapacity,
     viewportHeightHint,
     freezeViewportHeight = false,
   }: WorkspaceEditorProps,
@@ -321,57 +325,37 @@ function WorkspaceEditorInner(
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [scrollContainerElement, setScrollContainerElement] = useState<HTMLDivElement | null>(null);
   const minimapRef = useRef<SequenceScrollbarHandle>(null);
-  const [containerWidth, setContainerWidth] = useState(() =>
-    Math.max(0, initialContainerWidth ?? 0)
-  );
+  const [measuredContainerWidth, setContainerWidth] = useState(0);
+  const containerWidth =
+    measuredContainerWidth ||
+    Math.max(0, (initialContainerWidth ?? 0) - (showMinimap ? SEQUENCE_SCROLLBAR_WIDTH : 0));
   const [viewport, setViewport] = useState({ scrollTop: 0, height: 0 });
-  const viewportHeightHintValue =
-    typeof viewportHeightHint === 'number' && viewportHeightHint > 0 ? viewportHeightHint : 0;
   const frozenScrollAnchorRef = useRef<{
     scrollTop: number;
     topBp: number | null;
-    height: number;
     layoutTotalHeight: number;
   } | null>(null);
   const wasFreezeViewportHeightRef = useRef(false);
   if (freezeViewportHeight && !wasFreezeViewportHeightRef.current) {
     const container = containerRef.current;
-    const height =
-      container && container.clientHeight > 0
-        ? container.clientHeight
-        : viewport.height > 0
-          ? viewport.height
-          : 0;
     frozenScrollAnchorRef.current = {
       scrollTop: container?.scrollTop ?? viewport.scrollTop,
       topBp: null,
-      height,
       layoutTotalHeight: 0,
     };
   }
-  // eslint-disable-next-line no-empty
-  if (!freezeViewportHeight && wasFreezeViewportHeightRef.current) {
-  }
   wasFreezeViewportHeightRef.current = freezeViewportHeight;
 
-  const frozenHeight =
-    freezeViewportHeight &&
-    frozenScrollAnchorRef.current &&
-    frozenScrollAnchorRef.current.height > 0
-      ? frozenScrollAnchorRef.current.height
+  const liveScrollContainerHeight = scrollContainerElement?.clientHeight ?? 0;
+  const viewportHeightHintValue =
+    liveScrollContainerHeight === 0 && (surfaceVisible || measuredContainerWidth === 0)
+      ? Math.max(0, viewportHeightHint ?? 0)
       : 0;
-  const liveScrollContainerHeight =
-    scrollContainerElement && scrollContainerElement.clientHeight > 0
-      ? scrollContainerElement.clientHeight
-      : 0;
+  const renderHeight = liveScrollContainerHeight || viewportHeightHintValue;
   const renderViewport =
-    frozenHeight > 0
-      ? { ...viewport, height: frozenHeight }
-      : liveScrollContainerHeight > 0 && Math.abs(liveScrollContainerHeight - viewport.height) > 1
-        ? { ...viewport, height: liveScrollContainerHeight }
-        : viewportHeightHintValue > 0 && Math.abs(viewportHeightHintValue - viewport.height) > 1
-          ? { ...viewport, height: viewportHeightHintValue }
-          : viewport;
+    renderHeight > 0 && Math.abs(renderHeight - viewport.height) > 1
+      ? { ...viewport, height: renderHeight }
+      : viewport;
 
   const canvasScrollDrawRef = useRef<
     ((scrollTop: number, height: number, paintNow?: boolean) => void) | null
@@ -1213,12 +1197,14 @@ function WorkspaceEditorInner(
     onCopyDraftSelection,
   });
 
-  useEffect(() => {
+  const resizeConfigRef = useRef(baseConfig);
+  resizeConfigRef.current = baseConfig;
+  const measureScrollContainerRef = useRef<(() => void) | null>(null);
+  useLayoutEffect(() => {
     const container = scrollContainerElement;
     if (!container) return;
     let lastWidth = 0;
     let lastHeight = 0;
-    let rafId: number | null = null;
 
     let reattachWidthSettling = false;
     let reattachWidthStability: PortalWidthStability = INITIAL_PORTAL_WIDTH_STABILITY;
@@ -1238,6 +1224,10 @@ function WorkspaceEditorInner(
       } else if (Math.abs(width - lastWidth) > 1) {
         if (
           lastWidth > 0 &&
+          calculateAutoCharsPerLine(resizeConfigRef.current, lastWidth) !==
+            calculateAutoCharsPerLine(resizeConfigRef.current, width) &&
+          pendingScrollTargetRef.current?.cause !== 'navigation' &&
+          pendingScrollTargetRef.current?.cause !== 'selection-anchor' &&
           (!effectiveSequence?.circular || initialScrollAppliedYRef.current !== null)
         ) {
           const capturedGappedSeq = layoutGappedSequenceRef.current;
@@ -1249,11 +1239,7 @@ function WorkspaceEditorInner(
             lastKnownSequencePositionRef.current
           );
 
-          if (
-            centerPos !== null &&
-            pendingScrollTargetRef.current?.cause !== 'navigation' &&
-            pendingScrollTargetRef.current?.cause !== 'selection-anchor'
-          ) {
+          if (centerPos !== null) {
             pendingScrollTargetRef.current = buildRewrapScrollTarget(
               centerPos,
               currentScrollTop,
@@ -1268,10 +1254,6 @@ function WorkspaceEditorInner(
         setContainerWidth(width);
       }
 
-      if (freezeViewportHeight) {
-        return;
-      }
-
       if (Math.abs(height - lastHeight) > 1) {
         lastHeight = height;
         const newViewport = {
@@ -1284,12 +1266,11 @@ function WorkspaceEditorInner(
       }
     };
 
+    measureScrollContainerRef.current = handleResize;
     handleResize();
-    rafId = requestAnimationFrame(handleResize);
 
     const resizeObserver = new ResizeObserver(() => handleResize());
     resizeObserver.observe(container);
-    window.addEventListener('resize', handleResize);
 
     const onPortalHostAttachedForWidth = () => {
       if (containerRef.current !== container || !container.isConnected) return;
@@ -1317,15 +1298,18 @@ function WorkspaceEditorInner(
     window.addEventListener('waypoint:tab-portal-host-attached', onPortalHostAttachedForWidth);
 
     return () => {
-      if (rafId !== null) cancelAnimationFrame(rafId);
+      measureScrollContainerRef.current = null;
       if (settleRafId !== null) cancelAnimationFrame(settleRafId);
       reattachWidthSettling = false;
       reattachWidthStability = INITIAL_PORTAL_WIDTH_STABILITY;
       resizeObserver.disconnect();
-      window.removeEventListener('resize', handleResize);
       window.removeEventListener('waypoint:tab-portal-host-attached', onPortalHostAttachedForWidth);
     };
-  }, [scrollContainerElement, getPreviousLayoutForScrollPreservation, freezeViewportHeight]);
+  }, [scrollContainerElement, getPreviousLayoutForScrollPreservation]);
+
+  useLayoutEffect(() => {
+    if (surfaceVisible) measureScrollContainerRef.current?.();
+  }, [mapPlacement, surfaceVisible]);
 
   const zoomWrapAnchorRef = useRef<WrapScreenAnchor | null>(null);
   const releasedZoomAnchorRef = useRef<{
@@ -2210,10 +2194,6 @@ function WorkspaceEditorInner(
         const scrollTop = containerRef.current?.scrollTop ?? anchor.scrollTop;
         anchor.scrollTop = scrollTop;
         anchor.topBp = getSequencePositionAtScrollY(scrollTop, layoutRef.current);
-        if (anchor.height <= 0) {
-          const liveHeight = containerRef.current?.clientHeight ?? viewportRef.current.height;
-          if (liveHeight > 0) anchor.height = liveHeight;
-        }
         anchor.layoutTotalHeight = layoutRef.current?.totalHeight ?? 0;
       }
       const container = containerRef.current;
@@ -3119,19 +3099,6 @@ function WorkspaceEditorInner(
       );
 
       const reason = placement === 'top' ? 'circular-wrap' : 'center-preserve';
-      debugLog('[SequenceViewer] Restoring scroll via coordinator:', {
-        originalPosition,
-        convertedPosition: position,
-        reason,
-        placement: restorePlacement,
-        anchorOffsetPx: activeAnimation ? undefined : anchorOffsetPx,
-        wasCapturedInGapped,
-        currentlyGapped,
-        capturedGappedSeqLen: capturedGappedSequence?.length ?? 'none',
-        layoutSeqLen: layout.sequenceLength,
-        layoutLinesCount: layout.lines.length,
-        timestamp: new Date().toISOString(),
-      });
       scrollCoordinator.setScrollToBp(position, reason, {
         placement: restorePlacement,
         anchorOffsetPx: activeAnimation ? undefined : anchorOffsetPx,
@@ -3637,7 +3604,8 @@ function WorkspaceEditorInner(
             releasedZoomAnchorRef.current = null;
             newZoomController.cancelGesture();
           }}
-          width={28}
+          width={SEQUENCE_SCROLLBAR_WIDTH}
+          reservedHeight={viewportCapacity?.height}
           searchMatches={searchMatches}
           activeSearchIndex={activeSearchIndex}
         />
@@ -3657,11 +3625,9 @@ function WorkspaceEditorInner(
           newZoomController.cancelGesture();
         }}
         style={{
-          flex: freezeViewportHeight ? '0 0 auto' : 1,
-          height:
-            freezeViewportHeight && renderViewport.height > 0
-              ? `${renderViewport.height}px`
-              : '100%',
+          flex: 1,
+          minWidth: 0,
+          height: '100%',
           overflow: 'auto',
           contain: 'layout',
           scrollbarWidth: showMinimap ? 'none' : 'auto',
@@ -3680,8 +3646,12 @@ function WorkspaceEditorInner(
               onViewportPresented={onViewportPresented}
               viewportElementRef={containerRef}
               onOrfsPresented={onOrfsPresented}
+              reservedViewportHeight={viewportCapacity?.height}
               canvasSurfaceWidth={viewportCanvasWidth(
-                containerWidth,
+                Math.max(
+                  containerWidth,
+                  (viewportCapacity?.width ?? 0) - (showMinimap ? SEQUENCE_SCROLLBAR_WIDTH : 0)
+                ),
                 layout.totalWidth,
                 baseConfig.charsPerLine <= 0
               )}

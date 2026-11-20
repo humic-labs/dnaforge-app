@@ -1,5 +1,14 @@
-export function viewportCanvasHeight(viewportHeight: number, totalHeight: number): number {
-  return viewportHeight > 0 ? viewportHeight + 100 : totalHeight;
+export function viewportCanvasHeight(
+  viewportHeight: number,
+  totalHeight: number,
+  currentHeight = 0,
+  reservedViewportHeight = 0
+): number {
+  if (viewportHeight <= 0) return totalHeight;
+  const required = Math.max(viewportHeight, reservedViewportHeight) + 100;
+  if (!(currentHeight > 0)) return required;
+  if (currentHeight >= required && currentHeight - required < 256) return currentHeight;
+  return Math.ceil(required / 128) * 128;
 }
 
 export function viewportCanvasWidth(
@@ -21,6 +30,7 @@ export interface SyncViewportCanvasSizesParams {
   selectionCanvas: HTMLCanvasElement | null;
   width: number;
   viewportHeight: number;
+  reservedViewportHeight?: number;
   totalHeight: number;
   dpr: number;
   mainCanvasTransferred: boolean;
@@ -47,12 +57,19 @@ export function syncViewportCanvasSizes({
   selectionCanvas,
   width,
   viewportHeight,
+  reservedViewportHeight,
   totalHeight,
   dpr,
   mainCanvasTransferred,
 }: SyncViewportCanvasSizesParams): SyncViewportCanvasSizesResult {
   const cssWidth = width;
-  const cssHeight = viewportCanvasHeight(viewportHeight, totalHeight);
+  const currentHeight = parseFloat((mainCanvas ?? selectionCanvas)?.style.height ?? '');
+  const cssHeight = viewportCanvasHeight(
+    viewportHeight,
+    totalHeight,
+    currentHeight,
+    reservedViewportHeight
+  );
   const backingWidth = Math.ceil(cssWidth * dpr);
   const backingHeight = Math.ceil(cssHeight * dpr);
   let mainResized = false;

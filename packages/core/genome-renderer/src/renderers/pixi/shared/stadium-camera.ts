@@ -57,6 +57,8 @@ export type StadiumCameraInputs = {
   ox: number;
   oy: number;
   zoom: number;
+  centerStadiumOverview?: boolean;
+  morph?: number;
   laneStackBounds: LaneStackBounds;
   visualLaneStackBounds?: LaneStackBounds;
   floatingLabelTopReservePx?: number;
@@ -75,6 +77,13 @@ export type StadiumCameraResult = {
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
+}
+
+export function centeredOverviewWeight(
+  centerStadiumOverview: boolean | undefined,
+  zoom: number
+): number {
+  return centerStadiumOverview ? clamp01(2 - zoom) : 0;
 }
 
 function lerp(a: number, b: number, t: number): number {
@@ -176,12 +185,19 @@ export function solveStadiumCamera(inputs: StadiumCameraInputs): StadiumCameraRe
     detailBackboneTargetY,
     transitionProgress
   );
-  const backboneTargetY = canHonorHardVisibility
+  const laneTargetY = canHonorHardVisibility
     ? Math.max(
         hardTopVisibleBackboneTargetMin,
         Math.min(hardBottomVisibleBackboneTargetMax, rawBackboneTargetY)
       )
     : hardBottomVisibleBackboneTargetMax;
+
+  const centeredTargetY = viewportHeight / 2 - (dims.height * zoom) / 2;
+  const backboneTargetY = lerp(
+    laneTargetY,
+    centeredTargetY,
+    centeredOverviewWeight(inputs.centerStadiumOverview, zoom)
+  );
 
   const debug: StadiumCameraDebug = {
     overviewBackboneTargetY,

@@ -42,7 +42,7 @@ function createMapPane(liveFeedback = false) {
     effectiveMapShape: 'linear',
     webglMapGeometry: { renderHeight: 300, geometryHeight: 300, morphToCircle: 0 },
     hideMinimap: false,
-    renderMapSurfaceVisible: true,
+    mountWebglMap: true,
     actualWebGLMapVisible: true,
     mapCameraZoomVisible: true,
     mapShapeControlMode: 'shape',

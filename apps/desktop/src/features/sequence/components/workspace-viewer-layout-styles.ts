@@ -1,7 +1,9 @@
 import type { CSSProperties } from 'react';
 import type { SequenceMapPlacement } from '../view-state/sequence-view-state';
 
-const BORDER = '1px solid hsl(var(--color-border))';
+import { MAP_PANE_BORDER_WIDTH } from './side-map-pane-width';
+
+const BORDER = `${MAP_PANE_BORDER_WIDTH}px solid hsl(var(--color-border))`;
 const MAP_BG = 'hsl(var(--color-bg-subtle))';
 
 export function workspaceViewerLayoutFlags(args: {
@@ -76,6 +78,7 @@ export function workspaceViewerSequenceContainerStyle(args: {
 }): CSSProperties {
   const { sequenceSurfaceOrder, sequenceSurfaceVisible, horizontalSequenceMapLayout } = args;
   return {
+    display: sequenceSurfaceVisible ? undefined : 'none',
     order: sequenceSurfaceOrder,
     flex: sequenceSurfaceVisible ? (horizontalSequenceMapLayout ? '1 1 0' : 1) : '0 0 0px',
     width: sequenceSurfaceVisible ? undefined : 0,
@@ -145,6 +148,7 @@ export function workspaceViewerMinimapContainerStyle(args: {
   if (!mapPaneVisible) {
     return {
       ...shared,
+      display: 'none',
       height: 0,
       minHeight: 0,
       minWidth: 0,

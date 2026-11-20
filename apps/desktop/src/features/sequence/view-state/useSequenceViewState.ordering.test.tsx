@@ -32,6 +32,49 @@ afterEach(() => {
 });
 
 describe('ordered view-state supersession through the real hook, canvas store and reopen memory', () => {
+  it('remembers each unlocked map layout through rapid switches and reopening', () => {
+    const openView = () =>
+      useSequenceViewState(documentId, { circular: true, surface: 'sequence' });
+    const { result, unmount } = renderHook(openView);
+    const patch = result.current[1];
+    act(() => patch({ rendererVisibility: 'both', mapPlacement: 'right' }));
+    act(() => patch({ webglZoom: 2 }, { debounce: true }));
+    act(() => patch({ mapPlacement: 'bottom' }));
+    expect(result.current[0].webglZoom).toBe(1);
+    act(() => patch({ webglZoom: 4 }, { debounce: true }));
+    act(() => patch({ mapPlacement: 'left' }));
+    expect(result.current[0].webglZoom).toBe(2);
+    act(() => patch({ rendererVisibility: 'map' }));
+    act(() => patch({ webglZoom: 3 }, { debounce: true }));
+    act(() => patch({ rendererVisibility: 'sequence' }));
+    act(() => patch({ rendererVisibility: 'both', mapPlacement: 'top' }));
+    expect(result.current[0].webglZoom).toBe(4);
+    unmount();
+    useCanvasStore.getState().reset();
+    open();
+    const reopened = renderHook(openView).result;
+    act(() => reopened.current[1]({ rendererVisibility: 'map' }));
+    expect(reopened.current[0].webglZoom).toBe(3);
+    act(() => reopened.current[1]({ rendererVisibility: 'both', mapPlacement: 'right' }));
+    expect(reopened.current[0].webglZoom).toBe(2);
+  });
+
+  it('reads the live camera on departure and carries zoom across locked layouts', () => {
+    let camera = 2;
+    const { result } = renderHook(() =>
+      useSequenceViewState(documentId, { circular: true, surface: 'sequence' }, () => camera)
+    );
+    const patch = result.current[1];
+    act(() => patch({ rendererVisibility: 'both', mapPlacement: 'right' }));
+    camera = 3;
+    act(() => patch({ mapPlacement: 'bottom' }));
+    act(() => patch({ mapPlacement: 'right' }));
+    expect(result.current[0].webglZoom).toBe(3);
+    act(() => patch({ scrollSynced: true, webglZoom: 5 }));
+    act(() => patch({ mapPlacement: 'bottom' }));
+    expect(result.current[0].webglZoom).toBe(5);
+  });
+
   it('keeps newer immediate zoom after the older timer and writes the same reopen value', () => {
     const { result } = renderHook(() => useSequenceViewState(documentId));
     act(() => result.current[1]({ zoom: 80 }, { debounce: true }));

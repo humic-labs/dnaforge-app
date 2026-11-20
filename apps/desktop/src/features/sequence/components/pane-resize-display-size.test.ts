@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isCompositorStretchPlan,
   isDrawAspectMismatchPlan,
+  reserveSequencePaneExtent,
   resolvePaneResizeDisplaySize,
   resolveSequencePaneHeightDuringMapResize,
 } from './pane-resize-display-size';
@@ -155,4 +156,22 @@ describe('pane-resize display size — stretch invariants ', () => {
       })
     ).toBe(96);
   });
+});
+
+it('retains split-pane drawing buffers during continuous resize and releases excess space', () => {
+  for (const [start, change] of [
+    [352, 120],
+    [496, -120],
+  ]) {
+    let capacity = reserveSequencePaneExtent(start, 0);
+    const original = capacity;
+    for (let pixel = 1; pixel <= Math.abs(change); pixel++) {
+      const visible = start + Math.sign(change) * pixel;
+      capacity = reserveSequencePaneExtent(visible, capacity);
+      expect(capacity).toBeGreaterThanOrEqual(visible);
+      expect(capacity).toBe(original);
+    }
+  }
+  expect(reserveSequencePaneExtent(400, 1800)).toBeLessThan(800);
+  expect(reserveSequencePaneExtent(0, 0)).toBe(0);
 });

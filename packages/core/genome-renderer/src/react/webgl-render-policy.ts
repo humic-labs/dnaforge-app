@@ -84,6 +84,7 @@ export function webglRenderStateSignature(state: RenderState, renderRevision: nu
     state.width,
     state.height,
     state.geometryHeight ?? state.height,
+    state.centerStadiumOverview,
     state.themeMode ?? 'light',
     selectedIdsKey(state.selectedIds),
     annotationSearchFocusKey(state.annotationSearchFocus),

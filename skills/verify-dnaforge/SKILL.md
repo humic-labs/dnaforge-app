@@ -8,9 +8,13 @@ description:
 
 # Verify DNAForge desktop workflows
 
+For window and divider resizing with a wrapped sequence above its plasmid map,
+follow the [split sequence viewer checks](features/split-sequence-map.md).
+
 Notebook repair claims also use the focused
 [notebook verification skill](../verify-notebook-authoring/SKILL.md), which separates
 component results from real app acceptance and lists the reported regressions.
+
 For release and usage analytics notices, follow the
 [desktop relaunch checks](features/desktop-notices.md).
 

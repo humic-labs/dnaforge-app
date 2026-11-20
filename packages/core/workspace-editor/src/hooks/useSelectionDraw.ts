@@ -350,6 +350,7 @@ export function useSelectionDraw({
   renderedCutSitesRef,
   bpHighlightsRef,
 }: UseSelectionDrawParams): UseSelectionDrawResult {
+  const paintedCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawSelectionAndCursor = useCallback(
     (
       sel: Selection | null,
@@ -362,6 +363,14 @@ export function useSelectionDraw({
       const shiftPreviewState = shiftPreviewRef.current;
       const canvas = selectionCanvasRef.current;
       if (!canvas || !canvas.isConnected) return;
+
+      const hasOverlay = Boolean(
+        (!sel && (hoverCursor || (editable && showCursor && cursorPos !== undefined))) ||
+        shiftPreviewState ||
+        bpHighlightsRef.current?.length ||
+        (hoveredEnzymeNameRef.current && renderedCutSitesRef.current?.length)
+      );
+      if (!hasOverlay && paintedCanvasRef.current !== canvas) return;
 
       const ctx = getSequenceWebGLContext(canvas);
       if (!ctx) return;
@@ -448,6 +457,7 @@ export function useSelectionDraw({
       });
 
       ctx.endFrame();
+      paintedCanvasRef.current = hasOverlay ? canvas : null;
       if (import.meta.env.DEV === true || import.meta.env.MODE === 'test') {
         canvasTestWindow(window).__selectionPaintObserver?.({
           t: performance.now(),

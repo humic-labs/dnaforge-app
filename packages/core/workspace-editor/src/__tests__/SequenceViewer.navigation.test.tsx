@@ -3,6 +3,7 @@ import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { createRef, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SequenceViewer } from '../SequenceViewer';
+import * as layoutUtils from '../layout-utils';
 import type { ViewportChangeSource, ViewportRange, WorkspaceEditorHandle } from '../types';
 import {
   installRecordingCanvas,
@@ -158,6 +159,45 @@ describe('SequenceViewer controlled navigation', () => {
     expect(
       geometry.summary.rowYOffsets[geometry.rows.at(-1)!.lineIndex + 1]
     ).toBeGreaterThanOrEqual(scrollContainer.scrollTop + scrollContainer.clientHeight);
+  });
+
+  it('captures a scroll anchor only when a resize changes the number of bases per row', () => {
+    const callbacks: Array<{ target: Element; notify: () => void }> = [];
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private callback: () => void) {}
+        observe(target: Element) {
+          callbacks.push({ target, notify: this.callback });
+        }
+        unobserve() {}
+        disconnect() {}
+      }
+    );
+    let width = 800;
+    let height = 600;
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => width);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(() => height);
+    const capture = vi.spyOn(layoutUtils, 'captureSelectionScreenAnchor');
+    const { getByTestId } = render(
+      <SequenceViewer
+        sequence={sequence}
+        config={{ charsPerLine: 0, marginLeft: 20, charWidth: 10 }}
+        highlightedRange={{ start: 300, end: 330 }}
+      />
+    );
+    const pane = getByTestId('sequence-scroll-container');
+    pane.scrollTop = 300;
+    const resize = () =>
+      callbacks.filter(({ target }) => target === pane).forEach(({ notify }) => notify());
+    capture.mockClear();
+    width = 804;
+    height = 650;
+    act(resize);
+    expect(capture).not.toHaveBeenCalled();
+    width = 814;
+    act(resize);
+    expect(capture).toHaveBeenCalled();
   });
 
   it('preserves an explicit instant destination through a pending width change instead of reanchoring its highlight', async () => {

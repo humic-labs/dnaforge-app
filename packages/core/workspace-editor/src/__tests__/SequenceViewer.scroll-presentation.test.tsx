@@ -12,6 +12,7 @@ const paints = vi.hoisted(() => ({
   frames: [] as Array<() => void>,
   visible: true,
   zeroViewport: false,
+  submittedHeights: [] as number[],
 }));
 
 vi.mock('../rendering/webgl-drawing-context', async (importOriginal) => ({
@@ -35,7 +36,10 @@ vi.mock('../hooks/useCanvasWorkerDraw', async (importOriginal) => {
       original.useCanvasWorkerDraw({
         ...params,
         onViewportPresented: deliver
-          ? (frame) => paints.frames.push(() => deliver(frame))
+          ? (frame) => {
+              paints.submittedHeights.push(frame.viewport.height);
+              paints.frames.push(() => deliver(frame));
+            }
           : undefined,
       });
     },
@@ -53,6 +57,7 @@ const sequence = {
 
 beforeEach(() => {
   paints.frames = [];
+  paints.submittedHeights = [];
   paints.visible = true;
   paints.zeroViewport = false;
   installRecordingCanvas();
@@ -291,6 +296,26 @@ describe('SequenceViewer owned visible scroll presentation', () => {
     );
     present(await takeFrames());
     expect(target.presented).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the measured scroll pane height when its parent publishes a different height', async () => {
+    const target = request(1);
+    const view = render(
+      <SequenceViewer sequence={sequence} viewportHeightHint={600} scrollPresentation={target} />
+    );
+    await takeFrames();
+    paints.frames = [];
+    paints.submittedHeights = [];
+    view.rerender(
+      <SequenceViewer
+        sequence={sequence}
+        viewportHeightHint={625.5}
+        config={{ charWidth: 9 }}
+        scrollPresentation={target}
+      />
+    );
+    await takeFrames();
+    expect(new Set(paints.submittedHeights)).toEqual(new Set([600]));
   });
 
   it('requires a positive visible viewport at submission instead of a retained height hint', async () => {

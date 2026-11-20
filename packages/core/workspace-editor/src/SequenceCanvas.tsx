@@ -55,6 +55,7 @@ interface SequenceCanvasProps {
   ) => void;
 
   canvasSurfaceWidth?: number;
+  reservedViewportHeight?: number;
 
   scrollEndHeadroom?: number;
   config: WorkspaceEditorConfig;
@@ -210,6 +211,7 @@ export const SequenceCanvas: React.FC<SequenceCanvasProps> = ({
   onPaintLayoutPresented,
   onOrfsPresented,
   canvasSurfaceWidth,
+  reservedViewportHeight,
   scrollEndHeadroom = 0,
   config: partialConfig,
   geneticCode,
@@ -672,6 +674,7 @@ export const SequenceCanvas: React.FC<SequenceCanvasProps> = ({
     onPaintLayoutPresented,
     onOrfsPresented,
     canvasSurfaceWidth,
+    reservedViewportHeight,
     scrollEndHeadroom,
     config,
     precomputedLinePositions,
@@ -714,11 +717,6 @@ export const SequenceCanvas: React.FC<SequenceCanvasProps> = ({
     hasPendingZoomFrame,
     previewCDS,
   });
-
-  useLayoutEffect(() => {
-    if (!viewport || viewport.height <= 0) return;
-    drawFnRef.current?.();
-  }, [viewport?.height, drawFnRef]);
 
   useEffect(() => {
     if (!isSelectingRef.current && !isHighlightingRef.current) {

@@ -72,3 +72,10 @@ export function resolveSequencePaneHeightDuringMapResize(input: {
   const available = layoutHeight - mapHeight - handleHeight;
   return Math.max(minSequenceHeight, Math.round(available));
 }
+
+export function reserveSequencePaneExtent(required: number, previous: number): number {
+  if (required <= 0) return previous;
+  const block = 128;
+  if (required <= previous && previous - required < 3 * block) return previous;
+  return (Math.ceil(required / block) + 1) * block;
+}

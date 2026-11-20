@@ -82,6 +82,7 @@ function renderCursorPainter(charWidth = DEFAULT_EDITOR_CONFIG.charWidth) {
   return {
     canvas,
     config,
+    clear: () => result.current.drawSelectionAndCursorRef.current(null, undefined, false),
     paint: (column: number) =>
       result.current.drawSelectionAndCursorRef.current(null, undefined, false, [], [], {
         x: config.marginLeft + column * config.charWidth,
@@ -89,6 +90,22 @@ function renderCursorPainter(charWidth = DEFAULT_EDITOR_CONFIG.charWidth) {
       }),
   };
 }
+
+it('leaves an empty overlay idle and clears a removed hover guide once', () => {
+  const { canvas, clear, paint } = renderCursorPainter();
+  const context = vi.spyOn(canvas, 'getContext');
+
+  clear();
+  clear();
+  expect(context).not.toHaveBeenCalled();
+
+  paint(5);
+  expect(context).toHaveBeenCalledTimes(1);
+  clear();
+  expect(context).toHaveBeenCalledTimes(2);
+  clear();
+  expect(context).toHaveBeenCalledTimes(2);
+});
 
 describe.each([false, true])('Canvas cursor styling (dark=%s)', (isDark) => {
   beforeEach(() => setCanvasTheme({ ...initialTheme, isDark }));
