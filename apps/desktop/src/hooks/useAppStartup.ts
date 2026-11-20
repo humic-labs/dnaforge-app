@@ -11,6 +11,7 @@ import {
 } from '../lib/analytics';
 import { setUsageAnalyticsChoice } from '../lib/usage-analytics-setting-source';
 import {
+  ANALYTICS_CONSENT_VERSION,
   DESKTOP_ANALYTICS_OPT_IN_MESSAGE,
   DESKTOP_ANALYTICS_TOAST_MESSAGE,
 } from '@waypoint/analytics-policy';
@@ -196,6 +197,7 @@ export function useAppStartup({
         }
 
         if (decision.enabled) {
+          const storedConsentVersion = await getSetting('analytics_consent_version');
           await setAnalyticsConsent(true, {
             resumeExistingEpisode: !decision.needsDisclosure,
           });
@@ -206,6 +208,15 @@ export function useAppStartup({
             ) {
               await acknowledgeAnalyticsNotice();
               return;
+            }
+            try {
+              if (
+                storedConsentVersion === null ||
+                storedConsentVersion === ANALYTICS_CONSENT_VERSION
+              )
+                await rememberNotice('usage-analytics', 'false');
+            } catch (disclosureError) {
+              console.error('[Analytics] Failed to mark privacy toast pending:', disclosureError);
             }
             try {
               useToastStore.getState().addRichToast({
