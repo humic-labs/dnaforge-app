@@ -3099,19 +3099,6 @@ function WorkspaceEditorInner(
       );
 
       const reason = placement === 'top' ? 'circular-wrap' : 'center-preserve';
-      debugLog('[SequenceViewer] Restoring scroll via coordinator:', {
-        originalPosition,
-        convertedPosition: position,
-        reason,
-        placement: restorePlacement,
-        anchorOffsetPx: activeAnimation ? undefined : anchorOffsetPx,
-        wasCapturedInGapped,
-        currentlyGapped,
-        capturedGappedSeqLen: capturedGappedSequence?.length ?? 'none',
-        layoutSeqLen: layout.sequenceLength,
-        layoutLinesCount: layout.lines.length,
-        timestamp: new Date().toISOString(),
-      });
       scrollCoordinator.setScrollToBp(position, reason, {
         placement: restorePlacement,
         anchorOffsetPx: activeAnimation ? undefined : anchorOffsetPx,
