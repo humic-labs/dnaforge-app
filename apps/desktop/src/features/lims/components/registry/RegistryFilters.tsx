@@ -117,6 +117,7 @@ export function RegistryFilters({
   unresolvedCount,
   onUnresolvedChange,
   search,
+  onSearchChange,
   onClearSearch,
   onClearAll,
   open,
@@ -135,6 +136,7 @@ export function RegistryFilters({
   unresolvedCount?: number;
   onUnresolvedChange?: (value: boolean) => void;
   search: string;
+  onSearchChange?: (value: string) => void;
   onClearSearch: () => void;
   onClearAll: () => void;
   open: boolean;
@@ -319,7 +321,7 @@ export function RegistryFilters({
                   label,
                   count: context ? 0 : selected.length,
                 })),
-                { key: 'text', label: 'Name / ID', count: 0 },
+                { key: 'text', label: 'Text', count: 0 },
                 ...(onUpdatedFilterChange
                   ? [{ key: 'updated', label: 'Last updated', count: updatedFilter?.date ? 1 : 0 }]
                   : []),
@@ -344,9 +346,23 @@ export function RegistryFilters({
               ) : null}
               {activeKey === 'text' ? (
                 <div className="space-y-3">
+                  {onSearchChange ? (
+                    <label className="block space-y-1.5 text-xs text-fg-muted">
+                      <span>Search records</span>
+                      <TextField
+                        type="search"
+                        aria-label="Search records"
+                        value={search}
+                        onChange={(event) => onSearchChange(event.target.value)}
+                      />
+                    </label>
+                  ) : null}
                   {[
                     { key: 'name', label: 'Name contains' },
                     { key: 'registryId', label: 'ID contains' },
+                    ...(textFilters.sequence !== undefined
+                      ? [{ key: 'sequence', label: 'Sequence contains' }]
+                      : []),
                   ].map((field) => (
                     <label key={field.key} className="block space-y-1.5 text-xs text-fg-muted">
                       <span>{field.label}</span>

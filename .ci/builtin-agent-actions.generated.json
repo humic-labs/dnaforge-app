@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "scope": "Built-in registered actions and canonical aliases. Runtime-installed provider manifests are discovered through their existing provider registry.",
   "source": "apps/api/src/concurrency/builtins.py#register_builtin_agent_tools",
-  "sharedCatalogSha256": "0d2625e1f45683331d72d84681308983d835b81892f63affb96078b36986e14a",
+  "sharedCatalogSha256": "b28596b30c1f63cbe8435aaad6db73638e2108ae2918a4dba959a4623ca4e36c",
   "tools": [
     {
       "name": "add_design_region",
@@ -1200,6 +1200,24 @@
           }
         }
       }
+    },
+    {
+      "name": "entity_discovery",
+      "handlerRef": "renderer_bridge.entity_discovery",
+      "home": "renderer",
+      "runtime": "service",
+      "handlerRegistered": true,
+      "effects": [
+        "read-only"
+      ],
+      "requiredCapabilities": [
+        "read-workspace"
+      ],
+      "conditionalCapabilities": [],
+      "requiresWorkspace": false,
+      "conditionallyRequiresWorkspace": false,
+      "replayPolicy": "reuse_result",
+      "contractRef": "packages/core/agent-tools/renderer-tool-manifest.json#tools/entity_discovery"
     },
     {
       "name": "external.fetch",

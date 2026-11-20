@@ -12,7 +12,7 @@ import {
   type NativeNotebookRecord,
   type NativeNotebookSource,
 } from './notebook-document-owner';
-import { publishNotebookPackageV2InMain } from './notebook-package-authority';
+import { publishNotebookPackageV2InMain } from './__tests__/publish-notebook-fixture';
 import { readCanonicalNotebookPackage } from '../db/notebook-package-migration';
 import { notebookPackagePaths } from '../db/notebook-package';
 import { contentFingerprint } from '../shared/content-fingerprint';

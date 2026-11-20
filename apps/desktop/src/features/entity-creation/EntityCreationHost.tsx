@@ -1,3 +1,4 @@
+import { schemaEntityTypeLabel } from '@waypoint/scientific-artifacts/shared/entity-types';
 import {
   usePresentationOverlay,
   PresentationScopeContext,
@@ -158,7 +159,7 @@ export function EntityCreationHost({ onOpenRegistryEntity }: EntityCreationHostP
     request.entityType === 'strains'
       ? 'Create strain'
       : selectedSchema
-        ? `Create ${selectedSchema.displayName}`
+        ? `Create ${schemaEntityTypeLabel(selectedSchema)}`
         : 'Create Registry entity';
 
   return (
@@ -261,7 +262,7 @@ export function EntityCreationHost({ onOpenRegistryEntity }: EntityCreationHostP
                     className={`${UI_CARD_CLASS} text-left wp-interactive `}
                   >
                     <span className="flex items-center gap-2 text-sm font-medium text-fg">
-                      <span>{schema.displayName}</span>
+                      <span>{schemaEntityTypeLabel(schema)}</span>
                       <SchemaOriginBadge builtin={schema.builtin} />
                     </span>
                     <span className="mt-1 block text-xs leading-snug text-fg-muted">

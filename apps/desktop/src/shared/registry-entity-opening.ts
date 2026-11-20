@@ -1,3 +1,4 @@
+import { entityKindLabel } from '@waypoint/scientific-artifacts/shared/entity-types';
 import type {
   AminoAcidSequenceRef,
   DnaSequenceRef,
@@ -18,14 +19,19 @@ import {
   ENTITY_RECORD_ARTIFACT_SUFFIX,
 } from './registry-file-types';
 
+type RegistryOpeningEntity = Pick<
+  LimsEntity,
+  'id' | 'kind' | 'name' | 'fields' | 'registrationStatus' | 'workspaceId'
+>;
+
 export function registryRepresentationForEntity(
-  entity: LimsEntity,
+  entity: RegistryOpeningEntity,
   sequence: DnaSequenceRef | undefined = entity.fields.sequence as DnaSequenceRef | undefined
 ): LimsRegistrySummary['representation'] & { openTarget: LimsRegistryOpenTarget } {
   if (entity.kind === 'molecular-document') {
     return {
       kind: 'molecular_document',
-      label: 'Molecular views',
+      label: entityKindLabel('molecular-document'),
       canOpen: true,
       openTarget: {
         kind: 'molecular_document',
@@ -131,6 +137,14 @@ export function registryRepresentationForEntity(
     };
   }
   if (sequence?.mode === 'file') {
+    if (typeof sequence.documentId !== 'string' || !sequence.documentId.trim()) {
+      return {
+        kind: 'unresolved',
+        label: 'Sequence identity needs repair',
+        canOpen: false,
+        openTarget: recordDetailOpenTarget(entity, 'unresolved_sequence'),
+      };
+    }
     const topologyLabel = sequence.topology === 'circular' ? 'Circular' : 'Linear';
 
     const label =
@@ -144,9 +158,12 @@ export function registryRepresentationForEntity(
       openTarget: sequenceFileOpenTarget(entity, sequence),
     };
   }
-  if (entity.kind === 'notebook') {
-    const packagePath =
-      typeof entity.fields.packagePath === 'string' ? entity.fields.packagePath : undefined;
+  if (
+    entity.kind === 'notebook' &&
+    typeof entity.fields.packagePath === 'string' &&
+    entity.fields.packagePath.trim()
+  ) {
+    const packagePath = entity.fields.packagePath;
     return {
       kind: 'notebook',
       label: 'Notebook entry',
@@ -247,9 +264,11 @@ export function registryRepresentationForEntity(
 }
 
 export function sequenceFileOpenTarget(
-  entity: LimsEntity,
+  entity: RegistryOpeningEntity,
   sequence: FileDnaSequenceRef
 ): LimsRegistryOpenTarget {
+  if (typeof sequence.documentId !== 'string' || !sequence.documentId.trim())
+    return recordDetailOpenTarget(entity, 'unresolved_sequence');
   return {
     kind: 'sequence_file',
     entityId: entity.id,
@@ -273,7 +292,7 @@ export function sequenceFileOpenTarget(
 }
 
 export function recordDetailOpenTarget(
-  entity: LimsEntity,
+  entity: RegistryOpeningEntity,
   reason: Extract<LimsRegistryOpenTarget, { kind: 'record_detail' }>['reason']
 ): LimsRegistryOpenTarget {
   return {

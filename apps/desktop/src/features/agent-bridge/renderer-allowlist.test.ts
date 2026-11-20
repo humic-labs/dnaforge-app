@@ -115,6 +115,7 @@ describe('structure source authorization', () => {
   });
 });
 const validRendererArgs: Record<string, unknown> = {
+  entity_discovery: { operation: 'search', query: 'experiment notes', limit: 12 },
   inspect_fasta_kind: { path: 'Project/proteins/legacy.faa' },
   classify_fasta: {
     path: 'Project/proteins/legacy.faa',
@@ -862,6 +863,28 @@ describe('renderer tool allowlist gate', () => {
         }).success,
         toolName
       ).toBe(false);
+    }
+  });
+
+  it('preserves discovery operation requirements and rejects fields from another operation', () => {
+    const schema = getAllowedRendererTool('entity_discovery')!.inputSchema;
+    const scope = { projectRoot: '/project', includeArchived: false };
+    for (const input of [
+      { operation: 'search', query: '', scope, filter: { namedTypeKey: 'type:design' }, limit: 25 },
+      { operation: 'resolve', scope, ids: ['one', 'two'] },
+      { operation: 'types', scope },
+    ]) {
+      expect(schema.parse(input)).toEqual(input);
+    }
+    for (const input of [
+      { operation: 'search' },
+      { operation: 'search', query: '', ids: [] },
+      { operation: 'resolve' },
+      { operation: 'resolve', ids: [], limit: 10 },
+      { operation: 'types', query: '' },
+      { operation: 'types', scope: { unknown: true } },
+    ]) {
+      expect(schema.safeParse(input).success).toBe(false);
     }
   });
 

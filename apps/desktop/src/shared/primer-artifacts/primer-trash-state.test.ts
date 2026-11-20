@@ -83,6 +83,14 @@ function trashReader() {
 }
 
 it.each([
+  [
+    'workspace reconciliation observes an explicitly trashed file',
+    ['moved-to-trash', 'workspace-reconcile'],
+  ],
+  [
+    'a later scanner name is not mistaken for an entity action',
+    ['moved-to-trash', 'new-filesystem-observer'],
+  ],
   ['Git discovery reports the trashed file missing afterwards', ['moved-to-trash', 'git-indexer']],
   [
     'Git discovery reported the file missing before Trash recorded it',
@@ -120,4 +128,45 @@ it('does not explain a later disappearance with an earlier Trash action', async 
     .run(path);
   markMissing('git-indexer');
   await expect(trashReader().findTrashedPrimerDocument(entityId, path)).resolves.toBeNull();
+});
+
+it('separates restore and a second disappearance in the same millisecond', async () => {
+  setCatalogFileStateInDb(fixture.db, path, 'missing', 'moved-to-trash');
+  fixture.db
+    .prepare("UPDATE catalog_entity_files SET status='current',missing_since=NULL WHERE path=?")
+    .run(path);
+  await expect(trashReader().findTrashedPrimerDocument(entityId, path)).resolves.toBeNull();
+  setCatalogFileStateInDb(fixture.db, path, 'missing', 'workspace-reconcile');
+  await expect(trashReader().findTrashedPrimerDocument(entityId, path)).resolves.toBeNull();
+  setCatalogFileStateInDb(fixture.db, path, 'missing', 'moved-to-trash');
+  setCatalogFileStateInDb(fixture.db, path, 'missing', 'workspace-reconcile');
+  await expect(trashReader().findTrashedPrimerDocument(entityId, path)).resolves.toMatchObject({
+    path,
+  });
+  setCatalogFileStateInDb(fixture.db, path, 'missing', 'deleted');
+  setCatalogFileStateInDb(fixture.db, path, 'missing', 'workspace-reconcile');
+  await expect(trashReader().findTrashedPrimerDocument(entityId, path)).resolves.toBeNull();
+});
+
+it('respects older explicit Trash events without interval metadata', async () => {
+  markMissing('moved-to-trash');
+  fixture.db
+    .prepare(
+      "UPDATE catalog_entity_events SET payload=json_remove(payload,'$.bindingId','$.startsMissingInterval') WHERE entity_id=?"
+    )
+    .run(entityId);
+  markMissing('workspace-reconcile');
+  await expect(trashReader().findTrashedPrimerDocument(entityId, path)).resolves.toMatchObject({
+    path,
+  });
+});
+
+it('records an explicit Trash action even when the original missing observation had no event', async () => {
+  fixture.db
+    .prepare("UPDATE catalog_entity_files SET status='missing',missing_since=? WHERE path=?")
+    .run(clock, path);
+  markMissing('moved-to-trash');
+  await expect(trashReader().findTrashedPrimerDocument(entityId, path)).resolves.toMatchObject({
+    path,
+  });
 });

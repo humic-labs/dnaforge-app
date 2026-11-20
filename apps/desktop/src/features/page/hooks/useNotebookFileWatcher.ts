@@ -73,6 +73,8 @@ export function useNotebookFileWatcher({
 }: UseNotebookFileWatcherInput): NotebookFileWatcherResult {
   const [state, setState] = useState<NotebookSyncState>('current');
   const reloadFailureOperationRef = useRef<string>();
+  const [watchAttempt, setWatchAttempt] = useState(0);
+  const watchReady = useRef(false);
   const targetRef = useRef<NotebookWatchTarget | null>(null);
   const fileReads = useRef({ pending: 0 });
   const [binding, setBinding] = useState<
@@ -263,7 +265,7 @@ export function useNotebookFileWatcher({
     return () => {
       active = false;
     };
-  }, [catalogGeneration, inspectDiskChange, pageId, reportReloadFailure, workspaceRoot]);
+  }, [catalogGeneration, inspectDiskChange, pageId, reportReloadFailure, watchAttempt, workspaceRoot]);
 
   useEffect(() => {
     if (!watchTarget?.renewal) {
@@ -280,56 +282,59 @@ export function useNotebookFileWatcher({
     let watchRegistration: Promise<void> | undefined;
     const isCurrent = () => !disposed && generation === generationRef.current;
 
-    void (async () => {
-      targetRef.current = watchTarget;
-      watchRegistration = platform().fs.watchFile(watchedPath);
-      await watchRegistration;
+    const onPageHide = (event: PageTransitionEvent) => {
+      if (!event.persisted) dispose();
+    };
+    const notifyFailure = (error: unknown, stage: 'watch' | 'reload' | 'external-change') => {
       if (!isCurrent()) return;
-
-      if (watchTarget.renewal && baselineFingerprintRef.current !== undefined) {
-        await inspectDiskChange();
-        return;
-      }
-      const fingerprint = await readFingerprint();
-      if (!isCurrent()) return;
-      baselineFingerprintRef.current = fingerprint;
-      if (!isDirtyRef.current) await reloadFromDisk();
-    })().catch((error) => {
-      if (!isCurrent()) return;
-      console.warn('[useNotebookFileWatcher] Could not watch notebook Markdown:', error);
       if (isExternalConflictError(error)) {
         void readFingerprint().then((fingerprint) => {
           if (!isCurrent()) return;
           conflictFingerprintRef.current = fingerprint;
           setState(notebookConflictState);
         });
-      } else reportReloadFailure(error, 'watch');
-    });
+        return;
+      }
+      console.warn(`[useNotebookFileWatcher] Notebook ${stage} failed:`, error);
+      reportReloadFailure(error, stage);
+    };
+    void (async () => {
+      targetRef.current = watchTarget;
+      watchRegistration = platform().fs.watchFile(watchedPath);
+      await watchRegistration;
+      if (!isCurrent()) return;
+      watchReady.current = true;
+
+      if (watchTarget.renewal && baselineFingerprintRef.current !== undefined) {
+        await inspectDiskChange(Boolean(reloadFailureOperationRef.current));
+        return;
+      }
+      const fingerprint = await readFingerprint();
+      if (!isCurrent()) return;
+      baselineFingerprintRef.current = fingerprint;
+      if (!isDirtyRef.current) await reloadFromDisk();
+      else if (reloadFailureOperationRef.current) await inspectDiskChange(true);
+    })().catch((error) => notifyFailure(error, watchReady.current ? 'reload' : 'watch'));
 
     const unsubscribe = platform().on('file-changed', (...args: unknown[]) => {
       const changedPath = args[0];
       if (!isCurrent() || typeof changedPath !== 'string' || changedPath !== watchedPath) return;
-      void inspectDiskChange().catch((error) => {
-        if (!isCurrent()) return;
-        console.warn('[useNotebookFileWatcher] Could not reconcile external edit:', error);
-        if (isExternalConflictError(error)) {
-          void readFingerprint().then((fingerprint) => {
-            if (!isCurrent()) return;
-            conflictFingerprintRef.current = fingerprint;
-            setState(notebookConflictState);
-          });
-        } else reportReloadFailure(error, 'external-change');
-      });
+      void inspectDiskChange().catch((error) => notifyFailure(error, 'external-change'));
     });
 
-    return () => {
+    function dispose() {
+      if (disposed) return;
       disposed = true;
       generationRef.current++;
+      watchReady.current = false;
       targetRef.current = null;
       if (watchRegistration)
         void watchRegistration.then(() => platform().fs.unwatchFile(watchedPath)).catch(() => {});
       unsubscribe();
-    };
+      window.removeEventListener('pagehide', onPageHide);
+    }
+    window.addEventListener('pagehide', onPageHide);
+    return dispose;
   }, [inspectDiskChange, readFingerprint, reloadFromDisk, reportReloadFailure, watchTarget]);
 
   const acceptExternalChange = useCallback(() => {
@@ -342,13 +347,18 @@ export function useNotebookFileWatcher({
   }, [reloadFromDisk, reportReloadFailure]);
 
   const retryExternalReload = useCallback(() => {
+    if (!watchReady.current) {
+      if (watchTarget) setBinding({ ...watchTarget, renewal: true });
+      else setWatchAttempt((attempt) => attempt + 1);
+      return;
+    }
     const generation = generationRef.current;
     void inspectDiskChange(true).catch((error) => {
       if (generation !== generationRef.current) return;
       console.warn('[useNotebookFileWatcher] Could not retry notebook Markdown:', error);
       reportReloadFailure(error, 'reload');
     });
-  }, [inspectDiskChange, reportReloadFailure]);
+  }, [inspectDiskChange, reportReloadFailure, watchTarget]);
 
   const recordOwnSave = useCallback((committedFingerprint: string | undefined) => {
     baselineFingerprintRef.current = committedFingerprint;

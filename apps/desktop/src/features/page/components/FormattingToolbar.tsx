@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { ColorPalette } from './ColorPalette';
+import { Button, UI_TOOLBAR_CODE_CLASS } from '../../../components/ui';
 import { NotebookLayoutControl } from './NotebookLayoutControl';
+import { FORMATTING_ICONS } from '../editor/lib/formatting-icons';
 import type { Editor } from '@tiptap/react';
 import { formatShortcut } from '@waypoint/ui-components/keyboard';
 import { Tooltip } from '@/shared/components';
@@ -144,7 +146,7 @@ export function FormattingToolbar({ editor }: FormattingToolbarProps) {
           tooltip="Inline Code"
           shortcut={formatShortcut(['cmd', 'e'])}
         >
-          <span className="font-mono text-[10px]">&lt;/&gt;</span>
+          <span className={UI_TOOLBAR_CODE_CLASS}>&lt;/&gt;</span>
         </ToolbarButton>
         <ColorControl
           kind="highlight"
@@ -182,7 +184,7 @@ export function FormattingToolbar({ editor }: FormattingToolbarProps) {
           tooltip="Heading 1"
           shortcut={formatShortcut(['cmd', 'alt', '1'])}
         >
-          H1
+          {FORMATTING_ICONS.heading1}
         </ToolbarButton>
         <ToolbarButton
           isActive={formatState.h2}
@@ -190,7 +192,7 @@ export function FormattingToolbar({ editor }: FormattingToolbarProps) {
           tooltip="Heading 2"
           shortcut={formatShortcut(['cmd', 'alt', '2'])}
         >
-          H2
+          {FORMATTING_ICONS.heading2}
         </ToolbarButton>
         <ToolbarButton
           isActive={formatState.h3}
@@ -198,7 +200,7 @@ export function FormattingToolbar({ editor }: FormattingToolbarProps) {
           tooltip="Heading 3"
           shortcut={formatShortcut(['cmd', 'alt', '3'])}
         >
-          H3
+          {FORMATTING_ICONS.heading3}
         </ToolbarButton>
       </ToolbarGroup>
 
@@ -211,7 +213,7 @@ export function FormattingToolbar({ editor }: FormattingToolbarProps) {
           tooltip="Bullet List"
           shortcut={formatShortcut(['cmd', 'shift', '8'])}
         >
-          •
+          {FORMATTING_ICONS.bullet}
         </ToolbarButton>
         <ToolbarButton
           isActive={formatState.orderedList}
@@ -219,7 +221,7 @@ export function FormattingToolbar({ editor }: FormattingToolbarProps) {
           tooltip="Numbered List"
           shortcut={formatShortcut(['cmd', 'shift', '7'])}
         >
-          1.
+          {FORMATTING_ICONS.numbered}
         </ToolbarButton>
         <ToolbarButton
           isActive={formatState.taskList}
@@ -227,7 +229,7 @@ export function FormattingToolbar({ editor }: FormattingToolbarProps) {
           tooltip="Task List"
           shortcut={formatShortcut(['cmd', 'shift', '9'])}
         >
-          ☑
+          {FORMATTING_ICONS.task}
         </ToolbarButton>
       </ToolbarGroup>
 
@@ -240,7 +242,7 @@ export function FormattingToolbar({ editor }: FormattingToolbarProps) {
           tooltip="Quote"
           shortcut={formatShortcut(['cmd', 'shift', '.'])}
         >
-          &quot;
+          {FORMATTING_ICONS.quote}
         </ToolbarButton>
         <ToolbarButton
           isActive={formatState.codeBlock}
@@ -248,7 +250,7 @@ export function FormattingToolbar({ editor }: FormattingToolbarProps) {
           tooltip="Code Block"
           shortcut={formatShortcut(['cmd', 'alt', 'c'])}
         >
-          <span className="font-mono text-[10px]">{'{}'}</span>
+          <span className={UI_TOOLBAR_CODE_CLASS}>{FORMATTING_ICONS.code}</span>
         </ToolbarButton>
       </ToolbarGroup>
 
@@ -287,14 +289,12 @@ function ColorControl({
   return (
     <div className="flex items-center">
       <Tooltip content={shortcut ? `${label} (${shortcut})` : label}>
-        <button
+        <Button
           type="button"
           data-testid={`toolbar-${kind}`}
           aria-pressed={isActive}
           onClick={onToggle}
-          className={`px-1.5 py-0.5 rounded text-xs transition-colors ${
-            isActive ? 'bg-accent text-accent-fg' : 'wp-interactive'
-          }`}
+          variant="toolbar-color"
         >
           <span
             className="px-0.5 rounded-[2px]"
@@ -306,7 +306,7 @@ function ColorControl({
           >
             A
           </span>
-        </button>
+        </Button>
       </Tooltip>
       <ColorPalette
         label={isHighlight ? `${label} color` : label}
@@ -332,19 +332,16 @@ function ToolbarButton({ isActive, onClick, tooltip, shortcut, children }: Toolb
 
   return (
     <Tooltip content={label} side="bottom">
-      <button
+      <Button
+        type="button"
         onMouseDown={(event) => event.preventDefault()}
         onClick={onClick}
         aria-pressed={isActive}
         aria-label={tooltip}
-        className={`
-          w-7 h-7 flex items-center justify-center rounded text-xs
-          transition-colors duration-100
-          ${isActive ? 'bg-accent text-accent-fg' : 'text-fg wp-interactive'}
-        `}
+        variant="toolbar-toggle"
       >
         {children}
-      </button>
+      </Button>
     </Tooltip>
   );
 }

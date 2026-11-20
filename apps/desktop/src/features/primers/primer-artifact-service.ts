@@ -60,6 +60,7 @@ export const {
   writeAndProjectPrimerArtifact,
   savePrimerArtifact,
   reconcilePrimerArtifact,
+  restoreSavedPrimerDocument,
   reconcilePrimerArtifactsInWorkspace,
   attachPrimerArtifact,
   readSavedPrimerBindingTarget,

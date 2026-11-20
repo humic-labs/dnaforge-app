@@ -1,3 +1,5 @@
+import { createNativeContactSources } from './contact-sources';
+import { createNativeComparisonSources } from './comparison-sources';
 import { trackViewCommandResultSchema } from '../../shared/track-view-commands';
 import { app } from 'electron';
 import { join } from 'node:path';
@@ -15,7 +17,11 @@ import type { SaveTrackViewRequest } from '../../shared/track-view';
 import { TrackViewLibrary } from '../track-view-library';
 
 export function registerTrackViewIpcHandlers(): void {
-  const library = new TrackViewLibrary(join(app.getPath('userData'), 'Track views'));
+  const library = new TrackViewLibrary(join(app.getPath('userData'), 'Track views'), {
+    db: getDb,
+    comparisons: createNativeComparisonSources(),
+    contacts: createNativeContactSources(),
+  });
   const commands = new TrackViewCommands({
     library,
     resolveProject: async (project) => {

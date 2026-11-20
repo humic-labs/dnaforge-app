@@ -1,16 +1,20 @@
 import type Database from 'better-sqlite3';
+import { canonicalPrimerProjectionSql } from './primer-authority-sql';
 
 const guardedDatabases = new WeakSet<Database.Database>();
 const activeRendererStatements = new WeakSet<Database.Database>();
 
 export function installRendererEntitySqlGuard(db: Database.Database): void {
   if (guardedDatabases.has(db)) return;
+  db.pragma('recursive_triggers = ON');
   db.function('dnaforge_renderer_entity_sql', () => (activeRendererStatements.has(db) ? 1 : 0));
   for (const [table, identityColumns] of [
     ['catalog_entities', '*'],
     ['catalog_entity_files', '*'],
     ['catalog_entity_links', '*'],
     ['catalog_entity_events', '*'],
+    ['retained_file_source_revisions', '*'],
+    ['retained_file_publication_witnesses', '*'],
     ['catalog_provider_bindings', '*'],
     ['catalog_workspace_placements', '*'],
     ['indexed_files', '*'],
@@ -18,6 +22,9 @@ export function installRendererEntitySqlGuard(db: Database.Database): void {
     ['workspaces', 'id,name,path,repo_uuid,origin_path,access_mode,archived_at,trashed_at'],
     ['pages', '*'],
     ['entity_projection_sources', '*'],
+    ['notebook_reference_projections', '*'],
+    ['notebook_reference_occurrences', '*'],
+    ['notebook_saved_reference_retention', '*'],
     ['entity_references', '*'],
     ['entity_reference_revisions', '*'],
   ]) {
@@ -49,12 +56,6 @@ export function installRendererEntitySqlGuard(db: Database.Database): void {
       BEFORE ${operation} ON main.${name} WHEN dnaforge_renderer_entity_sql()=1
       BEGIN SELECT RAISE(ABORT, '${reason}'); END;`);
   }
-  const canonical = (
-    id: string,
-    details: string
-  ) => `(COALESCE(CASE WHEN json_valid(${details}) THEN json_extract(${details},'$.authority') END,'')='primer_artifact'
-    OR EXISTS(SELECT 1 FROM catalog_entities WHERE id=${id} AND type='primer')
-    OR EXISTS(SELECT 1 FROM lims_entity WHERE id=${id} AND kind IN ('oligo','rna_oligo')))`;
   db.exec(`CREATE TEMP TRIGGER dnaforge_renderer_legacy_primer_creation
     BEFORE INSERT ON main.primers WHEN dnaforge_renderer_entity_sql()=1
     BEGIN SELECT RAISE(ABORT, 'PRIMER_CREATION_REQUIRES_NATIVE_COMMAND'); END;
@@ -64,6 +65,17 @@ export function installRendererEntitySqlGuard(db: Database.Database): void {
     BEGIN SELECT RAISE(ABORT, 'PRIMER_IDENTITY_REQUIRES_NATIVE_COMMAND'); END;`);
   const writableLegacyOwner = (owner: string) =>
     `(${owner} IS NULL OR EXISTS(SELECT 1 FROM workspaces WHERE id=${owner} AND access_mode='writable' AND archived_at IS NULL AND trashed_at IS NULL))`;
+  const bindingPrimer = '(SELECT origin_details FROM primers WHERE id=OLD.primer_id)';
+  const bindingWorkspace = '(SELECT workspace_id FROM primers WHERE id=OLD.primer_id)';
+  for (const [table, primerId, details, owner] of [
+    ['primers', 'OLD.id', 'OLD.origin_details', 'OLD.workspace_id'],
+    ['primer_bindings', 'OLD.primer_id', bindingPrimer, bindingWorkspace],
+  ]) {
+    db.exec(`CREATE TEMP TRIGGER dnaforge_renderer_legacy_${table}_deletion
+      BEFORE DELETE ON main.${table} WHEN dnaforge_renderer_entity_sql()=1
+        AND ${writableLegacyOwner(owner)} AND NOT ${canonicalPrimerProjectionSql(primerId, details)}
+      BEGIN SELECT RAISE(ABORT, 'PRIMER_DELETION_REQUIRES_NATIVE_COMMAND'); END;`);
+  }
   for (const operation of ['UPDATE', 'DELETE'])
     db.exec(`CREATE TEMP TRIGGER dnaforge_renderer_legacy_primer_owner_${operation.toLowerCase()}
     BEFORE ${operation} ON main.primers WHEN dnaforge_renderer_entity_sql()=1 AND NOT ${writableLegacyOwner('OLD.workspace_id')}
@@ -76,16 +88,17 @@ export function installRendererEntitySqlGuard(db: Database.Database): void {
     BEFORE INSERT ON main.primer_bindings WHEN dnaforge_renderer_entity_sql()=1 AND EXISTS(SELECT 1 FROM primer_bindings WHERE id=NEW.id)
     BEGIN SELECT RAISE(ABORT, 'PRIMER_BINDING_REPLACEMENT_REQUIRES_NATIVE_COMMAND'); END;`);
   for (const operation of ['INSERT', 'UPDATE', 'DELETE']) {
-    const old = operation === 'INSERT' ? '0' : canonical('OLD.id', 'OLD.origin_details');
+    const old =
+      operation === 'INSERT' ? '0' : canonicalPrimerProjectionSql('OLD.id', 'OLD.origin_details');
     const next =
       operation === 'DELETE'
         ? '0'
-        : `(${canonical('NEW.id', 'NEW.origin_details')} OR ${canonical('NEW.id', '(SELECT origin_details FROM primers WHERE id=NEW.id)')})`;
+        : `(${canonicalPrimerProjectionSql('NEW.id', 'NEW.origin_details')} OR ${canonicalPrimerProjectionSql('NEW.id', '(SELECT origin_details FROM primers WHERE id=NEW.id)')})`;
     db.exec(`CREATE TEMP TRIGGER dnaforge_renderer_canonical_primers_${operation.toLowerCase()}
       BEFORE ${operation} ON main.primers WHEN dnaforge_renderer_entity_sql()=1 AND (${old} OR ${next})
       BEGIN SELECT RAISE(ABORT, 'CANONICAL_PRIMER_REQUIRES_NATIVE_COMMAND'); END;`);
     const bindingOwner = (prefix: string) =>
-      `(${canonical(`${prefix}.primer_id`, `(SELECT origin_details FROM primers WHERE id=${prefix}.primer_id)`)} )`;
+      `(${canonicalPrimerProjectionSql(`${prefix}.primer_id`, `(SELECT origin_details FROM primers WHERE id=${prefix}.primer_id)`)} )`;
     const oldBinding = operation === 'INSERT' ? '0' : bindingOwner('OLD');
     const nextBinding = operation === 'DELETE' ? '0' : bindingOwner('NEW');
     db.exec(`CREATE TEMP TRIGGER dnaforge_renderer_canonical_bindings_${operation.toLowerCase()}
@@ -105,6 +118,8 @@ export function withRendererEntitySql<T>(
   sql: string,
   operation: () => T
 ): T {
+  if (/\bsaved_entity_row_versions\b/iu.test(sql))
+    throw new Error('Saved entity history requires its native recovery command.');
   if (/\b(?:CREATE|DROP|ALTER|ATTACH|DETACH|PRAGMA|VACUUM|REINDEX)\b/iu.test(sql))
     throw new Error('Renderer database statements cannot change database schema or authority.');
   installRendererEntitySqlGuard(db);

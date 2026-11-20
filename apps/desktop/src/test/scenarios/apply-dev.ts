@@ -591,6 +591,7 @@ async function applyResolvedDevScenarioPreset(
         await applyStreamedInlineReferenceText(scenario);
       }
     }
+    await preset.afterApply?.();
     activeDevScenarioPresetId = preset.id;
     if (!preset.noAutoReplay) {
       recordLastAppliedDevScenarioPreset(preset.id);

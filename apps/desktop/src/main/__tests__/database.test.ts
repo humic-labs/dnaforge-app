@@ -115,7 +115,7 @@ describe('database IPC helpers', () => {
     return { input, workspaceRoot, path };
   }
 
-  it('refuses the actual retirement SQL for a registered primer while retaining unregistered retirement', async () => {
+  it('refuses raw retirement SQL for both registered and unregistered primers', async () => {
     const { input } = await retainedPrimerProjection();
     registerDatabaseHandlers(() => db);
     const execute = new Map(vi.mocked(ipcMain.handle).mock.calls).get('db:execute');
@@ -140,10 +140,11 @@ describe('database IPC helpers', () => {
     db.prepare(
       `INSERT INTO primers (${columns.join(',')}) VALUES (${columns.map(() => '?').join(',')})`
     ).run(...columns.map((column) => other[column as keyof typeof other]));
-    expect(await Reflect.apply(execute, undefined, [event, sql, [other.id, 7]])).toMatchObject({
-      changes: 1,
-    });
-    expect(db.prepare('SELECT * FROM primers ORDER BY id').all()).toEqual(before);
+    await expect(async () =>
+      Reflect.apply(execute, undefined, [event, sql, [other.id, 7]])
+    ).rejects.toThrow('PRIMER_DELETION_REQUIRES_NATIVE_COMMAND');
+    expect(db.prepare('SELECT * FROM primers WHERE id = ?').get(other.id)).toEqual(other);
+    expect(db.prepare('SELECT * FROM primers WHERE id = ?').get(input.id)).toEqual(before[0]);
   });
 
   it('refuses renderer projection replacement for a registered primer before changing any legacy state', async () => {

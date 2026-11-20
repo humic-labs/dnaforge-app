@@ -1,15 +1,17 @@
+import {
+  namedEntityTypePresentation,
+  resolveNamedEntityType,
+} from '@waypoint/scientific-artifacts/shared/entity-types';
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { memo, useCallback, useMemo } from 'react';
 
 import { EntityReferenceChip } from '../../../../components/entity-reference/EntityReferenceChip';
-import { iconForEntityKind } from '../../../../components/icons/entity-icon-registry';
 import { readMentionReference } from '../../../../shared/notebook-reference';
 import { parseWorkTaskReferenceHref } from '../../../../shared/work-task-reference';
 import { WorkTaskReferenceChip } from './WorkTaskReferenceChip';
 import { SavedReferenceChip } from './SavedReferenceChip';
 import { ProjectResourceReferenceChip } from './ProjectResourceReferenceChip';
 import { isProjectResourceReferenceHref } from '../../../../shared/project-resource-reference';
-import { registryKindIconKind, registryKindLabel } from '../lib/registry-kind';
 
 export interface MentionChipIntent {
   entityType: string;
@@ -65,12 +67,8 @@ function WorkspaceMentionChip({ node, extension }: NodeViewProps) {
 
   const localOnly = !portablePath && Boolean(intent.entityId);
   const registryKind = typeof node.attrs.registryKind === 'string' ? node.attrs.registryKind : null;
-  const registryIcon = useMemo(
-    () =>
-      intent.entityType === 'registry'
-        ? iconForEntityKind(registryKindIconKind(registryKind), 'h-3.5 w-3.5')
-        : undefined,
-    [intent.entityType, registryKind]
+  const fallbackType = namedEntityTypePresentation(
+    resolveNamedEntityType({ type: intent.entityType, registryKind })
   );
 
   const open = useCallback(() => {
@@ -109,8 +107,11 @@ function WorkspaceMentionChip({ node, extension }: NodeViewProps) {
     >
       <EntityReferenceChip
         entityType={intent.entityType}
-        kindLabel={intent.entityType === 'registry' ? registryKindLabel(registryKind) : undefined}
-        iconOverride={registryIcon}
+        kindLabel={fallbackType.kindLabel}
+        iconKind={fallbackType.iconKind}
+        typeLookup={
+          intent.entityId ? { entityId: intent.entityId, projectId: intent.projectId } : undefined
+        }
         iconContext={{
           kind: registryKind ?? intent.entityType,
           path: portablePath ?? intent.path ?? undefined,

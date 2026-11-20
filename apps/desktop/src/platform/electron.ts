@@ -1,3 +1,4 @@
+import { entityDiscoveryContract } from '../shared/ipc/entity-discovery.contract';
 import { notebookContract } from '../shared/ipc/notebook.contract';
 import { importReviewContract } from '../shared/ipc/import-review.contract';
 import { administrationContract } from '../shared/ipc/administration.contract';
@@ -888,6 +889,7 @@ export const electronBridge: PlatformBridge = {
     },
   },
   importReview: forwardGroup(importReviewContract, () => api().importReview),
+  entityDiscovery: forwardGroup(entityDiscoveryContract, () => api().entityDiscovery),
   notebook: forwardGroup(notebookContract, () => api().notebook),
   administration: forwardGroup(administrationContract, () => api().administration),
   lims: {

@@ -153,6 +153,12 @@ export interface CatalogProjectionClearResult {
   events: number;
 }
 
+export const CATALOG_RESET_RETAINED_MESSAGE =
+  'Recovery requires an empty workspace catalog. The populated catalog and its history were preserved.';
+
+export const CATALOG_ROLLBACK_RETAINED_MESSAGE =
+  'The catalog entity was already committed. Its record and file were preserved.';
+
 export interface CatalogEntityRollbackRequest {
   entityId: string;
   path: string;

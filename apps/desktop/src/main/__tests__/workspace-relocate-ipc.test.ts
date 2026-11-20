@@ -20,7 +20,11 @@ import { createTestDb } from './test-db';
 import { ensureSchema } from '../schema';
 import { registerLimsEntityInDb } from '../lims';
 import { bindCatalogEntityFileInDb } from '../catalog-file-binding';
-import { buildPrimerArtifact, serializePrimerArtifact } from '../../shared/primers/primer-artifact';
+import {
+  buildPrimerArtifact,
+  serializePrimerArtifact,
+  readBoundPrimerArtifact,
+} from '../../shared/primers/primer-artifact';
 import {
   acquireWorkspaceMutationShared,
   acquireWorkspaceSyncMutationLease,
@@ -53,7 +57,21 @@ vi.mock('../lims-export-sync', () => ({
   materializeLimsGitExportForWorkspaceIds: (...args: unknown[]) => materializeSpy(...args),
 }));
 
-const hoisted = vi.hoisted(() => ({ forceThrow: null as Error | null }));
+const hoisted = vi.hoisted(() => ({
+  forceThrow: null as Error | null,
+  afterMovePreparation: vi.fn(),
+}));
+vi.mock('../primer-file-move-intent', async (original) => {
+  const actual = await original<typeof import('../primer-file-move-intent')>();
+  return {
+    ...actual,
+    preparePrimerFileMove: async (...args: Parameters<typeof actual.preparePrimerFileMove>) => {
+      const intent = await actual.preparePrimerFileMove(...args);
+      hoisted.afterMovePreparation();
+      return intent;
+    },
+  };
+});
 vi.mock('../workspace-relocate', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../workspace-relocate')>();
   return {
@@ -157,6 +175,7 @@ describe('relocateEntityFile IPC orchestration', () => {
 
   beforeEach(() => {
     hoisted.forceThrow = null;
+    hoisted.afterMovePreparation.mockReset();
     materializeSpy.mockClear();
     testDb = createTestDb();
     testDb.pragma('foreign_keys = ON');
@@ -172,7 +191,7 @@ describe('relocateEntityFile IPC orchestration', () => {
     testDb.close();
   });
 
-  async function enrolledPrimer(indirect = false) {
+  async function savedPrimer({ indirect = false, enroll = true } = {}) {
     const id = randomUUID();
     const path = join(ws, 'primers', 'registered.primer.json');
     mkdirSync(join(ws, 'primers'));
@@ -237,28 +256,29 @@ describe('relocateEntityFile IPC orchestration', () => {
       fileKind: 'primer-artifact',
     });
 
-    testDb
-      .prepare(
-        `INSERT INTO org_registry_local_records
+    if (enroll)
+      testDb
+        .prepare(
+          `INSERT INTO org_registry_local_records
       (org_id,account_id,entity_id,client_id,workspace_id,workspace_uuid,home_workspace_id,
       kind,local_schema_revision_id,authority_kind,schema_id,schema_revision_id,
       claim_mutation_id,claim_source_revision,claim_local_event_seq,created_at,updated_at)
       VALUES(?,?,?,?,1,?,?,'oligo',?,'primer_artifact',?,?,?,?,?,1,1)`
-      )
-      .run(
-        randomUUID(),
-        randomUUID(),
-        id,
-        randomUUID(),
-        randomUUID(),
-        randomUUID(),
-        entity.schemaRevisionId,
-        randomUUID(),
-        randomUUID(),
-        randomUUID(),
-        'a'.repeat(64),
-        entity.eventSeq
-      );
+        )
+        .run(
+          randomUUID(),
+          randomUUID(),
+          id,
+          randomUUID(),
+          randomUUID(),
+          randomUUID(),
+          entity.schemaRevisionId,
+          randomUUID(),
+          randomUUID(),
+          randomUUID(),
+          'a'.repeat(64),
+          entity.eventSeq
+        );
     materializeSpy.mockClear();
     return { id, path, bytes };
   }
@@ -273,7 +293,7 @@ describe('relocateEntityFile IPC orchestration', () => {
     });
 
   it('refuses moving a folder containing a registered primer before files or journals change', async () => {
-    const primer = await enrolledPrimer();
+    const primer = await savedPrimer();
     const before = retainedPrimerState();
     await expect(
       relocateEntityFile({
@@ -292,7 +312,7 @@ describe('relocateEntityFile IPC orchestration', () => {
   });
 
   it('refuses a target move that would rewrite a registered primer legacy reference', async () => {
-    const primer = await enrolledPrimer(true);
+    const primer = await savedPrimer({ indirect: true });
     const before = retainedPrimerState();
     await expect(relocateEntityFile({ workspaceRoot: ws, oldPath, newPath })).rejects.toThrow(
       /registered with an organization/
@@ -305,7 +325,7 @@ describe('relocateEntityFile IPC orchestration', () => {
   });
 
   it('refuses relinking a missing registered primer without reversing the external move', async () => {
-    const primer = await enrolledPrimer();
+    const primer = await savedPrimer();
     const moved = join(ws, 'external.primer.json');
     renameSync(primer.path, moved);
     testDb
@@ -323,7 +343,7 @@ describe('relocateEntityFile IPC orchestration', () => {
   it.skipIf(process.platform === 'win32')(
     'refuses moving a registered primer through a directory alias',
     async () => {
-      const primer = await enrolledPrimer();
+      const primer = await savedPrimer();
       const alias = join(ws, 'alias');
       symlinkSync(join(ws, 'primers'), alias, 'dir');
       const before = retainedPrimerState();
@@ -562,6 +582,60 @@ describe('relocateEntityFile IPC orchestration', () => {
     expect(existsSync(oldPath)).toBe(true);
   });
 
+  it('preserves a destination claimed after preflight and retries with the same catalog identity', async () => {
+    seedCatalogFile(testDb, oldPath);
+    const original = readFileSync(oldPath);
+    const occupant = Buffer.from('another writer');
+    hoisted.afterMovePreparation.mockImplementationOnce(() =>
+      writeFileSync(newPath, occupant, { flag: 'wx' })
+    );
+    await expect(relocateEntityFile({ workspaceRoot: ws, oldPath, newPath })).rejects.toThrow(
+      'MOVE_EXISTS'
+    );
+    expect(readFileSync(newPath)).toEqual(occupant);
+    expect(readFileSync(oldPath)).toEqual(original);
+    expect(catalogPath(testDb, oldPath)).toBe(oldPath);
+    const parked = join(ws, 'other-writer.gb');
+    renameSync(newPath, parked);
+    await expect(
+      relocateEntityFile({ workspaceRoot: ws, oldPath, newPath })
+    ).resolves.toMatchObject({ newPath });
+    expect(readFileSync(parked)).toEqual(occupant);
+    expect(readFileSync(newPath)).toEqual(original);
+    expect(existsSync(oldPath)).toBe(false);
+    expect(catalogPath(testDb, oldPath)).toBe(newPath);
+  });
+  it('settles only the unexecuted primer move when its destination is claimed and can retry it', async () => {
+    const primer = await savedPrimer({ enroll: false });
+    const relativePath = 'primers/renamed.primer.json';
+    const destination = join(ws, relativePath);
+    const pending = () =>
+      testDb
+        .prepare(
+          "SELECT p.operation_id FROM native_catalog_publication_outbox p JOIN catalog_entity_events e ON e.id=p.operation_id WHERE e.entity_id=? AND e.event_type='primer_file_move_prepared'"
+        )
+        .all(primer.id);
+    hoisted.afterMovePreparation.mockImplementationOnce(() => {
+      expect(pending()).toHaveLength(1);
+      writeFileSync(destination, 'intervening file', { flag: 'wx' });
+    });
+    const input = { workspaceRoot: ws, oldPath: primer.path, newPath: destination };
+    await expect(relocateEntityFile(input)).rejects.toThrow('MOVE_EXISTS');
+    expect(pending()).toEqual([]);
+    expect(readFileSync(destination, 'utf8')).toBe('intervening file');
+    expect(readFileSync(primer.path, 'utf8')).toBe(primer.bytes);
+    renameSync(destination, join(ws, 'intervening-file'));
+    await expect(relocateEntityFile(input)).resolves.toMatchObject({ newPath: destination });
+    expect(pending()).toEqual([]);
+    expect(
+      readBoundPrimerArtifact(readFileSync(destination, 'utf8'), relativePath, primer.id).id
+    ).toBe(primer.id);
+    expect(
+      testDb
+        .prepare("SELECT path FROM catalog_entity_files WHERE entity_id=? AND status='current'")
+        .all(primer.id)
+    ).toEqual([{ path: destination }]);
+  });
   it('(c) preflight rejects a uniqueness-violating move BEFORE moving (another active owner at newPath)', async () => {
     registerLimsEntityInDb(testDb, {
       workspaceId: 1,

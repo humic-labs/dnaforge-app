@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { clearMockData, setFileTree, setMockFileContent } from '../test/platform-mocks';
+import {
+  clearMockData,
+  seedMockData,
+  setFileTree,
+  setMockFileContent,
+} from '../test/platform-mocks';
 import { initializeTestSchema } from '../test/initializeTestSchema';
 import { expectNoProjectMemoryFilesWritten } from '../test/project-memory-guards';
 import {
@@ -39,7 +44,23 @@ describe('project memory catalog projection', () => {
       context: { targetPath: '/lab', targetKind: 'folder', parentPath: '/lab' },
     });
 
-    await clearCatalogProjectionForWorkspaceRoot('/lab');
+    const committed = await getCatalogEntity('design-rebuild');
+    await expect(clearCatalogProjectionForWorkspaceRoot('/lab')).rejects.toThrow(
+      /populated catalog/i
+    );
+    for (const clearExisting of [true, false])
+      await expect(
+        rebuildWorkspaceCatalogProjection({ workspaceRoot: '/lab', clearExisting })
+      ).rejects.toThrow(/populated catalog/i);
+    expect(await getCatalogEntity('design-rebuild')).toEqual(committed);
+    for (const table of [
+      'catalog_entity_files',
+      'catalog_entity_links',
+      'catalog_entity_events',
+      'catalog_entities',
+    ]) {
+      seedMockData(table, []);
+    }
     expect(await getCatalogEntity('design-rebuild')).toBeNull();
     expect(await getCatalogEntityForFilePath('/lab/Rebuild Design.wpdesign.json')).toBeNull();
 

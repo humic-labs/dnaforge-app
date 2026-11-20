@@ -1,3 +1,4 @@
+import { entityPickerResult } from '../entity-picker-result';
 import { createElement } from 'react';
 import { embedRegistry } from '../registry';
 import { SequencePicker } from './Picker';
@@ -23,6 +24,7 @@ export const sequenceCommand: SlashCommandDefinition = {
     ],
     size: 'md',
     onComplete: (data) => {
+      if (data.entity) return entityPickerResult(data.entity);
       if (!data.sequenceName || typeof data.sequenceName !== 'string') {
         throw new Error('Invalid picker data: missing or invalid sequenceName');
       }

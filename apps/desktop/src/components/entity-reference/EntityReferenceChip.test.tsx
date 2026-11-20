@@ -49,11 +49,7 @@ describe('EntityReferenceChip', () => {
             .filter((name) => name.startsWith('entity-reference-chip__'))
             .join('.')}`
       )
-    ).toEqual([
-      'SPAN.entity-reference-chip__icon',
-      'SPAN.entity-reference-chip__kind',
-      'SPAN.entity-reference-chip__label',
-    ]);
+    ).toEqual(['SPAN.entity-reference-chip__icon', 'SPAN.entity-reference-chip__label']);
   });
   it('uses a registered SVG icon before the extension-free label', () => {
     render(<EntityReferenceChip entityType="sequence" label="pUC19.gb" detail="pUC19/pUC19.gb" />);
@@ -61,6 +57,8 @@ describe('EntityReferenceChip', () => {
     const chip = screen.getByTestId('entity-reference-chip');
     expect(screen.getByTestId('entity-reference-chip-label')).toHaveTextContent('pUC19');
     expect(chip.querySelector('svg')).not.toBeNull();
+    expect(chip.textContent).toBe('pUC19');
+    expect(chip).toHaveAccessibleName('pUC19, Sequence');
     expect(chip.textContent).not.toContain('🧬');
     expect(chip.firstElementChild?.classList.contains('entity-reference-chip__icon')).toBe(true);
   });
@@ -97,7 +95,7 @@ describe('EntityReferenceChip', () => {
 
     fireEvent.mouseEnter(screen.getByTestId('entity-reference-chip'));
     const detail = screen.getByTestId('entity-reference-chip-detail');
-    expect(detail).toHaveTextContent('1FS0 · Structure');
+    expect(detail).toHaveTextContent('1FS0 · File');
     expect(detail).not.toHaveTextContent('structure:');
   });
 

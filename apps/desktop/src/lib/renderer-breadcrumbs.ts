@@ -16,6 +16,21 @@ const CONTEXT_VALUES: Readonly<Record<string, ReadonlySet<string>>> = {
   reason: new Set(['owner-not-unique', 'owner-returned-false']),
 };
 
+export interface SampleRegistrationBreadcrumb {
+  method: 'createSampleInstance' | 'importManaged' | 'ensureWorkspaceOwner';
+  correlation: string;
+  phase: 'start' | 'completed' | 'error';
+  duration_ms: number;
+}
+
+let sampleRegistrationRecorder: ((span: SampleRegistrationBreadcrumb) => void) | undefined;
+
+export function recordSampleRegistrationBreadcrumb(span: SampleRegistrationBreadcrumb): void {
+  try {
+    sampleRegistrationRecorder?.(span);
+  } catch {}
+}
+
 export interface BreadcrumbBuffer {
   push(line: string): void;
   snapshot(): string[];
@@ -117,6 +132,17 @@ export function installBreadcrumbCapture(target: Window = window): () => void {
     }, FLUSH_DELAY_MS);
   };
 
+  const previousSampleRecorder = sampleRegistrationRecorder;
+  const recordSample = (span: SampleRegistrationBreadcrumb): void => {
+    buffer.push(
+      redactTelemetryText(
+        `sample_registration method=${span.method} correlation=${span.correlation} phase=${span.phase} duration_ms=${span.duration_ms}`
+      ).slice(0, MAX_LINE_CHARS)
+    );
+    scheduleFlush();
+  };
+  sampleRegistrationRecorder = recordSample;
+
   const originals: Partial<Record<'warn' | 'error', (...args: unknown[]) => void>> = {};
 
   const wrap = (level: 'warn' | 'error'): void => {
@@ -148,6 +174,8 @@ export function installBreadcrumbCapture(target: Window = window): () => void {
   target.addEventListener('pagehide', flushNow);
 
   return () => {
+    if (sampleRegistrationRecorder === recordSample)
+      sampleRegistrationRecorder = previousSampleRecorder;
     if (flushTimer) clearTimeout(flushTimer);
     target.removeEventListener('pagehide', flushNow);
     if (originals.warn) console.warn = originals.warn;

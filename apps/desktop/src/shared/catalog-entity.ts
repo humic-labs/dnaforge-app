@@ -1,25 +1,16 @@
-export const CATALOG_ENTITY_TYPES = [
-  'track-view',
-  'molecular-document',
+import type { CatalogEntityType } from '@waypoint/scientific-artifacts/shared/entity-types';
+
+export {
+  CATALOG_ENTITY_TYPES,
+  type CatalogEntityType,
+} from '@waypoint/scientific-artifacts/shared/entity-types';
+
+export const SEQUENCE_DOCUMENT_ENTITY_TYPES = [
   'sequence',
-  'primer',
-  'notebook',
-  'design',
-  'alignment',
-  'trace',
-  'report',
   'construct',
-  'sample',
-  'record',
-  'selection',
-  'structure',
-  'protein',
-  'protocol',
-  'protocol_run',
-  'file',
-  'folder',
-] as const;
-export type CatalogEntityType = (typeof CATALOG_ENTITY_TYPES)[number];
+  'trace',
+] as const satisfies readonly CatalogEntityType[];
+export type SequenceDocumentEntityType = (typeof SEQUENCE_DOCUMENT_ENTITY_TYPES)[number];
 
 export const CATALOG_RECORD_PRESENTATION_KINDS = ['strain', 'sequence', 'record'] as const;
 export type CatalogRecordPresentationKind = (typeof CATALOG_RECORD_PRESENTATION_KINDS)[number];

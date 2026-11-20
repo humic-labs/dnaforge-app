@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+import { stageSavedFileMembers } from './saved-file-sources';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import type Database from 'better-sqlite3';
@@ -911,6 +913,20 @@ export async function recoverEntityArtifactPublications(
             'Registry record changed after its save committed; later data was preserved.'
           );
       });
+      const owner = {
+        workspaceId: intent.workspaceId,
+        entityId: intent.result.id,
+        path: join(intent.workspacePath, intent.relativePath),
+      };
+      const [retainPrior, retainPublished] = await Promise.all(
+        [intent.beforeBytes, intent.afterBytes].map((text) =>
+          stageSavedFileMembers(input.db, {
+            ...owner,
+            members: [{ relativePath: '', bytes: Buffer.from(text) }],
+          })
+        )
+      );
+      input.runDatabase(retainPrior);
       await publishNativeCatalogBytes({
         workspacePath: intent.workspacePath,
         relativePath: intent.relativePath,
@@ -926,6 +942,7 @@ export async function recoverEntityArtifactPublications(
               'Registry record changed during publication; later data was preserved.'
             );
           }
+          retainPublished();
           settlePublishedProjection(input.db, current, intent.relativePath);
           insertAuditEvent(input.db, {
             eventType: COMPLETE,
@@ -1010,6 +1027,56 @@ function assertArtifactOwnerWritable(db: Database.Database, workspaceId: number)
     throw new Error(
       'The project that owns this record must be active and writable before its file can change.'
     );
+  }
+}
+
+export async function retainHistoricalRegistryFileSources(
+  db: Database.Database,
+  input: {
+    workspaceId: number | null;
+    entityId: string;
+    assertCurrent(): void;
+  }
+): Promise<void> {
+  const events = db
+    .prepare(
+      `SELECT operation_id, created_at FROM lims_audit
+    WHERE event_type=? AND subject_table='lims_entity' AND subject_id=? AND workspace_id IS ? ORDER BY event_seq DESC`
+    )
+    .all(COMPLETE, input.entityId, input.workspaceId) as Array<{
+    operation_id: string;
+    created_at: number;
+  }>;
+  if (!events.length) return;
+  const exists = db.prepare(
+    `SELECT 1 FROM retained_file_source_revisions WHERE workspace_id IS ? AND entity_id=? AND status='committed' AND json_extract(manifest_json,'$.members[0].sha256')=? LIMIT 1`
+  );
+  let verified = false;
+  for (const event of events) {
+    input.assertCurrent();
+    const intent = readIntent(db, event.operation_id);
+    if (!intent || intent.workspaceId !== input.workspaceId || intent.result.id !== input.entityId)
+      throw new Error('The completed Registry publication and its source disagree.');
+    for (const [bytes, historicalAt] of [
+      [intent.afterBytes, event.created_at],
+      [intent.beforeBytes, event.created_at - 1],
+    ] as const) {
+      if (exists.get(input.workspaceId, input.entityId, digest(bytes))) continue;
+      if (!verified) {
+        if (!verifyLimsAuditHashChainInDb(db).ok)
+          throw new Error('Registry source history failed its integrity check.');
+        verified = true;
+      }
+      const retain = await stageSavedFileMembers(db, {
+        workspaceId: input.workspaceId,
+        entityId: input.entityId,
+        path: join(intent.workspacePath, intent.relativePath),
+        historicalAt,
+        members: [{ relativePath: '', bytes: Buffer.from(bytes) }],
+      });
+      input.assertCurrent();
+      retain();
+    }
   }
 }
 

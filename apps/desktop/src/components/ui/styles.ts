@@ -2,7 +2,6 @@ import { INTERACTION_CLASS } from '@waypoint/ui-components';
 export const UI_PROSE_WRAP_CLASS = 'min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]';
 export const UI_ENTITY_REFERENCE_CHIP_CLASS =
   'px-[calc(0.3em+1px)] py-[calc(0.1em+1px)] text-[0.875rem] font-medium leading-[1.25rem] [transition:background-color_0.15s_ease]';
-export const UI_ENTITY_REFERENCE_KIND_CLASS = 'shrink-0 text-[10px] font-medium text-fg-muted';
 export const UI_PAGE_TITLE_CLASS = 'text-3xl font-bold tracking-tight text-fg';
 export const UI_SUBSECTION_TITLE_CLASS = 'text-xl font-semibold tracking-tight text-fg';
 export const UI_SUBSECTION_DESCRIPTION_CLASS = 'mt-1.5 text-sm leading-5 text-fg-muted';
@@ -79,6 +78,15 @@ export const UI_LINK_BUTTON_CLASS =
   'rounded text-left underline decoration-dotted underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50';
 export const UI_READONLY_FIELD_CLASS =
   'h-10 w-full min-w-0 rounded-md border border-transparent bg-black/[0.025] px-3 text-sm text-fg-muted focus:border-accent focus:outline-none dark:bg-white/[0.035]';
+export const UI_TOOLBAR_SELECT_TRIGGER_CLASS =
+  'h-7 flex items-center justify-center gap-1 rounded px-1.5 text-xs text-fg transition-none hover:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50';
+
+export const UI_LIST_ACTION_CLASS = `${INTERACTION_CLASS} flex w-full items-center gap-2 px-4 py-2 text-left`;
+export const UI_TOOLBAR_CODE_CLASS = 'font-mono text-[10px]';
+export function toolbarToggleClass(active: boolean, compact: boolean): string {
+  const shape = compact ? 'px-1.5 py-0.5' : 'flex size-7 items-center justify-center';
+  return `${shape} rounded text-xs transition-none ${active ? 'bg-accent text-accent-fg' : `text-fg ${INTERACTION_CLASS}`}`;
+}
 
 export const UI_SEGMENTED_SURFACE_CLASS = 'flex rounded-md bg-bg-muted p-0.5';
 export function segmentedOptionClass(selected: boolean): string {

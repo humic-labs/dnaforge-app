@@ -51,7 +51,7 @@ export interface MenuSurfaceProps extends Omit<
 > {
   density?: MenuDensity;
   content?: 'menu' | 'panel' | 'form';
-  surface?: 'default' | 'workspace';
+  surface?: 'default' | 'workspace' | 'inline-workspace';
   selection?: boolean;
   icons?: boolean;
   shortcuts?: boolean;

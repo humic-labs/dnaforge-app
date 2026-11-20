@@ -114,6 +114,62 @@ describe('useNotebookFileWatcher', () => {
     );
   });
 
+  it.each([true, false])(
+    'reports a revoked reload only if the document survives navigation (departed=%s)',
+    async (departed) => {
+      let rejectReload!: (error: Error) => void;
+      const pending = new Promise<void>((_, reject) => {
+        rejectReload = reject;
+      });
+      withWorkspaceArtifactOpen.mockReturnValueOnce(pending);
+      const { result, unmount } = renderHook(() =>
+        useNotebookFileWatcher({
+          pageId: 'page-1',
+          workspaceRoot: '/workspace',
+          isDirty: false,
+        })
+      );
+      await waitFor(() => expect(withWorkspaceArtifactOpen).toHaveBeenCalledOnce());
+      act(() => {
+        window.dispatchEvent(new Event('beforeunload'));
+      });
+      if (departed)
+        act(() => {
+          window.dispatchEvent(new PageTransitionEvent('pagehide'));
+        });
+      await act(async () => {
+        rejectReload(new Error('WORKSPACE_MUTATION_TOKEN_INVALID'));
+      });
+      expect(result.current.showExternalReloadError).toBe(!departed);
+      if (departed) {
+        expect(unwatchFile).toHaveBeenCalledOnce();
+        expect(trackRendererEvent).not.toHaveBeenCalled();
+      }
+      unmount();
+    }
+  );
+
+  it('reinstalls a failed native watch before Retry reports the notebook current', async () => {
+    watchFile.mockRejectedValueOnce(new Error('Native watch registration failed'));
+    const onReload = vi.fn();
+    const { result } = renderHook(() =>
+      useNotebookFileWatcher({
+        pageId: 'page-1',
+        workspaceRoot: '/workspace',
+        isDirty: false,
+        onReload,
+      })
+    );
+    await waitFor(() => expect(result.current.state).toBe('reload-unavailable'));
+    act(() => result.current.retryExternalReload());
+    await waitFor(() => expect(result.current.state).toBe('current'));
+    expect(watchFile).toHaveBeenCalledTimes(2);
+    markdown = 'later external edit';
+    resolveArtifactFile.mockResolvedValueOnce(resolvedNotebook(markdown, markdown));
+    act(() => listeners.forEach((listener) => listener('/workspace/Notebook/Notebook.md')));
+    await waitFor(() => expect(onReload).toHaveBeenLastCalledWith(notebookContent(markdown)));
+  });
+
   it('retries target discovery when workspace reconciliation publishes the binding', async () => {
     getCurrentCatalogFileForEntity.mockResolvedValueOnce(null).mockResolvedValue({
       path: '/workspace/Notebook',

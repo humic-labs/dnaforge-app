@@ -1,3 +1,4 @@
+import { registerEntityDiscoveryHandlers } from './entity-discovery';
 import { recoverComputeResult } from '../workspace-git/compute-result-recovery';
 import { configContract } from '../../shared/ipc/config.contract';
 import { registerGoogleSheetsHandlers } from './google-sheets';
@@ -179,6 +180,7 @@ export function registerAllIpcHandlers(deps: RegisterAllIpcHandlersDeps = {}): v
   });
 
   registerDatabaseHandlers();
+  registerEntityDiscoveryHandlers();
   registerFilesystemHandlers();
   registerScientificDocumentHandlers();
   registerScientificObjectHandlers();

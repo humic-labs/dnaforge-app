@@ -1,9 +1,10 @@
 import { EventEmitter } from 'node:events';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import { createTestDb } from './__tests__/test-db';
 import {
   acquireWorkspaceSyncDatabaseFence,
+  assertCommittedDatabaseReadAllowed,
   assertRendererDatabaseStatementAllowed,
   notifyRendererDatabaseStatementSettled,
   rollbackRendererDatabaseTransactionForOwner,
@@ -38,6 +39,31 @@ function createTestRendererSender(id: number): TestRendererSender {
     emit: (event, ...args) => emitter.emit(event, ...args),
   };
 }
+
+it('returns a single awaited result and checks committed authority again after an async lookup', async () => {
+  const db = createTestDb();
+  const sender = createTestRendererSender(974);
+  let resume!: () => void;
+  const wait = new Promise<void>((resolve) => {
+    resume = resolve;
+  });
+  try {
+    const result = withRendererDatabaseRead(db, sender, async () => {
+      assertCommittedDatabaseReadAllowed(db);
+      await wait;
+      assertCommittedDatabaseReadAllowed(db);
+      return 1;
+    });
+    expectTypeOf(result).toEqualTypeOf<Promise<number>>();
+    withRendererDatabaseStatement(db, sender, () => db.exec('BEGIN'));
+    resume();
+    await expect(result).rejects.toThrow('DATABASE_');
+    withRendererDatabaseStatement(db, sender, () => db.exec('ROLLBACK'));
+    expect(await withRendererDatabaseRead(db, sender, async () => 2)).toBe(2);
+  } finally {
+    db.close();
+  }
+});
 
 describe('workspace sync database fence', () => {
   it('waits for an open renderer transaction while allowing its commit', async () => {

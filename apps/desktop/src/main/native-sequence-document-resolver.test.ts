@@ -69,6 +69,25 @@ async function loose(path = join(root, 'ordinary.gb')) {
   return path;
 }
 
+it('resolves an active Sanger trace through the same native sequence document owner', async () => {
+  const path = await loose(join(root, 'read.ab1'));
+  db.prepare("UPDATE catalog_entities SET type='trace' WHERE id=?").run(target.targetDocumentId);
+  db.prepare("UPDATE catalog_entity_files SET file_kind='trace' WHERE entity_id=?").run(
+    target.targetDocumentId
+  );
+  await expect(resolve(target)).resolves.toMatchObject({
+    documentId: target.targetDocumentId,
+    sourcePath: path,
+    workspaceRoot: root,
+  });
+});
+
+it('refuses a trace identity attached to another file representation', async () => {
+  await loose();
+  db.prepare("UPDATE catalog_entities SET type='trace' WHERE id=?").run(target.targetDocumentId);
+  await expect(resolve(target)).rejects.toThrow(/trace.*binding/i);
+});
+
 function catalog(path: string, fileKind = 'genbank') {
   db.prepare(
     `INSERT INTO catalog_entities

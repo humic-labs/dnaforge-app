@@ -1,7 +1,17 @@
 // @vitest-environment node
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { access, cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import {
+  access,
+  cp,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
@@ -93,6 +103,52 @@ describe('native notebook legacy package boundary', () => {
     await native.close();
   });
 
+  it('rechecks a legacy notebook after an overlapping open completes its migration', async () => {
+    const creator = owner();
+    const created = await creator.create({
+      title: 'Overlapping open',
+      workspaceRoot: root,
+      requestId: 'scan-open',
+    });
+    const inspected = await creator.execute({
+      documentId: created.documentId,
+      operation: { kind: 'inspect-copy' },
+    });
+    await creator.close();
+    const { metaPath } = notebookPackagePaths(created.path);
+    const { id } = JSON.parse(await readFile(metaPath, 'utf8'));
+    await writeFile(
+      metaPath,
+      JSON.stringify({
+        schema: 'waypoint.notebook.v1',
+        kind: 'notebook',
+        id,
+        title: created.title,
+        content: inspected.copy.content,
+        updatedAt: '2026-08-20T12:00:00.000Z',
+      })
+    );
+    const native = owner();
+    try {
+      const guard = native.withCleanPaths.bind(native);
+      const acquire = vi
+        .spyOn(native, 'withCleanPaths')
+        .mockImplementationOnce(async (paths, run) => {
+          await native.execute({
+            documentId: created.documentId,
+            operation: { kind: 'inspect-copy' },
+          });
+          return guard(paths, run);
+        });
+      const result = await native.migrateLegacyProjectFiles(root);
+      expect(acquire).toHaveBeenCalledTimes(1);
+      expect(result).toMatchObject({ migrated: 0, issues: [] });
+      expect(JSON.parse(await readFile(metaPath, 'utf8')).formatVersion).toBe(2);
+    } finally {
+      await native.close();
+    }
+  });
+
   it('defers automatic migration while a notebook has unsaved edits and keeps explicit file changes protected', async () => {
     const native = owner();
     const created = await native.create({
@@ -178,6 +234,117 @@ describe('native notebook legacy package boundary', () => {
     await native.close();
   });
 
+  it('scans a dirty current notebook without warning or writing and holds a genuine legacy migration', async () => {
+    const native = owner();
+    try {
+      const created = await native.create({
+        title: 'Notebook scan',
+        workspaceRoot: root,
+        requestId: 'scan-current',
+      });
+      const { metaPath, markdownPath } = notebookPackagePaths(created.path);
+      const originalMarker = await readFile(metaPath, 'utf8'),
+        originalSource = await readFile(markdownPath, 'utf8');
+      const inspected = await native.execute({
+        documentId: created.documentId,
+        operation: { kind: 'inspect-copy' },
+      });
+      const edited = await native.execute({
+        documentId: created.documentId,
+        expectedRevision: inspected.revision,
+        operation: {
+          kind: 'splice-blocks',
+          index: inspected.blockCount,
+          deleteCount: 0,
+          blocks: [{ type: 'paragraph', content: [{ type: 'text', text: 'Temporary draft' }] }],
+        },
+      });
+      expect(edited.dirty).toBe(true);
+      await expect(native.migrateLegacyProjectFiles(root)).resolves.toMatchObject({
+        migrated: 0,
+        issues: [],
+        mutatedGitFiles: [],
+      });
+      expect(await readFile(metaPath, 'utf8')).toBe(originalMarker);
+      expect(await readFile(markdownPath, 'utf8')).toBe(originalSource);
+      const clean = await native.execute({
+        documentId: created.documentId,
+        expectedRevision: edited.revision,
+        operation: { kind: 'undo' },
+      });
+      expect(clean.copy.content).toEqual(inspected.copy.content);
+      expect(clean.dirty).toBe(false);
+      expect(clean.revision).not.toBe(edited.revision);
+      expect(clean.persistedRevision).toBe(inspected.persistedRevision);
+      expect(clean.revision).not.toBe(clean.persistedRevision);
+      await expect(native.assertClean(created.path)).resolves.toBeUndefined();
+      const dirty = await native.execute({
+        documentId: created.documentId,
+        expectedRevision: clean.revision,
+        operation: { kind: 'redo' },
+      });
+      expect(dirty.dirty).toBe(true);
+      const legacy = JSON.stringify({
+        schema: 'waypoint.notebook.v1',
+        kind: 'notebook',
+        id: JSON.parse(originalMarker).id,
+        title: 'Notebook scan',
+        content: inspected.copy.content,
+        updatedAt: '2026-08-20T12:00:00.000Z',
+      });
+      await writeFile(metaPath, legacy);
+      const refused = await native.migrateLegacyProjectFiles(root);
+      expect(refused.migrated).toBe(0);
+      expect(refused.issues).toEqual([
+        { path: created.path, reason: expect.stringContaining('DIRTY_NOTEBOOK') },
+      ]);
+      expect(await readFile(metaPath, 'utf8')).toBe(legacy);
+      expect(await readFile(markdownPath, 'utf8')).toBe(originalSource);
+      await native.execute({
+        documentId: created.documentId,
+        expectedRevision: dirty.revision,
+        operation: { kind: 'undo' },
+      });
+      const migrated = await native.migrateLegacyProjectFiles(root);
+      expect(migrated).toMatchObject({ migrated: 1, issues: [] });
+      expect(JSON.parse(await readFile(metaPath, 'utf8')).formatVersion).toBe(2);
+
+      const publications = join(root, '.dnaforge-notebook-migrations', 'publications');
+      const receipts = (await readdir(publications)).filter((name) =>
+        /^[a-f0-9]{64}\.json$/u.test(name)
+      );
+      expect(receipts).toHaveLength(1);
+      const receipt = join(publications, receipts[0]);
+      const publication = await readFile(receipt, 'utf8');
+      const reopened = await native.execute({
+        documentId: created.documentId,
+        operation: { kind: 'inspect-copy' },
+      });
+      const working = await native.execute({
+        documentId: created.documentId,
+        expectedRevision: reopened.revision,
+        operation: {
+          kind: 'splice-blocks',
+          index: reopened.blockCount,
+          deleteCount: 0,
+          blocks: [{ type: 'paragraph', content: [{ type: 'text', text: 'Protect recovery' }] }],
+        },
+      });
+      expect(working.dirty).toBe(true);
+      await rm(receipt);
+      expect((await native.migrateLegacyProjectFiles(root)).issues).toEqual(refused.issues);
+      await expect(access(receipt)).rejects.toMatchObject({ code: 'ENOENT' });
+      await native.execute({
+        documentId: created.documentId,
+        expectedRevision: working.revision,
+        operation: { kind: 'undo' },
+      });
+      expect((await native.migrateLegacyProjectFiles(root)).issues).toEqual([]);
+      expect(await readFile(receipt, 'utf8')).toBe(publication);
+    } finally {
+      await native.close();
+    }
+  });
   it('does not claim settlement for a different project or package location', async () => {
     const native = owner();
     const created = await native.create({

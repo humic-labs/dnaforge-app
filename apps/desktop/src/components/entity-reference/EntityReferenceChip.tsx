@@ -13,14 +13,18 @@ import {
 import { createPortal } from 'react-dom';
 
 import { stripDisplayExtension } from '../../utils/fileTypes';
+import {
+  entityTypeIconKind,
+  namedEntityTypePresentation,
+  resolveNamedEntityType,
+} from '@waypoint/scientific-artifacts/shared/entity-types';
 import { DEFAULT_TOOLTIP_DELAY_MS } from '../../shared/components/Tooltip';
 import { usePresentationEligibility } from '../../presentation/PresentationSurface';
-import { TRACK_VIEW_FILE_SUFFIX } from '../../shared/registry-file-types';
-import { iconForEntityKind } from '../icons/entity-icon-registry';
-import { UI_ENTITY_REFERENCE_KIND_CLASS } from '../ui/styles';
-import { ReferenceChipSurface } from '../ui/controls';
+import { iconForEntityKind, referenceIconPresentation } from '../icons/entity-icon-registry';
 import type { EntityColorContext } from '../../shared/entity-color-family';
 import { ActionMenu } from '../ActionMenu';
+import { useReferenceEntityType, type ReferenceTypeLookup } from './useReferenceEntityType';
+import { ReferenceChipSurface } from '../ui/controls';
 
 function pointerIsOnChipRemove(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest('.entity-reference-chip__remove'));
@@ -31,12 +35,16 @@ export type EntityReferenceAction = 'open' | 'reveal';
 export interface EntityReferenceChipProps {
   entityType: string;
   kindLabel?: string;
+  typeLookup?: ReferenceTypeLookup;
+  iconKind?: string;
   iconOverride?: ReactNode;
   iconContext?: EntityColorContext;
+  showKindLabel?: boolean;
   label: string;
   preserveExtension?: boolean;
   detail?: unknown;
   primaryAction?: EntityReferenceAction;
+  isolateActivation?: boolean;
   busy?: boolean;
   onOpen?: () => void | Promise<void>;
   onReveal?: () => void | Promise<void>;
@@ -55,44 +63,18 @@ interface MenuAction {
   run: () => void | Promise<void>;
 }
 
-const ENTITY_DETAIL_LABELS: Readonly<Record<string, string>> = {
-  alignment: 'Alignment',
-  annotation: 'Annotation',
-  assembly: 'Assembly',
-  directory: 'Folder',
-  file: 'File',
-  folder: 'Folder',
-  notebook: 'Notebook',
-  oligo: 'Primer',
-  page: 'Notebook',
-  'page-link': 'Notebook',
-  primer: 'Primer',
-  protein: 'Protein',
-  sequence: 'Sequence',
-  sequence_region: 'Sequence region',
-  structure: 'Structure',
-  text: 'File',
-  'track-view': 'Track View',
-};
-
-function entityDetailLabel(entityType: string): string {
-  return (
-    ENTITY_DETAIL_LABELS[entityType] ??
-    entityType
-      .replace(/[-_]+/g, ' ')
-      .replace(/^./, (firstCharacter) => firstCharacter.toUpperCase())
-  );
-}
-
 function EntityReferenceChipInner({
   entityType,
+  typeLookup,
   kindLabel: kindLabelOverride,
+  iconKind: iconKindOverride,
   iconOverride,
   iconContext,
+  showKindLabel = false,
   label,
   preserveExtension = false,
-  detail,
   primaryAction,
+  isolateActivation = false,
   busy = false,
   onOpen,
   onReveal,
@@ -104,14 +86,14 @@ function EntityReferenceChipInner({
   endSlot,
   attachmentPhase,
 }: EntityReferenceChipProps) {
-  const presentationType =
-    (entityType === 'file' || entityType === 'text') &&
-    typeof detail === 'string' &&
-    detail.toLowerCase().endsWith(TRACK_VIEW_FILE_SUFFIX)
-      ? 'track-view'
-      : entityType;
   const displayLabel = preserveExtension ? label : stripDisplayExtension(label);
-  const kindLabel = kindLabelOverride ?? entityDetailLabel(presentationType);
+  const resolvedType = useReferenceEntityType(typeLookup);
+  const fallback = namedEntityTypePresentation(resolveNamedEntityType({ type: entityType }));
+  const kindLabel = resolvedType?.kindLabel ?? kindLabelOverride ?? fallback.kindLabel;
+  const iconKind =
+    resolvedType?.iconKind ??
+    iconKindOverride ??
+    (entityTypeIconKind(entityType) ? fallback.iconKind : entityType);
   const displayDetail = `${displayLabel} · ${kindLabel}${unavailable ? ' · Unavailable' : ''}`;
   const resolvedPrimaryAction =
     primaryAction ?? (onOpen ? 'open' : onReveal ? 'reveal' : undefined);
@@ -137,10 +119,21 @@ function EntityReferenceChipInner({
     edge: 'top' | 'bottom';
     offset: number;
   } | null>(null);
-  const defaultIcon = useMemo(
-    () => iconForEntityKind(presentationType, 'h-3.5 w-3.5', iconContext),
-    [presentationType, iconContext]
-  );
+  const defaultIcon = useMemo(() => {
+    const { kind, context } = referenceIconPresentation({
+      type: entityType,
+      iconKind,
+      namedTypeKey: resolvedType?.namedTypeKey,
+      path: resolvedType?.path,
+      registryKind: resolvedType?.registryKind,
+      iconContext: {
+        ...iconContext,
+        ...(resolvedType?.registryKind ? { kind: resolvedType.registryKind } : {}),
+        ...resolvedType?.iconContext,
+      },
+    });
+    return iconForEntityKind(kind, 'h-3.5 w-3.5', context);
+  }, [entityType, iconKind, iconContext, resolvedType]);
   const icon = iconOverride ?? defaultIcon;
   const actions = useMemo<MenuAction[]>(() => {
     if (unavailable || busy) return [];
@@ -248,7 +241,7 @@ function EntityReferenceChipInner({
         ref={chipRef}
         data-testid={testId}
         data-entity-reference-chip="true"
-        data-entity-type={presentationType}
+        data-entity-type={entityType}
         data-local-only={localOnly ? 'true' : undefined}
         unavailable={unavailable}
         attachmentPhase={attachmentPhase}
@@ -274,7 +267,19 @@ function EntityReferenceChipInner({
           setHovered(true);
         }}
         onMouseLeave={() => setHovered(false)}
-        onClick={runPrimaryAction}
+        onMouseDown={
+          isolateActivation
+            ? (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }
+            : undefined
+        }
+        onDoubleClick={isolateActivation ? (event) => event.stopPropagation() : undefined}
+        onClick={(event) => {
+          if (isolateActivation) event.stopPropagation();
+          runPrimaryAction();
+        }}
         onContextMenu={(event) => {
           if (actions.length === 0) return;
           event.preventDefault();
@@ -287,10 +292,6 @@ function EntityReferenceChipInner({
             {icon}
           </span>
         ) : null}
-        <span className={`entity-reference-chip__kind ${UI_ENTITY_REFERENCE_KIND_CLASS}`}>
-          {kindLabel}
-          <span aria-hidden="true"> · </span>
-        </span>
         <span className="entity-reference-chip__label" data-testid={labelTestId}>
           {displayLabel}
         </span>

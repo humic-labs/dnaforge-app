@@ -4,6 +4,7 @@ import {
   type NotebookRichBlockContract,
 } from './notebook-content-extension';
 import { isSourceFormulaMetadataValid } from './source-formula-result';
+import { isTableCellContent, tableCellContentText } from './table-cell-content';
 
 function spreadsheetColumnLabel(index: number): string {
   let remaining = index + 1;
@@ -31,6 +32,27 @@ function escapeGfmCell(value: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/\r\n|\r|\n/g, '<br>');
+}
+
+function markdownCell(value: unknown): string {
+  if (!isUnknownRecord(value) || !isTableCellContent(value.content))
+    return escapeGfmCell(cellValue(value));
+  return value.content
+    .map((node) => {
+      if (node.type === 'hardBreak') return '<br>';
+      const raw = node.type === 'mention' ? node.attrs?.label : node.text;
+      let text = escapeGfmCell(raw ?? '').replace(/([`*_[\]])/g, '\\$1');
+      if (node.type === 'mention') {
+        const href = (node.attrs?.referenceUri ?? '').replace(/[<>\r\n]/g, encodeURIComponent);
+        text = `[${text}](<${href}>)`;
+      }
+      for (const mark of node.marks ?? []) {
+        const marker = mark.type === 'bold' ? '**' : '*';
+        text = text.replace(/^(\s*)(\S[\s\S]*?)(\s*)$/, `$1${marker}$2${marker}$3`);
+      }
+      return text;
+    })
+    .join('');
 }
 
 function dataRows(data: Readonly<Record<string, unknown>>): readonly unknown[][] {
@@ -78,9 +100,17 @@ function isCellReference(value: unknown): boolean {
   if (!isUnknownRecord(value)) return false;
   switch (value.kind) {
     case 'native-entity':
-      return typeof value.entityId === 'string' && value.entityId.length > 0;
+      return (
+        typeof value.entityId === 'string' &&
+        value.entityId.length > 0 &&
+        isOptionalString(value.occurrenceId)
+      );
     case 'migration-destination':
-      return typeof value.destinationTargetId === 'string' && value.destinationTargetId.length > 0;
+      return (
+        typeof value.destinationTargetId === 'string' &&
+        value.destinationTargetId.length > 0 &&
+        isOptionalString(value.occurrenceId)
+      );
     case 'external-url':
       return typeof value.href === 'string';
     default:
@@ -97,6 +127,11 @@ function isCellSpan(value: unknown): boolean {
 function isTableCell(value: unknown, requireType: boolean): boolean {
   if (!isUnknownRecord(value) || typeof value.value !== 'string') return false;
   if (!isSourceFormulaMetadataValid(value)) return false;
+  if (
+    value.content !== undefined &&
+    (!isTableCellContent(value.content) || tableCellContentText(value.content) !== value.value)
+  )
+    return false;
   if (
     (requireType || value.type !== undefined) &&
     value.type !== 'text' &&
@@ -214,9 +249,7 @@ function markdownTable(input: {
     `| ${Array.from({ length: columnCount }, () => '---').join(' | ')} |`,
   ];
   for (const row of rows) {
-    const values = Array.from({ length: columnCount }, (_, index) =>
-      escapeGfmCell(cellValue(row[index]))
-    );
+    const values = Array.from({ length: columnCount }, (_, index) => markdownCell(row[index]));
     lines.push(`| ${values.join(' | ')} |`);
   }
   return lines.join('\n');

@@ -26,7 +26,7 @@ import {
   parseTableSnapshot,
   tableSnapshotSha256,
 } from '../shared/table-package';
-import { publishTablePackageInMain, readTablePackageInMain } from './table-package';
+import { writeTablePackageFiles, readTablePackageInMain } from './table-package';
 import type { NativeNotebookRequest, NotebookDocumentSnapshot } from '../shared/notebook-document';
 
 let activeDb: Database.Database;
@@ -408,7 +408,7 @@ describe('retired inline table native authority', () => {
       workspaceRoot: t.f.workspaceRoot,
       packageRoot: join(t.f.workspaceRoot, 'Conflicting alias'),
     };
-    await publishTablePackageInMain(
+    await writeTablePackageFiles(
       { ...otherLocation, head, mode: 'create' },
       { assertCurrent: t.f.options.captureWorkspace(t.f.workspaceRoot, true) }
     );

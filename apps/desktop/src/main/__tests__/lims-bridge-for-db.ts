@@ -121,6 +121,12 @@ export function createLimsBridgeForDb(
     getActiveAccountId: async () => null,
   };
   const bridge: LimsBridge = {
+    readCommittedPrimerSource: async ({ entityId }) =>
+      (await import('../primer-committed-source')).readCommittedPrimerSource(
+        db,
+        (read) => read(),
+        entityId
+      ),
     readPrimerArtifactRevisionState: ({ entityId }) =>
       readPrimerArtifactRevisionStateInMain({ ...publicationContext, entityId }),
     revisePrimerArtifact: ({ mutationToken: _mutationToken, ...request }) =>

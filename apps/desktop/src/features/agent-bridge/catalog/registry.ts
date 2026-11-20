@@ -25,8 +25,32 @@ import {
   limsResolveOpenTargetTool,
 } from '../../ai/public/tools/lims';
 import { resultSdkRendererTool, defineRendererToolCatalog } from './types';
+import {
+  createEntityDiscoveryTool,
+  entityDiscoveryToolSchema,
+  entityDiscoveryToolOutputSchema,
+} from '../../ai/public/tools/entity-discovery';
 
 export const registryTools = defineRendererToolCatalog({
+  entity_discovery: {
+    name: 'entity_discovery',
+    description:
+      'Search every eligible linkable entity with complete pagination, or resolve exact saved IDs. Uses the same native database discovery owner as notebook linking.',
+    shape: 'data-service',
+    required_capabilities: ['read-workspace'],
+    conditional_required_capabilities: [],
+    audit_required: true,
+    effects: ['read-only'],
+    requiresWorkspace: false,
+    conditionallyRequiresWorkspace: false,
+    workspaceGrounding: 'always',
+    exposure: { kind: 'shared' },
+    inputSchema: entityDiscoveryToolSchema,
+    outputSchema: entityDiscoveryToolOutputSchema,
+    execution: resultSdkRendererTool((context) =>
+      createEntityDiscoveryTool(context.projectScope ?? { kind: 'app-following' })
+    ),
+  },
   registry_records: {
     name: 'registry_records',
     description:

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as XLSX from 'xlsx';
 import { webcrypto } from 'node:crypto';
@@ -171,8 +171,9 @@ describe('Excel sync connection controls', () => {
     await screen.findByText('2 records ready');
     expect(screen.getByLabelText('Spreadsheet unique ID column')).toHaveValue('Stable ID');
     expect(screen.getByLabelText('Map Name')).toHaveValue('entity.name');
-    expect(screen.getByText('Forward A')).toBeInTheDocument();
-    expect(screen.getByText('Forward B')).toBeInTheDocument();
+    const results = within(screen.getByRole('columnheader', { name: 'Record name' }).closest('table')!);
+    expect(results.getByText('Forward A')).toBeInTheDocument();
+    expect(results.getByText('Forward B')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('sheet-sync-connect'));
     await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
     expect(mocks.create).toHaveBeenCalledWith(
@@ -243,6 +244,7 @@ describe('Google Sheets mapping connection controls', () => {
     });
     render(<SheetSyncManagerButton />);
     await open();
+    fireEvent.click(screen.getByRole('button', { name: 'Choose Google Sheet' }));
     await screen.findByRole('option', { name: 'lab@example.test' });
     fireEvent.change(screen.getByLabelText('Google spreadsheet link or ID'), {
       target: { value: 'https://docs.google.com/spreadsheets/d/source-id/edit#gid=17' },
@@ -252,7 +254,8 @@ describe('Google Sheets mapping connection controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Preview this worksheet' }));
     await screen.findByText('1 records ready');
     expect(screen.getByLabelText('Spreadsheet unique ID column')).toHaveValue('Stable ID');
-    expect(screen.getByText('Native sheet primer')).toBeInTheDocument();
+    const results = within(screen.getByRole('columnheader', { name: 'Record name' }).closest('table')!);
+    expect(results.getByText('Native sheet primer')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('sheet-sync-connect'));
     await waitFor(() => expect(mocks.createGoogle).toHaveBeenCalledOnce());
     expect(mocks.create).not.toHaveBeenCalled();

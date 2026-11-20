@@ -4,6 +4,8 @@ import {
   existsSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
+  unlinkSync,
   renameSync,
   rmSync,
   utimesSync,
@@ -250,19 +252,106 @@ describe('database refusal recovery', () => {
     expect(result.preRestorePath).toBe(join(dir, 'dnaforge-preRestore-v20-1234-1.db'));
   });
 
-  it('resets only the isolated live database, not its recovery backups', () => {
+  it('preserves every closed database file, including bytes SQLite cannot read, before resetting', () => {
     const dbPath = setup();
+    const suffixes = ['', '-wal', '-shm', '-journal'];
+    for (const suffix of suffixes) writeFileSync(dbPath + suffix, 'opaque source ' + suffix);
     const backupPath = join(dir, 'dnaforge-backup-v19-100.db');
-    for (const path of [dbPath, dbPath + '-wal', dbPath + '-shm', backupPath]) {
-      writeFileSync(path, path);
-    }
-
+    writeFileSync(backupPath, 'previous backup');
     resetIsolatedDatabase(dbPath);
+    const archive = readdirSync(dir).find((name) => name.startsWith('dnaforge.db.pre-reset-'))!;
+    expect(archive).toBeDefined();
+    for (const suffix of suffixes) {
+      expect(existsSync(dbPath + suffix)).toBe(false);
+      expect(readFileSync(join(dir, archive, 'dnaforge.db' + suffix), 'utf8')).toBe(
+        'opaque source ' + suffix
+      );
+    }
+    expect(readFileSync(backupPath, 'utf8')).toBe('previous backup');
+    createDatabase(dbPath, 1, 'fresh');
+    expect(readSentinel(dbPath)).toBe('fresh');
+  });
 
-    expect(existsSync(dbPath)).toBe(false);
-    expect(existsSync(dbPath + '-wal')).toBe(false);
-    expect(existsSync(dbPath + '-shm')).toBe(false);
-    expect(existsSync(backupPath)).toBe(true);
+  it('retains committed data that exists only in the predecessor WAL', () => {
+    const dbPath = setup();
+    const source = join(dir, 'writer.db');
+    createDatabase(source, 4, 'initial');
+    const writer = openFileTestDb(source);
+    try {
+      writer.pragma('journal_mode=WAL');
+      writer.pragma('wal_autocheckpoint=0');
+      writer.prepare("UPDATE sentinel SET value='committed in WAL'").run();
+      for (const suffix of ['', '-wal', '-shm']) copyFileSync(source + suffix, dbPath + suffix);
+    } finally {
+      writer.close();
+    }
+    resetIsolatedDatabase(dbPath);
+    const archive = readdirSync(dir).find((name) => name.startsWith('dnaforge.db.pre-reset-'))!;
+    expect(readSentinel(join(dir, archive, 'dnaforge.db'))).toBe('committed in WAL');
+    createDatabase(dbPath, 1, 'fresh');
+    expect(readSentinel(dbPath)).toBe('fresh');
+  });
+
+  it('keeps the entire original generation when its recovery copy cannot be flushed', () => {
+    const dbPath = setup();
+    for (const suffix of ['', '-shm', '-wal']) writeFileSync(dbPath + suffix, 'old' + suffix);
+    expect(() =>
+      resetIsolatedDatabase(dbPath, {
+        flushBackupFile: () => {
+          throw new Error('unavailable archive');
+        },
+      })
+    ).toThrow('unavailable archive');
+    for (const suffix of ['', '-shm', '-wal'])
+      expect(readFileSync(dbPath + suffix, 'utf8')).toBe('old' + suffix);
+    expect(reconcileInterruptedDatabaseRestore(dbPath)).toEqual({ action: 'none' });
+  });
+
+  it.each(['original', 'retained copy'])(
+    'preserves all live names if the %s changes while recovery is pending',
+    (part) => {
+      const dbPath = setup();
+      for (const suffix of ['', '-shm', '-wal']) writeFileSync(dbPath + suffix, 'old' + suffix);
+      expect(() =>
+        resetIsolatedDatabase(dbPath, {
+          flushInstalledDirectory: () => {
+            throw new Error('pause');
+          },
+        })
+      ).toThrow('pause');
+      const modified =
+        part === 'original' ? dbPath : join(dbPath + '.reset-pending', 'dnaforge.db');
+      writeFileSync(modified, 'replacement-content');
+      expect(() => reconcileInterruptedDatabaseRestore(dbPath)).toThrow(
+        /changed during reset|Incomplete database reset archive/
+      );
+      expect(readFileSync(dbPath + '-wal', 'utf8')).toBe('old-wal');
+      expect(readFileSync(dbPath + '-shm', 'utf8')).toBe('old-shm');
+      expect(existsSync(dbPath)).toBe(true);
+    }
+  );
+
+  it('finishes an interrupted reset before SQLite can create a new live generation', () => {
+    const dbPath = setup();
+    for (const suffix of ['', '-wal', '-shm']) writeFileSync(dbPath + suffix, 'old' + suffix);
+    expect(() =>
+      resetIsolatedDatabase(dbPath, {
+        flushInstalledDirectory: () => {
+          throw new Error('simulated interruption');
+        },
+      })
+    ).toThrow('simulated interruption');
+    unlinkSync(dbPath + '-wal');
+    const outcome = reconcileInterruptedDatabaseRestore(dbPath);
+    expect(outcome.action).toBe('completed');
+    if (outcome.action !== 'completed') throw new Error('missing archive');
+    for (const suffix of ['', '-wal', '-shm']) {
+      expect(existsSync(dbPath + suffix)).toBe(false);
+      expect(readFileSync(outcome.preRestorePath + suffix, 'utf8')).toBe('old' + suffix);
+    }
+    createDatabase(dbPath, 1, 'fresh');
+    expect(reconcileInterruptedDatabaseRestore(dbPath)).toEqual({ action: 'none' });
+    expect(readSentinel(dbPath)).toBe('fresh');
   });
 });
 

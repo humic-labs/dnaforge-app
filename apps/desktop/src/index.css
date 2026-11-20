@@ -1,3 +1,5 @@
+@import 'prosemirror-view/style/prosemirror.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -894,6 +896,10 @@ body.dragging-tab [data-panel-content] {
   outline: none;
 }
 
+.ProseMirror .node-embed.ProseMirror-selectednode {
+  outline: none;
+}
+
 .ProseMirror p {
   margin: 0;
 }
@@ -1118,8 +1124,26 @@ a[data-benchling-link-destination='external']::after {
   text-decoration: underline;
 }
 
+.notebook-reference-input {
+  field-sizing: content;
+  min-width: 1px;
+  max-width: min(70vw, 100%);
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  vertical-align: baseline;
+}
+
 .ProseMirror .mention {
   display: inline;
+}
+
+.ProseMirror .node-mention {
+  display: inline-block;
+  vertical-align: baseline;
 }
 
 .entity-reference-chip {

@@ -373,10 +373,11 @@ export async function validatedLegacyNotebookSyncFile(
   return { notebookId: notebook.id, member };
 }
 
-async function captureValidatedNotebookSyncPackage(
+export async function captureValidatedNotebookPackage(
   workspaceRoot: string,
   packageRoot: string,
-  limits: NotebookSyncCaptureLimits
+  limits: NotebookSyncCaptureLimits,
+  purpose: 'sync' | 'retention'
 ): Promise<ValidatedNotebookSyncPackage | null> {
   if (
     !Number.isSafeInteger(limits.maxMemberBytes) ||
@@ -488,7 +489,7 @@ async function captureValidatedNotebookSyncPackage(
         markdownMember,
         maxParsedMemberBytes
       );
-      if (markdown.includes('<!-- dnaforge:notebook ')) {
+      if (purpose === 'sync' && markdown.includes('<!-- dnaforge:notebook ')) {
         throw new Error(
           'Notebook migration published Markdown before metadata; reopen the notebook to recover before sync'
         );
@@ -500,7 +501,7 @@ async function captureValidatedNotebookSyncPackage(
   }
 
   const metadata = parseNotebookPackageMetadata(metadataRaw);
-  if (metadata.migration?.sourceShape === 'legacy-wpnote') {
+  if (purpose === 'sync' && metadata.migration?.sourceShape === 'legacy-wpnote') {
     const siblings = await readdir(dirname(packageRoot), { withFileTypes: true });
     for (const sibling of siblings) {
       if (!sibling.isFile() || !sibling.name.toLowerCase().endsWith('.wpnote.json')) continue;
@@ -555,15 +556,20 @@ async function captureValidatedNotebookSyncPackage(
     if (!isContained(resolve(paths.migrationsDir), archivePath)) {
       throw new Error('Notebook migration archive path escaped its managed directory');
     }
-    migrationMembers.push(
-      await capturedMember({
-        lexicalPath: archivePath,
-        lexicalPackageRoot: packageRoot,
-        canonicalPackageRoot,
-        budget,
-        chargeBytes: false,
-      })
-    );
+    const recoveredWithoutArchive =
+      ['new-package', 'v2-package'].includes(metadata.migration.sourceShape) &&
+      !(await pathExists(archivePath));
+    if (!recoveredWithoutArchive) {
+      migrationMembers.push(
+        await capturedMember({
+          lexicalPath: archivePath,
+          lexicalPackageRoot: packageRoot,
+          canonicalPackageRoot,
+          budget,
+          chargeBytes: false,
+        })
+      );
+    }
   }
 
   return {
@@ -585,6 +591,6 @@ export async function validatedNotebookSyncPackage(
   limits: NotebookSyncCaptureLimits
 ): Promise<ValidatedNotebookSyncPackage | null> {
   return withNotebookPackageAuthorityLock(packageRoot, () =>
-    captureValidatedNotebookSyncPackage(workspaceRoot, packageRoot, limits)
+    captureValidatedNotebookPackage(workspaceRoot, packageRoot, limits, 'sync')
   );
 }

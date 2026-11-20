@@ -7,6 +7,7 @@ import type { ChatEntityReferenceIpcRow } from '../shared/chat-turn-ipc';
 import { canonicalJson } from '../shared/canonical-json';
 import { workspaceScopeKey } from '../shared/workspace-scoped-identity';
 import { notebookReferenceFromHref } from '../shared/notebook-reference-normalization';
+import { retainNotebookSavedReference } from './notebook-saved-reference-retention';
 import { savedReferenceHref } from '../shared/saved-reference-url';
 import {
   molecularDocumentCatalogId,
@@ -114,6 +115,7 @@ export async function prepareNotebookReferenceInsertion(
         if (!current || canonicalJson(current) !== canonicalJson(reference))
           throw new Error('The saved reference changed during insertion.');
         assertEntityReferenceTargetInDb(db, current);
+        retainNotebookSavedReference(db, current.id);
       }
     },
   };

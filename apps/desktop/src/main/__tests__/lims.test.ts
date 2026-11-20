@@ -3008,6 +3008,7 @@ describe('LIMS main-process operations', () => {
       'lims:queryEntities',
       'lims:queryRecordRelationshipTargets',
       'lims:queryRegistrySummaries',
+      'lims:readCommittedPrimerSource',
       'lims:readPrimerArtifactRevisionState',
       'lims:reconstructLegacyAcceptedPlasmid',
       'lims:recordStrainParentGenome',

@@ -1,4 +1,5 @@
 import { assertLimsAgendaDefinition } from '@waypoint/scientific-artifacts/shared/lims-temporal';
+import { schemaEntityTypeLabel } from '@waypoint/scientific-artifacts/shared/entity-types';
 import {
   toUserMessage,
   userMessage,
@@ -262,13 +263,13 @@ export function RegistrySchemaManager({
         .filter(
           ({ schema, source }) =>
             (schemaOrigin === 'all' || schema.builtin === (schemaOrigin === 'default')) &&
-            `${schema.displayName} ${schema.entityKind} ${source.label}`
+            `${schemaEntityTypeLabel(schema)} ${schema.entityKind} ${source.label}`
               .toLocaleLowerCase()
               .includes(schemaSearch.trim().toLocaleLowerCase())
         )
         .sort(
           (left, right) =>
-            left.schema.displayName.localeCompare(right.schema.displayName) ||
+            schemaEntityTypeLabel(left.schema).localeCompare(schemaEntityTypeLabel(right.schema)) ||
             left.source.label.localeCompare(right.source.label)
         ),
     [entries, schemaOrigin, schemaSearch]
@@ -448,7 +449,9 @@ export function RegistrySchemaManager({
                 className={`mb-0.5 block w-full rounded px-3 py-2 text-left text-sm ${!creating && selectedEntry?.source.id === source.id && selected?.schemaId === schema.schemaId ? 'bg-accent/10 font-medium text-accent' : 'text-fg wp-interactive'}`}
               >
                 <span className="flex min-w-0 items-center gap-2">
-                  <span className="min-w-0 flex-1 break-words">{schema.displayName}</span>
+                  <span className="min-w-0 flex-1 break-words">
+                    {schemaEntityTypeLabel(schema)}
+                  </span>
                   <SchemaOriginBadge builtin={schema.builtin} />
                 </span>
                 <span className="mt-0.5 block break-words text-[11px] font-normal text-fg-muted">
@@ -466,7 +469,7 @@ export function RegistrySchemaManager({
               <div className="mb-4 flex min-h-16 items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <h3 className="break-words text-xl font-semibold text-fg">
-                    {creating ? 'New schema' : selected?.displayName}
+                    {creating ? 'New schema' : selected && schemaEntityTypeLabel(selected)}
                   </h3>
                   {!creating && selected ? (
                     <div className="mt-1 text-xs text-fg-muted">

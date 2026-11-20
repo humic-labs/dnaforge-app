@@ -616,7 +616,7 @@ export class MarkdownNotebookImporter {
                   : undefined,
                 expectedCanonicalFingerprint: receipt!.canonicalFingerprint,
               },
-              assertCurrent
+              assertCurrent, this.options.db()
             );
             archived.hash = claimed.hash;
             receipt!.sourceHash = claimed.hash;

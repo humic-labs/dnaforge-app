@@ -1,3 +1,4 @@
+import {NotebookLayoutIcon} from './NotebookLayoutIcon';
 import { useEffect, useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { MenuRow, MenuTrigger, useMenu } from '@waypoint/ui-components';
@@ -5,12 +6,12 @@ import { PortalMenu } from '../../../components/PortalMenu';
 import { safeFocus } from '../../../shared/utils/safeFocus';
 import {
   getNotebookLayout,
-  NOTEBOOK_LAYOUTS,
+  NOTEBOOK_LAYOUT_CHOICES,
   type NotebookLayoutChoice,
 } from '../editor/extensions/notebook-layout';
 import './notebook-layout.css';
 
-const choices = [{ id: 'single-column', label: 'One column' }, ...NOTEBOOK_LAYOUTS] as const;
+const choices = NOTEBOOK_LAYOUT_CHOICES;
 const menuItems = choices.map(({ id, label }) => ({
   id,
   textValue: label,
@@ -23,45 +24,6 @@ function readLayoutState(editor: Editor) {
     editable: editor.isEditable,
     available: editor.can().setNotebookLayout('two-columns'),
   };
-}
-
-function LayoutIcon({ layout }: { layout: NotebookLayoutChoice }) {
-  const columns = {
-    'single-column': [[3, 18]],
-    'two-columns': [
-      [3, 8],
-      [13, 8],
-    ],
-    'three-columns': [
-      [3, 5],
-      [9.5, 5],
-      [16, 5],
-    ],
-    'wide-left': [
-      [3, 11],
-      [16, 5],
-    ],
-    'wide-right': [
-      [3, 5],
-      [10, 11],
-    ],
-  }[layout];
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden="true"
-      data-layout-icon={layout}
-    >
-      {columns.map(([x, width]) => (
-        <rect key={x} x={x} y="4" width={width} height="16" rx="1" />
-      ))}
-    </svg>
-  );
 }
 
 export function NotebookLayoutControl({ editor }: { editor: Editor }) {
@@ -106,7 +68,7 @@ export function NotebookLayoutControl({ editor }: { editor: Editor }) {
         variant="toolbar"
         density="compact"
         iconOnly
-        icon={<LayoutIcon layout={state.layout} />}
+        icon={<NotebookLayoutIcon layout={state.layout} />}
         aria-label="Notebook layout"
         aria-haspopup="menu"
         aria-expanded={menu.isOpen}
@@ -140,7 +102,7 @@ export function NotebookLayoutControl({ editor }: { editor: Editor }) {
             data-menu-item-id={id}
             active={menu.activeId === id}
             selected={state.layout === id}
-            icon={<LayoutIcon layout={id} />}
+            icon={<NotebookLayoutIcon layout={id} />}
             tabIndex={menu.activeId === id ? 0 : -1}
             onPointerMove={() => menu.point(id)}
             onClick={() => menu.activate(id)}

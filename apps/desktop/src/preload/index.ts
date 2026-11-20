@@ -1,3 +1,4 @@
+import { entityDiscoveryContract } from '../shared/ipc/entity-discovery.contract';
 import { trackViewCommandsContract } from '../shared/ipc/track-view-commands.contract';
 import { sequenceDataLayersContract } from '../shared/ipc/sequence-data-layers.contract';
 import { contactSourcesContract } from '../shared/ipc/contact-sources.contract';
@@ -335,6 +336,7 @@ const api = {
   },
 
   importReview: createClient(importReviewContract),
+  entityDiscovery: createClient(entityDiscoveryContract),
   notebook: createClient(notebookContract),
   administration: createClient(administrationContract),
   lims: { ...createClient(limsContract), ...createClient(primerArtifactContract) },
