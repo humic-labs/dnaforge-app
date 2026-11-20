@@ -2148,7 +2148,25 @@ describe('LIMS panel workflows', () => {
       .find((row) => row.getAttribute('data-entry-path') === destinationDir);
     if (!destinationRow) throw new Error('nested destination row did not render');
     fireEvent.click(destinationRow);
-    fireEvent.click(await screen.findByTestId('lims-import-apply'));
+    let finishImport: () => void = () => {};
+    const importFinished = new Promise<void>((resolve) => {
+      finishImport = resolve;
+    });
+    const unsubscribe = mocks.importReview!.onChanged((event) => {
+      if (
+        event.workspaceRoot === workspaceRoot &&
+        (event.phase === 'applied' || event.phase === 'partial' || event.phase === 'failed')
+      )
+        finishImport();
+    });
+    try {
+      fireEvent.click(await screen.findByTestId('lims-import-apply'));
+      await act(async () => {
+        await importFinished;
+      });
+    } finally {
+      unsubscribe();
+    }
 
     await waitFor(() => expect(mocks.recordImportedPrimers).toHaveBeenCalledTimes(1));
     const [plan, destination] = mocks.recordImportedPrimers.mock.calls[0];
