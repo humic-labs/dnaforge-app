@@ -2,8 +2,9 @@ import type {
   MolecularDocumentLocation,
   ReconcileMolecularDocumentSourcesRequest,
   MolecularDocumentSourceProjection,
-  SaveMolecularDocumentRequest,
   SavedMolecularDocument,
+  SaveMolecularDocumentRequest,
+  StoredMolecularDocument,
 } from '../molecular-document';
 import { defineGroup, invoke } from './contract';
 
@@ -12,6 +13,13 @@ export const molecularDocumentsContract = defineGroup('molecularDocuments', {
     [request: ReconcileMolecularDocumentSourcesRequest, mutationToken?: string],
     MolecularDocumentSourceProjection
   >(),
-  read: invoke<[request: MolecularDocumentLocation], SavedMolecularDocument>(),
-  save: invoke<[request: SaveMolecularDocumentRequest], SavedMolecularDocument>(),
+  read: invoke<[request: MolecularDocumentLocation], PackedMolecularDocumentFile>(),
+  save: invoke<[request: PackedMolecularDocumentSave], PackedMolecularDocumentFile>(),
 });
+
+type PackedMolecularDocumentFile = Omit<SavedMolecularDocument, 'document'> & {
+  document: StoredMolecularDocument;
+};
+type PackedMolecularDocumentSave = Omit<SaveMolecularDocumentRequest, 'document'> & {
+  document: StoredMolecularDocument;
+};

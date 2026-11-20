@@ -27,6 +27,8 @@ import type { PanelState, Tab } from '../../canvas/public/types';
 import { loadCatalogStructure } from '../../compute/public/molecular-catalog';
 import { getCurrentWorkspaceScope, type WorkspaceFolder } from '../../../stores/workspaceStore';
 import { platform } from '../../../platform';
+import { assertMolecularDocumentStorage } from '../../../shared/molecular-document';
+import { MolecularStorageError } from '../../../shared/molecular-storage';
 import { getUserFolders } from '../../workspace/public/path-resolve';
 import { pageMolecularChains } from '../../../shared/molecular-tool-readback';
 import { inspectionMeasurementForLayer } from '../../structure-drawer/public/inspection-measurement-data';
@@ -56,7 +58,6 @@ import {
   coordinateDigest,
   molecularViewSchema,
   validateMolecularViewCoordinates,
-  MOLECULAR_VIEW_MAX_COORDINATE_BYTES,
   molecularViewFromReferenceData,
   molecularViewAttrs,
   molecularViewSourceForCoordinates,
@@ -185,6 +186,8 @@ import {
   validateMolViewSpecViewGeometry,
   waitForMolViewSpecViewReady,
   getMolViewSpecScene,
+  activeMolViewSpecCoordinateAssets,
+  samePinnedMolViewSpecAssets,
   getMolViewSpecSceneDocument,
   readMolViewSpecNativeState,
   getMolViewSpecCoordinates,
@@ -1843,6 +1846,7 @@ type SceneTargetOptions = {
   waitForViewReady?: boolean;
   readOnly?: boolean;
   copy?: boolean;
+  inspectsDocumentBinding?: boolean;
   retargetsTabOnSave?: boolean;
 };
 
@@ -1897,7 +1901,8 @@ async function withResolvedSceneTarget<T>(
       'DOCUMENT_OWNER_REQUIRED',
       'Reopen this legacy result through its verified molecular document reference before editing or saving it.'
     );
-  if (found.entry.data.molecularDocumentId) await inspectMolecularDocumentBinding(found.entry.data);
+  if (found.entry.data.molecularDocumentId && !options.inspectsDocumentBinding)
+    await inspectMolecularDocumentBinding(found.entry.data);
   const tabHost = findStructureTabHost(found.registrationId, found.structureViewId, target);
   const releaseBackground =
     tabHost && rendersInBackground(tabHost) && !structureTabError(tabHost.tab)
@@ -2058,6 +2063,11 @@ export async function handleMolGetScene(args: unknown) {
       target,
       async (active) => {
         const registered = findRegisteredStructure(target)!;
+        const { coordinates, pinnedAssets } = activeMolViewSpecCoordinateAssets(active.plugin);
+        const binding = await inspectMolecularDocumentBinding(registered.entry.data, [
+          coordinates,
+          ...pinnedAssets,
+        ]);
         const detailed =
           input.detail === 'full'
             ? getMolViewSpecScene(active.plugin, input.connectionQuery)
@@ -2075,7 +2085,7 @@ export async function handleMolGetScene(args: unknown) {
             : undefined;
         return toolSuccess({
           structureViewId: registered.structureViewId,
-          ...(await inspectMolecularDocumentBinding(registered.entry.data)),
+          ...binding,
           ...(input.includeParameterSchema
             ? {
                 parameterSchema: await inspectMolecularDocumentParameters(scene.scene, {
@@ -2174,7 +2184,7 @@ export async function handleMolGetScene(args: unknown) {
             : {}),
         });
       },
-      { readOnly: true }
+      { readOnly: true, inspectsDocumentBinding: true }
     );
   } catch (error) {
     return sceneToolFailure(error);
@@ -2573,7 +2583,7 @@ async function waitForSavedDocumentViewer(expected: {
   documentId: string;
   revisionId: string;
   scene: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const requireDestination = () => {
     const panel = useCanvasStore.getState().panels[expected.panelId];
     const tab = panel?.tabs.find((candidate) => candidate.id === expected.tabId);
@@ -2616,7 +2626,7 @@ async function waitForSavedDocumentViewer(expected: {
           }
         );
         requireDestination();
-        return;
+        return true;
       } catch (error) {
         if (
           !(error instanceof ActiveMolstarViewerError || error instanceof MolViewSpecSceneError) ||
@@ -2627,10 +2637,7 @@ async function waitForSavedDocumentViewer(expected: {
     }
     await new Promise((resolve) => setTimeout(resolve, 50));
   } while (Date.now() < deadline);
-  throw new MolViewSpecSceneError(
-    'PLUGIN_NOT_READY',
-    'The document was saved, but its viewer is still loading. Reopen the saved document before continuing.'
-  );
+  return false;
 }
 
 export async function handleMolSaveView(
@@ -2648,6 +2655,8 @@ export async function handleMolSaveView(
       target,
       async (active) => {
         const before = findRegisteredStructure(target)!;
+        const { coordinates, pinnedAssets } = activeMolViewSpecCoordinateAssets(active.plugin);
+        assertMolecularDocumentStorage([coordinates, ...pinnedAssets]);
         const currentScene = getMolViewSpecScene(active.plugin);
         const captureOptions: MolViewSpecCaptureOptions = {
           cameraPolicy: options.cameraPolicy ?? 'capture-current',
@@ -2684,17 +2693,11 @@ export async function handleMolSaveView(
           }
         });
         const captured = captureMolViewSpecView(active.plugin, captureOptions);
-        const catalogObservation = before.entry.data.catalogSource
-          ? (await loadCatalogStructure(before.entry.data.catalogSource.observationId)).observation
-          : before.entry.data.catalogProvenance;
-        if (
-          new TextEncoder().encode(captured.coordinates.text).byteLength >
-          MOLECULAR_VIEW_MAX_COORDINATE_BYTES
-        )
-          throw new MolViewSpecSceneError(
-            'MVS_VIEW_TOO_LARGE',
-            'Saved chat views currently support coordinate snapshots up to 8 MB.'
-          );
+        const catalogObservation =
+          !before.entry.data.catalogProvenance && before.entry.data.catalogSource
+            ? (await loadCatalogStructure(before.entry.data.catalogSource.observationId))
+                .observation
+            : before.entry.data.catalogProvenance;
         const preview = await screenshotDataUri(active, 0.25);
         const after = findRegisteredStructure(target);
         if (currentScene.sceneOrigin === 'authored')
@@ -2706,7 +2709,9 @@ export async function handleMolSaveView(
           after.entry.data.structureLinkOwnerId !== before.entry.data.structureLinkOwnerId ||
           latest.scene !== captured.scene ||
           latest.cameraSnapshot !== captured.cameraSnapshot ||
-          JSON.stringify(latest.pinnedAssets) !== JSON.stringify(captured.pinnedAssets)
+          latest.coordinates.format !== captured.coordinates.format ||
+          latest.coordinates.text !== captured.coordinates.text ||
+          !samePinnedMolViewSpecAssets(latest.pinnedAssets, captured.pinnedAssets)
         )
           throw new MolViewSpecSceneError(
             'VIEW_CHANGED',
@@ -2728,7 +2733,7 @@ export async function handleMolSaveView(
           active.plugin.canvas3d?.camera.getSnapshot() ?? null
         );
         const scientificReview = reviewed.scientificReview;
-        const coordinates = {
+        const savedCoordinates = {
           ...captured.coordinates,
           sha256: await coordinateDigest(captured.coordinates.text),
         };
@@ -2740,14 +2745,14 @@ export async function handleMolSaveView(
           scene: reviewed.scene,
           cameraSnapshot: captured.cameraSnapshot,
           initialSnapshotIndex: captured.initialSnapshotIndex,
-          coordinates,
+          coordinates: savedCoordinates,
           ...(captured.pinnedAssets.length
             ? {
                 primarySourceReferenceId: before.entry.data.molViewSpecPrimarySourceReferenceId,
                 pinnedAssets: captured.pinnedAssets,
               }
             : {}),
-          source: molecularViewSourceForCoordinates(before.entry.data, coordinates, {
+          source: molecularViewSourceForCoordinates(before.entry.data, savedCoordinates, {
             source: before.entry.data.source,
             ...(before.entry.data.source !== 'file'
               ? { sourceId: before.entry.data.sourceId }
@@ -2964,8 +2969,9 @@ export async function handleMolSaveView(
                 }
               }
         }
-        if (adoptingHost && !adoptingHost.tab.structureInspection)
-          await waitForSavedDocumentViewer({
+        let warning = projectSave.warning;
+        if (adoptingHost && !adoptingHost.tab.structureInspection) {
+          const viewerReady = await waitForSavedDocumentViewer({
             structureViewId: savedStructureViewId,
             panelId: adoptingHost.panel.id,
             tabId: adoptingHost.tab.id,
@@ -2973,6 +2979,14 @@ export async function handleMolSaveView(
             revisionId: reference.id,
             scene: savedSnapshot.scene,
           });
+          if (!viewerReady)
+            warning = [
+              warning,
+              'The document was saved. Its viewer is still loading. Use the returned document reference to reopen it.',
+            ]
+              .filter(Boolean)
+              .join(' ');
+        }
         return toolSuccess({
           referenceId: projectSave.reference?.id,
           revisionId: reference.id,
@@ -2998,7 +3012,7 @@ export async function handleMolSaveView(
               }
             : {}),
           format: 'mvsj',
-          ...(projectSave?.warning ? { warning: projectSave.warning } : {}),
+          ...(warning ? { warning } : {}),
           message: projectSave
             ? 'Saved the molecular document in the project and preserved this exact result. Earlier chat and notebook results remain unchanged.'
             : 'Retained a clickable molecular result with pinned coordinates, appearance and camera in this chat. No project document or notebook was created; do not print its private locator or reference token.',
@@ -3014,7 +3028,7 @@ export async function handleMolSaveView(
           stateChanged: true as const,
           partialEffects: [{ kind: 'saved-molecular-view', referenceId: savedReferenceId }],
         }
-      : writeAttempted
+      : writeAttempted && !(error instanceof MolecularStorageError)
         ? { ...failure, stateChanged: 'unknown' as const }
         : failure;
   }
