@@ -1,6 +1,15 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFile, lstat, mkdir, readFile, readdir, realpath, writeFile } from 'node:fs/promises';
+import {
+  cp,
+  copyFile,
+  lstat,
+  mkdir,
+  readFile,
+  readdir,
+  realpath,
+  writeFile,
+} from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineScientificDocument } from '@waypoint/scientific-objects';
@@ -20,6 +29,10 @@ vi.mock('./analytics', () => ({ trackEvent: vi.fn() }));
 
 import { createFileTestDb, openFileTestDb } from './__tests__/test-db';
 import { CURRENT_SCHEMA_VERSION, ensureSchema } from './schema';
+import {
+  parseSequencePackageDocument,
+  serializeSequencePackageDocument,
+} from '../db/sequence-package';
 import { ScientificObjectStore } from './scientific-object-store';
 import {
   insertAuditEvent,
@@ -253,6 +266,49 @@ function seedRemoteAndPathState(f: Fixture) {
 }
 
 describe('scientific enrollment and isolated legacy recovery pressure', { timeout: 30_000 }, () => {
+  it.each([false, true])(
+    'preserves package metadata in a prior-client copy (new member field: %s)',
+    async (hasNewField) => {
+      const f = await fixture();
+      const path = join('saved-project', '.forge', 'plasmid.json');
+      const sample = join(__dirname, '../db/__fixtures__/sequence-packages/v8-user-attachment');
+      await cp(sample, join(f.root, 'saved-project'), { recursive: true });
+      const metadata = JSON.parse(
+        serializeSequencePackageDocument(
+          parseSequencePackageDocument(await readFile(join(f.root, path), 'utf8'))
+        )
+      );
+      if (hasNewField) metadata.members[0].laterMemberProperty = 'keep this value';
+      const original = JSON.stringify(metadata);
+      await writeFile(join(f.root, path), original);
+      await f.ensure();
+      if (hasNewField) {
+        await expect(recover(f)).rejects.toThrow('cannot preserve all package metadata');
+        expect(await outputs(f)).toEqual([]);
+      } else {
+        const recovered = await recover(f);
+        expect(JSON.parse(await readFile(join(recovered.projectPath, path), 'utf8'))).toEqual({
+          ...metadata,
+          formatVersion: 8,
+        });
+        for (const relative of [
+          metadata.product.file,
+          ...metadata.members.map((member: { path: string }) => member.path),
+        ]) {
+          expect(await readFile(join(recovered.projectPath, 'saved-project', relative))).toEqual(
+            await readFile(join(sample, relative))
+          );
+        }
+        for (const id of [recovered.sourceCheckpointId, recovered.preservedCurrentCheckpointId]) {
+          expect(
+            await readFile(join(scientificRecoveryDirectory(f.db), id, 'project', path), 'utf8')
+          ).toBe(original);
+        }
+      }
+      expect(await readFile(join(f.root, path), 'utf8')).toBe(original);
+    }
+  );
+
   it('qualifies the current native schema and clears retained administration actions only in its independent recovery copy', async () => {
     const f = await fixture();
     expect(f.db.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION);
