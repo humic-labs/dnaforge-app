@@ -28,7 +28,7 @@ import { formatTimeAgo } from './MessageFormatting';
 
 const PANEL_MARGIN_PX = 9;
 const VIEWPORT_INSET_PX = 16;
-const PANEL_WIDTH_PX = 320;
+const HEADER_ACTION_SPACE_PX = 44;
 
 interface RenameEdit {
   conversationId: string;
@@ -100,7 +100,9 @@ export function ChatHistorySurface({
   const [focusOpen, setFocusOpen] = useState(false);
   const [hoverSuppressed, setHoverSuppressed] = useState(false);
   const [titleExpanded, setTitleExpanded] = useState(false);
-  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const [position, setPosition] = useState<{ left: number; top: number; maxWidth: number } | null>(
+    null
+  );
   const [search, setSearch] = useState('');
   const filterDirty = useRef(false);
   const filterEditPane = useRef<string | null>(null);
@@ -240,12 +242,7 @@ export function ChatHistorySurface({
       typeof ResizeObserver === 'function' ? new ResizeObserver(() => updatePosition()) : null;
     const updatePosition = (): void => {
       const rect = anchor.getBoundingClientRect();
-      const naturalLeft = rect.left + VIEWPORT_INSET_PX - PANEL_MARGIN_PX;
-      const maxLeft = Math.max(
-        VIEWPORT_INSET_PX,
-        window.innerWidth - VIEWPORT_INSET_PX - PANEL_WIDTH_PX
-      );
-      const panelLeft = Math.min(Math.max(naturalLeft, VIEWPORT_INSET_PX), maxLeft);
+      const left = Math.max(rect.left + VIEWPORT_INSET_PX, VIEWPORT_INSET_PX + PANEL_MARGIN_PX);
       const panelHeight = Math.min(576, window.innerHeight - 2 * VIEWPORT_INSET_PX);
       const naturalTop = rect.top + VIEWPORT_INSET_PX - PANEL_MARGIN_PX;
       const maxTop = Math.max(
@@ -254,11 +251,18 @@ export function ChatHistorySurface({
       );
       const panelTop = Math.min(Math.max(naturalTop, VIEWPORT_INSET_PX), maxTop);
       const nextPosition = {
-        left: panelLeft + PANEL_MARGIN_PX,
+        left,
         top: panelTop + PANEL_MARGIN_PX,
+        maxWidth: Math.max(
+          0,
+          Math.min(rect.right, window.innerWidth) - left - HEADER_ACTION_SPACE_PX
+        ),
       };
       setPosition((current) =>
-        current && current.left === nextPosition.left && current.top === nextPosition.top
+        current &&
+        current.left === nextPosition.left &&
+        current.top === nextPosition.top &&
+        current.maxWidth === nextPosition.maxWidth
           ? current
           : nextPosition
       );
@@ -899,7 +903,7 @@ export function ChatHistorySurface({
   return createPortal(
     <div
       data-analytics-block
-      className="ph-no-capture fixed z-30 flex max-w-[calc(100vw-2rem)] items-start gap-2"
+      className="ph-no-capture fixed z-30 flex items-start gap-2"
       style={position}
       data-testid="ai-history-launcher"
       onPointerDownCapture={onRequestPanelFocus}
@@ -1006,6 +1010,9 @@ export function ChatHistorySurface({
           <div data-testid="ai-history-hover-surface">
             <div
               className="-m-[9px] flex max-h-[min(72vh,34rem)] w-80 flex-col overflow-hidden rounded-xl border border-border bg-bg-subtle shadow-lg"
+              style={{
+                maxWidth: `calc(100vw - ${position.left + VIEWPORT_INSET_PX - PANEL_MARGIN_PX}px)`,
+              }}
               data-testid="ai-history-panel"
               data-history-mode={mode}
               aria-label="Conversation sidebar"
