@@ -569,9 +569,12 @@ async function hasZipSignature(path: string): Promise<boolean> {
 
 async function assertStagingDiskSpace(stagingRoot: string, requiredBytes: number): Promise<void> {
   const capacity = await readStorageCapacity(stagingRoot, { purpose: 'important' });
-  if (capacity.availableBytes < requiredBytes + NCBI_DATASETS_ARCHIVE_LIMITS.diskReserveBytes) {
+  const reserveBytes = NCBI_DATASETS_ARCHIVE_LIMITS.diskReserveBytes;
+  if (capacity.availableBytes < requiredBytes + reserveBytes) {
     throw new Error(
-      `There is not enough available storage to prepare this reference package (${capacity.source}).`
+      `There is not enough storage to prepare this reference package. ` +
+        `${capacity.availableBytes} bytes available (${capacity.source}). ` +
+        `The package needs ${requiredBytes} bytes plus ${reserveBytes} bytes of reserve.`
     );
   }
 }
