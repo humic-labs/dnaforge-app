@@ -151,7 +151,7 @@ import type {
 } from '../shared/benchling-migration-render-validation';
 import type { TrackStoreBridge } from '../shared/track-store';
 import type { TrackViewsBridge } from '../shared/track-view';
-import type { MolecularDocumentsBridge } from '../shared/molecular-document';
+import type { molecularDocumentsContract } from '../shared/ipc/molecular-documents.contract';
 import type { ReferenceAssetsBridge } from './reference-assets';
 import type {
   LimsApplyImportBatchInput,
@@ -657,7 +657,7 @@ export interface ElectronAPI {
   sequenceDataLayers: ClientOf<
     typeof import('../shared/ipc/sequence-data-layers.contract').sequenceDataLayersContract
   >;
-  molecularDocuments: MolecularDocumentsBridge;
+  molecularDocuments: ClientOf<typeof molecularDocumentsContract>;
   trackStore: TrackStoreBridge;
   referenceAssets: ReferenceAssetsBridge;
 

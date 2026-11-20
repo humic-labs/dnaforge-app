@@ -24,6 +24,12 @@ import type {
 } from './types';
 import { createReferenceAssetsPlatformBridge } from './reference-assets';
 import { forwardGroup, type ClientOf } from '../shared/ipc/contract';
+import {
+  packMolecularDocument,
+  packedMolecularDocumentByteLength,
+  unpackMolecularDocument,
+} from '../shared/molecular-document';
+import { assertMolecularDocumentSize } from '../shared/molecular-storage';
 import { entityNavigationContract } from '../shared/ipc/entity-navigation.contract';
 import {
   agentAttachmentsContract,
@@ -115,7 +121,8 @@ import {
 
 declare global {
   interface Window {
-    electronAPI: PlatformBridge & {
+    electronAPI: Omit<PlatformBridge, 'molecularDocuments'> & {
+      molecularDocuments: ClientOf<typeof molecularDocumentsContract>;
       notebook: ClientOf<typeof notebookContract>;
       workspace: ClientOf<typeof workspaceNativeDocumentsContract> &
         ClientOf<typeof workspaceContract>;
@@ -946,7 +953,19 @@ export const electronBridge: PlatformBridge = {
     read: (id) => api().trackViews.read(id),
     save: (request) => api().trackViews.save(request),
   },
-  molecularDocuments: forwardGroup(molecularDocumentsContract, () => api().molecularDocuments),
+  molecularDocuments: {
+    ...forwardGroup(molecularDocumentsContract, () => api().molecularDocuments),
+    read: async (request) => {
+      const saved = await api().molecularDocuments.read(request);
+      return { ...saved, document: unpackMolecularDocument(saved.document) };
+    },
+    save: async (request) => {
+      const document = packMolecularDocument(request.document);
+      assertMolecularDocumentSize(packedMolecularDocumentByteLength(document));
+      const saved = await api().molecularDocuments.save({ ...request, document });
+      return { ...saved, document: unpackMolecularDocument(saved.document) };
+    },
+  },
   trackStore: {
     root: () => api().trackStore.root(),
     listAssemblies: () => api().trackStore.listAssemblies(),

@@ -6,7 +6,6 @@ import { basename, dirname, join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
 import {
-  MOLECULAR_DOCUMENT_MAX_BYTES,
   MOLECULAR_DOCUMENT_SCHEMA,
   MOLECULAR_DOCUMENT_SUFFIX,
   molecularDocumentSchema,
@@ -17,6 +16,7 @@ import {
   type SaveMolecularDocumentRequest,
   type SavedMolecularDocument,
 } from '../shared/molecular-document';
+import { assertMolecularDocumentSize } from '../shared/molecular-storage';
 import { supportsMolecularDocumentExtension } from '../shared/molecular-document-extensions';
 import {
   canonicalWorkspacePath,
@@ -95,8 +95,7 @@ export async function readMolecularDocumentFile(
   });
   const stat = await lstat(candidate);
   if (!stat.isFile()) throw new Error('The molecular document is not a regular file.');
-  if (stat.size > MOLECULAR_DOCUMENT_MAX_BYTES)
-    throw new Error('The molecular document exceeds the 128 MiB file limit.');
+  assertMolecularDocumentSize(stat.size);
   const bytes = await readFile(candidate, 'utf8');
   const document = parseMolecularDocument(bytes);
   await validateMolecularDocumentCoordinates(document);
@@ -118,8 +117,6 @@ export class MolecularDocumentLibrary {
       throw new Error('Choose a molecular document destination.');
     await validateMolecularDocumentCoordinates(document);
     const content = serializeMolecularDocument(document);
-    if (Buffer.byteLength(content, 'utf8') > MOLECULAR_DOCUMENT_MAX_BYTES)
-      throw new Error('The molecular document exceeds the 128 MiB file limit.');
     return withWorkspaceMutation(destination.workspaceRoot, async () => {
       if (expectedRevision !== null) {
         const previous = await readMolecularDocumentFile(destination);
@@ -133,7 +130,7 @@ export class MolecularDocumentLibrary {
           document.history.map((entry) => [entry.referenceId, entry.snapshot])
         );
         for (const entry of previous.document.history) {
-          if (JSON.stringify(nextResults.get(entry.referenceId)) !== JSON.stringify(entry.snapshot))
+          if (!isDeepStrictEqual(nextResults.get(entry.referenceId), entry.snapshot))
             throw new Error('Saved molecular result history cannot be removed or rewritten.');
         }
         const nextSelections = new Map(

@@ -9,12 +9,16 @@ import {
   serializeMolecularDocument,
 } from '../shared/molecular-document';
 import legacyV1 from '../test/fixtures/molecular-document-v1.json';
+import { coordinateDigest } from '../shared/molecular-view';
 import {
   appendSavedResidueSelectionRevision,
   createSavedResidueSelectionDocument,
 } from '@waypoint/workspace-editor/saved-residue-selection';
 
 import { createFileTestDb } from './__tests__/test-db';
+import { scopedProjectionId, workspaceScopeKey } from '../shared/workspace-scoped-identity';
+import { savedFileWorkspace } from './saved-file-publication';
+import { restoreSavedFileSource } from './saved-file-sources';
 import { ensureSchema } from './schema';
 import { beforeEach } from 'vitest';
 
@@ -38,6 +42,49 @@ async function destination() {
 }
 
 describe('native molecular document file authority', () => {
+  it('appends revisions above the old coordinate limit and reopens an independent file copy', async () => {
+    const target = await destination();
+    const copy = await destination();
+    const fixture = await molecularDocumentFixture();
+    const original = fixture.history[0].snapshot.coordinates;
+    const text = `REMARK ${'x'.repeat(8_000_000)}\r\n${original.text}`;
+    const sha256 = await coordinateDigest(text);
+    const history = fixture.history.map(({ referenceId, snapshot }) => ({
+      referenceId,
+      snapshot: { ...snapshot, coordinates: { ...original, text, sha256 } },
+    }));
+    const library = new MolecularDocumentLibrary(store);
+    const first = await library.save({
+      document: { ...fixture, currentReferenceId: history[0].referenceId, history: [history[0]] },
+      destination: target,
+      expectedRevision: null,
+    });
+    const second = await library.save({
+      document: { ...fixture, history },
+      destination: target,
+      expectedRevision: first.revision,
+    });
+    await mkdir(join(copy.workspaceRoot, 'views'));
+    await cp(target.path, copy.path);
+    await rm(target.path);
+    const reopened = await library.read(copy);
+    expect(reopened.revision).toBe(second.revision);
+    expect(reopened.document.history).toHaveLength(2);
+    for (const { snapshot } of reopened.document.history) {
+      expect(snapshot.coordinates.sha256).toBe(sha256);
+      expect(await coordinateDigest(snapshot.coordinates.text)).toBe(sha256);
+    }
+    const stored = JSON.parse(await readFile(copy.path, 'utf8'));
+    expect(Object.keys(stored.coordinateAssets)).toEqual([sha256]);
+    const workspace = savedFileWorkspace(retained.db, target.workspaceRoot)!;
+    await restoreSavedFileSource(retained.db, {
+      workspaceId: workspace.id,
+      entityId: scopedProjectionId(workspaceScopeKey(workspace.repo_uuid, workspace.id), fixture.id),
+      destination: target.path,
+    });
+    expect((await library.read(target)).revision).toBe(second.revision);
+  });
+
   it('leaves unsupported newer documents and essential extensions untouched on native open', async () => {
     const target = await destination();
     await mkdir(join(target.workspaceRoot, 'views'));

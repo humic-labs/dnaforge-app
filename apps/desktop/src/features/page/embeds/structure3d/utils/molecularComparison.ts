@@ -1,5 +1,6 @@
 import { MVSData, type Snapshot } from 'molstar/lib/extensions/mvs/mvs-data';
 import { validateMolViewSpecScene } from '../molstar/molViewSpec';
+import { assertMolecularDocumentStorage } from '../../../../../shared/molecular-document';
 import {
   molecularViewSchema,
   validateMolecularViewCoordinates,
@@ -22,6 +23,7 @@ export async function createMolecularComparison(
     throw new Error('A comparison cannot include the same source reference twice.');
   if (new Set(sources.map(({ view }) => view.coordinates.sha256)).size !== sources.length)
     throw new Error('A comparison needs distinct coordinate assets.');
+  assertMolecularDocumentStorage(sources.map(({ view }) => view.coordinates));
   for (const { view } of sources) await validateMolecularViewCoordinates(view);
 
   const allowed = sources.map(({ view }, index) =>
@@ -37,7 +39,7 @@ export async function createMolecularComparison(
   );
   const snapshots: Snapshot[] = [];
   for (const [index, { view }] of sources.entries()) {
-    const originalName = view.coordinates.format === 'cif' ? 'structure.cif' : 'structure.pdb';
+    const originalName = `structure.${view.coordinates.format}`;
     const resources = [
       { name: originalName, ...view.coordinates },
       ...(view.version === 2 ? view.pinnedAssets : []),
