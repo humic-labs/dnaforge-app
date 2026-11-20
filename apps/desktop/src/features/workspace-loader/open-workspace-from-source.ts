@@ -122,6 +122,7 @@ export async function openWorkspaceFromSource(
       onMinted: () => lifecycle.phase('minted'),
       importId: options.importId,
       inPlace: options.inPlace,
+      sampleRegistrationId: source.kind === 'sample-template' ? lifecycle.operationId : undefined,
     });
 
     materializedRoots = new Set(
@@ -136,7 +137,10 @@ export async function openWorkspaceFromSource(
     );
     if (options.addToRecents !== false) {
       lifecycle.stage('registration');
-      await persistRecentRoots(instance.rootFolders);
+      await persistRecentRoots(
+        instance.rootFolders,
+        source.kind === 'sample-template' ? lifecycle.operationId : undefined
+      );
       lifecycle.phase('registered');
     }
 
@@ -318,6 +322,7 @@ export interface MaterializeWorkspaceOptions {
   onMinted?: () => void;
   importId?: string;
   inPlace?: boolean;
+  sampleRegistrationId?: string;
 }
 
 export async function materializeWorkspaceSource(
@@ -396,16 +401,26 @@ export async function materializeWorkspaceSource(
       };
     }
     case 'sample-template': {
-      const sample = await platform().workspace.createSampleInstance({
-        templateId: source.templateId,
-        mode: source.mode ?? 'reuse',
-      });
+      const sample = await observeSampleRegistration(
+        'createSampleInstance',
+        options.sampleRegistrationId,
+        () =>
+          platform().workspace.createSampleInstance({
+            templateId: source.templateId,
+            mode: source.mode ?? 'reuse',
+          })
+      );
       if (isManagedWorkspacesEnabled()) {
-        const managed = await platform().workspace.importManaged({
-          sourcePath: sample.rootPath,
-          displayName: sample.displayName,
-          importId,
-        });
+        const managed = await observeSampleRegistration(
+          'importManaged',
+          options.sampleRegistrationId,
+          () =>
+            platform().workspace.importManaged({
+              sourcePath: sample.rootPath,
+              displayName: sample.displayName,
+              importId,
+            })
+        );
         return {
           id: `managed:${managed.workspaceUuid}`,
           displayName: sample.displayName,
@@ -513,12 +528,48 @@ function stripTrailingSlash(path: string): string {
   return path.length > 1 ? path.replace(/[\\/]+$/, '') : path;
 }
 
-async function persistRecentRoots(roots: WorkspaceInstance['rootFolders']): Promise<void> {
+async function persistRecentRoots(
+  roots: WorkspaceInstance['rootFolders'],
+  sampleRegistrationId: string | undefined
+): Promise<void> {
   for (const root of roots) {
-    await platform().db.ensureWorkspaceOwner(root.path, root.pinned ? 'reference' : undefined, {
-      name: root.name || basenameForPath(root.path),
-      recordOpen: true,
-    });
+    await observeSampleRegistration('ensureWorkspaceOwner', sampleRegistrationId, () =>
+      platform().db.ensureWorkspaceOwner(root.path, root.pinned ? 'reference' : undefined, {
+        name: root.name || basenameForPath(root.path),
+        recordOpen: true,
+      })
+    );
+  }
+}
+
+async function observeSampleRegistration<T>(
+  method: 'createSampleInstance' | 'importManaged' | 'ensureWorkspaceOwner',
+  correlation: string | undefined,
+  request: () => Promise<T>
+): Promise<T> {
+  if (!correlation || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(correlation))
+    return request();
+  let startedAt: number;
+  try {
+    startedAt = performance.now();
+  } catch {
+    return request();
+  }
+  const record = (phase: 'start' | 'completed' | 'error'): void => {
+    try {
+      window.electronAPI?.sendBreadcrumbs?.([
+        JSON.stringify({ method, correlation, phase, duration_ms: performance.now() - startedAt }),
+      ]);
+    } catch {}
+  };
+  record('start');
+  try {
+    const result = await request();
+    record('completed');
+    return result;
+  } catch (error) {
+    record('error');
+    throw error;
   }
 }
 
