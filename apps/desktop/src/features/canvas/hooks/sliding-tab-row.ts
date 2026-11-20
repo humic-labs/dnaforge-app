@@ -23,9 +23,12 @@ export function startSlidingTabRow(row: HTMLElement, tabId: string, grabOffsetX:
         slots[0].left,
         Math.min(x - grabOffsetX, last.left + last.width - grabbed.width)
       );
-      const boundary = slots.findIndex(
-        (slot) => slot !== grabbed && x < slot.left + slot.width / 2
-      );
+      const right = left + grabbed.width;
+      const boundary = slots.findIndex((slot, index) => {
+        const midpoint = slot.left + slot.width / 2;
+        if (index < sourceIndex) return left < midpoint;
+        return index > sourceIndex && right <= midpoint;
+      });
       const insertIndex = boundary === -1 ? slots.length : boundary;
       source.style.setProperty('--tab-slide-x', `${left - grabbed.left}px`);
       for (const [index, slot] of slots.entries()) {

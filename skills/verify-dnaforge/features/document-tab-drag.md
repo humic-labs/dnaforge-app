@@ -7,9 +7,12 @@ performing these gestures.
 1. Press the first tab off center and keep the mouse button down. Move a short
    distance horizontally. The same point on the tab should stay under the
    pointer, with the tab at its original height in the row.
-2. Continue across two neighbors. They should slide into the space behind the
-   held tab. Reverse direction and release at the original press point. The
-   three documents should be in their original order.
+2. Watch the moving tab’s front edge as it crosses a neighbor. Stop just
+   before the neighbor’s midpoint, then move one pixel past it. The neighbor
+   should hold its slot until the edge passes the midpoint, then slide aside.
+   Try grabbing near each end of the moving tab and dragging in both directions.
+   Continue across two neighbors, reverse direction, and release at the original
+   press point. The three documents should be in their original order.
 3. Repeat and release after crossing one neighbor. The resulting order should
    match the last preview. Repeat from the right toward the left.
 4. While holding a tab, move down into the document. The floating preview and

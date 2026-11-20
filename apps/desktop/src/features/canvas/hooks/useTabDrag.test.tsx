@@ -63,7 +63,7 @@ function dragFirstTo(x: number, y: number) {
 
 it.each([
   ['original slot', 40, ['A', 'B', 'C']],
-  ['between the second and third tabs', 210, ['B', 'A', 'C']],
+  ['between the second and third tabs', 140, ['B', 'A', 'C']],
 ] as const)('drops at the %s after moving to the end', (_, x, expected) => {
   openTabs('main', ['A', 'B', 'C']);
   render(<EditorTabs />);
@@ -133,10 +133,33 @@ it('keeps a wide tab under its grab point in a scrolled row without chasing anim
   strip.scrollLeft = 55;
   fireEvent.mouseMove(document, { clientX: 94, clientY: 18 });
   expect(b.getBoundingClientRect().left).toBe(64);
-  fireEvent.mouseMove(document, { clientX: 203, clientY: 18 });
+  fireEvent.mouseMove(document, { clientX: 91, clientY: 18 });
   expect(c.style.getPropertyValue('--tab-slide-x')).toBe('-140px');
-  fireEvent.mouseMove(document, { clientX: 190, clientY: 18 });
+  fireEvent.mouseMove(document, { clientX: 90, clientY: 18 });
   expect(c.style.getPropertyValue('--tab-slide-x')).toBe('');
-  fireEvent.mouseUp(document, { clientX: 210, clientY: 18 });
+  fireEvent.mouseUp(document, { clientX: 91, clientY: 18 });
   expect(labels('main')).toEqual(['A', 'C', 'B']);
 });
+
+it.each([
+  { direction: 1, grip: 12, destination: ['A', 'C', 'B'] },
+  { direction: -1, grip: 88, destination: ['B', 'A', 'C'] },
+])(
+  'reorders at the moving edge with a $grip px grab offset',
+  ({ direction, grip, destination }) => {
+    openTabs('main', ['A', 'B', 'C']);
+    render(<EditorTabs />);
+    const tabs = screen.getAllByRole('tab');
+    const startX = 100 + grip;
+    const point = (distance: number) => ({ clientX: startX + direction * distance, clientY: 18 });
+    const neighbor = tabs[1 + direction];
+    fireEvent.mouseDown(tabs[1], point(0));
+    for (const distance of [49, 50, 51, 50, 49, 51]) {
+      fireEvent.mouseMove(document, point(distance));
+      const shift = neighbor.style.getPropertyValue('--tab-slide-x');
+      expect(shift).toBe(distance > 50 ? `${-100 * direction}px` : '');
+    }
+    fireEvent.mouseUp(document, point(51));
+    expect(labels('main')).toEqual(destination);
+  }
+);
