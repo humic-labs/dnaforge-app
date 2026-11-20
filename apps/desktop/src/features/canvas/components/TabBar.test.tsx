@@ -5,6 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { TabBar } from './TabBar';
+import { useDragStore } from '../dragStore';
 import { MANAGED_SEQUENCE_RENAME_EVENT } from '../../sequence/public/managed-sequence-rename';
 
 const canvasMocks = vi.hoisted(() => ({
@@ -14,17 +15,6 @@ const canvasMocks = vi.hoisted(() => ({
 const pageMocks = vi.hoisted(() => ({
   renamePageArtifact: vi.fn(),
   pages: {} as Record<string, { content: unknown }>,
-}));
-
-vi.mock('../dragStore', () => ({
-  useDragStore: (selector: (state: unknown) => unknown) =>
-    selector({
-      isDragging: false,
-      dropTargetPanelId: null,
-      dropInsertIndex: null,
-      dragTabId: null,
-      startDrag: vi.fn(),
-    }),
 }));
 
 vi.mock('../store', () => ({
@@ -66,6 +56,7 @@ vi.mock('../../../hooks/useGitStatus', () => ({
 
 afterEach(() => {
   cleanup();
+  useDragStore.getState().endDrag();
 });
 
 beforeEach(() => {
@@ -161,3 +152,34 @@ describe('TabBar plasmid rename', () => {
     window.removeEventListener(MANAGED_SEQUENCE_RENAME_EVENT, capture);
   });
 });
+
+it.each([
+  ['main', 1, 0],
+  ['main', 2, 0],
+  ['main', 0, 1],
+  ['main', 3, 1],
+  ['other', 2, 1],
+] as const)(
+  'shows the insertion line only for a move from %s to boundary %i',
+  (source, boundary, count) => {
+    const tabs = ['A', 'B', 'C'].map((id) => ({
+      id,
+      type: 'text' as const,
+      entityId: id,
+      label: id,
+    }));
+    const drag = useDragStore.getState();
+    drag.startDrag(source === 'main' ? 'B' : 'D', source, 'Document', 'text');
+    drag.setDropTarget('main', boundary);
+    const { container } = render(
+      <TabBar
+        tabs={tabs}
+        panelId="main"
+        activeTabId="B"
+        onSelectTab={vi.fn()}
+        onCloseTab={vi.fn()}
+      />
+    );
+    expect(container.querySelectorAll('[role="tab"] > .bg-accent')).toHaveLength(count);
+  }
+);

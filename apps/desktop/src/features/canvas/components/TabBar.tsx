@@ -56,6 +56,9 @@ export const TabBar = React.memo(function TabBar({
   const isDragging = useDragStore((s) => s.isDragging);
   const dropTargetPanelId = useDragStore((s) => s.dropTargetPanelId);
   const dropInsertIndex = useDragStore((s) => s.dropInsertIndex);
+  const draggedTabInPanel = useDragStore((s) =>
+    s.dragFromPanelId === panelId ? s.dragTabId : null
+  );
 
   const updateTab = useCanvasStore((s) => s.updateTab);
   const renamePageArtifact = usePageStore((s) => s.renamePageArtifact);
@@ -182,6 +185,9 @@ export const TabBar = React.memo(function TabBar({
 
   const boundary = dropTargetPanelId === panelId ? dropInsertIndex : null;
   const atEnd = boundary === tabs.length;
+  const restoresPosition =
+    boundary !== null &&
+    (tabs[boundary - 1]?.id === draggedTabInPanel || tabs[boundary]?.id === draggedTabInPanel);
   const markerIndex = atEnd ? tabs.length - 1 : boundary;
   const markerEdge = atEnd ? 'after' : 'before';
 
@@ -220,7 +226,7 @@ export const TabBar = React.memo(function TabBar({
           tab={projectTabStripTab(tab)}
           panelId={panelId}
           index={index}
-          insertMarker={index === markerIndex ? markerEdge : undefined}
+          insertMarker={!restoresPosition && index === markerIndex ? markerEdge : undefined}
           isActive={tab.id === activeTabId}
           isBeforeActive={activeIndex > 0 && index === activeIndex - 1}
           isAfterActive={activeIndex >= 0 && index === activeIndex + 1}
