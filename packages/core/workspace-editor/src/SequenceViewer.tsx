@@ -1199,6 +1199,8 @@ function WorkspaceEditorInner(
     onCopyDraftSelection,
   });
 
+  const resizeConfigRef = useRef(baseConfig);
+  resizeConfigRef.current = baseConfig;
   const measureScrollContainerRef = useRef<(() => void) | null>(null);
   useLayoutEffect(() => {
     const container = scrollContainerElement;
@@ -1224,6 +1226,10 @@ function WorkspaceEditorInner(
       } else if (Math.abs(width - lastWidth) > 1) {
         if (
           lastWidth > 0 &&
+          calculateAutoCharsPerLine(resizeConfigRef.current, lastWidth) !==
+            calculateAutoCharsPerLine(resizeConfigRef.current, width) &&
+          pendingScrollTargetRef.current?.cause !== 'navigation' &&
+          pendingScrollTargetRef.current?.cause !== 'selection-anchor' &&
           (!effectiveSequence?.circular || initialScrollAppliedYRef.current !== null)
         ) {
           const capturedGappedSeq = layoutGappedSequenceRef.current;
@@ -1235,11 +1241,7 @@ function WorkspaceEditorInner(
             lastKnownSequencePositionRef.current
           );
 
-          if (
-            centerPos !== null &&
-            pendingScrollTargetRef.current?.cause !== 'navigation' &&
-            pendingScrollTargetRef.current?.cause !== 'selection-anchor'
-          ) {
+          if (centerPos !== null) {
             pendingScrollTargetRef.current = buildRewrapScrollTarget(
               centerPos,
               currentScrollTop,
