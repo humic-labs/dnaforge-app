@@ -230,18 +230,8 @@ export function SharedSequenceReadViewer({
     }
     try {
       const nativeComparison = buildNativeSequenceComparisonScene(comparison);
-      const sourceAxis = nativeComparison.beforeAxis;
       return {
-        scene: {
-          ...nativeComparison.scene,
-          genome: {
-            ...nativeComparison.scene.genome,
-            formatRulerLabel: (column: number) => {
-              const base = sourceAxis.columnToBio(column);
-              return base === null ? null : String(comparison.referenceOrigin + base + 1);
-            },
-          },
-        },
+        scene: nativeComparison.scene,
         nativeComparison,
         error: null,
       };
@@ -365,6 +355,20 @@ export function SharedSequenceReadViewer({
     [sourceScene, cdsModel, cdsLayout]
   );
   const scene = cdsPresentation?.scene ?? sourceScene;
+  const rendererGenome = useMemo(() => {
+    if (!scene) return null;
+    const axis =
+      baseComparison?.beforeAxis ?? (scene.coordinateSpace?.mode === 'gapped' ? scene.axis : null);
+    if (!axis) return scene.genome;
+    const origin = comparison?.referenceOrigin ?? 0;
+    return {
+      ...scene.genome,
+      formatRulerLabel: (column: number) => {
+        const base = axis.columnToBio(column);
+        return base === null ? null : String(origin + base + 1);
+      },
+    };
+  }, [scene, baseComparison, comparison?.referenceOrigin]);
   const columnNavigation = useMemo(() => {
     const project = sourceScene?.inputColumnToDisplayColumn;
     if (!inputNavigation || !project) return inputNavigation;
@@ -1235,10 +1239,10 @@ export function SharedSequenceReadViewer({
           }}
           className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
         >
-          {scene ? (
+          {rendererGenome ? (
             <IndexedGenomeTileNativeMap
               ref={mapRef}
-              genome={scene.genome}
+              genome={rendererGenome}
               annotationChangeDecorations={annotationChangeDecorations}
               sequencePresentation={sequencePresentation}
               showResidueNumbers={showResidueNumbers}

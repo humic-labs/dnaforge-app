@@ -123,7 +123,9 @@ export function useAlignmentTraces(
         else console.warn('Could not load the aligned chromatogram.', result.reason);
       }
       if (results.some((result) => result.status === 'rejected')) {
-        useToastStore.getState().addToast(userMessage('readDetails.sourceUnavailable'), 'warning');
+        useToastStore.getState().addToast(userMessage('readDetails.sourceUnavailable'), {
+          definition: 'alignment-trace-unavailable',
+        });
       }
       setLoaded({ tracks, reference, referencePath, rows });
     });

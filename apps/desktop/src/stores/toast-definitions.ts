@@ -1985,6 +1985,12 @@ export const TOAST_DEFINITIONS = {
       },
     },
   }),
+  'alignment-trace-unavailable': defineToast({
+    category: 'Sequence alignment',
+    source: 'features/sequence/components/use-alignment-traces.ts',
+    type: 'warning',
+    message: userMessage('readDetails.sourceUnavailable'),
+  }),
   'track-view-failed': defineToast({
     category: 'Track View Actions',
     source: 'features/sequence/components/TrackViewActions.tsx',

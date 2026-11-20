@@ -359,14 +359,6 @@ export function buildSharedSequenceReadScene(
     length: axis.length,
     circular: gappedReference ? false : genome.circular,
     sequence: gappedReference ?? genome.sequence,
-    ...(gappedReference
-      ? {
-          formatRulerLabel: (column: number) => {
-            const base = axis.columnToBio(column);
-            return base === null ? null : String(base + 1);
-          },
-        }
-      : {}),
     features: gappedReference
       ? genome.features?.flatMap((feature) => {
           const start = axis.bioToColumn(feature.start);
