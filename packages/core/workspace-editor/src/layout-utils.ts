@@ -369,6 +369,22 @@ export function calculateVisibleRange(
   return { startPos, endPos: endPos || sequenceLength };
 }
 
+export function viewportCenterRowBoundsChanged(
+  previous: LayoutSnapshot2D | null,
+  current: LayoutSnapshot2D,
+  centerY: number
+): boolean {
+  const before = previous?.summary;
+  const after = current.summary;
+  if (!before || !after || before.rowYOffsets === after.rowYOffsets) return false;
+  const row = absoluteRowIndexForY(centerY, before);
+  if (row < 0 || row >= after.totalRows) return false;
+  return (
+    before.rowYOffsets[row] !== after.rowYOffsets[row] ||
+    before.rowYOffsets[row + 1] !== after.rowYOffsets[row + 1]
+  );
+}
+
 export function captureViewportCenterPosition(
   scrollTop: number,
   clientHeight: number,

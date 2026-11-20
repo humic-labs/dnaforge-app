@@ -69,6 +69,7 @@ import {
   nearestRowCopyForBp,
   calculateVisibleRange,
   captureViewportCenterPosition,
+  viewportCenterRowBoundsChanged,
   captureSelectionScreenAnchor,
   getSequenceBandY,
   type SequenceTrackGeometry,
@@ -3032,15 +3033,23 @@ function WorkspaceEditorInner(
           );
         }));
 
+    const previousLayout = getPreviousLayoutForScrollPreservation();
     if (
-      (charsPerLineChanged || heightChangedSignificantly || primerTracksChanged) &&
+      (charsPerLineChanged ||
+        heightChangedSignificantly ||
+        primerTracksChanged ||
+        (container &&
+          viewportCenterRowBoundsChanged(
+            previousLayout,
+            layout,
+            container.scrollTop + clientHeight / 2
+          ))) &&
       !rowAnchor &&
       !pendingScrollTargetRef.current &&
       !(screenTrackMorph && screenTrackMorph.layout !== targetLayout) &&
       (!effectiveSequence?.circular || initialScrollAppliedYRef.current !== null) &&
       !isZoomCommit
     ) {
-      const previousLayout = getPreviousLayoutForScrollPreservation();
       if (previousLayout && previousLayout.lines.length > 0 && container) {
         const centerPosition = captureViewportCenterPosition(
           container.scrollTop,

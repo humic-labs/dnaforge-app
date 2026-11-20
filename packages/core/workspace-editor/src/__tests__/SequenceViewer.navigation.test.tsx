@@ -83,6 +83,48 @@ describe('SequenceViewer controlled navigation', () => {
     act(() => viewer.current!.scrollToBiologicalPosition(2000, { animate: false }));
     await waitFor(() => expect(forecast()).toBe(false));
   });
+  it('keeps the navigation center when nearby rows collapse in a long document', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(391);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(686);
+    const viewer = createRef<WorkspaceEditorHandle>();
+    const onViewportChange = vi.fn<(range: ViewportRange) => void>();
+    const base = {
+      ...sequence,
+      sequence: 'A'.repeat(400_000),
+      length: 400_000,
+      circular: true,
+      annotations: Array.from({ length: 500 }, (_, index) => ({
+        name: `row ${index}`,
+        type: 'misc_feature',
+        start: index * 800 + 1,
+        end: index * 800 + 700,
+        direction: 1 as const,
+      })),
+    };
+    const expanded = Array.from({ length: 36 }, (_, index) => ({
+      name: `overlap ${index}`,
+      type: 'misc_feature',
+      start: 257_000 + Math.floor(index / 3) * 500 + (index % 3),
+      end: 257_480 + Math.floor(index / 3) * 500 + (index % 3),
+      direction: 1 as const,
+    }));
+    const view = (annotations: typeof base.annotations) => (
+      <SequenceViewer
+        ref={viewer}
+        sequence={{ ...base, annotations }}
+        zoomLevel={2.6}
+        config={{ charWidth: 0.208, rowHeight: 0.52, fontSize: 0.286, lodLevel: 'feature' }}
+        onViewportChange={onViewportChange}
+      />
+    );
+    const { rerender } = render(view([...base.annotations, ...expanded]));
+    act(() => viewer.current!.scrollToBiologicalPosition(270_255));
+    const center = () => onViewportChange.mock.calls.at(-1)?.[0].centerColumn;
+    await waitFor(() => expect(center()).toBe(270_254));
+    rerender(view(base.annotations));
+    expect(center()).toBe(270_254);
+  });
+
   it('prepares the far destination before restoring a large circular viewport after zoom', async () => {
     vi.stubGlobal('requestAnimationFrame', () => 1);
     vi.stubGlobal('cancelAnimationFrame', vi.fn());
