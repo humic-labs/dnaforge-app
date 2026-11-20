@@ -65,6 +65,19 @@ sequence rows and map tracks. The receipt records pane and bitmap dimensions,
 bases per row, backbone bounds, and click-to-presentation times. Keep the
 original frames and timing data. Pass `--first` to isolate the map-to-stacked case.
 
+### First side-by-side click after opening a map-only file
+
+Open Files on the disposable pUC19 project and run the cold side-by-side journey.
+It reopens the file in its saved map-only view, then clicks Side by side as its first
+layout action. The native recording checks the visible base glyphs in the left
+pane separately from the circle's horizontal center in the right pane. The
+receipt includes the time from pointer-down and click to each result. Preserve
+the original frames, settled reference screenshot, and receipt together.
+
+```bash
+node apps/desktop/scripts/cold-side-by-side-journey.mjs --session "$session_dir" --out "$session_dir/cold-side-by-side"
+```
+
 ### Continuous resizing and frame pacing
 
 With Files open in the same disposable project, run the native resizing journey against a fresh output directory. It drives a 1.5-second drag in each direction, resizes the native window in both dimensions, and drags the separator between the sequence and an adjacent HTML document in both split directions.
