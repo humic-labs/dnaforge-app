@@ -13,6 +13,8 @@ Notebook repair claims also use the focused
 component results from real app acceptance and lists the reported regressions.
 For release and usage analytics notices, follow the
 [desktop relaunch checks](features/desktop-notices.md).
+For Files Move and Rename completion, follow the
+[project refresh map](features/file-browser-refresh.md).
 
 Choose the [saved pileup map](features/saved-pileup.md) for read loading,
 annotations, zoom transitions and performance. Its source-start command owns
