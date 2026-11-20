@@ -3756,6 +3756,56 @@ describe('IndexedGenomeTab loading screen — phase transitions', () => {
     });
   });
 
+  it('lets drawing finish before saving the settled viewport and flushes on page hide', async () => {
+    const tab = assemblyIndexedTab();
+    resetCanvasStore(tab);
+    render(<IndexedGenomeTab tab={tab} />);
+    await waitForSessionSubscription();
+    act(() => emitPlatformEvent('genome:sessionUpdated', readySessionUpdate(tab.indexedGenome!)));
+    await waitFor(() => expect(viewerState.props).not.toBeNull());
+    act(() => window.dispatchEvent(new Event('pagehide')));
+
+    const idle = vi.fn<() => void>();
+    const requestIdle = vi.fn((callback: () => void) => {
+      idle.mockImplementation(callback);
+      return 31;
+    });
+    const cancelIdle = vi.fn();
+    vi.stubGlobal('requestIdleCallback', requestIdle);
+    vi.stubGlobal('cancelIdleCallback', cancelIdle);
+    const stored = () => useCanvasStore.getState().panels.main.tabs[0].viewState?.indexedViewport;
+    const move = viewerState.props!.onViewportRangeChange as (range: {
+      start: number;
+      end: number;
+    }) => void;
+    const original = stored();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      act(() => move({ start: 12000, end: 18000 }));
+      act(() => {
+        vi.advanceTimersByTime(120);
+      });
+      expect(stored()).toEqual(original);
+      expect(requestIdle).toHaveBeenCalledWith(expect.any(Function), { timeout: 120 });
+      act(() => move({ start: 15000, end: 21000 }));
+      expect(cancelIdle).toHaveBeenCalledWith(31);
+      act(() => {
+        vi.advanceTimersByTime(120);
+      });
+      expect(stored()).toEqual(original);
+      act(() => idle());
+      expect(stored()).toEqual({ start0: 15000, end0: 21000 });
+      act(() => move({ start: 8000, end: 14000 }));
+      act(() => {
+        vi.advanceTimersByTime(120);
+      });
+      act(() => window.dispatchEvent(new Event('pagehide')));
+      expect(stored()).toEqual({ start0: 8000, end0: 14000 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('captures the current camera before deferred viewport publication', async () => {
     const tab = assemblyIndexedTab();
     resetCanvasStore(tab);
