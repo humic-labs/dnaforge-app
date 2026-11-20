@@ -80,3 +80,63 @@ it('inserts between the destination tabs when crossing panels', () => {
   expect(labels('main')).toEqual(['B']);
   expect(labels(right)).toEqual(['C', 'A', 'D']);
 });
+
+it('slides the grabbed tab from the first movement and restores the row on leaving or returning', () => {
+  openTabs('main', ['A', 'B', 'C']);
+  render(<EditorTabs />);
+  const [a, b, c] = screen.getAllByRole('tab');
+  const shift = (tab: HTMLElement) => tab.style.getPropertyValue('--tab-slide-x');
+  fireEvent.mouseDown(a, { clientX: 20, clientY: 18 });
+  fireEvent.mouseMove(document, { clientX: 170, clientY: 22 });
+  expect(shift(a)).toBe('150px');
+  expect(shift(b)).toBe('-100px');
+  expect(shift(c)).toBe('');
+  expect(labels('main')).toEqual(['A', 'B', 'C']);
+  expect(document.querySelector('[data-floating-tab-preview]')).toBeNull();
+
+  fireEvent.mouseMove(document, { clientX: 170, clientY: 90 });
+  expect(shift(a)).toBe('');
+  expect(shift(b)).toBe('');
+  expect(document.querySelector('[data-floating-tab-preview]')).toBeTruthy();
+
+  fireEvent.mouseMove(document, { clientX: 280, clientY: 18 });
+  expect(shift(a)).toBe('200px');
+  expect(shift(b)).toBe('-100px');
+  expect(shift(c)).toBe('-100px');
+  expect(document.querySelector('[data-floating-tab-preview]')).toBeNull();
+  fireEvent.mouseUp(document, { clientX: 20, clientY: 18 });
+  expect(labels('main')).toEqual(['A', 'B', 'C']);
+  expect(shift(a)).toBe('');
+});
+
+it('keeps a wide tab under its grab point in a scrolled row without chasing animated neighbors', () => {
+  openTabs('main', ['A', 'B', 'C']);
+  render(<EditorTabs />);
+  const [a, b, c] = screen.getAllByRole('tab');
+  const strip = b.parentElement!;
+  strip.scrollLeft = 40;
+  const slots = new Map<HTMLElement, [number, number]>([
+    [a, [0, 75]],
+    [b, [75, 140]],
+    [c, [215, 80]],
+  ]);
+  for (const [tab, [left, width]] of slots) {
+    vi.spyOn(tab, 'getBoundingClientRect').mockImplementation(() => {
+      const slide = parseFloat(tab.style.getPropertyValue('--tab-slide-x')) || 0;
+      return new DOMRect(left - strip.scrollLeft + slide, 0, width, 36);
+    });
+  }
+
+  fireEvent.mouseDown(b, { clientX: 65, clientY: 18 });
+  fireEvent.mouseMove(document, { clientX: 89, clientY: 18 });
+  expect(b.getBoundingClientRect().left).toBe(59);
+  strip.scrollLeft = 55;
+  fireEvent.mouseMove(document, { clientX: 94, clientY: 18 });
+  expect(b.getBoundingClientRect().left).toBe(64);
+  fireEvent.mouseMove(document, { clientX: 203, clientY: 18 });
+  expect(c.style.getPropertyValue('--tab-slide-x')).toBe('-140px');
+  fireEvent.mouseMove(document, { clientX: 190, clientY: 18 });
+  expect(c.style.getPropertyValue('--tab-slide-x')).toBe('');
+  fireEvent.mouseUp(document, { clientX: 210, clientY: 18 });
+  expect(labels('main')).toEqual(['A', 'C', 'B']);
+});
