@@ -263,9 +263,10 @@
   overflow-x: auto;
   scrollbar-width: none;
 }
-[data-terminal-action='new-shell'] {
+.dnaforge-terminal-tabs > [data-terminal-action='new-shell'] {
   flex: 0 0 24px;
   width: 24px;
+  height: 24px;
 }
 .dnaforge-terminal-tab-row {
   display: flex;

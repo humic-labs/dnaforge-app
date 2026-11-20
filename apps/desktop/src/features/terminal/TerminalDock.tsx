@@ -500,7 +500,7 @@ export function TerminalDock({
         );
         if (!floatingGroupId) {
           const canvas = useCanvasStore.getState();
-          const panel = canvas.panels[canvas.focusedPanelId];
+          const panel = canvas.focusedPanelId ? canvas.panels[canvas.focusedPanelId] : undefined;
           const previousTab = panel?.activeTabId;
           const selected =
             migrated.find((group) => group.sessions.includes(layout.activeId ?? '')) ?? migrated[0];
