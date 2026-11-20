@@ -169,7 +169,7 @@ export function EmptyStateChatComposer({
             className="px-3 py-1.5 rounded-full border border-border bg-bg text-xs font-medium text-fg-muted
  wp-interactive hover:border-accent/30 transition-colors"
           >
-            {suggestion}
+            {suggestion.replaceAll('E. coli', 'E.\u00a0coli')}
           </button>
         ))}
       </div>
