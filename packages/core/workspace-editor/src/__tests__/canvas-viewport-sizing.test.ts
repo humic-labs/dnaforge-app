@@ -70,6 +70,32 @@ describe('canvas viewport sizing', () => {
     expect(result.selectionResized).toBe(true);
   });
 
+  it('retains full-resolution buffers throughout a continuous height resize', () => {
+    const mainCanvas = document.createElement('canvas');
+    const selectionCanvas = document.createElement('canvas');
+    let allocations = 0;
+    for (const viewportHeight of Array.from(
+      { length: 180 },
+      (_, step) => 350 + Math.abs(90 - step)
+    )) {
+      const sizing = syncViewportCanvasSizes({
+        mainCanvas,
+        selectionCanvas,
+        width: 640,
+        viewportHeight,
+        totalHeight: 10_000,
+        dpr: 2,
+        mainCanvasTransferred: false,
+      });
+      if (sizing.mainResized) allocations++;
+      expect(sizing.selectionResized).toBe(sizing.mainResized);
+      expect(sizing.cssHeight).toBeGreaterThanOrEqual(viewportHeight + 100);
+      expect(mainCanvas.height).toBe(sizing.cssHeight * 2);
+      expect(selectionCanvas.height).toBe(mainCanvas.height);
+    }
+    expect(allocations).toBeLessThanOrEqual(3);
+  });
+
   it('keeps a fractional-DPR backing surface intact across repeated draws', () => {
     const mainCanvas = document.createElement('canvas');
     const selectionCanvas = document.createElement('canvas');

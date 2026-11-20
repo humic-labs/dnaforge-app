@@ -47,7 +47,7 @@ actual height from the divider to the bottom of the pane.
 Keep the screenshots, recording and measured bounds for each step with the
 tested revision. Follow the parent skill's cleanup instructions.
 
-### Switching the split direction
+### Switching sequence and map views
 
 Open Files in the isolated project. Run the orientation journey with the same
 session and a fresh output directory. It closes the disposable session’s tabs
@@ -58,10 +58,23 @@ node apps/desktop/scripts/split-orientation-journey.mjs \
   --session "$session_dir" --out "$session_dir/switch-captures"
 ```
 
-Each click switches the wrapped sequence and map between stacked and side-by-side.
-Compare the first displayed frames against the settled destination. Check the
-wrap canvas dimensions, bases per row, and the drawn map size and position in
-both directions. Keep the compositor captures and input-relative measurements.
+Start with the map alone and click the stacked split. The journey also drives every
+composition button that changes the view from sequence alone, map alone, and
+all four split placements. Compare the first displayed frames with the settled
+sequence rows and map tracks. The receipt records pane and bitmap dimensions,
+bases per row, backbone bounds, and click-to-presentation times. Keep the
+original frames and timing data. Pass `--first` to isolate the map-to-stacked case.
+
+### Continuous resizing and frame pacing
+
+With Files open in the same disposable project, run the native resizing journey against a fresh output directory. It drives a 1.5-second drag in each direction, resizes the native window in both dimensions, and drags the separator between the sequence and an adjacent HTML document in both split directions.
+
+```sh
+node apps/desktop/scripts/sequence-resize-performance.mjs \
+  --session "$session_dir" --out "$session_dir/resize-timing"
+```
+
+Each gesture delivers 90 input updates at a target of 60 Hz. The receipt records the estimated display refresh rate from Chromium’s refresh outcomes and the cadence of presented frames during each gesture, reported partial or dropped frames, and the number of distinct size observations. Inspect the timeline and exact dimensions inside each phase directory. For a separate screen recording, repeat with `--video` and a different output directory. Each phase retains its original frames and `video.ffconcat` with their capture times. `--profile` collects JavaScript CPU samples for diagnosis. Use the ordinary run for frame pacing.
 
 ## Gotchas
 

@@ -149,7 +149,7 @@ type StadiumFrame = {
 function stadiumGeometryHeight(state: RenderState, zoom = state.zoom): number {
   const requestedHeight = state.geometryHeight ?? state.height;
   const excessHeight = Math.max(0, requestedHeight - state.height);
-  const weight = centeredOverviewWeight(state.centerStadiumOverview, zoom, state.morph);
+  const weight = centeredOverviewWeight(state.centerStadiumOverview, zoom);
   return Math.max(1, requestedHeight - weight * excessHeight);
 }
 

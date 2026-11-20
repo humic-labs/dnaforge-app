@@ -25,14 +25,17 @@ export function SequenceScrollbarAnnotationCanvas({
   height,
 }: SequenceScrollbarAnnotationCanvasProps): ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const surfaceHeight = Math.max(1, Math.ceil(height / 128) * 128);
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const devicePixelRatio = Math.max(1, window.devicePixelRatio || 1);
-    canvas.width = Math.max(1, Math.round(width * devicePixelRatio));
-    canvas.height = Math.max(1, Math.round(height * devicePixelRatio));
+    const backingWidth = Math.max(1, Math.round(width * devicePixelRatio));
+    const backingHeight = Math.max(1, Math.round(surfaceHeight * devicePixelRatio));
+    if (canvas.width !== backingWidth) canvas.width = backingWidth;
+    if (canvas.height !== backingHeight) canvas.height = backingHeight;
     const context = getSequenceWebGLContext(canvas);
     if (!context) return;
     context.onRestore = () => {
@@ -47,7 +50,7 @@ export function SequenceScrollbarAnnotationCanvas({
     };
     if (!context.beginFrame()) return;
     context.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-    context.clearRect(0, 0, width, height);
+    context.clearRect(0, 0, width, surfaceHeight);
     context.globalAlpha = 0.8;
     for (const marker of markers) {
       context.fillStyle = marker.color;
@@ -56,7 +59,7 @@ export function SequenceScrollbarAnnotationCanvas({
     context.globalAlpha = 1;
     context.endFrame();
     canvas.dataset.paintedAnnotationCount = String(markers.length);
-  }, [height, markers, width]);
+  }, [surfaceHeight, markers, width]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -79,7 +82,8 @@ export function SequenceScrollbarAnnotationCanvas({
         position: 'absolute',
         inset: 0,
         width,
-        height,
+        height: surfaceHeight,
+        clipPath: `inset(0 0 ${surfaceHeight - height}px 0)`,
         pointerEvents: 'none',
         zIndex: 1,
       }}

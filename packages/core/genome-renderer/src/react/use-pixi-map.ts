@@ -441,6 +441,8 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     const geometryHeight = options.geometryHeight ?? options.height;
     const morph = options.morph ?? 0;
     const geometryChanged =
+      state.width !== Math.round(options.width) ||
+      state.height !== Math.round(options.height) ||
       state.geometryHeight !== geometryHeight ||
       state.morph !== morph ||
       state.centerStadiumOverview !== options.centerStadiumOverview;
@@ -456,7 +458,14 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
       state.morph = morph;
       const app = appRef.current;
       if (app && options.width > 0 && options.height > 0) {
-        const size = resizePixiCanvas(app, options.width, options.height, 'display-props');
+        const size = resizePixiCanvas(
+          app,
+          options.width,
+          options.height,
+          'display-props',
+          undefined,
+          options.reserveCanvasSpace
+        );
         state.width = size.width;
         state.height = size.height;
         return size.backingChanged;
@@ -477,6 +486,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     options.height,
     options.geometryHeight,
     options.centerStadiumOverview,
+    options.reserveCanvasSpace,
     options.morph,
   ]);
 
@@ -886,7 +896,14 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
       const current = optionsRef.current;
       const liveApp = app;
       const appliedSize = mutateDisplayGeometryPreservingCenter(() => {
-        const nextSize = resizePixiCanvas(liveApp, size.width, size.height, reason);
+        const nextSize = resizePixiCanvas(
+          liveApp,
+          size.width,
+          size.height,
+          reason,
+          undefined,
+          current.reserveCanvasSpace
+        );
         stateRef.current.width = nextSize.width;
         stateRef.current.height = nextSize.height;
         stateRef.current.geometryHeight = current.geometryHeight ?? nextSize.height;
@@ -1128,7 +1145,14 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
       const size = measureContainerSize();
       if (size.width <= 0 || size.height <= 0) return;
       mutateDisplayGeometryPreservingCenter(() =>
-        resizePixiCanvas(liveApp, size.width, size.height, 'device-pixel-ratio-change')
+        resizePixiCanvas(
+          liveApp,
+          size.width,
+          size.height,
+          'device-pixel-ratio-change',
+          undefined,
+          optionsRef.current.reserveCanvasSpace
+        )
       );
       renderLoopRef.current?.renderNow();
     };
@@ -1245,7 +1269,9 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
         pixiApp,
         latestMeasuredSize.width || latestSize.width || initWidth,
         latestMeasuredSize.height || latestSize.height || initHeight,
-        'post-init-latest-props'
+        'post-init-latest-props',
+        undefined,
+        latestSize.reserveCanvasSpace
       );
       stateRef.current.width = appliedSize.width;
       stateRef.current.height = appliedSize.height;
@@ -1829,7 +1855,8 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
               {
                 width: size.cssWidth ?? size.width,
                 height: size.cssHeight ?? size.height,
-              }
+              },
+              optionsRef.current.reserveCanvasSpace
             ).backingChanged;
             s.width = size.width;
             s.height = size.height;

@@ -94,21 +94,6 @@ export function workspaceViewerMaybeFrozenCenter<T>(
   return previousMode !== nextMode && currentFrozen == null ? lastViewportCenter : currentFrozen;
 }
 
-export function workspaceViewerMapCollapseHold(
-  previousMapSurfaceVisible: boolean,
-  mapSurfaceVisible: boolean,
-  sequenceSurfaceVisible: boolean
-): boolean {
-  return previousMapSurfaceVisible && !mapSurfaceVisible && sequenceSurfaceVisible;
-}
-
-export function workspaceViewerRenderMapSurfaceVisible(
-  mapSurfaceVisible: boolean,
-  holdMapCollapseForThisRender: boolean
-): boolean {
-  return mapSurfaceVisible || holdMapCollapseForThisRender;
-}
-
 export function workspaceViewerActualWebGLMapVisible(
   renderMapSurfaceVisible: boolean,
   hideMinimap: boolean

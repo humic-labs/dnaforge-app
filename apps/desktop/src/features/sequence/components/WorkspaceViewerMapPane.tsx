@@ -20,7 +20,7 @@ export function WorkspaceViewerMapPane({
   webglMapGeometry,
   hideMinimap,
   alternateMinimapContent,
-  renderMapSurfaceVisible,
+  mountWebglMap,
   actualWebGLMapVisible,
   mapCameraZoomVisible,
   mapShapeControlMode,
@@ -56,7 +56,7 @@ export function WorkspaceViewerMapPane({
   webglMapGeometry: MapGeometry;
   hideMinimap: boolean;
   alternateMinimapContent?: ReactNode;
-  renderMapSurfaceVisible: boolean;
+  mountWebglMap: boolean;
   actualWebGLMapVisible: boolean;
   mapCameraZoomVisible: boolean;
   mapShapeControlMode: NonNullable<
@@ -128,7 +128,7 @@ export function WorkspaceViewerMapPane({
       >
         {hideMinimap ? (
           <div style={{ height: '100%', overflow: 'auto' }}>{alternateMinimapContent}</div>
-        ) : !renderMapSurfaceVisible ? null : (
+        ) : !mountWebglMap ? null : (
           webglMap
         )}
         {actualWebGLMapVisible ? mapOverlay : null}
@@ -174,7 +174,7 @@ export function WorkspaceViewerMapPane({
             {mapControls}
           </div>
         ) : null}
-        {renderMapSurfaceVisible && !hideMinimap ? (
+        {actualWebGLMapVisible ? (
           <>
             {circular ? (
               <div

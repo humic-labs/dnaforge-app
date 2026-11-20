@@ -8,9 +8,7 @@ import {
   workspaceViewerDrawerSurfaceOpen,
   workspaceViewerEmptySequenceEntryVisible,
   workspaceViewerFallbackName,
-  workspaceViewerMapCollapseHold,
   workspaceViewerOrLocal,
-  workspaceViewerRenderMapSurfaceVisible,
   workspaceViewerHighlightRange,
   workspaceViewerLiveAnnotations,
   workspaceViewerLiveSequence,
@@ -81,16 +79,10 @@ describe('workspaceViewerSurfaceFlags', () => {
   });
 });
 
-describe('workspaceViewerMapCollapseHold', () => {
-  it('holds the outgoing map for one render while the sequence surface takes over', () => {
-    expect(workspaceViewerMapCollapseHold(true, false, true)).toBe(true);
-    expect(workspaceViewerRenderMapSurfaceVisible(false, true)).toBe(true);
+describe('workspaceViewerActualWebGLMapVisible', () => {
+  it('shows a visible map and hides a collapsed map', () => {
     expect(workspaceViewerActualWebGLMapVisible(true, false)).toBe(true);
-  });
-
-  it('does not hold collapse when the sequence surface is also gone', () => {
-    expect(workspaceViewerMapCollapseHold(true, false, false)).toBe(false);
-    expect(workspaceViewerRenderMapSurfaceVisible(false, false)).toBe(false);
+    expect(workspaceViewerActualWebGLMapVisible(false, false)).toBe(false);
   });
 
   it('hides the live WebGL map when the minimap is off', () => {

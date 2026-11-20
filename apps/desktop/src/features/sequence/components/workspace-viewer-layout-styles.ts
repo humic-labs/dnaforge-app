@@ -76,6 +76,7 @@ export function workspaceViewerSequenceContainerStyle(args: {
 }): CSSProperties {
   const { sequenceSurfaceOrder, sequenceSurfaceVisible, horizontalSequenceMapLayout } = args;
   return {
+    display: sequenceSurfaceVisible ? undefined : 'none',
     order: sequenceSurfaceOrder,
     flex: sequenceSurfaceVisible ? (horizontalSequenceMapLayout ? '1 1 0' : 1) : '0 0 0px',
     width: sequenceSurfaceVisible ? undefined : 0,
@@ -145,6 +146,7 @@ export function workspaceViewerMinimapContainerStyle(args: {
   if (!mapPaneVisible) {
     return {
       ...shared,
+      display: 'none',
       height: 0,
       minHeight: 0,
       minWidth: 0,

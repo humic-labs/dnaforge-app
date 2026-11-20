@@ -1,3 +1,4 @@
+import { viewportCanvasHeight } from './canvas-viewport-sizing';
 import { setCanvasTheme } from './canvas-theme';
 import { JETBRAINS_MONO_FONT_NAME, loadSequenceFonts } from '@waypoint/platform';
 import { renderSequence } from './canvas-renderer';
@@ -67,14 +68,17 @@ function doDraw(): void {
 
   cachedParams.viewport = vp;
 
-  const virtualCanvasHeight = vp.height > 0 ? vp.height + 100 : cachedCanvasHeight;
+  const virtualCanvasHeight = viewportCanvasHeight(
+    vp.height,
+    cachedCanvasHeight,
+    cachedCanvasHeight
+  );
+  cachedCanvasHeight = virtualCanvasHeight;
   const targetWidth = Math.ceil(cachedCanvasWidth * dpr);
   const targetHeight = Math.ceil(virtualCanvasHeight * dpr);
 
-  if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
-  }
+  if (canvas.width !== targetWidth) canvas.width = targetWidth;
+  if (canvas.height !== targetHeight) canvas.height = targetHeight;
 
   if (!ctx.beginFrame()) return;
   ctx.setPresentationShiftBounds(cachedPresentationBands, dpr);

@@ -898,7 +898,12 @@ export function useCanvasWorkerDraw(params: UseCanvasWorkerDrawParams): void {
       }
 
       const currentLayout = layoutRef.current;
-      const expectedCanvasHeight = viewportCanvasHeight(height, currentLayout.totalHeight);
+      const mainCanvasHeight = canvasRef.current?.clientHeight ?? 0;
+      const expectedCanvasHeight = viewportCanvasHeight(
+        height,
+        currentLayout.totalHeight,
+        mainCanvasHeight
+      );
       if (height <= 0 || expectedCanvasHeight <= 0) {
         pendingMainDrawRef.current = false;
         if (drawRafRef.current !== null) {
@@ -907,7 +912,6 @@ export function useCanvasWorkerDraw(params: UseCanvasWorkerDrawParams): void {
         }
         return;
       }
-      const mainCanvasHeight = canvasRef.current?.clientHeight ?? 0;
       const selectionCanvasHeight = selectionCanvasRef.current?.clientHeight ?? 0;
       const hasViewportHeightResize =
         Math.abs(mainCanvasHeight - expectedCanvasHeight) > 1 ||

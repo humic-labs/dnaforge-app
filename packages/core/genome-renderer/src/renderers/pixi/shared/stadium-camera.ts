@@ -81,10 +81,9 @@ function clamp01(value: number): number {
 
 export function centeredOverviewWeight(
   centerStadiumOverview: boolean | undefined,
-  zoom: number,
-  morph: number
+  zoom: number
 ): number {
-  return centerStadiumOverview ? (1 - clamp01(morph)) * clamp01(2 - zoom) : 0;
+  return centerStadiumOverview ? clamp01(2 - zoom) : 0;
 }
 
 function lerp(a: number, b: number, t: number): number {
@@ -197,7 +196,7 @@ export function solveStadiumCamera(inputs: StadiumCameraInputs): StadiumCameraRe
   const backboneTargetY = lerp(
     laneTargetY,
     centeredTargetY,
-    centeredOverviewWeight(inputs.centerStadiumOverview, zoom, inputs.morph ?? 0)
+    centeredOverviewWeight(inputs.centerStadiumOverview, zoom)
   );
 
   const debug: StadiumCameraDebug = {

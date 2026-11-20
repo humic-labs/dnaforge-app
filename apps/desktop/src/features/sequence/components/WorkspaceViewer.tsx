@@ -189,10 +189,8 @@ import {
   workspaceViewerEmptySequenceEntryVisible,
   workspaceViewerFallbackName,
   workspaceViewerHighlightRange,
-  workspaceViewerMapCollapseHold,
   workspaceViewerMaybeFrozenCenter,
   workspaceViewerOrLocal,
-  workspaceViewerRenderMapSurfaceVisible,
   workspaceViewerRequestedSideMapPaneWidth,
   workspaceViewerSequenceEditable,
   workspaceViewerSurfaceFlags,
@@ -640,7 +638,7 @@ function WorkspaceViewerInternal({
       if (width > 0) setMinimapWidth(width);
       if (height > 0) setMinimapContainerHeight(height);
     }
-  }, [drawerSurfaceOpen, activeMapLayout]);
+  }, [drawerSurfaceOpen, seqView.mapPlacement, seqView.rendererVisibility]);
 
   const [liveZoom, setLiveZoom] = useState<{ key: string; value: number } | null>(null);
   const [canvasMinZoom, setCanvasMinZoom] = useState(MIN_SEQUENCE_ZOOM);
@@ -785,17 +783,6 @@ function WorkspaceViewerInternal({
     effectiveMapShape,
     viewerLodLevel,
   });
-  const previousMapSurfaceVisibleRef = useRef(mapSurfaceVisible);
-  const [, forceMapCollapseReleaseFrame] = useState(0);
-  const holdMapCollapseForThisRender = workspaceViewerMapCollapseHold(
-    previousMapSurfaceVisibleRef.current,
-    mapSurfaceVisible,
-    sequenceSurfaceVisible
-  );
-  const renderMapSurfaceVisible = workspaceViewerRenderMapSurfaceVisible(
-    mapSurfaceVisible,
-    holdMapCollapseForThisRender
-  );
   const previousEffectiveMapShapeRef = useRef(effectiveMapShape);
   const {
     sequenceViewportScopeKey,
@@ -817,31 +804,6 @@ function WorkspaceViewerInternal({
     viewportScopeKey: sequenceViewportScopeKey,
     rendererReadyEpoch: webglRendererReadyEpoch,
   });
-
-  useLayoutEffect(() => {
-    previousMapSurfaceVisibleRef.current = mapSurfaceVisible;
-    if (holdMapCollapseForThisRender) {
-      const frameId = requestAnimationFrame(() =>
-        forceMapCollapseReleaseFrame((frame) => frame + 1)
-      );
-      return () => cancelAnimationFrame(frameId);
-    }
-    return undefined;
-  }, [holdMapCollapseForThisRender, mapSurfaceVisible]);
-
-  useLayoutEffect(() => {
-    if (!mapOnlyVisible || !renderMapSurfaceVisible) return;
-    const el = minimapContainerRef.current;
-    if (!el) return;
-    const width = el.clientWidth;
-    const height = el.clientHeight;
-    if (width > 0 && Math.abs(width - minimapWidth) > 1) {
-      setMinimapWidth(width);
-    }
-    if (height > 0 && Math.abs(height - minimapContainerHeight) > 1) {
-      setMinimapContainerHeight(height);
-    }
-  }, [mapOnlyVisible, minimapContainerHeight, minimapWidth, renderMapSurfaceVisible]);
 
   const sequenceViewModeRef = useRef(sequenceViewMode);
   sequenceViewModeRef.current = sequenceViewMode;
@@ -906,9 +868,8 @@ function WorkspaceViewerInternal({
     defaultMinimapHeight: initialStackedMapPaneHeight,
     defaultMinimapGeometryHeight: activeMapLayout === 'vertical' ? 280 : 420,
     maxPaneHeight:
-      sharedReadViewerActive &&
       sequenceSurfaceVisible &&
-      renderMapSurfaceVisible &&
+      mapSurfaceVisible &&
       activeMapLayout === 'vertical' &&
       surfaceLayoutHeight > 0
         ? surfaceLayoutHeight - minimumSequencePaneHeight - 4
@@ -1564,7 +1525,7 @@ function WorkspaceViewerInternal({
     if (liveZoom?.key === tabStateKey && seqView.zoom === liveZoom.value) setLiveZoom(null);
   }, [liveZoom, seqView.zoom, tabStateKey]);
   const actualWebGLMapVisible = workspaceViewerActualWebGLMapVisible(
-    renderMapSurfaceVisible,
+    mapSurfaceVisible,
     hideMinimap
   );
   const mapCameraZoomVisible = actualWebGLMapVisible;
@@ -2117,7 +2078,7 @@ function WorkspaceViewerInternal({
     showSideResizeHandle,
   } = workspaceViewerLayoutFlags({
     hideMinimap,
-    renderMapSurfaceVisible,
+    renderMapSurfaceVisible: mapSurfaceVisible,
     sequenceSurfaceVisible,
     mapOnlyVisible,
     activeMapLayout,
@@ -2461,7 +2422,7 @@ function WorkspaceViewerInternal({
     (event: React.MouseEvent<HTMLDivElement>) => handleMapPaneResizeStart(event, 'horizontal'),
     [handleMapPaneResizeStart]
   );
-  const minimapType = workspaceViewerMinimapType(renderMapSurfaceVisible, hideMinimap);
+  const minimapType = workspaceViewerMinimapType(mapSurfaceVisible, hideMinimap);
   const surfaceLayoutStyle = workspaceViewerSurfaceLayoutStyle(horizontalSequenceMapLayout);
   const sequenceContainerStyle = workspaceViewerSequenceContainerStyle({
     sequenceSurfaceOrder,
@@ -2472,7 +2433,7 @@ function WorkspaceViewerInternal({
     mapPaneResizePreviewActive,
     mapSurfaceVisible,
     sequenceSurfaceVisible,
-    sequenceLayoutViewportHeight,
+    sequenceLayoutViewportHeight: surfaceLayoutHeight,
   });
   const circularBufferViewportHeight = (() => {
     if (!sequenceSurfaceVisible) return undefined;
@@ -2576,6 +2537,9 @@ function WorkspaceViewerInternal({
               >
                 <WorkspaceViewerSequenceSurface
                   sequenceSurfaceVisible={sequenceSurfaceVisible}
+                  retainWrappedSequence={
+                    surface === 'sequence' && !comparisonMode && sourceSequence.length > 0
+                  }
                   sequenceViewMode={sequenceViewMode}
                   emptySequenceEntryVisible={emptySequenceEntryVisible}
                   emptySequenceEntryCue={emptySequenceEntryCue}
@@ -2695,7 +2659,7 @@ function WorkspaceViewerInternal({
                   canvas2d={
                     <SequenceViewer
                       ref={sequenceViewerRef}
-                      keyboardActive={viewerCommandIsActive}
+                      keyboardActive={viewerCommandIsActive && sequenceSurfaceVisible}
                       browserWheelGestureOwnership={supportsWheelMomentum()}
                       sequence={sequenceWithExtensionPreview}
                       orfs={visibleORFs}
@@ -2714,7 +2678,12 @@ function WorkspaceViewerInternal({
                       onMinZoomChange={setCanvasMinZoom}
                       circularBufferViewportHeight={circularBufferViewportHeight}
                       initialContainerWidth={initialSequenceContainerWidth}
-                      viewportHeightHint={sequenceViewportHeightHint}
+                      surfaceVisible={sequenceSurfaceVisible}
+                      viewportHeightHint={
+                        sequenceSurfaceVisible
+                          ? sequenceViewportHeightHint
+                          : Math.max(0, surfaceLayoutHeight - minimapHeight - 4)
+                      }
                       freezeViewportHeight={mapPaneResizePreviewActive}
                       editable={workspaceViewerSequenceEditable(readOnly, editingActive)}
                       initialCursor={editInitialCursor}
@@ -2743,7 +2712,7 @@ function WorkspaceViewerInternal({
                         handleSequenceHighlightedRangeChange(range);
                       }}
                       onHighlightedRangePreview={handleSequenceHighlightedRangePreview}
-                      onViewportChange={handleViewportChange}
+                      onViewportChange={sequenceSurfaceVisible ? handleViewportChange : undefined}
                       onContextMenu={handleContextMenu}
                       cutSites={twoDCutSites}
                       scannedCutSites={sequenceScannedCutSites(
@@ -2862,7 +2831,10 @@ function WorkspaceViewerInternal({
                 webglMapGeometry={webglMapGeometry}
                 hideMinimap={hideMinimap}
                 alternateMinimapContent={alternateMinimapContent}
-                renderMapSurfaceVisible={renderMapSurfaceVisible}
+                mountWebglMap={
+                  mapSurfaceVisible ||
+                  (surface === 'sequence' && !comparisonMode && sourceSequence.length > 0)
+                }
                 actualWebGLMapVisible={actualWebGLMapVisible}
                 mapCameraZoomVisible={mapCameraZoomVisible}
                 mapShapeControlMode={mapShapeControlMode}
@@ -2908,12 +2880,8 @@ function WorkspaceViewerInternal({
                     width={minimapWidth}
                     height={webglMapGeometry.renderHeight}
                     geometryHeight={webglMapGeometry.geometryHeight}
-                    centerStadiumOverview={
-                      sequenceSurfaceVisible &&
-                      activeMapLayout === 'vertical' &&
-                      surface !== 'assembly' &&
-                      mapTopologyCircular
-                    }
+                    reserveCanvasSpace={surface === 'sequence' && mapTopologyCircular}
+                    centerStadiumOverview={surface !== 'assembly' && mapTopologyCircular}
                     circular={mapTopologyCircular}
                     morphToCircle={workspaceViewerMapMorphToCircle(
                       mapTopologyCircular,
@@ -2956,7 +2924,7 @@ function WorkspaceViewerInternal({
                     onSelectionStart={handleWebglMapSelectionStart}
                     onPositionClick={handleWebglMapPositionClick}
                     onPositionDoubleClick={handleWebglMapPositionDoubleClick}
-                    onCameraChange={handleWebglMapCameraChange}
+                    onCameraChange={actualWebGLMapVisible ? handleWebglMapCameraChange : undefined}
                     onRendererReady={handleWebglRendererReady}
                     syncViewportRangeOnCameraScroll={isWebglSyncLocked}
                     viewportIndicatorVisible={workspaceViewerViewportIndicatorVisible(

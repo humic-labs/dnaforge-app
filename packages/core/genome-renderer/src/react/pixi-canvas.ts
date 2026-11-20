@@ -14,12 +14,18 @@ export function clearPixiCanvas(app: Application): void {
   app.renderer.render({ container: emptyScene });
 }
 
+function backingExtent(required: number, current: number): number {
+  if (current >= required && current - required < 128) return current;
+  return Math.ceil(required / 128) * 128;
+}
+
 export function resizePixiCanvas(
   app: Application,
   width: number,
   height: number,
   reason: string,
-  cssSize?: { width: number; height: number }
+  cssSize?: { width: number; height: number },
+  reserveSpace = false
 ): { width: number; height: number; backingChanged: boolean } {
   const targetWidth = Math.max(1, Math.round(width));
   const targetHeight = Math.max(1, Math.round(height));
@@ -30,17 +36,33 @@ export function resizePixiCanvas(
   const targetResolution = liveResolution();
   const currentScreenWidth = Math.round(app.renderer.width);
   const currentScreenHeight = Math.round(app.renderer.height);
+  const canvas = app.canvas as HTMLCanvasElement;
+  const crop = reserveSpace && 'objectViewBox' in canvas.style;
+  const widthCapacity = crop ? backingExtent(targetWidth, currentScreenWidth) : targetWidth;
+  const heightCapacity = crop ? backingExtent(targetHeight, currentScreenHeight) : targetHeight;
   const resolutionChanged = Math.abs(currentResolution - targetResolution) > 0.001;
   const backingChanged =
-    currentScreenWidth !== targetWidth || currentScreenHeight !== targetHeight || resolutionChanged;
+    currentScreenWidth !== widthCapacity ||
+    currentScreenHeight !== heightCapacity ||
+    resolutionChanged;
   if (backingChanged) {
-    ptime('canvas.resize', () => app.renderer.resize(targetWidth, targetHeight, targetResolution));
+    ptime('canvas.resize', () =>
+      app.renderer.resize(widthCapacity, heightCapacity, targetResolution)
+    );
     clearPixiCanvas(app);
   }
 
-  const canvas = app.canvas as HTMLCanvasElement;
   canvas.style.width = `${cssWidth}px`;
   canvas.style.height = `${cssHeight}px`;
+  if (crop) {
+    const right =
+      Math.round(widthCapacity * targetResolution) - Math.round(targetWidth * targetResolution);
+    const bottom =
+      Math.round(heightCapacity * targetResolution) - Math.round(targetHeight * targetResolution);
+    canvas.style.setProperty('object-view-box', `inset(0 ${right}px ${bottom}px 0)`);
+  } else if (canvas.style.getPropertyValue('object-view-box')) {
+    canvas.style.removeProperty('object-view-box');
+  }
 
   recordWebGLTrace('resize', {
     reason,

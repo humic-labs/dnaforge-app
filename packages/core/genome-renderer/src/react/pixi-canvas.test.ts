@@ -37,6 +37,20 @@ function makeApp(rendererWidth: number, rendererHeight: number, resolution = 1) 
 describe('resizePixiCanvas — backing buffer reallocation', () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it('keeps the map at native scale throughout a 90-pixel pane drag without reallocating every pixel', () => {
+    const app = makeApp(800, 500);
+    Object.defineProperty(app.canvas.style, 'objectViewBox', { value: '', configurable: true });
+    const css = vi.spyOn(app.canvas.style, 'setProperty');
+    for (let width = 801; width <= 890; width++) {
+      const logical = resizePixiCanvas(app, width, 500, 'pane-drag', undefined, true);
+      expect(logical.width).toBe(width);
+      expect(app.canvas.style.width).toBe(`${width}px`);
+    }
+    expect(app.renderer.resize).toHaveBeenCalledOnce();
+    expect(app.renderer.width).toBe(896);
+    expect(css).toHaveBeenLastCalledWith('object-view-box', 'inset(0 6px 0px 0)');
+  });
+
   it('reallocates and reports backingChanged when the backing size differs', () => {
     const app = makeApp(800, 600);
     const result = resizePixiCanvas(app, 1024, 768, 'test');

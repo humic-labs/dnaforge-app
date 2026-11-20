@@ -90,36 +90,42 @@ describe('solveStadiumCamera', () => {
     );
   });
 
-  it.each([220, 456])('centers the split stadium overview in a %ipx pane', (paneHeight) => {
-    const radius = 74.6;
-    const straightLength = 562;
-    const input = {
-      viewportWidth: 842,
-      viewportHeight: paneHeight,
-      dims: {
-        width: straightLength + 2 * radius,
-        height: 2 * radius,
-        radius,
-        straightLength,
-        totalLength: 2 * straightLength + 2 * Math.PI * radius,
-      },
-      ox: 0,
-      oy: 0,
-      zoom: 1,
-      laneStackBounds,
-      floatingLabelTopReservePx: 72,
-      centerStadiumOverview: true,
-      morph: 0,
-    };
-    const overview = solveStadiumCamera(input);
-    expect(overview.backboneTargetY + radius).toBeCloseTo(paneHeight / 2);
+  it.each([
+    [220, 562, 0],
+    [456, 562, 0],
+    [706, 0, 1],
+  ])(
+    'centers the map overview in a %ipx pane with a %ipx straight segment',
+    (paneHeight, straightLength, morph) => {
+      const radius = 74.6;
+      const input = {
+        viewportWidth: 842,
+        viewportHeight: paneHeight,
+        dims: {
+          width: straightLength + 2 * radius,
+          height: 2 * radius,
+          radius,
+          straightLength,
+          totalLength: 2 * straightLength + 2 * Math.PI * radius,
+        },
+        ox: 0,
+        oy: 0,
+        zoom: 1,
+        laneStackBounds,
+        floatingLabelTopReservePx: 72,
+        centerStadiumOverview: true,
+        morph,
+      };
+      const overview = solveStadiumCamera(input);
+      expect(overview.backboneTargetY + radius).toBeCloseTo(paneHeight / 2);
 
-    for (const zoom of [2, 8]) {
-      const detail = solveStadiumCamera({ ...input, zoom });
-      const standalone = solveStadiumCamera({ ...input, zoom, centerStadiumOverview: false });
-      expect(detail.backboneTargetY).toBeCloseTo(standalone.backboneTargetY);
+      for (const zoom of [2, 8]) {
+        const detail = solveStadiumCamera({ ...input, zoom });
+        const standalone = solveStadiumCamera({ ...input, zoom, centerStadiumOverview: false });
+        expect(detail.backboneTargetY).toBeCloseTo(standalone.backboneTargetY);
+      }
     }
-  });
+  );
 
   it('holds the full-shape overview until the shape overflows, then eases to the detail regime', () => {
     const stillFitsLow = solveAtFitRatio(0.9);
