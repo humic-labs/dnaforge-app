@@ -1,6 +1,6 @@
 import { toUserMessage } from '@waypoint/user-messages';
 import type { ClipboardEvent, RefObject, KeyboardEvent, ReactNode } from 'react';
-import { PaperclipIcon, SendIcon } from '../icons';
+import { ChatComposerToolbar } from './ChatComposerToolbar';
 import { FilePill, type AttachedFile } from '../chat';
 import { ReferenceChip } from './ReferenceChip';
 import type { DBEntityReference } from '../../db/entity-references';
@@ -144,47 +144,24 @@ export function EmptyStateChatComposer({
               style={{ maxHeight: '180px' }}
             />
           </div>
-          <div
-            className="flex items-center justify-between gap-2 px-3 pb-1.5 pt-0.5"
-            data-testid="chat-composer-toolbar"
+          <ChatComposerToolbar
+            onAttach={onAttachFile}
+            agentActions={renderAgentActionsControl?.()}
+            route={renderAssistantRouteSelector()}
+            onSend={onSend}
+            sendDisabled={sendDisabled}
+            sendTitle={sendTitle}
           >
-            <div className="flex items-center gap-1">
-              {onAttachFile && (
-                <button
-                  onClick={onAttachFile}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition-colors wp-interactive hover:text-accent disabled:opacity-30 [&_svg]:stroke-[2.25]"
-                  title="Attach file"
-                  aria-label="Attach file"
-                  data-testid="chat-attach-button"
-                >
-                  <PaperclipIcon />
-                </button>
-              )}
-              {renderAgentActionsControl?.()}
-            </div>
-            <div className="ml-auto flex min-w-0 flex-nowrap items-center justify-end gap-1.5">
-              {renderAssistantRouteSelector()}
-              {renderModelControls()}
-              {renderRunningRouteStatus()}
-              {renderRouteConfigurationPrompt()}
-              {renderRouteCheckingStatus()}
-              {renderComputeConnectPrompt?.()}
-              <button
-                onClick={onSend}
-                disabled={sendDisabled}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-fg-muted transition-colors hover:bg-accent hover:text-accent-fg disabled:opacity-30 [&_svg]:stroke-[2.25]"
-                title={sendTitle}
-                aria-label="Send message"
-                data-testid="chat-send-button"
-              >
-                <SendIcon />
-              </button>
-            </div>
-          </div>
+            {renderModelControls()}
+            {renderRunningRouteStatus()}
+            {renderRouteConfigurationPrompt()}
+            {renderRouteCheckingStatus()}
+            {renderComputeConnectPrompt?.()}
+          </ChatComposerToolbar>
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-2 text-balance">
         {suggestions.map((suggestion) => (
           <button
             key={suggestion}
@@ -192,7 +169,7 @@ export function EmptyStateChatComposer({
             className="px-3 py-1.5 rounded-full border border-border bg-bg text-xs font-medium text-fg-muted
  wp-interactive hover:border-accent/30 transition-colors"
           >
-            {suggestion}
+            {suggestion.replaceAll('E. coli', 'E.\u00a0coli')}
           </button>
         ))}
       </div>
