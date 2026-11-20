@@ -76,7 +76,7 @@
 :root {
   --color-bg: 40 20% 99%;
   --color-document-bg: 0 0% 100%;
-  --document-preview-bg: #f2e6cf;
+  --document-preview-bg: #faf5eb;
   --color-bg-subtle: 40 15% 97%;
   --color-bg-muted: 40 10% 94%;
 
@@ -1384,6 +1384,10 @@ a[data-benchling-link-destination='external']::after {
     calc((100% - var(--chat-natural-rail-width)) / 2),
     var(--chat-history-clear-left)
   );
+}
+
+.canvas-tab-strip-scroll > .tab-shell {
+  flex: 1 0 6rem;
 }
 
 .tab-shell {

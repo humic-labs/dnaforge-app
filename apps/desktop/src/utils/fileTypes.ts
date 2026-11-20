@@ -357,15 +357,15 @@ const RECOGNIZED_DISPLAY_EXTENSIONS: ReadonlySet<string> = new Set<string>([
 
 export function stripDisplayExtension(name: string): string {
   const lower = name.toLowerCase();
-  for (const compound of TREE_HIDDEN_COMPOUND_SUFFIXES) {
-    if (lower.endsWith(compound) && name.length > compound.length) {
-      return name.slice(0, name.length - compound.length);
-    }
-  }
   const dot = name.lastIndexOf('.');
   if (dot <= 0 || dot === name.length - 1) return name;
-  const ext = name.slice(dot + 1).toLowerCase();
-  return RECOGNIZED_DISPLAY_EXTENSIONS.has(ext) ? name.slice(0, dot) : name;
+  const compound = TREE_HIDDEN_COMPOUND_SUFFIXES.find(
+    (suffix) => lower.endsWith(suffix) && name.length > suffix.length
+  );
+  if (!compound && !RECOGNIZED_DISPLAY_EXTENSIONS.has(name.slice(dot + 1).toLowerCase()))
+    return name;
+  const stem = name.slice(0, compound ? -compound.length : dot);
+  return stem.trim() ? stem : name;
 }
 
 export function isBinaryContent(buffer: Uint8Array, sampleSize = 8192): boolean {

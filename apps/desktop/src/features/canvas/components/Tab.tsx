@@ -317,9 +317,11 @@ export const Tab = React.memo(function Tab({
       {!isActive && (
         <span
           aria-hidden
-          className={`pointer-events-none absolute inset-y-1 rounded-md bg-bg-subtle opacity-0 transition-opacity duration-fast group-hover:opacity-100 ${
-            isBeforeActive ? 'left-1 right-2' : isAfterActive ? 'left-2 right-1' : 'inset-x-1'
-          }`}
+          className={`pointer-events-none absolute inset-y-1 rounded-md ${
+            tab.isExternalPreview
+              ? 'bg-[var(--document-preview-bg)]'
+              : 'bg-bg-subtle opacity-0 transition-opacity duration-fast group-hover:opacity-100'
+          } ${isBeforeActive ? 'left-1 right-2' : isAfterActive ? 'left-2 right-1' : 'inset-x-1'}`}
         />
       )}
       {!isActive && !isBeforeActive && (
