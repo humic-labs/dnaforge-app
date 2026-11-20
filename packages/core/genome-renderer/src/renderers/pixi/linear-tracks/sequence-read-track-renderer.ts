@@ -52,7 +52,7 @@ interface MountedState {
   readonly background: Graphics;
   readonly marks: Graphics;
   readonly curves: Graphics;
-  readonly texts: Text[];
+  readonly labels: Map<string, { texts: Text[]; used: number }>;
   diagnostics: ReadTrackDiagnostics;
 }
 
@@ -100,25 +100,27 @@ function sampleAmplitude(samples: ReadonlyArray<number>, index: number): number 
 
 function textAt(
   state: MountedState,
-  index: number,
   value: string,
   x: number,
   y: number,
   color: number,
   size: number
 ): void {
-  let label = state.texts[index];
+  const key = `${size}:${color}:${value}`;
+  let pool = state.labels.get(key);
+  if (!pool) {
+    pool = { texts: [], used: 0 };
+    state.labels.set(key, pool);
+  }
+  let label = pool.texts[pool.used++];
   if (!label) {
     label = new Text({
       text: value,
       style: { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: size, fill: color },
     });
-    state.texts.push(label);
+    pool.texts.push(label);
     state.container.addChild(label);
   }
-  label.text = value;
-  label.style.fontSize = size;
-  label.style.fill = color;
   label.position.set(x, y);
   label.visible = true;
 }
@@ -138,7 +140,7 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
       background,
       marks,
       curves,
-      texts: [],
+      labels: new Map(),
       diagnostics: {
         kind: null,
         gain: 1,
@@ -165,9 +167,13 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
     background.clear();
     marks.clear();
     curves.clear();
-    for (const text of state.texts) text.visible = false;
+    for (const pool of state.labels.values()) pool.used = 0;
     const data = args.data;
-    if (!data) return;
+    if (!data) {
+      for (const pool of state.labels.values())
+        for (const label of pool.texts) label.visible = false;
+      return;
+    }
 
     const width = args.viewportWidthPx;
     const height = args.layoutEntry.height;
@@ -181,7 +187,7 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
     const backgroundColor = data.kind === 'sanger' ? 0xfafafa : 0xf8fafc;
     background.rect(0, 0, width, height).fill({ color: dark ? 0x17212f : backgroundColor });
     background.rect(0, height - 1, width, 1).fill({ color: dark ? 0x334155 : 0xe2e8f0 });
-    textAt(state, 0, data.label, 8, 3, muted, 11);
+    textAt(state, data.label, 8, 3, muted, 11);
 
     const counts = {
       gain: data.kind === 'sanger' ? (data.gain ?? 1) : 1,
@@ -198,6 +204,9 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
       this.paintAlignment(args, state, data, bounds, ink, counts);
     } else {
       this.paintSanger(args, state, data, bounds, ink, counts);
+    }
+    for (const pool of state.labels.values()) {
+      for (let i = pool.used; i < pool.texts.length; i++) pool.texts[i].visible = false;
     }
     state.diagnostics = {
       kind: data.kind,
@@ -221,7 +230,6 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
       state.marks.rect(0, 25, args.viewportWidthPx, 6).fill({ color: 0x8b5cf6, alpha: 0.55 });
       return;
     }
-    let textIndex = 1;
     for (let column = bounds.start; column < bounds.end; column += 1) {
       const query = data.alignedQuery[column] ?? '-';
       const reference = data.alignedReference[column] ?? '-';
@@ -236,7 +244,6 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
       }
       textAt(
         state,
-        textIndex++,
         query,
         x + Math.max(0, (pixelsPerBase - 8) / 2),
         20,
@@ -281,7 +288,6 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
     const baseline = lettersTop - qualityHeight;
     const traceHeight = Math.max(0, baseline - traceTop - 1);
     const dark = args.theme.mode === 'dark';
-    let textIndex = 1;
     for (let column = bounds.start; pixelsPerBase >= 1.5 && column < bounds.end; column += 1) {
       const virtual = virtualColumn(column, data.baseToColumn, cycle);
       const peak = virtual === null ? -1 : calledBaseIndex(data.baseToColumn, virtual);
@@ -318,7 +324,6 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
       if (pixelsPerBase < 4) continue;
       textAt(
         state,
-        textIndex++,
         mixed ?? data.sequence[peak] ?? '',
         x + (pixelsPerBase - 7) / 2,
         lettersTop,

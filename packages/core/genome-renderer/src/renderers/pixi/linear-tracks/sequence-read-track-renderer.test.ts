@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeAll, expect, it, vi } from 'vitest';
-import type { Graphics } from 'pixi.js';
+import type { Graphics, Text } from 'pixi.js';
 import type { SequenceReadTrackData } from './sequence-read-track-renderer';
 import type { TrackPaintArgs } from './types';
 import { webglThemeForMode } from '../shared/theme';
@@ -85,4 +85,34 @@ it('draws both covered portions of a circular overview and leaves the intervenin
     [8, 62, 2, 12],
     [0, 62, 2, 12],
   ]);
+});
+
+it('retains a visible called-base glyph as the first displayed column changes', () => {
+  const renderer = new ReadRenderer();
+  const container = renderer.mount({ theme, chromosome });
+  const paintWindow = (start: number, end: number) =>
+    renderer.paint({
+      container,
+      chromosome,
+      theme,
+      data: read,
+      pathMapper: { pixelsPerBp: 8, bpLeftX: (column: number) => (column - start) * 8 },
+      viewportWidthPx: (end - start) * 8,
+      layoutEntry: { height: 138 },
+      viewportBpRange: { start, end },
+    } as TrackPaintArgs<SequenceReadTrackData>);
+  paintWindow(0, 2);
+  const letter = (value: string) =>
+    container.children.find((child) => 'text' in child && child.text === value) as Text;
+  const second = letter('C');
+  const mixed = letter('M');
+  const firstX = second.x;
+  paintWindow(1, 2);
+  expect(letter('C')).toBe(second);
+  expect(second.visible).toBe(true);
+  expect(second.x).toBe(firstX - 8);
+  expect(mixed.visible).toBe(false);
+  paintWindow(0, 2);
+  expect(letter('M')).toBe(mixed);
+  expect(mixed.visible).toBe(true);
 });
