@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { molecularCatalogObservationSchema } from './molecular-catalog';
 import { residueMeasurementSchema } from './residue-measurement';
 import { molecularDataViewSchema } from './molecular-data';
+import { MOLECULAR_COORDINATE_MAX_ENCODED_LENGTH } from './molecular-storage';
 
-export const MOLECULAR_VIEW_MAX_COORDINATE_BYTES = 8_000_000;
 export const molecularPredictionSchema = z
   .object({
     provider: z.string().min(1).max(64),
@@ -45,7 +45,7 @@ export type MolecularAllele = z.infer<typeof molecularAlleleSchema>;
 export const molecularCoordinatesSchema = z
   .object({
     format: z.enum(['pdb', 'cif', 'bcif']),
-    text: z.string().min(1).max(MOLECULAR_VIEW_MAX_COORDINATE_BYTES),
+    text: z.string().min(1).max(MOLECULAR_COORDINATE_MAX_ENCODED_LENGTH),
     sha256: z.string().regex(/^[0-9a-f]{64}$/),
   })
   .strict();

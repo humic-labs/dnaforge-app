@@ -17,8 +17,10 @@ import { molecularDocumentOwner } from '../../../shared/molecular-document-owner
 import { molecularDocumentReferenceFor } from '../../../shared/molecular-document-reference';
 import {
   molecularDocumentSchema,
+  molecularDocumentStorageStatus,
   MOLECULAR_DOCUMENT_SCHEMA,
 } from '../../../shared/molecular-document';
+import { MOLECULAR_COORDINATE_MAX_BYTES } from '../../../shared/molecular-storage';
 import { coordinateDigest, type MolecularView } from '../../../shared/molecular-view';
 import type { Structure3dAttrs } from '../../page/public/embeds/structure3d/types';
 import type { MolstarSelectedResidueReadbackEntry } from '../../page/public/embeds/structure3d/utils/molstarSelectionReadback';
@@ -94,6 +96,7 @@ const readback = vi.hoisted(() => {
     inspectionReady: false,
     withPlugin: vi.fn(),
     scene: vi.fn(),
+    coordinateAssets: vi.fn(),
     capture: vi.fn(),
     ready: vi.fn(),
     validateGeometry: vi.fn(),
@@ -206,6 +209,7 @@ vi.mock('../../page/public/embeds/structure3d/molstar/molViewSpec', async (impor
   sameLoadedMolViewSpecScene: () => true,
   hasMolViewSpecController: () => true,
   getMolViewSpecScene: () => readback.scene(),
+  activeMolViewSpecCoordinateAssets: readback.coordinateAssets,
   getMolViewSpecSceneDocument: () => readback.sceneResult,
   captureMolViewSpecView: readback.capture,
   waitForMolViewSpecViewReady: readback.ready,
@@ -220,9 +224,10 @@ vi.mock('../../../db/entity-references', async (importOriginal) => ({
 }));
 vi.mock('../../molecular-documents/public/services', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../molecular-documents/public/services')>()),
-  inspectMolecularDocumentBinding: vi.fn(async (attrs) => ({
+  inspectMolecularDocumentBinding: vi.fn(async (attrs, assets) => ({
     documentOwner: molecularDocumentOwner(attrs),
     documentReference: attrs.molecularDocumentReference,
+    ...(assets ? { documentStorage: molecularDocumentStorageStatus(assets) } : {}),
   })),
   saveMolecularDocumentSnapshot: (...args: unknown[]) => savedReferences.create(...args),
 }));
@@ -352,6 +357,10 @@ describe('molecular MCP readback integration', () => {
     );
     savedReferences.create.mockImplementation(savedDocumentResult);
     readback.scene.mockReturnValue(readback.sceneResult);
+    readback.coordinateAssets.mockReturnValue({
+      coordinates: { format: 'pdb', text: 'ATOM' },
+      pinnedAssets: [],
+    });
     readback.capture.mockImplementation(() => {
       throw Object.assign(new Error('Capture boundary reached'), { code: 'TEST_CAPTURE_BOUNDARY' });
     });
@@ -460,6 +469,29 @@ describe('molecular MCP readback integration', () => {
     const result = await handleMolListStructures();
     assertMcpOutput(molListStructuresOutputSchema, result);
     expect(readback.scene).not.toHaveBeenCalled();
+  });
+
+  it('reports an oversized coordinate source before scene authoring or save capture', async () => {
+    readback.coordinateAssets.mockReturnValue({
+      coordinates: { format: 'cif', text: 'x'.repeat(MOLECULAR_COORDINATE_MAX_BYTES + 1) },
+      pinnedAssets: [],
+    });
+    const scene = await handleMolGetScene({ structureViewId: 'view-a' });
+    assertMcpOutput(molGetSceneOutputSchema, scene);
+    expect(scene).toMatchObject({
+      ok: true,
+      documentStorage: { status: 'over-limit', code: 'MVS_VIEW_TOO_LARGE' },
+    });
+    expect(readback.scene).not.toHaveBeenCalled();
+    const save = await handleMolSaveView({
+      structureViewId: 'view-a',
+      title: 'Large structure',
+      caption: '',
+      evidence: [],
+    });
+    expect(save).toMatchObject({ ok: false, code: 'MVS_VIEW_TOO_LARGE', stateChanged: false });
+    expect(readback.capture).not.toHaveBeenCalled();
+    expect(savedReferences.create).not.toHaveBeenCalled();
   });
 
   it('declares the native ligand source and instance fields in state output', () => {
@@ -677,7 +709,7 @@ describe('molecular MCP readback integration', () => {
     });
   });
 
-  it.each(['reattached', 'deactivated'] as const)(
+  it.each(['reattached', 'deactivated', 'timed out'] as const)(
     'waits for the adopted document viewer and reports its actual outcome: %s',
     async (destination) => {
       allowSuccessfulCapture();
@@ -746,6 +778,7 @@ describe('molecular MCP readback integration', () => {
         return nativeAccess(...args);
       });
       let settled = false;
+      const clock = destination === 'timed out' ? vi.spyOn(Date, 'now') : undefined;
       const saving = handleMolSaveView({
         structureViewId: 'view-a',
         title: 'Saved view',
@@ -763,8 +796,19 @@ describe('molecular MCP readback integration', () => {
           const panel = useCanvasStore.getState().panels.main;
           useCanvasStore.setState({ panels: { main: { ...panel, activeTabId: null } } });
         }
-        nativeReady = true;
+        if (clock) clock.mockReturnValue(Date.now() + 31_000);
+        else nativeReady = true;
         const saved = await saving;
+        if (destination === 'timed out') {
+          assertMcpOutput(molSaveViewOutputSchema, saved);
+          expect(saved).toMatchObject({
+            ok: true,
+            documentReference: { kind: 'molecular-document', revisionId: savedRevisionId },
+            warning: expect.stringMatching(/viewer is still loading/i),
+          });
+          expect(savedReferences.create).toHaveBeenCalledOnce();
+          return;
+        }
         if (destination === 'deactivated') {
           expect(saved).toMatchObject({
             ok: false,
@@ -804,6 +848,7 @@ describe('molecular MCP readback integration', () => {
         ).toMatchObject({ ok: true });
         expect(readback.catalogLoad).toHaveBeenCalledTimes(1);
       } finally {
+        clock?.mockRestore();
         nativeReady = true;
         await saving;
       }

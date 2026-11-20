@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { MVSData } from 'molstar/lib/extensions/mvs/mvs-data';
+import {
+  binaryCoordinateBytes,
+  binaryCoordinateText,
+} from '../../../../../shared/binary-coordinates';
+import {
+  getCurrentMolecularSnapshot,
+  parseMolecularDocument,
+  serializeMolecularDocument,
+  MOLECULAR_DOCUMENT_SCHEMA,
+} from '../../../../../shared/molecular-document';
 import { createMolecularComparison } from './molecularComparison';
 import { preserveSharedComparisonSources } from '../molstar/molViewSpecStructureIdentity';
 import {
@@ -9,11 +19,11 @@ import {
   molecularViewSourceDigests,
 } from './molecularView';
 
-function scene(resource: string, title: string): string {
+function scene(resource: string, title: string, format: 'pdb' | 'bcif' = 'pdb'): string {
   const builder = MVSData.createBuilder();
   builder
     .download({ url: resource })
-    .parse({ format: 'pdb' })
+    .parse({ format })
     .modelStructure()
     .component({ selector: 'protein' })
     .representation({ type: 'cartoon' });
@@ -42,6 +52,40 @@ async function source(referenceId: string, title: string, text: string) {
 }
 
 describe('pinned multi-structure comparison', () => {
+  it('stores and restores a pinned BinaryCIF resource byte for byte', async () => {
+    const first = await source('00000000-0000-4000-8000-000000000001', 'First', 'ATOM 1\n');
+    const bytes = Uint8Array.from([131, 164, 0, 255]);
+    const text = binaryCoordinateText(bytes);
+    const second = await source('00000000-0000-4000-8000-000000000002', 'Second', text);
+    const binary = {
+      ...second,
+      view: molecularViewSchema.parse({
+        ...second.view,
+        coordinates: { ...second.view.coordinates, format: 'bcif' },
+        scene: scene('structure.bcif', 'Overview', 'bcif'),
+      }),
+    };
+    const view = await createMolecularComparison('Mixed formats', [first, binary], 'shared-scene');
+    const document = {
+      schema: MOLECULAR_DOCUMENT_SCHEMA,
+      id: '00000000-0000-4000-8000-000000000003',
+      name: view.title,
+      currentReferenceId: first.referenceId,
+      history: [{ referenceId: first.referenceId, snapshot: view }],
+    };
+    const restored = getCurrentMolecularSnapshot(
+      parseMolecularDocument(serializeMolecularDocument(document))
+    );
+    await validateMolecularViewCoordinates(restored);
+    expect(molecularViewSourceDigests(restored)).toEqual([
+      first.view.coordinates.sha256,
+      second.view.coordinates.sha256,
+    ]);
+    if (restored.version !== 2) throw Error('Expected a multi-source document');
+    expect(restored.pinnedAssets[0]).toMatchObject({ name: 'asset-2.bcif', format: 'bcif' });
+    expect(binaryCoordinateBytes(restored.pinnedAssets[0].text)).toEqual(bytes);
+  });
+
   it('constructs retained sources and one placement across steps, independently of visibility', async () => {
     const first = await source('00000000-0000-4000-8000-000000000001', 'First', 'ATOM 1\n');
     const second = await source('00000000-0000-4000-8000-000000000002', 'Second', 'ATOM 2\n');

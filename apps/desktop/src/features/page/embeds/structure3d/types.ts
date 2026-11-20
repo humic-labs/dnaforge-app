@@ -10,7 +10,7 @@ import type { ProteinIdentityLedger } from '../../../structure-drawer/public/api
 import type { SavedSelectionPolymerRevision } from '@waypoint/workspace-editor';
 import type { StructureLinkResidueTarget } from '../../../structure-drawer/public/state/use-structure-link-registry';
 import type { StructureViewHandoffDescriptor } from '../../../structure-drawer/public/state/structure-view-handoff';
-import type { MolecularView } from '../../../../shared/molecular-view';
+import type { MolecularView, PinnedMolecularAsset } from '../../../../shared/molecular-view';
 
 import type { Legend } from 'molstar/lib/mol-util/legend';
 
@@ -673,14 +673,7 @@ export interface Structure3dAttrs {
 
   molecularViewSnapshot?: MolecularView;
 
-  molViewSpecAssets?: Array<{
-    name: string;
-    label: string;
-    format: 'pdb' | 'cif';
-    text: string;
-    sha256: string;
-    sourceReferenceId: string;
-  }>;
+  molViewSpecAssets?: PinnedMolecularAsset[];
 
   molViewSpecPrimarySourceReferenceId?: string;
 

@@ -85,7 +85,10 @@ async function defaultCoordinateView(
     await buildDefaultMolecularDocument({
       name: stem,
       format,
-      text: format === 'bcif' ? binaryCoordinateText(bytes) : bytes.toString('utf8'),
+      text:
+        format === 'bcif'
+          ? binaryCoordinateText(bytes)
+          : new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes),
       createdAt,
       documentId: randomUUID(),
       referenceId: randomUUID(),
