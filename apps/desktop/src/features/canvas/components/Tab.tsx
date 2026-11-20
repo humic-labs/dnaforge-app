@@ -286,6 +286,9 @@ export const Tab = React.memo(function Tab({
     );
   }
 
+  const insetPreview = !isActive && tab.isExternalPreview;
+  const surfaceMargins = isBeforeActive ? 'ml-1 mr-2' : isAfterActive ? 'ml-2 mr-1' : 'mx-1';
+
   return (
     <div
       data-analytics-block
@@ -316,14 +319,10 @@ export const Tab = React.memo(function Tab({
         }
       `}
     >
-      {!isActive && (
+      {!isActive && !tab.isExternalPreview && (
         <span
           aria-hidden
-          className={`pointer-events-none absolute inset-y-1 rounded-md ${
-            tab.isExternalPreview
-              ? 'bg-[var(--document-preview-bg)]'
-              : 'bg-bg-subtle opacity-0 transition-opacity duration-fast group-hover:opacity-100'
-          } ${isBeforeActive ? 'left-1 right-2' : isAfterActive ? 'left-2 right-1' : 'inset-x-1'}`}
+          className={`pointer-events-none absolute inset-x-0 inset-y-1 rounded-md bg-bg-subtle opacity-0 transition-opacity duration-fast group-hover:opacity-100 ${surfaceMargins}`}
         />
       )}
       {!isActive && !isBeforeActive && (
@@ -333,7 +332,13 @@ export const Tab = React.memo(function Tab({
           className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-border-hover transition-opacity duration-150"
         />
       )}
-      <div className="tab-inner relative z-[1] flex items-center gap-1.5 px-3 min-w-0 w-full">
+      <div
+        className={`tab-inner relative z-[1] flex min-w-0 flex-1 items-center gap-1.5 px-3 ${
+          insetPreview
+            ? `my-1 self-stretch rounded-md bg-[var(--document-preview-bg)] ${surfaceMargins}`
+            : ''
+        }`}
+      >
         {getTabIconForTab(tab, 'tab-icon w-3.5 h-3.5 flex-shrink-0')}
         {isEditing ? (
           <input
