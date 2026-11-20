@@ -263,27 +263,9 @@
   overflow-x: auto;
   scrollbar-width: none;
 }
-.dnaforge-terminal-new-tab {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+[data-terminal-action='new-shell'] {
   flex: 0 0 24px;
   width: 24px;
-  height: 24px;
-  padding: 5px;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: hsl(var(--color-fg-muted));
-  cursor: pointer;
-}
-.dnaforge-terminal-new-tab:focus-visible {
-  outline: 2px solid hsl(var(--color-accent) / 0.55);
-  outline-offset: -1px;
-}
-.dnaforge-terminal-new-tab:disabled {
-  opacity: 0.45;
-  cursor: default;
 }
 .dnaforge-terminal-tab-row {
   display: flex;
@@ -388,12 +370,8 @@
   cursor: pointer;
   list-style: none;
 }
-.dnaforge-terminal-primary-actions > .dnaforge-terminal-new-app-tab {
+.dnaforge-terminal-primary-actions > [data-terminal-action='new-tab'] {
   width: auto;
-  gap: 5px;
-  padding: 4px 7px;
-  white-space: nowrap;
-  font-size: 11px;
 }
 .dnaforge-terminal-actions > button::-webkit-details-marker {
   display: none;

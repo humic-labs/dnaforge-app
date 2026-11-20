@@ -24,6 +24,7 @@ import {
   EllipsisIcon,
 } from '../../components/icons';
 import { COMMAND_IDS, useCommandHandler, useCommandRegistry } from '../../commands';
+import { Button, TextField } from '../../components/ui';
 import { PortalMenu } from '../../components/PortalMenu';
 import { confirmDialog } from '../../components/confirm-dialog-store';
 import { useToastStore } from '../../stores/toast-store';
@@ -984,6 +985,10 @@ export function TerminalDock({
       createSession(split, cwd, parentId, false, viewId);
     const relaunch = (id = activeId) => relaunchSession(id);
     const moveToWindow = () => moveGroupToWindow(activeGroup);
+    const menuAction = (action: () => void) => () => {
+      setActionsOpen(false);
+      action();
+    };
     const find = () => {
       if (activeId) handles.current.get(activeId)?.find();
     };
@@ -1016,34 +1021,35 @@ export function TerminalDock({
                   {active?.cwd.split(/[\\/]/).filter(Boolean).slice(-1)[0] || 'Workspace'}
                 </span>
                 <div className="dnaforge-terminal-primary-actions">
-                  <button
-                    className="wp-interactive"
+                  <Button
+                    variant="appbar"
                     aria-label="Split terminal"
                     title="Split session"
                     disabled={!active || busy}
                     onClick={() => void create(true)}
                   >
                     <SidebarIcon />
-                  </button>
-                  <button
-                    className="wp-interactive"
+                  </Button>
+                  <Button
+                    variant="appbar"
                     aria-label="Find in terminal"
                     title="Find in terminal"
                     onClick={find}
                   >
                     <SearchIcon />
-                  </button>
+                  </Button>
                   {!floatingGroupId && (
-                    <button
+                    <Button
                       aria-label="New Terminal Tab"
                       title="New Terminal Tab"
-                      className="wp-interactive dnaforge-terminal-new-app-tab"
+                      variant="appbar"
+                      data-terminal-action="new-tab"
                       disabled={busy}
                       onClick={() => void createSession(false, undefined, activeId, true)}
                     >
                       <PlusIcon />
                       <span>New tab</span>
-                    </button>
+                    </Button>
                   )}
                   <div
                     className="dnaforge-terminal-actions"
@@ -1058,8 +1064,8 @@ export function TerminalDock({
                       setActionsOpen(false);
                     }}
                   >
-                    <button
-                      className="wp-interactive"
+                    <Button
+                      variant="appbar"
                       ref={actionsMenu}
                       aria-label="Terminal actions"
                       title="More terminal actions"
@@ -1068,7 +1074,7 @@ export function TerminalDock({
                       onClick={() => setActionsOpen((value) => !value)}
                     >
                       <EllipsisIcon />
-                    </button>
+                    </Button>
                     <PortalMenu
                       open={actionsOpen && surfaceOpen}
                       anchorRef={actionsMenu}
@@ -1090,11 +1096,6 @@ export function TerminalDock({
                             event.stopPropagation();
                             setActionsOpen(false);
                             safeFocus(actionsMenu.current);
-                          }
-                        }}
-                        onClick={(event) => {
-                          if ((event.target as HTMLElement).closest('button')) {
-                            setActionsOpen(false);
                           }
                         }}
                       >
@@ -1126,28 +1127,28 @@ export function TerminalDock({
                         <MenuRow
                           aria-label="End terminal session"
                           disabled={!activeId}
-                          onClick={() => activeId && void close(activeId)}
+                          onClick={menuAction(() => activeId && void close(activeId))}
                         >
                           End session
                         </MenuRow>
                         <MenuRow
                           aria-label="Relaunch terminal"
                           disabled={!active || busy}
-                          onClick={() => void relaunch()}
+                          onClick={menuAction(() => void relaunch())}
                         >
                           Relaunch
                         </MenuRow>
                         <MenuRow
                           aria-label="Move terminal to new window"
                           disabled={!active || busy}
-                          onClick={() => void moveToWindow()}
+                          onClick={menuAction(() => void moveToWindow())}
                         >
                           New window
                         </MenuRow>
                         {floatingGroupId && (
                           <MenuRow
                             aria-label="Return terminal to main window"
-                            onClick={() => void port.returnToMainWindow().catch(report)}
+                            onClick={menuAction(() => void port.returnToMainWindow().catch(report))}
                           >
                             Return to main window
                           </MenuRow>
@@ -1156,13 +1157,13 @@ export function TerminalDock({
                           <>
                             <MenuRow
                               aria-label="Previous terminal pane"
-                              onClick={() => activeId && navigatePane(activeId, -1)}
+                              onClick={menuAction(() => activeId && navigatePane(activeId, -1))}
                             >
                               ←
                             </MenuRow>
                             <MenuRow
                               aria-label="Next terminal pane"
-                              onClick={() => activeId && navigatePane(activeId, 1)}
+                              onClick={menuAction(() => activeId && navigatePane(activeId, 1))}
                             >
                               →
                             </MenuRow>
@@ -1197,7 +1198,7 @@ export function TerminalDock({
                           activeId && (
                             <MenuRow
                               aria-label="Unsplit terminal"
-                              onClick={() => unsplit(activeId)}
+                              onClick={menuAction(() => unsplit(activeId))}
                             >
                               Unsplit
                             </MenuRow>
@@ -1205,25 +1206,25 @@ export function TerminalDock({
                         <MenuRow
                           aria-label="View terminal output"
                           disabled={!activeId}
-                          onClick={() => activeId && showOutput(activeId)}
+                          onClick={menuAction(() => activeId && showOutput(activeId))}
                         >
                           Output
                         </MenuRow>
                         <MenuRow
                           aria-label="Paste into terminal"
                           disabled={!activeId}
-                          onClick={() => {
+                          onClick={menuAction(() => {
                             if (activeId) void handles.current.get(activeId)?.paste().catch(report);
-                          }}
+                          })}
                         >
                           Paste
                         </MenuRow>
                         <MenuRow
                           aria-label="Terminal command history"
                           disabled={!activeId}
-                          onClick={() =>
-                            activeId && setHistoryTarget({ id: activeId, kind: 'command' })
-                          }
+                          onClick={menuAction(
+                            () => activeId && setHistoryTarget({ id: activeId, kind: 'command' })
+                          )}
                         >
                           History
                         </MenuRow>
@@ -1231,23 +1232,23 @@ export function TerminalDock({
                           <>
                             <MenuRow
                               aria-label="Manage terminal profiles"
-                              onClick={() => {
+                              onClick={menuAction(() => {
                                 dispatchCommand(COMMAND_IDS.appOpenSettings, {
                                   source: 'ui',
                                   payload: { focus: 'terminal-profiles' },
                                 });
-                              }}
+                              })}
                             >
                               Profiles
                             </MenuRow>
                             <MenuRow
                               aria-label="Terminal settings"
-                              onClick={() => {
+                              onClick={menuAction(() => {
                                 dispatchCommand(COMMAND_IDS.appOpenSettings, {
                                   source: 'ui',
                                   payload: { focus: 'terminal' },
                                 });
-                              }}
+                              })}
                             >
                               Settings
                             </MenuRow>
@@ -1526,12 +1527,9 @@ export function TerminalDock({
                           {...rowProps}
                           className="dnaforge-terminal-tab-row wp-interactive"
                           data-interaction-group="true"
-                          onClick={(event) => {
-                            if (event.target === event.currentTarget) activateSession(session.id);
-                          }}
                         >
-                          <button
-                            className="wp-interactive"
+                          <Button
+                            variant="appbar"
                             role="tab"
                             tabIndex={session.id === activeId ? 0 : -1}
                             aria-selected={session.id === activeId}
@@ -1553,7 +1551,7 @@ export function TerminalDock({
                             <span className="dnaforge-terminal-session-label">
                               <span>{session.title}</span>
                             </span>
-                          </button>
+                          </Button>
                           {bells[session.id] && (
                             <span
                               role="img"
@@ -1564,13 +1562,13 @@ export function TerminalDock({
                               <ExclamationCircleIcon className="w-3.5 h-3.5" />
                             </span>
                           )}
-                          <button
-                            className="wp-interactive"
+                          <Button
+                            variant="appbar"
                             aria-label={`Close terminal ${session.title}`}
                             onClick={() => void close(session.id)}
                           >
                             ×
-                          </button>
+                          </Button>
                         </div>
                       );
                     })}
@@ -1578,15 +1576,16 @@ export function TerminalDock({
                 ))}
               </div>
 
-              <button
+              <Button
                 aria-label="New Shell"
                 title="New shell in this tab"
-                className="wp-interactive dnaforge-terminal-new-tab"
+                variant="icon"
+                data-terminal-action="new-shell"
                 disabled={busy}
                 onClick={() => void create()}
               >
                 <PlusIcon />
-              </button>
+              </Button>
             </div>
           </div>
           {renaming && surfaceOpen && (
@@ -1600,7 +1599,7 @@ export function TerminalDock({
                   .catch(report);
               }}
             >
-              <input
+              <TextField
                 aria-label="Terminal name"
                 placeholder="Automatic name"
                 title="Leave blank to use automatic name"
@@ -1609,12 +1608,12 @@ export function TerminalDock({
                 autoFocus
                 onChange={(event) => setName(event.target.value)}
               />
-              <button className="wp-interactive" type="submit">
+              <Button variant="appbar" type="submit">
                 Rename
-              </button>
-              <button className="wp-interactive" type="button" onClick={() => setRenaming(null)}>
+              </Button>
+              <Button variant="appbar" type="button" onClick={() => setRenaming(null)}>
                 Cancel
-              </button>
+              </Button>
             </form>
           )}
           {surfaceOpen && active && (
