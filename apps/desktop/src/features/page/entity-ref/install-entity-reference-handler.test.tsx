@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { userMessage } from '@waypoint/user-messages';
+import { createTestDb } from '../../../main/__tests__/test-db';
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -69,6 +70,7 @@ const state = vi.hoisted(() => ({
   toast: vi.fn(),
   view: vi.fn(),
   fetchPage: vi.fn(),
+  select: vi.fn(),
   projectRoot: vi.fn(),
 }));
 
@@ -101,6 +103,7 @@ vi.mock('../../../lib/analytics', () => ({
 }));
 vi.mock('../../../platform', () => ({
   platform: () => ({
+    db: { select: state.select },
     fs: { validateWorkspacePath: state.validate, exists: state.exists, readTextFileSlice: vi.fn() },
     benchlingMigration: { resolveProviderReference: state.provider },
     lims: { queryEntities: state.canonicalEntity },
@@ -219,6 +222,7 @@ beforeEach(() => {
   state.generation = 1;
   state.events = [];
   state.pages = {};
+  state.select.mockResolvedValue([]);
   state.originId = '550e8400-e29b-41d4-a716-446655440003';
   state.accountId = '550e8400-e29b-41d4-a716-446655440006';
   state.captureThrows = false;
@@ -489,6 +493,27 @@ describe('joined notebook reference dispositions', () => {
     expectJoined('reference_target_mismatch');
     expect(actions()[1].properties.success).toBe(false);
     expect(state.toast).toHaveBeenCalled();
+  });
+
+  it('opens the persisted notebook in its mounted project when only another project has a cached copy', async () => {
+    const db = createTestDb();
+    try {
+      db.exec('CREATE TABLE pages (id TEXT PRIMARY KEY)');
+      db.prepare('INSERT INTO pages (id) VALUES (?)').run('beta::source');
+      state.select.mockImplementation(async (sql: string, ids: string[]) =>
+        db.prepare(sql).all(...ids)
+      );
+      state.pages = { 'alpha::source': {} };
+      emit({ entityType: 'page', entityId: 'beta::source', owningRoot: '/PRIVATE_BETA' });
+      await waitFor(() => expect(state.open).toHaveBeenCalledOnce());
+      expect(state.open.mock.calls[0][0].target).toEqual({
+        kind: 'record',
+        tabType: 'page',
+        entityId: 'beta::source',
+      });
+    } finally {
+      db.close();
+    }
   });
 
   it('refuses an ambiguous portable page across the two mounted roots', async () => {

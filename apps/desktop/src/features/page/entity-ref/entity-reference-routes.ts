@@ -26,6 +26,7 @@ import { findPrimerRegistryEntityId } from '../../../db/primer-reference-search'
 import { getCanonicalOligoEntity } from '../../primers/public/primer-references';
 import { planReferenceResolution } from './plan-reference-resolution';
 import { resolvePageReference } from './resolve-page-reference';
+import { scopedProjectionId, stripWorkspaceScope } from '../../../shared/workspace-scoped-identity';
 import { getSequenceWithPath } from '../../../db';
 import { resolveWorkspaceScope } from '../../../db/workspace-catalog';
 import {
@@ -348,11 +349,23 @@ const openPageById: ReferenceRouteStep = async ({ detail, intent, entityId, owni
     Promise.all(openRoots.map((root) => resolveWorkspaceScope(root).catch(() => null))),
   ]);
   if (!ctx.current(intent)) return;
+  const mountedScopes = scopes.filter((value): value is string => Boolean(value));
+  const rawId = stripWorkspaceScope(entityId);
+  const candidates = [
+    ...new Set([rawId, ...mountedScopes.map((id) => scopedProjectionId(id, rawId))]),
+  ];
+  const stored = await platform().db.select<Array<{ id: string }>>(
+    `SELECT id FROM pages WHERE id IN (${candidates.map(() => '?').join(', ')})`,
+    candidates
+  );
+  if (!ctx.current(intent)) return;
   const resolution = resolvePageReference({
     referencedId: entityId,
     owningScope: scope,
-    pageIds: Object.keys(usePageStore.getState().pages),
-    mountedScopes: scopes.filter((value): value is string => Boolean(value)),
+    pageIds: [
+      ...new Set([...Object.keys(usePageStore.getState().pages), ...stored.map((page) => page.id)]),
+    ],
+    mountedScopes,
   });
   if (resolution.kind === 'resolved') {
     ctx.documentResult(
