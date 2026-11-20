@@ -8,6 +8,7 @@ import type { Transaction } from '@tiptap/pm/state';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { undo as undoPM, redo as redoPM, closeHistory } from '@tiptap/pm/history';
 import { platform } from '../../platform';
+import { withNotebookAuthorityOperation } from './notebook-authority-queue';
 import type { FileDocumentFlushPurpose } from '../../shared/file-document-client-sync';
 import type {
   NativeNotebookRequest,
@@ -485,15 +486,23 @@ export class NativeNotebookDocumentClient {
       });
     });
   }
-  save(beforeSave?: Promise<unknown>): Promise<boolean> {
+  save(
+    beforeSave?: Promise<unknown>,
+    recordOwnSave?: (committedFingerprint: string | undefined) => void
+  ): Promise<boolean> {
     if (this.retiring)
       return Promise.reject(
         new Error('NOTEBOOK_CLIENT_RETIRED: The native notebook editing client has retired.')
       );
-    if (beforeSave)
+    if (beforeSave || recordOwnSave)
       return this.admit(async () => {
         await beforeSave;
-        return this.saveAdmitted();
+        if (!recordOwnSave) return this.saveAdmitted();
+        return withNotebookAuthorityOperation(this.pageId, async () => {
+          const saved = await this.saveAdmitted();
+          if (!this.lastCommandError) recordOwnSave(this.snapshot?.canonicalFingerprint);
+          return saved;
+        });
       });
     return this.saveAdmitted();
   }

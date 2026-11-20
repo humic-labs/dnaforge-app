@@ -340,9 +340,8 @@ function PageEditorInner({
         try {
           const client = nativeNotebookRef.current;
           if (client) {
-            const saved = await client.save(referenceRepairPromiseRef.current);
+            const saved = await client.save(referenceRepairPromiseRef.current, recordOwnSave);
             if (!saved && client.lastCommandError) throw client.lastCommandError;
-            recordOwnSave(client.snapshot?.canonicalFingerprint);
             return saved;
           }
           await referenceRepairPromiseRef.current;

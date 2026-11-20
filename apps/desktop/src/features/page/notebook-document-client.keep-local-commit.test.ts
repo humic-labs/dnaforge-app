@@ -168,13 +168,16 @@ it('reports the commit of a Save made after a refused Save and Keep my edits', a
   await client.flush();
 
   disk = makeSource(paragraph('External note.'));
-  expect(await client.save()).toBe(false);
+  const recordOwnSave = vi.fn();
+  expect(await client.save(Promise.resolve(), recordOwnSave)).toBe(false);
+  expect(recordOwnSave).not.toHaveBeenCalled();
   const refusals = commits('notebook_save_conflict');
   expect(refusals).toHaveLength(1);
   expect(commits('notebook_committed')).toEqual([]);
 
   await client.command({ kind: 'keep-local', expectedCanonicalFingerprint: disk.fingerprint });
-  expect(await client.save()).toBe(true);
+  expect(await client.save(Promise.resolve(), recordOwnSave)).toBe(true);
+  expect(recordOwnSave).toHaveBeenCalledExactlyOnceWith(disk.fingerprint);
 
   expect(canonicalNotebookJson(disk.content)).toBe(canonicalNotebookJson(authored.getJSON()));
   const saved = commits('notebook_committed');

@@ -9,6 +9,7 @@ import {
   __resetReferenceGenerationForTests,
   bumpReferenceGeneration,
 } from '../entity-ref/reference-generation';
+import { withNotebookAuthorityOperation } from '../notebook-authority-queue';
 import { useNotebookFileWatcher } from './useNotebookFileWatcher';
 import { sanitizeClosedBetaProperties } from '../../../shared/analytics-allowlist';
 
@@ -47,7 +48,7 @@ const {
   watchFile: vi.fn().mockResolvedValue(undefined),
   unwatchFile: vi.fn().mockResolvedValue(undefined),
   readTextFile: vi.fn(),
-  readCanonicalNotebookPackage: vi.fn().mockResolvedValue(undefined),
+  readCanonicalNotebookPackage: vi.fn(),
 }));
 
 vi.mock('../../../platform', () => ({
@@ -89,6 +90,7 @@ describe('useNotebookFileWatcher', () => {
     listeners = [];
     vi.clearAllMocks();
     readTextFile.mockImplementation(async () => markdown);
+    readCanonicalNotebookPackage.mockImplementation(async () => ({ markdown }));
     getCurrentCatalogFileForEntity.mockResolvedValue({
       path: '/workspace/Notebook',
       file_kind: 'waypoint-notebook',
@@ -426,6 +428,80 @@ describe('useNotebookFileWatcher', () => {
     expect(result.current.expectedCanonicalFingerprint()).toBe(
       contentFingerprint('external markdown')
     );
+  });
+
+  it.each([false, true])(
+    'waits for our save receipt before reporting disk changes (external edit: %s)',
+    async (externalEdit) => {
+      const onKeepLocal = vi.fn().mockResolvedValue(undefined);
+      const { result, rerender } = renderHook(
+        ({ isDirty }) =>
+          useNotebookFileWatcher({
+            pageId: 'page-1',
+            workspaceRoot: '/workspace',
+            isDirty,
+            onKeepLocal,
+          }),
+        { initialProps: { isDirty: false } }
+      );
+      await waitFor(() => expect(resolveArtifactFile).toHaveBeenCalledOnce());
+      rerender({ isDirty: true });
+
+      const receipt = Promise.withResolvers<void>();
+      const written = Promise.withResolvers<void>();
+      const save = withNotebookAuthorityOperation('page-1', async () => {
+        markdown = 'our committed Markdown';
+        written.resolve();
+        await receipt.promise;
+        result.current.recordOwnSave(contentFingerprint('our committed Markdown'));
+      });
+      await written.promise;
+      try {
+        await act(async () =>
+          listeners.forEach((listener) => listener('/workspace/Notebook/Notebook.md'))
+        );
+        expect(result.current.showExternalChangeToast).toBe(false);
+        if (externalEdit) markdown = 'external edit after our save';
+      } finally {
+        await act(async () => {
+          receipt.resolve();
+          await save;
+        });
+      }
+      expect(result.current.showExternalChangeToast).toBe(externalEdit);
+      if (externalEdit) {
+        await act(async () => result.current.dismissExternalChange());
+        expect(onKeepLocal).toHaveBeenCalledWith(
+          contentFingerprint('external edit after our save')
+        );
+      }
+    }
+  );
+
+  it('keeps edits against the external Markdown revision validated by the watcher', async () => {
+    const onKeepLocal = vi.fn().mockResolvedValue(undefined);
+    const { result, rerender } = renderHook(
+      ({ isDirty }) =>
+        useNotebookFileWatcher({
+          pageId: 'page-1',
+          workspaceRoot: '/workspace',
+          isDirty,
+          onKeepLocal,
+        }),
+      { initialProps: { isDirty: false } }
+    );
+    await waitFor(() => expect(resolveArtifactFile).toHaveBeenCalledOnce());
+    rerender({ isDirty: true });
+    markdown = 'first external revision';
+    readCanonicalNotebookPackage.mockImplementationOnce(async () => {
+      markdown = 'validated external revision';
+      return { markdown };
+    });
+    act(() => listeners.forEach((listener) => listener('/workspace/Notebook/Notebook.md')));
+    await waitFor(() => expect(result.current.showExternalChangeToast).toBe(true));
+
+    await act(async () => result.current.dismissExternalChange());
+    expect(onKeepLocal).toHaveBeenCalledWith(contentFingerprint('validated external revision'));
   });
 
   it.each([true, false])('waits for native keep acknowledgement, accepted=%s', async (accepted) => {

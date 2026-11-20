@@ -219,30 +219,38 @@ export function useNotebookFileWatcher({
   const inspectDiskChange = useCallback(
     async (retry = false): Promise<void> => {
       const generation = generationRef.current;
-      const nextFingerprint = await readFingerprint();
-      if (
-        generation !== generationRef.current ||
-        !nextFingerprint ||
-        (!retry && nextFingerprint === baselineFingerprintRef.current)
-      )
-        return;
-      if (isDirtyRef.current) {
-        const target = targetRef.current;
-        if (target && target.packageRoot !== target.markdownPath) {
-          await readCanonicalNotebookPackage(platform().fs, target.packageRoot);
-        }
+      const inspect = async () => {
+        const fingerprint = await readFingerprint();
         if (
           generation !== generationRef.current ||
-          (!retry && nextFingerprint === baselineFingerprintRef.current)
+          !fingerprint ||
+          (!retry && fingerprint === baselineFingerprintRef.current)
         )
-          return;
-        conflictFingerprintRef.current = nextFingerprint;
-        setState(retry ? 'conflict' : notebookConflictState);
-        return;
-      }
-      await reloadFromDisk();
+          return false;
+        if (!isDirtyRef.current) return true;
+
+        const target = targetRef.current;
+        const observed =
+          target && target.packageRoot !== target.markdownPath
+            ? contentFingerprint(
+                (await readCanonicalNotebookPackage(platform().fs, target.packageRoot)).markdown
+              )
+            : fingerprint;
+        if (
+          generation === generationRef.current &&
+          (retry || observed !== baselineFingerprintRef.current)
+        ) {
+          conflictFingerprintRef.current = observed;
+          setState(retry ? 'conflict' : notebookConflictState);
+        }
+        return false;
+      };
+      const shouldReload = isDirtyRef.current
+        ? await withNotebookAuthorityOperation(pageId, inspect)
+        : await inspect();
+      if (shouldReload && generation === generationRef.current) await reloadFromDisk();
     },
-    [readFingerprint, reloadFromDisk]
+    [pageId, readFingerprint, reloadFromDisk]
   );
 
   useEffect(() => {
