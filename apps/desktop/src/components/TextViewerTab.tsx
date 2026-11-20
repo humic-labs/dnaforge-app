@@ -1,5 +1,4 @@
 import { INTERACTION_CLASS } from '@waypoint/ui-components';
-import { Button } from './ui';
 import { reportSaveFailure } from '../lib/report-save-failure';
 import { useDocumentLifecycle } from '../shared/use-document-lifecycle';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
@@ -724,32 +723,32 @@ export function TextViewerTab({
           {terminalAvailable && (
             <>
               {terminalFileAvailable && (
-                <Button
-                  variant="appbar"
+                <button
                   aria-label="Run Saved File in Active Terminal"
                   title="Run the saved file in the active terminal"
                   disabled={loading || Boolean(error) || isBinary}
                   onClick={runFile}
+                  className={`${INTERACTION_CLASS} px-2 py-1 text-xs text-fg-muted rounded`}
                 >
                   Run saved file
-                </Button>
+                </button>
               )}
-              <Button
-                variant="appbar"
+              <button
                 aria-label="Run Selection in Active Terminal"
                 disabled={!editorView}
                 onClick={() => runSelection()}
+                className={`${INTERACTION_CLASS} px-2 py-1 text-xs text-fg-muted rounded`}
               >
                 Run selection
-              </Button>
-              <Button
-                variant="appbar"
-                aria-label="Run Selection in New Terminal Tab"
+              </button>
+              <button
+                aria-label="Run Selection in New Terminal"
                 disabled={!editorView}
                 onClick={() => runSelection(true)}
+                className={`${INTERACTION_CLASS} px-2 py-1 text-xs text-fg-muted rounded`}
               >
-                Run in new terminal tab
-              </Button>
+                Run in new terminal
+              </button>
             </>
           )}
           <button
