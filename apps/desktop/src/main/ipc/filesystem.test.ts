@@ -159,7 +159,7 @@ describe('filesystem IPC hard cap  Layer B)', () => {
     expect(handler).toContain('requireAbsolute: true');
     expect(handler).toContain("errorPrefix: 'fs:writeTextFileAtomic'");
     expect(handler).toMatch(
-      /writeTextFileAtomicInMain\(\s*\{\s*\.\.\.input,\s*path\s*\},\s*\{\s*beforePublish:\s*assertCurrent\s*\}\s*\)/
+      /writeTextFileAtomicInMain\(\s*\{\s*\.\.\.input,\s*path\s*\},\s*\{\s*beforePublish:\s*\(staged\) => \{\s*assertCurrent\(\);\s*mark\(staged\);/
     );
     expect(handler).not.toContain('workspaceRoot');
     expect(handler).not.toContain('withSafeWritablePaths');

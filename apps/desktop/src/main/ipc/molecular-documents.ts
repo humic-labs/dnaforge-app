@@ -3,15 +3,12 @@ import { withDeclaredRendererWorkspaceMutation } from './workspace-mutation-auth
 import { withRendererDatabaseStatement } from '../workspace-sync-database-fence';
 import { reconcileMolecularDocumentSourceLinksInMain } from '../molecular-document-projection-authority';
 import { handleGroup } from '../../shared/ipc-contract';
-import type {
-  MolecularDocumentLocation,
-  SaveMolecularDocumentRequest,
-} from '../../shared/molecular-document';
+import { packMolecularDocument, unpackMolecularDocument } from '../../shared/molecular-document';
 import { MolecularDocumentLibrary } from '../molecular-document-library';
 import { molecularDocumentsContract } from '../../shared/ipc/molecular-documents.contract';
 
 export function registerMolecularDocumentIpcHandlers(): void {
-  const library = new MolecularDocumentLibrary();
+  const library = new MolecularDocumentLibrary({ db: getDb });
   handleGroup(molecularDocumentsContract, {
     reconcileSourceLinks: (event, request, mutationToken) => {
       const db = getDb();
@@ -27,7 +24,16 @@ export function registerMolecularDocumentIpcHandlers(): void {
           ),
       });
     },
-    read: (_event, request: MolecularDocumentLocation) => library.read(request),
-    save: (_event, request: SaveMolecularDocumentRequest) => library.save(request),
+    read: async (_event, request) => {
+      const saved = await library.read(request);
+      return { ...saved, document: packMolecularDocument(saved.document) };
+    },
+    save: async (_event, request) => {
+      const saved = await library.save({
+        ...request,
+        document: unpackMolecularDocument(request.document),
+      });
+      return { ...saved, document: packMolecularDocument(saved.document) };
+    },
   });
 }

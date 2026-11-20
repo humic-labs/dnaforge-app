@@ -31,8 +31,12 @@ zone, using a separate fresh profile for each gesture.
    sharing stays disabled.
 3. Leave the prompt untouched in a fresh profile, quit, and reopen. Confirm the
    prompt returns and sharing remains off.
-4. In an opt-out region, click the informational notice's **×** or its
-   **Click to dismiss** surface. Reopen and confirm it stays dismissed.
+4. In an opt-out region, click the informational notice's **×** or its **Click
+   to dismiss** surface. Reopen and confirm it stays dismissed.
+5. Reuse a profile with that acknowledgment and a current default sharing grant
+   in an opt-in region. Confirm the **Share** / **Don't share** prompt appears
+   and analytics remains off until **Share** is chosen. A prior notice
+   acknowledgment must not act as an explicit sharing choice.
 
 Read `analytics_banner_seen` and `analytics_consent` in the isolated profile's
 SQLite database. The former records acknowledgment. The latter records the

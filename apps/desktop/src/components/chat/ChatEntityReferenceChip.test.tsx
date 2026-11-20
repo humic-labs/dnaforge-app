@@ -22,6 +22,8 @@ describe('chat reference card presentation', () => {
       expect(embedded.className).toBe(screen.getByTestId('committed-card').className);
       expect(embedded).toHaveClass('entity-reference-chip--sent');
       expect(embedded).toHaveAttribute('data-entity-type', entityType);
+      expect(embedded.textContent).toBe('Example');
+      expect(embedded.firstElementChild).toHaveClass('entity-reference-chip__icon');
     }
   );
 

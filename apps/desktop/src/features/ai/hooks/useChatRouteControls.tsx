@@ -528,7 +528,7 @@ export function useChatRouteControls({
     if (modelCatalogFailed) {
       return (
         <div
-          className="flex min-w-0 items-center gap-1"
+          className="flex min-w-0 max-w-full flex-wrap items-center gap-1"
           data-testid="chat-cli-model-controls"
           title={
             modelCatalog?.error != null
@@ -587,84 +587,88 @@ export function useChatRouteControls({
 
     return (
       <div
-        className="flex min-w-0 items-center gap-1"
+        className="flex min-w-0 max-w-full flex-wrap items-center gap-1"
         data-testid="chat-cli-model-controls"
         title={`${TURN_TRANSPORT_LABELS[transport]} model and effort controls`}
       >
-        <CliModelPicker
-          transport={transport}
-          model={settings.model}
-          onModelChange={selectCliModel}
-          onRefreshModels={async () => {
-            await refreshAgentDetection();
-          }}
-          selectTestId="chat-cli-model-select"
-          customInputTestId="chat-cli-model-custom-input"
-          defaultModel={defaultModel}
-          codexAuthMode={
-            transport === 'codex-sdk' ? (agentDetection?.codex.authMode ?? null) : undefined
-          }
-          availableModels={runtimeModels}
-          customInputPlacement="replace-select"
-          ariaLabel={`${TURN_TRANSPORT_LABELS[transport]} model`}
-        />
-        {selectedEffort && effortOptions.length > 0 && (
-          <ChatComposerPicker
-            value={selectedEffort}
-            onChange={(nextEffort) => {
-              selectCliReasoningEffort(transport, nextEffort as AgentCliModelReasoningEffort);
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
+          <CliModelPicker
+            transport={transport}
+            model={settings.model}
+            onModelChange={selectCliModel}
+            onRefreshModels={async () => {
+              await refreshAgentDetection();
             }}
-            ariaLabel={`${TURN_TRANSPORT_LABELS[transport]} reasoning effort`}
-            title={`${TURN_TRANSPORT_LABELS[transport]} reasoning effort: ${selectedEffort}`}
-            testId="chat-cli-effort-select"
-            width="compact"
-            options={effortOptions.map((option) => ({
-              value: option.value,
-              label: option.label,
-            }))}
+            selectTestId="chat-cli-model-select"
+            customInputTestId="chat-cli-model-custom-input"
+            defaultModel={defaultModel}
+            codexAuthMode={
+              transport === 'codex-sdk' ? (agentDetection?.codex.authMode ?? null) : undefined
+            }
+            availableModels={runtimeModels}
+            customInputPlacement="replace-select"
+            ariaLabel={`${TURN_TRANSPORT_LABELS[transport]} model`}
           />
-        )}
-        {beforeOptionsMenu}
-        <ChatComposerNestedOptionsMenu
-          ariaLabel={`More ${TURN_TRANSPORT_LABELS[transport]} model options`}
-          testId="chat-cli-secondary-options"
-          actions={menuActions}
-          groups={[
-            ...(serviceTierOptions.length > 0
-              ? [
-                  {
-                    id: 'speed',
-                    label: 'Speed',
-                    value: selectedServiceTier ?? '',
-                    options: serviceTierOptions.map((option) => ({
-                      value: option.value,
-                      label: option.label,
-                      ...(option.description ? { title: option.description } : {}),
-                    })),
-                    onChange: (nextTier: string) =>
-                      selectCliServiceTier(transport, nextTier || null),
-                    optionTestId: 'chat-cli-service-tier-select',
-                  },
-                ]
-              : []),
-            ...(personalityOptions.length > 0
-              ? [
-                  {
-                    id: 'style',
-                    label: 'Style',
-                    value: selectedPersonality ?? '',
-                    options: personalityOptions.map((option) => ({
-                      value: option.value,
-                      label: option.label,
-                    })),
-                    onChange: (nextPersonality: string) =>
-                      selectCliPersonality(transport, nextPersonality),
-                    optionTestId: 'chat-cli-personality-select',
-                  },
-                ]
-              : []),
-          ]}
-        />
+          {selectedEffort && effortOptions.length > 0 && (
+            <ChatComposerPicker
+              value={selectedEffort}
+              onChange={(nextEffort) => {
+                selectCliReasoningEffort(transport, nextEffort as AgentCliModelReasoningEffort);
+              }}
+              ariaLabel={`${TURN_TRANSPORT_LABELS[transport]} reasoning effort`}
+              title={`${TURN_TRANSPORT_LABELS[transport]} reasoning effort: ${selectedEffort}`}
+              testId="chat-cli-effort-select"
+              width="compact"
+              options={effortOptions.map((option) => ({
+                value: option.value,
+                label: option.label,
+              }))}
+            />
+          )}
+        </div>
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
+          {beforeOptionsMenu}
+          <ChatComposerNestedOptionsMenu
+            ariaLabel={`More ${TURN_TRANSPORT_LABELS[transport]} model options`}
+            testId="chat-cli-secondary-options"
+            actions={menuActions}
+            groups={[
+              ...(serviceTierOptions.length > 0
+                ? [
+                    {
+                      id: 'speed',
+                      label: 'Speed',
+                      value: selectedServiceTier ?? '',
+                      options: serviceTierOptions.map((option) => ({
+                        value: option.value,
+                        label: option.label,
+                        ...(option.description ? { title: option.description } : {}),
+                      })),
+                      onChange: (nextTier: string) =>
+                        selectCliServiceTier(transport, nextTier || null),
+                      optionTestId: 'chat-cli-service-tier-select',
+                    },
+                  ]
+                : []),
+              ...(personalityOptions.length > 0
+                ? [
+                    {
+                      id: 'style',
+                      label: 'Style',
+                      value: selectedPersonality ?? '',
+                      options: personalityOptions.map((option) => ({
+                        value: option.value,
+                        label: option.label,
+                      })),
+                      onChange: (nextPersonality: string) =>
+                        selectCliPersonality(transport, nextPersonality),
+                      optionTestId: 'chat-cli-personality-select',
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        </div>
       </div>
     );
   };
@@ -676,7 +680,10 @@ export function useChatRouteControls({
     if (!activeAssistantRoute) return null;
     if (activeAssistantRoute.kind === 'provider') {
       return (
-        <div className="flex min-w-0 items-center" data-testid="chat-model-controls">
+        <div
+          className="flex min-w-0 max-w-full flex-wrap items-center"
+          data-testid="chat-model-controls"
+        >
           {renderDirectApiModelControl(activeAssistantRoute.provider)}
           {beforeOptionsMenu}
         </div>
@@ -708,7 +715,7 @@ export function useChatRouteControls({
     const cliAuthFailed = !!cliAuthResult && !cliAuthResult.ok;
 
     return (
-      <div className="flex min-w-0 items-center gap-1">
+      <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
         <button
           type="button"
           onClick={openActiveRouteConfiguration}

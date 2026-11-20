@@ -93,7 +93,7 @@ export function useCatalogCoordinates(ref: Structure3dAttrs['catalogSource']) {
               data:
                 loaded.observation.format === 'bcif'
                   ? loaded.bytes
-                  : new TextDecoder('utf-8', { fatal: true }).decode(loaded.bytes),
+                  : new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(loaded.bytes),
               format: loaded.observation.format === 'pdb' ? 'pdb' : 'mmcif',
             });
         })

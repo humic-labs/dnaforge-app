@@ -1,3 +1,4 @@
+import type { SavedFileSourceRequest,SavedFileSourceResult } from '../saved-file-source-command';
 import { defineGroup, event, invoke } from './contract';
 import type { WorkspaceFileTrashRequest, WorkspaceFileTrashResult } from '../workspace-file-trash';
 import type { ProjectHistoryRequest, ProjectHistoryResult } from '../project-history';
@@ -5,6 +6,7 @@ import type { ProjectHistoryRequest, ProjectHistoryResult } from '../project-his
 export const shellContract = defineGroup('shell', {
   revealItemInDir: invoke<[path: string], void>(),
   trashItem: invoke<[path: string, mutationToken?: string], void>(),
+  savedFileSource: invoke<[request:SavedFileSourceRequest], SavedFileSourceResult>(),
   fileTrash: invoke<[request: WorkspaceFileTrashRequest], WorkspaceFileTrashResult>(),
   projectHistory: invoke<[request: ProjectHistoryRequest], ProjectHistoryResult>(),
   onProjectHistoryChanged: event<[workspaceRoot: string]>().channel('shell:projectHistoryChanged'),

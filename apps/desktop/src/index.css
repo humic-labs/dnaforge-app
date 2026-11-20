@@ -1,3 +1,5 @@
+@import 'prosemirror-view/style/prosemirror.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -887,6 +889,10 @@ body.dragging-tab [data-panel-content] {
   outline: none;
 }
 
+.ProseMirror .node-embed.ProseMirror-selectednode {
+  outline: none;
+}
+
 .ProseMirror p {
   margin: 0;
 }
@@ -1111,29 +1117,40 @@ a[data-benchling-link-destination='external']::after {
   text-decoration: underline;
 }
 
+.notebook-reference-input {
+  field-sizing: content;
+  min-width: 1px;
+  max-width: min(70vw, 100%);
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  vertical-align: baseline;
+}
+
 .ProseMirror .mention {
   display: inline;
 }
 
+.ProseMirror .node-mention {
+  display: inline-block;
+  vertical-align: baseline;
+}
+
 .entity-reference-chip {
-  --entity-ref-bg: hsl(var(--color-accent) / 0.1);
-  --entity-ref-border: hsl(var(--color-accent) / 0.22);
-  --entity-ref-label: hsl(var(--color-accent));
-  --entity-ref-icon: hsl(var(--color-accent));
-  --entity-ref-hover-bg: hsl(var(--color-accent) / 0.16);
-  --entity-ref-hover-border: hsl(var(--color-accent) / 0.55);
+  --entity-ref-bg: hsl(var(--chat-chip-sent-bg));
+  --entity-ref-label: hsl(var(--chat-chip-fg));
+  --entity-ref-icon: hsl(var(--chat-chip-fg));
+  --entity-ref-hover-bg: hsl(var(--chat-chip-sent-hover));
   --entity-ref-focus: hsl(var(--color-accent) / 0.35);
-  --entity-ref-radius: 0.4em;
-  border: 1px solid var(--entity-ref-border);
+  --entity-ref-radius: 0.55em;
+  border: 0;
   background-color: var(--entity-ref-bg);
   color: var(--entity-ref-label);
-  padding: 0.1em 0.3em;
   border-radius: var(--entity-ref-radius);
-  font-weight: 500;
   cursor: pointer;
-  transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease;
 
   display: inline-flex;
   align-items: center;
@@ -1151,37 +1168,9 @@ a[data-benchling-link-destination='external']::after {
   color: hsl(var(--chat-bubble-fg));
 }
 
-.entity-reference-chip.entity-reference-chip--sent,
-.entity-reference-chip.entity-reference-chip--draft {
-  --entity-ref-radius: 0.55em;
-  --entity-ref-label: hsl(var(--chat-chip-fg));
-  --entity-ref-icon: hsl(var(--chat-chip-fg));
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  color: hsl(var(--chat-chip-fg));
-}
-
-.entity-reference-chip.entity-reference-chip--sent {
-  --entity-ref-bg: hsl(var(--chat-chip-sent-bg));
-  --entity-ref-border: hsl(var(--chat-chip-sent-bg));
-  --entity-ref-hover-bg: hsl(var(--chat-chip-sent-hover));
-  --entity-ref-hover-border: hsl(var(--chat-chip-sent-hover));
-  background-color: hsl(var(--chat-chip-sent-bg));
-  border-color: hsl(var(--chat-chip-sent-bg));
-}
-
-.entity-reference-chip.entity-reference-chip--draft {
+.entity-reference-chip--draft {
   --entity-ref-bg: hsl(var(--chat-chip-draft-bg));
-  --entity-ref-border: hsl(var(--chat-chip-draft-bg));
   --entity-ref-hover-bg: hsl(var(--chat-chip-draft-hover));
-  --entity-ref-hover-border: hsl(var(--chat-chip-draft-hover));
-  background-color: hsl(var(--chat-chip-draft-bg));
-  border-color: hsl(var(--chat-chip-draft-bg));
-}
-
-.entity-reference-chip--draft .entity-reference-chip__icon,
-.entity-reference-chip--sent .entity-reference-chip__icon {
-  opacity: 1;
 }
 
 .entity-reference-chip__end {
@@ -1210,12 +1199,10 @@ a[data-benchling-link-destination='external']::after {
     .entity-reference-chip__remove:hover
   ) {
   background-color: hsl(var(--chat-chip-draft-bg));
-  border-color: hsl(var(--chat-chip-draft-bg));
 }
 
 .entity-reference-chip:hover,
 .entity-reference-chip:focus-visible {
-  border-color: var(--entity-ref-hover-border);
   background-color: var(--entity-ref-hover-bg);
 }
 
@@ -1225,11 +1212,9 @@ a[data-benchling-link-destination='external']::after {
 
 .entity-reference-chip--unavailable {
   --entity-ref-bg: hsl(var(--color-bg-muted));
-  --entity-ref-border: hsl(var(--color-border));
   --entity-ref-label: hsl(var(--color-fg-muted));
   --entity-ref-icon: hsl(var(--color-fg-subtle));
   --entity-ref-hover-bg: hsl(var(--color-bg-muted));
-  --entity-ref-hover-border: hsl(var(--color-border));
   --entity-ref-focus: hsl(var(--color-fg-muted) / 0.25);
   cursor: default;
 }
@@ -1356,6 +1341,43 @@ a[data-benchling-link-destination='external']::after {
 
 .hljs-strong {
   font-weight: 600;
+}
+
+.chat-composer-surface {
+  container: chat-composer / inline-size;
+}
+
+.chat-composer-toolbar .wp-menu-trigger {
+  max-width: 100%;
+}
+
+@container chat-composer (max-width: 34rem) {
+  .chat-composer-toolbar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'attach route send'
+      'settings settings settings';
+    reading-flow: grid-rows;
+  }
+
+  .chat-composer-attachments {
+    grid-area: attach;
+    max-inline-size: 42cqi;
+  }
+
+  .chat-composer-route {
+    grid-area: route;
+  }
+
+  .chat-composer-settings {
+    grid-area: settings;
+    @apply border-t border-border/60 pt-1;
+  }
+
+  .chat-composer-toolbar > button {
+    grid-area: send;
+  }
 }
 
 .chat-content-rail {

@@ -22,17 +22,9 @@ import {
   SidebarIcon,
   SearchIcon,
   EllipsisIcon,
-  CloseIcon,
-  OpenExternalIcon,
 } from '../../components/icons';
-import { TerminalSessionSidebar } from './TerminalSessionSidebar';
-import {
-  moveListSession,
-  normalizeSessionList,
-  type TerminalListEntry,
-} from './terminal-session-list';
-import { TERMINAL_TAB_TRANSFER_EVENT, type TerminalTabTransfer } from './public/tab-transfer';
 import { COMMAND_IDS, useCommandHandler, useCommandRegistry } from '../../commands';
+import { Button, TextField } from '../../components/ui';
 import { PortalMenu } from '../../components/PortalMenu';
 import { confirmDialog } from '../../components/confirm-dialog-store';
 import { useToastStore } from '../../stores/toast-store';
@@ -58,13 +50,11 @@ import {
   splitTerminalPane,
   terminalGroupViewId,
   migrateTerminalGroupViews,
-  moveTerminalGroupToView,
   moveIndividualTerminalToView,
-  TERMINAL_WORKSPACE_TAB_ID,
-  type TerminalPresentation,
   type TerminalGroup,
+  type SavedTerminalGroup,
 } from './terminal-layout';
-import { TERMINAL_EDITOR_ACTION_EVENT, useTerminalEditorTargets } from './terminal-placement';
+import { useTerminalEditorTargets } from './terminal-placement';
 import {
   terminalHostPlatform,
   terminalSplitShortcut,
@@ -83,24 +73,21 @@ import type {
   TerminalSession,
 } from '../../shared/terminal-ipc';
 import { TerminalPane, type TerminalPaneHandle } from './TerminalPane';
-import { registerTerminalViewOpener, TerminalOpeningError } from './terminal-opening';
-import { useTerminalWorkspaceTarget } from './TerminalWorkspace';
-
+import {
+  registerTerminalTabCloser,
+  registerTerminalViewOpener,
+  TerminalOpeningError,
+} from './terminal-opening';
 const STORAGE_KEY = 'dnaforge.terminal.layout.v1';
-const PANEL_VIEW_ID = 'terminal-panel';
 
 export function TerminalDock({
   defaultCwd,
   floatingGroupId,
-  workspaceActive,
-  onOpenWorkspace,
-  onCloseWorkspace,
+  onRevealWorkspace,
 }: {
   defaultCwd?: string;
   floatingGroupId?: string;
-  workspaceActive?: boolean;
-  onOpenWorkspace?(): void;
-  onCloseWorkspace?(): void;
+  onRevealWorkspace?(): void;
 }) {
   const { dispatchCommand } = useCommandRegistry();
   const storageKey = floatingGroupId ? `${STORAGE_KEY}:${floatingGroupId}` : STORAGE_KEY;
@@ -108,26 +95,12 @@ export function TerminalDock({
   const editorTargets = useTerminalEditorTargets((state) => state.targets);
   const canvasPanels = useCanvasStore((state) => state.panels);
   const [initialized, setInitialized] = useState(false);
-  const workspaceTarget = useTerminalWorkspaceTarget((state) => state.target);
-  const workspaceNavigation = useRef({ workspaceActive, onOpenWorkspace, onCloseWorkspace });
-  workspaceNavigation.current = { workspaceActive, onOpenWorkspace, onCloseWorkspace };
-  const [panelOpen, setPanelOpen] = useState(false);
-  const open = floatingGroupId || !onOpenWorkspace ? panelOpen : Boolean(workspaceActive);
-  const setOpen = useCallback(
-    (value: boolean) => {
-      setPanelOpen(value);
-      if (floatingGroupId) return;
-      const navigation = workspaceNavigation.current;
-      if (value) navigation.onOpenWorkspace?.();
-      else if (navigation.workspaceActive) navigation.onCloseWorkspace?.();
-    },
-    [floatingGroupId]
-  );
+  const revealWorkspace = useRef(onRevealWorkspace);
+  revealWorkspace.current = onRevealWorkspace;
   const [sessions, setSessions] = useState<TerminalSession[]>([]);
   const [profiles, setProfiles] = useState<TerminalProfile[]>([]);
   const [profileId, setProfileId] = useState('');
   const [groups, setGroups] = useState<TerminalGroup[]>([]);
-  const [listEntries, setListEntries] = useState<TerminalListEntry[]>([]);
   const [paneTargets, setPaneTargets] = useState<Record<string, HTMLDivElement>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
   useEffect(() => {
@@ -139,11 +112,8 @@ export function TerminalDock({
   }, [sessions]);
   const [busy, setBusy] = useState(false);
   const pendingCreate = useRef(false);
-  const [error, setError] = useState('');
-  const [height, setHeight] = useState(300);
-  const [maximized, setMaximized] = useState(false);
   const [activeByView, setActiveByView] = useState<Record<string, string>>({});
-  const [uiViewId, setUiViewId] = useState(PANEL_VIEW_ID);
+  const [uiViewId, setUiViewId] = useState<string | undefined>(floatingGroupId);
   const toolbarRefs = useRef(
     new Map<
       string,
@@ -153,7 +123,6 @@ export function TerminalDock({
       }
     >()
   );
-  const lastFocusedView = useRef<string | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
   const presentedEditorGroups = useRef(new Set<string>());
   const [historyTarget, setHistoryTarget] = useState<{
@@ -174,7 +143,12 @@ export function TerminalDock({
         if (!cancelled) setSavedHistory({ id: historyId, data });
       })
       .catch(() => {
-        if (!cancelled) setError(userMessage('failure.terminal-history-could-not-be-loaded'));
+        if (!cancelled)
+          useToastStore
+            .getState()
+            .addToast(userMessage('failure.terminal-history-could-not-be-loaded'), {
+              definition: 'terminal-action-failed',
+            });
       });
     return () => {
       cancelled = true;
@@ -196,7 +170,6 @@ export function TerminalDock({
   const [name, setName] = useState('');
   const handles = useRef(new Map<string, TerminalPaneHandle>());
   const splitHandles = useRef(new Map<string, TerminalSplitGroupHandle>());
-  const dockRoot = useRef<HTMLElement>(null);
   const paneWaiters = useRef(
     new Map<
       string,
@@ -208,21 +181,18 @@ export function TerminalDock({
     >()
   );
   const executionQueue = useRef<Promise<void>>(Promise.resolve());
-  const resizeOrigin = useRef<{ y: number; height: number } | null>(null);
   const activeGroup = groups.find((group) => group.sessions.includes(activeId ?? ''))?.id;
   const editorViews = new Map<string, TerminalGroup[]>();
   for (const group of groups) {
-    if (group.placement !== 'editor') continue;
     const viewId = terminalGroupViewId(group);
     editorViews.set(viewId, [...(editorViews.get(viewId) ?? []), group]);
   }
-  const panelGroups = groups.filter((group) => group.placement !== 'editor');
   const focusedEditorView =
     [...editorViews.keys()].find((id) => editorTargets[id]?.active) ??
     [...editorViews.keys()].find((id) => editorTargets[id]?.visible);
-  const primaryViewId =
-    open || floatingGroupId ? PANEL_VIEW_ID : (focusedEditorView ?? PANEL_VIEW_ID);
-  const surfaceOpen = open || Object.values(editorTargets).some((target) => target.visible);
+  const primaryViewId = floatingGroupId ?? focusedEditorView;
+  const surfaceOpen =
+    Boolean(floatingGroupId) || Object.values(editorTargets).some((target) => target.visible);
   const selectedFor = (viewId: string, viewGroups: TerminalGroup[]) => {
     const ids = viewGroups.flatMap((group) => group.sessions);
     const saved = activeByView[viewId];
@@ -235,7 +205,7 @@ export function TerminalDock({
     );
   };
   useEffect(() => {
-    if (!actionsOpen || !surfaceOpen) return;
+    if (!actionsOpen || !surfaceOpen || !uiViewId) return;
     const frame = requestAnimationFrame(() =>
       safeFocus(
         toolbarRefs.current
@@ -255,10 +225,11 @@ export function TerminalDock({
       return next;
     });
   }, []);
-  const report = useCallback(
-    (value: unknown) => setError(toUserMessage(value, 'operation.failed')),
-    []
-  );
+  const report = useCallback((value: unknown) => {
+    useToastStore.getState().addToast(toUserMessage(value, 'operation.failed'), {
+      definition: 'terminal-action-failed',
+    });
+  }, []);
   const ready = useCallback((id: string, handle: TerminalPaneHandle | null) => {
     if (handle) {
       handles.current.set(id, handle);
@@ -275,7 +246,7 @@ export function TerminalDock({
       setActiveId(id);
       const group = groups.find((group) => group.sessions.includes(id));
       if (group) {
-        const viewId = group.placement === 'editor' ? terminalGroupViewId(group) : PANEL_VIEW_ID;
+        const viewId = terminalGroupViewId(group);
         setUiViewId(viewId);
         setActiveByView((current) => ({ ...current, [viewId]: id }));
       }
@@ -341,31 +312,12 @@ export function TerminalDock({
           splitHandles.current
             .get(group.id)
             ?.resizePane(id, direction === 'left' || direction === 'up', pixels);
-        } else if (!horizontal && group.placement !== 'editor' && !floatingGroupId && !maximized) {
-          const maximum = dockRoot.current?.parentElement?.clientHeight ?? window.innerHeight;
-          setHeight((value) =>
-            Math.max(
-              Math.min(150, maximum),
-              Math.min(maximum, value + (direction === 'up' ? pixels : -pixels))
-            )
-          );
         }
       } catch (error) {
         report(error);
       }
     },
-    [groups, floatingGroupId, maximized, report]
-  );
-  const navigatePane = useCallback(
-    (id: string, direction: number) => {
-      const group = groups.find((item) => item.sessions.includes(id));
-      if (!group) return;
-      const index = group.sessions.indexOf(id);
-      setActiveId(
-        group.sessions[(index + direction + group.sessions.length) % group.sessions.length]!
-      );
-    },
-    [groups]
+    [groups, report]
   );
   const activateSession = useCallback(
     (id: string) => {
@@ -373,27 +325,21 @@ export function TerminalDock({
       setActiveId(id);
       const group = groups.find((item) => item.sessions.includes(id));
       if (!group) return;
-      const viewId = group.placement === 'editor' ? terminalGroupViewId(group) : PANEL_VIEW_ID;
+      const viewId = terminalGroupViewId(group);
       setUiViewId(viewId);
       setActiveByView((current) => ({ ...current, [viewId]: id }));
-      if (group.placement === 'editor' && !floatingGroupId) {
-        if (!workspaceNavigation.current.workspaceActive) setOpen(false);
+      if (!floatingGroupId) {
+        revealWorkspace.current?.();
         const canvas = useCanvasStore.getState();
-        const tab = canvas.findTab('terminal', terminalGroupViewId(group));
+        const tab = canvas.findTab('terminal', viewId);
         if (tab) {
           canvas.setActiveTab(tab.panelId, tab.tabId);
           canvas.focusPanel(tab.panelId);
         } else {
-          presentedEditorGroups.current.delete(terminalGroupViewId(group));
-          setGroups((current) =>
-            current.map((item) =>
-              terminalGroupViewId(item) === terminalGroupViewId(group)
-                ? { ...item, placement: 'editor' }
-                : item
-            )
-          );
+          const label = sessions.find((session) => session.id === id)?.title ?? 'Shell';
+          canvas.openInFocusedPanel('terminal', viewId, `Terminal: ${label}`);
         }
-      } else setOpen(true);
+      }
       const pane = handles.current.get(id);
       if (pane?.terminal.element?.getClientRects().length)
         safeFocus(pane.terminal.textarea, { preventScroll: true });
@@ -402,17 +348,25 @@ export function TerminalDock({
           safeFocus(handles.current.get(id)?.terminal.textarea, { preventScroll: true })
         );
     },
-    [groups, clearBell, floatingGroupId]
+    [groups, sessions, clearBell, floatingGroupId]
+  );
+  const navigatePane = useCallback(
+    (id: string, direction: number) => {
+      const group = groups.find((item) => item.sessions.includes(id));
+      if (!group) return;
+      const index = group.sessions.indexOf(id);
+      activateSession(
+        group.sessions[(index + direction + group.sessions.length) % group.sessions.length]!
+      );
+    },
+    [groups, activateSession]
   );
   const navigateGroup = useCallback(
     (id: string, direction: number) => {
       const source = groups.find((group) => group.sessions.includes(id));
       if (!source) return;
-      const siblings = groups.filter((group) =>
-        source.placement === 'editor'
-          ? group.placement === 'editor' &&
-            terminalGroupViewId(group) === terminalGroupViewId(source)
-          : group.placement !== 'editor'
+      const siblings = groups.filter(
+        (group) => terminalGroupViewId(group) === terminalGroupViewId(source)
       );
       const index = siblings.indexOf(source);
       const next = siblings[(index + direction + siblings.length) % siblings.length];
@@ -433,7 +387,7 @@ export function TerminalDock({
       if (group)
         setActiveByView((current) => ({
           ...current,
-          [group.placement === 'editor' ? terminalGroupViewId(group) : PANEL_VIEW_ID]: source,
+          [terminalGroupViewId(group)]: source,
         }));
       setActiveId(source);
     },
@@ -469,15 +423,6 @@ export function TerminalDock({
             }))
             .filter((group) => group.sessions.length)
         );
-        setListEntries((current) =>
-          current
-            .filter((item) => typeof item !== 'string' || !removed.has(item))
-            .map((item) =>
-              typeof item === 'string'
-                ? item
-                : { ...item, sessions: item.sessions.filter((id) => !removed.has(id)) }
-            )
-        );
         setActiveId((current) => (current && removed.has(current) ? null : current));
       }
       if (event.kind === 'added') {
@@ -491,18 +436,10 @@ export function TerminalDock({
           {
             id: event.groupId ?? ids[0]!,
             sessions: ids,
-            viewId: event.groupId ?? ids[0]!,
-            placement: floatingGroupId ? 'panel' : 'editor',
+            viewId: floatingGroupId ?? event.groupId ?? ids[0]!,
           },
         ]);
-        setListEntries((current) =>
-          normalizeSessionList(current, [
-            ...current.flatMap((item) => (typeof item === 'string' ? [item] : item.sessions)),
-            ...ids,
-          ])
-        );
         setActiveId(ids[0] ?? null);
-        setOpen(Boolean(floatingGroupId));
       }
     });
     void Promise.all([
@@ -517,64 +454,42 @@ export function TerminalDock({
         setProfiles(available);
         setProfileId(configuration.defaultProfileId ?? available[0]?.id ?? '');
         let layout: {
-          groups?: TerminalGroup[];
-          sessionList?: unknown;
+          groups?: SavedTerminalGroup[];
           activeId?: string;
           open?: boolean;
-          height?: number;
-          maximized?: boolean;
-          presentation?: TerminalPresentation | 'workspace';
+          presentation?: string;
           activeByView?: Record<string, string>;
         } = {};
         try {
-          layout = JSON.parse(localStorage.getItem(storageKey) ?? '{}');
+          layout = JSON.parse(localStorage.getItem(storageKey) ?? '{}') ?? {};
         } catch {}
         const ids = new Set(existing.map((session) => session.id));
         const assigned = new Set<string>();
-        const restored: TerminalGroup[] = [];
+        const restored: SavedTerminalGroup[] = [];
         if (Array.isArray(layout.groups))
           for (const group of layout.groups) {
             if (!group || typeof group.id !== 'string' || !Array.isArray(group.sessions)) continue;
-            const valid = group.sessions.filter((id) => ids.has(id) && !assigned.has(id));
+            const valid = [...new Set(group.sessions)].filter(
+              (id) => ids.has(id) && !assigned.has(id)
+            );
             valid.forEach((id) => assigned.add(id));
             if (valid.length)
               restored.push({
                 id: group.id,
                 sessions: valid,
+                placement: group.placement,
                 viewId:
                   typeof group.viewId === 'string' && group.viewId.length <= 256
                     ? group.viewId
                     : undefined,
-                placement: floatingGroupId
-                  ? 'panel'
-                  : group.placement === 'panel' || group.placement === 'editor'
-                    ? group.placement
-                    : layout.presentation === 'panel'
-                      ? 'panel'
-                      : 'editor',
                 direction: group.direction === 'vertical' ? 'vertical' : 'horizontal',
                 sizes: group.sizes && typeof group.sizes === 'object' ? group.sizes : undefined,
               });
           }
         const remaining = [...ids].filter((id) => !assigned.has(id));
-        if (floatingGroupId && remaining.length)
-          restored.push({ id: floatingGroupId, sessions: remaining });
-        else
-          for (const id of remaining)
-            restored.push({
-              id,
-              sessions: [id],
-              placement: layout.presentation === 'panel' ? 'panel' : 'editor',
-            });
-        setGroups(
-          migrateTerminalGroupViews(restored, layout.presentation, Boolean(floatingGroupId))
-        );
-        setListEntries(
-          normalizeSessionList(
-            layout.sessionList,
-            restored.flatMap((group) => group.sessions)
-          )
-        );
+        for (const id of remaining) restored.push({ id, sessions: [id] });
+        const migrated = migrateTerminalGroupViews(restored, layout.presentation, floatingGroupId);
+        setGroups(migrated);
         setActiveByView(
           layout.activeByView && typeof layout.activeByView === 'object'
             ? Object.fromEntries(
@@ -587,28 +502,41 @@ export function TerminalDock({
         setActiveId(
           layout.activeId && ids.has(layout.activeId) ? layout.activeId : (existing[0]?.id ?? null)
         );
-        const showAtStartup = floatingGroupId
-          ? Boolean(existing.length)
-          : policy.startupVisibility === 'visible' ||
-            (policy.startupVisibility === 'remember' &&
-              Boolean(
-                existing.length &&
-                restored.some((group) => group.placement === 'panel') &&
-                layout.open
-              ));
-        setPanelOpen(showAtStartup);
-        if (!floatingGroupId && showAtStartup) workspaceNavigation.current.onOpenWorkspace?.();
-        else if (
-          !floatingGroupId &&
-          policy.startupVisibility === 'hidden' &&
-          workspaceNavigation.current.workspaceActive
-        )
-          workspaceNavigation.current.onCloseWorkspace?.();
-        if (typeof layout.height === 'number' && Number.isFinite(layout.height)) {
-          const maximum = dockRoot.current?.parentElement?.clientHeight || window.innerHeight;
-          setHeight(Math.max(Math.min(150, maximum), Math.min(maximum, layout.height)));
+        if (!floatingGroupId) {
+          const canvas = useCanvasStore.getState();
+          const panel = canvas.focusedPanelId ? canvas.panels[canvas.focusedPanelId] : undefined;
+          const previousTab = panel?.activeTabId;
+          const selected =
+            migrated.find((group) => group.sessions.includes(layout.activeId ?? '')) ?? migrated[0];
+          for (const group of migrated) {
+            const viewId = terminalGroupViewId(group);
+            if (!canvas.findTab('terminal', viewId)) {
+              const title =
+                existing.find((session) => session.id === group.sessions[0])?.title ?? 'Shell';
+              canvas.openInFocusedPanel('terminal', viewId, `Terminal: ${title}`);
+            }
+          }
+          if (
+            selected &&
+            (policy.startupVisibility === 'visible' ||
+              (policy.startupVisibility === 'remember' && layout.open))
+          ) {
+            const tab = canvas.findTab('terminal', terminalGroupViewId(selected));
+            if (tab) {
+              revealWorkspace.current?.();
+              canvas.setActiveTab(tab.panelId, tab.tabId);
+              canvas.focusPanel(tab.panelId);
+            }
+          } else if (panel) {
+            const background =
+              policy.startupVisibility === 'hidden'
+                ? (panel.tabs.find((tab) => tab.id === previousTab && tab.type !== 'terminal')
+                    ?.id ?? panel.tabs.find((tab) => tab.type !== 'terminal')?.id)
+                : undefined;
+            if (background ?? previousTab)
+              canvas.setActiveTab(panel.id, (background ?? previousTab)!);
+          }
         }
-        setMaximized(layout.maximized === true);
         setInitialized(true);
       })
       .catch(report);
@@ -623,27 +551,13 @@ export function TerminalDock({
       localStorage.setItem(
         storageKey,
         JSON.stringify({
-          version: 2,
+          version: 3,
           groups,
-          sessionList: listEntries,
           activeId,
           activeByView,
-          open,
-          height,
-          maximized,
         })
       );
-  }, [
-    initialized,
-    groups,
-    listEntries,
-    activeId,
-    activeByView,
-    open,
-    height,
-    maximized,
-    storageKey,
-  ]);
+  }, [initialized, groups, activeId, activeByView, storageKey]);
   useEffect(() => {
     if (!port) return;
     return subscribeTerminalProfilesChanged(() => {
@@ -666,19 +580,13 @@ export function TerminalDock({
     ) => {
       if (!port || pendingCreate.current || !initialized) return;
       const parent = groups.find((group) => group.sessions.includes(parentId ?? ''));
-      const placement =
-        floatingGroupId || requestedViewId === PANEL_VIEW_ID
-          ? 'panel'
-          : newAppTab
-            ? 'editor'
-            : (parent?.placement ?? 'panel');
-      const viewId = newAppTab
-        ? (requestedViewId ?? crypto.randomUUID())
-        : (requestedViewId ?? (parent ? terminalGroupViewId(parent) : TERMINAL_WORKSPACE_TAB_ID));
-      if (placement === 'editor') dispatchCommand(COMMAND_IDS.appShowExplorer, { source: 'ui' });
+      const viewId =
+        floatingGroupId ??
+        requestedViewId ??
+        (newAppTab || !parent ? crypto.randomUUID() : terminalGroupViewId(parent));
+      if (!floatingGroupId) revealWorkspace.current?.();
       pendingCreate.current = true;
       setBusy(true);
-      setError('');
       try {
         const parentSession = sessions.find((session) => session.id === parentId);
         const session = await port.create({
@@ -686,18 +594,15 @@ export function TerminalDock({
           profileId: profileId || undefined,
         });
         setSessions((current) => [...current, session]);
-        setListEntries((current) => [...current, session.id]);
         setGroups((current) =>
-          split && parent
+          split && parent && current.some((group) => group.sessions.includes(parentId!))
             ? splitTerminalPane(current, parentId!, session.id)
-            : [...current, { id: session.id, sessions: [session.id], viewId, placement }]
+            : [...current, { id: session.id, sessions: [session.id], viewId }]
         );
         setActiveId(session.id);
-        const selectedView = placement === 'editor' ? viewId : PANEL_VIEW_ID;
-        setActiveByView((current) => ({ ...current, [selectedView]: session.id }));
-        setUiViewId(selectedView);
-        setOpen(placement === 'panel');
-        if (placement === 'editor') {
+        setActiveByView((current) => ({ ...current, [viewId]: session.id }));
+        setUiViewId(viewId);
+        if (!floatingGroupId) {
           const canvas = useCanvasStore.getState();
           const tab = canvas.findTab('terminal', viewId);
           if (tab) {
@@ -713,18 +618,7 @@ export function TerminalDock({
         setBusy(false);
       }
     },
-    [
-      port,
-      initialized,
-      sessions,
-      groups,
-      activeId,
-      defaultCwd,
-      profileId,
-      report,
-      floatingGroupId,
-      dispatchCommand,
-    ]
+    [port, initialized, sessions, groups, activeId, defaultCwd, profileId, report, floatingGroupId]
   );
 
   useEffect(
@@ -748,13 +642,7 @@ export function TerminalDock({
             'TERMINAL_PARENT_NOT_FOUND',
             'The parent terminal is not open in this window.'
           );
-        const editor = request.mode === 'tab' || parent?.placement === 'editor';
-        const viewId =
-          request.mode === 'tab'
-            ? crypto.randomUUID()
-            : editor
-              ? terminalGroupViewId(parent!)
-              : PANEL_VIEW_ID;
+        const viewId = request.mode === 'tab' ? crypto.randomUUID() : terminalGroupViewId(parent!);
         const session = await create(
           request.mode === 'split',
           request.cwd,
@@ -774,18 +662,18 @@ export function TerminalDock({
           let activated = false;
           while (Date.now() < deadline) {
             const canvas = useCanvasStore.getState();
-            const tab = editor ? canvas.findTab('terminal', viewId) : null;
+            const tab = canvas.findTab('terminal', viewId);
             if (tab && !activated) {
               canvas.setActiveTab(tab.panelId, tab.tabId);
               canvas.focusPanel(tab.panelId);
               activated = true;
             }
-            if ((!editor || tab) && pane.terminal.element?.getClientRects().length)
+            if (tab && pane.terminal.element?.getClientRects().length)
               return {
                 sessionId: session.id,
                 groupId: request.mode === 'split' ? parent!.id : session.id,
                 viewId,
-                tabId: tab?.tabId ?? null,
+                tabId: tab.tabId,
                 title: session.title,
                 cwd: session.cwd,
               };
@@ -809,7 +697,7 @@ export function TerminalDock({
   useEffect(() => {
     const requested = (event: Event) => {
       const detail = (event as CustomEvent<{ cwd?: string }>).detail;
-      if (detail && typeof detail.cwd === 'string') void create(false, detail.cwd);
+      if (detail && typeof detail.cwd === 'string') void create(false, detail.cwd, null, true);
     };
     window.addEventListener(OPEN_INTEGRATED_TERMINAL_EVENT, requested);
     return () => window.removeEventListener(OPEN_INTEGRATED_TERMINAL_EVENT, requested);
@@ -832,7 +720,7 @@ export function TerminalDock({
           const current = request.fresh
             ? undefined
             : available.find((session) => session.id === activeId && session.status === 'running');
-          const session = current ?? (await create(false, defaultCwd ?? request.cwd));
+          const session = current ?? (await create(false, request.cwd ?? defaultCwd, null, true));
           if (!session) throw new Error('The terminal is not ready to run code.');
           activateSession(session.id);
           await (
@@ -845,54 +733,14 @@ export function TerminalDock({
     return () => window.removeEventListener(RUN_INTEGRATED_TERMINAL_EVENT, requested);
   }, [port, activeId, create, defaultCwd, groups, waitForPane, report, activateSession]);
 
-  const toggle = useCallback(() => {
+  useCommandHandler(COMMAND_IDS.terminalToggle, () => {
     if (!initialized) return;
-    if (onOpenWorkspace && !floatingGroupId) {
-      if (open) {
-        setOpen(false);
-        return;
-      }
-      const savedId = activeByView[PANEL_VIEW_ID];
-      const panelGroup =
-        groups.find(
-          (group) => group.placement !== 'editor' && group.sessions.includes(savedId ?? '')
-        ) ?? groups.find((group) => group.placement !== 'editor');
-      if (panelGroup)
-        activateSession(
-          savedId && panelGroup.sessions.includes(savedId) ? savedId : panelGroup.sessions[0]!
-        );
-      else if (!sessions.length) void create(false, undefined, null, false, PANEL_VIEW_ID);
-      else setOpen(true);
-      return;
-    }
-    const group = groups.find((group) => group.sessions.includes(activeId ?? '')) ?? groups[0];
-    if (!group) {
-      void create();
-      return;
-    }
-    if (group.placement === 'editor' && !floatingGroupId) {
-      dispatchCommand(COMMAND_IDS.appShowExplorer, { source: 'ui' });
-      activateSession(group.sessions.includes(activeId ?? '') ? activeId! : group.sessions[0]!);
-    } else if (!open)
-      activateSession(group.sessions.includes(activeId ?? '') ? activeId! : group.sessions[0]!);
-    else setOpen(false);
-  }, [
-    initialized,
-    open,
-    create,
-    groups,
-    activeId,
-    floatingGroupId,
-    dispatchCommand,
-    activateSession,
-    onOpenWorkspace,
-    activeByView,
-    sessions.length,
-    setOpen,
-  ]);
-  useCommandHandler(COMMAND_IDS.terminalToggle, toggle);
+    const sessionId = activeId ?? sessions[0]?.id;
+    if (sessionId) activateSession(sessionId);
+    else void create(false, undefined, null, true);
+  });
   useCommandHandler(COMMAND_IDS.terminalNew, () => {
-    void create(false, undefined, activeId, false, PANEL_VIEW_ID);
+    void create(false, undefined, null, true);
   });
 
   const close = async (id: string) => {
@@ -929,6 +777,65 @@ export function TerminalDock({
       closing.current.delete(id);
     }
   };
+  const liveGroups = useRef(groups);
+  liveGroups.current = groups;
+  useEffect(() => {
+    if (!port || !initialized || floatingGroupId) return;
+    return registerTerminalTabCloser(async (viewId, stillOwned) => {
+      const viewSessions = () =>
+        liveGroups.current
+          .filter((group) => terminalGroupViewId(group) === viewId)
+          .flatMap((group) => group.sessions);
+      const ids = viewSessions();
+      if (!stillOwned() || ids.some((id) => closing.current.has(id))) return false;
+      ids.forEach((id) => closing.current.add(id));
+      try {
+        const statuses = await Promise.all(ids.map((id) => port.closeStatus(id)));
+        if (!stillOwned() || closeLifetime.current?.signal.aborted) return false;
+        if (
+          statuses.some((status) => status.requiresConfirmation) &&
+          !(await confirmDialog({
+            title: userMessage('dialog.close-busy-terminal'),
+            message: userMessage(
+              'dialog.a-program-may-still-be-running-in-this-terminal-closing-it-will-stop-i'
+            ),
+            confirmLabel: userMessage('dialog.close-terminal'),
+            tone: 'danger',
+            safeDefault: true,
+            signal: closeLifetime.current?.signal,
+          }))
+        )
+          return false;
+        const attached = viewSessions();
+        if (
+          !stillOwned() ||
+          closeLifetime.current?.signal.aborted ||
+          attached.length !== ids.length ||
+          attached.some((id) => !ids.includes(id))
+        )
+          return false;
+        const results = await Promise.allSettled(ids.map((id) => port.close(id)));
+        const closed = new Set(ids.filter((_, index) => results[index]?.status === 'fulfilled'));
+        setSessions((current) => current.filter((session) => !closed.has(session.id)));
+        setGroups((current) =>
+          current
+            .map((group) => ({
+              ...group,
+              sessions: group.sessions.filter((id) => !closed.has(id)),
+            }))
+            .filter((group) => group.sessions.length)
+        );
+        const failure = results.find((result) => result.status === 'rejected');
+        if (failure?.status === 'rejected') throw failure.reason;
+        return true;
+      } catch (failure) {
+        report(failure);
+        return false;
+      } finally {
+        ids.forEach((id) => closing.current.delete(id));
+      }
+    });
+  }, [port, initialized, floatingGroupId, report]);
   const unsplit = (id: string) => {
     const source = groups.find((group) => group.sessions.includes(id));
     if (!source || source.sessions.length < 2) return;
@@ -938,7 +845,6 @@ export function TerminalDock({
   const relaunch = async (id = activeId) => {
     if (!port || !id || busy) return;
     setBusy(true);
-    setError('');
     try {
       const replacement = await port.relaunch(id);
       setSessions((current) =>
@@ -958,18 +864,6 @@ export function TerminalDock({
             : undefined,
         }))
       );
-      setListEntries((current) =>
-        current.map((item) =>
-          typeof item === 'string'
-            ? item === id
-              ? replacement.id
-              : item
-            : {
-                ...item,
-                sessions: item.sessions.map((entry) => (entry === id ? replacement.id : entry)),
-              }
-        )
-      );
       setActiveId(replacement.id);
       setActiveByView((current) =>
         Object.fromEntries(
@@ -985,46 +879,15 @@ export function TerminalDock({
       setBusy(false);
     }
   };
-  const moveToNewTab = (id: string, targetPanelId?: string, keepSidebar = false) => {
+  const moveToNewTab = (id: string) => {
     const session = sessionMap.get(id);
-    const canvas = useCanvasStore.getState();
-    if (!session || (targetPanelId && !canvas.panels[targetPanelId])) return;
+    if (!session) return;
     const viewId = crypto.randomUUID();
     setGroups((current) => moveIndividualTerminalToView(current, id, viewId));
-    if (targetPanelId) canvas.focusPanel(targetPanelId);
     setActiveByView((current) => ({ ...current, [viewId]: id }));
     setActiveId(id);
     setUiViewId(viewId);
-    if (!keepSidebar) {
-      setOpen(false);
-      dispatchCommand(COMMAND_IDS.appShowExplorer, { source: 'ui' });
-    }
-  };
-  const moveToEditor = (id = activeId) => {
-    const group = groups.find((group) => group.sessions.includes(id ?? ''));
-    if (!group || !id) return;
-    if (onOpenWorkspace && group.placement !== 'editor') {
-      const viewId = crypto.randomUUID();
-      setGroups((current) => moveTerminalGroupToView(current, id, viewId));
-      setActiveByView((current) => ({ ...current, [viewId]: id }));
-      setUiViewId(viewId);
-      setActiveId(id);
-      if (!workspaceNavigation.current.workspaceActive) setOpen(false);
-      return;
-    }
-    const viewId = terminalGroupViewId(group);
-    presentedEditorGroups.current.delete(viewId);
-    setGroups((current) =>
-      current.map((item) =>
-        terminalGroupViewId(item) === viewId ? { ...item, placement: 'editor' } : item
-      )
-    );
-    setActiveByView((current) => ({ ...current, [viewId]: id }));
-    setActiveId(id);
-    setUiViewId(viewId);
-    setMaximized(false);
-    setOpen(false);
-    dispatchCommand(COMMAND_IDS.appShowExplorer, { source: 'ui' });
+    revealWorkspace.current?.();
   };
   const moveToWindow = async (groupId = activeGroup) => {
     const group = groups.find((item) => item.id === groupId);
@@ -1038,120 +901,38 @@ export function TerminalDock({
       setBusy(false);
     }
   };
-  const moveToPanel = useCallback(
-    (groupId: string) => {
-      const group = groups.find((item) => item.id === groupId);
-      if (!group) return;
-      const viewId = terminalGroupViewId(group);
-      const canvas = useCanvasStore.getState();
-      const tab = canvas.findTab('terminal', viewId);
-      if (tab) canvas.closeTab(tab.panelId, tab.tabId);
-      setGroups((current) =>
-        current.map((item) =>
-          terminalGroupViewId(item) === viewId ? { ...item, placement: 'panel' } : item
-        )
-      );
-      const id = group.sessions.includes(activeId ?? '') ? activeId! : group.sessions[0]!;
-      setActiveId(id);
-      setActiveByView((current) => ({ ...current, [PANEL_VIEW_ID]: id }));
-      setUiViewId(PANEL_VIEW_ID);
-      setOpen(true);
-    },
-    [groups, activeId]
-  );
-  useEffect(() => {
-    if (!initialized || floatingGroupId) return;
-    const receive = (event: Event) => {
-      const transfer = (event as CustomEvent<TerminalTabTransfer>).detail;
-      if (
-        transfer?.target === 'editor' &&
-        panelGroups.some((group) => group.sessions.includes(transfer.sessionId))
-      ) {
-        moveToNewTab(transfer.sessionId, transfer.panelId, true);
-      } else if (transfer?.target === 'sidebar') {
-        const view = editorViews.get(transfer.viewId);
-        const id = view && selectedFor(transfer.viewId, view);
-        const group = view?.find((item) => item.sessions.includes(id ?? ''));
-        if (group) moveToPanel(group.id);
-      }
-    };
-    window.addEventListener(TERMINAL_TAB_TRANSFER_EVENT, receive);
-    return () => window.removeEventListener(TERMINAL_TAB_TRANSFER_EVENT, receive);
-  });
   useEffect(() => {
     if (!initialized || floatingGroupId) return;
     const canvas = useCanvasStore.getState();
-    const hidden = new Set<string>();
-    const reopened = new Set<string>();
-    const views = new Map<string, TerminalGroup[]>();
+    const views = new Map<string, TerminalGroup>();
     for (const group of groups) {
-      const viewId = terminalGroupViewId(group);
-      views.set(viewId, [...(views.get(viewId) ?? []), group]);
+      const id = terminalGroupViewId(group);
+      if (!views.has(id)) views.set(id, group);
     }
-    for (const viewId of presentedEditorGroups.current)
+    for (const viewId of presentedEditorGroups.current) {
       if (!views.has(viewId)) presentedEditorGroups.current.delete(viewId);
-    for (const [viewId, viewGroups] of views) {
+    }
+    for (const [viewId, group] of views) {
       const tab = canvas.findTab('terminal', viewId);
-      if (viewGroups.every((group) => group.placement !== 'editor')) {
-        if (tab) for (const group of viewGroups) reopened.add(group.id);
-        continue;
-      }
-      const first = sessions.find((session) => session.id === viewGroups[0]?.sessions[0]);
-      const label =
-        viewId === TERMINAL_WORKSPACE_TAB_ID ? 'Terminal' : `Terminal: ${first?.title ?? 'Shell'}`;
+      const first = sessions.find((session) => session.id === group.sessions[0]);
+      const label = `Terminal: ${first?.title ?? 'Shell'}`;
       if (tab) {
-        presentedEditorGroups.current.add(viewId);
-        for (const group of viewGroups) if (group.placement !== 'editor') reopened.add(group.id);
         const current = canvas.panels[tab.panelId]?.tabs.find((item) => item.id === tab.tabId);
         if (current && current.label !== label) canvas.updateTab(tab.panelId, tab.tabId, { label });
       } else if (!presentedEditorGroups.current.has(viewId)) {
-        presentedEditorGroups.current.add(viewId);
         canvas.openInFocusedPanel('terminal', viewId, label);
-      } else for (const group of viewGroups) hidden.add(group.id);
+      }
+      presentedEditorGroups.current.add(viewId);
     }
-    if (hidden.size || reopened.size)
-      setGroups((current) =>
-        current.map((group) =>
-          reopened.has(group.id)
-            ? { ...group, placement: 'editor' }
-            : hidden.has(group.id)
-              ? { ...group, placement: 'panel' }
-              : group
-        )
-      );
-
     for (const panel of Object.values(canvasPanels))
       for (const tab of panel.tabs)
         if (tab.type === 'terminal' && !views.has(tab.entityId)) canvas.closeTab(panel.id, tab.id);
   }, [initialized, canvasPanels, groups, floatingGroupId, sessions]);
   useEffect(() => {
-    const action = (event: Event) => {
-      const detail = (event as CustomEvent<{ groupId: string; action: string }>).detail;
-      const group = detail && groups.find((item) => item.id === detail.groupId);
-      if (!group) return;
-      const id = group.sessions.includes(activeId ?? '') ? activeId! : group.sessions[0]!;
-      if (detail.action === 'panel') moveToPanel(detail.groupId);
-      else if (detail.action === 'split') void create(true, undefined, id);
-      else if (detail.action === 'relaunch') void relaunch(id);
-      else if (detail.action === 'find') {
-        activateSession(id);
-        handles.current.get(id)?.find();
-      }
-    };
-    window.addEventListener(TERMINAL_EDITOR_ACTION_EVENT, action);
-    return () => window.removeEventListener(TERMINAL_EDITOR_ACTION_EVENT, action);
-  });
-
-  useEffect(() => {
-    if (workspaceActive) return;
     const entry = Object.entries(editorTargets).find(([, target]) => target.active);
     if (!entry) return;
     const [viewId] = entry;
-    if (open && lastFocusedView.current === viewId) return;
-    lastFocusedView.current = viewId;
-    const viewGroups = groups.filter(
-      (group) => group.placement === 'editor' && terminalGroupViewId(group) === viewId
-    );
+    const viewGroups = groups.filter((group) => terminalGroupViewId(group) === viewId);
     const ids = viewGroups.flatMap((group) => group.sessions);
     const saved = activeByView[viewId];
     const id =
@@ -1159,24 +940,21 @@ export function TerminalDock({
     if (id) {
       setActiveId(id);
       setUiViewId(viewId);
-      if (!workspaceNavigation.current.workspaceActive) setOpen(false);
     }
-  }, [editorTargets, groups, activeByView, activeId, open, workspaceActive]);
+  }, [editorTargets, groups, activeByView, activeId]);
 
   if (!port) return null;
   const terminalPort = port;
   const createSession = create;
   const relaunchSession = relaunch;
-  const moveGroupToEditor = moveToEditor;
   const moveGroupToWindow = moveToWindow;
-  const panelVisible = open;
   const currentContextMenu = contextMenu;
   const currentRenaming = renaming;
   const currentHistory = historyTarget;
   const currentOutput = outputView;
   const currentDimensions = dimensionsId;
   const currentActionsOpen = actionsOpen;
-  const renderWorkspace = (
+  const renderTerminalTab = (
     viewId: string,
     groups: TerminalGroup[],
     editorTarget?: (typeof editorTargets)[string]
@@ -1185,13 +963,7 @@ export function TerminalDock({
     const activeId = selectedFor(viewId, groups);
     const active = sessionMap.get(activeId ?? '');
     const activeGroup = groups.find((group) => group.sessions.includes(activeId ?? ''))?.id;
-    const workspace = !floatingGroupId && viewId === PANEL_VIEW_ID ? workspaceTarget : null;
-    const surfaceTarget = editorTarget ?? workspace;
-    const editorChrome = editorTarget?.chrome;
-    const open = !editorTarget && panelVisible;
-    const surfaceOpen = open || Boolean(editorTarget?.visible);
-    const sessionTabsVisible = true;
-    const presentation: TerminalPresentation = editorTarget ? 'sessions' : 'panel';
+    const surfaceOpen = Boolean(floatingGroupId || editorTarget?.visible);
     const port = terminalPort;
     const orderedSessions = groups.flatMap((group) =>
       group.sessions.flatMap((id) => {
@@ -1214,22 +986,19 @@ export function TerminalDock({
     const outputView = currentOutput && ids.has(currentOutput.id) ? currentOutput : null;
     const dimensionsId = currentDimensions && ids.has(currentDimensions) ? currentDimensions : null;
     const create = (split = false, cwd?: string, parentId = activeId) =>
-      createSession(split, cwd, parentId, false, workspace ? PANEL_VIEW_ID : undefined);
+      createSession(split, cwd, parentId, false, viewId);
     const relaunch = (id = activeId) => relaunchSession(id);
-    const moveToEditor = (id = activeId) => moveGroupToEditor(id);
     const moveToWindow = () => moveGroupToWindow(activeGroup);
+    const menuAction = (action: () => void) => () => {
+      setActionsOpen(false);
+      action();
+    };
     const find = () => {
       if (activeId) handles.current.get(activeId)?.find();
     };
     return (
-      <TerminalGroupHost
-        key={viewId}
-        chrome
-        target={surfaceTarget?.chrome}
-        visible={Boolean(editorChrome) || open || Boolean(floatingGroupId)}
-      >
+      <TerminalGroupHost key={viewId} chrome target={editorTarget?.chrome} visible={surfaceOpen}>
         <section
-          ref={surfaceTarget?.chrome ? undefined : dockRoot}
           data-terminal-view-id={viewId}
           onPointerDownCapture={() => {
             setUiViewId(viewId);
@@ -1238,102 +1007,53 @@ export function TerminalDock({
           data-testid={viewId === primaryViewId ? 'terminal-dock' : undefined}
           data-open={surfaceOpen}
           data-session-layout="sessions"
-          data-presentation={editorChrome ? 'editor' : floatingGroupId ? 'window' : presentation}
+          data-presentation={floatingGroupId ? 'window' : 'editor'}
           data-terminal-theme={appearance.colorScheme}
-          data-maximized={open && maximized ? 'true' : undefined}
           aria-label="Integrated terminal"
-          className={`dnaforge-terminal-dock${workspace ? ' dnaforge-terminal-workspace-chrome' : ''}`}
-          style={
-            open && !workspace
-              ? {
-                  height: maximized || floatingGroupId ? '100%' : height,
-                  flex: maximized || floatingGroupId ? '1 1 100%' : '0 0 auto',
-                }
-              : undefined
-          }
+          className="dnaforge-terminal-dock"
         >
-          {open && !editorChrome && !floatingGroupId && !workspace && presentation === 'panel' && (
-            <div
-              role="separator"
-              aria-label="Resize terminal panel"
-              aria-orientation="horizontal"
-              tabIndex={0}
-              className="dnaforge-terminal-resizer"
-              onKeyDown={(event) => {
-                if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-                  event.preventDefault();
-                  setHeight((value) => Math.max(150, value + (event.key === 'ArrowUp' ? 20 : -20)));
-                }
-              }}
-              onPointerDown={(event) => {
-                resizeOrigin.current = { y: event.clientY, height };
-                event.currentTarget.setPointerCapture(event.pointerId);
-              }}
-              onPointerMove={(event) => {
-                if (resizeOrigin.current)
-                  setHeight(
-                    Math.max(
-                      150,
-                      Math.min(
-                        window.innerHeight - 100,
-                        resizeOrigin.current.height + resizeOrigin.current.y - event.clientY
-                      )
-                    )
-                  );
-              }}
-              onPointerUp={() => {
-                resizeOrigin.current = null;
-              }}
-            />
-          )}
           <div className="dnaforge-terminal-toolbar dnaforge-terminal-header">
-            <button
-              data-testid="terminal-surface-title"
-              disabled={!initialized || busy}
-              onClick={toggle}
-              title="Toggle Terminal (Ctrl+`)"
-              aria-expanded={open}
-              className="wp-interactive dnaforge-terminal-title"
-            >
+            <span className="dnaforge-terminal-title">
               <span className="dnaforge-terminal-prompt-icon" aria-hidden="true">
                 ›_
               </span>
               Terminal
-            </button>
+            </span>
             {surfaceOpen && (
               <>
                 <span className="dnaforge-terminal-location" title={active?.cwd}>
                   {active?.cwd.split(/[\\/]/).filter(Boolean).slice(-1)[0] || 'Workspace'}
                 </span>
                 <div className="dnaforge-terminal-primary-actions">
-                  <button
-                    className="wp-interactive"
+                  <Button
+                    variant="appbar"
                     aria-label="Split terminal"
                     title="Split session"
                     disabled={!active || busy}
                     onClick={() => void create(true)}
                   >
                     <SidebarIcon />
-                  </button>
-                  <button
-                    className="wp-interactive"
+                  </Button>
+                  <Button
+                    variant="appbar"
                     aria-label="Find in terminal"
                     title="Find in terminal"
                     onClick={find}
                   >
                     <SearchIcon />
-                  </button>
+                  </Button>
                   {!floatingGroupId && (
-                    <button
-                      aria-label="New terminal app tab"
-                      title="New terminal app tab"
-                      className="wp-interactive dnaforge-terminal-new-app-tab"
+                    <Button
+                      aria-label="New Terminal Tab"
+                      title="New Terminal Tab"
+                      variant="appbar"
+                      data-terminal-action="new-tab"
                       disabled={busy}
                       onClick={() => void createSession(false, undefined, activeId, true)}
                     >
                       <PlusIcon />
                       <span>New tab</span>
-                    </button>
+                    </Button>
                   )}
                   <div
                     className="dnaforge-terminal-actions"
@@ -1348,8 +1068,8 @@ export function TerminalDock({
                       setActionsOpen(false);
                     }}
                   >
-                    <button
-                      className="wp-interactive"
+                    <Button
+                      variant="appbar"
                       ref={actionsMenu}
                       aria-label="Terminal actions"
                       title="More terminal actions"
@@ -1358,7 +1078,7 @@ export function TerminalDock({
                       onClick={() => setActionsOpen((value) => !value)}
                     >
                       <EllipsisIcon />
-                    </button>
+                    </Button>
                     <PortalMenu
                       open={actionsOpen && surfaceOpen}
                       anchorRef={actionsMenu}
@@ -1380,11 +1100,6 @@ export function TerminalDock({
                             event.stopPropagation();
                             setActionsOpen(false);
                             safeFocus(actionsMenu.current);
-                          }
-                        }}
-                        onClick={(event) => {
-                          if ((event.target as HTMLElement).closest('button')) {
-                            setActionsOpen(false);
                           }
                         }}
                       >
@@ -1416,39 +1131,28 @@ export function TerminalDock({
                         <MenuRow
                           aria-label="End terminal session"
                           disabled={!activeId}
-                          onClick={() => activeId && void close(activeId)}
+                          onClick={menuAction(() => activeId && void close(activeId))}
                         >
                           End session
                         </MenuRow>
                         <MenuRow
                           aria-label="Relaunch terminal"
                           disabled={!active || busy}
-                          onClick={() => void relaunch()}
+                          onClick={menuAction(() => void relaunch())}
                         >
                           Relaunch
                         </MenuRow>
                         <MenuRow
-                          aria-label={
-                            editorChrome ? 'Move terminal to panel' : 'Move terminal to editor'
-                          }
-                          disabled={!active || Boolean(floatingGroupId)}
-                          onClick={() =>
-                            editorChrome && activeGroup ? moveToPanel(activeGroup) : moveToEditor()
-                          }
-                        >
-                          {editorChrome ? 'Move to terminal column' : 'Move to tab'}
-                        </MenuRow>
-                        <MenuRow
                           aria-label="Move terminal to new window"
                           disabled={!active || busy}
-                          onClick={() => void moveToWindow()}
+                          onClick={menuAction(() => void moveToWindow())}
                         >
                           New window
                         </MenuRow>
                         {floatingGroupId && (
                           <MenuRow
                             aria-label="Return terminal to main window"
-                            onClick={() => void port.returnToMainWindow().catch(report)}
+                            onClick={menuAction(() => void port.returnToMainWindow().catch(report))}
                           >
                             Return to main window
                           </MenuRow>
@@ -1457,13 +1161,13 @@ export function TerminalDock({
                           <>
                             <MenuRow
                               aria-label="Previous terminal pane"
-                              onClick={() => activeId && navigatePane(activeId, -1)}
+                              onClick={menuAction(() => activeId && navigatePane(activeId, -1))}
                             >
                               ←
                             </MenuRow>
                             <MenuRow
                               aria-label="Next terminal pane"
-                              onClick={() => activeId && navigatePane(activeId, 1)}
+                              onClick={menuAction(() => activeId && navigatePane(activeId, 1))}
                             >
                               →
                             </MenuRow>
@@ -1498,7 +1202,7 @@ export function TerminalDock({
                           activeId && (
                             <MenuRow
                               aria-label="Unsplit terminal"
-                              onClick={() => unsplit(activeId)}
+                              onClick={menuAction(() => unsplit(activeId))}
                             >
                               Unsplit
                             </MenuRow>
@@ -1506,25 +1210,25 @@ export function TerminalDock({
                         <MenuRow
                           aria-label="View terminal output"
                           disabled={!activeId}
-                          onClick={() => activeId && showOutput(activeId)}
+                          onClick={menuAction(() => activeId && showOutput(activeId))}
                         >
                           Output
                         </MenuRow>
                         <MenuRow
                           aria-label="Paste into terminal"
                           disabled={!activeId}
-                          onClick={() => {
+                          onClick={menuAction(() => {
                             if (activeId) void handles.current.get(activeId)?.paste().catch(report);
-                          }}
+                          })}
                         >
                           Paste
                         </MenuRow>
                         <MenuRow
                           aria-label="Terminal command history"
                           disabled={!activeId}
-                          onClick={() =>
-                            activeId && setHistoryTarget({ id: activeId, kind: 'command' })
-                          }
+                          onClick={menuAction(
+                            () => activeId && setHistoryTarget({ id: activeId, kind: 'command' })
+                          )}
                         >
                           History
                         </MenuRow>
@@ -1532,25 +1236,23 @@ export function TerminalDock({
                           <>
                             <MenuRow
                               aria-label="Manage terminal profiles"
-                              onClick={() => {
-                                setMaximized(false);
+                              onClick={menuAction(() => {
                                 dispatchCommand(COMMAND_IDS.appOpenSettings, {
                                   source: 'ui',
                                   payload: { focus: 'terminal-profiles' },
                                 });
-                              }}
+                              })}
                             >
                               Profiles
                             </MenuRow>
                             <MenuRow
                               aria-label="Terminal settings"
-                              onClick={() => {
-                                setMaximized(false);
+                              onClick={menuAction(() => {
                                 dispatchCommand(COMMAND_IDS.appOpenSettings, {
                                   source: 'ui',
                                   payload: { focus: 'terminal' },
                                 });
-                              }}
+                              })}
                             >
                               Settings
                             </MenuRow>
@@ -1559,39 +1261,10 @@ export function TerminalDock({
                       </div>
                     </PortalMenu>
                   </div>
-                  <button
-                    className="wp-interactive"
-                    hidden={Boolean(editorChrome) || Boolean(workspace)}
-                    aria-label={maximized ? 'Restore terminal panel' : 'Maximize terminal panel'}
-                    title={maximized ? 'Restore workspace' : 'Fill workspace'}
-                    onClick={() => setMaximized((value) => !value)}
-                  >
-                    <OpenExternalIcon />
-                  </button>
-                  <button
-                    className="wp-interactive"
-                    hidden={Boolean(editorChrome)}
-                    aria-label="Hide terminal"
-                    title="Return to document · Ctrl+`"
-                    onClick={() => setOpen(false)}
-                  >
-                    <CloseIcon />
-                  </button>
                 </div>
               </>
             )}
-            {!open && sessions.length > 0 && (
-              <span className="dnaforge-terminal-session-count">{sessions.length}</span>
-            )}
           </div>
-          {error && (
-            <div role="alert" className="dnaforge-terminal-error">
-              {toUserMessage(error, 'operation.failed')}
-              <button aria-label="Dismiss terminal error" onClick={() => setError('')}>
-                ×
-              </button>
-            </div>
-          )}
           {active?.revivalError && surfaceOpen && (
             <div role="alert" className="dnaforge-terminal-error">
               {active.revivalError}
@@ -1662,18 +1335,13 @@ export function TerminalDock({
               }}
             />
           )}
-          <div
-            className="dnaforge-terminal-content"
-            style={{
-              display: sessionTabsVisible ? 'flex' : 'none',
-            }}
-          >
+          <div className="dnaforge-terminal-content">
             <div className="dnaforge-terminal-groups">
               {groups.map((group) => (
                 <TerminalGroupHost
                   key={group.id}
-                  target={surfaceTarget?.element}
-                  visible={group.id === activeGroup && (editorTarget ? editorTarget.visible : open)}
+                  target={editorTarget?.element}
+                  visible={group.id === activeGroup && surfaceOpen}
                 >
                   <TerminalSplitGroup
                     id={group.id}
@@ -1687,291 +1355,242 @@ export function TerminalDock({
                   </TerminalSplitGroup>
                 </TerminalGroupHost>
               ))}
-              {open && !groups.length && (
-                <TerminalGroupHost target={surfaceTarget?.element} visible>
-                  <div className="dnaforge-terminal-workspace-empty">
-                    <p>Select a terminal or start a new session.</p>
-                    <button onClick={() => void create()} disabled={busy}>
-                      Create terminal
-                    </button>
-                  </div>
-                </TerminalGroupHost>
-              )}
             </div>
-            <TerminalGroupHost chrome target={workspace?.sidebar} visible={surfaceOpen}>
-              {workspace ? (
-                <TerminalSessionSidebar
-                  entries={listEntries}
-                  setEntries={setListEntries}
-                  sessions={new Map(orderedSessions.map((session) => [session.id, session]))}
-                  activeId={activeId}
-                  bells={bells}
-                  busy={busy || !initialized}
-                  onSelect={activateSession}
-                  onSplit={(id) => void create(true, undefined, id)}
-                  onClose={(id) => void close(id)}
-                  onMoveToTab={(id) => moveToNewTab(id)}
-                  onRename={(id) => {
-                    setRenaming(id);
-                    setName(sessionMap.get(id)?.title ?? '');
-                  }}
-                  onContext={showContextMenu}
-                  onNew={(groupId) => {
-                    void create().then((session) => {
-                      if (session && groupId)
-                        setListEntries((entries) => moveListSession(entries, session.id, groupId));
-                    });
-                  }}
-                />
-              ) : (
-                <div data-terminal-surface className="dnaforge-terminal-tabs">
+            <div data-terminal-surface className="dnaforge-terminal-tabs">
+              <div
+                role="tablist"
+                aria-label="Terminal sessions"
+                aria-orientation="horizontal"
+                className="dnaforge-terminal-tab-items"
+              >
+                {groups.map((group) => (
                   <div
-                    role="tablist"
-                    aria-label="Terminal sessions"
-                    aria-orientation="horizontal"
-                    className="dnaforge-terminal-tab-items"
+                    key={group.id}
+                    className="dnaforge-terminal-tab-group"
+                    data-terminal-tab-group-id={group.id}
+                    data-split={group.sessions.length > 1}
+                    data-direction={group.direction ?? 'horizontal'}
+                    data-active={group.sessions.includes(activeId ?? '')}
+                    role={group.sessions.length > 1 ? 'group' : undefined}
+                    aria-label={
+                      group.sessions.length > 1
+                        ? group.direction === 'vertical'
+                          ? 'Stacked terminals'
+                          : 'Side by side terminals'
+                        : undefined
+                    }
                   >
-                    {groups.map((group) => (
-                      <div
-                        key={group.id}
-                        className="dnaforge-terminal-tab-group"
-                        data-terminal-tab-group-id={group.id}
-                        data-split={group.sessions.length > 1}
-                        data-direction={group.direction ?? 'horizontal'}
-                        data-active={group.sessions.includes(activeId ?? '')}
-                        role={group.sessions.length > 1 ? 'group' : undefined}
+                    {group.sessions.length > 1 && (
+                      <span
+                        className="dnaforge-terminal-split-indicator"
+                        role="img"
                         aria-label={
-                          group.sessions.length > 1
-                            ? group.direction === 'vertical'
-                              ? 'Stacked terminals'
-                              : 'Side by side terminals'
-                            : undefined
+                          group.direction === 'vertical' ? 'Stacked split' : 'Side by side split'
+                        }
+                        title={
+                          group.direction === 'vertical'
+                            ? 'Stacked terminals'
+                            : 'Side by side terminals'
                         }
                       >
-                        {group.sessions.length > 1 && (
-                          <span
-                            className="dnaforge-terminal-split-indicator"
-                            role="img"
-                            aria-label={
-                              group.direction === 'vertical'
-                                ? 'Stacked split'
-                                : 'Side by side split'
-                            }
-                            title={
-                              group.direction === 'vertical'
-                                ? 'Stacked terminals'
-                                : 'Side by side terminals'
-                            }
-                          >
-                            <svg
-                              viewBox="0 0 16 16"
-                              width="14"
-                              height="14"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.2"
-                              aria-hidden="true"
-                            >
-                              <rect x="1.5" y="1.5" width="13" height="13" rx="2" />
-                              {group.direction === 'vertical' ? (
-                                <path d="M2 8h12" />
-                              ) : (
-                                <path d="M8 2v12" />
-                              )}
-                            </svg>
-                          </span>
-                        )}
-                        {group.sessions.map((id) => {
-                          const session = sessionMap.get(id);
-                          if (!session) return null;
-                          const rowProps: HTMLAttributes<HTMLDivElement> & {
-                            'data-terminal-tab-id': string;
-                            'data-terminal-group-id': string;
-                          } = {
-                            'data-terminal-tab-id': session.id,
-                            'data-terminal-group-id': group.id,
-                            onContextMenu: (event) => {
-                              event.preventDefault();
-                              showContextMenu(session.id, event.clientX, event.clientY);
-                            },
-                            draggable: true,
-                            onDragStart: (event) => {
-                              event.dataTransfer.setData(TERMINAL_DRAG_TYPE, session.id);
-                              event.dataTransfer.effectAllowed = 'move';
-                            },
-                            onDragOver: (event) => {
-                              if (event.dataTransfer.types.includes(TERMINAL_DRAG_TYPE))
-                                event.preventDefault();
-                            },
-                            onDrop: (event) => {
-                              const source = event.dataTransfer.getData(TERMINAL_DRAG_TYPE);
-                              if (
-                                !sessions.some((item) => item.id === source) ||
-                                source === session.id
-                              )
-                                return;
-                              event.preventDefault();
-                              const bounds = event.currentTarget.getBoundingClientRect();
-                              const side =
-                                event.clientX < bounds.left + bounds.width / 2 ? 'before' : 'after';
-                              setGroups((current) =>
-                                reorderTerminalGroups(
-                                  current.map((item) =>
-                                    item.sessions.includes(source)
-                                      ? {
-                                          ...item,
-                                          viewId: terminalGroupViewId(group),
-                                          placement: group.placement,
-                                        }
-                                      : item
-                                  ),
-                                  source,
-                                  session.id,
-                                  side
-                                )
-                              );
-                              setActiveId(source);
-                              setActiveByView((current) => ({ ...current, [viewId]: source }));
-                            },
-                          };
-                          const activate: MouseEventHandler<HTMLButtonElement> = (event) => {
-                            activateSession(session.id);
-                            if (event.altKey) void create(true, session.cwd, session.id);
-                          };
-                          const navigate: KeyboardEventHandler<HTMLButtonElement> = (event) => {
-                            if (
-                              event.code === 'Tab' &&
-                              event.ctrlKey &&
-                              !event.metaKey &&
-                              !event.altKey
-                            ) {
-                              event.preventDefault();
-                              navigateGroup(session.id, event.shiftKey ? -1 : 1);
-                            } else if (terminalSplitShortcut(terminalHostPlatform(), event)) {
-                              event.preventDefault();
-                              void create(true, undefined, session.id);
-                            } else if (event.key === 'Delete') {
-                              event.preventDefault();
-                              void close(session.id);
-                            } else if (
-                              [
-                                'ArrowRight',
-                                'ArrowLeft',
-                                'ArrowDown',
-                                'ArrowUp',
-                                'Home',
-                                'End',
-                              ].includes(event.key)
-                            ) {
-                              event.preventDefault();
-                              const index = orderedSessions.findIndex(
-                                (item) => item.id === session.id
-                              );
-                              const next =
-                                event.key === 'Home'
-                                  ? orderedSessions[0]
-                                  : event.key === 'End'
-                                    ? orderedSessions[orderedSessions.length - 1]
-                                    : orderedSessions[
-                                        (index +
-                                          (event.key === 'ArrowDown' || event.key === 'ArrowRight'
-                                            ? 1
-                                            : -1) +
-                                          orderedSessions.length) %
-                                          orderedSessions.length
-                                      ];
-                              if (next) {
-                                activateSession(next.id);
-                                const list = event.currentTarget.closest('[role="tablist"]');
-                                requestAnimationFrame(() =>
-                                  safeFocus(
-                                    list?.querySelector<HTMLButtonElement>(
-                                      `[data-terminal-tab-id="${next.id}"] [role="tab"]`
-                                    )
-                                  )
-                                );
-                              }
-                            }
-                          };
-                          const rename = () => {
-                            setRenaming(session.id);
-                            setName(session.title);
-                          };
-                          const title =
-                            session.status === 'exited'
-                              ? `${session.exitCode === null ? 'Stopped' : `(${session.exitCode})`} ${session.title}`
-                              : session.title;
-                          return (
-                            <div
-                              key={session.id}
-                              {...rowProps}
-                              className="dnaforge-terminal-tab-row wp-interactive"
-                              data-interaction-group="true"
-                              onClick={(event) => {
-                                if (event.target === event.currentTarget)
-                                  activateSession(session.id);
-                              }}
-                            >
-                              <button
-                                className="wp-interactive"
-                                role="tab"
-                                tabIndex={session.id === activeId ? 0 : -1}
-                                aria-selected={session.id === activeId}
-                                title={`${session.cwd}\nPID ${session.pid}`}
-                                onClick={activate}
-                                onKeyDown={navigate}
-                                onDoubleClick={rename}
-                              >
-                                <span
-                                  className="dnaforge-terminal-session-dot"
-                                  data-status={session.status}
-                                  aria-hidden="true"
-                                />
-                                {session.status === 'exited'
-                                  ? session.exitCode === null
-                                    ? 'Stopped '
-                                    : `(${session.exitCode}) `
-                                  : ''}
-                                <span className="dnaforge-terminal-session-label">
-                                  <span>{session.title}</span>
-                                </span>
-                              </button>
-                              {bells[session.id] && (
-                                <span
-                                  role="img"
-                                  aria-label="Terminal bell"
-                                  title="Terminal bell"
-                                  className="dnaforge-terminal-tab-bell"
-                                >
-                                  <ExclamationCircleIcon className="w-3.5 h-3.5" />
-                                </span>
-                              )}
-                              <button
-                                className="wp-interactive"
-                                aria-label={`Close terminal ${session.title}`}
-                                onClick={() => void close(session.id)}
-                              >
-                                ×
-                              </button>
-                            </div>
+                        <svg
+                          viewBox="0 0 16 16"
+                          width="14"
+                          height="14"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.2"
+                          aria-hidden="true"
+                        >
+                          <rect x="1.5" y="1.5" width="13" height="13" rx="2" />
+                          {group.direction === 'vertical' ? (
+                            <path d="M2 8h12" />
+                          ) : (
+                            <path d="M8 2v12" />
+                          )}
+                        </svg>
+                      </span>
+                    )}
+                    {group.sessions.map((id) => {
+                      const session = sessionMap.get(id);
+                      if (!session) return null;
+                      const rowProps: HTMLAttributes<HTMLDivElement> & {
+                        'data-terminal-tab-id': string;
+                        'data-terminal-group-id': string;
+                      } = {
+                        'data-terminal-tab-id': session.id,
+                        'data-terminal-group-id': group.id,
+                        onContextMenu: (event) => {
+                          event.preventDefault();
+                          showContextMenu(session.id, event.clientX, event.clientY);
+                        },
+                        draggable: true,
+                        onDragStart: (event) => {
+                          event.dataTransfer.setData(TERMINAL_DRAG_TYPE, session.id);
+                          event.dataTransfer.effectAllowed = 'move';
+                        },
+                        onDragOver: (event) => {
+                          if (event.dataTransfer.types.includes(TERMINAL_DRAG_TYPE))
+                            event.preventDefault();
+                        },
+                        onDrop: (event) => {
+                          const source = event.dataTransfer.getData(TERMINAL_DRAG_TYPE);
+                          if (!sessions.some((item) => item.id === source) || source === session.id)
+                            return;
+                          event.preventDefault();
+                          const bounds = event.currentTarget.getBoundingClientRect();
+                          const side =
+                            event.clientX < bounds.left + bounds.width / 2 ? 'before' : 'after';
+                          setGroups((current) =>
+                            reorderTerminalGroups(
+                              current.map((item) =>
+                                item.sessions.includes(source)
+                                  ? {
+                                      ...item,
+                                      viewId: terminalGroupViewId(group),
+                                    }
+                                  : item
+                              ),
+                              source,
+                              session.id,
+                              side
+                            )
                           );
-                        })}
-                      </div>
-                    ))}
+                          setActiveId(source);
+                          setActiveByView((current) => ({ ...current, [viewId]: source }));
+                        },
+                      };
+                      const activate: MouseEventHandler<HTMLButtonElement> = (event) => {
+                        activateSession(session.id);
+                        if (event.altKey) void create(true, session.cwd, session.id);
+                      };
+                      const navigate: KeyboardEventHandler<HTMLButtonElement> = (event) => {
+                        if (
+                          event.code === 'Tab' &&
+                          event.ctrlKey &&
+                          !event.metaKey &&
+                          !event.altKey
+                        ) {
+                          event.preventDefault();
+                          navigateGroup(session.id, event.shiftKey ? -1 : 1);
+                        } else if (terminalSplitShortcut(terminalHostPlatform(), event)) {
+                          event.preventDefault();
+                          void create(true, undefined, session.id);
+                        } else if (event.key === 'Delete') {
+                          event.preventDefault();
+                          void close(session.id);
+                        } else if (
+                          [
+                            'ArrowRight',
+                            'ArrowLeft',
+                            'ArrowDown',
+                            'ArrowUp',
+                            'Home',
+                            'End',
+                          ].includes(event.key)
+                        ) {
+                          event.preventDefault();
+                          const index = orderedSessions.findIndex((item) => item.id === session.id);
+                          const next =
+                            event.key === 'Home'
+                              ? orderedSessions[0]
+                              : event.key === 'End'
+                                ? orderedSessions[orderedSessions.length - 1]
+                                : orderedSessions[
+                                    (index +
+                                      (event.key === 'ArrowDown' || event.key === 'ArrowRight'
+                                        ? 1
+                                        : -1) +
+                                      orderedSessions.length) %
+                                      orderedSessions.length
+                                  ];
+                          if (next) {
+                            activateSession(next.id);
+                            const list = event.currentTarget.closest('[role="tablist"]');
+                            requestAnimationFrame(() =>
+                              safeFocus(
+                                list?.querySelector<HTMLButtonElement>(
+                                  `[data-terminal-tab-id="${next.id}"] [role="tab"]`
+                                )
+                              )
+                            );
+                          }
+                        }
+                      };
+                      const rename = () => {
+                        setRenaming(session.id);
+                        setName(session.title);
+                      };
+                      const title =
+                        session.status === 'exited'
+                          ? `${session.exitCode === null ? 'Stopped' : `(${session.exitCode})`} ${session.title}`
+                          : session.title;
+                      return (
+                        <div
+                          key={session.id}
+                          {...rowProps}
+                          className="dnaforge-terminal-tab-row wp-interactive"
+                          data-interaction-group="true"
+                        >
+                          <Button
+                            variant="appbar"
+                            role="tab"
+                            tabIndex={session.id === activeId ? 0 : -1}
+                            aria-selected={session.id === activeId}
+                            title={`${session.cwd}\nPID ${session.pid}`}
+                            onClick={activate}
+                            onKeyDown={navigate}
+                            onDoubleClick={rename}
+                          >
+                            <span
+                              className="dnaforge-terminal-session-dot"
+                              data-status={session.status}
+                              aria-hidden="true"
+                            />
+                            {session.status === 'exited'
+                              ? session.exitCode === null
+                                ? 'Stopped '
+                                : `(${session.exitCode}) `
+                              : ''}
+                            <span className="dnaforge-terminal-session-label">
+                              <span>{session.title}</span>
+                            </span>
+                          </Button>
+                          {bells[session.id] && (
+                            <span
+                              role="img"
+                              aria-label="Terminal bell"
+                              title="Terminal bell"
+                              className="dnaforge-terminal-tab-bell"
+                            >
+                              <ExclamationCircleIcon className="w-3.5 h-3.5" />
+                            </span>
+                          )}
+                          <Button
+                            variant="appbar"
+                            aria-label={`Close terminal ${session.title}`}
+                            onClick={() => void close(session.id)}
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      );
+                    })}
                   </div>
+                ))}
+              </div>
 
-                  <button
-                    aria-label="New terminal"
-                    title="New session"
-                    className="wp-interactive dnaforge-terminal-new-tab"
-                    disabled={busy}
-                    onClick={() => void create()}
-                  >
-                    <PlusIcon />
-                  </button>
-                </div>
-              )}
-            </TerminalGroupHost>
+              <Button
+                aria-label="New Shell"
+                title="New shell in this tab"
+                variant="icon"
+                data-terminal-action="new-shell"
+                disabled={busy}
+                onClick={() => void create()}
+              >
+                <PlusIcon />
+              </Button>
+            </div>
           </div>
           {renaming && surfaceOpen && (
             <form
@@ -1984,7 +1603,7 @@ export function TerminalDock({
                   .catch(report);
               }}
             >
-              <input
+              <TextField
                 aria-label="Terminal name"
                 placeholder="Automatic name"
                 title="Leave blank to use automatic name"
@@ -1993,12 +1612,12 @@ export function TerminalDock({
                 autoFocus
                 onChange={(event) => setName(event.target.value)}
               />
-              <button className="wp-interactive" type="submit">
+              <Button variant="appbar" type="submit">
                 Rename
-              </button>
-              <button className="wp-interactive" type="button" onClick={() => setRenaming(null)}>
+              </Button>
+              <Button variant="appbar" type="button" onClick={() => setRenaming(null)}>
                 Cancel
-              </button>
+              </Button>
             </form>
           )}
           {surfaceOpen && active && (
@@ -2103,33 +1722,6 @@ export function TerminalDock({
                       .length ?? 0) < 2,
                   run: () => unsplit(contextMenu.id),
                 },
-                ...(workspace
-                  ? listEntries.flatMap((item) =>
-                      typeof item === 'string'
-                        ? []
-                        : item.sessions.includes(contextMenu.id)
-                          ? [
-                              {
-                                id: 'ungroup-session',
-                                label: 'Remove from group',
-                                run: () =>
-                                  setListEntries((current) =>
-                                    moveListSession(current, contextMenu.id, null)
-                                  ),
-                              },
-                            ]
-                          : [
-                              {
-                                id: 'list-group:' + item.id,
-                                label: 'Move to ' + item.name,
-                                run: () =>
-                                  setListEntries((current) =>
-                                    moveListSession(current, contextMenu.id, item.id)
-                                  ),
-                              },
-                            ]
-                    )
-                  : []),
                 ...groups
                   .filter((group) => !group.sessions.includes(contextMenu.id))
                   .map((group, index) => ({
@@ -2150,12 +1742,6 @@ export function TerminalDock({
                   label: 'Move to new terminal tab',
                   disabled: Boolean(floatingGroupId),
                   run: () => moveToNewTab(contextMenu.id),
-                },
-                {
-                  id: 'move-editor',
-                  label: 'Move terminal to editor',
-                  disabled: Boolean(floatingGroupId),
-                  run: () => moveToEditor(contextMenu.id),
                 },
                 {
                   id: 'move-window',
@@ -2202,9 +1788,8 @@ export function TerminalDock({
   };
   return (
     <>
-      {renderWorkspace(PANEL_VIEW_ID, panelGroups)}
       {[...editorViews].map(([viewId, groups]) =>
-        renderWorkspace(viewId, groups, editorTargets[viewId])
+        renderTerminalTab(viewId, groups, editorTargets[viewId])
       )}
       <div hidden>
         {sessions.map((session) => {
@@ -2224,28 +1809,21 @@ export function TerminalDock({
                 appearance={appearance}
                 active={
                   session.id === activeId &&
-                  (group?.placement === 'editor'
-                    ? Boolean(editorTargets[terminalGroupViewId(group)]?.active)
-                    : open)
+                  Boolean(
+                    group && (floatingGroupId || editorTargets[terminalGroupViewId(group)]?.active)
+                  )
                 }
                 onReady={ready}
                 onError={report}
-                onOpenDocument={() => {
-                  if (workspaceNavigation.current.workspaceActive) setOpen(false);
-                }}
                 onFocus={(id) => {
                   clearBell(id);
                   setActiveId(id);
                   if (group) {
-                    const viewId =
-                      group.placement === 'editor' ? terminalGroupViewId(group) : PANEL_VIEW_ID;
+                    const viewId = terminalGroupViewId(group);
                     setActiveByView((current) => ({ ...current, [viewId]: id }));
                     setUiViewId(viewId);
                   }
-                  if (group?.placement === 'editor') {
-                    if (!workspaceNavigation.current.workspaceActive) setOpen(false);
-                    editorTargets[terminalGroupViewId(group)]?.focus();
-                  }
+                  if (group) editorTargets[terminalGroupViewId(group)]?.focus();
                 }}
                 onNavigate={navigatePane}
                 onNavigateGroup={navigateGroup}

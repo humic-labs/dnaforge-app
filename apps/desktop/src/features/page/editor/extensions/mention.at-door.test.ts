@@ -1,211 +1,112 @@
-/**
- * @vitest-environment jsdom
- */
+// @vitest-environment jsdom
 import { Editor, type Range } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-
 import { MentionExtension } from './mention';
-
 let editor: Editor | null = null;
-
 afterEach(() => {
   editor?.destroy();
   editor = null;
 });
-
-type Resolver =
-  NonNullable<Parameters<typeof MentionExtension.configure>[0]> extends {
-    resolveReferenceRecord?: infer R;
-  }
-    ? R
-    : never;
-
-function setup(resolveReferenceRecord?: Resolver, content = '<p>hi @pUC</p>') {
+function setup(content = '<p>hi @pUC there</p>') {
+  const obsoleteResolver = vi.fn();
   const extension = MentionExtension.configure({
     onMentionClick: null,
     onCreatePage: null,
-    ...(resolveReferenceRecord ? { resolveReferenceRecord } : {}),
+    resolveReferenceRecord: obsoleteResolver,
   });
   editor = new Editor({ content, extensions: [StarterKit, extension] });
   const command = (
     extension.options as {
-      suggestion: { command: (p: { editor: Editor; range: Range; props: unknown }) => unknown };
+      suggestion: { command: (input: { editor: Editor; range: Range; props: unknown }) => unknown };
     }
   ).suggestion.command;
-  return { editor, command };
+  return { editor, command, obsoleteResolver };
 }
-
-function mentions(ed: Editor): Record<string, unknown>[] {
+function mentions(ed: Editor) {
   const found: Record<string, unknown>[] = [];
   ed.state.doc.descendants((node) => {
     if (node.type.name === 'mention') found.push(node.attrs);
-    return true;
   });
   return found;
 }
+const range: Range = { from: 4, to: 8 };
+const chosen = {
+  entityType: 'sequence',
+  entityId: 'repo-beta::pUC19',
+  label: 'pUC19',
+  path: 'sequences/vectors/pUC19.gb',
+  contentHash: `sha256:${'d'.repeat(64)}`,
+  objectUuid: 'pUC19',
+  projectId: 'repo-beta',
+};
 
-function textBeforeMention(ed: Editor): string {
-  let at: number | null = null;
-  ed.state.doc.descendants((node, pos) => {
-    if (at === null && node.type.name === 'mention') at = pos;
-    return at === null;
-  });
-  return at === null ? ed.state.doc.textContent : ed.state.doc.textBetween(0, at, '', '');
-}
-
-const CHOSEN = { entityType: 'sequence', entityId: null, label: 'pUC19' };
-const AT_RANGE: Range = { from: 4, to: 8 };
-
-describe('the @ door writes the same record as the picker', () => {
-  it('inserts the resolved path and contentHash', async () => {
-    const hash = `sha256:${'d'.repeat(64)}`;
-    const { editor: ed, command } = setup(
-      vi.fn().mockResolvedValue({ path: 'sequences/vectors/pUC19.gb', contentHash: hash })
-    );
-
-    await command({ editor: ed, range: AT_RANGE, props: CHOSEN });
-
-    const [chip] = mentions(ed);
-    expect(chip?.path).toBe('sequences/vectors/pUC19.gb');
-    expect(chip?.contentHash).toBe(hash);
-    expect(chip?.entityType).toBe('sequence');
-    expect(chip?.label).toBe('pUC19');
-  });
-
-  it('resolves ONCE, for the chosen item only', async () => {
-    const resolve = vi.fn().mockResolvedValue({ path: 'a/b.gb', contentHash: null });
-    const { editor: ed, command } = setup(resolve);
-
-    await command({ editor: ed, range: AT_RANGE, props: CHOSEN });
-
-    expect(resolve).toHaveBeenCalledTimes(1);
-    expect(resolve).toHaveBeenCalledWith(expect.objectContaining({ label: 'pUC19' }));
-  });
-
-  it('removes the "@pUC" query text', async () => {
-    const { editor: ed, command } = setup(
-      vi.fn().mockResolvedValue({ path: 'a/b.gb', contentHash: null })
-    );
-
-    await command({ editor: ed, range: AT_RANGE, props: CHOSEN });
-
-    expect(ed.state.doc.textContent).not.toContain('@pUC');
-  });
-
-  it('remaps when the user types while the record is resolving', async () => {
-    let release: (r: { path: string; contentHash: string | null }) => void = () => {};
-    const { editor: ed, command } = setup(
-      vi.fn().mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            release = resolve;
-          })
-      )
-    );
-
-    const pending = command({ editor: ed, range: AT_RANGE, props: CHOSEN });
-    expect(ed.state.doc.textContent).not.toContain('@pUC');
-
-    ed.chain().insertContentAt(1, 'ZZ').run();
-    release({ path: 'a/b.gb', contentHash: null });
-    await pending;
-
-    expect(mentions(ed)).toHaveLength(1);
-    expect(textBeforeMention(ed)).toBe('ZZhi ');
-  });
-
-  it('abandons the chip when its anchoring text was deleted mid-resolve', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    let release: (r: { path: string; contentHash: string | null }) => void = () => {};
-    const { editor: ed, command } = setup(
-      vi.fn().mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            release = resolve;
-          })
-      ),
-      '<p>hi @pUC there</p>'
-    );
-
-    const pending = command({ editor: ed, range: AT_RANGE, props: CHOSEN });
-    ed.chain()
-      .deleteRange({ from: 1, to: ed.state.doc.content.size - 1 })
-      .run();
-
-    release({ path: 'a/b.gb', contentHash: null });
-    await pending;
-
-    expect(mentions(ed)).toHaveLength(0);
-    warn.mockRestore();
-  });
-
-  it('still inserts a chip when the resolver fails, carrying a null record', async () => {
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const { editor: ed, command } = setup(vi.fn().mockRejectedValue(new Error('hash failed')));
-
-    await command({ editor: ed, range: AT_RANGE, props: CHOSEN });
-
-    expect(mentions(ed)).toHaveLength(1);
-    expect(mentions(ed)[0]?.path).toBeNull();
-    error.mockRestore();
-  });
-});
-
-describe('the @ door without a resolver keeps its original behaviour', () => {
-  it('inserts synchronously with a null record', () => {
+describe('the @ door consumes the verified canonical picker record', () => {
+  it('stores the exact target path, content hash and owning project', () => {
     const { editor: ed, command } = setup();
-
-    const result = command({
-      editor: ed,
-      range: AT_RANGE,
-      props: { entityType: 'page', entityId: 'page-1', label: 'Notes' },
-    });
-
-    expect(result).toBeUndefined();
-    const [chip] = mentions(ed);
-    expect(chip?.entityId).toBe('page-1');
-    expect(chip?.path).toBeNull();
-    expect(chip?.contentHash).toBeNull();
+    command({ editor: ed, range, props: chosen });
+    expect(mentions(ed)).toEqual([expect.objectContaining(chosen)]);
+    expect(mentions(ed)[0].occurrenceId).toEqual(expect.any(String));
+    expect(mentions(ed)[0].occurrenceId).not.toBe(chosen.entityId);
   });
-});
-
-describe('an @ item that already carries a path', () => {
-  it('inserts it directly, with no resolver round trip', () => {
-    const resolve = vi.fn();
-    const { editor: ed, command } = setup(resolve as never);
-
-    const result = command({
+  it('does not run a second name-based resolver after exact-ID selection', () => {
+    const { editor: ed, command, obsoleteResolver } = setup();
+    expect(command({ editor: ed, range, props: chosen })).toBeUndefined();
+    expect(obsoleteResolver).not.toHaveBeenCalled();
+  });
+  it('replaces only the query in one document transaction', () => {
+    const { editor: ed, command } = setup();
+    const changes: unknown[] = [];
+    ed.on('transaction', ({ transaction }) => {
+      if (transaction.docChanged) changes.push(transaction);
+    });
+    command({ editor: ed, range, props: chosen });
+    expect(changes).toHaveLength(1);
+    expect(ed.getText()).toBe('hi pUC19 there');
+    expect(ed.state.doc.textContent).not.toContain('@pUC');
+  });
+  it('does not append synthetic whitespace at the end of a paragraph', () => {
+    const { editor: ed, command } = setup('<p>hi @pUC</p>');
+    command({ editor: ed, range, props: chosen });
+    expect(ed.state.doc.child(0).lastChild?.type.name).toBe('mention');
+    expect(ed.getText()).toBe('hi pUC19');
+  });
+  it.each([null, '', 'new'])(
+    'preserves literal query when a canonical target is absent: %j',
+    (entityId) => {
+      const { editor: ed, command } = setup();
+      const before = ed.getJSON();
+      command({ editor: ed, range, props: { ...chosen, entityId } });
+      expect(ed.getJSON()).toEqual(before);
+      expect(mentions(ed)).toHaveLength(0);
+    }
+  );
+  it('keeps a pathless canonical record without inventing a file or resolving by label', () => {
+    const { editor: ed, command, obsoleteResolver } = setup();
+    command({
       editor: ed,
-      range: AT_RANGE,
+      range,
       props: {
-        entityType: 'sequence',
-        entityId: 'ent-1',
-        label: 'pUC19',
-        path: 'sequences/pUC19.gb',
-        contentHash: `sha256:${'e'.repeat(64)}`,
+        entityType: 'registry',
+        entityId: 'saved-record',
+        label: 'Record',
+        registryKind: 'strain',
       },
     });
-
-    expect(result).toBeUndefined();
-    expect(resolve, 'no round trip when the item already has the answer').not.toHaveBeenCalled();
-
-    const [chip] = mentions(ed);
-    expect(chip?.path).toBe('sequences/pUC19.gb');
-    expect(chip?.contentHash).toBe(`sha256:${'e'.repeat(64)}`);
-  });
-
-  it('still falls back to the resolver when the item has no path', async () => {
-    const resolve = vi.fn().mockResolvedValue({ path: 'resolved/x.gb', contentHash: null });
-    const { editor: ed, command } = setup(resolve as never);
-
-    await command({
-      editor: ed,
-      range: AT_RANGE,
-      props: { entityType: 'sequence', entityId: 'ent-1', label: 'x', path: null },
+    expect(mentions(ed)[0]).toMatchObject({
+      entityId: 'saved-record',
+      path: null,
+      contentHash: null,
+      registryKind: 'strain',
     });
-
-    expect(resolve).toHaveBeenCalledTimes(1);
-    expect(mentions(ed)[0]?.path).toBe('resolved/x.gb');
+    expect(obsoleteResolver).not.toHaveBeenCalled();
+  });
+  it('keeps the inserted identity through a later unrelated edit', () => {
+    const { editor: ed, command } = setup();
+    command({ editor: ed, range, props: chosen });
+    const before = { ...mentions(ed)[0] };
+    ed.commands.insertContentAt(1, 'ZZ');
+    expect(mentions(ed)[0]).toEqual(before);
+    expect(ed.getText()).toBe('ZZhi pUC19 there');
   });
 });

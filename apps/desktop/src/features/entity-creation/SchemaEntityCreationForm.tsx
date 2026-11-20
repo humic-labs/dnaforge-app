@@ -2,6 +2,7 @@ import { MenuNativeSelect } from '@waypoint/ui-components';
 import { temporalFieldValue } from '../../shared/registry-temporal-input';
 import { assertLimsTemporalEdits } from '@waypoint/scientific-artifacts/shared/lims-temporal';
 import { RegistryTemporalInput } from '../../shared/components/RegistryTemporalInput';
+import { schemaEntityTypeLabel } from '@waypoint/scientific-artifacts/shared/entity-types';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { Button, TextField, TextArea } from '../../components/ui';
 import { useMemo, useState } from 'react';
@@ -331,7 +332,7 @@ export function SchemaEntityCreationForm({
             Cancel
           </Button>
           <Button type="submit" disabled={!canSave} variant="primary">
-            {saving ? 'Creating…' : `Create ${schema.displayName}`}
+            {saving ? 'Creating…' : `Create ${schemaEntityTypeLabel(schema)}`}
           </Button>
         </div>
       </div>

@@ -193,19 +193,28 @@ describe('native FASTA kind authority over actual SQLite and source files', () =
     expect(await inspect(path)).toMatchObject({ status: 'declared', kind: 'sequence' });
   });
 
-  it('still rolls back an unpublished initial registration that never acquired a file binding', async () => {
+  it('rolls back the owning creation transaction when a file cannot be created exclusively', async () => {
     const path = join(root, 'unpublished.faa');
-    const entity = await call<{ id: string }>('registerCatalogEntity', {
-      type: 'sequence',
-      name: 'Unpublished DNA',
-      locator: `file://${path}`,
-      storageType: 'file',
-      workspaceRoot: root,
-    });
-    expect(declarations(entity.id)).toHaveLength(1);
-    await expect(call('deleteCatalogEntityIfUnbound', entity.id)).resolves.toBe(true);
-    expect(db.prepare('SELECT * FROM catalog_entities WHERE id=?').get(entity.id)).toBeUndefined();
-    expect(declarations(entity.id)).toEqual([]);
+    writeFileSync(path, 'previous contents');
+    await call('execute', 'BEGIN');
+    let entityId: string;
+    try {
+      const entity = await call<{ id: string }>('registerCatalogEntity', {
+        type: 'sequence',
+        name: 'Unpublished DNA',
+        locator: `file://${path}`,
+        storageType: 'file',
+        workspaceRoot: root,
+      });
+      entityId = entity.id;
+      expect(declarations(entityId)).toHaveLength(1);
+      expect(() => writeFileSync(path, 'replacement', { flag: 'wx' })).toThrow(/EEXIST/);
+    } finally {
+      await call('execute', 'ROLLBACK');
+    }
+    expect(db.prepare('SELECT * FROM catalog_entities WHERE id=?').get(entityId)).toBeUndefined();
+    expect(declarations(entityId)).toEqual([]);
+    expect(readFileSync(path, 'utf8')).toBe('previous contents');
   });
 
   it('retains a published declaration after native missing-path release leaves its entity unbound', async () => {

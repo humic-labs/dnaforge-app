@@ -32,17 +32,32 @@ it('migrates old layouts without collapsing explicit independent app-tab ownersh
   ]);
 });
 
+it('restores each sidebar shell or split as its own tab and keeps existing nested shells together', () => {
+  expect(
+    migrateTerminalGroupViews([
+      { id: 'a', sessions: ['a'], placement: 'panel', viewId: 'terminal-workspace' },
+      { id: 'b', sessions: ['b', 'c'], placement: 'panel', viewId: 'terminal-workspace' },
+      { id: 'd', sessions: ['d'], placement: 'editor', viewId: 'tools' },
+      { id: 'e', sessions: ['e'], placement: 'editor', viewId: 'tools' },
+    ]).map((group) => [group.viewId, group.sessions])
+  ).toEqual([
+    ['a', ['a']],
+    ['b', ['b', 'c']],
+    ['tools', ['d']],
+    ['tools', ['e']],
+  ]);
+});
+
 it('moves a whole split subtab to another app tab while preserving other subtabs and native IDs', () => {
   const groups: TerminalGroup[] = [
     {
       id: 'one',
       sessions: ['a', 'b'],
       viewId: 'view-a',
-      placement: 'editor',
       sizes: { a: 30, b: 70 },
     },
-    { id: 'two', sessions: ['c'], viewId: 'view-a', placement: 'editor' },
-    { id: 'three', sessions: ['d'], viewId: 'view-b', placement: 'editor' },
+    { id: 'two', sessions: ['c'], viewId: 'view-a' },
+    { id: 'three', sessions: ['d'], viewId: 'view-b' },
   ];
   const moved = moveTerminalGroupToView(groups, 'b', 'view-c');
   expect(moved[0]).toEqual({ ...groups[0], viewId: 'view-c' });
@@ -54,15 +69,14 @@ it('moves a whole split subtab to another app tab while preserving other subtabs
   });
   expect(unsplitTerminalPane(moved, 'b', 'separate').at(-1)).toMatchObject({
     viewId: 'view-c',
-    placement: 'editor',
     sessions: ['b'],
   });
 });
 
-it('restores a terminal-only native window into its single local panel, without canvas app tabs', () => {
+it('restores a terminal-only native window into its original floating window, without canvas app tabs', () => {
   const groups: TerminalGroup[] = [{ id: 'floating', sessions: ['a', 'b'] }];
-  expect(migrateTerminalGroupViews(groups, undefined, true)).toMatchObject([
-    { id: 'floating', sessions: ['a', 'b'], placement: 'panel' },
+  expect(migrateTerminalGroupViews(groups, undefined, 'floating')).toMatchObject([
+    { id: 'floating', sessions: ['a', 'b'], viewId: 'floating' },
   ]);
 });
 
@@ -94,7 +108,6 @@ it('inserts a split directly after its parent and distributes all pane sizes', (
     {
       id: 'one',
       sessions: ['a', 'b'],
-      placement: 'editor',
       direction: 'vertical',
       sizes: { a: 20, b: 80 },
     },
@@ -138,14 +151,13 @@ it('moves a whole group in the persisted order without breaking its split', () =
 it('moves a live pane between groups, removes empty groups and preserves target placement', () => {
   const groups: TerminalGroup[] = [
     { id: 'one', sessions: ['a', 'b'], sizes: { a: 30, b: 70 } },
-    { id: 'two', sessions: ['c'], placement: 'editor', direction: 'vertical' },
+    { id: 'two', sessions: ['c'], direction: 'vertical' },
   ];
   const moved = moveTerminalPane(groups, 'a', 'c', 'before');
   expect(moved[0]?.sessions).toEqual(['b']);
   expect(moved[0]?.sizes).toEqual({ b: 100 });
   expect(moved[1]).toMatchObject({
     sessions: ['a', 'c'],
-    placement: 'editor',
     direction: 'vertical',
   });
   const joined = moveTerminalPane(moved, 'b', 'c', 'after');
@@ -156,10 +168,10 @@ it('moves a live pane between groups, removes empty groups and preserves target 
 });
 
 it('unsplits exactly one pane into its own persisted group without losing other panes', () => {
-  const groups: TerminalGroup[] = [{ id: 'one', sessions: ['a', 'b'], placement: 'editor' }];
+  const groups: TerminalGroup[] = [{ id: 'one', sessions: ['a', 'b'] }];
   expect(unsplitTerminalPane(groups, 'b', 'new')).toEqual([
-    { id: 'one', sessions: ['a'], placement: 'editor', sizes: { a: 100 } },
-    { id: 'new', sessions: ['b'], placement: 'editor' },
+    { id: 'one', sessions: ['a'], sizes: { a: 100 } },
+    { id: 'new', sessions: ['b'], viewId: 'one' },
   ]);
   expect(unsplitTerminalPane(groups, 'b', 'one')).toBe(groups);
   expect(unsplitTerminalPane([{ id: 'one', sessions: ['a'] }], 'a', 'new')).toEqual([

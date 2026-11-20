@@ -103,7 +103,6 @@ export async function createAuthoredNotebook(input: {
   operationId: string;
 }) {
   await validateReferences(input.blocks, input.mountedRoots);
-  const content = compileNotebookBlocks(input.blocks);
   const scope = await resolveWorkspaceScope(input.workspaceRoot);
   if (!scope) throw new Error('The selected project has no stable identity.');
   const intentDigest = new Uint8Array(
@@ -115,16 +114,22 @@ export async function createAuthoredNotebook(input: {
     .join('')
     .slice(0, 32)}`;
   const notebookId = scopedProjectionId(scope, rawId);
+  const content = compileNotebookBlocks(input.blocks, { tableIdentity: notebookId });
   const snapshot = await withRendererWorkspaceMutation(
     input.workspaceRoot,
     async (mutationToken) => {
       const existing = await getCatalogEntityForWorkspaceRoot(notebookId, input.workspaceRoot);
       if (existing) {
         const current = await readAuthoredNotebook(input.workspaceRoot, notebookId);
+        const matches = (candidate: JSONContent) =>
+          canonicalNotebookJson(current.content) ===
+          canonicalNotebookJson(normalizeNotebookReferences(candidate));
+        const hasDocumentTables = current.content.content?.some((block) => block.type === 'table');
         if (
           current.title !== input.title ||
-          canonicalNotebookJson(current.content) !==
-            canonicalNotebookJson(normalizeNotebookReferences(content))
+          (!matches(content) &&
+            (!hasDocumentTables ||
+              !matches(compileNotebookBlocks(input.blocks, { existingDocumentTables: true }))))
         )
           throw new Error(
             'This notebook intent already created different content. Use update_notebook with its current revision.'
@@ -175,7 +180,9 @@ export async function updateAuthoredNotebook(input: {
     throw new Error('The notebook revision changed. Read it again before updating.');
   if (usePageStore.getState().dirtyIds.has(input.notebookId))
     throw new Error('The notebook has unsaved editor changes. Save them before agent editing.');
-  const next = compileNotebookBlocks(input.blocks);
+  const next = compileNotebookBlocks(input.blocks, {
+    tableIdentity: `${input.notebookId}:${input.expectedRevision}`,
+  });
   const content: JSONContent =
     input.mode === 'append'
       ? { type: 'doc', content: [...(current.content.content ?? []), ...(next.content ?? [])] }

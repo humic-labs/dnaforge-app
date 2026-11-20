@@ -25,7 +25,7 @@ import { useStructureLinkRegistry } from './state/use-structure-link-registry';
 import { compileMeasurementScene } from './measurement-scene';
 import { sha256Hex } from './api/protein-identity';
 
-export async function initializeInspectionScene(attrs: Structure3dAttrs, panelId: string) {
+export async function initializeInspectionScene(attrs: Structure3dAttrs, rendererHostId: string) {
   if (attrs.molViewSpec) return attrs;
   const registrationId = attrs.structureViewIdentity?.structureViewId;
   if (!registrationId) throw new Error('The protein view has no registered identity.');
@@ -103,13 +103,13 @@ export async function initializeInspectionScene(attrs: Structure3dAttrs, panelId
       useStructure3dStore.getState().updateStructureData(registrationId, updated);
       return updated;
     },
-    { cacheKey: getPaneRendererHostCacheKey(`pane:${panelId}`, 'loaded') }
+    { cacheKey: getPaneRendererHostCacheKey(rendererHostId, 'loaded') }
   );
 }
 
 export async function focusInspectionSelection(
   attrs: Structure3dAttrs,
-  panelId: string,
+  rendererHostId: string,
   selections: ResidueSelection[],
   isCurrent: () => boolean
 ): Promise<boolean> {
@@ -160,7 +160,7 @@ export async function focusInspectionSelection(
       });
       return true;
     },
-    { cacheKey: getPaneRendererHostCacheKey(`pane:${panelId}`, 'loaded') }
+    { cacheKey: getPaneRendererHostCacheKey(rendererHostId, 'loaded') }
   );
 }
 

@@ -1,47 +1,40 @@
 import { type ReactNode } from 'react';
-import { canonicalEntityIconKind } from '../../../../components/icons/entity-icon-registry';
-import { referenceIconFor } from '../../entity-ref/reference-icon';
-import { usePageStore } from '../../store';
-import { searchPrimerReferencesByName } from '../../../../db/primer-reference-search';
-import { listSearchableProjectRoots } from '../../../../db/project-roots';
 import {
-  PROJECT_REFERENCE_ENTITY_TYPES,
-  searchProjectReferencesByName,
-  type ProjectReferenceEntityType,
-  type ProjectReferenceSearchResult,
-} from '../../../../db/project-reference-search';
-import { queryLimsRegistrySummaries } from '../../../lims/public/operations';
-import { stripWorkspaceScope } from '../../../../shared/workspace-scoped-identity';
-import { useWorkspaceStore } from '../../../../stores/workspaceStore';
-import { registryKindIconKind, registryKindLabel } from './registry-kind';
-import { getFileIconCategory } from '../../../../utils/fileTypes';
-import { entityColorFamily, type EntityColorContext } from '../../../../shared/entity-color-family';
+  namedEntityTypePresentation,
+  resolveNamedEntityType,
+} from '@waypoint/scientific-artifacts/shared/entity-types';
+import { referenceIconPresentation } from '../../../../components/icons/entity-icon-registry';
+import { referenceIconFor } from '../../entity-ref/reference-icon';
+import { useEntityViewHistory } from '../../../../services/recent-entity-views';
+import { platform } from '../../../../platform';
+import {
+  type EntityDescriptor,
+  type EntityDiscoveryFacet,
+  type EntityDiscoveryFilter,
+  type EntityDiscoveryScope,
+  type EntityDiscoveryPage,
+} from '../../../../shared/entity-discovery';
 
-export type EntityType = 'page' | 'sequence' | 'primer' | 'registry' | ProjectReferenceEntityType;
+export type EntityType = EntityDescriptor['type'];
+export type EntityLinkFilter = EntityDiscoveryFilter;
 
-export interface Entity {
-  id: string;
-  type: EntityType;
-  name: string;
-  path?: string | null;
-  contentHash?: string | null;
-  localOnly?: boolean;
-  objectUuid?: string | null;
-  registryKind?: string | null;
-  registryId?: string | null;
-  kindLabel?: string;
-  projectId?: string | null;
-  projectRoot?: string | null;
-  projectName?: string | null;
-  iconContext?: EntityColorContext;
-  meta?: {
-    length?: number;
-    circular?: boolean;
-    description?: string;
-  };
+export interface EntityLinkCategory {
+  key: string;
+  label: string;
+  terms: readonly string[];
+  filter: EntityLinkFilter;
+  iconKind: string;
+  iconContext?: EntityDiscoveryFacet['iconContext'];
+  browse?: boolean;
 }
 
+export type Entity = Pick<EntityDescriptor, 'id' | 'type' | 'name'> & Partial<EntityDescriptor>;
+
 export interface SearchResults {
+  items: Entity[];
+  nextCursor: string | null;
+  generation: string;
+  coverage: EntityDiscoveryPage['coverage'];
   pages: Entity[];
   sequences: Entity[];
   primers: Entity[];
@@ -60,274 +53,136 @@ export interface EntityGroup {
   partial?: boolean;
 }
 
-const RESULT_LIMIT = 50;
-const PROJECT_RESULT_LIMIT = 100;
-const REGISTRY_RESULT_LIMIT = 100;
+export async function discoverEntityLinkTypes(
+  scope?: EntityDiscoveryScope
+): Promise<EntityLinkCategory[]> {
+  const result = await platform().entityDiscovery.types(scope ? { scope } : {});
+  return result.items.map((facet) => ({ ...facet, browse: facet.kind === 'type' }));
+}
 
-const PROJECT_KIND_LABELS: Readonly<Record<ProjectReferenceEntityType, string>> = {
-  design: 'Design',
-  structure: 'Structure',
-  protein: 'Protein',
-  alignment: 'Alignment',
-  trace: 'Trace',
-  report: 'Report',
-  construct: 'Construct',
-  sample: 'Sample',
-  protocol: 'Protocol',
-  protocol_run: 'Protocol run',
-  'track-view': 'Track view',
-  'molecular-document': 'Molecular document',
-  file: 'File',
-};
+export function matchingEntityLinkCategories(
+  categories: readonly EntityLinkCategory[],
+  query: string
+): EntityLinkCategory[] {
+  const normalize = (term: string) =>
+    term.normalize('NFKC').replace(/[-_]+/g, ' ').trim().toLocaleLowerCase();
+  const normalized = normalize(query);
+  const terms = (category: EntityLinkCategory) =>
+    [category.label, ...category.terms].flatMap((term) => {
+      const value = normalize(term);
+      return [value, `${value}s`];
+    });
+  const exact = normalized
+    ? categories.filter(
+        (category) => category.browse === false && terms(category).includes(normalized)
+      )
+    : [];
+  if (exact.length) return exact;
+  return categories.filter((category) => terms(category).some((term) => term.includes(normalized)));
+}
 
-const EMPTY_PROJECT_RESULT: ProjectReferenceSearchResult = { candidates: [], truncated: false };
+export function entityLocationLabel(entity: Pick<Entity, 'projectName'>): string | null {
+  return entity.projectName?.trim() || null;
+}
 
 export async function searchEntities(
   query: string,
-  workspaceRoot?: string | null
+  workspaceRoot?: string | null,
+  filter?: EntityLinkFilter | null,
+  options: { cursor?: string; scope?: EntityDiscoveryScope; limit?: number } = {}
 ): Promise<SearchResults> {
-  const trimmed = query.trim();
-  const lowerQuery = trimmed.toLowerCase();
-  const rootsPromise = projectRoots();
-  const [pages, sequences, primers, project, registry] = await Promise.all([
-    trimmed ? searchPages(lowerQuery) : getRecentPages(RESULT_LIMIT),
-    rootsPromise.then((roots) =>
-      searchProjectCatalog(query, ['sequence'], roots, workspaceRoot ?? null, RESULT_LIMIT)
-    ),
-    searchPrimers(query, workspaceRoot ?? null),
-    rootsPromise.then((roots) =>
-      searchProjectCatalog(
-        query,
-        PROJECT_REFERENCE_ENTITY_TYPES,
-        roots,
-        workspaceRoot ?? null,
-        PROJECT_RESULT_LIMIT
-      )
-    ),
-    searchRegistry(trimmed),
-  ]);
-  const projectIds = new Set(
-    [...pages, ...sequences.items, ...primers, ...project.items].flatMap((item) => [
-      item.id,
-      stripWorkspaceScope(item.id),
-    ])
-  );
-  return {
-    pages,
-    sequences: sequences.items,
-    primers,
-    project: project.items,
-    registry: registry.items.filter(
-      (item) => !projectIds.has(item.id) && !projectIds.has(stripWorkspaceScope(item.id))
-    ),
-    sequencesTruncated: sequences.truncated,
-    projectTruncated: project.truncated,
-    registryTruncated: registry.truncated,
-  };
-}
-
-function matchRank(item: Entity, query: string): number {
-  if (!query) return 3;
-  const name = item.name.toLowerCase();
-  if (name === query || item.registryId?.toLowerCase() === query) return 0;
-  if (name.startsWith(query) || item.registryId?.toLowerCase().startsWith(query)) return 1;
-  if (name.includes(query)) return 2;
-  return 3;
-}
-
-export function groupSearchResults(results: SearchResults, query: string): EntityGroup[] {
-  const lowerQuery = query.trim().toLowerCase();
-  const groups = new Map<string, EntityGroup>();
-  const add = (
-    key: string,
-    label: string,
-    source: EntityGroup['source'],
-    item: Entity,
-    partial: boolean
-  ) => {
-    const group = groups.get(key) ?? { key, label, source, items: [] };
-    group.items.push(item);
-    if (partial) group.partial = true;
-    groups.set(key, group);
-  };
-  for (const item of results.pages) add('page', 'Notebook', 'project', item, false);
-  for (const item of results.sequences)
-    add('sequence', 'Sequence', 'project', item, results.sequencesTruncated);
-  for (const item of results.primers) add('primer', 'Primer', 'project', item, false);
-  for (const item of results.project) {
-    const type = item.type as ProjectReferenceEntityType;
-    add(type, PROJECT_KIND_LABELS[type] ?? 'File', 'project', item, results.projectTruncated);
-  }
-  for (const item of results.registry) {
-    add(
-      `registry:${item.registryKind ?? 'record'}`,
-      item.kindLabel ?? registryKindLabel(item.registryKind),
-      'registry',
-      item,
-      results.registryTruncated
-    );
-  }
-  const ranked = [...groups.values()].map((group, order) => {
-    const items = group.items
-      .map((item, index) => ({ item, index, rank: matchRank(item, lowerQuery) }))
-      .sort((a, b) => a.rank - b.rank || a.index - b.index);
-    return {
-      group: { ...group, items: items.map((entry) => entry.item) },
-      best: items[0]?.rank ?? 3,
-      order,
-    };
+  const page = await platform().entityDiscovery.search({
+    query,
+    ...(workspaceRoot ? { preferredProjectRoot: workspaceRoot } : {}),
+    ...(filter ? { filter } : {}),
+    ...options,
   });
-  return ranked.sort((a, b) => a.best - b.best || a.order - b.order).map((entry) => entry.group);
+  const items = page.items;
+  return {
+    ...page,
+    items,
+    pages: items.filter((item) => item.type === 'page'),
+    sequences: items.filter((item) => item.type === 'sequence'),
+    primers: items.filter((item) => item.type === 'primer'),
+    project: items.filter(
+      (item) =>
+        item.type !== 'page' &&
+        item.type !== 'sequence' &&
+        item.type !== 'primer' &&
+        item.type !== 'registry'
+    ),
+    registry: items.filter((item) => item.type === 'registry'),
+    sequencesTruncated: Boolean(page.nextCursor),
+    projectTruncated: Boolean(page.nextCursor),
+    registryTruncated: Boolean(page.nextCursor),
+  };
+}
+
+export async function resolveEntityLinks(ids: readonly string[], scope?: EntityDiscoveryScope) {
+  const result = await platform().entityDiscovery.resolve({ ids, ...(scope ? { scope } : {}) });
+  return result.items;
+}
+
+export async function getRecentlyViewedEntityGroups(
+  query = '',
+  scope?: EntityDiscoveryScope
+): Promise<EntityGroup[]> {
+  const views = useEntityViewHistory.getState().views;
+  if (!views.length) return [];
+  const resolved = await resolveEntityLinks(
+    views.map((view) => view.entityId),
+    scope
+  );
+  const normalized = query.normalize('NFKC').trim().toLocaleLowerCase();
+  const items = resolved.flatMap((item) =>
+    item.status === 'available' &&
+    (!normalized || item.entity.name.normalize('NFKC').toLocaleLowerCase().includes(normalized))
+      ? [item.entity]
+      : []
+  );
+  return items.length
+    ? [{ key: 'recently-viewed', label: 'Recently viewed', source: 'project', items }]
+    : [];
+}
+
+export function groupSearchResults(
+  results: Pick<SearchResults, 'items'>,
+  _query: string
+): EntityGroup[] {
+  const groups: EntityGroup[] = [];
+  for (const item of results.items) {
+    const source = item.type === 'registry' ? 'registry' : 'project';
+    const label = item.kindLabel ?? fallbackPresentation(item).kindLabel;
+    const previous = groups.at(-1);
+    if (
+      previous?.label === label &&
+      previous.source === source &&
+      previous.items[0].namedTypeKey === item.namedTypeKey
+    )
+      previous.items.push(item);
+    else groups.push({ key: item.id, label, source, items: [item] });
+  }
+  return groups;
+}
+
+function fallbackPresentation(item: Pick<Entity, 'type' | 'registryKind'>) {
+  return namedEntityTypePresentation(resolveNamedEntityType(item));
 }
 
 export function getEntityIcon(
-  item: Pick<Entity, 'type' | 'registryKind'> & Partial<Pick<Entity, 'path' | 'iconContext'>>
+  item: Pick<Entity, 'type' | 'registryKind' | 'iconKind' | 'path' | 'namedTypeKey' | 'iconContext'>
 ): ReactNode {
-  const context = { path: item.path ?? undefined, ...item.iconContext };
-  const kind =
-    item.type === 'registry'
-      ? registryKindIconKind(item.registryKind)
-      : context.kind &&
-          !['file', 'text', 'generic'].includes(context.kind) &&
-          canonicalEntityIconKind(context.kind)
-        ? context.kind
-        : item.type === 'file' && item.path
-          ? getFileIconCategory(item.path)
-          : canonicalEntityIconKind(item.type)
-            ? item.type
-            : 'file';
-  return referenceIconFor(kind, 'w-4 h-4', context);
+  const presentation = referenceIconPresentation({
+    ...item,
+    iconKind: item.iconKind ?? fallbackPresentation(item).iconKind,
+  });
+  return referenceIconFor(presentation.kind, 'w-4 h-4', presentation.context);
 }
 
-async function projectRoots(): Promise<string[]> {
-  const mounted = useWorkspaceStore.getState().folders.map((folder) => folder.path);
-  try {
-    return await listSearchableProjectRoots(mounted);
-  } catch (error) {
-    console.error('Failed to list projects for search:', error);
-    return mounted;
-  }
-}
-
-async function searchPages(query: string): Promise<Entity[]> {
-  const { pages } = usePageStore.getState();
-  return Object.values(pages)
-    .filter((p) => p.title.toLowerCase().includes(query))
-    .slice(0, RESULT_LIMIT)
-    .map((p) => ({
-      id: p.id,
-      type: 'page' as const,
-      name: p.title,
-      path: null,
-      contentHash: null,
-    }));
-}
-
-async function getRecentPages(limit: number): Promise<Entity[]> {
-  const { pages } = usePageStore.getState();
-  return Object.values(pages)
-    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-    .slice(0, limit)
-    .map((p) => ({
-      id: p.id,
-      type: 'page' as const,
-      name: p.title,
-      path: null,
-      contentHash: null,
-    }));
-}
-
-async function searchPrimers(query: string, workspaceRoot: string | null): Promise<Entity[]> {
-  try {
-    const rows = await searchPrimerReferencesByName({
-      query,
-      workspaceRoot,
-      limit: RESULT_LIMIT,
-    });
-    return rows.map((row) => ({
-      id: row.primerId,
-      type: 'primer' as const,
-      name: row.name || `Primer ${row.primerId}`,
-      path: row.workspaceRelativePath,
-      contentHash: null,
-      localOnly: row.localOnly,
-      iconContext: row.iconContext,
-      registryKind:
-        row.iconContext && entityColorFamily({ kind: 'primer', ...row.iconContext }) === 'rna'
-          ? 'rna_oligo'
-          : row.iconContext?.kind,
-    }));
-  } catch (error) {
-    console.error('Failed to search primers:', error);
-    return [];
-  }
-}
-
-async function searchProjectCatalog(
-  query: string,
-  entityTypes: Parameters<typeof searchProjectReferencesByName>[0]['entityTypes'],
-  workspaceRoots: readonly string[],
-  preferredRoot: string | null,
-  limit: number
-): Promise<{ items: Entity[]; truncated: boolean }> {
-  let result = EMPTY_PROJECT_RESULT;
-  try {
-    result = await searchProjectReferencesByName({
-      query,
-      entityTypes,
-      workspaceRoots,
-      preferredRoot,
-      limit,
-    });
-  } catch (error) {
-    console.error('Failed to search projects:', error);
-  }
-  return {
-    items: result.candidates.map((row) => ({
-      id: row.entityId,
-      type: row.entityType,
-      name: row.name,
-      path: row.workspaceRelativePath,
-      contentHash: row.contentHash,
-      objectUuid: row.objectUuid,
-      localOnly: false,
-      projectId: row.projectId,
-      projectRoot: row.projectRoot,
-      projectName: row.projectName,
-      iconContext: row.iconContext,
-      registryKind:
-        row.entityType === 'sequence' &&
-        row.iconContext &&
-        entityColorFamily({ kind: 'sequence', ...row.iconContext }) === 'rna'
-          ? 'rna_sequence'
-          : row.iconContext?.kind,
-    })),
-    truncated: result.truncated,
-  };
-}
-
-async function searchRegistry(query: string): Promise<{ items: Entity[]; truncated: boolean }> {
-  try {
-    const page = await queryLimsRegistrySummaries({
-      ...(query ? { search: query } : {}),
-      limit: REGISTRY_RESULT_LIMIT,
-    });
-    const items = page.summaries
-      .filter((summary) => summary.kind !== 'notebook')
-      .map((summary) => ({
-        id: summary.id,
-        type: 'registry' as const,
-        name: summary.name || summary.registryId || summary.id,
-        path: null,
-        contentHash: null,
-        objectUuid: null,
-        registryKind: summary.kind,
-        registryId: summary.registryId,
-        kindLabel: summary.schemaDisplayName || registryKindLabel(summary.kind),
-      }));
-    return { items, truncated: page.totalCount > page.summaries.length };
-  } catch (error) {
-    console.error('Failed to search the Registry:', error);
-    return { items: [], truncated: false };
-  }
+export function getEntityCategoryIcon(category: EntityLinkCategory): ReactNode {
+  const namedType = category.filter.namedTypeKey;
+  const kind = namedType?.startsWith('type:')
+    ? namedType.slice(5)
+    : category.filter.registryKinds?.[0];
+  return referenceIconFor(category.iconKind, 'w-4 h-4', { kind, ...category.iconContext });
 }

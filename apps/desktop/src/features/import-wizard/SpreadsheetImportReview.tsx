@@ -1,4 +1,5 @@
 import { MenuNativeSelect } from '@waypoint/ui-components';
+import { schemaEntityTypeLabel } from '@waypoint/scientific-artifacts/shared/entity-types';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { toUserMessage } from '@waypoint/user-messages';
 import { Button } from '../../components/ui';
@@ -49,10 +50,10 @@ export function SpreadsheetImportReview({ item, selected, submitted, onChange }:
   const choices = new Map(
     LIMS_BUILTIN_ENTITY_SCHEMAS.filter((schema) => schema.kind === 'entity').map((schema) => [
       schema.name,
-      schema.displayName,
+      schemaEntityTypeLabel(schema),
     ])
   );
-  for (const schema of schemas) choices.set(schema.entityKind, schema.displayName);
+  for (const schema of schemas) choices.set(schema.entityKind, schemaEntityTypeLabel(schema));
 
   const release = (previous: LimsImportPlan | null) => {
     if (!previous) return;

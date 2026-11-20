@@ -1,3 +1,4 @@
+import { isPrimerArtifactPath } from './catalog-file-kind';
 import { isNotebookPackageMetaPath } from '../db/notebook-package';
 import { isForgePackageMetaPath } from './forge-package-path';
 import { isSequencePackageFileKind, isSequencePackageMetaPath } from '../db/sequence-package';
@@ -88,7 +89,14 @@ export function planCatalogFileRelocation(
         ? rebasePath(root, input.oldPath, input.newPath)
         : root;
   const relativePath = workspaceRoot ? pathRelativeToBoundary(movedPath, workspaceRoot) : null;
+  if (
+    file.file_kind === 'primer-artifact' &&
+    isPrimerArtifactPath(originalPath) &&
+    !isPrimerArtifactPath(movedPath)
+  )
+    throw new Error('Keep the .primer.json extension when renaming a saved primer.');
   const fileKind =
+    file.file_kind === 'primer-artifact' ||
     file.file_kind === 'folder' ||
     file.file_kind === 'waypoint-notebook' ||
     file.file_kind === 'waypoint-design' ||

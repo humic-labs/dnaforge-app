@@ -137,7 +137,7 @@ describe('entity reference routing table', () => {
         byId: true,
         matchesContentHash: false,
         matchesPath: 'reveal-only',
-        containedOpen: 'sequence',
+        containedOpen: 'notebook',
         revealsPackageRoot: false,
       },
       registry: { ...located, beforeLocation: true, byId: false, revealsPackageRoot: false },

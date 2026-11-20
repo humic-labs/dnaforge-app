@@ -7,7 +7,11 @@ import {
 import { createUserDialogs, type UserMessageBoxOptions } from './user-dialogs';
 import { app, dialog, type BrowserWindow } from 'electron';
 import { basename } from 'node:path';
-import { failedSaveAllResult, type SaveAllResult } from '../shared/save-all-result';
+import {
+  SaveAllCancelled,
+  failedSaveAllResult,
+  type SaveAllResult,
+} from '../shared/save-all-result';
 
 type QuitConsent = 'pending' | 'granted';
 let quitConsent: QuitConsent = 'pending';
@@ -134,6 +138,7 @@ async function presentUnsavedWorkDialog(
   try {
     await saver.saveAll(win);
   } catch (error) {
+    if (error instanceof SaveAllCancelled) return 'cancel';
     saveFailed = true;
     failureDetails = describeSaveFailures(failedSaveAllResult(error));
     console.warn('[quit-consent] Some changes were not saved:', error);

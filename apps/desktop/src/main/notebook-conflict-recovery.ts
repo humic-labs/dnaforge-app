@@ -329,7 +329,7 @@ export function createNotebookConflictRecovery(options: {
                 preservedPreamble: captured.source.parsed.preservedPreamble,
                 preservedTitleProjection: captured.source.parsed.preservedTitleProjection,
               },
-              scope.assertCurrent
+              scope.assertCurrent, options.db()
             );
             selectedCanonicalFingerprint = published.canonicalFingerprint;
           }

@@ -1,6 +1,12 @@
 export { readBetaUpdatesSetting } from './update-preferences';
+import { watchSequencePackageSavePicker } from './sequence-package-save-picker';
 import { updateContract } from '../shared/ipc/update.contract';
-import { SaveAllError, failedSaveAllResult, type SaveAllResult } from '../shared/save-all-result';
+import {
+  SaveAllCancelled,
+  SaveAllError,
+  failedSaveAllResult,
+  type SaveAllResult,
+} from '../shared/save-all-result';
 import {
   handleGroup,
   mainIpc,
@@ -1478,10 +1484,14 @@ export function requestSaveAll(win: BrowserWindow, timeoutMs = 10_000): Promise<
   const requestId = randomUUID();
   return new Promise((resolve, reject) => {
     let settled = false;
-    const finish = (error?: SaveAllError): void => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let remaining = timeoutMs;
+    let expiresAt = 0;
+    const finish = (error?: Error): void => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      stopWatchingPicker();
       mainIpc.removeListener('app:saveAllDone', onDone);
       renderer.removeListener('destroyed', onRendererGone);
       renderer.removeListener('render-process-gone', onRendererGone);
@@ -1497,6 +1507,10 @@ export function requestSaveAll(win: BrowserWindow, timeoutMs = 10_000): Promise<
       if (event.sender !== renderer || acknowledgedRequestId !== requestId) return;
       if (result === undefined || result?.status === 'saved') {
         finish();
+        return;
+      }
+      if (result?.status === 'cancelled') {
+        finish(new SaveAllCancelled());
         return;
       }
       const validFailures =
@@ -1517,7 +1531,7 @@ export function requestSaveAll(win: BrowserWindow, timeoutMs = 10_000): Promise<
         )
       );
     };
-    const timer = setTimeout(() => {
+    const timedOut = () => {
       if (settled) return;
       console.warn('[AutoUpdater] Save-all request timed out');
       finish(
@@ -1525,7 +1539,17 @@ export function requestSaveAll(win: BrowserWindow, timeoutMs = 10_000): Promise<
           { documentId: null, error: 'Saving timed out before the editor confirmed completion.' },
         ])
       );
-    }, timeoutMs);
+    };
+    const stopWatchingPicker = watchSequencePackageSavePicker(renderer, (open) => {
+      if (open && timer !== undefined) {
+        clearTimeout(timer);
+        timer = undefined;
+        remaining = Math.max(0, expiresAt - performance.now());
+      } else if (!open && timer === undefined) {
+        expiresAt = performance.now() + remaining;
+        timer = setTimeout(timedOut, remaining);
+      }
+    });
     mainIpc.on('app:saveAllDone', onDone);
     renderer.once('destroyed', onRendererGone);
     renderer.once('render-process-gone', onRendererGone);

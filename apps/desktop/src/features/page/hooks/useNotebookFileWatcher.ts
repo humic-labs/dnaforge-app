@@ -73,6 +73,8 @@ export function useNotebookFileWatcher({
 }: UseNotebookFileWatcherInput): NotebookFileWatcherResult {
   const [state, setState] = useState<NotebookSyncState>('current');
   const reloadFailureOperationRef = useRef<string>();
+  const [watchAttempt, setWatchAttempt] = useState(0);
+  const watchReady = useRef(false);
   const targetRef = useRef<NotebookWatchTarget | null>(null);
   const baselineFingerprintRef = useRef<string>();
   const conflictFingerprintRef = useRef<string>();
@@ -233,6 +235,22 @@ export function useNotebookFileWatcher({
     let watchRegistration: Promise<void> | undefined;
     const isCurrent = () => !disposed && generation === generationRef.current;
 
+    const onPageHide = (event: PageTransitionEvent) => {
+      if (!event.persisted) dispose();
+    };
+    const notifyFailure = (error: unknown, stage: 'watch' | 'reload' | 'external-change') => {
+      if (!isCurrent()) return;
+      if (isExternalConflictError(error)) {
+        void readFingerprint().then((fingerprint) => {
+          if (!isCurrent()) return;
+          conflictFingerprintRef.current = fingerprint;
+          setState(notebookConflictState);
+        });
+        return;
+      }
+      console.warn(`[useNotebookFileWatcher] Notebook ${stage} failed:`, error);
+      reportReloadFailure(error, stage);
+    };
     void (async () => {
       const target = await resolveWatchTarget(pageId);
       if (!isCurrent() || !target) return;
@@ -241,42 +259,25 @@ export function useNotebookFileWatcher({
       watchRegistration = platform().fs.watchFile(watchedPath);
       await watchRegistration;
       if (!isCurrent()) return;
-
+      watchReady.current = true;
       const fingerprint = await readFingerprint();
       if (!isCurrent()) return;
       baselineFingerprintRef.current = fingerprint;
       if (!isDirtyRef.current) await reloadFromDisk();
-    })().catch((error) => {
-      if (!isCurrent()) return;
-      console.warn('[useNotebookFileWatcher] Could not watch notebook Markdown:', error);
-      if (isExternalConflictError(error)) {
-        void readFingerprint().then((fingerprint) => {
-          if (!isCurrent()) return;
-          conflictFingerprintRef.current = fingerprint;
-          setState(notebookConflictState);
-        });
-      } else reportReloadFailure(error, 'watch');
-    });
+      else if (reloadFailureOperationRef.current) await inspectDiskChange(true);
+    })().catch((error) => notifyFailure(error, watchReady.current ? 'reload' : 'watch'));
 
     const unsubscribe = platform().on('file-changed', (...args: unknown[]) => {
       const changedPath = args[0];
       if (!isCurrent() || typeof changedPath !== 'string' || changedPath !== watchedPath) return;
-      void inspectDiskChange().catch((error) => {
-        if (!isCurrent()) return;
-        console.warn('[useNotebookFileWatcher] Could not reconcile external edit:', error);
-        if (isExternalConflictError(error)) {
-          void readFingerprint().then((fingerprint) => {
-            if (!isCurrent()) return;
-            conflictFingerprintRef.current = fingerprint;
-            setState(notebookConflictState);
-          });
-        } else reportReloadFailure(error, 'external-change');
-      });
+      void inspectDiskChange().catch((error) => notifyFailure(error, 'external-change'));
     });
 
-    return () => {
+    function dispose() {
+      if (disposed) return;
       disposed = true;
       generationRef.current++;
+      watchReady.current = false;
       targetRef.current = null;
       baselineFingerprintRef.current = undefined;
       conflictFingerprintRef.current = undefined;
@@ -284,8 +285,12 @@ export function useNotebookFileWatcher({
       if (path && watchRegistration)
         void watchRegistration.then(() => platform().fs.unwatchFile(path)).catch(() => {});
       unsubscribe();
-    };
+      window.removeEventListener('pagehide', onPageHide);
+    }
+    window.addEventListener('pagehide', onPageHide);
+    return dispose;
   }, [
+    watchAttempt,
     catalogGeneration,
     inspectDiskChange,
     pageId,
@@ -305,6 +310,10 @@ export function useNotebookFileWatcher({
   }, [reloadFromDisk, reportReloadFailure]);
 
   const retryExternalReload = useCallback(() => {
+    if (!watchReady.current) {
+      setWatchAttempt((attempt) => attempt + 1);
+      return;
+    }
     const generation = generationRef.current;
     void inspectDiskChange(true).catch((error) => {
       if (generation !== generationRef.current) return;

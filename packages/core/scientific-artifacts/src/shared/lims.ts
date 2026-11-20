@@ -1,4 +1,9 @@
 import {
+  builtinEntitySchemaIdentity,
+  LIMS_ENTITY_KINDS,
+  type EntityTypeIconKind,
+} from './entity-types';
+import {
   PLASMID_SCHEMA_FIELD_DEFINITIONS,
   SEQUENCE_SCHEMA_V1_FIELD_DEFINITIONS,
 } from './sequence-entity-schema';
@@ -978,6 +983,7 @@ export interface LimsRegistrySummary {
 
   fieldValues: Record<string, unknown>;
   schemaDisplayName?: string;
+  schemaIconKind?: EntityTypeIconKind;
   eventSeq?: number | null;
   name: string;
   registryId: string | null;
@@ -1069,6 +1075,8 @@ export interface LimsRegistrySummaryPage {
   totalCount: number;
   limit: number;
   offset: number;
+
+  availableKinds?: { kind: string; count: number }[];
 
   availableOrganisms?: { speciesTaxid: string; speciesName: string; count: number }[];
 
@@ -1583,48 +1591,31 @@ function oligoSchemaFields(sequenceType: 'dna_sequence' | 'rna_sequence'): LimsF
   ];
 }
 
-export const LIMS_BUILTIN_ENTITY_SCHEMAS: readonly LimsBuiltinSchemaDefinition[] = [
-  {
-    kind: 'entity',
-    name: 'sequence',
+const registryEntitySchemas: Record<
+  LimsEntityKind,
+  Omit<LimsBuiltinSchemaDefinition, 'name' | 'kind' | 'displayName' | 'builtin'>
+> = {
+  sequence: {
     version: 1,
-    displayName: 'DNA sequence',
     description: 'A managed DNA sequence package.',
-    builtin: true,
     fields: SEQUENCE_SCHEMA_V1_FIELD_DEFINITIONS.map((field) => ({ ...field })),
   },
-  {
-    kind: 'entity',
-    name: 'oligo',
-    displayName: 'DNA Oligo',
+  oligo: {
     description: 'System of record for DNA oligos. Primer is a use, not a separate type.',
-    builtin: true,
     fields: oligoSchemaFields('dna_sequence'),
   },
-  {
-    kind: 'entity',
-    name: 'rna_oligo',
-    displayName: 'RNA Oligo',
+  rna_oligo: {
     description: 'System of record for RNA oligos. Primer is a use, not a separate type.',
-    builtin: true,
     fields: oligoSchemaFields('rna_sequence'),
   },
-  {
-    kind: 'entity',
-    name: 'plasmid',
+  plasmid: {
     baseKind: 'sequence',
     version: 2,
-    displayName: 'Plasmid',
     description: 'A user-configurable sequence-backed plasmid record.',
-    builtin: true,
     fields: PLASMID_SCHEMA_FIELD_DEFINITIONS.map((field) => ({ ...field })),
   },
-  {
-    kind: 'entity',
-    name: 'genome',
-    displayName: 'Genome',
+  genome: {
     description: 'Genome identity. Sequence may be unresolved before import or evidence linking.',
-    builtin: true,
     fields: [
       { key: 'sequence', label: 'Sequence', type: 'dna_sequence', suggested: true },
       {
@@ -1655,13 +1646,9 @@ export const LIMS_BUILTIN_ENTITY_SCHEMAS: readonly LimsBuiltinSchemaDefinition[]
       { key: 'notes', label: 'Notes', type: 'long_text', suggested: true },
     ],
   },
-  {
-    kind: 'entity',
-    name: 'chromosome',
-    displayName: 'Chromosome',
+  chromosome: {
     description:
       'A single chromosome/molecule of a genome assembly (NCBI: a sequence record, distinct from the assembly). A chromosome IS a DNA molecule, so it MUST carry a resolved sequence (file-backed or inline) — never a bare identity record.',
-    builtin: true,
     fields: [
       {
         key: 'sequence',
@@ -1684,13 +1671,9 @@ export const LIMS_BUILTIN_ENTITY_SCHEMAS: readonly LimsBuiltinSchemaDefinition[]
       { key: 'notes', label: 'Notes', type: 'long_text', suggested: true },
     ],
   },
-  {
-    kind: 'entity',
-    name: 'strain',
-    displayName: 'Strain',
+  strain: {
     description:
       'Strain identity — the lab unit of work. Carries its species (the organism is a field on the strain, not a separate entity), genotype, and lineage (derives_from).',
-    builtin: true,
     fields: [
       { key: 'genotypeCanonical', label: 'Canonical genotype', type: 'long_text', required: true },
       { key: 'species', label: 'Species (scientific name)', type: 'text', suggested: true },
@@ -1704,12 +1687,8 @@ export const LIMS_BUILTIN_ENTITY_SCHEMAS: readonly LimsBuiltinSchemaDefinition[]
       { key: 'notes', label: 'Notes', type: 'long_text', suggested: true },
     ],
   },
-  {
-    kind: 'entity',
-    name: 'organism',
-    displayName: 'Organism',
+  organism: {
     description: 'Lightweight taxonomy concept referenced by links.',
-    builtin: true,
     fields: [
       { key: 'taxid', label: 'NCBI taxid', type: 'text', required: true },
       { key: 'scientificName', label: 'Scientific name', type: 'text', required: true },
@@ -1718,14 +1697,10 @@ export const LIMS_BUILTIN_ENTITY_SCHEMAS: readonly LimsBuiltinSchemaDefinition[]
       { key: 'lineageString', label: 'Lineage', type: 'long_text', suggested: true },
     ],
   },
-  {
-    kind: 'entity',
-    name: 'protein',
-    displayName: 'Protein',
+  protein: {
     description:
       'Registered amino-acid sequence, minted from a CDS/ORF translation or imported ' +
       'directly. A protein IS an amino-acid sequence, so it MUST carry a resolved sequence.',
-    builtin: true,
     fields: [
       {
         key: 'sequence',
@@ -1739,13 +1714,9 @@ export const LIMS_BUILTIN_ENTITY_SCHEMAS: readonly LimsBuiltinSchemaDefinition[]
       { key: 'notes', label: 'Notes', type: 'long_text', suggested: true },
     ],
   },
-  {
-    kind: 'entity',
-    name: 'dna_sequence',
-    displayName: 'DNA sequence',
+  dna_sequence: {
     description:
       'A resolved DNA molecule whose biological role has not been asserted as plasmid, chromosome, part, or fragment.',
-    builtin: true,
     fields: [
       {
         key: 'sequence',
@@ -1758,13 +1729,9 @@ export const LIMS_BUILTIN_ENTITY_SCHEMAS: readonly LimsBuiltinSchemaDefinition[]
       { key: 'notes', label: 'Notes', type: 'long_text', suggested: true },
     ],
   },
-  {
-    kind: 'entity',
-    name: 'rna_sequence',
-    displayName: 'RNA sequence',
+  rna_sequence: {
     description:
       'A resolved RNA molecule whose biological role has not been asserted as a guide RNA or another specialized RNA type.',
-    builtin: true,
     fields: [
       {
         key: 'sequence',
@@ -1778,12 +1745,8 @@ export const LIMS_BUILTIN_ENTITY_SCHEMAS: readonly LimsBuiltinSchemaDefinition[]
     ],
   },
 
-  {
-    kind: 'entity',
-    name: 'guide_rna',
-    displayName: 'Guide RNA',
+  guide_rna: {
     description: 'A CRISPR guide RNA; targets a locus/sequence via a targets link.',
-    builtin: true,
     fields: [
       { key: 'spacer', label: 'Spacer sequence', type: 'text', suggested: true },
       { key: 'pam', label: 'PAM', type: 'text', suggested: true },
@@ -1791,95 +1754,63 @@ export const LIMS_BUILTIN_ENTITY_SCHEMAS: readonly LimsBuiltinSchemaDefinition[]
       { key: 'notes', label: 'Notes', type: 'long_text', suggested: true },
     ],
   },
-  {
-    kind: 'entity',
-    name: 'allele',
-    displayName: 'Allele',
+  allele: {
     description: 'A genotype allele / variant referenced by strains and constructs.',
-    builtin: true,
     fields: [
       { key: 'gene', label: 'Gene', type: 'text', suggested: true },
       { key: 'notes', label: 'Notes', type: 'long_text', suggested: true },
     ],
   },
-  {
-    kind: 'entity',
-    name: 'locus',
-    displayName: 'Locus',
+  locus: {
     description: 'A genomic locus / target site.',
-    builtin: true,
     fields: [
       { key: 'coordinates', label: 'Coordinates', type: 'text', suggested: true },
       { key: 'accessions', label: 'Accessions', type: 'string_array', suggested: true },
       { key: 'notes', label: 'Notes', type: 'long_text', suggested: true },
     ],
   },
-  {
-    kind: 'entity',
-    name: 'part',
-    displayName: 'Part',
+  part: {
     description: 'A reusable DNA part (promoter, RBS, terminator, CDS, etc.).',
-    builtin: true,
     fields: [
       { key: 'partType', label: 'Part type', type: 'text', suggested: true },
       { key: 'sequence', label: 'Sequence', type: 'dna_sequence', suggested: true },
       { key: 'notes', label: 'Notes', type: 'long_text', suggested: true },
     ],
   },
-  {
-    kind: 'entity',
-    name: 'fragment',
-    displayName: 'Fragment',
+  fragment: {
     description: 'A DNA fragment (PCR product, gBlock, digest) — often a build intermediate.',
-    builtin: true,
     fields: [
       { key: 'sequence', label: 'Sequence', type: 'dna_sequence', suggested: true },
       { key: 'notes', label: 'Notes', type: 'long_text', suggested: true },
     ],
   },
-  {
-    kind: 'entity',
-    name: 'marker',
-    displayName: 'Marker',
+  marker: {
     description: 'A selectable / auxotrophic marker (kanMX, URA3, ampR, …).',
-    builtin: true,
     fields: [
       { key: 'selection', label: 'Selection', type: 'text', suggested: true },
       { key: 'notes', label: 'Notes', type: 'long_text', suggested: true },
     ],
   },
-  {
-    kind: 'entity',
-    name: 'external_ref',
-    displayName: 'External reference',
+  external_ref: {
     description:
       'An external accession/vendor reference (Addgene, ATCC, GenBank) as a first-class node.',
-    builtin: true,
     fields: [
       { key: 'accessions', label: 'Accessions', type: 'string_array', suggested: true },
       { key: 'url', label: 'URL', type: 'text', suggested: true },
       { key: 'notes', label: 'Notes', type: 'long_text', suggested: true },
     ],
   },
-  {
-    kind: 'entity',
-    name: 'notebook',
-    displayName: 'Notebook entry',
+  notebook: {
     description:
       'A lab notebook entry backed by a workspace notebook package. The file is truth; this row is the registry face of the same entity.',
-    builtin: true,
     fields: [
       { key: 'packagePath', label: 'Package path', type: 'text', suggested: true },
       { key: 'notes', label: 'Notes', type: 'long_text', suggested: true },
     ],
   },
-  {
-    kind: 'entity',
-    name: 'track-view',
-    displayName: 'Track view',
+  'track-view': {
     description:
       'A saved genome Track view backed by a portable file. The file is authoritative and this row is its Registry projection.',
-    builtin: true,
     fields: [
       { key: 'referenceAssemblyId', label: 'Reference assembly', type: 'text', required: true },
       { key: 'referenceName', label: 'Reference name', type: 'text', required: true },
@@ -1887,13 +1818,9 @@ export const LIMS_BUILTIN_ENTITY_SCHEMAS: readonly LimsBuiltinSchemaDefinition[]
       { key: 'artifactFingerprint', label: 'Artifact fingerprint', type: 'text', required: true },
     ],
   },
-  {
-    kind: 'entity',
-    name: 'molecular-document',
-    displayName: 'Molecular visualization',
+  'molecular-document': {
     description:
       'A file-backed molecular visualization with exact saved results and pinned coordinates. The file is authoritative.',
-    builtin: true,
     fields: [
       { key: 'currentReferenceId', label: 'Current result', type: 'text', required: true },
       { key: 'revisionCount', label: 'Saved results', type: 'number', required: true },
@@ -1901,7 +1828,13 @@ export const LIMS_BUILTIN_ENTITY_SCHEMAS: readonly LimsBuiltinSchemaDefinition[]
       { key: 'artifactFingerprint', label: 'Artifact fingerprint', type: 'text', required: true },
     ],
   },
-] as const;
+};
+
+export const LIMS_BUILTIN_ENTITY_SCHEMAS: readonly LimsBuiltinSchemaDefinition[] =
+  LIMS_ENTITY_KINDS.map((kind) => ({
+    ...builtinEntitySchemaIdentity(kind),
+    ...registryEntitySchemas[kind],
+  }));
 
 export const LIMS_BUILTIN_RELATIONSHIP_SCHEMAS: readonly LimsBuiltinSchemaDefinition[] = [
   relationshipSchema({

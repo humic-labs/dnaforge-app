@@ -1,3 +1,4 @@
+import { entityPickerResult } from '../entity-picker-result';
 import { embedRegistry } from '../registry';
 import { PagePicker } from './Picker';
 import type { SlashCommandDefinition } from '../types';
@@ -18,6 +19,7 @@ export const pageCommand: SlashCommandDefinition = {
     ],
     size: 'md',
     onComplete: (data) => {
+      if (data.entity) return entityPickerResult(data.entity);
       if (!data.pageId || typeof data.pageId !== 'string') {
         throw new Error('Invalid picker data: missing or invalid pageId');
       }

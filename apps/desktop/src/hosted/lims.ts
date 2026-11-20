@@ -1,3 +1,7 @@
+import {
+  deterministicSchemaId,
+  persistedSchemaEntityTypeLabel,
+} from '@waypoint/scientific-artifacts/shared/entity-types';
 import { HostedCapabilityError } from './errors';
 import {
   LIMS_ENTITY_KINDS,
@@ -58,7 +62,7 @@ export function createHostedLims(): PlatformBridge['lims'] {
       kind: entity.kind,
       schemaSnapshot,
       fieldValues: resolveEntityRecordFieldValues(schemaSnapshot, entity.fields),
-      schemaDisplayName: schemaSnapshot.displayName,
+      schemaDisplayName: persistedSchemaEntityTypeLabel(schemaSnapshot),
       eventSeq: entity.eventSeq,
       name: entity.name,
       registryId: entity.registryId,
@@ -85,6 +89,7 @@ export function createHostedLims(): PlatformBridge['lims'] {
   }
 
   return {
+    readCommittedPrimerSource: async () => null,
     readPrimerArtifactRevisionState: async () => ({ state: 'not_enrolled' }),
     revisePrimerArtifact: async () => {
       throw new HostedCapabilityError('lims.revisePrimerArtifact');
@@ -388,7 +393,7 @@ export function createHostedLims(): PlatformBridge['lims'] {
 function builtinSchemaView(kind: string): LimsSchemaDefinitionView | null {
   const schema = LIMS_BUILTIN_ENTITY_SCHEMAS.find((candidate) => candidate.name === kind);
   if (!schema) return null;
-  const schemaId = `schema-entity-${schema.name.replace(/[^A-Za-z0-9_-]/g, '-')}`;
+  const schemaId = deterministicSchemaId('entity', schema.name);
   const version = schema.version ?? 1;
   return {
     schemaId,

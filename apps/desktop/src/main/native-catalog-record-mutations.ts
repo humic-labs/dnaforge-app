@@ -1,3 +1,4 @@
+import { recoverPrimerFileMoves } from './primer-file-move-intent';
 import { createHash } from 'node:crypto';
 import { assertRegistryEntityWriteAllowed } from './registry-write-admission';
 import { isDeepStrictEqual } from 'node:util';
@@ -365,6 +366,7 @@ async function mutateNativeCatalogRecord(
 export async function recoverNativeCatalogRecordPublications(
   input: Context & { workspacePath: string }
 ): Promise<void> {
+  await recoverPrimerFileMoves(input);
   await recoverEntityArtifactPublications(input);
   const pending = input.runDatabase(() => pendingOperations(input.db, input.workspacePath));
   for (const { operation_id: operationId } of pending) {

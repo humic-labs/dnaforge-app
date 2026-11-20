@@ -1,6 +1,10 @@
 import type { JSONContent } from '@tiptap/core';
 import { z } from 'zod';
 import { encodeInlineReferenceDeclaration } from '../ai/public/inline-reference-codec';
+import { contentFingerprint } from '../../shared/content-fingerprint';
+import { normalizeNotebookReferences } from '../../shared/notebook-reference-normalization';
+import { createTableBlock } from '../../shared/notebook-model/table/configuration';
+import { tableCellContentText } from '../../shared/table-cell-content';
 
 export const notebookInlineSchema = z
   .object({
@@ -59,15 +63,42 @@ function inlineNodes(content: z.infer<typeof inlineContent>): JSONContent[] {
     }));
 }
 
-export function compileNotebookBlocks(input: z.infer<typeof notebookBlocksSchema>): JSONContent {
+export function compileNotebookBlocks(
+  input: z.infer<typeof notebookBlocksSchema>,
+  options: { tableIdentity?: string; existingDocumentTables?: boolean } = {}
+): JSONContent {
   const blocks = notebookBlocksSchema.parse(input);
+  const tableIdentity = options.tableIdentity ?? contentFingerprint(JSON.stringify(blocks));
   return {
     type: 'doc',
-    content: blocks.map((block): JSONContent => {
+    content: blocks.map((block, blockIndex): JSONContent => {
       if (block.type === 'table') {
         const columns = block.rows[0].length;
         if (block.rows.some((row) => row.length !== columns))
           throw new Error('Every row of a notebook table must have the same number of columns.');
+        if (!options.existingDocumentTables) {
+          const cells = block.rows.map((row, rowIndex) =>
+            row.map((cell) => {
+              const content = inlineNodes(cell).flatMap(
+                (node) =>
+                  normalizeNotebookReferences({ type: 'paragraph', content: [node] }).content ?? []
+              );
+              return {
+                value: tableCellContentText(content),
+                type: 'text' as const,
+                ...(content.some((node) => node.type !== 'text' || node.marks?.length)
+                  ? { content }
+                  : {}),
+                ...(block.header && rowIndex === 0 ? { format: { bold: true } } : {}),
+              };
+            })
+          );
+          return createTableBlock(`table-${contentFingerprint(`${tableIdentity}:${blockIndex}`)}`, {
+            rows: cells.length,
+            cols: columns,
+            cells,
+          });
+        }
         return {
           type: 'table',
           content: block.rows.map((row, index) => ({

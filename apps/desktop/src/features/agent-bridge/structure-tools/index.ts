@@ -18,12 +18,17 @@ import {
 } from '../../structure-drawer/public/structure-inspection';
 import { inspectionViewStatus } from '../../structure-drawer/public/state/structure-inspection-sessions';
 import { sha256Hex } from '../../structure-drawer/public/api/protein-identity';
-import { requireMolViewSpecSurfaceOwnership } from '../../page/public/embeds/structure3d/molstar/molViewSpec';
+import {
+  hasMolViewSpecController,
+  requireMolViewSpecSurfaceOwnership,
+} from '../../page/public/embeds/structure3d/molstar/molViewSpec';
 import { useCanvasStore } from '../../canvas/public/store';
 import type { PanelState, Tab } from '../../canvas/public/types';
 import { loadCatalogStructure } from '../../compute/public/molecular-catalog';
 import { getCurrentWorkspaceScope, type WorkspaceFolder } from '../../../stores/workspaceStore';
 import { platform } from '../../../platform';
+import { assertMolecularDocumentStorage } from '../../../shared/molecular-document';
+import { MolecularStorageError } from '../../../shared/molecular-storage';
 import { getUserFolders } from '../../workspace/public/path-resolve';
 import { pageMolecularChains } from '../../../shared/molecular-tool-readback';
 import { inspectionMeasurementForLayer } from '../../structure-drawer/public/inspection-measurement-data';
@@ -53,7 +58,6 @@ import {
   coordinateDigest,
   molecularViewSchema,
   validateMolecularViewCoordinates,
-  MOLECULAR_VIEW_MAX_COORDINATE_BYTES,
   molecularViewFromReferenceData,
   molecularViewAttrs,
   molecularViewSourceForCoordinates,
@@ -90,7 +94,8 @@ import {
 import {
   agentStructureRendererHostId,
   hasAgentStructureRenderer,
-  leaseAgentStructureRenderer,
+  acquireAgentStructureRenderer,
+  retainedInspectionRendererSlot,
 } from '../../page/public/embeds/structure3d/agentStructureRenderers';
 import {
   extractMolstarSelectionReadback,
@@ -181,6 +186,8 @@ import {
   validateMolViewSpecViewGeometry,
   waitForMolViewSpecViewReady,
   getMolViewSpecScene,
+  activeMolViewSpecCoordinateAssets,
+  samePinnedMolViewSpecAssets,
   getMolViewSpecSceneDocument,
   readMolViewSpecNativeState,
   getMolViewSpecCoordinates,
@@ -231,7 +238,7 @@ const SCREENSHOT_RETRY_SCALE = 0.5;
 const mcpSelectionByStructureViewId = new Map<string, { selection: string }>();
 
 type RegisteredStructureCandidate = RegisteredStructureVisibilityCandidate;
-type StructureTabHost = { panel: PanelState; tab: Tab };
+type StructureTabHost = { panel: PanelState; tab: Tab; retainedProteinKey?: string };
 
 type OpenTabSourceRef = StructureRef | { kind: 'data'; format: 'pdb' | 'cif'; byteLength: number };
 
@@ -627,14 +634,12 @@ async function listRegisteredStructures(
         const tabHost = findStructureTabHost(registrationId, structureViewId, options.target);
         const tabError = tabHost && structureTabError(tabHost.tab);
         const background = !!tabHost && rendersInBackground(tabHost);
-        const unselected =
-          tabHost &&
-          tabHost.panel.activeTabId !== tabHost.tab.id &&
-          !(background && hasAgentStructureRenderer(tabHost.tab.id));
+        const unselected = background && !hasAgentStructureRenderer(rendererSlot(tabHost));
         const inspectionStatus = tabHost?.tab.structureInspection
           ? inspectionViewStatus(
               tabHost.tab.id,
-              inspectionProteinKey(tabHost.tab.structureInspection.request)
+              tabHost.retainedProteinKey ??
+                inspectionProteinKey(tabHost.tab.structureInspection.request)
             )
           : null;
         const runtime: ViewerRuntimeSnapshot = tabError
@@ -736,15 +741,11 @@ async function listRegisteredStructures(
           },
           viewerStatus: runtime.viewerStatus,
           ...(unselected && !tabError
-            ? background
-              ? {
-                  inactiveReason:
-                    'Another tab is selected in this pane. Structure commands on this view render it in the background without changing the selected tab.',
-                }
-              : {
-                  inactiveReason: 'Another tab is selected in this pane.',
-                  reactivation: { tool: 'mol_activate_view' as const, structureViewId },
-                }
+            ? {
+                inactiveReason: tabHost?.retainedProteinKey
+                  ? 'Another protein is displayed in this linked inspection pane. Structure commands on this view render it in the background without changing the displayed protein.'
+                  : 'Another tab is selected in this pane. Structure commands on this view render it in the background without changing the selected tab.',
+              }
             : {}),
           chains: runtime.chains,
           ligands: runtime.ligands,
@@ -773,8 +774,8 @@ async function listRegisteredStructures(
       structureViewId: item.structureViewId,
       label: item.request.cdsLabel ?? 'Protein',
       viewerStatus: 'inactive' as const,
-      inactiveReason: 'Another protein is displayed in this linked inspection pane.',
-      reactivation: { tool: 'mol_activate_view', structureViewId: item.structureViewId },
+      inactiveReason:
+        'Another protein is displayed in this linked inspection pane. Structure commands on this view render it in the background without changing the displayed protein.',
       savedViewReferenceId: item.view.savedViewReferenceId ?? null,
       retainedProtein: {
         proteinSequenceSha256: sha256Hex(item.request.translation),
@@ -915,50 +916,155 @@ function findStructureTabHost(
       tab.initialStructureAttrs?.structureViewIdentity?.structureViewId === structureViewId ||
       (!!tab.structureInspection && ownerId?.endsWith(`\u0000${tab.id}`))
   );
-  return (
+  const host =
     hosts.find(
       ({ panel, tab }) => panel.id === canvas.focusedPanelId && panel.activeTabId === tab.id
     ) ??
     hosts.find(({ panel, tab }) => panel.activeTabId === tab.id) ??
     hosts[0] ??
-    null
-  );
+    null;
+  const retainedProteinKey = host && retainedInspectionProteinKey(host.tab, structureViewId);
+  return host && retainedProteinKey ? { ...host, retainedProteinKey } : host;
+}
+
+function retainedInspectionProteinKey(tab: Tab, structureViewId: string): string | undefined {
+  const inspection = tab.structureInspection;
+  if (!inspection || inspection.viewSettings?.structureViewId === structureViewId) return undefined;
+  const currentKey = inspectionProteinKey(inspection.request);
+  return Object.entries(inspection.retainedProteinViews ?? {}).find(
+    ([key, view]) => key !== currentKey && view.viewSettings?.structureViewId === structureViewId
+  )?.[0];
+}
+
+function rendererSlot(host: StructureTabHost): string {
+  return host.retainedProteinKey
+    ? retainedInspectionRendererSlot(host.tab.id, host.retainedProteinKey)
+    : host.tab.id;
 }
 
 function rendersInBackground(host: StructureTabHost): boolean {
-  return host.panel.activeTabId !== host.tab.id && !host.tab.structureInspection;
+  return !!host.retainedProteinKey || host.panel.activeTabId !== host.tab.id;
+}
+
+function inspectionReady(host: StructureTabHost): boolean {
+  const inspection = host.tab.structureInspection;
+  return (
+    !inspection ||
+    inspectionViewStatus(
+      host.tab.id,
+      host.retainedProteinKey ?? inspectionProteinKey(inspection.request)
+    ) === 'ready'
+  );
 }
 
 function structureTabRendererCacheKey(host: StructureTabHost): string {
   return getPaneRendererHostCacheKey(
-    rendersInBackground(host) ? agentStructureRendererHostId(host.tab.id) : `pane:${host.panel.id}`,
+    rendersInBackground(host)
+      ? agentStructureRendererHostId(rendererSlot(host))
+      : `pane:${host.panel.id}`,
     'loaded'
   );
 }
 
-const BACKGROUND_RENDERER_START_MS = 30_000;
+const BACKGROUND_RENDERER_START_MS = 90_000;
 
 async function startBackgroundStructureRenderer(
   host: StructureTabHost,
   found: RegisteredStructureCandidate
-): Promise<void> {
-  leaseAgentStructureRenderer(host.tab.id);
+): Promise<() => void> {
+  const release = await acquireAgentStructureRenderer(rendererSlot(host));
+  if (!release)
+    throw new MolViewSpecSceneError(
+      'PLUGIN_NOT_READY',
+      'Background structure renderers are busy with other structure commands. Retry this command.'
+    );
   const cacheKey = structureTabRendererCacheKey(host);
   const deadline = Date.now() + BACKGROUND_RENDERER_START_MS;
-  for (;;) {
-    const ready = await withActivePlugin(
-      found.viewerId,
-      ({ plugin }) => {
-        const scene = findRegisteredStructure(found.structureViewId)?.entry.data.molViewSpec;
-        return !scene || sameLoadedMolViewSpecScene(activeMolViewSpecScene(plugin), scene);
-      },
-      { cacheKey, registrationId: found.registrationId }
-    ).catch((error: unknown) => {
-      if (!(error instanceof ActiveMolstarViewerError)) throw error;
-      return typeof error.details?.error === 'string' && error.details.error.length > 0;
-    });
-    if (ready || Date.now() > deadline) return;
-    await new Promise((resolve) => setTimeout(resolve, 50));
+  try {
+    for (;;) {
+      const ready = await withActivePlugin(
+        found.viewerId,
+        ({ plugin }) => {
+          const scene = findRegisteredStructure(found.structureViewId)?.entry.data.molViewSpec;
+          return (
+            inspectionReady(host) &&
+            hasMolViewSpecController(plugin) &&
+            (!scene || sameLoadedMolViewSpecScene(activeMolViewSpecScene(plugin), scene))
+          );
+        },
+        { cacheKey, registrationId: found.registrationId }
+      ).catch((error: unknown) => {
+        if (!(error instanceof ActiveMolstarViewerError)) throw error;
+        return typeof error.details?.error === 'string' && error.details.error.length > 0;
+      });
+      if (ready || Date.now() > deadline) return release;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  } catch (error) {
+    release();
+    throw error;
+  }
+}
+
+const RETAINED_RENDERER_START_MS = 90_000;
+
+async function startRetainedInspectionRenderer(
+  target: string | undefined
+): Promise<(() => void) | undefined> {
+  if (!target) return undefined;
+  const retained = retainedStructureInspectionViews().filter(
+    (item) => item.structureViewId === target
+  );
+  if (retained.length !== 1) return undefined;
+  const [item] = retained;
+  const panel = useCanvasStore.getState().panels[item.panelId];
+  const tab = panel?.tabs.find((candidate) => candidate.id === item.tabId);
+  if (!panel || !tab) return undefined;
+  const host: StructureTabHost = { panel, tab, retainedProteinKey: item.proteinKey };
+  const release = await acquireAgentStructureRenderer(rendererSlot(host));
+  if (!release)
+    throw new MolViewSpecSceneError(
+      'PLUGIN_NOT_READY',
+      'Background structure renderers are busy with other structure commands. Retry this command.'
+    );
+  const deadline = Date.now() + RETAINED_RENDERER_START_MS;
+  try {
+    for (;;) {
+      const found = findRegisteredStructure(target);
+      const ready =
+        !!found &&
+        (await withActivePlugin(
+          found.viewerId,
+          ({ plugin }) => inspectionReady(host) && hasMolViewSpecController(plugin),
+          {
+            cacheKey: structureTabRendererCacheKey(host),
+            registrationId: found.registrationId,
+          }
+        ).catch((error: unknown) => {
+          if (!(error instanceof ActiveMolstarViewerError)) throw error;
+          return false;
+        }));
+      if (ready || Date.now() > deadline) return release;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  } catch (error) {
+    release();
+    throw error;
+  }
+}
+
+async function withRetainedTarget<T>(args: unknown, run: () => Promise<T>): Promise<T> {
+  const target =
+    args && typeof args === 'object' && 'structureViewId' in args
+      ? (args as { structureViewId?: unknown }).structureViewId
+      : undefined;
+  const release = await startRetainedInspectionRenderer(
+    typeof target === 'string' ? target : undefined
+  );
+  try {
+    return await run();
+  } finally {
+    release?.();
   }
 }
 
@@ -974,11 +1080,12 @@ function requireActiveStructureTab(
       'STRUCTURE_LOAD_FAILED',
       `${loadError} Check the coordinate source and reopen the structure.`
     );
-  if (
-    host &&
-    host.panel.activeTabId !== host.tab.id &&
-    !(rendersInBackground(host) && hasAgentStructureRenderer(host.tab.id))
-  ) {
+  if (host && rendersInBackground(host) && !hasAgentStructureRenderer(rendererSlot(host))) {
+    if (!host.tab.structureInspection || host.retainedProteinKey)
+      throw new MolViewSpecSceneError(
+        'VIEW_NOT_ACTIVE',
+        `The selected tab in the pane of structure view ${structureViewId} changed while this command ran. Check the reported effects, then run the command again; it renders the view in the background without changing the selected tab.`
+      );
     throw new MolViewSpecSceneError(
       'VIEW_NOT_ACTIVE',
       `Structure view ${structureViewId} is open but its tab is not active. Call mol_activate_view with structureViewId "${structureViewId}", then retry this scene command.`
@@ -1393,7 +1500,6 @@ function projectViewerReadback(
     return {
       ...identity,
       inactiveReason: entry.inactiveReason,
-      reactivation: entry.reactivation,
       savedViewReferenceId: entry.savedViewReferenceId,
     };
   const {
@@ -1736,15 +1842,28 @@ function sceneToolFailure(error: unknown, nativeApplied = false) {
   });
 }
 
+type SceneTargetOptions = {
+  waitForViewReady?: boolean;
+  readOnly?: boolean;
+  copy?: boolean;
+  inspectsDocumentBinding?: boolean;
+  retargetsTabOnSave?: boolean;
+};
+
 async function withSceneTarget<T>(
   target: string,
   operation: (active: ActiveMolstarViewer) => Promise<T> | T,
-  options: {
-    waitForViewReady?: boolean;
-    readOnly?: boolean;
-    copy?: boolean;
-    retargetsTabOnSave?: boolean;
-  } = {}
+  options: SceneTargetOptions = {}
+): Promise<T> {
+  return withRetainedTarget({ structureViewId: target }, () =>
+    withResolvedSceneTarget(target, operation, options)
+  );
+}
+
+async function withResolvedSceneTarget<T>(
+  target: string,
+  operation: (active: ActiveMolstarViewer) => Promise<T> | T,
+  options: SceneTargetOptions
 ): Promise<T> {
   const documentReference = await requireMolecularDocumentTarget(target);
   const found = findRegisteredStructure(target);
@@ -1782,18 +1901,29 @@ async function withSceneTarget<T>(
       'DOCUMENT_OWNER_REQUIRED',
       'Reopen this legacy result through its verified molecular document reference before editing or saving it.'
     );
-  if (found.entry.data.molecularDocumentId) await inspectMolecularDocumentBinding(found.entry.data);
+  if (found.entry.data.molecularDocumentId && !options.inspectsDocumentBinding)
+    await inspectMolecularDocumentBinding(found.entry.data);
   const tabHost = findStructureTabHost(found.registrationId, found.structureViewId, target);
-  if (tabHost && rendersInBackground(tabHost) && !structureTabError(tabHost.tab))
-    await startBackgroundStructureRenderer(tabHost, found);
+  const releaseBackground =
+    tabHost && rendersInBackground(tabHost) && !structureTabError(tabHost.tab)
+      ? await startBackgroundStructureRenderer(tabHost, found)
+      : undefined;
+  try {
+    return await runSceneTarget(target, operation, options, found, documentReference);
+  } finally {
+    releaseBackground?.();
+  }
+}
+
+async function runSceneTarget<T>(
+  target: string,
+  operation: (active: ActiveMolstarViewer) => Promise<T> | T,
+  options: SceneTargetOptions,
+  found: RegisteredStructureCandidate,
+  documentReference: Awaited<ReturnType<typeof requireMolecularDocumentTarget>>
+): Promise<T> {
   const host = requireActiveStructureTab(found.registrationId, found.structureViewId, target);
-  if (
-    host?.tab.structureInspection &&
-    inspectionViewStatus(
-      host.tab.id,
-      inspectionProteinKey(host.tab.structureInspection.request)
-    ) !== 'ready'
-  )
+  if (host && !inspectionReady(host))
     throw new MolViewSpecSceneError(
       'PLUGIN_NOT_READY',
       'The selected protein inspection is still preparing its initial scene. Wait for mol_get_state to report it active, then retry.'
@@ -1933,6 +2063,11 @@ export async function handleMolGetScene(args: unknown) {
       target,
       async (active) => {
         const registered = findRegisteredStructure(target)!;
+        const { coordinates, pinnedAssets } = activeMolViewSpecCoordinateAssets(active.plugin);
+        const binding = await inspectMolecularDocumentBinding(registered.entry.data, [
+          coordinates,
+          ...pinnedAssets,
+        ]);
         const detailed =
           input.detail === 'full'
             ? getMolViewSpecScene(active.plugin, input.connectionQuery)
@@ -1950,7 +2085,7 @@ export async function handleMolGetScene(args: unknown) {
             : undefined;
         return toolSuccess({
           structureViewId: registered.structureViewId,
-          ...(await inspectMolecularDocumentBinding(registered.entry.data)),
+          ...binding,
           ...(input.includeParameterSchema
             ? {
                 parameterSchema: await inspectMolecularDocumentParameters(scene.scene, {
@@ -2049,7 +2184,7 @@ export async function handleMolGetScene(args: unknown) {
             : {}),
         });
       },
-      { readOnly: true }
+      { readOnly: true, inspectsDocumentBinding: true }
     );
   } catch (error) {
     return sceneToolFailure(error);
@@ -2448,7 +2583,7 @@ async function waitForSavedDocumentViewer(expected: {
   documentId: string;
   revisionId: string;
   scene: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const requireDestination = () => {
     const panel = useCanvasStore.getState().panels[expected.panelId];
     const tab = panel?.tabs.find((candidate) => candidate.id === expected.tabId);
@@ -2462,7 +2597,7 @@ async function waitForSavedDocumentViewer(expected: {
     const host = { panel, tab };
     if (
       panel.activeTabId !== tab.id &&
-      !(rendersInBackground(host) && hasAgentStructureRenderer(tab.id))
+      !(rendersInBackground(host) && hasAgentStructureRenderer(rendererSlot(host)))
     )
       throw new MolViewSpecSceneError('VIEW_NOT_ACTIVE', 'The saved document tab is not active.');
     return host;
@@ -2491,7 +2626,7 @@ async function waitForSavedDocumentViewer(expected: {
           }
         );
         requireDestination();
-        return;
+        return true;
       } catch (error) {
         if (
           !(error instanceof ActiveMolstarViewerError || error instanceof MolViewSpecSceneError) ||
@@ -2502,10 +2637,7 @@ async function waitForSavedDocumentViewer(expected: {
     }
     await new Promise((resolve) => setTimeout(resolve, 50));
   } while (Date.now() < deadline);
-  throw new MolViewSpecSceneError(
-    'PLUGIN_NOT_READY',
-    'The document was saved, but its viewer is still loading. Reopen the saved document before continuing.'
-  );
+  return false;
 }
 
 export async function handleMolSaveView(
@@ -2523,6 +2655,8 @@ export async function handleMolSaveView(
       target,
       async (active) => {
         const before = findRegisteredStructure(target)!;
+        const { coordinates, pinnedAssets } = activeMolViewSpecCoordinateAssets(active.plugin);
+        assertMolecularDocumentStorage([coordinates, ...pinnedAssets]);
         const currentScene = getMolViewSpecScene(active.plugin);
         const captureOptions: MolViewSpecCaptureOptions = {
           cameraPolicy: options.cameraPolicy ?? 'capture-current',
@@ -2559,17 +2693,11 @@ export async function handleMolSaveView(
           }
         });
         const captured = captureMolViewSpecView(active.plugin, captureOptions);
-        const catalogObservation = before.entry.data.catalogSource
-          ? (await loadCatalogStructure(before.entry.data.catalogSource.observationId)).observation
-          : before.entry.data.catalogProvenance;
-        if (
-          new TextEncoder().encode(captured.coordinates.text).byteLength >
-          MOLECULAR_VIEW_MAX_COORDINATE_BYTES
-        )
-          throw new MolViewSpecSceneError(
-            'MVS_VIEW_TOO_LARGE',
-            'Saved chat views currently support coordinate snapshots up to 8 MB.'
-          );
+        const catalogObservation =
+          !before.entry.data.catalogProvenance && before.entry.data.catalogSource
+            ? (await loadCatalogStructure(before.entry.data.catalogSource.observationId))
+                .observation
+            : before.entry.data.catalogProvenance;
         const preview = await screenshotDataUri(active, 0.25);
         const after = findRegisteredStructure(target);
         if (currentScene.sceneOrigin === 'authored')
@@ -2581,7 +2709,9 @@ export async function handleMolSaveView(
           after.entry.data.structureLinkOwnerId !== before.entry.data.structureLinkOwnerId ||
           latest.scene !== captured.scene ||
           latest.cameraSnapshot !== captured.cameraSnapshot ||
-          JSON.stringify(latest.pinnedAssets) !== JSON.stringify(captured.pinnedAssets)
+          latest.coordinates.format !== captured.coordinates.format ||
+          latest.coordinates.text !== captured.coordinates.text ||
+          !samePinnedMolViewSpecAssets(latest.pinnedAssets, captured.pinnedAssets)
         )
           throw new MolViewSpecSceneError(
             'VIEW_CHANGED',
@@ -2603,7 +2733,7 @@ export async function handleMolSaveView(
           active.plugin.canvas3d?.camera.getSnapshot() ?? null
         );
         const scientificReview = reviewed.scientificReview;
-        const coordinates = {
+        const savedCoordinates = {
           ...captured.coordinates,
           sha256: await coordinateDigest(captured.coordinates.text),
         };
@@ -2615,14 +2745,14 @@ export async function handleMolSaveView(
           scene: reviewed.scene,
           cameraSnapshot: captured.cameraSnapshot,
           initialSnapshotIndex: captured.initialSnapshotIndex,
-          coordinates,
+          coordinates: savedCoordinates,
           ...(captured.pinnedAssets.length
             ? {
                 primarySourceReferenceId: before.entry.data.molViewSpecPrimarySourceReferenceId,
                 pinnedAssets: captured.pinnedAssets,
               }
             : {}),
-          source: molecularViewSourceForCoordinates(before.entry.data, coordinates, {
+          source: molecularViewSourceForCoordinates(before.entry.data, savedCoordinates, {
             source: before.entry.data.source,
             ...(before.entry.data.source !== 'file'
               ? { sourceId: before.entry.data.sourceId }
@@ -2839,8 +2969,9 @@ export async function handleMolSaveView(
                 }
               }
         }
-        if (adoptingHost && !adoptingHost.tab.structureInspection)
-          await waitForSavedDocumentViewer({
+        let warning = projectSave.warning;
+        if (adoptingHost && !adoptingHost.tab.structureInspection) {
+          const viewerReady = await waitForSavedDocumentViewer({
             structureViewId: savedStructureViewId,
             panelId: adoptingHost.panel.id,
             tabId: adoptingHost.tab.id,
@@ -2848,6 +2979,14 @@ export async function handleMolSaveView(
             revisionId: reference.id,
             scene: savedSnapshot.scene,
           });
+          if (!viewerReady)
+            warning = [
+              warning,
+              'The document was saved. Its viewer is still loading. Use the returned document reference to reopen it.',
+            ]
+              .filter(Boolean)
+              .join(' ');
+        }
         return toolSuccess({
           referenceId: projectSave.reference?.id,
           revisionId: reference.id,
@@ -2873,7 +3012,7 @@ export async function handleMolSaveView(
               }
             : {}),
           format: 'mvsj',
-          ...(projectSave?.warning ? { warning: projectSave.warning } : {}),
+          ...(warning ? { warning } : {}),
           message: projectSave
             ? 'Saved the molecular document in the project and preserved this exact result. Earlier chat and notebook results remain unchanged.'
             : 'Retained a clickable molecular result with pinned coordinates, appearance and camera in this chat. No project document or notebook was created; do not print its private locator or reference token.',
@@ -2889,7 +3028,7 @@ export async function handleMolSaveView(
           stateChanged: true as const,
           partialEffects: [{ kind: 'saved-molecular-view', referenceId: savedReferenceId }],
         }
-      : writeAttempted
+      : writeAttempted && !(error instanceof MolecularStorageError)
         ? { ...failure, stateChanged: 'unknown' as const }
         : failure;
   }
@@ -3600,7 +3739,7 @@ export async function handleMolSelectResidues(
   ...args: Parameters<typeof executeMolSelectResidues>
 ) {
   try {
-    return await executeMolSelectResidues(...args);
+    return await withRetainedTarget(args[0], () => executeMolSelectResidues(...args));
   } catch (error) {
     return structureOperationFailure(error, true);
   }
@@ -3608,7 +3747,7 @@ export async function handleMolSelectResidues(
 
 export async function handleMolFocus(...args: Parameters<typeof executeMolFocus>) {
   try {
-    return await executeMolFocus(...args);
+    return await withRetainedTarget(args[0], () => executeMolFocus(...args));
   } catch (error) {
     return structureOperationFailure(error, true);
   }
@@ -3618,7 +3757,7 @@ export async function handleMolCaptureScreenshot(
   ...args: Parameters<typeof executeMolCaptureScreenshot>
 ) {
   try {
-    return await executeMolCaptureScreenshot(...args);
+    return await withRetainedTarget(args[0], () => executeMolCaptureScreenshot(...args));
   } catch (error) {
     return structureOperationFailure(error, false);
   }

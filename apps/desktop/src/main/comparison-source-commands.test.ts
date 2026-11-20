@@ -21,6 +21,20 @@ import {
 } from '../shared/comparison-source';
 import { ComparisonSourceCommands } from './comparison-source-commands';
 
+import { createFileTestDb } from './__tests__/test-db';
+import { ensureSchema } from './schema';
+import { TrackViewLibrary } from './track-view-library';
+import { trackViewFixture } from '../shared/track-view-fixture';
+import { parseTrackViewDocument } from '../shared/track-view';
+import { comparisonSourceProjectionId } from '../shared/comparison-source';
+import { savedFileWorkspace } from './saved-file-publication';
+import { listSavedFileVersions, restoreSavedFileSource } from './saved-file-sources';
+vi.mock('electron', () => ({
+  app: { getPath: () => '/tmp', getVersion: () => 'test' },
+  dialog: { showErrorBox: vi.fn() },
+}));
+vi.mock('./analytics', () => ({ trackEvent: vi.fn() }));
+
 const publicFixture = fileURLToPath(
   new URL(
     '../../../../test-fixtures/genome-view-prototypes/MG1655-Shigella2457T-gapped.paf',
@@ -71,6 +85,60 @@ async function fixture() {
   });
   return { root, path, request, commands, assertCurrent, captureReadable };
 }
+
+it('saves a Track view and its admitted alignment bytes, keeps the view editable after source loss and restores the alignment exactly', async () => {
+  const f = await fixture();
+  const db = createFileTestDb('retained-comparison-track-view');
+  try {
+    ensureSchema(db.db, db.dbPath);
+    const lib = new TrackViewLibrary(join(db.tmpDir, 'library'), {
+      db: () => db.db,
+      comparisons: f.commands,
+    });
+    const original = parseTrackViewDocument(JSON.stringify(trackViewFixture()));
+    const axis = f.request.source.targetReference;
+    const document = {
+      ...original,
+      reference: {
+        ...original.reference,
+        chromosomes: [{ chrom: axis.chrom, length: axis.length }],
+      },
+      comparisonProjection: {
+        kind: 'aligned-genomes' as const,
+        project: f.root,
+        source: f.request.source,
+      },
+    };
+    await expect(
+      lib.save({
+        document: {
+          ...document,
+          comparisonProjection: { ...document.comparisonProjection, project: '/outside' },
+        },
+        expectedRevision: null,
+      })
+    ).rejects.toThrow('PROJECT_NOT_ADMITTED');
+    const saved = await lib.save({ document, expectedRevision: null });
+    const owner = {
+      workspaceId: savedFileWorkspace(db.db, f.root)!.id,
+      entityId: comparisonSourceProjectionId(f.request.source),
+    };
+    const [revision] = listSavedFileVersions(db.db, { ...owner, offset: 0, limit: 1 }).versions;
+    expect(revision).toBeDefined();
+    const bytes = await readFile(f.path);
+    await rm(f.path);
+    const edited = await lib.save({
+      document: { ...document, name: 'Renamed view' },
+      expectedRevision: saved.revision,
+    });
+    expect(edited.document.comparisonProjection?.source).toEqual(f.request.source);
+    await restoreSavedFileSource(db.db, { ...owner, revisionId: revision.id, destination: f.path });
+    expect(await readFile(f.path)).toEqual(bytes);
+    expect((await f.commands.read(f.request)).revision).toBe(f.request.source.sha256);
+  } finally {
+    db.cleanup();
+  }
+});
 
 describe('native comparison sources', () => {
   it('reads every actual PAF row and retains its complete CIGAR-derived alignment segments', async () => {

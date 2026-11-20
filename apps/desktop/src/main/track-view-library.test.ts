@@ -5,6 +5,18 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { TrackViewLibrary } from './track-view-library';
 import { trackViewFixture } from '../shared/track-view-fixture';
 
+import { createFileTestDb } from './__tests__/test-db';
+import { ensureSchema } from './schema';
+import { beforeEach } from 'vitest';
+
+let retained: ReturnType<typeof createFileTestDb>;
+beforeEach(() => {
+  retained = createFileTestDb('document-source');
+  ensureSchema(retained.db,retained.dbPath);
+});
+afterEach(() => retained.cleanup());
+const store = {db:() => retained.db};
+
 const roots: string[] = [];
 afterEach(async () => {
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
@@ -15,7 +27,7 @@ describe('Track view file authority', () => {
     const root = await mkdtemp(join(tmpdir(), 'track-view-mixed-library-'));
     roots.push(root);
     const libraryRoot = join(root, 'library');
-    const library = new TrackViewLibrary(libraryRoot);
+    const library = new TrackViewLibrary(libraryRoot,store);
     const expected = [];
     for (let index = 0; index < 5; index++) {
       const workspaceRoot = index === 4 ? libraryRoot : join(root, `project-${index}`);
@@ -35,7 +47,7 @@ describe('Track view file authority', () => {
       );
     }
     expect(await readdir(libraryRoot)).toHaveLength(6);
-    const restarted = new TrackViewLibrary(libraryRoot);
+    const restarted = new TrackViewLibrary(libraryRoot,store);
     const listed = await restarted.list();
     expect(listed.errors).toEqual([]);
     expect(listed.views).toHaveLength(5);
@@ -53,14 +65,14 @@ describe('Track view file authority', () => {
     const root = await mkdtemp(join(tmpdir(), 'track-view-test-'));
     roots.push(root);
     const path = join(root, 'My genes.dnaforge-track-view.json');
-    const library = new TrackViewLibrary(root);
+    const library = new TrackViewLibrary(root,store);
     const saved = await library.save({
       document: trackViewFixture(),
       expectedRevision: null,
       destination: { workspaceRoot: root, path },
     });
     expect(saved.workspaceRoot).toBeUndefined();
-    const restarted = new TrackViewLibrary(root);
+    const restarted = new TrackViewLibrary(root,store);
     expect(await restarted.list()).toEqual({ views: [saved], errors: [] });
     expect(await restarted.read(path)).toEqual(saved);
     expect(await restarted.read(saved.document.id)).toEqual(saved);
@@ -78,7 +90,7 @@ describe('Track view file authority', () => {
     const project = join(root, 'project');
     await mkdir(join(project, 'views'), { recursive: true });
     const path = join(project, 'views', 'My view.dnaforge-track-view.json');
-    const library = new TrackViewLibrary(join(root, 'library'));
+    const library = new TrackViewLibrary(join(root, 'library'),store);
     const saved = await library.save({
       document: trackViewFixture(),
       expectedRevision: null,
@@ -86,7 +98,7 @@ describe('Track view file authority', () => {
     });
     expect(saved.path).toBe(path);
     expect(JSON.parse(await readFile(path, 'utf8'))).toEqual(saved.document);
-    const restarted = new TrackViewLibrary(join(root, 'library'));
+    const restarted = new TrackViewLibrary(join(root, 'library'),store);
     expect(await restarted.read(saved.document.id)).toEqual(saved);
     expect(await restarted.read(path)).toEqual(saved);
     expect((await restarted.list()).views).toEqual([saved]);
@@ -101,7 +113,7 @@ describe('Track view file authority', () => {
   it('reconciles a restored viewport with a newer track setting on disk', async () => {
     const root = await mkdtemp(join(tmpdir(), 'track-view-reconcile-'));
     roots.push(root);
-    const library = new TrackViewLibrary(root);
+    const library = new TrackViewLibrary(root,store);
     const base = await library.save({ document: trackViewFixture(), expectedRevision: null });
     const annotation = {
       ...base.document.annotation,
@@ -113,7 +125,7 @@ describe('Track view file authority', () => {
     });
     const viewport = { start0: 404, end0: 800 };
     const document = { ...base.document, viewport, scope: { kind: 'chromosome', chrom: 'pUC19' } };
-    const reopened = new TrackViewLibrary(root);
+    const reopened = new TrackViewLibrary(root,store);
     const result = await reopened.save({
       document,
       baseDocument: base.document,
@@ -131,7 +143,7 @@ describe('Track view file authority', () => {
   it('combines independent edits to the same alignment track and preserves its source', async () => {
     const root = await mkdtemp(join(tmpdir(), 'track-view-merge-lane-'));
     roots.push(root);
-    const library = new TrackViewLibrary(root);
+    const library = new TrackViewLibrary(root,store);
     const track = {
       trackId: 'reads',
       label: 'Reads',
@@ -156,7 +168,7 @@ describe('Track view file authority', () => {
       baseDocument: base.document,
     });
     expect(saved.reconciliation).toBe('merged');
-    const reopened = await new TrackViewLibrary(root).read(base.document.id);
+    const reopened = await new TrackViewLibrary(root,store).read(base.document.id);
     expect(reopened.document.bamTracks).toEqual([
       { ...track, trackPx: 276, laneHeightPx: 3, coverageCutoffDepth: 0 },
     ]);
@@ -165,7 +177,7 @@ describe('Track view file authority', () => {
   it('keeps both versions of an overlapping viewport edit under distinct saved identities', async () => {
     const root = await mkdtemp(join(tmpdir(), 'track-view-conflict-'));
     roots.push(root);
-    const library = new TrackViewLibrary(root);
+    const library = new TrackViewLibrary(root,store);
     const base = await library.save({ document: trackViewFixture(), expectedRevision: null });
     const newer = await library.save({
       document: { ...base.document, viewport: { start0: 300, end0: 550 } },
@@ -194,7 +206,7 @@ describe('Track view file authority', () => {
     const fileName = 'Genes.dnaforge-track-view.json';
     await writeFile(join(outside, fileName), JSON.stringify(trackViewFixture()));
     await symlink(outside, join(personal, 'shortcut'), 'dir');
-    const library = new TrackViewLibrary(personal);
+    const library = new TrackViewLibrary(personal,store);
     await expect(library.read(join(personal, 'shortcut', fileName))).rejects.toThrow(
       /inside the owning workspace/
     );
@@ -205,7 +217,7 @@ describe('Track view file authority', () => {
     roots.push(root);
     const path = join(root, 'Existing.dnaforge-track-view.json');
     await writeFile(path, 'original bytes');
-    const library = new TrackViewLibrary(join(root, 'library'));
+    const library = new TrackViewLibrary(join(root, 'library'),store);
     await expect(
       library.save({
         document: trackViewFixture(),
@@ -224,7 +236,7 @@ describe('Track view file authority', () => {
     await mkdir(project);
     await mkdir(outside);
     await symlink(outside, join(project, 'shortcut'), 'dir');
-    const library = new TrackViewLibrary(join(root, 'library'));
+    const library = new TrackViewLibrary(join(root, 'library'),store);
     for (const path of [
       join(outside, 'View.dnaforge-track-view.json'),
       join(project, 'shortcut', 'View.dnaforge-track-view.json'),
@@ -247,7 +259,7 @@ describe('Track view file authority', () => {
     const libraryRoot = join(root, 'library');
     const document = trackViewFixture();
     await mkdir(join(libraryRoot, `${document.id}.location.json`), { recursive: true });
-    const library = new TrackViewLibrary(libraryRoot);
+    const library = new TrackViewLibrary(libraryRoot,store);
     const destination = { workspaceRoot: root, path: join(root, 'View.dnaforge-track-view.json') };
     const saved = await library.save({ document, destination, expectedRevision: null });
     expect(saved.warning).toContain('view file was saved');
@@ -266,7 +278,7 @@ describe('Track view file authority', () => {
     roots.push(root);
     const document = trackViewFixture();
     await writeFile(join(root, 'Genes.dnaforge-track-view.json'), JSON.stringify(document));
-    const library = new TrackViewLibrary(root);
+    const library = new TrackViewLibrary(root,store);
     const list = await library.list();
     expect(list.views).toHaveLength(1);
     expect(list.errors).toEqual([]);
@@ -276,14 +288,14 @@ describe('Track view file authority', () => {
   it('keeps two views on one reference across restart and refuses a stale overwrite', async () => {
     const root = await mkdtemp(join(tmpdir(), 'track-view-test-'));
     roots.push(root);
-    const library = new TrackViewLibrary(root);
+    const library = new TrackViewLibrary(root,store);
     const a = await library.save({ document: trackViewFixture(), expectedRevision: null });
     const b = await library.save({
       document: { ...trackViewFixture('track-view-22222222'), name: 'Coverage' },
       expectedRevision: null,
     });
     expect(a.document.reference).toEqual(b.document.reference);
-    const restarted = new TrackViewLibrary(root);
+    const restarted = new TrackViewLibrary(root,store);
     expect((await restarted.list()).views.map((view) => view.document.name).sort()).toEqual([
       'Coverage',
       'Genes',
@@ -301,7 +313,7 @@ describe('Track view file authority', () => {
   it('reports corrupt files while retaining readable views and rejects path traversal', async () => {
     const root = await mkdtemp(join(tmpdir(), 'track-view-test-'));
     roots.push(root);
-    const library = new TrackViewLibrary(root);
+    const library = new TrackViewLibrary(root,store);
     await library.save({ document: trackViewFixture(), expectedRevision: null });
     await writeFile(join(root, 'broken.dnaforge-track-view.json'), '{');
     const result = await library.list();

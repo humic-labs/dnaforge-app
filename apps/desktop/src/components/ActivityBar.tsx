@@ -29,7 +29,7 @@ interface ActivityBarProps {
   limsAttentionCount?: number;
   onOpenReferenceGenome?: () => void;
   devActions?: React.ReactNode;
-  onOpenTerminal?: () => void;
+  onNewTerminalTab?: () => void;
   accountSlot?: React.ReactNode;
 }
 
@@ -211,7 +211,7 @@ export function ActivityBar({
   onOpenReferenceGenome,
   devActions,
   accountSlot,
-  onOpenTerminal,
+  onNewTerminalTab,
 }: ActivityBarProps) {
   const workspaceViews = FULL_SCREEN_ACTIVITY_VIEWS;
   const { dispatchCommand } = useCommandRegistry();
@@ -360,14 +360,14 @@ export function ActivityBar({
             badge={badge}
           />
         ))}
-        {onOpenTerminal && (
+        {onNewTerminalTab && (
           <ActivityButton
             icon={<span className="font-mono text-lg leading-none">›_</span>}
-            label="Terminal"
-            ariaLabel="Terminal"
-            active={activeView === 'terminal' && sidebarVisible}
-            onClick={onOpenTerminal}
-            testId="terminal-toggle"
+            label="New Terminal Tab"
+            active={false}
+            onClick={onNewTerminalTab}
+            testId="new-terminal-tab"
+            ariaLabel="New Terminal Tab"
           />
         )}
         {}

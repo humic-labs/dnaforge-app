@@ -1,5 +1,5 @@
 import { platform } from '../platform';
-import type { CatalogEntityType } from '../shared/catalog-entity';
+import { LINKABLE_CATALOG_ENTITY_TYPES } from '@waypoint/scientific-artifacts/shared/entity-types';
 import { pathIsAtOrUnder, pathRelativeToBoundary, stripTrailingSep } from '../shared/path-boundary';
 import type { SqliteIpcValue } from '../shared/sqlite-ipc';
 import { catalogNameSearch } from './catalog-name-search';
@@ -8,25 +8,13 @@ import { workspaceScopeKey } from '../shared/workspace-scoped-identity';
 import { catalogIconContext } from '../shared/catalog-icon-context';
 import type { EntityColorContext } from '../shared/entity-color-family';
 
-export const PROJECT_REFERENCE_ENTITY_TYPES = [
-  'design',
-  'structure',
-  'protein',
-  'alignment',
-  'trace',
-  'report',
-  'construct',
-  'sample',
-  'protocol',
-  'protocol_run',
-  'track-view',
-  'molecular-document',
-  'file',
-] as const satisfies readonly CatalogEntityType[];
+export const PROJECT_REFERENCE_ENTITY_TYPES = LINKABLE_CATALOG_ENTITY_TYPES.filter(
+  (type) => type !== 'sequence' && type !== 'primer' && type !== 'notebook'
+);
 
 export type ProjectReferenceEntityType = (typeof PROJECT_REFERENCE_ENTITY_TYPES)[number];
 
-export type ProjectSearchEntityType = 'sequence' | ProjectReferenceEntityType;
+export type ProjectSearchEntityType = 'sequence' | 'notebook' | ProjectReferenceEntityType;
 
 export interface ProjectReferenceCandidate {
   entityId: string;

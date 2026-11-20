@@ -182,6 +182,18 @@ describe('ActivityBar dev surfaces', () => {
     expect(analyticsMocks.trackToolOpened).not.toHaveBeenCalled();
   });
 
+  it('offers New Terminal Tab as a creation action alongside the current tool', () => {
+    const onNewTerminalTab = vi.fn();
+    const onViewChange = vi.fn();
+    renderActivityBar({ onNewTerminalTab, onViewChange });
+    const newTab = screen.getByRole('button', { name: 'New Terminal Tab' });
+    fireEvent.click(newTab);
+    expect(onNewTerminalTab).toHaveBeenCalledOnce();
+    expect(onViewChange).not.toHaveBeenCalled();
+    expect(newTab).not.toHaveClass('text-accent');
+    expect(screen.getByTestId('files-button')).toHaveClass('text-accent');
+  });
+
   it('renders a Home button ahead of Explorer', () => {
     const onViewChange = vi.fn();
     renderActivityBar({ onViewChange });
@@ -206,6 +218,17 @@ describe('ActivityBar dev surfaces', () => {
     fireEvent.click(referenceButton);
 
     expect(onViewChange).toHaveBeenCalledWith('references');
+  });
+
+  it('lets navigation buttons supply the color of their tool icons', () => {
+    renderActivityBar();
+
+    const genomeIcon = screen.getByTestId('reference-picker-open').querySelector('svg');
+    expect(genomeIcon).toHaveAttribute('data-icon', 'genome-assembly');
+    expect(genomeIcon).toHaveAttribute('fill', 'currentColor');
+    expect(
+      screen.getByTestId('activity-bar').querySelector('button svg[data-entity-color-family]')
+    ).toBeNull();
   });
 
   it('focuses the permanent full-screen References tool when its dedicated opener is supplied', () => {

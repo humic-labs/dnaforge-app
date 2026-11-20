@@ -41,6 +41,8 @@ export const USER_MESSAGES = {
   'primer.nameRequired': 'Enter a name for this primer.',
   'primer.targetUnavailable':
     'Reopen the target sequence from its project before attaching this primer.',
+  'primer.firstSaveFolderChanged':
+    'Your first save reached the original folder. Choose that folder to save the newer edits to the same primer.',
   'primer.saveLocationInvalid':
     'Choose a save folder in this project and try again. Your primer draft is still here.',
   'primer.save.open-a-sequence-from-a-project-before-saving-a-primer':
@@ -1148,6 +1150,16 @@ export const USER_MESSAGES = {
   'primer.libraryFileRecoveryPending':
     'Some primer files still need recovery. Your original records and recovery progress are preserved. Retry to continue.',
   'primer.failed': 'We couldn’t complete this primer action. Check your inputs and try again.',
+  'primer.recoveryFileMissing':
+    'The saved primer file is missing. Restore it from project history or a backup.',
+  'primer.recoveryRestoreFailed':
+    'A saved primer copy could not be restored. Review the current project and try again.',
+  'primer.recoverySavedCopyAvailable':
+    'The primer file is missing. A verified saved copy is available to restore.',
+  'primer.recoveryFileOutside': 'The saved primer document is outside its recorded project.',
+  'primer.recoveryProjectUnavailable':
+    'The primer’s project folder is unavailable. Reconnect the project before recovery.',
+  'primer.recoveryReview': 'Review the saved primer files in the owning project.',
   'failure.could-not-load-this-binding-site': 'Could not load this binding site.',
   'failure.could-not-save-this-binding-site': 'Could not save this binding site.',
   'failure.open-this-sequence-in-its-project-to-edit-the-binding-site':
@@ -1457,8 +1469,6 @@ export const USER_MESSAGES = {
   'notice.could-not-open-that-quick-look-record': 'Could not open that Quick Look record.',
   'notice.save-or-cancel-the-unfinished-metadata-edits-before-switching-views':
     'Save or cancel the unfinished Metadata edits before switching views.',
-  'notice.save-or-cancel-the-unfinished-metadata-edits-in-its-drawer-before-clos':
-    'Save or cancel the unfinished Metadata edits in its drawer before closing this sequence.',
   'notice.update-entity-or-discard-the-unfinished-metadata-changes-before-editin':
     'Update entity or discard the unfinished Metadata changes before editing the assembly.',
   'notice.restore-was-already-published-its-git-delivery-could-not-be-verified-w':

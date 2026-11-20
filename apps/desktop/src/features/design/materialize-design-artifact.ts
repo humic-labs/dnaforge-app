@@ -6,11 +6,19 @@ import {
 import { resolveCurrentFileByObjectUuid } from '../../db/resolve-by-object-uuid';
 import {
   createDesignArtifactFile,
+  writeDesignArtifactSnapshot,
   type DesignArtifactProvenanceSource,
 } from '../../db/workspace-artifacts';
 import { withRendererWorkspaceMutation } from '../../services/workspace-mutation-transaction';
 import type { WorkspaceFolder } from '../../stores/workspaceStore';
 import type { WorkspaceCreationContext } from '../../components/fileBrowserTypes';
+import {
+  acceptDesignArtifact,
+  beginDesignArtifactPublication,
+  captureDesignRecovery,
+  confirmDesignArtifactPublication,
+  useDesignRecoveryStore,
+} from './design-recovery';
 import type { SequenceDesign } from './types';
 import { loadMocloKitDefinitions } from './moclo-kit-definition';
 import { soleWritableProjectRoot } from '../../shared/project-root-selection';
@@ -184,12 +192,31 @@ export async function ensureDesignArtifact(input: {
   source: Exclude<DesignArtifactProvenanceSource, 'file-explorer-new-menu'>;
   context?: WorkspaceCreationContext;
 }): Promise<string> {
+  const saveExisting = async (path: string, mutationToken?: string) => {
+    if (input.source !== 'interactive-draft') return path;
+    captureDesignRecovery(input.design);
+    const record = useDesignRecoveryStore.getState().records[input.design.id];
+    const result = await writeDesignArtifactSnapshot({
+      designId: input.design.id,
+      name: input.design.name,
+      design: input.design,
+      mutationToken,
+      recovery: {
+        base: record?.base ?? null,
+        attempted: record?.attempted,
+        beforeWrite: () => beginDesignArtifactPublication(input.design),
+      },
+    });
+    if (!result) throw new Error('The published assembly is unavailable.');
+    confirmDesignArtifactPublication(input.design);
+    return result.path;
+  };
   const existing = await getCurrentCatalogFileForEntity(input.design.id);
-  if (existing) return existing.path;
+  if (existing) return saveExisting(existing.path);
 
   return withRendererWorkspaceMutation(input.workspaceRoot, async (mutationToken) => {
     const current = await getCurrentCatalogFileForEntity(input.design.id);
-    if (current) return current.path;
+    if (current) return saveExisting(current.path, mutationToken);
     const entity = await registerContextualCatalogEntity({
       id: input.design.id,
       type: 'design',
@@ -216,6 +243,11 @@ export async function ensureDesignArtifact(input: {
       mutationToken,
     });
     if (!artifact) throw new Error('Could not save this assembly in the managed project.');
+    if (
+      input.source === 'interactive-draft' &&
+      !useDesignRecoveryStore.getState().records[input.design.id]
+    )
+      acceptDesignArtifact(input.design);
     return artifact.path;
   });
 }

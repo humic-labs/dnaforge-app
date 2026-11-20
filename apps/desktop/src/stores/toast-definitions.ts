@@ -116,6 +116,12 @@ export const TOAST_DEFINITIONS = {
     type: 'error',
     message: userMessage('document.openFailed'),
   }),
+  'terminal-action-failed': defineToast({
+    category: 'Terminal',
+    source: 'features/terminal/TerminalDock.tsx',
+    type: 'error',
+    message: userMessage('operation.failed'),
+  }),
   'terminal-shell-exited': defineToast({
     category: 'Terminal',
     source: 'features/terminal/TerminalDock.tsx',
@@ -424,6 +430,8 @@ export const TOAST_DEFINITIONS = {
     message: userMessage('primer.libraryFileRecoveryComplete'),
   }),
   'primer-recovery-failed': defineToast({
+    actionDismisses: false,
+    actionLabels: ['Restore saved copies'],
     category: 'workspace reconcile report',
     source: 'services/workspace-reconcile-report.ts',
     type: 'error',
@@ -1805,14 +1813,6 @@ export const TOAST_DEFINITIONS = {
       'notice.restore-published-but-git-history-delivery-is-incomplete-or-unverified'
     ),
     timing: 'persistent',
-  }),
-  'sequence-save-close-metadata-draft-must-be-resolved': defineToast({
-    category: 'Sequence Tab',
-    source: 'features/sequence/components/SequenceTab.tsx',
-    type: 'warning',
-    message: userMessage(
-      'notice.save-or-cancel-the-unfinished-metadata-edits-in-its-drawer-before-clos'
-    ),
   }),
   'sequence-tab-open-this-file-inside-a-project-to-create-a-protein': defineToast({
     category: 'Sequence Tab',

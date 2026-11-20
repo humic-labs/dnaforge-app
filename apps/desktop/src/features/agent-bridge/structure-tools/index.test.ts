@@ -708,12 +708,12 @@ describe('structure renderer tools', () => {
     vi.useFakeTimers();
     try {
       const scene = handleMolGetScene({ structureViewId: first });
-      await vi.advanceTimersByTimeAsync(31_000);
+      await vi.advanceTimersByTimeAsync(91_000);
       const sceneResult = await scene;
       expect(sceneResult).toMatchObject({ ok: false, code: 'PLUGIN_NOT_READY', retriable: true });
       expect(JSON.stringify(sceneResult)).not.toContain('mol_activate_view');
       const applied = handleMolApplyScene({ structureViewId: first, scene: '{"changed":true}' });
-      await vi.advanceTimersByTimeAsync(31_000);
+      await vi.advanceTimersByTimeAsync(91_000);
       expect(await applied).toMatchObject({
         ok: false,
         code: 'PLUGIN_NOT_READY',
@@ -737,7 +737,7 @@ describe('structure renderer tools', () => {
     vi.useFakeTimers();
     try {
       const scene = handleMolGetScene({ structureViewId: second });
-      await vi.advanceTimersByTimeAsync(31_000);
+      await vi.advanceTimersByTimeAsync(91_000);
       expect(await scene).toMatchObject({ ok: false, code: 'PLUGIN_NOT_READY' });
     } finally {
       vi.useRealTimers();

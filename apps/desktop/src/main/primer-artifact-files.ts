@@ -15,9 +15,9 @@ export class WorkspaceFilePreconditionError extends Error {
 }
 export class WorkspaceFilePublicationUncertainError extends Error {}
 
-function checkPublication(fsOps: { beforePublish?: () => void }): void {
+function checkPublication(fsOps: { beforePublish?: (path: string) => void }, path: string): void {
   try {
-    const result: unknown = fsOps.beforePublish?.();
+    const result: unknown = fsOps.beforePublish?.(path);
     if (result !== undefined) {
       void Promise.resolve(result).catch(() => undefined);
       throw new Error('Publication authority must be a synchronous check.');
@@ -193,7 +193,7 @@ type AtomicFileFsOps = {
   unlink?: typeof unlink;
   durable?: boolean;
   syncDirectory?: typeof syncDirectory;
-  beforePublish?: () => void;
+  beforePublish?: (path: string) => void;
 };
 
 export async function writeWorkspaceTextFileAtomicInMain(
@@ -267,7 +267,7 @@ async function writeWorkspaceFileAtomicInMain(
             );
           }
         }
-        checkPublication(fsOps);
+        checkPublication(fsOps, temporaryPath);
         await rename(temporaryPath, candidate);
       } catch (error) {
         await rethrowAfterTemporaryCleanup(temporaryPath, error, unlinkFile);
@@ -283,7 +283,7 @@ async function writeWorkspaceFileAtomicInMain(
       unlinkFile
     );
     try {
-      checkPublication(fsOps);
+      checkPublication(fsOps, temporaryPath);
       await linkFile(temporaryPath, candidate);
     } catch (error) {
       try {

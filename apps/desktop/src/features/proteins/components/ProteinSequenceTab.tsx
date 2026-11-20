@@ -81,9 +81,17 @@ export function ProteinSequenceTab({
   const [editDraft, setEditDraft] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const saveOwner = useMemo(() => new DraftSaveOwner(), [entityId]);
-  saveOwner.observeDraft(editDraft ?? '');
+  const draftRef = useRef<string | null>(null);
+  const replaceDraft = (next: string | null) => {
+    draftRef.current = next;
+    setEditDraft(next);
+  };
+  const edit = (next: string | null) => {
+    if (draftRef.current !== next) saveOwner.edited();
+    replaceDraft(next);
+  };
   useEffect(() => {
-    setEditDraft(null);
+    replaceDraft(null);
     setSaving(false);
     return () => saveOwner.retire();
   }, [saveOwner]);
@@ -301,7 +309,8 @@ export function ProteinSequenceTab({
 
   const handleSave = async (): Promise<boolean> => {
     if (state.status !== 'ready' || state.readOnly) return false;
-    if (editDraft === null || editDraft === state.bases) return true;
+    const captured = draftRef.current;
+    if (captured === null || captured === state.bases) return true;
     if (!state.expectedContentHash) return false;
     const operation = saveOwner.begin();
     if (!operation) return false;
@@ -309,15 +318,14 @@ export function ProteinSequenceTab({
     try {
       const saved = await saveProteinSequence({
         entity: state.entity,
-        bases: editDraft,
+        bases: captured,
         expectedContentHash: state.expectedContentHash,
         workspaceRoots,
       });
       const outcome = saveOwner.finish(operation);
       if (outcome === 'retired') return false;
       if (saved.status === 'missing-authority') {
-        setEditDraft(null);
-        onUnavailable();
+        if (outcome === 'saved') onUnavailable();
         return false;
       }
       setState({
@@ -331,7 +339,7 @@ export function ProteinSequenceTab({
         sourcePath: state.sourcePath,
       });
       if (outcome === 'saved') {
-        setEditDraft(null);
+        replaceDraft(null);
         useToastStore.getState().addToast(userMessage('notice.protein-sequence-saved'), {
           definition: 'protein-sequence-tab-protein-sequence-saved',
         });
@@ -352,15 +360,16 @@ export function ProteinSequenceTab({
   useDocumentLifecycle({
     target: { kind: 'tab', tabId: canvasTabId ?? entityId },
     tabId: canvasTabId,
+    readRevision: saveOwner.readRevision,
     isDirty: () =>
       state.status === 'ready' &&
       !state.readOnly &&
-      editDraft !== null &&
-      editDraft !== state.bases,
+      draftRef.current !== null &&
+      draftRef.current !== state.bases,
     save: handleSave,
     discard: () => {
       saveOwner.retire();
-      setEditDraft(null);
+      replaceDraft(null);
     },
   });
 
@@ -468,7 +477,7 @@ export function ProteinSequenceTab({
               <button
                 type="button"
                 data-testid="protein-edit-sequence"
-                onClick={() => setEditDraft(bases)}
+                onClick={() => replaceDraft(bases)}
                 disabled={editDraft !== null}
                 className="rounded border border-border px-2 py-1 text-xs font-medium text-fg-muted wp-interactive disabled:opacity-50"
               >
@@ -515,7 +524,7 @@ export function ProteinSequenceTab({
           <div className="space-y-3" data-testid="protein-sequence-editor">
             <textarea
               value={editDraft}
-              onChange={(event) => setEditDraft(event.target.value)}
+              onChange={(event) => edit(event.target.value)}
               aria-label="Amino-acid sequence"
               spellCheck={false}
               className="min-h-48 w-full resize-y rounded border border-border bg-bg p-3 font-mono text-sm uppercase tracking-wide text-fg focus:outline-none focus:ring-2 focus:ring-accent"
@@ -523,7 +532,7 @@ export function ProteinSequenceTab({
             <div className="flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setEditDraft(null)}
+                onClick={() => edit(null)}
                 disabled={saving}
                 className="rounded border border-border px-3 py-1.5 text-xs font-medium text-fg-muted wp-interactive disabled:opacity-50"
               >

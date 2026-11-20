@@ -385,11 +385,15 @@ export function createHostedMemoryDb(
       (row) => row.path === root && row.archived_at == null && row.trashed_at == null
     );
     if (!workspace) return [];
-    const currentFiles = new Map(
-      table('catalog_entity_files')
-        .filter((file) => file.workspace_id === workspace.id && file.status === 'current')
-        .map((file) => [file.entity_id, file.path] as const)
-    );
+    const currentFiles = new Map<unknown, SqlRow>();
+    for (const file of table('catalog_entity_files')) {
+      if (file.workspace_id !== workspace.id || file.status !== 'current') continue;
+      const first = currentFiles.get(file.entity_id);
+      if (!first || String(file.id) < String(first.id)) currentFiles.set(file.entity_id, file);
+    }
+    const registry = new Map(table('lims_entity').map((row) => [row.id, row]));
+    const revisions = new Map(table('lims_schema_revision').map((row) => [row.id, row]));
+    const schemas = new Map(table('lims_schema').map((row) => [row.id, row]));
     const iconKinds = new Map(table('lims_entity').map((entity) => [entity.id, entity.kind]));
     const pages = new Set(table('pages').map((page) => page.id));
     const rows = table('catalog_entities').flatMap((row) => {
@@ -401,10 +405,20 @@ export function createHostedMemoryDb(
         typeof row.name !== 'string'
       )
         return [];
+      const entity = registry.get(row.id);
+      const revision = entity ? revisions.get(entity.schema_revision_id) : undefined;
+      const schema = entity ? schemas.get(revision?.schema_id ?? entity.schema_id) : undefined;
+      const file = currentFiles.get(row.id);
       return [
         {
           entity_id: row.id,
           entity_type: row.type,
+          registry_kind: typeof entity?.kind === 'string' ? entity.kind : null,
+          schema_id: typeof schema?.id === 'string' ? schema.id : null,
+          schema_name: typeof schema?.name === 'string' ? schema.name : null,
+          schema_label: typeof schema?.display_name === 'string' ? schema.display_name : null,
+          schema_builtin: typeof schema?.builtin === 'number' ? schema.builtin : null,
+          file_kind: typeof file?.file_kind === 'string' ? file.file_kind : null,
           name: row.name,
           storage_type: String(row.storage_type ?? ''),
           metadata: typeof row.metadata === 'string' ? row.metadata : null,

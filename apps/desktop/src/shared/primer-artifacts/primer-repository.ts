@@ -447,11 +447,6 @@ export function createPrimerRepository(dependencies: PrimerRepositoryDependencie
     };
   }
 
-  async function deleteBinding(bindingId: string): Promise<void> {
-    const db = dependencies.database;
-    await db.execute(`DELETE FROM primer_bindings WHERE id = ?`, [bindingId]);
-  }
-
   async function listBoundPrimers(sequenceId: number): Promise<BoundPrimer[]> {
     const db = dependencies.database;
     const rows = await db.select<DbBoundPrimerRow[]>(
@@ -612,7 +607,6 @@ export function createPrimerRepository(dependencies: PrimerRepositoryDependencie
     getPrimerById,
     createBinding,
     persistOwnedPrimerBinding,
-    deleteBinding,
     listBoundPrimers,
     importBatch,
   };

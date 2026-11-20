@@ -17,15 +17,17 @@ exported snapshot or force-push it.
 1. Read the complete diff, including workflow, dependency and install-script
    changes. For an external fork, do this before permitting its workflows to
    run. Workflow permission allows the proposed code to execute on a runner.
-2. Update the branch against current `main` using the signed-off merge in
-   `CONTRIBUTING.md`, then wait for its current checks. Resolve conflicts on the
-   contribution branch. If `main` advances, check the combined change again
-   before merging.
+2. Resolve conflicts on the contribution branch with the signed-off merge in
+   `CONTRIBUTING.md`. Do not update a branch only to make it current: the merge
+   queue tests every pull request combined with current `main`.
 3. Require the contributor-agreement, desktop build/typecheck/tests and
    Rust/Python checks to pass on the current contribution. Inspect other failed
    checks too, including the macOS source-start workflow. A previous head's
    result does not qualify a changed contribution.
-4. Merge through GitHub, verify the merged commit and observe the normal
+4. Add the pull request to the merge queue. The queue runs the same required
+   checks on it combined with current `main` and the pull requests ahead of it,
+   then squash-merges it; each commit message, including its sign-off, is kept
+   in the squashed commit. Verify the merged commit and observe the normal
    post-merge CI result. Keep follow-up fixes owned until they land. Do not use
    an administrator bypass to skip required checks.
 

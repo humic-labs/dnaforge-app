@@ -1,7 +1,7 @@
 ---
 name: verify-dnaforge
 description:
-  Verify saved read pileups, annotations, track palette edits, catalog-backed
+  Verify notebook authoring, saved read pileups, annotations, track palette edits, catalog-backed
   restriction enzyme selection and agent 3D structure work behind other screens
   or on unselected tabs in an isolated DNAForge desktop development app.
 ---
@@ -10,6 +10,10 @@ description:
 
 For window and divider resizing with a wrapped sequence above its plasmid map,
 follow the [split sequence viewer checks](features/split-sequence-map.md).
+
+Notebook repair claims also use the focused
+[notebook verification skill](../verify-notebook-authoring/SKILL.md), which separates
+component results from real app acceptance and lists the reported regressions.
 
 For release and usage analytics notices, follow the
 [desktop relaunch checks](features/desktop-notices.md).
@@ -20,9 +24,10 @@ launch, readiness checks and cleanup. Choose the
 [covered workspace structure map](features/covered-workspace-structure.md) for
 agent structure commands while Home, References or Settings is on screen, and
 the [unselected structure tab map](features/unselected-structure-tab.md) for
-agent structure commands on a tab the person has not selected. The sections
-below describe the
-[palette and enzyme journey](features/palettes-and-enzymes.md).
+agent structure commands on a tab the person has not selected, and the
+[protein inspection map](features/inspection-structure-tab.md) for unselected
+inspection tabs and retained inspection proteins. The sections below describe
+the [palette and enzyme journey](features/palettes-and-enzymes.md).
 
 ## Launch
 
@@ -52,7 +57,9 @@ profile. It writes a receipt without changing application state.
 node apps/desktop/scripts/palette-enzyme-journey.mjs --out "$HOME/DNAForge-proof/run"
 ```
 
-The [feature map](features/palettes-and-enzymes.md) defines the acceptance path.
+The [palette and enzyme feature map](features/palettes-and-enzymes.md) defines
+that acceptance path. For notebook authoring, follow the
+[notebook feature map](features/notebook-authoring.md) in the running app.
 
 ## Evidence
 
@@ -76,3 +83,18 @@ workspace.
 
 `apps/desktop/scripts/palette-enzyme-journey.mjs` attaches through Playwright to
 the debug port in the checkout's settings. Run it with Node as shown above.
+
+## Chat pane resizing
+
+With the isolated scenario app running, use
+`node apps/desktop/scripts/check-chat-pane-layout.mjs "$HOME/DNAForge-proof/chat-layout"`.
+At 260 and 320 px, Attach, the route picker and Send share the first row. Model
+controls align with its leading edge on the next row. At 600 px, all controls
+fit on one row. The check also drags to the chat minimum, pins history and opens
+a new chat at 260 px.
+At each size, it checks for overlapping controls, text outside buttons, and an
+accessible route picker. Send must stay in view and accept a click when enabled.
+
+For a two-pane preview already open to chat, add `--current` to measure its
+existing controls at those three widths and restore the original pane width.
+This mode preserves the conversation, route and draft.

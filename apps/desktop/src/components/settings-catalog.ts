@@ -152,7 +152,8 @@ export const SETTINGS_TARGETS = {
   ...TERMINAL_SETTINGS_TARGETS,
   'terminal-startup': {
     section: 'terminal',
-    title: 'Terminal panel at startup',
+    title: 'Terminal tab at startup',
+    description: 'Choose whether a restored terminal tab takes focus.',
     aliases: 'visibility startup hidden visible',
   },
   'terminal-save-sessions': {

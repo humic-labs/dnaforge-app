@@ -37,6 +37,7 @@ interface UseSequencePersistenceResult {
   isSaving: boolean;
 
   save: SequenceDocumentSave;
+  saveWithReceipt: () => Promise<SequencePersistenceResult>;
 
   showExternalChangeToast: boolean;
   acceptExternalChange: () => void;
@@ -115,20 +116,11 @@ export function useSequencePersistence({
     onReload: onExternalReload,
   });
 
-  const save = useMemo(() => {
-    function saveDocument(): Promise<boolean>;
-    function saveDocument(
-      requiredCapture: undefined,
-      observation: SequenceSaveObservation
-    ): Promise<boolean>;
-    function saveDocument(
-      requiredCapture: SequenceSaveCapture,
-      observation?: SequenceSaveObservation
-    ): Promise<SequencePersistenceResult>;
-    async function saveDocument(
+  const { save, saveWithReceipt } = useMemo(() => {
+    async function saveReceipt(
       requiredCapture?: SequenceSaveCapture,
       observation?: SequenceSaveObservation
-    ): Promise<boolean | SequencePersistenceResult> {
+    ): Promise<SequencePersistenceResult> {
       setSavesInFlight((count) => count + 1);
       const { persistence: result } = await saveSequenceDocumentWithCompletion({
         kind: 'write',
@@ -150,15 +142,16 @@ export function useSequencePersistence({
           }
           console.log('[useSequencePersistence] Saved:', filePath);
         }
-        return requiredCapture ? result : !useSequenceStore.getState().isDirty(documentId);
+        return result;
       }
 
+      if (result.error.code === 'cancelled') return result;
       if (result.error.code === 'racing_edits') {
         console.warn(
           `[useSequencePersistence] Save remained dirty after ${result.attempts} attempts:`,
           filePath
         );
-        return requiredCapture ? result : false;
+        return result;
       }
 
       const failure = result.error.cause;
@@ -174,7 +167,7 @@ export function useSequencePersistence({
               'use-sequence-persistence-failed-to-save-example-example-error-your-changes-are-still-in-memory-but-were',
           }
         );
-        return requiredCapture ? result : false;
+        return result;
       }
 
       if (result.error.code === 'primer_bindings_failed') {
@@ -189,7 +182,7 @@ export function useSequencePersistence({
               'use-sequence-persistence-example-was-written-but-copied-primer-bindings-were-not-attached-example-erro',
           }
         );
-        return requiredCapture ? result : false;
+        return result;
       }
 
       console.error('[useSequencePersistence] Save did not complete:', failure);
@@ -217,9 +210,27 @@ export function useSequencePersistence({
             'use-sequence-persistence-failed-to-save-example-example-error-your-changes-are-still-in-memory-but-were',
         }
       );
-      return requiredCapture ? result : false;
+      return result;
     }
-    return saveDocument;
+    function saveDocument(): Promise<boolean>;
+    function saveDocument(
+      requiredCapture: undefined,
+      observation: SequenceSaveObservation
+    ): Promise<boolean>;
+    function saveDocument(
+      requiredCapture: SequenceSaveCapture,
+      observation?: SequenceSaveObservation
+    ): Promise<SequencePersistenceResult>;
+    async function saveDocument(
+      requiredCapture?: SequenceSaveCapture,
+      observation?: SequenceSaveObservation
+    ): Promise<boolean | SequencePersistenceResult> {
+      const result = await saveReceipt(requiredCapture, observation);
+      return requiredCapture
+        ? result
+        : result.ok && !useSequenceStore.getState().isDirty(documentId);
+    }
+    return { save: saveDocument, saveWithReceipt: () => saveReceipt() };
   }, [
     documentId,
     filePath,
@@ -239,6 +250,7 @@ export function useSequencePersistence({
     isDirty,
     isSaving: savesInFlight > 0,
     save,
+    saveWithReceipt,
     showExternalChangeToast,
     acceptExternalChange,
     dismissExternalChange,

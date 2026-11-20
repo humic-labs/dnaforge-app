@@ -1,44 +1,42 @@
-import { presentationSurfaceFor } from '../../../../presentation/browser-input';
 import { NotebookMentionNode } from './notebook-mention-model';
 import { ReactRenderer, ReactNodeViewRenderer } from '@tiptap/react';
 
-import { MentionChip } from '../components/MentionChip';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { ReferenceNodeView } from '../components/ReferenceNodeView';
+import { beginReferenceEdit, isEditingReference, referenceEditPlugin } from './reference-edit';
+import { Plugin, PluginKey, Selection, TextSelection, type Transaction } from '@tiptap/pm/state';
+import { notebookPickerPlugin } from './notebook-picker-plugin';
 import tippy, { type Instance as TippyInstance } from 'tippy.js';
-import type { Editor } from '@tiptap/core';
-import type { ComponentType } from 'react';
-import {
-  MentionMenu,
-  type MentionMenuRef,
-  type MentionAttrs,
-  type MentionMenuProps,
-} from '../components/MentionMenu';
+import type { Editor, Range } from '@tiptap/core';
+import { type MentionAttrs } from '../components/MentionMenu';
 import { createMentionInsertCommand } from './mention-insert';
 import type { MentionOpenIntent, MentionOptions } from './mention-types';
 export type { MentionOpenIntent, MentionOptions, MentionReferenceRecord } from './mention-types';
 import { PagePreview } from '../../embeds/page/Preview';
-import { groupSearchResults, searchEntities, type EntityGroup } from '../lib/search';
+import type { EntityLinkCategory } from '../lib/search';
+import {
+  entityLinkSuggestionKey,
+  INLINE_PICKER_NAVIGATION_META,
+  inlinePickerQueryDecoration,
+  matchInlinePickerQuery,
+  allowInlinePickerStart,
+  applyInlinePickerNavigation,
+  type InlinePickerParent,
+} from './inline-picker-navigation';
 
 export type { MentionAttrs };
 
 const mentionHoverPluginKey = new PluginKey('mentionHover');
 
-const latestMentionSearch = new WeakMap<object, Promise<EntityGroup[]>>();
-const detachedEditor = {};
-
-async function searchMentionGroups(
-  query: string,
-  owningRoot: string | null,
-  editor: Editor | undefined
-): Promise<EntityGroup[]> {
-  const key = editor ?? detachedEditor;
-  const search = searchEntities(query, owningRoot).then((results) =>
-    groupSearchResults(results, query)
-  );
-  latestMentionSearch.set(key, search);
-  const groups = await search;
-  const latest = latestMentionSearch.get(key);
-  return latest && latest !== search ? latest : groups;
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    entityLinkPicker: {
+      openEntityLinkPicker: (
+        category?: EntityLinkCategory | null,
+        range?: Range,
+        parent?: InlinePickerParent | null
+      ) => ReturnType;
+    };
+  }
 }
 
 export function mentionOpenIntentFromElement(mention: Element | null): MentionOpenIntent | null {
@@ -186,6 +184,41 @@ function createMentionHoverPlugin(onEntityOpen?: (intent: MentionOpenIntent) => 
 export const MentionExtension = NotebookMentionNode.extend<MentionOptions>({
   name: 'mention',
 
+  addCommands() {
+    return {
+      ...this.parent?.(),
+      openEntityLinkPicker:
+        (category = null, range, parent = null) =>
+        ({ tr, dispatch }) => {
+          if (dispatch) {
+            applyInlinePickerNavigation(tr, range ?? tr.selection, {
+              kind: 'entity',
+              query: '',
+              category,
+              parent,
+            });
+          }
+          return true;
+        },
+    };
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      ...this.parent?.(),
+      Backspace: () => beginReferenceEdit(this.editor),
+      ArrowRight: () => {
+        const { doc, selection } = this.editor.state;
+        return (
+          selection instanceof TextSelection &&
+          selection.empty &&
+          selection.$head.nodeBefore?.type.name === this.name &&
+          selection.eq(Selection.atEnd(doc))
+        );
+      },
+    };
+  },
+
   addOptions() {
     return {
       ...this.parent?.(),
@@ -198,121 +231,46 @@ export const MentionExtension = NotebookMentionNode.extend<MentionOptions>({
         class: 'mention',
       },
       suggestion: {
+        pluginKey: entityLinkSuggestionKey,
         char: '@',
         allowSpaces: true,
-
-        items: async ({ query, editor }: { query: string; editor?: Editor }) => {
-          const owningRoot =
-            (
-              editor?.extensionManager.extensions.find((e) => e.name === 'mention')?.options as
-                | MentionOptions
-                | undefined
-            )?.referenceWorkspaceRoot?.() ?? null;
-          return searchMentionGroups(query, owningRoot, editor);
+        findSuggestionMatch: matchInlinePickerQuery,
+        allow: ({
+          editor,
+          state,
+          range,
+        }: {
+          editor: Editor;
+          state: Editor['state'];
+          range: Range;
+        }) => {
+          const query = state.doc.textBetween(range.from + 1, range.to, '', '');
+          return allowInlinePickerStart(editor, state, range) && (!query || Boolean(query.trim()));
         },
+        shouldResetDismissed: ({ transaction }: { transaction: Transaction }) =>
+          Boolean(transaction.getMeta(INLINE_PICKER_NAVIGATION_META)),
 
-        render: () => {
-          let component: ReactRenderer<MentionMenuRef> | null = null;
-          let popup: TippyInstance[] | null = null;
+        items: () => [],
 
-          return {
-            onStart: (props: {
-              items: EntityGroup[];
-              query: string;
-              command: (attrs: MentionAttrs) => void;
-              clientRect?: (() => DOMRect | null) | null;
-              editor: unknown;
-            }) => {
-              component = new ReactRenderer(MentionMenu as ComponentType<MentionMenuProps>, {
-                props: {
-                  items: props.items,
-                  query: props.query,
-                  presentationParentId: presentationSurfaceFor((props.editor as Editor).view.dom),
-                  command: props.command,
-                },
-                editor: props.editor as Editor,
-              });
-
-              if (!props.clientRect) return;
-
-              const currentComponent = component;
-              let currentPopup: TippyInstance | null = null;
-              const onWindowBlur = () => {
-                currentComponent.ref?.close?.('window-blur');
-                currentPopup?.hide();
-              };
-              popup = tippy('body', {
-                getReferenceClientRect: props.clientRect as () => DOMRect,
-                appendTo: () => document.body,
-                content: component.element,
-                showOnCreate: true,
-                interactive: true,
-                trigger: 'manual',
-                placement: 'bottom-start',
-                onCreate: (instance) => {
-                  currentPopup = instance;
-                  window.addEventListener('blur', onWindowBlur);
-                },
-                onDestroy: () => window.removeEventListener('blur', onWindowBlur),
-                onHidden: () => currentComponent.ref?.close?.('outside-pointer'),
-                popperOptions: {
-                  modifiers: [
-                    {
-                      name: 'flip',
-                      options: {
-                        fallbackPlacements: ['top-start'],
-                      },
-                    },
-                  ],
-                },
-              });
-            },
-
-            onUpdate: (props: {
-              items: EntityGroup[];
-              query: string;
-              command: (attrs: MentionAttrs) => void;
-              clientRect?: (() => DOMRect | null) | null;
-            }) => {
-              component?.updateProps({
-                items: props.items,
-                query: props.query,
-                command: props.command,
-              });
-
-              if (!props.clientRect || !popup?.[0]) return;
-
-              popup[0].setProps({
-                getReferenceClientRect: props.clientRect as () => DOMRect,
-              });
-            },
-
-            onKeyDown: (props: { event: KeyboardEvent }) => {
-              if (props.event.key === 'Escape') {
-                component?.ref?.close?.('escape');
-                popup?.[0]?.hide();
-                return true;
-              }
-              return component?.ref?.onKeyDown(props) ?? false;
-            },
-
-            onExit: () => {
-              component?.ref?.close?.('unmount');
-              popup?.[0]?.destroy();
-              component?.destroy();
-              popup = null;
-              component = null;
-            },
-          };
-        },
-
+        render: () => ({}),
         command: createMentionInsertCommand,
       },
     };
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(MentionChip, { as: 'span' });
+    return ReactNodeViewRenderer(ReferenceNodeView, {
+      as: 'span',
+      className: 'wp-inline-reference-boundary',
+      update: ({ oldNode, newNode, oldDecorations, newDecorations, updateProps }) => {
+        if (
+          oldNode !== newNode ||
+          isEditingReference(oldDecorations) !== isEditingReference(newDecorations)
+        )
+          updateProps();
+        return true;
+      },
+    });
   },
 
   addProseMirrorPlugins() {
@@ -320,6 +278,12 @@ export const MentionExtension = NotebookMentionNode.extend<MentionOptions>({
 
     const onEntityOpen = this.options.onMentionClick ?? undefined;
 
-    return [...parentPlugins, createMentionHoverPlugin(onEntityOpen)];
+    return [
+      ...parentPlugins,
+      notebookPickerPlugin(this.editor),
+      referenceEditPlugin(),
+      inlinePickerQueryDecoration(entityLinkSuggestionKey),
+      createMentionHoverPlugin(onEntityOpen),
+    ];
   },
 });

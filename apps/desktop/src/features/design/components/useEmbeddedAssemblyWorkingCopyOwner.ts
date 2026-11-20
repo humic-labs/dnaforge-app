@@ -33,7 +33,7 @@ export function useEmbeddedAssemblyWorkingCopyOwner({
     tab?.type === 'sequence' && tab.assemblyEditDesignId === designId && panelId
   );
   const design = useDesignStore((state) => state.designs[designId]);
-  const recovery = useDesignRecoveryStore((state) => state.records[designId]);
+  useDesignRecoveryStore((state) => state.records[designId]);
   const originalRef = useRef<{ id: string; design: SequenceDesign } | null>(null);
   const exitingRef = useRef(false);
   const savingRef = useRef(false);
@@ -48,40 +48,32 @@ export function useEmbeddedAssemblyWorkingCopyOwner({
     if (originalRef.current?.id !== designId) originalRef.current = { id: designId, design };
   }, [design, designId, embedded]);
 
-  const identity = design ? designContentIdentity(design) : null;
-  const unsaved = Boolean(
-    embedded &&
-    design &&
-    (recovery?.pending ||
-      (recovery
-        ? recovery.revision !== identity
+  const isDirty = useCallback(() => {
+    const current = useDesignStore.getState().designs[designId];
+    const saved = useDesignRecoveryStore.getState().records[designId];
+    return Boolean(
+      current &&
+      (saved
+        ? saved.pending || saved.revision !== designContentIdentity(current)
         : originalRef.current?.id === designId &&
-          designContentIdentity(originalRef.current.design) !== identity))
-  );
+          designContentIdentity(originalRef.current.design) !== designContentIdentity(current))
+    );
+  }, [designId]);
 
   useEffect(() => {
     if (!embedded || !managedDocument) return;
     return registerWorkspaceEditorBlocker(() => {
-      const current = useDesignStore.getState().designs[designId];
-      const saved = useDesignRecoveryStore.getState().records[designId];
-      const changed = Boolean(
-        current &&
-        (saved
-          ? saved.revision !== designContentIdentity(current)
-          : originalRef.current?.id === designId &&
-            designContentIdentity(originalRef.current.design) !== designContentIdentity(current))
-      );
       return {
         entityId: managedDocument.packageId,
         path: managedDocument.packageRoot,
         state: savingRef.current
           ? ('saving' as const)
-          : changed || hasPendingDesignArtifactMirror([designId])
+          : isDirty() || hasPendingDesignArtifactMirror([designId])
             ? ('dirty' as const)
             : ('clean' as const),
       };
     });
-  }, [designId, embedded, managedDocument]);
+  }, [designId, embedded, isDirty, managedDocument]);
 
   const saveWorkingCopy = useCallback(async (): Promise<void> => {
     savingRef.current = true;
@@ -98,7 +90,10 @@ export function useEmbeddedAssemblyWorkingCopyOwner({
       const saved = useDesignRecoveryStore.getState().records[designId];
       if (
         !latest ||
-        (saved && (saved.pending || saved.revision !== designContentIdentity(latest)))
+        !saved ||
+        saved.retired ||
+        saved.pending ||
+        saved.revision !== designContentIdentity(latest)
       ) {
         throw new Error('The assembly changed while it was saving. Save again before leaving.');
       }
@@ -115,7 +110,9 @@ export function useEmbeddedAssemblyWorkingCopyOwner({
             useSequenceStore.getState().discardEdits(tab.entityId);
           },
           tabId: tab.id,
-          isDirty: () => unsaved,
+          readRevision: () =>
+            designContentIdentity(useDesignStore.getState().designs[designId] ?? null),
+          isDirty,
           save: async () => {
             try {
               await saveWorkingCopy();

@@ -1,4 +1,5 @@
 import type { EditorPendingPrimerBinding } from '@waypoint/workspace-editor';
+import { getSequenceSavePolicy } from '@waypoint/sequence-utils';
 import { UserMessageError } from '@waypoint/user-messages';
 
 import {
@@ -27,6 +28,7 @@ export type PersistableSequenceDocument = Pick<
 >;
 
 export type SequencePersistenceErrorCode =
+  | 'cancelled'
   | 'write_failed'
   | 'write_receipt_failed'
   | 'completion_failed'
@@ -76,6 +78,7 @@ export type SequencePersistenceResult =
       attempts: number;
       wrote: true;
       writtenRevision: SequenceSaveCapture['revision'];
+      copyDestination?: { filePath: string; releasedSourceRevision: number };
     }
   | ({
       ok: false;
@@ -169,6 +172,12 @@ export async function persistSequenceDocument({
   const initialCapture = requiredCapture ?? store.captureForSave(documentId);
   if (!initialCapture) {
     return { ok: true, outcome: 'unchanged', attempts: 0, wrote: false };
+  }
+
+  const policy = getSequenceSavePolicy(initialCapture.sequence, sourcePath).capabilities;
+  if (policy.editable && policy.canExportGenBank && !policy.canSaveInPlace) {
+    const { saveEditedSequenceCopy } = await import('./save-edited-sequence-copy');
+    return saveEditedSequenceCopy(document, initialCapture);
   }
 
   const operation = beginWorkflowAction({ workflow: 'sequence_edit', action: 'save' });

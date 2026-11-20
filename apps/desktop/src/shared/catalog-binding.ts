@@ -44,6 +44,22 @@ export const ADOPT_OBJECT_UUID_SQL = `SELECT id, object_uuid, content_hash, size
         AND object_uuid IS NOT NULL
         AND workspace_id IS ?`;
 
+export const SAVED_FILE_RESTORE_STAGE_PREFIX = '.dnaforge-file-restore-';
+function isSavedFileRestoreStagePath(path: string): boolean {
+  return path
+    .split(/[\\/]/)
+    .some(
+      (member) =>
+        member.toLowerCase().startsWith(SAVED_FILE_RESTORE_STAGE_PREFIX) &&
+        /^[a-z0-9]{6}$/i.test(member.slice(SAVED_FILE_RESTORE_STAGE_PREFIX.length))
+    );
+}
+
+export function assertPublishedCatalogFilePath(path: string): void {
+  if (isSavedFileRestoreStagePath(path))
+    throw new Error('A package being restored cannot be cataloged until publication is complete.');
+}
+
 export function parseCatalogFileBindingRequest(value: unknown): CatalogFileBindingRequest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('Catalog file binding request must be an object.');
@@ -55,6 +71,7 @@ export function parseCatalogFileBindingRequest(value: unknown): CatalogFileBindi
   if (typeof input.path !== 'string' || !input.path.trim() || input.path.includes('\0')) {
     throw new Error('Catalog file binding path is invalid.');
   }
+  assertPublishedCatalogFilePath(input.path);
   for (const value of [input.fileKind, input.objectUuid, input.supersedesMovedPath]) {
     if (value !== undefined && (typeof value !== 'string' || !value.trim())) {
       throw new Error('Catalog file binding kind or object identity is invalid.');

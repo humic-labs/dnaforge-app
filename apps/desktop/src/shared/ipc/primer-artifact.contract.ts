@@ -8,6 +8,7 @@ import type {
 } from '../primer-artifact-revision';
 
 export const primerArtifactContract = defineGroup('lims', {
+  readCommittedPrimerSource: invoke<[request: PrimerArtifactRevisionStateRequest], string | null>(),
   readPrimerArtifactRevisionState: invoke<
     [request: PrimerArtifactRevisionStateRequest],
     PrimerArtifactRevisionState

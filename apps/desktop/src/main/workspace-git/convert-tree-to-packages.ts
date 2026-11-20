@@ -17,7 +17,7 @@ import {
   SEQUENCE_PACKAGE_META_ALIASES,
   fromPackageRelative,
   parseSequencePackageDocument,
-  sequencePackagePaths,
+  sequencePackageMetaPaths,
 } from '../../db/sequence-package';
 import { NOTEBOOK_PACKAGE_META_NAME } from '../../db/notebook-package';
 import {
@@ -459,8 +459,11 @@ export async function collectPlasmidPackageGitFiles(rootDir: string): Promise<st
       (entry) => entry.isDirectory() && entry.name === FORGE_PACKAGE_MARKER_DIR
     );
     if (markerDir) {
-      const metaPath = sequencePackagePaths(dirPath).metaPath;
       try {
+        const present = await fs.readdir(join(dirPath, FORGE_PACKAGE_MARKER_DIR));
+        const markers = sequencePackageMetaPaths(dirPath).filter(path => present.includes(basename(path)));
+        if (markers.length !== 1) throw new Error('A sequence package must contain one authoritative marker.');
+        const metaPath = markers[0];
         const doc = parseSequencePackageDocument(await fs.readFile(metaPath, 'utf8'));
         const memberPaths = [
           metaPath,

@@ -346,19 +346,41 @@ export function createPrimerApplicationOwner(dependencies: PrimerApplicationDepe
   }
   async function deleteBinding(
     bindingId: string,
-    options: PrimerMutationOptions = {}
+    options: PrimerMutationOptions & {
+      expectedOwner?: { primerId: string; sequenceId: number };
+    } = {}
   ): Promise<void> {
-    const [binding] = await platform().db.select<Array<{ primer_id: string }>>(
-      'SELECT primer_id FROM primer_bindings WHERE id = ?',
+    const [binding] = await platform().db.select<Array<{ primer_id: string; sequence_id: number }>>(
+      'SELECT primer_id,sequence_id FROM primer_bindings WHERE id = ?',
       [bindingId]
     );
     if (!binding) return;
+    const owner = options.expectedOwner;
+    if (owner && (binding.primer_id !== owner.primerId || binding.sequence_id !== owner.sequenceId))
+      throw new Error('The saved primer attachment belongs to another primer or sequence.');
     const primer = await getPrimerById(binding.primer_id);
     if (!primer) throw new Error('The primer owning this binding is unavailable.');
     await withPrimerDocument(
       primer,
-      (current, _loaded, workspaceRoot, mutationToken) =>
-        detachPrimerArtifact({ primer: current, workspaceRoot, bindingId }, { mutationToken }),
+      (current, loaded, workspaceRoot, mutationToken) => {
+        if (
+          owner &&
+          !loaded.resolvedBindings.some(
+            (resolved) =>
+              resolved.binding.id === bindingId && resolved.sequenceId === owner.sequenceId
+          )
+        )
+          throw new Error('The saved primer attachment changed before it could be detached.');
+        return detachPrimerArtifact(
+          {
+            primer: current,
+            workspaceRoot,
+            bindingId,
+            expectedArtifactRevision: loaded.artifact.artifactRevision,
+          },
+          { mutationToken }
+        );
+      },
       options
     );
   }

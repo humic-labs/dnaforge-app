@@ -1,3 +1,5 @@
+import { menuDensityVariables } from '@waypoint/ui-components/menu-density';
+import plugin from 'tailwindcss/plugin';
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
@@ -61,7 +63,9 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    plugin(({ addUtilities }) => addUtilities({ '.wp-form-density': menuDensityVariables('form') })),
+  ],
 };
 
 export default config;
