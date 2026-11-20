@@ -8,6 +8,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -60,13 +61,39 @@ describe('trash purge', () => {
   function seedTrashed(uuid: string, trashedAt: number, root = managedRoot): string {
     const repoPath = join(root, uuid, 'repo');
     mkdirSync(repoPath, { recursive: true });
-    writeFileSync(join(repoPath, 'seq.gb'), 'LOCUS x 10 bp\n');
+    writeFileSync(join(repoPath, 'ordinary.txt'), 'ordinary bytes\n');
     db.prepare(
       `INSERT INTO workspaces (name, path, repo_uuid, origin_path, created_at, last_opened_at, trashed_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
     ).run(uuid, repoPath, uuid, `/origin/${uuid}`, 1, 1, trashedAt);
     return repoPath;
   }
+
+  it('refuses purge of a previously trashed project containing unregistered native content under an ordinary directory', async () => {
+    const root = seedTrashed('uuid-old-native', 1);
+    const nested = join(root, 'Measurements', 'Notebook', '.forge');
+    mkdirSync(nested, { recursive: true });
+    writeFileSync(join(nested, 'notebook.json'), 'original');
+    await expect(purgeTrashedWorkspaceByUuid(db, managedRoot, 'uuid-old-native')).rejects.toThrow(
+      'SAVED_ENTITY_CONTENT'
+    );
+    expect(readFileSync(join(nested, 'notebook.json'), 'utf8')).toBe('original');
+  });
+
+  it('retains individual file Trash through explicit project deletion and automatic expiry', async () => {
+    const project = seedTrashed('uuid-file-trash', 1);
+    const receipt = join(project, '.git', 'dnaforge-file-trash', randomUUID());
+    mkdirSync(receipt, { recursive: true });
+    writeFileSync(join(receipt, 'payload'), 'retained content');
+    await expect(purgeTrashedWorkspaceByUuid(db, managedRoot, 'uuid-file-trash')).rejects.toThrow(
+      'file Trash'
+    );
+    expect(await purgeExpiredTrashedWorkspaces(db, managedRoot, RETENTION + 2, RETENTION)).toEqual({
+      purged: [],
+    });
+    expect(readFileSync(join(receipt, 'payload'), 'utf8')).toBe('retained content');
+    expect(countRows('uuid-file-trash')).toBe(1);
+  });
 
   function countRows(uuid: string): number {
     return (
@@ -151,8 +178,8 @@ describe('trash purge', () => {
       purged: [],
     });
     expect(retainedState()).toBe(before);
-    expect(readFileSync(join(managedRoot, 'uuid-unknown', 'repo', 'seq.gb'), 'utf8')).toBe(
-      'LOCUS x 10 bp\n'
+    expect(readFileSync(join(managedRoot, 'uuid-unknown', 'repo', 'ordinary.txt'), 'utf8')).toBe(
+      'ordinary bytes\n'
     );
   });
 
@@ -213,7 +240,7 @@ describe('trash purge', () => {
       /retained records or history/i
     );
     expect(retainedState()).toBe(before);
-    expect(readFileSync(join(repoPath, 'seq.gb'), 'utf8')).toBe('LOCUS x 10 bp\n');
+    expect(readFileSync(join(repoPath, 'ordinary.txt'), 'utf8')).toBe('ordinary bytes\n');
   });
 
   it('skips protected expired projects and continues deleting an eligible empty non-original project', async () => {
@@ -229,7 +256,7 @@ describe('trash purge', () => {
     expect(countRows('uuid-retained')).toBe(1);
     expect(countRows('uuid-empty')).toBe(0);
     expect(existsSync(join(managedRoot, 'uuid-original', 'repo', 'keep.txt'))).toBe(true);
-    expect(existsSync(join(managedRoot, 'uuid-retained', 'repo', 'seq.gb'))).toBe(true);
+    expect(existsSync(join(managedRoot, 'uuid-retained', 'repo', 'ordinary.txt'))).toBe(true);
     expect(existsSync(join(managedRoot, 'uuid-empty'))).toBe(false);
     expect(
       db.prepare('SELECT workspace_id,tombstone FROM lims_entity WHERE id=?').get('retained-entity')

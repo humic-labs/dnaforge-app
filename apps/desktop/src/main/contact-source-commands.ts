@@ -1,3 +1,5 @@
+import type Database from 'better-sqlite3';
+import { retainTrackProjectionSource } from './retain-track-projection-source';
 import { createHash } from 'node:crypto';
 import { isAbsolute, resolve } from 'node:path';
 import {
@@ -17,6 +19,21 @@ interface Dependencies {
 
 export class ContactSourceCommands {
   constructor(private readonly dependencies: Dependencies) {}
+
+  async retain(db: Database.Database, input: unknown, blobRoot?: string): Promise<void> {
+    const request = contactSourceReadRequestSchema.parse(input);
+    return retainTrackProjectionSource(
+      db,
+      {
+        project: request.project,
+        entityId: 'contact:' + request.source.sha256,
+        sha256: request.source.sha256,
+      },
+      this.dependencies,
+      (root) => this.read({ project: root, source: request.source }),
+      blobRoot
+    );
+  }
 
   async read(input: unknown): Promise<ContactSourceReadResult> {
     const request = contactSourceReadRequestSchema.parse(input);

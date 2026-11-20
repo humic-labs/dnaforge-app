@@ -398,6 +398,39 @@ describe('native retained import review', () => {
       receipt: { imported: 1, sourcePath: 'orders/strains/pasted-strain.csv' },
     });
     expect(await readFile(join(root, applied.receipt!.sourcePath!), 'utf8')).toBe(text);
+    const path = db
+      .prepare(
+        "SELECT path FROM catalog_entity_files WHERE workspace_id=7 AND status='current' AND file_kind='waypoint-entity'"
+      )
+      .pluck()
+      .get() as string | undefined;
+    if (!path) throw new Error('The import has no current Registry artifact binding.');
+    const original = await readFile(path, 'utf8');
+    const { id } = parseEntityArtifact(original);
+    const { runSavedFileSourceCommand } = await import('./saved-file-source-command');
+    const scope = { workspaceId: 7, root, assertCurrent: () => {} };
+    await rm(path);
+    const revisions = await runSavedFileSourceCommand(
+      db,
+      { workspaceRoot: root, operation: { kind: 'versions', entityId: id } },
+      scope
+    );
+    if (!('versions' in revisions)) throw new Error('Missing imported Registry source.');
+    expect(revisions.versions.length).toBeGreaterThan(0);
+    await runSavedFileSourceCommand(
+      db,
+      {
+        workspaceRoot: root,
+        operation: {
+          kind: 'restore',
+          entityId: id,
+          revisionId: revisions.versions[0].id,
+          destination: 'verified-import.entity.json',
+        },
+      },
+      scope
+    );
+    expect(await readFile(join(root, 'verified-import.entity.json'), 'utf8')).toBe(original);
   });
   it.each([
     {

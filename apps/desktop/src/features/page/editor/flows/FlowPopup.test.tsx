@@ -2,6 +2,9 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { Editor } from '@tiptap/core';
+import StarterKit from '@tiptap/starter-kit';
+import { createInlinePickerPopup } from '../extensions/inline-picker-popup';
 import postcss from 'postcss';
 import tailwindcss from 'tailwindcss';
 import tailwindConfig from '../../../../../tailwind.config';
@@ -40,7 +43,10 @@ vi.mock('../../embeds/registry', () => ({
   },
 }));
 
-async function backgroundDeclarations(element: HTMLElement): Promise<string[]> {
+async function backgroundDeclarations(
+  element: HTMLElement,
+  properties = /^(background|background-color)$/
+): Promise<string[]> {
   const compiled = await postcss([
     tailwindcss({
       ...tailwindConfig,
@@ -56,7 +62,7 @@ async function backgroundDeclarations(element: HTMLElement): Promise<string[]> {
   const backgrounds: string[] = [];
   compiled.root.walkRules((rule) => {
     if (!element.matches(rule.selector)) return;
-    rule.walkDecls(/^(background|background-color)$/, (declaration) => {
+    rule.walkDecls(properties, (declaration) => {
       backgrounds.push(declaration.value);
     });
   });
@@ -81,10 +87,30 @@ describe('notebook overlay surfaces', () => {
   });
 
   it('paints the empty mention menu with the opaque Files panel surface', async () => {
-    render(<MentionMenu items={[]} query="" command={vi.fn()} />);
-    expect(await backgroundDeclarations(screen.getByTestId('mention-menu'))).toContain(
-      'hsl(var(--color-bg-subtle))'
-    );
+    const editor = new Editor({ extensions: [StarterKit] });
+    document.body.append(editor.view.dom);
+    const anchor = document.createElement('span');
+    editor.view.dom.append(anchor);
+    const { container } = render(<MentionMenu items={[]} query="" command={vi.fn()} />);
+    const popup = createInlinePickerPopup({
+      editor,
+      anchor,
+      content: container,
+      onDismiss: vi.fn(),
+    });
+    try {
+      const menu = await screen.findByTestId('mention-menu');
+      const surface = menu.closest<HTMLElement>('.tippy-box')!;
+      expect(surface).not.toBeNull();
+      expect((await backgroundDeclarations(menu)).at(-1)).toBe('transparent');
+      expect(await backgroundDeclarations(surface)).toContain('var(--picker-surface)');
+      expect(await backgroundDeclarations(surface, /^--picker-surface$/)).toContain(
+        'hsl(var(--color-bg-subtle))'
+      );
+    } finally {
+      popup.destroy();
+      editor.destroy();
+    }
   });
 });
 

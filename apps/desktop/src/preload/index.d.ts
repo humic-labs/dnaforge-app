@@ -1,3 +1,4 @@
+import { entityDiscoveryContract } from '../shared/ipc/entity-discovery.contract';
 import { primerArtifactContract } from '../shared/ipc/primer-artifact.contract';
 import { sequenceAlignmentHistoryContract } from '../shared/ipc/sequence-alignment-history.contract';
 import { originalProjectContract } from '../shared/ipc/original-project.contract';
@@ -554,6 +555,7 @@ export interface GenomeDebugSnapshot {
 export interface ElectronAPI {
   administration: ClientOf<typeof administrationContract>;
   importReview: ClientOf<typeof importReviewContract>;
+  entityDiscovery: ClientOf<typeof entityDiscoveryContract>;
   notebook: ClientOf<typeof notebookContract>;
   terminal: import('../shared/terminal-port').TerminalPort;
   startup: ClientOf<typeof startupContract>;

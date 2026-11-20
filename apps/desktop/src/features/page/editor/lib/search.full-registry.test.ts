@@ -1,291 +1,224 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  namedEntityTypePresentation,
+  resolveNamedEntityType,
+} from '@waypoint/scientific-artifacts/shared/entity-types';
+import type { EntityDescriptor } from '../../../../shared/entity-discovery';
 
-const mocks = vi.hoisted(() => ({
-  primers: vi.fn(),
-  project: vi.fn(),
-  roots: vi.fn(),
-  registry: vi.fn(),
-  folders: [] as Array<{ path: string }>,
-  pages: {} as Record<string, { id: string; title: string; updatedAt: Date }>,
+const mocks = vi.hoisted(() => ({ search: vi.fn() }));
+vi.mock('../../../../platform', () => ({
+  platform: () => ({ entityDiscovery: { search: mocks.search } }),
 }));
-
-vi.mock('../../../../db/primer-reference-search', () => ({
-  searchPrimerReferencesByName: mocks.primers,
-}));
-vi.mock('../../../../db/project-reference-search', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../../db/project-reference-search')>()),
-  searchProjectReferencesByName: mocks.project,
-}));
-vi.mock('../../../../db/project-roots', () => ({
-  listSearchableProjectRoots: mocks.roots,
-}));
-vi.mock('../../../lims/public/operations', () => ({
-  queryLimsRegistrySummaries: mocks.registry,
-}));
-vi.mock('../../../../stores/workspaceStore', () => ({
-  useWorkspaceStore: { getState: () => ({ folders: mocks.folders }) },
-}));
-vi.mock('../../store', () => ({
-  usePageStore: { getState: () => ({ pages: mocks.pages }) },
-}));
-
-function projectResult(candidates: unknown[], truncated = false) {
-  return { candidates, truncated };
-}
-
-function projectCalls(entityType: string) {
-  return mocks.project.mock.calls
-    .map((call) => call[0])
-    .filter((input) => input.entityTypes.includes(entityType));
-}
-
 import { groupSearchResults, searchEntities } from './search';
 
-function summary(id: string, name: string, kind: string, registryId: string | null) {
-  return { id, name, kind, registryId, schemaDisplayName: undefined };
+function entity(
+  id: string,
+  name: string,
+  type: EntityDescriptor['type'],
+  extra: Partial<EntityDescriptor> = {}
+): EntityDescriptor {
+  const namedTypeKey = resolveNamedEntityType({
+    type,
+    registryKind: extra.registryKind,
+  });
+  const { iconKind, kindLabel } = namedEntityTypePresentation(namedTypeKey, null, null);
+  return {
+    id,
+    name,
+    type,
+    source: type === 'registry' ? 'registry' : 'project',
+    namedTypeKey,
+    iconKind,
+    kindLabel,
+    path: null,
+    contentHash: null,
+    objectUuid: null,
+    registryKind: null,
+    registryId: null,
+    schemaId: null,
+    projectId: null,
+    projectRoot: null,
+    projectName: null,
+    archived: false,
+    ...extra,
+  };
+}
+function page(items: EntityDescriptor[], nextCursor: string | null = null) {
+  return {
+    items,
+    nextCursor,
+    generation: 'catalog-generation',
+    coverage: { catalog: 20, registry: 30, primers: 4, excluded: 2 },
+  };
 }
 
-describe('notebook @ search covers the whole Registry and project', () => {
-  beforeEach(() => {
-    mocks.primers.mockReset().mockResolvedValue([]);
-    mocks.project.mockReset().mockResolvedValue(projectResult([]));
-    mocks.roots.mockReset().mockResolvedValue(['/ws/alpha', '/ws/beta', '/ws/gamma']);
-    mocks.folders.splice(0, mocks.folders.length, { path: '/ws/beta' });
-    mocks.registry.mockReset().mockResolvedValue({ summaries: [], totalCount: 0 });
-    for (const key of Object.keys(mocks.pages)) delete mocks.pages[key];
-  });
+beforeEach(() => {
+  mocks.search.mockReset().mockResolvedValue(page([]));
+});
 
-  it('searches every Registry kind with the typed text and keeps the record kind and ID', async () => {
-    mocks.registry.mockResolvedValue({
-      summaries: [
-        summary('ent-strain', 'BL21(DE3)', 'strain', 's000012'),
-        summary('ent-plasmid', 'pET-28a', 'plasmid', 'p000003'),
-        summary('ent-guide', 'sgRNA-lacZ', 'guide_rna', null),
-      ],
-      totalCount: 3,
-    });
-
+describe('notebook search consumes one canonical discovery owner', () => {
+  it('preserves every returned Registry kind, canonical ID and registration label', async () => {
+    const items = [
+      entity('ent-strain', 'BL21(DE3)', 'registry', {
+        registryKind: 'strain',
+        registryId: 's000012',
+        kindLabel: 'Strain',
+      }),
+      entity('ent-plasmid', 'pET-28a', 'registry', {
+        registryKind: 'plasmid',
+        registryId: 'p000003',
+        kindLabel: 'Plasmid',
+      }),
+      entity('ent-guide', 'sgRNA-lacZ', 'registry', {
+        registryKind: 'guide_rna',
+        kindLabel: 'Guide RNA',
+      }),
+    ];
+    mocks.search.mockResolvedValue(page(items));
     const results = await searchEntities('  BL21 ', '/ws/beta');
-
-    expect(mocks.registry).toHaveBeenCalledWith(expect.objectContaining({ search: 'BL21' }));
-    expect(results.registry.map((item) => [item.type, item.registryKind, item.registryId])).toEqual(
-      [
-        ['registry', 'strain', 's000012'],
-        ['registry', 'plasmid', 'p000003'],
-        ['registry', 'guide_rna', null],
-      ]
-    );
-    expect(results.registry.map((item) => item.kindLabel)).toEqual([
-      'Strain',
-      'Plasmid',
-      'Guide RNA',
-    ]);
-  });
-
-  it('lists recent Registry records when nothing has been typed yet', async () => {
-    await searchEntities('', '/ws/beta');
-
-    expect(mocks.registry).toHaveBeenCalledWith(expect.not.objectContaining({ search: '' }));
-    expect(mocks.registry.mock.calls[0][0]).not.toHaveProperty('search');
-  });
-
-  it('searches the Registry and every project even when the notebook has no owning project', async () => {
-    mocks.registry.mockResolvedValue({
-      summaries: [summary('ent-strain', 'MG1655', 'strain', 's000001')],
-      totalCount: 1,
+    expect(mocks.search).toHaveBeenCalledExactlyOnceWith({
+      query: '  BL21 ',
+      preferredProjectRoot: '/ws/beta',
     });
-
-    const results = await searchEntities('MG', null);
-
-    expect(results.registry).toHaveLength(1);
-    expect(projectCalls('structure')).toEqual([
-      expect.objectContaining({
-        workspaceRoots: ['/ws/alpha', '/ws/beta', '/ws/gamma'],
-        preferredRoot: null,
-      }),
-    ]);
+    expect(results.registry).toEqual(items);
   });
 
-  it('searches sequences and project items in every project, preferring the notebook project', async () => {
-    await searchEntities('pUC', '/ws/beta');
-
-    expect(mocks.roots).toHaveBeenCalledWith(['/ws/beta']);
-    for (const kind of ['sequence', 'structure']) {
-      expect(projectCalls(kind)).toEqual([
-        expect.objectContaining({
-          query: 'pUC',
-          workspaceRoots: ['/ws/alpha', '/ws/beta', '/ws/gamma'],
-          preferredRoot: '/ws/beta',
+  it('returns an unloaded native notebook with its canonical owning project', async () => {
+    mocks.search.mockResolvedValue(
+      page([
+        entity('repo-gamma::native-note', 'Unloaded notebook', 'page', {
+          kindLabel: 'Notebook',
+          path: 'Native notebook',
+          projectId: 'repo-gamma',
+          projectRoot: '/ws/gamma',
+          projectName: 'Gamma',
         }),
-      ]);
-    }
-    expect(projectCalls('sequence')[0].entityTypes).toEqual(['sequence']);
-    expect(projectCalls('structure')[0].entityTypes).not.toContain('sequence');
-  });
-
-  it('returns items from other projects with their project and portable record', async () => {
-    mocks.project.mockImplementation(async ({ entityTypes }: { entityTypes: string[] }) =>
-      entityTypes.includes('sequence')
-        ? projectResult([
-            {
-              entityId: 'ent-seq',
-              entityType: 'sequence',
-              name: 'pAAV-hSyn',
-              workspaceRelativePath: 'vectors/pAAV-hSyn.gb',
-              contentHash: 'sha256:seq',
-              objectUuid: null,
-              projectId: 'repo-alpha',
-              projectRoot: '/ws/alpha',
-              projectName: 'Alpha lab',
-            },
-          ])
-        : projectResult([
-            {
-              entityId: 'ent-structure',
-              entityType: 'structure',
-              name: '1ABC',
-              workspaceRelativePath: 'structures/1ABC.cif',
-              contentHash: 'sha256:abc',
-              objectUuid: 'uuid-1',
-              projectId: 'repo-gamma',
-              projectRoot: '/ws/gamma',
-              projectName: 'Gamma lab',
-            },
-            {
-              entityId: 'ent-protocol',
-              entityType: 'protocol',
-              name: 'Miniprep',
-              workspaceRelativePath: 'protocols/miniprep.dnaforge-protocol.json',
-              contentHash: null,
-              objectUuid: null,
-              projectId: 'repo-beta',
-              projectRoot: '/ws/beta',
-              projectName: 'Beta lab',
-            },
-          ])
+      ])
     );
-
-    const results = await searchEntities('a', '/ws/beta');
-
-    expect(results.sequences).toEqual([
+    expect((await searchEntities('Unloaded', '/ws/beta')).pages).toEqual([
       expect.objectContaining({
-        id: 'ent-seq',
-        type: 'sequence',
-        path: 'vectors/pAAV-hSyn.gb',
-        projectId: 'repo-alpha',
-        projectName: 'Alpha lab',
+        id: 'repo-gamma::native-note',
+        type: 'page',
+        projectId: 'repo-gamma',
+        path: 'Native notebook',
       }),
     ]);
-    expect(results.project).toEqual([
-      expect.objectContaining({
-        id: 'ent-structure',
-        type: 'structure',
+  });
+
+  it('passes an empty browse query to the same owner without an artificial provider cap', async () => {
+    await searchEntities('', '/ws/beta');
+    expect(mocks.search).toHaveBeenCalledExactlyOnceWith({
+      query: '',
+      preferredProjectRoot: '/ws/beta',
+    });
+    expect(mocks.search.mock.lastCall?.[0]).not.toHaveProperty('limit');
+  });
+
+  it('keeps Registry notebooks linkable without using loaded pages as a second authority', async () => {
+    const item = entity('registry-notebook', 'Registry notebook', 'registry', {
+      registryKind: 'notebook',
+      kindLabel: 'Notebook',
+    });
+    mocks.search.mockResolvedValue(page([item]));
+    expect((await searchEntities('notebook')).registry).toEqual([item]);
+  });
+
+  it('searches all accessible projects when the notebook has no owning project', async () => {
+    await searchEntities('MG', null);
+    expect(mocks.search).toHaveBeenCalledExactlyOnceWith({ query: 'MG' });
+  });
+
+  it('treats the notebook project as ranking context rather than a restrictive scope', async () => {
+    await searchEntities('pUC', '/ws/beta');
+    expect(mocks.search).toHaveBeenCalledWith({ query: 'pUC', preferredProjectRoot: '/ws/beta' });
+    expect(mocks.search.mock.lastCall?.[0]).not.toHaveProperty('scope');
+  });
+
+  it('preserves portable paths, hashes and exact owners across project result types', async () => {
+    const items = [
+      entity('ent-seq', 'pAAV-hSyn', 'sequence', {
+        path: 'vectors/pAAV.gb',
+        projectId: 'repo-alpha',
+        projectName: 'Alpha',
+      }),
+      entity('ent-structure', '1ABC', 'structure', {
         path: 'structures/1ABC.cif',
         contentHash: 'sha256:abc',
         objectUuid: 'uuid-1',
         projectId: 'repo-gamma',
-        projectName: 'Gamma lab',
+        projectName: 'Gamma',
       }),
-      expect.objectContaining({ id: 'ent-protocol', type: 'protocol', projectId: 'repo-beta' }),
+      entity('ent-protocol', 'Miniprep', 'protocol', {
+        path: 'protocols/miniprep.dnaforge-protocol.json',
+        projectId: 'repo-beta',
+      }),
+    ];
+    mocks.search.mockResolvedValue(page(items));
+    const results = await searchEntities('a', '/ws/beta');
+    expect(results.items).toEqual(items);
+    expect(results.sequences).toEqual([items[0]]);
+    expect(results.project).toEqual(items.slice(1));
+  });
+
+  it('exposes the real continuation and passes the same query, scope and filter to the next page', async () => {
+    mocks.search.mockResolvedValue(page([entity('one', 'pUC19', 'sequence')], 'opaque-next'));
+    const scope = { projectId: 'beta', includeArchived: true };
+    const filter = { category: 'sequences' as const };
+    const first = await searchEntities('pUC', '/ws/beta', filter, { scope, limit: 17 });
+    expect(first.nextCursor).toBe('opaque-next');
+    expect(first.generation).toBe('catalog-generation');
+    await searchEntities('pUC', '/ws/beta', filter, {
+      scope,
+      limit: 17,
+      cursor: first.nextCursor!,
+    });
+    expect(mocks.search).toHaveBeenLastCalledWith({
+      query: 'pUC',
+      preferredProjectRoot: '/ws/beta',
+      filter,
+      scope,
+      limit: 17,
+      cursor: 'opaque-next',
+    });
+  });
+
+  it('never strips workspace prefixes or deduplicates distinct returned identities', async () => {
+    const items = [
+      entity('repo-a::same', 'pUC19', 'sequence'),
+      entity('repo-b::same', 'pUC19', 'registry', { registryKind: 'sequence' }),
+    ];
+    mocks.search.mockResolvedValue(page(items));
+    expect((await searchEntities('pUC19')).items.map((item) => item.id)).toEqual([
+      'repo-a::same',
+      'repo-b::same',
     ]);
   });
 
-  it('flags a project kind as partial when its search filled the limit', async () => {
-    mocks.project.mockImplementation(async ({ entityTypes }: { entityTypes: string[] }) =>
-      entityTypes.includes('sequence')
-        ? projectResult(
-            [
-              {
-                entityId: 'ent-seq',
-                entityType: 'sequence',
-                name: 'pUC19',
-                workspaceRelativePath: 'pUC19.gb',
-                contentHash: null,
-                objectUuid: null,
-                projectId: 'repo-alpha',
-                projectRoot: '/ws/alpha',
-                projectName: 'Alpha lab',
-              },
-            ],
-            true
-          )
-        : projectResult([])
-    );
-
-    const groups = groupSearchResults(await searchEntities('pUC', '/ws/beta'), 'pUC');
-
-    expect(groups.find((group) => group.key === 'sequence')?.partial).toBe(true);
+  it('groups adjacent kinds without rearranging the native ranking', async () => {
+    const items = [
+      entity('strain-one', 'BL21', 'registry', { registryKind: 'strain', kindLabel: 'Strain' }),
+      entity('strain-two', 'BL21-AI', 'registry', { registryKind: 'strain', kindLabel: 'Strain' }),
+      entity('notes', 'BL21 notes', 'page', { kindLabel: 'Notebook' }),
+      entity('plasmid', 'pBL21', 'registry', { registryKind: 'plasmid', kindLabel: 'Plasmid' }),
+    ];
+    mocks.search.mockResolvedValue(page(items));
+    const groups = groupSearchResults(await searchEntities('bl21'), 'bl21');
+    expect(groups.map((group) => group.label)).toEqual(['Strain', 'Notebook', 'Plasmid']);
+    expect(groups.flatMap((group) => group.items)).toEqual(items);
   });
 
-  it('drops notebook and duplicate Registry rows already offered from the project', async () => {
-    mocks.pages['page-1'] = { id: 'page-1', title: 'Cloning log', updatedAt: new Date() };
-    mocks.project.mockImplementation(async ({ entityTypes }: { entityTypes: string[] }) =>
-      entityTypes.includes('sequence')
-        ? projectResult([
-            {
-              entityId: 'ws-scope::pkg-1',
-              entityType: 'sequence',
-              name: 'pUC19',
-              workspaceRelativePath: 'pUC19.dnaforge-sequence',
-              contentHash: null,
-              objectUuid: null,
-              projectId: 'ws-scope',
-              projectRoot: '/ws/beta',
-              projectName: 'Beta lab',
-            },
-          ])
-        : projectResult([])
-    );
-    mocks.registry.mockResolvedValue({
-      summaries: [
-        summary('page-1', 'Cloning log', 'notebook', 'n000001'),
-        summary('pkg-1', 'pUC19', 'sequence', 'd000001'),
-        summary('ent-strain', 'DH5a', 'strain', 's000002'),
-      ],
-      totalCount: 3,
+  it('forwards exact Registry-ID searches without converting them into a name lookup', async () => {
+    const item = entity('ent-a', 'Cas9 donor', 'registry', {
+      registryKind: 'plasmid',
+      registryId: 'p000044',
     });
-
-    const results = await searchEntities('', '/ws/beta');
-
-    expect(results.registry.map((item) => item.id)).toEqual(['ent-strain']);
+    mocks.search.mockResolvedValue(page([item]));
+    expect((await searchEntities('P000044')).items[0].id).toBe('ent-a');
+    expect(mocks.search).toHaveBeenCalledWith({ query: 'P000044' });
   });
 
-  it('groups results by kind, puts the closest match first and flags truncated Registry results', async () => {
-    mocks.pages['page-1'] = { id: 'page-1', title: 'BL21 growth notes', updatedAt: new Date() };
-    mocks.registry.mockResolvedValue({
-      summaries: [
-        summary('ent-plasmid', 'pBL21-helper', 'plasmid', 'p000009'),
-        summary('ent-strain-2', 'BL21-AI', 'strain', 's000013'),
-        summary('ent-strain', 'BL21', 'strain', 's000012'),
-      ],
-      totalCount: 240,
-    });
-
-    const groups = groupSearchResults(await searchEntities('bl21', '/ws/beta'), 'bl21');
-
-    expect(groups.map((group) => [group.key, group.label, group.source])).toEqual([
-      ['registry:strain', 'Strain', 'registry'],
-      ['page', 'Notebook', 'project'],
-      ['registry:plasmid', 'Plasmid', 'registry'],
-    ]);
-    expect(groups[0].items.map((item) => item.name)).toEqual(['BL21', 'BL21-AI']);
-    expect(groups.filter((group) => group.partial).map((group) => group.key)).toEqual([
-      'registry:strain',
-      'registry:plasmid',
-    ]);
-  });
-
-  it('matches a typed Registry ID exactly', async () => {
-    mocks.registry.mockResolvedValue({
-      summaries: [
-        summary('ent-a', 'Cas9 donor', 'plasmid', 'p000044'),
-        summary('ent-b', 'p000044 notes', 'fragment', 'f000001'),
-      ],
-      totalCount: 2,
-    });
-
-    const groups = groupSearchResults(await searchEntities('P000044', '/ws/beta'), 'P000044');
-
-    expect(groups[0].key).toBe('registry:plasmid');
+  it('propagates discovery errors so the UI can distinguish failure from no matches', async () => {
+    mocks.search.mockRejectedValue(new Error('ENTITY_DISCOVERY_REFRESH_REQUIRED: changed'));
+    await expect(searchEntities('pUC')).rejects.toThrow('ENTITY_DISCOVERY_REFRESH_REQUIRED');
   });
 });

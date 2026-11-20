@@ -1,3 +1,7 @@
+import {
+  resolveNamedEntityType,
+  namedEntityTypePresentation,
+} from '@waypoint/scientific-artifacts/shared/entity-types';
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toUserMessage } from '@waypoint/user-messages';
@@ -74,6 +78,7 @@ export function ProjectResourceReferenceChip({ node, extension }: NodeViewProps)
     (reference && typeof reference !== 'string' && reference.kind === 'path'
       ? reference.resourceKind
       : 'reference');
+  const fallbackType = namedEntityTypePresentation(resolveNamedEntityType({ type: entityType }));
   return (
     <NodeViewWrapper
       as="span"
@@ -87,7 +92,15 @@ export function ProjectResourceReferenceChip({ node, extension }: NodeViewProps)
         iconContext={
           resource?.iconContext ?? { path: resource?.path, isDirectory: entityType === 'directory' }
         }
+        kindLabel={fallbackType.kindLabel}
+        iconKind={fallbackType.iconKind}
+        typeLookup={
+          resource?.reference.kind === 'entity'
+            ? { entityId: resource.reference.entityId, projectId: resource.reference.projectId }
+            : undefined
+        }
         label={label}
+        detail={resource?.path}
         busy={loading || opening}
         onOpen={resource ? open : undefined}
         unavailable={!loading && !resource}

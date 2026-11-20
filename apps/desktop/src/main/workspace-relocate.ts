@@ -1,3 +1,7 @@
+import {
+  applySavedPrimerMoveProjections,
+  type RelocatedSavedPrimer,
+} from './relocate-primer-artifacts';
 import { statSync } from 'node:fs';
 import { basename, extname } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -260,7 +264,13 @@ export interface RelocateCounts {
 
 export function relocateWorkspaceFileRefsInDb(
   db: Database.Database,
-  input: { workspaceRoot: string | null; oldPath: string; newPath: string; actor?: string }
+  input: {
+    workspaceRoot: string | null;
+    oldPath: string;
+    newPath: string;
+    actor?: string;
+    savedPrimers?: ReadonlyMap<string, RelocatedSavedPrimer>;
+  }
 ): RelocateCounts {
   const oldAbs = stripTrailingSep(input.oldPath);
   const newAbs = stripTrailingSep(input.newPath);
@@ -279,7 +289,9 @@ export function relocateWorkspaceFileRefsInDb(
     oldPath: oldAbs,
     newPath: newAbs,
     actor: input.actor,
+    savedPrimers: input.savedPrimers,
   });
+  if (input.savedPrimers) applySavedPrimerMoveProjections(db, input.savedPrimers);
   assertNoStaleFileLocators(db, oldAbs, catalog.touchedEntityIds);
   return { catalog: { updated: catalog.updated }, indexed, lims };
 }

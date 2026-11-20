@@ -1,14 +1,19 @@
+import { randomUUID } from 'node:crypto';
 import Database from 'better-sqlite3';
 import {
+  chmodSync,
   closeSync,
   constants,
   copyFileSync,
   existsSync,
   fsyncSync,
+  lstatSync,
+  mkdtempSync,
   openSync,
   readFileSync,
   readdirSync,
   renameSync,
+  rmSync,
   statSync,
   unlinkSync,
   writeFileSync,
@@ -361,6 +366,14 @@ export function reconcileInterruptedDatabaseRestore(
   deps: DatabaseRecoveryDependencies = {}
 ): DatabaseRestoreReconciliation {
   const intentPath = restoreIntentPath(dbPath);
+  const pendingReset = dbPath + '.reset-pending';
+  if (lstatSync(pendingReset, { throwIfNoEntry: false })) {
+    if (existsSync(intentPath)) throw new Error('A database restore and reset are both pending.');
+    return {
+      action: 'completed',
+      preRestorePath: completeIsolatedReset(dbPath, pendingReset, deps),
+    };
+  }
   if (!existsSync(intentPath)) return { action: 'none' };
 
   const intent = readRestoreIntent(dbPath);
@@ -388,10 +401,95 @@ export function reconcileInterruptedDatabaseRestore(
   return { action: 'rolled-back', preRestorePath: intent.preRestorePath };
 }
 
-export function resetIsolatedDatabase(dbPath: string): void {
-  for (const path of [dbPath, dbPath + '-wal', dbPath + '-shm']) {
-    if (existsSync(path)) unlinkSync(path);
+const RESET_FILE_SUFFIXES = ['-wal', '-shm', '-journal', ''] as const;
+
+function resetFileIdentity(path: string): string | null {
+  const stat = lstatSync(path, { bigint: true, throwIfNoEntry: false });
+  if (!stat) return null;
+  if (!stat.isFile()) throw new Error(`Expected a regular database file at ${path}`);
+  return [stat.dev, stat.ino, stat.size, stat.mtimeNs].join(':');
+}
+
+function completeIsolatedReset(
+  dbPath: string,
+  pending: string,
+  deps: DatabaseRecoveryDependencies
+): string {
+  if (!lstatSync(pending).isDirectory())
+    throw new Error(`Invalid database reset archive at ${pending}`);
+  const captured: unknown = JSON.parse(readFileSync(join(pending, 'generation.json'), 'utf8'));
+  if (!Array.isArray(captured) || captured.length !== RESET_FILE_SUFFIXES.length)
+    throw new Error(`Invalid database reset generation in ${pending}`);
+  const present: string[] = [];
+  for (const [i, suffix] of RESET_FILE_SUFFIXES.entries()) {
+    const saved = captured[i];
+    const archived = resetFileIdentity(join(pending, basename(dbPath) + suffix));
+    if (
+      !saved ||
+      typeof saved !== 'object' ||
+      !('source' in saved) ||
+      !('copy' in saved) ||
+      saved.copy !== archived ||
+      (archived === null ? saved.source !== null : typeof saved.source !== 'string')
+    )
+      throw new Error(`Incomplete database reset archive at ${pending}`);
+    const live = dbPath + suffix;
+    const identity = resetFileIdentity(live);
+    if (identity === null) continue;
+    if (identity !== saved.source) throw new Error(`Database file changed during reset: ${live}`);
+    present.push(live);
   }
+  const directory = dirname(dbPath);
+  const flush = deps.flushInstalledDirectory ?? fsyncDirectoryRequired;
+  flush(directory);
+  for (const live of present) unlinkSync(live);
+  flush(directory);
+  const archive = dbPath + '.pre-reset-' + randomUUID();
+  renameSync(pending, archive);
+  flush(directory);
+  return join(archive, basename(dbPath));
+}
+
+export function resetIsolatedDatabase(
+  dbPath: string,
+  deps: DatabaseRecoveryDependencies = {}
+): void {
+  if (existsSync(restoreIntentPath(dbPath)))
+    throw new Error('A database restore is already pending.');
+  const pending = dbPath + '.reset-pending';
+  if (lstatSync(pending, { throwIfNoEntry: false })) {
+    completeIsolatedReset(dbPath, pending, deps);
+    return;
+  }
+  const captured = RESET_FILE_SUFFIXES.map((suffix) => resetFileIdentity(dbPath + suffix));
+  if (captured.every((identity) => identity === null)) return;
+  const stage = mkdtempSync(dbPath + '.reset-stage-');
+  try {
+    for (const [i, suffix] of RESET_FILE_SUFFIXES.entries()) {
+      if (captured[i] === null) continue;
+      const destination = join(stage, basename(dbPath) + suffix);
+      copyFileSync(
+        dbPath + suffix,
+        destination,
+        constants.COPYFILE_EXCL | constants.COPYFILE_FICLONE
+      );
+      chmodSync(destination, 0o600);
+      (deps.flushBackupFile ?? fsyncFileRequired)(destination);
+    }
+    const manifest = join(stage, 'generation.json');
+    const generation = RESET_FILE_SUFFIXES.map((suffix, i) => ({
+      source: captured[i],
+      copy: resetFileIdentity(join(stage, basename(dbPath) + suffix)),
+    }));
+    writeFileSync(manifest, JSON.stringify(generation), { flag: 'wx', mode: 0o600 });
+    fsyncFileRequired(manifest);
+    fsyncDirectoryRequired(stage);
+    renameSync(stage, pending);
+  } catch (error) {
+    rmSync(stage, { recursive: true, force: true });
+    throw error;
+  }
+  completeIsolatedReset(dbPath, pending, deps);
 }
 
 function nextAvailablePreRestorePath(
@@ -537,7 +635,7 @@ function fsyncDatabaseSetRequired(basePath: string): void {
   }
 }
 
-function fsyncDirectoryRequired(directory: string): void {
+export function fsyncDirectoryRequired(directory: string): void {
   if (process.platform === 'win32') {
     return;
   }

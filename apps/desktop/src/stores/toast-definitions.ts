@@ -424,6 +424,8 @@ export const TOAST_DEFINITIONS = {
     message: userMessage('primer.libraryFileRecoveryComplete'),
   }),
   'primer-recovery-failed': defineToast({
+    actionDismisses: false,
+    actionLabels: ['Restore saved copies'],
     category: 'workspace reconcile report',
     source: 'services/workspace-reconcile-report.ts',
     type: 'error',

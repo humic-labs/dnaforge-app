@@ -12,7 +12,7 @@ type AtomicTextFileHandle = Pick<FileHandle, 'writeFile' | 'sync' | 'close'> &
 
 interface AtomicTextFileOperations {
   readonly temporaryId: () => string;
-  readonly beforePublish: () => void;
+  readonly beforePublish: (path: string) => void;
   readonly openFile: (path: string, flags: 'wx', mode: number) => Promise<AtomicTextFileHandle>;
   readonly renameFile: (temporaryPath: string, destinationPath: string) => Promise<void>;
   readonly removeFile: (path: string) => Promise<void>;
@@ -79,7 +79,7 @@ async function publishTextFile(
       )
         throw new Error('FILE_CHANGED: The file changed on disk. Reopen it before saving.');
     }
-    operations.beforePublish();
+    operations.beforePublish(temporaryPath);
     await operations.renameFile(temporaryPath, input.path);
   } catch (error) {
     const cleanupErrors: unknown[] = [];

@@ -72,7 +72,7 @@ export async function readOrganizationSavedPrimerSnapshot(
     );
     for (const version of history.versions) {
       let content: Uint8Array;
-      if (version.representation === 'manifest_v1') {
+      if (version.representation !== 'bundle_v1') {
         const detail = await projects.downloadManifestVersion!(homeWorkspaceId, version.id);
         if (detail.version.contentSha256 !== version.contentSha256)
           throw new Error('The saved project version changed while its manifest was read.');

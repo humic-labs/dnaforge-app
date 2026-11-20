@@ -10,6 +10,7 @@ vi.mock('electron', () => ({
 }));
 
 import type Database from 'better-sqlite3';
+import { restoreSavedFileSource } from '../saved-file-sources';
 import { createTestDb } from '../__tests__/test-db';
 import { ensureSchema } from '../schema';
 import {
@@ -50,6 +51,37 @@ describe('importSequenceContentIntoWorkspaceRoot ', () => {
   afterEach(() => {
     db.close();
     rmSync(scratchRoot, { recursive: true, force: true });
+  });
+
+  it('recovers the first import from its saved identity after the project folder is lost', async () => {
+    const result = await importSequenceContentIntoWorkspaceRoot(
+      {
+        targetRoot: workspaceRoot,
+        relativePath: 'imports/incoming.gb',
+        content: VALID_SEQUENCE,
+        collisionPolicy: 'refuse',
+      },
+      { db, managedRootDir: managedRoot }
+    );
+    expect(result.kind).toBe('imported');
+    if (result.kind !== 'imported') throw new Error(JSON.stringify(result));
+    const packageRoot = result.packageRoots[0];
+    const marker = await readFile(sequencePackagePaths(packageRoot).metaPath, 'utf8');
+    const doc = parseSequencePackageDocument(marker);
+    const members = [doc.product.file, ...doc.members.map((member) => member.path)];
+    const originals = await Promise.all(
+      members.map((member) => readFile(join(packageRoot, member)))
+    );
+    const { id } = db.prepare('SELECT id FROM workspaces WHERE path=?').get(workspaceRoot) as {
+      id: number;
+    };
+    await rename(workspaceRoot, join(scratchRoot, 'unavailable'));
+    const destination = join(scratchRoot, 'restored');
+    await restoreSavedFileSource(db, { workspaceId: id, entityId: doc.id, destination });
+    expect(await readFile(sequencePackagePaths(destination).metaPath, 'utf8')).toBe(marker);
+    expect(await Promise.all(members.map((member) => readFile(join(destination, member))))).toEqual(
+      originals
+    );
   });
 
   it('refuses a destination created after preparation and preserves its bytes', async () => {

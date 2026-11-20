@@ -285,6 +285,10 @@ describe('EmbedRegistry', () => {
         attrs: {
           entityType: 'test',
           entityId: 'entity-456',
+          id: 'entity-456',
+          occurrenceId: expect.stringMatching(/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i),
+          projectId: null,
+          registryKind: null,
           label: 'Test Entity',
           path: null,
           contentHash: null,

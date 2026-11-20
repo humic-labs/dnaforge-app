@@ -7,6 +7,7 @@ import { stripTrailingSep } from '../shared/path-boundary';
 import type { SqliteIpcValue } from '../shared/sqlite-ipc';
 import { catalogIconContext } from '../shared/catalog-icon-context';
 import type { EntityColorContext } from '../shared/entity-color-family';
+import { workspaceScopeKey } from '../shared/workspace-scoped-identity';
 
 export interface PrimerReferenceCandidate {
   primerId: string;
@@ -19,6 +20,9 @@ export interface PrimerReferenceCandidate {
 
   localOnly: boolean;
   iconContext?: EntityColorContext;
+  projectId?: string | null;
+  projectRoot?: string | null;
+  projectName?: string | null;
 }
 
 interface SearchInput {
@@ -39,6 +43,9 @@ interface PrimerReferenceRow {
   workspace_path: string | null;
   icon_kind: string | null;
   catalog_metadata: string | null;
+  workspace_id: number | null;
+  project_repo_uuid: string | null;
+  project_name: string | null;
 }
 
 interface PrimerOriginRow {
@@ -75,7 +82,10 @@ export async function searchPrimerReferencesByName({
            p.origin_details AS origin_details,
            l.kind AS icon_kind,
            e.metadata AS catalog_metadata,
-           w.path AS workspace_path
+           w.path AS workspace_path,
+           w.id AS workspace_id,
+           w.repo_uuid AS project_repo_uuid,
+           w.name AS project_name
     FROM primers p
     LEFT JOIN workspaces w ON w.id = p.workspace_id
     LEFT JOIN lims_entity l
@@ -121,6 +131,12 @@ export async function searchPrimerReferencesByName({
             }),
           }
         : {}),
+      projectId:
+        row.workspace_id != null
+          ? workspaceScopeKey(row.project_repo_uuid, row.workspace_id)
+          : null,
+      projectRoot: row.workspace_path,
+      projectName: row.project_name,
     };
   });
 }

@@ -7,6 +7,7 @@ export {
   Switch,
   SegmentedControl,
   ColumnResizeHandle,
+  ReferenceChipSurface,
 } from './controls';
 export type { SelectOption } from './controls';
 export { NavigationAction, NavigationList, NavigationRow } from './navigation';

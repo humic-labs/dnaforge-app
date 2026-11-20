@@ -36,13 +36,22 @@ export function createConfiguredTableBlock(
   tableId: string | undefined,
   dimensions: z.infer<typeof tableDimensionsSchema>
 ): JSONContent & { attrs: { refId: string; data: TableData } } {
+  return createTableBlock(tableId, configureTableData({}, dimensions));
+}
+
+export function createTableBlock(
+  tableId: string | undefined,
+  data: TableData
+): JSONContent & { attrs: { refId: string; data: TableData } } {
+  const parsed = TABLE_NOTEBOOK_BLOCK.parseData(data);
+  if (!parsed.ok) throw new Error(parsed.reason);
   return {
     type: 'embed',
     attrs: {
       type: TABLE_NOTEBOOK_BLOCK.type,
       version: TABLE_NOTEBOOK_BLOCK.currentVersion,
       refId: tableId ?? crypto.randomUUID(),
-      data: configureTableData({}, dimensions),
+      data,
     },
   };
 }

@@ -1,3 +1,5 @@
+import { retainPrimerSourceInDb } from './primer-source-history';
+import { PRIMER_SAVED_SOURCE_EVENT } from '../shared/primer-artifacts/primer-source-history';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -112,7 +114,7 @@ export function replacePrimerLegacyProjectionInsideTx(
     return;
   }
   if (authority) {
-    const { artifact, resolvedBindings } = readCheckedCanonicalPrimerArtifact(
+    const { artifact, resolvedBindings, sourceText } = readCheckedCanonicalPrimerArtifact(
       db,
       input.id,
       authority
@@ -125,6 +127,17 @@ export function replacePrimerLegacyProjectionInsideTx(
     const { registryRelationships: _relationships, ...physicalInput } = input;
     if (!isDeepStrictEqual(physicalInput, expected))
       throw new Error('Primer compatibility projection does not match its authoritative artifact.');
+    if (
+      sourceText !== null &&
+      !db.prepare('SELECT 1 FROM org_registry_local_records WHERE entity_id=?').get(input.id)
+    )
+      retainPrimerSourceInDb(
+        db,
+        input.id,
+        authority.relativePath,
+        sourceText,
+        PRIMER_SAVED_SOURCE_EVENT
+      );
   }
 
   db.prepare(
@@ -413,7 +426,7 @@ function readCheckedCanonicalPrimerArtifact(
       accepted.artifact.artifactRevision !== authority.artifactRevision
     )
       throw new Error('The accepted primer projection disagrees with its native binding.');
-    return { ...accepted, workspaceRoot: authority.workspaceRoot };
+    return { ...accepted, workspaceRoot: authority.workspaceRoot, sourceText: null };
   }
   const leaf = lstatSync(authority.path, { bigint: true });
   if (!leaf.isFile() || leaf.isSymbolicLink())
@@ -421,7 +434,8 @@ function readCheckedCanonicalPrimerArtifact(
   if (!pathIsAtOrUnder(realpathSync(authority.path), realpathSync(authority.workspaceRoot)))
     throw new Error('Canonical primer artifact escapes its native workspace.');
   const bytes = readFileSync(authority.path);
-  const artifact = parsePrimerArtifact(bytes.toString('utf8'));
+  const sourceText = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+  const artifact = parsePrimerArtifact(sourceText);
   if (
     createHash('sha256').update(artifact.sequence.bases).digest('hex') !==
     artifact.sequence.contentHash
@@ -450,6 +464,7 @@ function readCheckedCanonicalPrimerArtifact(
     throw new Error('The canonical primer artifact changed during projection.');
   return {
     artifact,
+    sourceText,
     resolvedBindings: nativePrimerBindings(db, artifact, authority),
     workspaceRoot: authority.workspaceRoot,
   };

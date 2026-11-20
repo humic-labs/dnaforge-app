@@ -422,7 +422,7 @@ function RegistryTableCell({
     return (
       <span className="flex min-w-0 items-center gap-2.5 font-medium text-fg">
         {selection}
-        <span className="flex-shrink-0">{iconForLimsKind(summary.kind)}</span>
+        <span className="flex-shrink-0">{iconForLimsKind(summary.schemaIconKind ?? summary.kind)}</span>
         <span
           className="min-w-0 flex-1 truncate"
           title={

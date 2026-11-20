@@ -3061,6 +3061,7 @@ function openIsolatedUnlockTransactionDb(globalDb: Database.Database): {
     return { db: globalDb, close: () => undefined };
   }
   const transactionDb = new Database(globalDb.name);
+  transactionDb.pragma('synchronous = FULL');
   transactionDb.pragma('foreign_keys = ON');
   transactionDb.pragma('busy_timeout = 5000');
   return {

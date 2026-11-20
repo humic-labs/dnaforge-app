@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 import { createRef } from 'react';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../lib/search', () => ({
+vi.mock('../lib/search', async (load) => ({
+  ...(await load<typeof import('../lib/search')>()),
   getEntityIcon: () => null,
+  getEntityCategoryIcon: () => null,
 }));
 
 import { MentionMenu, type MentionMenuRef } from './MentionMenu';
@@ -61,33 +63,80 @@ describe('notebook @ search menu', () => {
     Element.prototype.scrollIntoView = vi.fn();
   });
 
-  it('shows the typed text in its search box and a filter for each kind found', () => {
-    render(<MentionMenu items={[strains, sequences]} query="BL21" command={vi.fn()} />);
-
-    expect(screen.getByTestId('mention-menu-query').textContent).toBe('BL21');
-    expect(screen.getByTestId('mention-filter-all').textContent).toBe('All 8');
-    expect(screen.getByTestId('mention-filter-registry:strain').textContent).toBe('Strain 7');
-    expect(screen.getByTestId('mention-filter-sequence').textContent).toBe('Sequence 1');
-    expect(screen.getByText('More matches: keep typing')).toBeTruthy();
+  it('keeps the typed query in the notebook rather than duplicating a search box or kind filters', () => {
+    render(
+      <MentionMenu
+        items={[strains, sequences]}
+        query="BL21"
+        command={vi.fn()}
+        nextCursor="next-page"
+        onLoadMore={vi.fn()}
+      />
+    );
+    expect(screen.queryByTestId('mention-menu-search')).toBeNull();
+    expect(screen.queryByTestId('mention-menu-query')).toBeNull();
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(screen.getByRole('button', { name: /More results/i })).toBeTruthy();
   });
 
-  it('shows five per kind until a kind is chosen, then shows them all', () => {
+  it('shows the flat result list without hiding records behind a five-per-kind cap', () => {
+    const command = vi.fn();
     const ref = createRef<MentionMenuRef>();
-    render(<MentionMenu ref={ref} items={[strains, sequences]} query="BL21" command={vi.fn()} />);
+    render(<MentionMenu ref={ref} items={[strains, sequences]} query="BL21" command={command} />);
+    expect(screen.getAllByTestId('mention-menu-item')).toHaveLength(8);
+    expect(screen.queryByTestId('mention-more-registry:strain')).toBeNull();
+    for (let index = 0; index < 6; index++) key(ref, 'ArrowDown');
+    key(ref, 'Enter');
+    expect(command).toHaveBeenCalledWith(expect.objectContaining({ entityId: 'strain-6' }));
+  });
 
-    const strainGroup = screen.getByTestId('mention-group-registry:strain');
-    expect(within(strainGroup).getAllByTestId('mention-menu-item')).toHaveLength(5);
-    expect(screen.getByTestId('mention-more-registry:strain').textContent).toBe('2 more');
+  it('keeps an empty search empty without creating a made-up entity', () => {
+    const command = vi.fn();
+    const ref = createRef<MentionMenuRef>();
+    render(<MentionMenu ref={ref} items={[]} query="Unknown entity" command={command} />);
+    expect(screen.queryByRole('option')).toBeNull();
+    expect(
+      screen.getByText(/No (?:items to reference|entities found|matching entities)/i)
+    ).toBeTruthy();
+    key(ref, 'Enter');
+    expect(command).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Create.*Unknown entity/)).toBeNull();
+  });
 
-    expect(key(ref, 'Tab')).toBe(true);
-    expect(screen.getByTestId('mention-filter-registry:strain').getAttribute('aria-selected')).toBe(
-      'true'
+  it('shows project details for same-named records and keeps the selected identity', () => {
+    const command = vi.fn();
+    const items: EntityGroup[] = [
+      {
+        ...sequences,
+        items: [
+          entity({
+            id: 'seq-alpha',
+            name: 'pUC19',
+            type: 'sequence',
+            projectId: 'alpha',
+            projectName: 'Alpha',
+            path: 'pUC19',
+          }),
+          entity({
+            id: 'seq-beta',
+            name: 'pUC19',
+            type: 'sequence',
+            projectId: 'beta',
+            projectName: 'Beta',
+            path: 'pUC19',
+          }),
+        ],
+      },
+    ];
+    render(<MentionMenu items={items} query="pUC19" command={command} />);
+    expect(
+      screen.getAllByTestId('mention-menu-item-project').map((row) => row.textContent)
+    ).toEqual(['Alpha', 'Beta']);
+    fireEvent.click(screen.getAllByTestId('mention-menu-item')[1]);
+    expect(command).toHaveBeenCalledWith(
+      expect.objectContaining({ entityId: 'seq-beta', projectId: 'beta', path: 'pUC19' })
     );
-    expect(screen.getAllByTestId('mention-menu-item')).toHaveLength(7);
-    expect(screen.queryByTestId('mention-group-sequence')).toBeNull();
-
-    key(ref, 'Tab', true);
-    expect(screen.getByTestId('mention-filter-all').getAttribute('aria-selected')).toBe('true');
   });
 
   it('inserts the same complete link whether an item is clicked or chosen with Enter', () => {

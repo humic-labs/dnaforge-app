@@ -1,3 +1,4 @@
+import { ENTITY_TYPE_ICON_KINDS } from '@waypoint/scientific-artifacts/shared/entity-types';
 import { jsonObjectSchema, jsonValueSchema } from '../../../shared/json-value';
 import { z } from 'zod';
 import { LIMS_REGISTRATION_STATUSES } from '../../../shared/lims';
@@ -174,6 +175,7 @@ const limsRegistrySummary = z.object({
   schemaSnapshot: limsSchemaSnapshotOutputSchema,
   fieldValues,
   schemaDisplayName: z.string().optional(),
+  schemaIconKind: z.enum(ENTITY_TYPE_ICON_KINDS).optional(),
   eventSeq: z.number().int().nullable().optional(),
   name: z.string(),
   registryId: z.string().nullable(),
@@ -275,6 +277,7 @@ export const limsQueryRegistrySummariesOutputSchema = z.object({
   totalCount: count,
   limit: count,
   offset: count,
+  availableKinds: z.array(z.object({ kind: z.string(), count })).optional(),
   availableOrganisms: z
     .array(
       z.object({

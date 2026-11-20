@@ -1,3 +1,5 @@
+import type Database from 'better-sqlite3';
+import { publishTypedSavedText } from './saved-file-publication';
 import { createHash } from 'node:crypto';
 import { lstat, readFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
@@ -101,6 +103,8 @@ export async function readMolecularDocumentFile(
 }
 
 export class MolecularDocumentLibrary {
+  constructor(private readonly store?: { db(): Database.Database; blobRoot?: string }) {}
+
   async read(input: MolecularDocumentLocation): Promise<SavedMolecularDocument> {
     const location = locationSchema.parse(input);
     return withWorkspaceMutation(location.workspaceRoot, () => readMolecularDocumentFile(location));
@@ -149,16 +153,30 @@ export class MolecularDocumentLibrary {
         }
         await preservePreUpgradeFile(destination, expectedRevision);
       }
-      const result = await writeWorkspaceTextFileAtomicInMain(
+      const db = this.store?.db() ?? (await import('./ipc/database')).getDb();
+      const result = await publishTypedSavedText(
+        db,
         {
           workspaceRoot: destination.workspaceRoot,
+          entityId: document.id,
+          workspaceScoped: true,
           path: destination.path,
           content,
-          artifactNoun: 'molecular document',
-          mode: expectedRevision === null ? 'create' : 'replace',
-          ...(expectedRevision === null ? {} : { expectedContentHash: expectedRevision }),
+          expectedSha256: expectedRevision,
+          blobRoot: this.store?.blobRoot,
         },
-        { durable: true }
+        (mark) =>
+          writeWorkspaceTextFileAtomicInMain(
+            {
+              workspaceRoot: destination.workspaceRoot,
+              path: destination.path,
+              content,
+              artifactNoun: 'molecular document',
+              mode: expectedRevision === null ? 'create' : 'replace',
+              ...(expectedRevision === null ? {} : { expectedContentHash: expectedRevision }),
+            },
+            { durable: true, beforePublish: mark }
+          )
       );
       return {
         ...destination,
