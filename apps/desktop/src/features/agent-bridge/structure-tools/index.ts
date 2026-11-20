@@ -2906,7 +2906,9 @@ export async function handleMolSaveView(
         if (current?.viewerId === before.viewerId && (adoptedAppearance || projectSave)) {
           const next = {
             ...current.entry.data,
-            ...(projectSave && adoptedAppearance
+            ...(projectSave &&
+            adoptedAppearance &&
+            (adoptingHost || !current.entry.data.structureLinkOwnerId)
               ? {
                   ...molecularViewAttrs(
                     adoptedDocumentViewId ?? current.registrationId,

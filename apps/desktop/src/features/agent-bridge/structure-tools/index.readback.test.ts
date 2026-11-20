@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCanvasStore } from '../../canvas/public/store';
+import * as viewerHosts from '../../page/public/embeds/structure3d/molstar/cache';
 import { useStructure3dStore } from '../../page/public/embeds/structure3d/store';
 import {
   ActiveMolstarViewerError,
@@ -605,6 +606,48 @@ describe('molecular MCP readback integration', () => {
     });
     expect(result).toMatchObject({ ok: false, code: 'VIEW_CHANGED', stateChanged: false });
     expect(savedReferences.create).not.toHaveBeenCalled();
+  });
+
+  it('saves a reference from an embedded drawer while keeping its mounted source', async () => {
+    allowSuccessfulCapture();
+    readback.acceptSaved.mockReturnValue(true);
+    const canvas = useCanvasStore.getState();
+    const initialTab = canvas.panels.main.activeTabId!;
+    canvas.openTab('main', {
+      type: 'sequence',
+      entityId: 'source-document',
+      label: 'Source',
+      sequenceDocument: { kind: 'catalog-sequence', entityId: 'source-document' },
+    });
+    canvas.closeTab('main', initialTab);
+    const initial = useStructure3dStore.getState().expandedStructures['view-a'].data;
+    useStructure3dStore.getState().updateStructureData('view-a', {
+      ...initial,
+      structureLinkOwnerId: 'source-document-drawer',
+    });
+    const mountedSource = viewerHosts.getStructureKey(initial.pdbId);
+    const mounted = vi
+      .spyOn(viewerHosts, 'hasActiveMolstarViewerHost')
+      .mockImplementation(
+        (key, registration) => key === mountedSource && registration === 'view-a'
+      );
+    try {
+      const result = await handleMolSaveView({
+        structureViewId: 'view-a',
+        title: 'Selected view',
+        caption: '',
+        evidence: [],
+      });
+      expect(result).toMatchObject({ ok: true, revisionId: savedRevisionId });
+      expect(useStructure3dStore.getState().expandedStructures['view-a'].data).toMatchObject({
+        source: initial.source,
+        sourceId: initial.sourceId,
+        structureViewIdentity: initial.structureViewIdentity,
+        molecularDocumentSavedReferenceId: savedRevisionId,
+      });
+    } finally {
+      mounted.mockRestore();
+    }
   });
 
   it('retains the inspection logical identity when adopting its saved document coordinates', async () => {
