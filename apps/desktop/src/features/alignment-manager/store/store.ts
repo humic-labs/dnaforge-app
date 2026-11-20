@@ -1322,12 +1322,15 @@ export const useVerificationStore = create<VerificationStore>()(
               const querySequence = queryInReferenceCoordinates(
                 alignmentResult.aligned_reference,
                 alignmentResult.aligned_query,
-                referenceSequence
+                referenceSequence,
+                alignmentResult.circular_offset
               );
               const apiMutations = alignmentResult.mutations ?? [];
               const coverage = calculateCoverage(
                 alignmentResult.aligned_reference,
-                alignmentResult.aligned_query
+                alignmentResult.aligned_query,
+                alignmentResult.circular_offset,
+                referenceSequence.length
               );
               const structuralAnalysis = alignmentResult.analysis
                 ? convertStructuralAnalysis(alignmentResult.analysis)
@@ -1352,6 +1355,7 @@ export const useVerificationStore = create<VerificationStore>()(
                 alignment: {
                   alignedReference: alignmentResult.aligned_reference,
                   referenceOffset: alignmentResult.circular_offset,
+                  referenceLength: referenceSequence.length,
                   alignedQuery: alignmentResult.aligned_query,
                   identity: alignmentResult.identity,
                   coverageStart: coverage.start,
@@ -1366,7 +1370,8 @@ export const useVerificationStore = create<VerificationStore>()(
                   structuralAnalysis?.overallAssessment,
                   getAlignmentEvidence(
                     alignmentResult.aligned_reference,
-                    alignmentResult.aligned_query
+                    alignmentResult.aligned_query,
+                    referenceSequence.length
                   ).complete
                 ),
                 alignedAt,
@@ -1733,7 +1738,8 @@ export const useVerificationStore = create<VerificationStore>()(
               const querySeq = queryInReferenceCoordinates(
                 track.alignment.alignedReference,
                 track.alignment.alignedQuery,
-                referenceBases
+                referenceBases,
+                track.alignment.referenceOffset
               );
 
               const enrichedMutations = track.mutations.map((mutation) => {

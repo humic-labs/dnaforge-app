@@ -723,7 +723,7 @@ async def _execute_pairwise_alignment(
 
     if request.use_cache:
         cache_key = compute_checksum(
-            "pairwise-v5-single-reference-cycle-gap-copy",
+            "pairwise-v6-circular-mutation-columns",
             query,
             reference,
             request.algorithm.value,
@@ -843,12 +843,6 @@ async def _execute_pairwise_alignment(
     analysis = analyze_alignment(aligned_query, aligned_reference)
 
     mutations = analysis["mutations"]
-    if circular_offset > 0:
-        for mut in mutations:
-            mut.position = (
-                (mut.position - 1 + circular_offset) % original_ref_length
-            ) + 1
-
     mutations_for_structural = [
         {
             "type": m.type,
@@ -899,6 +893,19 @@ async def _execute_pairwise_alignment(
             "quality_trim": {"start": 0, "end": 0},
             "homopolymer_regions": [],
         }
+
+    if circular_offset:
+        def reference_position(local_position: int) -> int:
+            return (local_position - 1 + circular_offset) % original_ref_length + 1
+
+        for mutation in mutations:
+            mutation.position = reference_position(mutation.position)
+        for point in structural_analysis["point_mutations"]:
+            point["position"] = mutations[point["index"]].position
+        for region in structural_analysis["structural_regions"]:
+            for endpoint in ("ref_start", "ref_end"):
+                if region[endpoint] is not None:
+                    region[endpoint] = reference_position(region[endpoint])
 
     def serialize_analysis(obj):
         if isinstance(obj, dict):

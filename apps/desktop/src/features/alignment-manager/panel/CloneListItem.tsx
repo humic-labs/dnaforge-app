@@ -93,7 +93,12 @@ export const CloneListItem = React.forwardRef<HTMLDivElement, CloneListItemProps
     const statusButtonRef = React.useRef<HTMLButtonElement>(null);
     const summary = getMutationSummary(track);
     const evidence = React.useMemo(
-      () => getAlignmentEvidence(track.alignment.alignedReference, track.alignment.alignedQuery),
+      () =>
+        getAlignmentEvidence(
+          track.alignment.alignedReference,
+          track.alignment.alignedQuery,
+          track.alignment.referenceLength
+        ),
       [track.alignment]
     );
     const severityColor = {

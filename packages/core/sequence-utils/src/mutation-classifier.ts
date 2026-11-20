@@ -158,6 +158,18 @@ export function classifyMutation(
     const refReading = read(refCodonInfo.codon, refCodonInfo.codonStart);
     const queryReading = read(queryCodonInfo.codon, queryCodonInfo.codonStart);
 
+    if (
+      (refReading.full === 'X' && /[^ACGTU]/i.test(refCodonInfo.codon)) ||
+      (queryReading.full === 'X' && /[^ACGTU]/i.test(queryCodonInfo.codon))
+    ) {
+      return {
+        in_annotation: true,
+        annotation_names: annotationNames,
+        affects_cds: true,
+        cds_name: cds.name,
+      };
+    }
+
     const meaningOf = (reading: { kind: string; full: string }) =>
       `${reading.kind}:${reading.full}`;
     const refAA = refReading.full;

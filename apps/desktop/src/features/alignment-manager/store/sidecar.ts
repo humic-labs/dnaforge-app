@@ -146,7 +146,11 @@ export function sidecarToState(
     alignment: t.alignment,
     mutations: t.mutations,
     structuralAnalysis: t.structuralAnalysis,
-    status: getAlignmentEvidence(t.alignment.alignedReference, t.alignment.alignedQuery).complete
+    status: getAlignmentEvidence(
+      t.alignment.alignedReference,
+      t.alignment.alignedQuery,
+      t.alignment.referenceLength
+    ).complete
       ? t.status
       : 'incomplete',
     userStatus: t.userStatus,
