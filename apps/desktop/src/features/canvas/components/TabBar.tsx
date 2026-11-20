@@ -18,8 +18,6 @@ import { projectTabStripTab } from '../tab-menu-presentation';
 import { useSequenceStore } from '../../sequence/public/store';
 import { sequenceDocumentKey } from '../../../shared/managed-sequence-document';
 
-const INSERT_GAP_WIDTH = 80;
-
 interface TabBarProps {
   tabs: TabType[];
   activeTabId: string | null;
@@ -58,7 +56,9 @@ export const TabBar = React.memo(function TabBar({
   const isDragging = useDragStore((s) => s.isDragging);
   const dropTargetPanelId = useDragStore((s) => s.dropTargetPanelId);
   const dropInsertIndex = useDragStore((s) => s.dropInsertIndex);
-  const dragTabId = useDragStore((s) => s.dragTabId);
+  const draggedTabInPanel = useDragStore((s) =>
+    s.dragFromPanelId === panelId ? s.dragTabId : null
+  );
 
   const updateTab = useCanvasStore((s) => s.updateTab);
   const renamePageArtifact = usePageStore((s) => s.renamePageArtifact);
@@ -135,18 +135,6 @@ export const TabBar = React.memo(function TabBar({
     setEditingTabId(null);
   }, []);
 
-  const showTrailingGap = useMemo(() => {
-    if (!isDragging || dropTargetPanelId !== panelId || dropInsertIndex === null) {
-      return false;
-    }
-    const isAtEnd = dropInsertIndex >= tabs.length;
-    const draggedTabInThisPanel = tabs.some((t) => t.id === dragTabId);
-    if (draggedTabInThisPanel) {
-      return dropInsertIndex >= tabs.length - 1;
-    }
-    return isAtEnd;
-  }, [isDragging, dropTargetPanelId, panelId, dropInsertIndex, tabs, dragTabId]);
-
   useEffect(() => {
     if (isDragging) {
       if (contextMenu) setContextMenu(null);
@@ -195,6 +183,14 @@ export const TabBar = React.memo(function TabBar({
     return null;
   }
 
+  const boundary = dropTargetPanelId === panelId ? dropInsertIndex : null;
+  const atEnd = boundary === tabs.length;
+  const restoresPosition =
+    boundary !== null &&
+    (tabs[boundary - 1]?.id === draggedTabInPanel || tabs[boundary]?.id === draggedTabInPanel);
+  const markerIndex = atEnd ? tabs.length - 1 : boundary;
+  const markerEdge = atEnd ? 'after' : 'before';
+
   return (
     <CanvasTabStrip
       panelId={panelId}
@@ -230,6 +226,7 @@ export const TabBar = React.memo(function TabBar({
           tab={projectTabStripTab(tab)}
           panelId={panelId}
           index={index}
+          insertMarker={!restoresPosition && index === markerIndex ? markerEdge : undefined}
           isActive={tab.id === activeTabId}
           isBeforeActive={activeIndex > 0 && index === activeIndex - 1}
           isAfterActive={activeIndex >= 0 && index === activeIndex + 1}
@@ -244,16 +241,6 @@ export const TabBar = React.memo(function TabBar({
           onCancelRename={handleCancelRename}
         />
       ))}
-      {}
-      {showTrailingGap && (
-        <div
-          style={{
-            width: `${INSERT_GAP_WIDTH}px`,
-            transition: 'width 150ms ease-out',
-          }}
-          className="flex-shrink-0"
-        />
-      )}
     </CanvasTabStrip>
   );
 });
