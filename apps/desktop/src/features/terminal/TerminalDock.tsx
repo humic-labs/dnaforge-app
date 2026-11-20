@@ -146,7 +146,9 @@ export function TerminalDock({
         if (!cancelled)
           useToastStore
             .getState()
-            .addToast(userMessage('failure.terminal-history-could-not-be-loaded'), 'error');
+            .addToast(userMessage('failure.terminal-history-could-not-be-loaded'), {
+              definition: 'terminal-action-failed',
+            });
       });
     return () => {
       cancelled = true;
@@ -224,7 +226,9 @@ export function TerminalDock({
     });
   }, []);
   const report = useCallback((value: unknown) => {
-    useToastStore.getState().addToast(toUserMessage(value, 'operation.failed'), 'error');
+    useToastStore.getState().addToast(toUserMessage(value, 'operation.failed'), {
+      definition: 'terminal-action-failed',
+    });
   }, []);
   const ready = useCallback((id: string, handle: TerminalPaneHandle | null) => {
     if (handle) {
