@@ -156,11 +156,11 @@ describe('TabBar plasmid rename', () => {
 it.each([
   ['main', 1, 0],
   ['main', 2, 0],
-  ['main', 0, 1],
-  ['main', 3, 1],
+  ['main', 0, 0],
+  ['main', 3, 0],
   ['other', 2, 1],
 ] as const)(
-  'shows the insertion line only for a move from %s to boundary %i',
+  'shows the insertion line only across rows (source %s, boundary %i)',
   (source, boundary, count) => {
     const tabs = ['A', 'B', 'C'].map((id) => ({
       id,

@@ -11,6 +11,8 @@ description:
 Notebook repair claims also use the focused
 [notebook verification skill](../verify-notebook-authoring/SKILL.md), which separates
 component results from real app acceptance and lists the reported regressions.
+For document tab reordering and moves between panes, follow the
+[tab drag checks](features/document-tab-drag.md).
 For release and usage analytics notices, follow the
 [desktop relaunch checks](features/desktop-notices.md).
 

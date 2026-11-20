@@ -197,6 +197,7 @@ export const Tab = React.memo(function Tab({
 
       if ((e.target as HTMLElement).closest('button')) return;
 
+      const offsetX = e.clientX - e.currentTarget.getBoundingClientRect().left;
       mouseDownRef.current = { x: e.clientX, y: e.clientY };
       dragStartedRef.current = false;
 
@@ -209,7 +210,11 @@ export const Tab = React.memo(function Tab({
 
         if (distance > DRAG_THRESHOLD) {
           dragStartedRef.current = true;
-          startDrag(tab.id, panelId, tab.label, tab.type);
+          startDrag(tab.id, panelId, tab.label, tab.type, {
+            offsetX,
+            clientX: moveEvent.clientX,
+            clientY: moveEvent.clientY,
+          });
         }
       };
 
