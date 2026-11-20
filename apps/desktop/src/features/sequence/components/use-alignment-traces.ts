@@ -6,6 +6,7 @@ import {
 } from '@waypoint/sequence-utils';
 import { userMessage } from '@waypoint/user-messages';
 import { useToastStore } from '../../../stores/toast-store';
+import { rotateTrace, reverseComplementTrace } from '../../trace/public';
 import { platform } from '../../../platform';
 import { sha256Hex } from '../../../shared/sha256-sync';
 import {
@@ -60,11 +61,29 @@ export function useAlignmentTraces(
       if (!trace) throw new Error('No chromatogram was recorded for this read.');
       const alignment = track.alignment;
       const calls = alignment.alignedQuery.replace(/-/g, '').toUpperCase();
-      const reverse =
-        calls !== read.sequence.toUpperCase() &&
-        calls === reverseComplement(read.sequence.toUpperCase());
-      if (!reverse && calls !== read.sequence.toUpperCase())
-        throw new Error('The saved read no longer matches its alignment.');
+      const forward = read.sequence.toUpperCase();
+      const opposite = reverseComplement(forward);
+      let reverse = calls !== forward && calls === opposite;
+      let start = 0;
+      if (calls !== forward && calls !== opposite) {
+        if (calls.length !== forward.length || track.testedReference?.topology !== 'circular')
+          throw new Error('The saved read no longer matches its alignment.');
+        const origins = [forward, opposite].map((sequence) => {
+          const doubled = sequence + sequence;
+          const first = doubled.indexOf(calls);
+          const next = doubled.indexOf(calls, first + 1);
+          return first >= 0 && (next < 0 || next >= sequence.length) ? first : -1;
+        });
+        if (origins[0] >= 0 === origins[1] >= 0)
+          throw new Error('The original read origin cannot be resolved.');
+        reverse = origins[1] >= 0;
+        start = reverse ? origins[1] : origins[0];
+      }
+      const sourceBaseIndices = trace.peakPositions.map((_, index) => {
+        const oriented = (index + start) % calls.length;
+        return reverse ? calls.length - oriented - 1 : oriented;
+      });
+      const orientedTrace = rotateTrace(reverse ? reverseComplementTrace(trace) : trace, start);
       const matchedReference = alignment.alignedReference.replace(/-/g, '').toUpperCase();
       const doubled = (reference + reference).toUpperCase();
       const offset = alignment.referenceOffset ?? doubled.indexOf(matchedReference);
@@ -76,10 +95,11 @@ export function useAlignmentTraces(
         throw new Error('The saved alignment no longer matches its reference.');
       const { laneOptions } = buildAlignedChromatogramOptions({
         referenceSequence: reference,
-        trace,
+        trace: orientedTrace,
         readSequence: calls,
-        readQuality: reverse ? read.quality?.slice().reverse() : read.quality,
-        reverseComplemented: reverse,
+        readQuality: read.quality?.length
+          ? sourceBaseIndices.map((i) => read.quality![i])
+          : undefined,
         alignedQuery: alignment.alignedQuery,
         alignedReference: alignment.alignedReference,
         referenceOffset: offset,
@@ -88,6 +108,8 @@ export function useAlignmentTraces(
         track.id,
         {
           ...laneOptions,
+          sourceBaseIndices,
+          sourcePeakPositions: sourceBaseIndices.map((i) => trace.peakPositions[i]),
           cycleLength:
             offset + matchedReference.length > reference.length ? reference.length : undefined,
         },

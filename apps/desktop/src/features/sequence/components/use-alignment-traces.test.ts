@@ -93,6 +93,28 @@ it('hydrates the frozen AB1 by run and query ID on each open and rejects changed
     hook.unmount();
   }
   expect(readFile.mock.calls).toEqual([['/package/frozen.ab1'], ['/package/frozen.ab1']]);
+  const circular: VerificationTrack[] = [
+    {
+      ...tracks[0],
+      testedReference: {
+        topology: 'circular',
+        fileSha256: 'ref',
+        sequenceRevision: 'ref',
+        checkpointId: null,
+      },
+      alignment: { ...tracks[0].alignment, alignedQuery: 'CGAA', alignedReference: 'CGAA' },
+    },
+  ];
+  const rotated = renderHook(() => useAlignmentTraces('/reference.gb', 'CGAA', circular));
+  await waitFor(() =>
+    expect(rotated.result.current.get('read')).toMatchObject({
+      sequence: 'CGAA',
+      quality: [30, 40, 10, 20],
+      sourceBaseIndices: [2, 3, 0, 1],
+      sourcePeakPositions: [5, 7, 1, 3],
+    })
+  );
+  rotated.unmount();
   readFile.mockResolvedValue(new Uint8Array([1, 2, 3]));
   const hook = renderHook(() => useAlignmentTraces('/reference.gb', 'CTT', tracks));
   await waitFor(() => expect(notify).toHaveBeenCalledTimes(1));
