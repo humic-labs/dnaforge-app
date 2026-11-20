@@ -78,7 +78,13 @@ the debug port in the checkout's settings. Run it with Node as shown above.
 
 With the isolated scenario app running, use
 `node apps/desktop/scripts/check-chat-pane-layout.mjs "$HOME/DNAForge-proof/chat-layout"`.
-The check resizes a notebook/chat split to 260 px, drags to the chat minimum,
-pins history, and expands back to 600 px. It also opens a new chat at 260 px.
+At 260 and 320 px, Attach, the route picker and Send share the first row. Model
+controls align with its leading edge on the next row. At 600 px, all controls
+fit on one row. The check also drags to the chat minimum, pins history and opens
+a new chat at 260 px.
 At each size, it checks for overlapping controls, text outside buttons, and an
 accessible route picker. Send must stay in view and accept a click when enabled.
+
+For a two-pane preview already open to chat, add `--current` to measure its
+existing controls at those three widths and restore the original pane width.
+This mode preserves the conversation, route and draft.

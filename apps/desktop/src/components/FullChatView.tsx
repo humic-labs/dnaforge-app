@@ -71,7 +71,7 @@ import {
   type AgentCapabilityChoice,
 } from '../features/ai/agent-actions/AgentActionsPalette';
 
-import { SendIcon, ChevronRightIcon, PaperclipIcon, StopIcon } from './icons';
+import { ChevronRightIcon, StopIcon } from './icons';
 import {
   ChatPermissionPickers,
   CopyButton,
@@ -92,6 +92,7 @@ import {
   ProjectResourceChatChip,
 } from './chat/message-parts';
 import { CHAT_COMPOSER_SURFACE_CLASS, formatChatTurnRouteLabel } from './chat/composer-controls';
+import { ChatComposerToolbar } from './chat/ChatComposerToolbar';
 import { EmptyStateChatComposer } from './chat/EmptyStateChatComposer';
 import { ChatHistorySurface } from './chat/ChatHistorySurface';
 import { extractMessageReferences } from '../features/ai/references/extract-message-references';
@@ -3225,56 +3226,36 @@ function InitializedChatView({
                           style={{ maxHeight: '180px' }}
                         />
                       </div>
-                      <div
-                        className="chat-composer-toolbar px-3 pb-1.5 pt-0.5"
-                        data-testid="chat-composer-toolbar"
+                      <ChatComposerToolbar
+                        onAttach={handleAttachFile}
+                        agentActions={renderAgentActionsControl()}
+                        route={renderAssistantRouteSelector()}
+                        onSend={handleSend}
+                        sendDisabled={
+                          (!input.trim() &&
+                            attachedFiles.length === 0 &&
+                            composeReferences.length === 0) ||
+                          activeRouteSendBlocked
+                        }
+                        sendTitle={
+                          activeRouteFallbackNotice && !activeRouteSendBlocked
+                            ? activeRouteFallbackNotice
+                            : activeDirectApiNeedsKey
+                              ? 'Add a Direct API key before sending'
+                              : activeCliNeedsLogin
+                                ? 'Sign in to this CLI host before sending'
+                                : activeRouteSendBlocked
+                                  ? 'Waiting for AI route detection'
+                                  : isLoading
+                                    ? 'Queue message (Enter)'
+                                    : 'Send (Enter)'
+                        }
                       >
-                        <div className="mr-auto flex items-center gap-1">
-                          <button
-                            onClick={handleAttachFile}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition-colors wp-interactive hover:text-accent disabled:opacity-30 [&_svg]:stroke-[2.25]"
-                            title="Attach file"
-                            aria-label="Attach file"
-                            data-testid="chat-attach-button"
-                          >
-                            <PaperclipIcon />
-                          </button>
-                          {renderAgentActionsControl()}
-                        </div>
-
-                        {renderAssistantRouteSelector()}
                         {renderComposerModelControls()}
                         {renderRouteConfigurationPrompt()}
                         {renderRouteCheckingStatus()}
                         {renderComputeConnectPrompt()}
-                        <button
-                          onClick={handleSend}
-                          disabled={
-                            (!input.trim() &&
-                              attachedFiles.length === 0 &&
-                              composeReferences.length === 0) ||
-                            activeRouteSendBlocked
-                          }
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-fg-muted transition-colors hover:bg-accent hover:text-accent-fg disabled:opacity-30 [&_svg]:stroke-[2.25]"
-                          title={
-                            activeRouteFallbackNotice && !activeRouteSendBlocked
-                              ? activeRouteFallbackNotice
-                              : activeDirectApiNeedsKey
-                                ? 'Add a Direct API key before sending'
-                                : activeCliNeedsLogin
-                                  ? 'Sign in to this CLI host before sending'
-                                  : activeRouteSendBlocked
-                                    ? 'Waiting for AI route detection'
-                                    : isLoading
-                                      ? 'Queue message (Enter)'
-                                      : 'Send (Enter)'
-                          }
-                          aria-label="Send message"
-                          data-testid="chat-send-button"
-                        >
-                          <SendIcon />
-                        </button>
-                      </div>
+                      </ChatComposerToolbar>
                     </div>
                   </div>
                 </div>
