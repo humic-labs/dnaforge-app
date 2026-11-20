@@ -16,8 +16,12 @@ const { values } = parseArgs({
     out: { type: 'string' },
     profile: { type: 'boolean' },
     video: { type: 'boolean' },
+    'input-hz': { type: 'string', default: '60' },
   },
 });
+assert.ok(!(values.video && values.profile), 'Record video and CPU profiles on separate runs');
+const inputHz = Number(values['input-hz']);
+assert.ok([60, 120].includes(inputHz), 'Choose 60 or 120 input updates per second');
 const session = await realpath(values.session);
 const out = path.resolve(values.out);
 assert.ok(out !== root && !out.startsWith(root + path.sep));
@@ -41,7 +45,6 @@ const receipt = {
   failures: [],
 };
 const durationMs = 1500;
-const inputHz = 60;
 const count = Math.round((durationMs * inputHz) / 1000);
 let initialSize;
 let dragging = false;
@@ -77,6 +80,7 @@ async function runPhase(label, sendInput) {
           const mapper = window.__webglRenderer?.getCurrentPathMapper();
           const length = window.__webglGenome?.length;
           const host = pane.querySelector('canvas');
+          if (host) window.__resizeMapBuffers.add(`${host.width}x${host.height}`);
           if (mapper && length && host) {
             const midpoint = (mapper.backboneAt(0).y + mapper.backboneAt(length / 2).y) / 2;
             const rect = pane.getBoundingClientRect();
@@ -95,6 +99,7 @@ async function runPhase(label, sendInput) {
         });
         window.__resizeObservations = [];
         window.__resizeCenters = [];
+        window.__resizeMapBuffers = new Set();
         window.__resizeObserver = observer;
         observer.observe(pane);
         observer.observe(wrap);
@@ -103,8 +108,10 @@ async function runPhase(label, sendInput) {
   const start = performance.now();
   const inputStartEpochMs = performance.timeOrigin + start;
   const requests = [];
+  const dispatchTimesMs = [];
   for (let i = 1; i <= count; i++) {
     await sleep(Math.max(0, start + (i * durationMs) / count - performance.now()));
+    dispatchTimesMs.push(performance.now() - start);
     requests.push(sendInput(i / count));
   }
   const inputEndEpochMs = performance.timeOrigin + performance.now();
@@ -146,6 +153,8 @@ async function runPhase(label, sendInput) {
     window.__resizeObserver.disconnect();
     const samples = window.__resizeObservations;
     const centers = window.__resizeCenters;
+    const mapBuffers = [...window.__resizeMapBuffers];
+    delete window.__resizeMapBuffers;
     delete window.__resizeCenters;
     delete window.__resizeObserver;
     delete window.__resizeObservations;
@@ -161,6 +170,10 @@ async function runPhase(label, sendInput) {
     return {
       samples,
       centers,
+      mapBuffers,
+      mapCrop: getComputedStyle(
+        document.querySelector('[data-testid="webgl-render-host"] canvas')
+      ).getPropertyValue('object-view-box'),
       wrap: window.__sequenceViewerDiagnostics.layoutGeometry().summary.cpr,
       widthError: Math.abs(canvas.width - pane.width),
       heightError: Math.abs(canvas.height - pane.height),
@@ -197,6 +210,23 @@ async function runPhase(label, sendInput) {
   const completeIntervalsMs = completeFrames
     .slice(1)
     .map((time, i) => (time - completeFrames[i]) / 1000);
+  const inputIntervalsMs = dispatchTimesMs.slice(1).map((time, i) => time - dispatchTimesMs[i]);
+  const byDuration = inputIntervalsMs.toSorted((a, b) => a - b);
+  const scoringEndMs = (bounds.end - bounds.start) / 1000;
+  const presentationsMs = completeFrames.map((time) => (time - bounds.start) / 1000);
+  const windowStarts = [
+    0,
+    scoringEndMs - 1000,
+    ...presentationsMs.filter((time) => time < scoringEndMs - 1000),
+  ];
+  const minimumPresentationsPerSecond =
+    scoringEndMs < 1000
+      ? null
+      : Math.min(
+          ...windowStarts.map(
+            (start) => presentationsMs.filter((time) => time > start && time <= start + 1000).length
+          )
+        );
   const expected = Math.round(((inputEndEpochMs - inputStartEpochMs) * 60) / 1000);
   geometry.samples = geometry.samples.filter(
     ([t]) => t >= inputStartEpochMs && t <= inputEndEpochMs
@@ -207,6 +237,11 @@ async function runPhase(label, sendInput) {
   const phase = {
     inputCount: count,
     requestedInputHz: inputHz,
+    dispatchTimesMs,
+    inputIntervalP95Ms: byDuration[Math.floor(byDuration.length * 0.95)],
+    inputIntervalMaxMs: byDuration.at(-1),
+    inputGapsOverBudget: byDuration.filter((interval) => interval > 16.7).length,
+    minimumPresentationsPerSecond,
     observedRefreshHz: (result.refreshOutcomeCount * 1000) / result.traceBoundaryDurationMs,
     completeRefreshes: result.presentedAllFrameCount,
     intentionalNoUpdate: result.intentionalNoUpdateFrameCount,
@@ -245,7 +280,12 @@ async function runPhase(label, sendInput) {
     receipt.failures.push(label);
   console.log(
     label,
-    JSON.stringify({ ...phase, samples: phase.samples.length, centers: phase.centers.length })
+    JSON.stringify({
+      ...phase,
+      dispatchTimesMs: undefined,
+      samples: phase.samples.length,
+      centers: phase.centers.length,
+    })
   );
   await cdp.detach();
 }
@@ -265,7 +305,8 @@ try {
     width: screen.width,
     height: screen.height,
   }));
-  receipt.electronVersion = provenance.appVersion;
+  receipt.appVersion = provenance.appVersion;
+  receipt.browserVersion = browser.version();
   initialSize = await page.evaluate(() => window.electronAPI.window.getSize());
   await page.evaluate(() => {
     window.__webglExposeForTests = true;

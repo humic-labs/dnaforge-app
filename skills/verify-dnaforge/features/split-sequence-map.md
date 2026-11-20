@@ -74,7 +74,7 @@ node apps/desktop/scripts/sequence-resize-performance.mjs \
   --session "$session_dir" --out "$session_dir/resize-timing"
 ```
 
-Each gesture delivers 90 input updates at a target of 60 Hz. The receipt records the estimated display refresh rate from Chromium’s refresh outcomes and the cadence of presented frames during each gesture, reported partial or dropped frames, and the number of distinct size observations. Inspect the timeline and exact dimensions inside each phase directory. For a separate screen recording, repeat with `--video` and a different output directory. Each phase retains its original frames and `video.ffconcat` with their capture times. `--profile` collects JavaScript CPU samples for diagnosis. Use the ordinary run for frame pacing.
+Each gesture schedules 90 input updates at a target of 60 Hz. Use `--input-hz 120` for 180 updates at twice the target presentation rate. Compare the actual input intervals with complete frame intervals and the minimum complete presentations in any one-second window. The receipt records the estimated display refresh rate from Chromium’s refresh outcomes and the cadence of presented frames during each gesture, reported partial or dropped frames, and the number of distinct size observations. Inspect the timeline and exact dimensions inside each phase directory. For a separate screen recording, repeat with `--video` and a different output directory. Each phase retains its original frames and `video.ffconcat` with their capture times. `--profile` collects JavaScript CPU samples for diagnosis. Use the ordinary run for frame pacing.
 
 ## Gotchas
 
