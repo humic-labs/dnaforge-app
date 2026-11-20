@@ -47,8 +47,8 @@ opening or updating a pull request. You can run the documented checks locally or
 enable GitHub Actions in your own fork.
 
 Required checks must pass before a maintainer adds the change to the merge
-queue. The queue runs them again on your change combined with current `main` and
-squash-merges it, keeping each commit message and its sign-off. Local test
+queue. The queue runs them again against the latest `dev` and squash-merges the
+change, keeping each commit message and its sign-off. Local test
 results help assess a contribution; they do not replace those checks. Workflow
 permission is separate from an approving pull-request review.
 
@@ -61,10 +61,8 @@ contributors need no private tracker or release credentials.
 For another contribution, fetch `upstream` again and start a new branch from
 `upstream/dev`. Keep unrelated changes in separate pull requests.
 
-You do not need to keep a contribution up to date with `main`; the merge queue
-tests it against current `main`. When your branch conflicts with `main`, or a
-maintainer asks you to update it, run these commands from that contribution's
-branch:
+When GitHub reports a conflict or a maintainer asks for an update, run these
+commands from your contribution branch.
 
 ```bash
 git fetch upstream
