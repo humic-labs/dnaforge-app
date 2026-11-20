@@ -298,9 +298,14 @@ describe('ChatHistorySurface', () => {
     rerender(<ChatHistorySurface {...props} anchor={anchor} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('ai-history-launcher')).toHaveStyle({ left: '473px' });
+      expect(screen.getByTestId('ai-history-launcher')).toHaveStyle({
+        left: '573px',
+        maxWidth: '183px',
+      });
     });
     fireEvent.mouseEnter(screen.getByTestId('ai-history-launcher'));
+    expect(screen.getByTestId('ai-history-launcher')).toHaveStyle({ left: '573px' });
+    expect(screen.getByTestId('ai-history-panel')).toHaveStyle({ maxWidth: 'calc(100vw - 580px)' });
     expect(screen.getByTestId('ai-history-panel')).toHaveAttribute('data-history-mode', 'floating');
   });
 
@@ -334,7 +339,7 @@ describe('ChatHistorySurface', () => {
     anchorLeft = 500;
     window.dispatchEvent(new Event(TAB_PORTAL_HOST_ATTACHED_EVENT));
     await waitFor(() =>
-      expect(screen.getByTestId('ai-history-launcher')).toHaveStyle({ left: '473px' })
+      expect(screen.getByTestId('ai-history-launcher')).toHaveStyle({ left: '516px' })
     );
     unmount();
   });

@@ -83,7 +83,7 @@ function notebookOwner() {
 
 async function source() {
   const path = join(root, 'Saved result.dnaforge-molecular.json');
-  const saved = await new MolecularDocumentLibrary().save({
+  const saved = await new MolecularDocumentLibrary({db:()=>db,blobRoot:join(root,'retained-test-sources')}).save({
     document: await molecularDocumentFixture(),
     destination: { workspaceRoot: root, path },
     expectedRevision: null,

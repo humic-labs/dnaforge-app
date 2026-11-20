@@ -196,7 +196,12 @@ describe('ReferenceChip', () => {
     expect(screen.queryByTestId('molecular-view-ref-saved-view')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('ref-chip-ref-saved-view'));
     expect(onClick).toHaveBeenCalledWith(savedViewReference);
-    expect(screen.getByText('View')).toBeVisible();
+    expect(screen.getByTestId('ref-chip-ref-saved-view').textContent).toBe(
+      'ABL1–imatinib binding pocket'
+    );
+    expect(screen.getByTestId('ref-chip-ref-saved-view')).toHaveAccessibleName(
+      'ABL1–imatinib binding pocket, View'
+    );
     expect(
       screen.getByTestId('ref-chip-ref-saved-view').querySelector('[data-file-type-icon]')
     ).toHaveAttribute('data-file-type-icon', 'molecular-document');
@@ -220,7 +225,12 @@ describe('ReferenceChip', () => {
     const { rerender } = render(
       <ReferenceChip reference={ref} inline onClick={onClick} onTarget={onTarget} />
     );
-    expect(screen.getByText('View')).toBeVisible();
+    expect(screen.getByTestId('ref-chip-ref-structure').textContent).toBe(
+      '3OAA catalytic residues'
+    );
+    expect(screen.getByTestId('ref-chip-ref-structure')).toHaveAccessibleName(
+      '3OAA catalytic residues, View'
+    );
     expect(
       screen.getByTestId('ref-chip-ref-structure').querySelector('[data-file-type-icon]')
     ).toHaveAttribute('data-file-type-icon', 'molecular-document');
@@ -234,7 +244,12 @@ describe('ReferenceChip', () => {
       }
     );
     rerender(<ReferenceChip reference={selection} inline onTarget={onTarget} />);
-    expect(screen.getByText('Selection')).toBeVisible();
+    expect(screen.getByTestId('ref-chip-ref-structure').textContent).toBe(
+      '3OAA catalytic residues'
+    );
+    expect(screen.getByTestId('ref-chip-ref-structure')).toHaveAccessibleName(
+      '3OAA catalytic residues, Selection'
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Target 3OAA catalytic residues' }));
     expect(onTarget).toHaveBeenCalledWith(selection);
   });
@@ -497,19 +512,26 @@ describe('shared AI chat reference formatting', () => {
     ['file', 'File'],
     ['protein', 'Protein'],
     ['annotation', 'Annotation'],
-  ])('shows the same inline kind label and icon for %s', (entityType, kindLabel) => {
-    const reference = structureReference(null, {
-      id: `style-${entityType}`,
-      entity_type: entityType,
-      display_label: 'Example reference',
-      locator: `entity://${entityType}/example`,
-    });
-    render(<ReferenceChip reference={reference} phase="draft" />);
-    const chip = screen.getByTestId(`ref-chip-${reference.id}`);
-    expect(within(chip).getByText(kindLabel, { exact: false })).toBeVisible();
-    expect(chip.querySelector('.entity-reference-chip__icon svg')).not.toBeNull();
-    expect(chip).toHaveClass('entity-reference-chip--draft');
-  });
+  ])(
+    'shows the same name and icon while retaining the kind in the tooltip for %s',
+    (entityType, kindLabel) => {
+      const reference = structureReference(null, {
+        id: `style-${entityType}`,
+        entity_type: entityType,
+        display_label: 'Example reference',
+        locator: `entity://${entityType}/example`,
+      });
+      render(<ReferenceChip reference={reference} phase="draft" />);
+      const chip = screen.getByTestId(`ref-chip-${reference.id}`);
+      expect(chip.textContent).toBe('Example reference');
+      expect(chip).toHaveAccessibleName(`Example reference, ${kindLabel}`);
+      fireEvent.focus(chip);
+      expect(screen.getByRole('tooltip')).toHaveTextContent(`Example reference · ${kindLabel}`);
+      fireEvent.blur(chip);
+      expect(chip.querySelector('.entity-reference-chip__icon svg')).not.toBeNull();
+      expect(chip).toHaveClass('entity-reference-chip--draft');
+    }
+  );
 });
 
 it('formats uploaded attachments through the shared chat control while retaining their filenames', () => {
@@ -528,8 +550,11 @@ it('formats uploaded attachments through the shared chat control while retaining
     />
   );
   const chip = screen.getByTestId('entity-reference-chip');
-  expect(chip).toHaveTextContent('File');
-  expect(chip).toHaveTextContent('notes.txt');
+  expect(chip.textContent).toBe('notes.txt');
+  expect(chip).toHaveAccessibleName('notes.txt, File');
+  fireEvent.focus(chip);
+  expect(screen.getByRole('tooltip')).toHaveTextContent('notes.txt · File');
+  fireEvent.blur(chip);
   expect(chip.firstElementChild).toHaveClass('entity-reference-chip__icon');
   expect(chip.querySelector('svg')).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Remove notes.txt' }));

@@ -11,8 +11,13 @@ export const NOTEBOOK_LAYOUTS = [
   { id: 'three-columns', label: 'Three columns', columns: 3 },
 ] as const;
 
+export const NOTEBOOK_LAYOUT_CHOICES = [
+  { id: 'single-column', label: 'One column', columns: 1 },
+  ...NOTEBOOK_LAYOUTS,
+] as const;
+
 export type NotebookLayout = (typeof NOTEBOOK_LAYOUTS)[number]['id'];
-export type NotebookLayoutChoice = NotebookLayout | 'single-column';
+export type NotebookLayoutChoice = (typeof NOTEBOOK_LAYOUT_CHOICES)[number]['id'];
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {

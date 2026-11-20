@@ -1,6 +1,10 @@
 import { FASTA_KIND_DECLARATION_EVENT } from '../shared/fasta-kind';
 import { randomUUID } from 'node:crypto';
-import type { CatalogFileFingerprint } from '../shared/catalog-registration';
+import {
+  CATALOG_ROLLBACK_RETAINED_MESSAGE,
+  CATALOG_RESET_RETAINED_MESSAGE,
+  type CatalogFileFingerprint,
+} from '../shared/catalog-registration';
 import {
   normalizeWorkspaceTimestamp,
   type WorkspaceAccess,
@@ -95,39 +99,12 @@ export function clearCatalogProjectionInDb(
       throw new Error(
         'FASTA_KIND_HISTORY_PROTECTED: Generic projection reset cannot erase native kind history.'
       );
-    const result = {
-      workspaceId,
-      entities: (
-        db
-          .prepare('SELECT COUNT(*) AS count FROM catalog_entities WHERE workspace_id = ?')
-          .get(workspaceId) as { count: number }
-      ).count,
-      files: (
-        db
-          .prepare('SELECT COUNT(*) AS count FROM catalog_entity_files WHERE workspace_id = ?')
-          .get(workspaceId) as { count: number }
-      ).count,
-      links: (
-        db
-          .prepare(
-            `SELECT COUNT(*) AS count FROM catalog_entity_links WHERE
-        source_entity_id IN (SELECT id FROM catalog_entities WHERE workspace_id = ?) OR
-        target_entity_id IN (SELECT id FROM catalog_entities WHERE workspace_id = ?)`
-          )
-          .get(workspaceId, workspaceId) as { count: number }
-      ).count,
-      events: (
-        db
-          .prepare(
-            `SELECT COUNT(*) AS count FROM catalog_entity_events WHERE entity_id IN
-        (SELECT id FROM catalog_entities WHERE workspace_id = ?)`
-          )
-          .get(workspaceId) as { count: number }
-      ).count,
-    };
-    db.prepare('DELETE FROM catalog_entity_files WHERE workspace_id = ?').run(workspaceId);
-    db.prepare('DELETE FROM catalog_entities WHERE workspace_id = ?').run(workspaceId);
-    return result;
+    if (
+      db.prepare('SELECT 1 FROM catalog_entities WHERE workspace_id=? LIMIT 1').get(workspaceId) ||
+      db.prepare('SELECT 1 FROM catalog_entity_files WHERE workspace_id=? LIMIT 1').get(workspaceId)
+    )
+      throw new Error(CATALOG_RESET_RETAINED_MESSAGE);
+    return { workspaceId, entities: 0, files: 0, links: 0, events: 0 };
   })();
 }
 
@@ -137,8 +114,8 @@ export function deleteCatalogEntityIfUnboundInDb(db: Database.Database, entityId
   return db.transaction(() => {
     if (db.prepare('SELECT 1 FROM catalog_entity_files WHERE entity_id = ?').get(entityId))
       return false;
-    assertFastaKindHistoryRetained(db, entityId, true);
-    return db.prepare('DELETE FROM catalog_entities WHERE id = ?').run(entityId).changes > 0;
+    if (!db.prepare('SELECT 1 FROM catalog_entities WHERE id=?').get(entityId)) return false;
+    return refuseCommittedCatalogRollback(db, entityId);
   })();
 }
 
@@ -167,8 +144,7 @@ export function deleteCatalogEntityWithExactBindingInDb(
       files[0].workspace_id !== entity?.workspace_id
     )
       return false;
-    assertFastaKindHistoryRetained(db, input.entityId);
-    return db.prepare('DELETE FROM catalog_entities WHERE id = ?').run(input.entityId).changes > 0;
+    return refuseCommittedCatalogRollback(db, input.entityId);
   })();
 }
 
@@ -277,10 +253,12 @@ export function setCatalogFileStateInDb(
         .prepare(
           `SELECT json_extract(payload,'$.reason') AS reason FROM catalog_entity_events
            WHERE entity_id=? AND event_type=? AND json_extract(payload,'$.path')=?
-           ORDER BY created_at DESC, rowid DESC LIMIT 1`
+             AND created_at >= ? ORDER BY rowid DESC LIMIT 1`
         )
-        .get(file.entity_id, eventType, path) as { reason: string | null } | undefined;
-      if (!last || last.reason === reason) return file;
+        .get(file.entity_id, eventType, path, file.missing_since ?? 0) as
+        | { reason: string | null }
+        | undefined;
+      if (last?.reason === reason) return file;
     }
     const now = Date.now();
     if (file.status !== state)
@@ -297,7 +275,15 @@ export function setCatalogFileStateInDb(
       state === 'missing'
         ? 'Catalog file binding is missing on disk'
         : 'Catalog file binding is historical',
-      JSON.stringify({ path, reason, fileKind: file.file_kind }),
+      JSON.stringify({
+        path,
+        reason,
+        fileKind: file.file_kind,
+        ...(state === 'missing' && {
+          bindingId: file.id,
+          startsMissingInterval: file.status !== state,
+        }),
+      }),
       now
     );
     return db
@@ -374,19 +360,14 @@ export function releaseMissingCatalogFilePathInDb(
   })();
 }
 
-function assertFastaKindHistoryRetained(
-  db: Database.Database,
-  entityId: string,
-  unpublishedRegistration = false
-): void {
+function refuseCommittedCatalogRollback(db: Database.Database, entityId: string): never {
   if (
     db
-      .prepare(
-        "SELECT 1 FROM catalog_entity_events AS declaration WHERE declaration.entity_id=? AND declaration.event_type=? AND (?=0 OR (CASE WHEN json_valid(declaration.payload) THEN json_extract(declaration.payload,'$.operation') END) IS NOT 'registration' OR EXISTS(SELECT 1 FROM catalog_entity_events AS publication WHERE publication.entity_id=declaration.entity_id AND publication.event_type='file_path_reuse')) LIMIT 1"
-      )
-      .get(entityId, FASTA_KIND_DECLARATION_EVENT, unpublishedRegistration ? 1 : 0)
+      .prepare('SELECT 1 FROM catalog_entity_events WHERE entity_id=? AND event_type=? LIMIT 1')
+      .get(entityId, FASTA_KIND_DECLARATION_EVENT)
   )
     throw new Error(
       'FASTA_KIND_HISTORY_PROTECTED: Catalog rollback cannot erase published native kind history.'
     );
+  throw new Error(CATALOG_ROLLBACK_RETAINED_MESSAGE);
 }

@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Group, Panel as ResizablePanel, type GroupImperativeHandle } from 'react-resizable-panels';
+import { useShallow } from 'zustand/react/shallow';
 import { Panel } from './Panel';
 import { ResizeHandle } from './ResizeHandle';
 import { TabPortalProvider } from './TabContentPortalManager';
@@ -7,7 +8,11 @@ import { useCanvasStore } from '../store';
 import { useTabDrag } from '../hooks/useTabDrag';
 import type { LayoutNode } from '../types';
 import type { AssistantHostId } from '../../ai/public/assistant-hosts';
-import { requiredWidthForPinnedHistory } from './chat-history-width-lease';
+import {
+  CANVAS_PANEL_MIN_WIDTH_PX,
+  canvasMinimumWidths,
+  visibleChatPanelIds,
+} from './chat-history-width-lease';
 
 const PanelRenderer = React.memo(function PanelRenderer({ panelId }: { panelId: string }) {
   const panel = useCanvasStore((state) => state.panels[panelId]);
@@ -44,11 +49,9 @@ interface LayoutRendererProps {
   defaultSize?: number;
   depth?: number;
   widthConstrained?: boolean;
-  pinnedHistoryPanelId: string | null;
+  minimumWidths: ReadonlyMap<LayoutNode, number>;
   registerGroup: (id: string, depth: number, handle: GroupImperativeHandle | null) => void;
 }
-
-const CANVAS_PANEL_MIN_WIDTH_PX = 10;
 
 function readRestorableGroupLayout(handle: GroupImperativeHandle): Record<string, number> | null {
   try {
@@ -78,14 +81,14 @@ function restoreMountedGroupLayout(
 interface LayoutNodeContentProps {
   node: LayoutNode;
   depth: number;
-  pinnedHistoryPanelId: string | null;
+  minimumWidths: ReadonlyMap<LayoutNode, number>;
   registerGroup: LayoutRendererProps['registerGroup'];
 }
 
 const LayoutNodeContent = React.memo(function LayoutNodeContent({
   node,
   depth,
-  pinnedHistoryPanelId,
+  minimumWidths,
   registerGroup,
 }: LayoutNodeContentProps) {
   if (node.type === 'panel') {
@@ -107,7 +110,7 @@ const LayoutNodeContent = React.memo(function LayoutNodeContent({
           defaultSize={node.sizes[index]}
           depth={depth + 1}
           widthConstrained={node.direction === 'vertical'}
-          pinnedHistoryPanelId={pinnedHistoryPanelId}
+          minimumWidths={minimumWidths}
           registerGroup={registerGroup}
         />
       );
@@ -137,7 +140,7 @@ const LayoutRenderer = React.memo(function LayoutRenderer({
   defaultSize,
   depth = 0,
   widthConstrained = false,
-  pinnedHistoryPanelId,
+  minimumWidths,
   registerGroup,
 }: LayoutRendererProps) {
   const panelId =
@@ -148,8 +151,8 @@ const LayoutRenderer = React.memo(function LayoutRenderer({
       id={panelId}
       defaultSize={defaultSize}
       minSize={
-        widthConstrained && pinnedHistoryPanelId
-          ? (requiredWidthForPinnedHistory(node, pinnedHistoryPanelId) ?? CANVAS_PANEL_MIN_WIDTH_PX)
+        widthConstrained
+          ? (minimumWidths.get(node) ?? CANVAS_PANEL_MIN_WIDTH_PX)
           : CANVAS_PANEL_MIN_WIDTH_PX
       }
       className="h-full"
@@ -158,7 +161,7 @@ const LayoutRenderer = React.memo(function LayoutRenderer({
         <LayoutNodeContent
           node={node}
           depth={depth}
-          pinnedHistoryPanelId={pinnedHistoryPanelId}
+          minimumWidths={minimumWidths}
           registerGroup={registerGroup}
         />
       </div>
@@ -173,8 +176,12 @@ interface CanvasLayoutProps {
 
 export function CanvasLayout({ onOpenAssistantSources, onConfigureHost }: CanvasLayoutProps) {
   const layout = useCanvasStore((state) => state.layout);
-  const [pinnedHistoryPanelId, setPinnedHistoryPanelId] = useState<string | null>(null);
-  const pinnedHistoryPanelIdRef = useRef<string | null>(null);
+  const chatPanelIds = useCanvasStore(useShallow(visibleChatPanelIds));
+  const [pinnedPanelIds, setPinnedPanelIds] = useState<ReadonlySet<string>>(() => new Set());
+  const minimumWidths = useMemo(
+    () => canvasMinimumWidths(layout, chatPanelIds, pinnedPanelIds),
+    [layout, chatPanelIds, pinnedPanelIds]
+  );
   const groupHandlesRef = useRef(
     new Map<string, { depth: number; handle: GroupImperativeHandle }>()
   );
@@ -197,21 +204,20 @@ export function CanvasLayout({ onOpenAssistantSources, onConfigureHost }: Canvas
   );
 
   const handleChatHistoryPinnedChange = useCallback((panelId: string, pinned: boolean): void => {
-    if (pinned) {
-      if (!unleasedLayoutsRef.current) {
-        unleasedLayoutsRef.current = new Map();
-        for (const [id, { handle }] of groupHandlesRef.current) {
-          const layout = readRestorableGroupLayout(handle);
-          if (layout) unleasedLayoutsRef.current.set(id, layout);
-        }
+    if (pinned && !unleasedLayoutsRef.current) {
+      unleasedLayoutsRef.current = new Map();
+      for (const [id, { handle }] of groupHandlesRef.current) {
+        const layout = readRestorableGroupLayout(handle);
+        if (layout) unleasedLayoutsRef.current.set(id, layout);
       }
-      pinnedHistoryPanelIdRef.current = panelId;
-      setPinnedHistoryPanelId(panelId);
-      return;
     }
-    if (pinnedHistoryPanelIdRef.current !== panelId) return;
-    pinnedHistoryPanelIdRef.current = null;
-    setPinnedHistoryPanelId(null);
+    setPinnedPanelIds((current) => {
+      if (current.has(panelId) === pinned) return current;
+      const next = new Set(current);
+      if (pinned) next.add(panelId);
+      else next.delete(panelId);
+      return next;
+    });
   }, []);
 
   useLayoutEffect(() => {
@@ -225,21 +231,19 @@ export function CanvasLayout({ onOpenAssistantSources, onConfigureHost }: Canvas
         const groupLayout = baseline.get(id);
         if (groupLayout) restoreMountedGroupLayout(handle, groupLayout);
       }
-      if (!pinnedHistoryPanelId) {
+      if (!pinnedPanelIds.size) {
         unleasedLayoutsRef.current = null;
         return;
       }
       const focusedPanel = Array.from(
         viewportRef.current?.querySelectorAll<HTMLElement>('[data-panel-focused="true"]') ?? []
-      ).find((element) => element.dataset.testid === `panel-${pinnedHistoryPanelId}`);
+      ).find((element) => pinnedPanelIds.has(element.dataset.testid?.slice('panel-'.length) ?? ''));
       focusedPanel?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [pinnedHistoryPanelId]);
+  }, [pinnedPanelIds]);
 
-  const requiredCanvasWidth = pinnedHistoryPanelId
-    ? requiredWidthForPinnedHistory(layout, pinnedHistoryPanelId)
-    : null;
+  const requiredCanvasWidth = minimumWidths.get(layout);
 
   useEffect(() => {
     console.log('[CanvasLayout] Layout changed:', {
@@ -273,7 +277,7 @@ export function CanvasLayout({ onOpenAssistantSources, onConfigureHost }: Canvas
             <LayoutNodeContent
               node={layout}
               depth={0}
-              pinnedHistoryPanelId={pinnedHistoryPanelId}
+              minimumWidths={minimumWidths}
               registerGroup={registerGroup}
             />
           )}

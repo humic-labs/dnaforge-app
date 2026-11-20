@@ -85,6 +85,7 @@ import type { EmptySequenceEntryCue } from '../../features/sequence/empty-sequen
 import { paperProtocolScenario } from './paper-protocol';
 import { notebookContentExtensionsSession } from './notebook-content-extensions';
 import { agentScientificAuthoringWorkspace } from './agent-scientific-authoring';
+import { notebookAuthoringLinks, prepareNotebookAuthoringLinks } from './notebook-authoring-links';
 import { jobsAgentActionsRegistry, jobsAnnotationWorkspace } from './jobs-annotation';
 import { MG1655_ANNOTATION_CATALOG_PRESET } from './mg1655-annotation-catalog';
 import type { ComposeIndexedTrackViewInput } from '../../features/ai/tools/compose-indexed-track-view';
@@ -351,6 +352,7 @@ function agentQueuedMessagesShowcase(): AppScenario {
 }
 
 export interface DevScenarioPreset {
+  afterApply?: () => Promise<void>;
   id: string;
   label: string;
   description: string;
@@ -654,6 +656,16 @@ export const DEV_SCENARIO_PRESET_GROUPS: readonly DevScenarioPresetGroup[] = [
     id: 'notebook-references',
     heading: 'Notebook references',
     presets: [
+      {
+        id: 'notebook-authoring-links',
+        label: 'Notebook authoring review',
+        description:
+          ' — two projects with same-named sequences, M13 primers and a native notebook for inline links and editable tables',
+        factory: notebookAuthoringLinks,
+        afterApply: prepareNotebookAuthoringLinks,
+        aliases: ['notebook-links', 'notebook-table-review'],
+        noAutoReplay: true,
+      },
       {
         id: 'notebook-content-extensions',
         label: 'notebookContentExtensionsSession',

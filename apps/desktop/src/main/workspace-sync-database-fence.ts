@@ -150,12 +150,12 @@ export async function withRendererDatabaseStatementWhenReady<T>(
   db: Database.Database,
   sender: RendererDatabaseLifecycleSender,
   operation: () => T
-): Promise<T> {
+): Promise<Awaited<T>> {
   for (;;) {
     const state = states.get(db);
 
     if (db.inTransaction || !(state?.requested || state?.fenced))
-      return withRendererDatabaseStatement(db, sender, operation);
+      return await withRendererDatabaseStatement(db, sender, operation);
     await state.tail;
   }
 }

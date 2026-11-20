@@ -1,3 +1,5 @@
+import type { RelocatedSavedPrimer } from './relocate-primer-artifacts';
+import { deterministicSchemaId } from '@waypoint/scientific-artifacts/shared/entity-types';
 import { execFileSync } from 'child_process';
 import { createHash, randomUUID } from 'crypto';
 import { existsSync } from 'fs';
@@ -1098,7 +1100,13 @@ export function backfillLimsRegistryIdsInDb(
 
 export function relocateLimsEntityFileRefsInDb(
   db: Database.Database,
-  input: { workspaceRoot: string; oldPath: string; newPath: string; actor?: string }
+  input: {
+    workspaceRoot: string;
+    oldPath: string;
+    newPath: string;
+    actor?: string;
+    savedPrimers?: ReadonlyMap<string, RelocatedSavedPrimer>;
+  }
 ): { rebasedEntityIds: string[]; workspaceIds: Array<number | null> } {
   const oldAbs = stripTrailingSep(resolve(input.oldPath));
   const newAbs = stripTrailingSep(resolve(input.newPath));
@@ -1182,6 +1190,20 @@ export function relocateLimsEntityFileRefsInDb(
       }
     }
 
+    const saved = input.savedPrimers?.get(before.id);
+    if (saved) {
+      const artifact = nextFields.artifact;
+      if (
+        !artifact ||
+        typeof artifact !== 'object' ||
+        !('schema' in artifact) ||
+        artifact.schema !== 'dnaforge.primer'
+      )
+        throw new Error('The registry does not own this saved primer.');
+      nextFields.artifact = { ...artifact, relativePath: saved.relativePath, contentHash: saved.sha256 };
+      nextFields.bindings = saved.bindings;
+      changed = true;
+    }
     if (!changed) continue;
 
     const eventSeq = nextEventSeq(db);
@@ -2350,9 +2372,7 @@ export function validateSchemaInput(
   }
 }
 
-export function deterministicSchemaId(kind: string, name: string): string {
-  return `schema-${kind}-${name.replace(/[^A-Za-z0-9_-]/g, '-')}`;
-}
+export { deterministicSchemaId };
 
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

@@ -21,11 +21,15 @@ import { canonicalWorkspacePath } from './primer-artifact-files';
 import { ScientificObjectStore } from './scientific-object-store';
 import { readAcceptedSequencePackage } from './scientific-sequence-package';
 import { listWorkspaceResources, parseResourceId } from '@waypoint/workspace-revisions';
+import {
+  SEQUENCE_DOCUMENT_ENTITY_TYPES,
+  type SequenceDocumentEntityType,
+} from '../shared/catalog-entity';
 
 const MAX_PACKAGE_METADATA_BYTES = 4 * 1024 * 1024;
 
 interface EntityRow {
-  catalog_type: 'sequence' | 'construct';
+  catalog_type: SequenceDocumentEntityType;
   type: string;
   fields: string | null;
   tombstone: number | null;
@@ -98,10 +102,14 @@ export function createNativeSequenceDocumentResolver(options: {
         `
       SELECT e.type,e.type AS catalog_type,l.fields,l.tombstone,l.archived_at
       FROM catalog_entities e LEFT JOIN lims_entity l ON l.id=e.id
-      WHERE e.id=? AND e.type IN ('sequence','construct') AND (e.status='active' OR (?=1 AND e.status='archived'))
+      WHERE e.id=? AND e.type IN (${SEQUENCE_DOCUMENT_ENTITY_TYPES.map(() => '?').join(',')}) AND (e.status='active' OR (?=1 AND e.status='archived'))
     `
       )
-      .get(target.targetDocumentId, options.allowArchived ? 1 : 0) as EntityRow | undefined;
+      .get(
+        target.targetDocumentId,
+        ...SEQUENCE_DOCUMENT_ENTITY_TYPES,
+        options.allowArchived ? 1 : 0
+      ) as EntityRow | undefined;
     if (
       !entity ||
       (!options.allowArchived && (entity.tombstone === 1 || entity.archived_at != null))
@@ -130,6 +138,8 @@ export function createNativeSequenceDocumentResolver(options: {
       file_kind: string;
     }>;
     if (files.length !== 1) throw new Error('The document has no unique current catalog file.');
+    if (entity.catalog_type === 'trace' && files[0].file_kind !== 'trace')
+      throw new Error('The trace document has no matching trace file binding.');
     const packageBinding = isSequencePackageFileKind(files[0].file_kind);
     if (entity.catalog_type === 'construct' && !packageBinding)
       throw new Error('The construct sequence document has no matching package binding.');

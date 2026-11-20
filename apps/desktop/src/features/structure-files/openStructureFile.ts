@@ -12,6 +12,7 @@ import { useOversizedDialogStore } from '../sequence/public/oversized-dialog-sto
 import { platform } from '../../platform';
 import {
   findWorkspaceRootForPath,
+  getCatalogWorkspaceRootForFilePath,
   inferCatalogFileKind,
   registerWorkspaceFile,
 } from '../../db/workspace-catalog';
@@ -452,7 +453,10 @@ async function openStructureFileOnce(
     activeOptions = getActiveOptions();
     if (!activeOptions) return cancelledDocumentOpen();
     const folders = useWorkspaceStore.getState().folders;
-    const workspaceRoot = findWorkspaceRootForPath(folders, filePath);
+    const workspaceRoot =
+      (await getCatalogWorkspaceRootForFilePath(filePath)) ??
+      findWorkspaceRootForPath(folders, filePath);
+    if (!getActiveOptions()) return cancelledDocumentOpen();
     const fileKind = inferCatalogFileKind(filePath);
     const catalogEntity = await registerWorkspaceFile({
       path: filePath,

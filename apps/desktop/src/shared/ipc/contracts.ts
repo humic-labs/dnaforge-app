@@ -1,3 +1,4 @@
+import { entityDiscoveryContract } from './entity-discovery.contract';
 import { notebookContract } from './notebook.contract';
 import { trackViewCommandsContract } from './track-view-commands.contract';
 import { sequenceDataLayersContract } from './sequence-data-layers.contract';
@@ -78,6 +79,7 @@ export const ipcContracts = [
   comparisonSourcesContract,
   contactSourcesContract,
   sequenceDataLayersContract,
+  entityDiscoveryContract,
   trackViewCommandsContract,
   notebookContract,
   administrationContract,

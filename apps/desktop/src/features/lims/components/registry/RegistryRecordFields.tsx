@@ -1,3 +1,4 @@
+import { persistedSchemaEntityTypeLabel } from '@waypoint/scientific-artifacts/shared/entity-types';
 import type { ReactNode } from 'react';
 import { RegistryRecordValue as MetadataRecordValue } from '../../../../shared/components/entity-metadata/EntityMetadataFields';
 import {
@@ -35,7 +36,9 @@ export function RegistryRecordFields({
       <MetadataFieldList>
         {name !== undefined ? <RecordRow label="Name">{name}</RecordRow> : null}
         {name !== undefined ? <RecordRow label="ID">{registryId || '-'}</RecordRow> : null}
-        {name !== undefined ? <RecordRow label="Schema">{schema.displayName}</RecordRow> : null}
+        {name !== undefined ? (
+          <RecordRow label="Schema">{persistedSchemaEntityTypeLabel(schema)}</RecordRow>
+        ) : null}
         {name !== undefined && registrationStatus && registrationStatus !== 'tracked' ? (
           <RecordRow label="Status">{registrationStatusLabel(registrationStatus)}</RecordRow>
         ) : null}

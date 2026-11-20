@@ -157,6 +157,7 @@
     "pdfjs-dist": "6.2.108",
     "posthog-js": "^1.363.5",
     "posthog-node": "^5.28.5",
+    "prosemirror-view": "1.42.3",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-markdown": "10.1.0",

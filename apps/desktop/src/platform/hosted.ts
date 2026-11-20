@@ -203,6 +203,9 @@ const hostedImplemented: Partial<PlatformBridge> = {
     requestDefault: async () => unavailable('fileAssociations.requestDefault'),
   },
   db: withDurableBrowserSettings({
+    savedRowRecoveryGenerations: async () => unavailable('db.savedRowRecoveryGenerations'),
+    listSavedEntityRowVersions: async () => unavailable('db.listSavedEntityRowVersions'),
+    recoverSavedEntityRowVersion: async () => unavailable('db.recoverSavedEntityRowVersion'),
     health: async () => unavailable('db.health'),
     assertCanonicalSequenceSource: async () => {
       throw new Error(
@@ -276,6 +279,11 @@ const hostedImplemented: Partial<PlatformBridge> = {
     },
     onChanged: () => () => {},
   },
+  entityDiscovery: {
+    search: async () => unavailable('entityDiscovery.search'),
+    resolve: async () => unavailable('entityDiscovery.resolve'),
+    types: async () => unavailable('entityDiscovery.types'),
+  },
   notebook: {
     migrateLegacyProjectFiles: async () => unavailable('notebook.migrateLegacyProjectFiles'),
     create: async () => unavailable('notebook.create'),
@@ -334,6 +342,7 @@ const hostedImplemented: Partial<PlatformBridge> = {
     setZoomLevel: async () => ({ status: 'unavailable' }),
   },
   shell: {
+    savedFileSource: async () => {throw new Error('Saved native file versions require the desktop application.');},
     projectHistory: async () => unavailable('shell.projectHistory'),
     onProjectHistoryChanged: () => () => undefined,
     revealItemInDir: async () => unavailable('shell.revealItemInDir'),

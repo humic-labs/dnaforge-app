@@ -6,7 +6,10 @@ import type {
 } from './primer-artifact-owner';
 import type { createPrimerApplicationOwner } from './primer-application-owner';
 import type { BoundPrimer, Primer } from './types';
-import type { PrimerBindingOwnershipStore } from './primer-binding-ownership';
+import type {
+  PrimerBindingOwnership,
+  PrimerBindingOwnershipStore,
+} from './primer-binding-ownership';
 type ArtifactOwner = ReturnType<typeof createPrimerArtifactOwner>;
 type ApplicationOwner = ReturnType<typeof createPrimerApplicationOwner>;
 export interface RichPastePrimerPersistence {
@@ -15,7 +18,7 @@ export interface RichPastePrimerPersistence {
   readSavedTarget: ArtifactOwner['readSavedPrimerBindingTarget'];
   persistOwnedArtifactBindings: ArtifactOwner['persistOwnedPrimerArtifactBindings'];
   persistOwnedLegacyBinding: ApplicationOwner['persistOwnedPrimerBinding'];
-  deleteLegacyBinding: ApplicationOwner['deleteBinding'];
+  removeOwnedLegacyBinding(intent: PrimerBindingOwnership): Promise<void>;
   notifyBindingsChanged(sequenceId: number): void;
 }
 export interface PersistRichPastePrimerBindingsInput {
@@ -170,9 +173,12 @@ export async function persistRichPastePrimerBindings(
           : 'created',
       });
     }
-    for (const row of existing) {
-      if (ownedIds.has(row.binding.id) && !retainedIds.has(row.binding.id)) {
-        await persistence.deleteLegacyBinding(row.binding.id);
+    for (const intent of owned) {
+      if (
+        !retainedIds.has(intent.bindingId) &&
+        existing.some((row) => row.binding.id === intent.bindingId)
+      ) {
+        await persistence.removeOwnedLegacyBinding(intent);
       }
     }
   }

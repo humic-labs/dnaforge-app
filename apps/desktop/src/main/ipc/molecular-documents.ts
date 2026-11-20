@@ -8,7 +8,7 @@ import { MolecularDocumentLibrary } from '../molecular-document-library';
 import { molecularDocumentsContract } from '../../shared/ipc/molecular-documents.contract';
 
 export function registerMolecularDocumentIpcHandlers(): void {
-  const library = new MolecularDocumentLibrary();
+  const library = new MolecularDocumentLibrary({ db: getDb });
   handleGroup(molecularDocumentsContract, {
     reconcileSourceLinks: (event, request, mutationToken) => {
       const db = getDb();

@@ -1,48 +1,55 @@
 // @vitest-environment node
 
 import { describe, expect, it } from 'vitest';
-import type { LayoutNode } from '../types';
-import {
-  PINNED_CHAT_PANEL_MIN_WIDTH_PX,
-  requiredWidthForPinnedHistory,
-} from './chat-history-width-lease';
+import type { LayoutNode, PanelState } from '../types';
+import { canvasMinimumWidths, visibleChatPanelIds } from './chat-history-width-lease';
 
 const panel = (panelId: string): LayoutNode => ({ type: 'panel', panelId });
 
-describe('pinned chat history width lease', () => {
-  it('requires the exact picker, gap, edge inset, and usable-chat width for one panel', () => {
-    expect(requiredWidthForPinnedHistory(panel('chat'), 'chat')).toBe(
-      PINNED_CHAT_PANEL_MIN_WIDTH_PX
-    );
-    expect(requiredWidthForPinnedHistory(panel('other'), 'chat')).toBeNull();
+describe('chat pane minimum widths', () => {
+  it('releases the minimum when a different kind of tab becomes active', () => {
+    const chat = panel('left');
+    const left: PanelState = {
+      id: 'left',
+      activeTabId: 'chat-tab',
+      tabs: [
+        { id: 'chat-tab', type: 'chat', label: 'Chat', entityId: 'chat' },
+        { id: 'page-tab', type: 'page', label: 'Page', entityId: 'page' },
+      ],
+    };
+    const visible = () => visibleChatPanelIds({ panels: { left } });
+    expect(canvasMinimumWidths(chat, visible(), new Set()).get(chat)).toBe(256);
+    left.activeTabId = 'page-tab';
+    expect(canvasMinimumWidths(chat, visible(), new Set(['left'])).size).toBe(0);
   });
 
-  it('does not add width for vertically stacked panels', () => {
-    const layout: LayoutNode = {
+  it('reserves history space for each pinned chat and uses the widest stacked child', () => {
+    const above = panel('above');
+    const below = panel('below');
+    const stacked: LayoutNode = {
       type: 'split',
       direction: 'horizontal',
-      children: [panel('chat'), panel('below')],
+      children: [above, below],
       sizes: [50, 50],
     };
-    expect(requiredWidthForPinnedHistory(layout, 'chat')).toBe(487);
-  });
-
-  it('retains side-by-side sibling minima and separators through nested splits', () => {
+    const right = panel('right');
+    const other = panel('other');
     const layout: LayoutNode = {
       type: 'split',
       direction: 'vertical',
-      children: [
-        {
-          type: 'split',
-          direction: 'horizontal',
-          children: [panel('chat'), panel('below')],
-          sizes: [50, 50],
-        },
-        panel('right'),
-        panel('far-right'),
-      ],
-      sizes: [50, 25, 25],
+      children: [stacked, right, other],
+      sizes: [40, 40, 20],
     };
-    expect(requiredWidthForPinnedHistory(layout, 'chat')).toBe(487 + 2 * 10 + 2 * 4);
+    const widths = canvasMinimumWidths(
+      layout,
+      ['above', 'below', 'right'],
+      new Set(['below', 'right'])
+    );
+    expect(widths.get(above)).toBe(256);
+    expect(widths.get(below)).toBe(583);
+    expect(widths.get(stacked)).toBe(583);
+    expect(widths.get(right)).toBe(583);
+    expect(widths.get(other)).toBe(10);
+    expect(widths.get(layout)).toBe(583 + 583 + 10 + 2 * 4);
   });
 });

@@ -1,4 +1,4 @@
-import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, realpath, rename, writeFile } from 'node:fs/promises';
 import { parseScientificDocumentIdentity, parseWorkspaceIdentity } from '@waypoint/domain-services';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,6 +11,7 @@ import type { SequenceDocumentSaveInput } from '../shared/sequence-edit-lineage'
 import { createFileTestDb } from './__tests__/test-db';
 import { ScientificObjectStore } from './scientific-object-store';
 import { submitScientificWorkspace } from './scientific-workspace-service';
+import { actOnAcceptedScientificEntity } from './scientific-resource-lifecycle';
 import { saveSequenceDocumentWithLineage } from './sequence-document-save';
 import { readScientificDocumentInMain } from './ipc/scientific-documents';
 import {
@@ -46,6 +47,11 @@ import {
 vi.mock('electron', () => ({
   app: { getPath: vi.fn(), getVersion: () => '1.0.0' },
   dialog: { showErrorBox: vi.fn() },
+  shell: {
+    trashItem: vi.fn(async (source: string) =>
+      rename(source, join(f.tmpDir, 'archived-sequence.gb'))
+    ),
+  },
 }));
 vi.mock('./analytics', () => ({ trackEvent: vi.fn() }));
 import { ensureSchema } from './schema';
@@ -551,7 +557,7 @@ describe('enrolled sequence Save transaction', () => {
     expect(f.db.prepare('SELECT COUNT(*) AS n FROM catalog_entity_events').get()).toEqual({ n: 2 });
   });
 
-  it('refuses stale or missing authority and never treats a deleted accepted sequence as an ordinary file Save', async () => {
+  it('refuses stale or missing authority and never treats an archived accepted sequence as an ordinary file Save', async () => {
     const unqualified: SequenceDocumentSaveInput = { ...request(), accepted: undefined };
     await expect(saveSequenceDocumentWithLineage(unqualified, dependencies())).rejects.toThrow(
       /Reopen/iu
@@ -583,16 +589,35 @@ describe('enrolled sequence Save transaction', () => {
     expect(await readFile(path, 'utf8')).toBe(newer);
     expect(f.db.prepare('SELECT COUNT(*) AS n FROM catalog_entity_events').get()).toEqual({ n: 0 });
     await writeFile(path, 'Unsubmitted retained working file');
-    await submitScientificWorkspace({
+    await expect(
+      submitScientificWorkspace({
+        db: f.db,
+        workspaceId,
+        request: {
+          operationId: 'delete-sequence',
+          expectedHead: head,
+          source: { kind: 'documents', entries: [] },
+        },
+      })
+    ).rejects.toThrow('SAVED_ENTITY_CONTENT');
+    expect(store.read().head).toBe(head);
+    await expect(
+      actOnAcceptedScientificEntity({
+        db: f.db,
+        action: 'archive',
+        input: { id: documentId },
+      })
+    ).rejects.toThrow('Save or submit the working changes');
+    expect(await readFile(path, 'utf8')).toBe('Unsubmitted retained working file');
+    await writeFile(path, newer);
+    const archived = await actOnAcceptedScientificEntity({
       db: f.db,
-      workspaceId,
-      request: {
-        operationId: 'delete-sequence',
-        expectedHead: head,
-        source: { kind: 'documents', entries: [] },
-      },
+      action: 'archive',
+      input: { id: documentId },
     });
+    expect(archived?.entity.id).toBe(documentId);
     const deletedHead = store.read().head;
+    await writeFile(path, 'Unsubmitted retained working file');
     f.db.transaction(() => {
       registerCatalogEntityInDb(f.db, {
         id: documentId,

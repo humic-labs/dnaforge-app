@@ -1,4 +1,5 @@
 import { userMessage } from '@waypoint/user-messages';
+import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   cpSync,
@@ -1715,6 +1716,52 @@ describe('workspace sync list/open projects', () => {
       expect(bindingRow(db)).toMatchObject({ remote_latest_version_id: REMOTE_VERSION_ID });
     }
   );
+
+  it('keeps the only copy of a changed file when Git reports a clean incoming replica', async () => {
+    await expect(
+      openWorkspaceSyncProject(db, {
+        remoteWorkspaceId: REMOTE_WORKSPACE_ID,
+        managedRootDir: managedRoot,
+        client,
+        nowMs: () => 1000,
+      })
+    ).resolves.toEqual({ ok: true, workspaceUuid: 'workspace-a' });
+    const repoPath = join(managedRoot, 'workspace-a', 'repo');
+    const path = 'designs/pUC19/pUC19.gb';
+    const snapshot = await buildWorkspaceSyncSnapshot(db, {
+      workspaceUuid: 'workspace-a',
+      appVersion: '0.4.0',
+      capturedAt: new Date('2026-07-09T00:00:00.000Z'),
+    });
+    const previousHead =
+      (await commitAllIfDirty(repoPath, 'Save project')) ?? (await resolveHeadCommit(repoPath));
+    db.prepare(
+      'UPDATE workspace_sync_bindings SET last_acked_local_head_sha = ? WHERE workspace_id = 1'
+    ).run(previousHead);
+    execFileSync('git', ['update-index', '--assume-unchanged', '--', path], { cwd: repoPath });
+    const saved = readFileSync(join(repoPath, path), 'utf8') + '\n';
+    writeFileSync(join(repoPath, path), saved);
+    expect(
+      execFileSync('git', ['status', '--porcelain'], { cwd: repoPath, encoding: 'utf8' }).trim()
+    ).toBe('');
+    const next = withOnlyReplacementGenBank(snapshot.bundle);
+    const version = '056b9d91-b7ee-405f-a0ba-a88e9ed15837';
+    await expect(
+      applyLatestToExistingManagedRepo(db, {
+        workspaceId: 1,
+        workspaceUuid: 'workspace-a',
+        repoPath,
+        remote: newerRemote(next, version),
+        latest: newerLatest(next, version),
+        expectedLocalHeadSha: previousHead!,
+        expectedRemoteVersionId: REMOTE_VERSION_ID,
+        nowMs: 2000,
+      })
+    ).rejects.toMatchObject({ code: 'SYNC_CONFLICT' });
+    expect(readFileSync(join(repoPath, path), 'utf8')).toBe(saved);
+    expect(await resolveHeadCommit(repoPath)).toBe(previousHead);
+    expect(bindingRow(db)).toMatchObject({ remote_latest_version_id: REMOTE_VERSION_ID });
+  });
 
   it('removes syncable files deleted remotely while preserving excluded local-only data', async () => {
     await expect(

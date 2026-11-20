@@ -4,6 +4,7 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Cell, CellPosition } from '../types';
 import { FormulaAutocomplete } from './FormulaAutocomplete';
+import { TableCellContent } from './TableCellContent';
 import { filterFormulaOptions } from '../utils/formulas';
 import { safeFocus } from '../../../../../shared/utils/safeFocus';
 import {
@@ -55,6 +56,7 @@ interface TableCellProps {
   editInputRef?: React.RefObject<HTMLInputElement>;
 
   referenceWorkspaceRoot?: string;
+  referenceNotebookPageId?: string;
 
   onCellClick: (pos: CellPosition, shiftKey: boolean) => void;
   onCellDoubleClick: (pos: CellPosition) => void;
@@ -93,6 +95,7 @@ const CELL_VALUE_PROPS = {
   editingValue: true,
   editInputRef: true,
   referenceWorkspaceRoot: true,
+  referenceNotebookPageId: true,
   onCellClick: true,
   onCellDoubleClick: true,
   onEditingValueChange: true,
@@ -158,6 +161,7 @@ export const TableCell = React.memo(function TableCell({
   editingValue,
   editInputRef,
   referenceWorkspaceRoot,
+  referenceNotebookPageId,
   onCellClick,
   onCellDoubleClick,
   onEditingValueChange,
@@ -464,8 +468,12 @@ export const TableCell = React.memo(function TableCell({
     ? { color: cell.format.textColor }
     : {};
 
-  let cellContent: React.ReactNode = displayValue;
-  if (canOpenNativeReference && nativeEntityHref) {
+  let cellContent: React.ReactNode = cell.content ? (
+    <TableCellContent content={cell.content} sourceNotebookPageId={referenceNotebookPageId} />
+  ) : (
+    displayValue
+  );
+  if (!cell.content && canOpenNativeReference && nativeEntityHref) {
     cellContent = (
       <a
         href={nativeEntityHref}
@@ -480,7 +488,7 @@ export const TableCell = React.memo(function TableCell({
         {displayValue}
       </a>
     );
-  } else if (externalReferenceHref) {
+  } else if (!cell.content && externalReferenceHref) {
     const canResolve = canResolveImportedReference && importedStableObjectId && importedObjectClass;
     const openLabel = opensInDNAForge
       ? `Open ${displayValue} in DNAForge`

@@ -59,7 +59,7 @@ vi.mock('./workspace-mutation-transaction', () => ({
 import { ensureSchema } from '../main/schema';
 import { replaceNotebookProjectionFromFileInMain } from '../main/notebook-projection-authority';
 import { settleEntityProjectionSourceInMain } from '../main/entity-projection-receipts';
-import { publishNotebookPackageV2InMain } from '../main/notebook-package-authority';
+import { publishNotebookPackageV2InMain } from '../main/__tests__/publish-notebook-fixture';
 import { notebookPackagePaths } from '../db/notebook-package';
 import { reconcileEntityFile } from '../db/entity-substrate/adapter';
 import { notebookEntityAdapter } from '../db/entity-substrate/notebook-adapter';

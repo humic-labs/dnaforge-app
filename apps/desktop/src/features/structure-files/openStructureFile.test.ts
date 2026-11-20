@@ -4,12 +4,14 @@ import { useOversizedDialogStore } from '../sequence/oversized-dialog-store';
 import { HARD_CAP_BYTES } from '../../shared/oversized-guard';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 
-const { mockStat, mockReadTextFile, mockReadFile, mockRegisterWorkspaceFile } = vi.hoisted(() => ({
-  mockStat: vi.fn(),
-  mockReadTextFile: vi.fn(),
-  mockReadFile: vi.fn(),
-  mockRegisterWorkspaceFile: vi.fn(),
-}));
+const { mockStat, mockReadTextFile, mockReadFile, mockRegisterWorkspaceFile, mockCatalogRoot } =
+  vi.hoisted(() => ({
+    mockStat: vi.fn(),
+    mockReadTextFile: vi.fn(),
+    mockReadFile: vi.fn(),
+    mockRegisterWorkspaceFile: vi.fn(),
+    mockCatalogRoot: vi.fn(),
+  }));
 
 vi.mock('../../platform', () => ({
   platform: () => ({
@@ -22,6 +24,7 @@ vi.mock('../../platform', () => ({
 }));
 
 vi.mock('../../db/workspace-catalog', () => ({
+  getCatalogWorkspaceRootForFilePath: mockCatalogRoot,
   findWorkspaceRootForPath: (folders: Array<{ path: string }>, filePath: string) =>
     folders
       .filter((folder) => filePath === folder.path || filePath.startsWith(`${folder.path}/`))
@@ -86,6 +89,18 @@ describe('openStructureFile', () => {
     mockReadTextFile.mockReset().mockResolvedValue(PDB_TEXT);
     mockReadFile.mockReset();
     mockRegisterWorkspaceFile.mockReset().mockResolvedValue({ id: 'catalog-structure-1' });
+    mockCatalogRoot.mockReset().mockResolvedValue(null);
+  });
+
+  it('retains the catalog owner when a linked structure belongs to a closed project', async () => {
+    mockCatalogRoot.mockResolvedValue('/lab/closed-project');
+    await openStructureFile({
+      filePath: '/lab/closed-project/1FS0.pdb',
+      label: '1FS0.pdb',
+    });
+    expect(mockRegisterWorkspaceFile).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceRoot: '/lab/closed-project' })
+    );
   });
 
   it('distinguishes unavailable content, size blocking and caller cancellation', async () => {

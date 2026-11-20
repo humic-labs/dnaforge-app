@@ -1,3 +1,5 @@
+import { persistedSchemaEntityTypeLabel } from '@waypoint/scientific-artifacts/shared/entity-types';
+import { createRegistryQuery } from '../shared/registry-query';
 import type { AuthorizedProjectFolder } from '../shared/agent-project-scope';
 import { registryConfidenceLabel } from '../shared/strain-genome-evidence';
 import { UserMessageError } from '@waypoint/user-messages';
@@ -401,6 +403,9 @@ export const browserMockBridge: PlatformBridge = {
   },
   benchlingMigration: createBrowserMockBenchlingMigrationBridge(),
   db: withDurableBrowserSettings({
+    savedRowRecoveryGenerations: async () => { throw new Error('Saved SQLite recovery requires Electron.'); },
+    listSavedEntityRowVersions: async () => { throw new Error('Saved SQLite recovery requires Electron.'); },
+    recoverSavedEntityRowVersion: async () => { throw new Error('Saved SQLite recovery requires Electron.'); },
     health: async () => {
       throw new Error('Native SQLite connection diagnostics require Electron.');
     },
@@ -787,6 +792,17 @@ export const browserMockBridge: PlatformBridge = {
     },
     onChanged: () => () => {},
   },
+  entityDiscovery: {
+    search: async () => {
+      throw new Error('Entity discovery requires the native database.');
+    },
+    resolve: async () => {
+      throw new Error('Entity discovery requires the native database.');
+    },
+    types: async () => {
+      throw new Error('Entity discovery requires the native database.');
+    },
+  },
   notebook: {
     migrateLegacyProjectFiles: async () => {
       throw new Error('Native notebook commands require the desktop runtime.');
@@ -812,6 +828,7 @@ export const browserMockBridge: PlatformBridge = {
     onChanged: () => () => {},
   },
   lims: {
+    readCommittedPrimerSource: async () => null,
     readPrimerArtifactRevisionState: async () => ({ state: 'not_enrolled' }),
     revisePrimerArtifact: async () => {
       throw new Error('Registered primer publication requires the desktop workspace.');
@@ -2473,6 +2490,7 @@ ORIGIN
     onImportProgress: () => () => {},
   },
   shell: {
+    savedFileSource: async () => {throw new Error('Saved native file versions require the desktop application.');},
     projectHistory: async () => {
       throw new Error('Project history requires the native desktop app.');
     },
@@ -3373,6 +3391,7 @@ async function mockQueryRegistrySummaries(
   }
   return {
     summaries: summaries.slice(offset, offset + limit),
+    availableKinds: createRegistryQuery(input)(candidates).availableKinds,
     totalCount: summaries.length,
     limit,
     offset,
@@ -3441,7 +3460,7 @@ function mockRegistrySummary(entity: LimsEntity): LimsRegistrySummary {
       topology:
         sequence?.mode === 'file' || sequence?.mode === 'inline' ? sequence.topology : undefined,
     }),
-    schemaDisplayName: schemaSnapshot.displayName,
+    schemaDisplayName: persistedSchemaEntityTypeLabel(schemaSnapshot),
     name: entity.name,
     registryId: entity.registryId ?? null,
     registrationStatus: entity.registrationStatus,

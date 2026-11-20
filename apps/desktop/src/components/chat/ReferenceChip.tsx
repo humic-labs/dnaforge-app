@@ -1,9 +1,10 @@
+import { entityKindLabel } from '@waypoint/scientific-artifacts/shared/entity-types';
 import { useEffect, useId, useMemo, useState } from 'react';
 import type { DBEntityReference } from '../../db/entity-references';
 import { inlineWorkspaceDeclarationFromReference } from '../../features/ai/references/inline/activate';
 import { ChatEntityReferenceChip } from './ChatEntityReferenceChip';
 import { PaperclipIcon, XIcon, TargetIcon } from '../icons';
-import { iconForEntityKind } from '../icons/entity-icon-registry';
+import { savedReferencePresentation } from '../entity-reference/saved-reference-presentation';
 import { MolecularViewPreview } from '../../features/page/public/embeds/structure3d/components/MolecularViewPreview';
 import { molViewSpecStorySteps } from '../../features/page/embeds/structure3d/utils/molViewSpecStory';
 import { resolveMolecularReference } from '../../shared/molecular-reference';
@@ -194,19 +195,7 @@ export function ReferenceChip({
     () => (molecular.subject?.kind === 'view' ? molecular.subject.target : null),
     [molecular]
   );
-  const molecularKind = molecular.invalid
-    ? 'Unavailable'
-    : !molecular.subject
-      ? null
-      : molecular.subject.kind === 'selection' || destination?.groupId
-        ? 'Selection'
-        : 'View';
-  const molecularIcon =
-    molecularKind === 'View'
-      ? iconForEntityKind('molecular-document', 'h-3.5 w-3.5')
-      : molecularKind === 'Selection'
-        ? iconForEntityKind('annotation', 'h-3.5 w-3.5')
-        : undefined;
+  const presentation = savedReferencePresentation(reference, molecular.subject);
   const [selectedSnapshotIndex, setSelectedSnapshotIndex] = useState(
     savedView?.initialSnapshotIndex ?? 0
   );
@@ -226,7 +215,7 @@ export function ReferenceChip({
   return (
     <span
       data-testid={`ref-object-${reference.id}`}
-      data-reference-kind={molecularKind?.toLowerCase()}
+      data-reference-kind={molecular.subject ? presentation.entityType : undefined}
       data-molecular-document-reference={document ? JSON.stringify(document) : undefined}
       data-molecular-document-locator={
         document ? molecularDocumentReferenceLocator(document) : undefined
@@ -241,7 +230,9 @@ export function ReferenceChip({
           data-tool-status="completed"
           data-tool-input={JSON.stringify(completedToolInput)}
         >
-          <span data-testid="tool-result-summary">Created {reference.entity_type} reference</span>
+          <span data-testid="tool-result-summary">
+            Created {entityKindLabel(presentation.entityType)} reference
+          </span>
         </span>
       )}
       {savedView && phase !== 'draft' && !inline && (
@@ -251,7 +242,7 @@ export function ReferenceChip({
         >
           <span className="px-3 pb-2 pt-3">
             <span className="block text-[10px] font-medium text-fg-muted">
-              {document ? 'Molecular document' : 'Visualization'}
+              {document ? entityKindLabel('molecular-document') : 'Visualization'}
             </span>
             <span className="block text-sm font-semibold text-fg">{savedView.title}</span>
           </span>
@@ -308,9 +299,7 @@ export function ReferenceChip({
       {(!savedView || phase === 'draft' || inline) && (
         <span className="inline-flex min-w-0 max-w-full items-center gap-0.5">
           <ChatEntityReferenceChip
-            entityType={reference.entity_type}
-            kindLabel={molecularKind ?? undefined}
-            iconOverride={molecularIcon}
+            {...presentation}
             iconContext={
               reference.entity_type === 'primer'
                 ? ((primerIconContext?.reference === reference
@@ -354,7 +343,7 @@ export function ReferenceChip({
               ) : null
             }
           />
-          {inline && molecularKind === 'Selection' && onTarget && (
+          {inline && presentation.entityType === 'selection' && onTarget && (
             <button
               type="button"
               aria-label={`Target ${reference.display_label}`}

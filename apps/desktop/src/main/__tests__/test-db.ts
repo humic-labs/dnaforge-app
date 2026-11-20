@@ -1,3 +1,4 @@
+import { configureSavedFileBlobRoot } from '../saved-file-sources';
 import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,7 +10,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const NATIVE_BINDING = path.join(__dirname, '__fixtures__', 'better_sqlite3_node.node');
 
 export function createTestDb(): Database.Database {
-  return new Database(':memory:', { nativeBinding: NATIVE_BINDING });
+  const db = new Database(':memory:', { nativeBinding: NATIVE_BINDING });
+  let root: string | undefined;
+  configureSavedFileBlobRoot(
+    db,
+    () => (root ??= mkdtempSync(path.join(tmpdir(), 'dnaforge-test-file-blobs-')))
+  );
+  const close = db.close.bind(db);
+  db.close = () => {
+    const result = close();
+    if (root) rmSync(root, { recursive: true, force: true });
+    return result;
+  };
+  return db;
 }
 
 export function openFileTestDb(filePath: string): Database.Database {

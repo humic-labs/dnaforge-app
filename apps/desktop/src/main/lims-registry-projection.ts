@@ -1,3 +1,7 @@
+import {
+  namedEntityTypePresentation,
+  resolveNamedEntityType,
+} from '@waypoint/scientific-artifacts/shared/entity-types';
 import { registryRepresentationForEntity } from '../shared/registry-entity-opening';
 export {
   registryRepresentationForEntity,
@@ -80,7 +84,13 @@ export function queryLimsRegistrySummariesInDb(
       : null;
   });
   const candidates = getRegistryCandidateEntities(db, input.includeArchived);
-  const { entities: windowEntities, totalCount, limit, offset } = select(candidates);
+  const {
+    entities: windowEntities,
+    totalCount,
+    limit,
+    offset,
+    availableKinds,
+  } = select(candidates);
   const strainSummaries = getLimsStrainGenomeSummariesInsideTx(db, {
     strainEntityIds: windowEntities
       .filter((entity) => entity.kind === 'strain')
@@ -139,6 +149,7 @@ export function queryLimsRegistrySummariesInDb(
     offset,
     availableOrganisms,
     availableProjects,
+    availableKinds,
   };
 }
 
@@ -249,22 +260,21 @@ export function buildLimsRegistrySummary(
           }
         : undefined;
 
-  const schemaSnapshot = registrySchemaSnapshotForEntity(db, entity);
+  const { snapshot: schemaSnapshot, builtin } = registrySchemaRevision(db, entity);
+  const type = namedEntityTypePresentation(
+    resolveNamedEntityType({
+      type: 'registry',
+      registryKind: entity.kind,
+      schemaId: schemaSnapshot.schemaId,
+      schemaBuiltin: builtin,
+    }),
+    schemaSnapshot.name,
+    schemaSnapshot.displayName
+  );
 
-  const recordSchema = db
-    .prepare(
-      `SELECT s.display_name FROM catalog_entities c
-    JOIN lims_entity l ON l.id = c.id JOIN lims_schema_revision r ON r.id = l.schema_revision_id
-    JOIN lims_schema s ON s.id = r.schema_id WHERE c.id = ? AND c.type = 'record'`
-    )
-    .get(entity.id);
-  const schemaDisplayName =
-    recordSchema &&
-    typeof recordSchema === 'object' &&
-    'display_name' in recordSchema &&
-    typeof recordSchema.display_name === 'string'
-      ? recordSchema.display_name
-      : undefined;
+  const isCatalogRecord = Boolean(
+    db.prepare("SELECT 1 FROM catalog_entities WHERE id = ? AND type = 'record'").get(entity.id)
+  );
   return {
     id: entity.id,
     workspaceId: entity.workspaceId,
@@ -277,7 +287,8 @@ export function buildLimsRegistrySummary(
         managedSequenceContent?.geneticCode ??
         (sequence?.mode === 'file' ? sequence.geneticCode : undefined),
     }),
-    schemaDisplayName: schemaSnapshot.displayName,
+    schemaDisplayName: type.kindLabel,
+    schemaIconKind: type.iconKind,
     eventSeq: entity.eventSeq,
     name: entity.name,
     registryId: entity.registryId,
@@ -287,8 +298,8 @@ export function buildLimsRegistrySummary(
     representation,
     summary: managedSequence
       ? 'Managed DNA sequence'
-      : schemaDisplayName
-        ? `${schemaDisplayName} record`
+      : isCatalogRecord
+        ? `${type.kindLabel} record`
         : registrySummaryText(entity, sequence, evidenceSummary),
     evidenceSummary,
     sequenceSummary,
@@ -303,10 +314,18 @@ export function registrySchemaSnapshotForEntity(
   db: Database.Database,
   entity: Pick<LimsEntity, 'schemaRevisionId'>
 ): ProjectableEntitySchemaRevisionSnapshot {
+  return registrySchemaRevision(db, entity).snapshot;
+}
+
+function registrySchemaRevision(
+  db: Database.Database,
+  entity: Pick<LimsEntity, 'schemaRevisionId'>
+): { snapshot: ProjectableEntitySchemaRevisionSnapshot; builtin: boolean } {
   const row = db
     .prepare(
       `SELECT s.id AS schema_id,
               s.name AS schema_name,
+              s.builtin AS builtin,
               s.display_name AS display_name,
               s.description AS description,
               r.id AS revision_id,
@@ -321,6 +340,7 @@ export function registrySchemaSnapshotForEntity(
     | {
         schema_id: string;
         schema_name: string;
+        builtin: number;
         display_name: string;
         description: string | null;
         revision_id: string;
@@ -330,7 +350,7 @@ export function registrySchemaSnapshotForEntity(
     | undefined;
   if (!row) throw new Error(`Schema revision ${entity.schemaRevisionId} not found`);
   const definition = parseLimsSchemaFields(row.revision_fields);
-  return {
+  const snapshot = {
     schemaId: row.schema_id,
     schemaRevisionId: row.revision_id,
     name: row.schema_name,
@@ -340,6 +360,7 @@ export function registrySchemaSnapshotForEntity(
     version: row.revision_version,
     fields: definition.fields.map((field) => ({ ...field })),
   };
+  return { snapshot, builtin: row.builtin === 1 };
 }
 
 export function registryEvidenceSummary(

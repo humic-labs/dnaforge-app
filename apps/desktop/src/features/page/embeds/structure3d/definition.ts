@@ -1,12 +1,13 @@
 import { embedRegistry } from '../registry';
 import { Structure3dRenderer } from './Renderer';
 import type { SlashCommandDefinition } from '../types';
+import { iconForEntityKind } from '../../../../components/icons/entity-icon-registry';
 
 export const structure3dEmbed: SlashCommandDefinition = {
   type: 'structure3d',
   version: 1,
   label: '3D Structure',
-  icon: '🔮',
+  icon: iconForEntityKind('structure3d'),
   keywords: ['3d', 'structure', 'pdb', 'protein', 'molstar', 'alphafold'],
 
   capturesEditorFocus: true,

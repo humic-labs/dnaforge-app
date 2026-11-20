@@ -11,6 +11,22 @@ import {
 } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
+export const retainedFileSourceRevisions = sqliteTable('retained_file_source_revisions', {
+  id: text('id').primaryKey().notNull(),
+  workspaceId: integer('workspace_id'),
+  entityId: text('entity_id').notNull(),
+  sourcePath: text('source_path').notNull(),
+  manifestSha256: text('manifest_sha256').notNull(),
+  manifestJson: text('manifest_json').notNull(),
+  status: text('status').notNull(),
+  createdAt: integer('created_at').notNull(),
+}, (table) => [index('idx_retained_file_source_owner').on(table.workspaceId,table.entityId,table.status)]);
+
+export const retainedFilePublicationWitnesses=sqliteTable('retained_file_publication_witnesses',{
+  revisionId:text('revision_id').primaryKey().notNull().references(()=>retainedFileSourceRevisions.id),
+  device:text('device').notNull(),inode:text('inode').notNull(),birthNs:text('birth_ns').notNull(),
+});
+
 export const entityProjectionSources = sqliteTable(
   'entity_projection_sources',
   {
@@ -524,6 +540,57 @@ export const pages = sqliteTable('pages', {
     .$defaultFn(() => new Date()),
 });
 
+export const notebookReferenceProjections = sqliteTable(
+  'notebook_reference_projections',
+  {
+    documentId: text('document_id')
+      .primaryKey()
+      .references(() => pages.id, { onDelete: 'cascade' }),
+    sourceFingerprint: text('source_fingerprint').notNull(),
+    extractorVersion: integer('extractor_version').notNull(),
+    coverageStatus: text('coverage_status', { enum: ['complete', 'legacy'] }).notNull(),
+    missingOccurrenceCount: integer('missing_occurrence_count').notNull(),
+  },
+  (table) => [
+    uniqueIndex('idx_notebook_reference_generation').on(table.documentId, table.sourceFingerprint),
+  ]
+);
+
+export const notebookReferenceOccurrences = sqliteTable(
+  'notebook_reference_occurrences',
+  {
+    documentId: text('document_id')
+      .notNull()
+      .references(() => notebookReferenceProjections.documentId, { onDelete: 'cascade' }),
+    occurrenceId: text('occurrence_id').notNull(),
+    targetEntityId: text('target_entity_id'),
+    targetKind: text('target_kind', {
+      enum: ['entity', 'saved-reference', 'resource', 'unresolved'],
+    }).notNull(),
+    targetReference: text('target_reference'),
+    entityType: text('entity_type'),
+    representationId: text('representation_id'),
+    versionId: text('version_id'),
+    sourceFingerprint: text('source_fingerprint').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.documentId, table.occurrenceId] }),
+    foreignKey({
+      columns: [table.documentId, table.sourceFingerprint],
+      foreignColumns: [
+        notebookReferenceProjections.documentId,
+        notebookReferenceProjections.sourceFingerprint,
+      ],
+    }).onDelete('cascade'),
+    index('idx_notebook_reference_target')
+      .on(table.targetEntityId)
+      .where(sql`${table.targetEntityId} IS NOT NULL`),
+    index('idx_notebook_reference_uri')
+      .on(table.targetReference)
+      .where(sql`${table.targetReference} IS NOT NULL`),
+  ]
+);
+
 export const catalogEntities = sqliteTable('catalog_entities', {
   id: text('id').primaryKey(),
   type: text('type').notNull(),
@@ -990,6 +1057,21 @@ export const entityReferences = sqliteTable('entity_references', {
 
 export type EntityReferenceRow = typeof entityReferences.$inferSelect;
 export type NewEntityReferenceRow = typeof entityReferences.$inferInsert;
+
+export const savedEntityRowVersions = sqliteTable('saved_entity_row_versions', {
+  version: integer('version').primaryKey(),
+  revisionId: text('revision_id').notNull().unique(),
+  sourceTable: text('source_table').notNull(),
+  identity: text('identity').notNull(),
+  payload: text('payload').notNull(),
+  binaryPayload: blob('binary_payload', { mode: 'buffer' }),
+  recordedAt: integer('recorded_at').notNull(),
+});
+
+export const notebookSavedReferenceRetention = sqliteTable('notebook_saved_reference_retention', {
+  referenceId: text('reference_id').primaryKey(),
+  reason: text('reason', { enum: ['notebook', 'legacy-unknown'] }).notNull(),
+});
 
 export const entityReferenceRevisions = sqliteTable('entity_reference_revisions', {
   id: text('id').primaryKey(),
