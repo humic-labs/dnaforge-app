@@ -113,8 +113,9 @@ tree and target after GitHub confirms the history-preserving merge.
 
 Create and validate branch workflows before switching the default branch or
 activating their checks. Retain legacy `main` and its protections during the
-migration. Existing `main` work follows the migration owner's existing route
-until retargeted; `main` is not an alternate delivery bypass. Read back live
+migration. Until a pull request is retargeted, land it through the protected
+`main` squash queue. The queue checks it against current `main` and earlier
+entries. Update its branch when a conflict needs resolving. Read back live
 rules, default branch and workflow behavior before claiming activation.
 
 Measure suite duration and flaky failures from real runs. Improve sharding and
