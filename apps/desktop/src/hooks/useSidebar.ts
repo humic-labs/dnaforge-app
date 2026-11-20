@@ -18,6 +18,7 @@ interface UseSidebarReturn {
   sidebarVisible: boolean;
   sidebarWidth: number;
   handleViewChange: (view: ActivityView) => void;
+  revealWorkspace: () => void;
   toggleSidebar: () => void;
   commitSidebarWidth: (width: number) => void;
   handleOpenSettings: () => void;
@@ -64,6 +65,11 @@ export function useSidebar({ toolboxBadge }: UseSidebarOptions): UseSidebarRetur
     [persistSidebar]
   );
 
+  const revealWorkspace = useCallback(() => {
+    setActiveView('files');
+    persistSidebar({ activeView: 'files' });
+  }, [persistSidebar]);
+
   const hasAutoOpenedRef = useRef(false);
   useEffect(() => {
     if (import.meta.env.DEV && toolboxBadge === 'downloading' && !hasAutoOpenedRef.current) {
@@ -82,6 +88,7 @@ export function useSidebar({ toolboxBadge }: UseSidebarOptions): UseSidebarRetur
     sidebarWidth,
     handleViewChange,
     toggleSidebar,
+    revealWorkspace,
     commitSidebarWidth: applyWidth,
     handleOpenSettings,
   };

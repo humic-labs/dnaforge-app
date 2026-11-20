@@ -15,14 +15,14 @@ import {
 } from '../../page/public/notebook-authoring';
 
 export const CREATE_NOTEBOOK_DESCRIPTION =
-  'Create a native protocol notebook with paragraphs, headings and structured tables. Each inline item ' +
+  'Create a native protocol notebook with paragraphs, headings and editable DNAForge table-builder blocks. Use table blocks for tabular notebook content instead of Markdown table text. Each inline item ' +
   'is {text, referenceId?}; use exact referenceId values returned by create_notebook_reference or create_reference for sequences, ' +
-  'source regions, draft assemblies and real oligos. Table rows contain cells, each containing inline items. ' +
+  'source regions, draft assemblies and real oligos. Supply all table rows together; rows contain cells, each containing inline items. The native table editor preserves formatted runs and exact references. ' +
   'intentId identifies one creation intent: retry with the same value and content to reuse the same notebook. ' +
   'Choose workspace from get_workspace.projects, not pinned referenceFolders. ' +
   'Returns owning project, saved revision and an openable reference. No clipboard or GUI workaround is needed.';
 export const UPDATE_NOTEBOOK_DESCRIPTION =
-  'Append or replace native notebook content, preserving structured tables and typed references. ' +
+  'Append or replace native notebook content with editable DNAForge table-builder blocks and typed references. Supply tabular content as table blocks with all rows together instead of Markdown table text. ' +
   'Read get_notebook first and supply its exact revision. Unsaved human edits and stale revisions are protected.';
 export const GET_NOTEBOOK_DESCRIPTION =
   'Read a native notebook from its owning project, including saved structured content, provenance and revision for safe editing.';

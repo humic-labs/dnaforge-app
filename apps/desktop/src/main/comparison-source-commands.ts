@@ -1,3 +1,5 @@
+import type Database from 'better-sqlite3';
+import { retainTrackProjectionSource } from './retain-track-projection-source';
 import { createHash } from 'node:crypto';
 import { stat } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
@@ -34,6 +36,21 @@ export class ComparisonSourceCommands {
   >();
 
   constructor(private readonly dependencies: Dependencies) {}
+
+  async retain(db: Database.Database, input: unknown, blobRoot?: string): Promise<void> {
+    const request = comparisonSourceReadRequestSchema.parse(input);
+    return retainTrackProjectionSource(
+      db,
+      {
+        project: request.project,
+        entityId: comparisonSourceProjectionId(request.source),
+        sha256: request.source.sha256,
+      },
+      this.dependencies,
+      (root) => this.read({ project: root, source: request.source }),
+      blobRoot
+    );
+  }
 
   async read(input: unknown): Promise<ComparisonSourceReadResult> {
     const request = comparisonSourceReadRequestSchema.parse(input);

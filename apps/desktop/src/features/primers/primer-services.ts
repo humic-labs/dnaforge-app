@@ -195,7 +195,7 @@ export interface PrimerPersistenceService {
   searchLegacyPrimers(input: SearchPrimersInput): Promise<Primer[]>;
   deleteLegacyPrimer(id: string): Promise<DeleteResult>;
   createLegacyBinding(input: CreateBindingInput): Promise<PrimerBinding>;
-  deleteLegacyBinding(bindingId: string): Promise<void>;
+  deleteLegacyBinding: typeof deleteBinding;
   listLegacyBoundPrimers(sequenceId: number): Promise<BoundPrimer[]>;
 }
 

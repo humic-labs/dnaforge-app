@@ -1,23 +1,18 @@
 import { handleGroup } from '../../shared/ipc-contract';
 import { comparisonSourcesContract } from '../../shared/ipc/comparison-sources.contract';
-import { resolveExplicitProjectRoot } from '../../shared/project-root-selection';
+import { resolveAdmittedProjectRoot } from '../admitted-scientific-project';
 import { ComparisonSourceCommands } from '../comparison-source-commands';
 import { nativeDocuments } from '../features/native-documents';
 import { withLocalTrackViewReference } from '../features/reference-assets';
 import { getDb } from './database';
 import { resolveCanonicalPath } from './path-allowlist';
 
-export function registerComparisonSourceIpcHandlers(): void {
-  const commands = new ComparisonSourceCommands({
+export function createNativeComparisonSources() {
+  return new ComparisonSourceCommands({
     resolveProject: async (project) => {
-      const roots = new Set(nativeDocuments.workspaces.readableRoots());
-      const rows = getDb()
-        .prepare(
-          'SELECT name,path FROM workspaces WHERE path IS NOT NULL AND archived_at IS NULL AND trashed_at IS NULL'
-        )
-        .all() as Array<{ name: string; path: string }>;
-      const selected = resolveExplicitProjectRoot(
-        rows.filter((row) => roots.has(row.path)),
+      const selected = resolveAdmittedProjectRoot(
+        getDb(),
+        [...nativeDocuments.workspaces.readableRoots()],
         project
       );
       if (!selected)
@@ -27,6 +22,10 @@ export function registerComparisonSourceIpcHandlers(): void {
     captureReadable: (root) => nativeDocuments.workspaces.captureReadable(root),
     references: { withReference: withLocalTrackViewReference },
   });
+}
+
+export function registerComparisonSourceIpcHandlers(): void {
+  const commands = createNativeComparisonSources();
   handleGroup(comparisonSourcesContract, {
     read: (_event, request) => commands.read(request),
     readWindow: (_event, request) => commands.readWindow(request),

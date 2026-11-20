@@ -292,7 +292,7 @@ it.each(['project', 'account', 'schema', 'fields', 'file-owner'])(
       (request, options) =>
         write(request, {
           ...options,
-          beforePublish: () => {
+          beforePublish: (stagedPath) => {
             if (race === 'project')
               fixture.db.prepare("UPDATE workspaces SET repo_uuid='replacement' WHERE id=7").run();
             if (race === 'account')
@@ -317,7 +317,7 @@ it.each(['project', 'account', 'schema', 'fields', 'file-owner'])(
               fixture.db
                 .prepare('UPDATE catalog_entity_files SET path=? WHERE entity_id=?')
                 .run(`${productPath}.replacement`, packageId);
-            options?.beforePublish?.();
+            options?.beforePublish?.(stagedPath);
           },
         })
     );
@@ -349,7 +349,7 @@ it('allows routine timestamps and sync progress to advance before publication', 
     (request, options) =>
       write(request, {
         ...options,
-        beforePublish: () => {
+        beforePublish: (stagedPath) => {
           fixture.db.prepare('UPDATE lims_entity SET updated_at=999 WHERE id=?').run(packageId);
           fixture.db
             .prepare('UPDATE catalog_entities SET updated_at=999 WHERE id=?')
@@ -357,7 +357,7 @@ it('allows routine timestamps and sync progress to advance before publication', 
           fixture.db
             .prepare('UPDATE workspace_sync_bindings SET updated_at=999 WHERE workspace_id=7')
             .run();
-          options?.beforePublish?.();
+          options?.beforePublish?.(stagedPath);
         },
       })
   );

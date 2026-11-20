@@ -1,3 +1,4 @@
+import { retainTablePublication } from './retain-table-package';
 import { tableDataForPersistence } from '../shared/table-document-data';
 import type { TableData } from '../shared/table-document-types';
 import { createHash, randomUUID } from 'node:crypto';
@@ -513,6 +514,7 @@ async function stage(
     { ...location, head: parseTablePackageHead(intent.pendingHeadText), mode: 'create' },
     {
       assertCurrent: authority.assertCurrent,
+      db: options.db(),
       writeAtomic: options.io?.writeAtomic,
       syncDirectory: options.io?.syncDirectory,
     }
@@ -583,7 +585,10 @@ async function resume(
   logPromotion(intent.promotionId, 'activating-table');
   let actual = await withWorkspaceMutation(authority.workspaceRoot, async () => {
     const current = await stage(options, authority, owners, intent);
-    if (current.head.status === 'active') return current;
+    if (current.head.status === 'active') {
+      await retainTablePublication(options.db(), authority.assertCurrent)(current);
+      return current;
+    }
     return (options.io?.publishPackage ?? publishTablePackageInMain)(
       {
         workspaceRoot: authority.workspaceRoot,
@@ -594,6 +599,7 @@ async function resume(
       },
       {
         assertCurrent: authority.assertCurrent,
+        db: options.db(),
         writeAtomic: options.io?.writeAtomic,
         syncDirectory: options.io?.syncDirectory,
       }

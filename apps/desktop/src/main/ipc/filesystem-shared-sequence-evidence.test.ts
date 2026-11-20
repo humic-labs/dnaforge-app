@@ -852,7 +852,7 @@ describe('native alignment query attachments', () => {
       expect(prepared.queryPaths[id]).not.toBe(path);
       expect(await readFile(path, 'utf8')).toBe(clones[index]);
       expect(await readFile(prepared.queryPaths[id], 'utf8')).toBe(clones[index]);
-      await expect(readFile(inputs[index])).rejects.toMatchObject({ code: 'ENOENT' });
+      expect(await readFile(inputs[index], 'utf8')).toBe(clones[index]);
     }
     const markerPath = sequencePackagePaths(packageRoot).metaPath;
     const document = parseSequencePackageDocument(await readFile(markerPath, 'utf8'));
@@ -865,10 +865,7 @@ describe('native alignment query attachments', () => {
     ).toEqual(['contents/clone-1.fasta', 'contents/clone-1-2.fasta'].sort());
     expect(await readFile(sourcePath, 'utf8')).toBe(reference);
     const recovery = join(root, '.git', 'dnaforge-file-trash');
-    const recovered = await Promise.all(
-      (await readdir(recovery)).map((name) => readFile(join(recovery, name, 'payload'), 'utf8'))
-    );
-    expect(recovered.sort()).toEqual([...clones].sort());
+    await expect(readdir(recovery)).rejects.toMatchObject({ code: 'ENOENT' });
     const repeated = await invoke('prepare', input);
     expect(repeated.attachedQueryPaths).toEqual(prepared.attachedQueryPaths);
     expect(repeated.run.queries).toEqual(prepared.run.queries);

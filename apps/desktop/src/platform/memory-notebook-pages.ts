@@ -3,6 +3,7 @@ import { readNotebookProjectionSource } from '../db/notebook-projection-source';
 import { notebookPackageRootForMetaPath } from '../db/notebook-package';
 import {
   notebookProjectionFingerprint,
+  retainLegacyNotebookPage,
   type LegacyNotebookPageMutation,
   type NotebookPageRow,
   type NotebookProjectionFromFileInput,
@@ -100,10 +101,7 @@ export function createMemoryNotebookPageCommands(
       if (bindings.some((binding) => binding.file_kind === 'waypoint-notebook'))
         throw new Error('File-backed notebooks require their package authority.');
       const existing = await readPage(input.id);
-      if (input.operation === 'delete') {
-        await db.execute('DELETE FROM pages WHERE id = ?', [input.id]);
-        return null;
-      }
+      if (input.operation === 'delete') return retainLegacyNotebookPage(existing);
       if (
         fingerprint(existing) !== input.expectedProjectionFingerprint ||
         (input.operation === 'create' && existing)

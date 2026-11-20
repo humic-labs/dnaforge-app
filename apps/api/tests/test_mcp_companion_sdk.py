@@ -150,6 +150,58 @@ def test_external_results_preserve_notebook_content_and_remove_unqualified_links
     )
 
 
+def test_molecular_save_receipt_keeps_its_document_reference_without_an_inline_link():
+    from jsonschema import Draft202012Validator
+
+    from src.concurrency.renderer_bridge import load_renderer_tool_manifest
+    from src.mcp_companion.projection import project_tool
+
+    document_id = "11111111-1111-4111-8111-111111111111"
+    revision_id = "22222222-2222-4222-8222-222222222222"
+    digest = "a" * 64
+    reference = {
+        "kind": "molecular-document",
+        "version": 1,
+        "projectId": "project-1",
+        "documentId": document_id,
+        "revisionId": revision_id,
+        "revisionSha256": digest,
+    }
+    receipt = {
+        "ok": True,
+        "referenceId": "project-reference",
+        "revisionId": revision_id,
+        "structureViewId": f"molecular-document:{document_id}",
+        "documentReference": reference,
+        "activeViewReference": reference,
+        "inlineLink": "dnaforge-chat://molecular-document/project-1",
+        "molecularDocumentId": document_id,
+        "molecularDocumentReference": reference,
+        "molecularDocumentProjectId": "project-1",
+        "molecularDocumentPath": "/project/Pocket.dnaforge-molecular.json",
+        "molecularDocumentRevision": digest,
+        "molecularDocumentSavedReferenceId": revision_id,
+        "title": "Pocket",
+        "caption": "",
+        "evidence": [],
+        "coordinateDigestSha256": digest,
+        "format": "mvsj",
+        "message": "Saved the molecular document.",
+    }
+    raw_tool = next(
+        tool
+        for tool in load_renderer_tool_manifest()["tools"]
+        if tool["name"] == "mol_save_view"
+    )
+    body = {"ok": True, "result": {"ok": True, "result": receipt}}
+    result = project_call_result(200, body, tool_name="mol_save_view")
+    assert result.structured_content["result"]["documentReference"] == reference
+    assert "inlineLink" not in result.structured_content["result"]
+    Draft202012Validator(project_tool(raw_tool).output_schema).validate(
+        result.structured_content
+    )
+
+
 def test_external_explicit_json_content_uses_the_same_link_as_structured_content():
     reference = {
         "referenceId": "ref-1",

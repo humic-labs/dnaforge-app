@@ -1,3 +1,4 @@
+import { MOLECULAR_COORDINATE_MAX_ENCODED_LENGTH } from '../../../../../shared/molecular-storage';
 import { describe, expect, it } from 'vitest';
 import { prepareMolecularDataPublication, molecularDataDigest } from './molecularData';
 import {
@@ -168,18 +169,21 @@ describe('durable molecular view envelope', () => {
     expect(molecularViewAttrs('saved-view:story', story).molViewSpecSnapshotIndex).toBe(1);
   });
 
-  it('accepts the measured GroEL coordinate snapshot while rejecting oversized data', () => {
+  it('admits larger stored snapshots while bounding the serialized coordinate field', () => {
     expect(molecularViewSchema.safeParse({ ...saved, version: 2 }).success).toBe(false);
     expect(
       molecularViewSchema.safeParse({
         ...saved,
-        coordinates: { ...saved.coordinates, text: 'x'.repeat(6_293_816) },
+        coordinates: { ...saved.coordinates, text: 'x'.repeat(8_000_001) },
       }).success
     ).toBe(true);
     expect(
       molecularViewSchema.safeParse({
         ...saved,
-        coordinates: { ...saved.coordinates, text: 'x'.repeat(8_000_001) },
+        coordinates: {
+          ...saved.coordinates,
+          text: 'x'.repeat(MOLECULAR_COORDINATE_MAX_ENCODED_LENGTH + 1),
+        },
       }).success
     ).toBe(false);
   });

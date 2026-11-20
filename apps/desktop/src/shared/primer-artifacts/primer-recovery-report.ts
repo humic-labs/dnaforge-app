@@ -1,3 +1,5 @@
+import { readRetainedPrimerSource, type PrimerRestoreSelection } from './primer-source-history';
+import { userMessage } from '@waypoint/user-messages';
 import {
   parsePrimerArtifact,
   validatePrimerArtifactPath,
@@ -7,6 +9,34 @@ import { parseEntityArtifact } from '../entity-artifact';
 import { isEntityRecordArtifactProjection } from '../registry-file-types';
 import type { OriginalDefaultProjectResolution } from '../first-project';
 import type { PrimerRecoveryDependencies } from './primer-recovery-port';
+type FileLocationReason = 'primer.recoveryFileMissing' | 'primer.recoveryFileOutside';
+type RecoveryReason = FileLocationReason | 'recovery-failed';
+
+export class PrimerRecoveryFileError extends Error {
+  constructor(
+    readonly reason: FileLocationReason,
+    message: string = userMessage(reason)
+  ) {
+    super(message);
+  }
+}
+
+export function primerRecoveryDiagnostic(error: unknown): {
+  reason: RecoveryReason;
+  message: string;
+} {
+  return {
+    reason: error instanceof PrimerRecoveryFileError ? error.reason : 'recovery-failed',
+    message: error instanceof Error ? error.message : String(error),
+  };
+}
+
+const legacyFileLocationMessages = new Set([
+  'The saved primer document is outside its recorded project.',
+  'The saved primer file is missing. Restore it from project history or a backup.',
+  'The primer already had an authoritative document; restore that document before recovery.',
+]);
+
 export interface PrimerRecordRecoveryResult {
   recovered: number;
   errors: Array<{ path: string; message: string; primerName?: string }>;
@@ -18,6 +48,7 @@ export interface PrimerRecordRecoveryResult {
     source: 'registry' | 'legacy';
     status: 'document-backed' | 'recovered' | 'unresolved' | 'trashed';
     artifactPath?: string;
+    reason?: RecoveryReason;
     message?: string;
   }>;
 }
@@ -34,6 +65,7 @@ export interface PrimerRecoveryInventory {
     workspaceId: number | null;
     projectUuid: string | null;
     status: 'legacy-library' | 'document-backed' | 'pending-recovery' | 'needs-review' | 'trashed';
+    restore?: PrimerRestoreSelection;
     message?: string;
   }>;
 }
@@ -65,8 +97,17 @@ export function createPrimerRecoveryReportOwner(dependencies: PrimerRecoveryDepe
     id: string;
     recoveredSource?: 'registry' | 'legacy';
   }> {
-    if (!(await platform().fs.validateWorkspacePath({ workspaceRoot, path })))
-      throw new Error('The saved primer document is outside its recorded project.');
+    const fs = platform().fs;
+    if (!(await fs.validateWorkspacePath({ workspaceRoot, path }))) {
+      if (!(await fs.exists(workspaceRoot)))
+        throw new Error(userMessage('primer.recoveryProjectUnavailable'));
+      if (
+        (await fs.validateWorkspacePath({ workspaceRoot, path, allowMissing: true })) &&
+        !(await fs.exists(path))
+      )
+        throw new PrimerRecoveryFileError('primer.recoveryFileMissing');
+      throw new PrimerRecoveryFileError('primer.recoveryFileOutside');
+    }
     const content = await platform().fs.readTextFile(path);
     const raw: unknown = JSON.parse(content);
     if (!raw || typeof raw !== 'object' || !('schema' in raw))
@@ -120,7 +161,7 @@ export function createPrimerRecoveryReportOwner(dependencies: PrimerRecoveryDepe
       ),
     ]);
     const owners = new Map(projects.map((project) => [project.id, project]));
-    const issues = new Map<string, string>();
+    const issues = new Map<string, Array<{ message: string; fileLocation: boolean }>>();
     for (const report of savedReports) {
       const parsed: unknown = JSON.parse(report.value);
       if (
@@ -135,8 +176,19 @@ export function createPrimerRecoveryReportOwner(dependencies: PrimerRecoveryDepe
           record?.status === 'unresolved' &&
           typeof record.id === 'string' &&
           typeof record.message === 'string'
-        )
-          issues.set(record.id, record.message);
+        ) {
+          const fileLocation =
+            record.reason === 'primer.recoveryFileMissing' ||
+            record.reason === 'primer.recoveryFileOutside' ||
+            (record.reason === undefined &&
+              'schema' in parsed &&
+              parsed.schema === 'dnaforge.primer-recovery-report/v1' &&
+              legacyFileLocationMessages.has(record.message));
+          const issue = { message: record.message, fileLocation };
+          const existing = issues.get(record.id);
+          if (existing) existing.push(issue);
+          else issues.set(record.id, [issue]);
+        }
       }
     }
     const legacyLibrary = new Set(
@@ -243,13 +295,13 @@ export function createPrimerRecoveryReportOwner(dependencies: PrimerRecoveryDepe
           throw new Error(
             'This primer has more than one current document; preserve them for review.'
           );
+        let verifiedDocument = false;
         if (paths.length === 1) {
           const path = paths[0];
-          if (!(await platform().fs.validateWorkspacePath({ workspaceRoot: owner.path, path })))
-            throw new Error('The saved primer document is outside its recorded project.');
           const artifact = await readPrimerRecoveryDocument(path, owner.path);
           if (artifact.id !== row.id)
             throw new Error('The saved primer document belongs to a different record.');
+          verifiedDocument = true;
           if (row.source === 'registry') entry.status = 'document-backed';
         } else if (reference !== undefined && reference !== null) {
           throw new Error('The saved primer document reference is invalid.');
@@ -264,11 +316,31 @@ export function createPrimerRecoveryReportOwner(dependencies: PrimerRecoveryDepe
           if (!(await platform().fs.exists(owner.path)))
             throw new Error("The primer's project is unavailable on this device.");
         }
-        const issue = issues.get(row.id);
-        if (issue) throw new Error(issue);
+        const issue = issues.get(row.id)?.find((issue) => !issue.fileLocation || !verifiedDocument);
+        if (issue) throw new Error(issue.message);
       } catch (error) {
         entry.status = 'needs-review';
         entry.message = error instanceof Error ? error.message : String(error);
+        if (
+          error instanceof PrimerRecoveryFileError &&
+          error.reason === 'primer.recoveryFileMissing'
+        ) {
+          try {
+            const source = await readRetainedPrimerSource(platform(), row.id);
+            if (source) {
+              entry.restore = {
+                id: row.id,
+                root: source.root,
+                relativePath: source.relativePath,
+                sha256: source.sha256,
+              };
+              entry.message = userMessage('primer.recoverySavedCopyAvailable');
+            }
+          } catch (sourceError) {
+            entry.message =
+              sourceError instanceof Error ? sourceError.message : String(sourceError);
+          }
+        }
       }
       report.entries.push(entry);
     }

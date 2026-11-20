@@ -1,3 +1,8 @@
+import {
+  savedFileSourceAgentRequest,
+  type SavedFileSourceRequest,
+} from '../shared/saved-file-source-command';
+import { runSavedFileSourceCommand } from './saved-file-source-command';
 import type Database from 'better-sqlite3';
 import { isAbsolute, join } from 'node:path';
 import { searchWorkspace, type WorkspaceSearchRequest } from '../shared/workspace-search-owner';
@@ -118,6 +123,33 @@ export function createNativeWorkspaceCommands(options: {
     };
     return lease ? lease(run) : withKnownWorkspacePathMutation(options.db(), [root], run);
   };
+  const runFileSource = async (input: SavedFileSourceRequest, lease?: Lease) => {
+    if (!input.workspaceRoot) throw new Error('Choose a project for this native file command.');
+    const project = resolveProject(input.workspaceRoot);
+    if (!project) throw new Error('Choose an exact admitted project.');
+    const root = workspaceMutationRootIdentity(project.path);
+    const mutate = input.operation.kind === 'restore';
+    const enrollment = options.captureWorkspace(root, mutate);
+    const assertCurrent = () => {
+      enrollment();
+      assertCommittedDatabaseReadAllowed(options.db());
+      const current = resolveProject(root);
+      if (!current || current.id !== project.id || (mutate && current.pinned))
+        throw new Error('The project changed during source recovery.');
+      if (mutate) assertKnownWorkspaceContentWritable(options.db(), root);
+    };
+    const run = () =>
+      runSavedFileSourceCommand(options.db(), input, {
+        workspaceId: project.id,
+        root,
+        assertCurrent,
+      });
+    return lease
+      ? lease(run)
+      : mutate
+        ? withKnownWorkspacePathMutation(options.db(), [root], run)
+        : run();
+  };
   return {
     search(input: WorkspaceSearchRequest) {
       return searchWorkspace(
@@ -136,5 +168,12 @@ export function createNativeWorkspaceCommands(options: {
       return runHistory({ workspaceRoot: project.path, operation: request.operation });
     },
     runHistory,
+    runFileSource,
+    savedFileSource(input: import('zod').z.input<typeof savedFileSourceAgentRequest>) {
+      const { project, operation } = savedFileSourceAgentRequest.parse(input);
+      const selected = resolveProject(project);
+      if (!selected) throw new Error('Choose an exact admitted project.');
+      return runFileSource({ workspaceRoot: selected.path, operation });
+    },
   };
 }

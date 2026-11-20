@@ -1,3 +1,4 @@
+import { persistedSchemaEntityTypeLabel } from '@waypoint/scientific-artifacts/shared/entity-types';
 import { toUserMessage, renderUserMessage, type UserMessage } from '@waypoint/user-messages';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button, Notice } from '../../components/ui';
@@ -55,6 +56,7 @@ export function EntityDetailsPanel({
   readOnly?: boolean;
 }) {
   const { definition, draft, saving } = state;
+  const schemaLabel = draft ? persistedSchemaEntityTypeLabel(draft.schema) : 'Entity';
   const error: UserMessage | null = state.error;
   const record = definition?.record;
   const sequence = record?.sequence;
@@ -165,9 +167,7 @@ export function EntityDetailsPanel({
                 </span>
               ) : null}
             </h2>
-            <p className="mt-0.5 truncate text-[11px] text-fg-muted">
-              {draft?.schema.displayName ?? 'Entity'}
-            </p>
+            <p className="mt-0.5 truncate text-[11px] text-fg-muted">{schemaLabel}</p>
           </div>
           <Button
             onClick={() => session.requestClose(onClose)}
@@ -280,7 +280,7 @@ export function EntityDetailsPanel({
                     {definition.schemaChoices ? (
                       <MetadataField
                         label="Schema"
-                        display={draft.schema.displayName}
+                        display={schemaLabel}
                         disabled={disabled}
                         onBegin={() => void loadSchemas()}
                         onFinish={finishSchema}
@@ -303,13 +303,13 @@ export function EntityDetailsPanel({
                                 ? [
                                     {
                                       value: draft.schema.schemaRevisionId,
-                                      label: draft.schema.displayName,
+                                      label: schemaLabel,
                                     },
                                   ]
                                 : []),
                               ...schemaChoices.map((schema) => ({
                                 value: schema.schemaRevisionId,
-                                label: schema.displayName,
+                                label: persistedSchemaEntityTypeLabel(schema),
                                 description: `${schema.name} · v${schema.version}`,
                               })),
                             ]}
@@ -328,7 +328,7 @@ export function EntityDetailsPanel({
                         )}
                       </MetadataField>
                     ) : (
-                      <MetadataValue>{draft.schema.displayName}</MetadataValue>
+                      <MetadataValue>{schemaLabel}</MetadataValue>
                     )}
                   </MetadataFieldRow>
                   {record.registrationStatus !== 'tracked' ? (

@@ -11,6 +11,7 @@ import type { NotebookPublicationState } from '../shared/notebook-publication';
 import { replaceNotebookProjectionFromFileInMain } from './notebook-projection-authority';
 import { queryLimsEntitiesInDb } from './lims-registry-projection';
 import { settleNotebookPresentationInDb } from './notebook-presentation';
+import { NOTEBOOK_REFERENCE_EXTRACTOR_VERSION } from '../shared/notebook-reference-occurrences';
 
 export { settleNotebookPresentationInDb } from './notebook-presentation';
 
@@ -86,6 +87,11 @@ export function readNotebookPublicationInDb(
     includeArchived: true,
     limit: 1,
   })[0];
+  const references = db
+    .prepare(
+      'SELECT source_fingerprint,extractor_version FROM notebook_reference_projections WHERE document_id=?'
+    )
+    .get(input.documentId) as { source_fingerprint: string; extractor_version: number } | undefined;
   const settled =
     workspace &&
     resolve(workspace.root) === resolve(input.workspaceRoot) &&
@@ -93,6 +99,8 @@ export function readNotebookPublicationInDb(
     page &&
     notebookProjectionFingerprint(page.title, page.content) === fingerprint &&
     receipt?.synchronized_fingerprint === fingerprint &&
+    references?.source_fingerprint === fingerprint &&
+    references.extractor_version === NOTEBOOK_REFERENCE_EXTRACTOR_VERSION &&
     registry?.kind === 'notebook' &&
     registry.name === input.title &&
     registry.workspaceId === workspace.id &&

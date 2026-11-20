@@ -72,6 +72,10 @@ export type PickerResult =
       contentHash?: string | null;
 
       objectUuid?: string | null;
+
+      projectId?: string | null;
+
+      registryKind?: string | null;
     };
 
 export interface SlashCommandDefinition {

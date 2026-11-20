@@ -24,13 +24,13 @@ export function TerminalRuntimeSettings({
       <SettingsSubsection title="Sessions" testId="terminal-settings-sessions">
         <SettingsRow {...settingsRowProps('terminal-startup')}>
           <SettingsSelect
-            ariaLabel="Terminal panel at startup"
+            ariaLabel="Terminal tab at startup"
             value={value.startupVisibility}
             disabled={busy}
             options={[
-              { value: 'remember', label: 'Remember visibility' },
-              { value: 'hidden', label: 'Hidden' },
-              { value: 'visible', label: 'Visible' },
+              { value: 'remember', label: 'Remember active tab' },
+              { value: 'hidden', label: 'Keep in background' },
+              { value: 'visible', label: 'Focus terminal tab' },
             ]}
             onValueChange={(entry) =>
               update(

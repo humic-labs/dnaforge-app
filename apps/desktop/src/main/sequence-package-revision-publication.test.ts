@@ -1,4 +1,5 @@
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { restoreSavedFileSource } from './saved-file-sources';
+import { mkdtemp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -209,6 +210,22 @@ describe('sequence package publication authority', () => {
       product: { revisionId: 'second' },
       assembly: { revisionId: 'second' },
     });
+    const workspace = publicationDb.prepare('SELECT id FROM workspaces WHERE path=?').get(root) as {
+      id: number;
+    };
+    const marker = await readFile(paths.metaPath);
+    await rename(packageRoot, join(root, 'unavailable'));
+    await restoreSavedFileSource(publicationDb, {
+      workspaceId: workspace.id,
+      entityId: 'record',
+      destination: packageRoot,
+    });
+    expect(await readFile(paths.metaPath)).toEqual(marker);
+    expect(await readFile(paths.productPath, 'utf8')).toBe(edited);
+    for (const snapshot of third.snapshots)
+      expect(await readFile(fromPackageRelative(snapshot.path, packageRoot), 'utf8')).toBe(
+        snapshot.content
+      );
   });
 
   it('restores intrinsic topology and genetic code independently from a saved product snapshot', async () => {

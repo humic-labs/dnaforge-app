@@ -1,3 +1,4 @@
+import { SEQUENCE_DOCUMENT_ENTITY_TYPES } from '../shared/catalog-entity';
 import type { WorkspaceMutationRunner } from '../shared/artifact-operation-ports';
 import type { EntityColorContext } from '../shared/entity-color-family';
 import { catalogIconContext } from '../shared/catalog-icon-context';
@@ -477,13 +478,19 @@ export function createCatalogRepository(dependencies: CatalogRepositoryDependenc
       `SELECT f.* FROM catalog_entity_files f
        JOIN catalog_entities e ON e.id = f.entity_id
        WHERE f.status = 'current' AND e.status = 'active'
-         AND (e.type IN ('sequence', 'trace')
+         AND (e.type IN (${SEQUENCE_DOCUMENT_ENTITY_TYPES.map(() => '?').join(',')})
            OR f.file_kind IN (${SEQUENCE_PACKAGE_FILE_KIND_ALIASES.map(() => '?').join(',')})
            OR (e.type = 'file' AND f.file_kind IN (${TEXT_SEQUENCE_FILE_KINDS.map(() => '?').join(',')})))
          AND (f.entity_id = ? OR f.entity_id IN
            (SELECT entity_id FROM catalog_entity_files WHERE object_uuid = ?))
        LIMIT 2`,
-      [...SEQUENCE_PACKAGE_FILE_KIND_ALIASES, ...TEXT_SEQUENCE_FILE_KINDS, documentId, documentId]
+      [
+        ...SEQUENCE_DOCUMENT_ENTITY_TYPES,
+        ...SEQUENCE_PACKAGE_FILE_KIND_ALIASES,
+        ...TEXT_SEQUENCE_FILE_KINDS,
+        documentId,
+        documentId,
+      ]
     );
     if (files.length > 1) {
       throw new Error(`Ambiguous sequence document identity: ${documentId}.`);

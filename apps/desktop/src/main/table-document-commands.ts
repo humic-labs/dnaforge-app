@@ -737,6 +737,7 @@ export class NativeTableDocumentCommands {
         { ...destination, head: parseTablePackageHead(intent.headText), mode: 'create' },
         {
           assertCurrent: authority.assertCurrent,
+          db: this.options.db(),
           writeAtomic: this.options.io?.writeAtomic,
           syncDirectory: this.options.io?.syncDirectory,
         }

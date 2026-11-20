@@ -22,7 +22,7 @@ import {
   serializeTableSnapshot,
   tablePackagePaths,
 } from '../../shared/table-package';
-import { publishTablePackageInMain, readTablePackageInMain } from '../table-package';
+import { writeTablePackageFiles, readTablePackageInMain } from '../table-package';
 import {
   convertTreeToMolecularPackages,
   materializeCoordinatePackage,
@@ -76,7 +76,7 @@ async function fixture(marker: 'current' | 'malformed' | 'future') {
       status: 'active',
     })
   );
-  await publishTablePackageInMain(
+  await writeTablePackageFiles(
     { workspaceRoot, packageRoot, head, mode: 'create' },
     { assertCurrent() {} }
   );

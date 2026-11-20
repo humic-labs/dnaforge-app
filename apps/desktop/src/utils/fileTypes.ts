@@ -1,4 +1,5 @@
 import type { TabType } from '../features/canvas/types';
+import { TABULAR_DATA_EXTENSIONS } from '../shared/tabular-file-types';
 import {
   TRACK_VIEW_FILE_SUFFIX,
   MOLECULAR_DOCUMENT_FILE_SUFFIX,
@@ -28,8 +29,6 @@ const IMAGE_EXTENSIONS = new Set([
 ]);
 
 const HTML_EXTENSIONS = new Set(['html', 'htm']);
-
-const TABULAR_DATA_EXTENSIONS = new Set(['csv', 'tsv', 'xlsx', 'xls']);
 
 const TEXT_EXTENSIONS = new Set([
   'txt',

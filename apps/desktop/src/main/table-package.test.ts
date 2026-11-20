@@ -19,7 +19,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   readTablePackageInMain,
   readTableSnapshotInMain,
-  publishTablePackageInMain,
+  writeTablePackageFiles,
 } from './table-package';
 import {
   parseTablePackageHead,
@@ -77,7 +77,7 @@ async function fixture() {
   roots.push(workspaceRoot);
   const packageRoot = join(workspaceRoot, 'Samples');
   const original = head('original');
-  const published = await publishTablePackageInMain(
+  const published = await writeTablePackageFiles(
     { workspaceRoot, packageRoot, head: original, mode: 'create' },
     { assertCurrent() {} }
   );
@@ -108,7 +108,7 @@ describe('native table package publication', () => {
       'utf8'
     );
     const next = head('new current', f.original);
-    await publishTablePackageInMain(
+    await writeTablePackageFiles(
       {
         workspaceRoot: f.workspaceRoot,
         packageRoot: f.packageRoot,
@@ -141,13 +141,13 @@ describe('native table package publication', () => {
     const before = await readFile(f.paths.headPath, 'utf8');
     const next = head('must not replace');
     await expect(
-      publishTablePackageInMain(
+      writeTablePackageFiles(
         { workspaceRoot: f.workspaceRoot, packageRoot: f.packageRoot, head: next, mode: 'create' },
         { assertCurrent() {} }
       )
     ).rejects.toThrow();
     await expect(
-      publishTablePackageInMain(
+      writeTablePackageFiles(
         {
           workspaceRoot: f.workspaceRoot,
           packageRoot: f.packageRoot,
@@ -171,7 +171,7 @@ describe('native table package publication', () => {
       throw denied;
     };
     await expect(
-      publishTablePackageInMain(
+      writeTablePackageFiles(
         {
           workspaceRoot: f.workspaceRoot,
           packageRoot: f.packageRoot,
@@ -199,7 +199,7 @@ describe('native table package publication', () => {
       return writeWorkspaceTextFileAtomicInMain(input, options);
     };
     await expect(
-      publishTablePackageInMain(
+      writeTablePackageFiles(
         {
           workspaceRoot: f.workspaceRoot,
           packageRoot: f.packageRoot,
@@ -229,7 +229,7 @@ describe('native table package publication', () => {
       return writeWorkspaceTextFileAtomicInMain(input, options);
     };
     await expect(
-      publishTablePackageInMain(
+      writeTablePackageFiles(
         {
           workspaceRoot: f.workspaceRoot,
           packageRoot: f.packageRoot,
@@ -265,13 +265,13 @@ describe('native table package publication', () => {
       expectedContentHash: f.published.headContentHash,
     };
     await expect(
-      publishTablePackageInMain(request, { assertCurrent() {}, syncDirectory: directorySync })
+      writeTablePackageFiles(request, { assertCurrent() {}, syncDirectory: directorySync })
     ).rejects.toBeInstanceOf(WorkspaceFilePublicationUncertainError);
     const actual = await readFile(f.paths.headPath, 'utf8');
     expect(actual).toBe(serializeTablePackageHead(next));
     const inode = (await stat(f.paths.headPath)).ino;
     allowed = true;
-    const retry = await publishTablePackageInMain(request, {
+    const retry = await writeTablePackageFiles(request, {
       assertCurrent() {},
       syncDirectory: directorySync,
     });
@@ -298,10 +298,10 @@ describe('native table package publication', () => {
       await syncDirectory(path);
     };
     await expect(
-      publishTablePackageInMain(request, { assertCurrent() {}, syncDirectory: directorySync })
+      writeTablePackageFiles(request, { assertCurrent() {}, syncDirectory: directorySync })
     ).rejects.toThrow();
     const newest = head('different later edit');
-    await publishTablePackageInMain(
+    await writeTablePackageFiles(
       {
         ...request,
         head: newest,
@@ -309,7 +309,7 @@ describe('native table package publication', () => {
       },
       { assertCurrent() {} }
     );
-    await expect(publishTablePackageInMain(request, { assertCurrent() {} })).rejects.toThrow();
+    await expect(writeTablePackageFiles(request, { assertCurrent() {} })).rejects.toThrow();
     expect(await readFile(f.paths.headPath, 'utf8')).toBe(serializeTablePackageHead(newest));
   });
 
@@ -320,7 +320,7 @@ describe('native table package publication', () => {
     await writeFile(path, 'Corrupt existing bytes');
     const before = await readFile(f.paths.headPath, 'utf8');
     await expect(
-      publishTablePackageInMain(
+      writeTablePackageFiles(
         {
           workspaceRoot: f.workspaceRoot,
           packageRoot: f.packageRoot,
@@ -374,7 +374,7 @@ describe('native table package publication', () => {
       readTablePackageInMain({ workspaceRoot: f.workspaceRoot, packageRoot: linkedPackage })
     ).rejects.toThrow();
     await expect(
-      publishTablePackageInMain(
+      writeTablePackageFiles(
         {
           workspaceRoot: f.workspaceRoot,
           packageRoot: linkedPackage,
@@ -396,7 +396,7 @@ describe('native table package publication', () => {
       await chmod(revisionDir, 0o555);
       try {
         await expect(
-          publishTablePackageInMain(
+          writeTablePackageFiles(
             {
               workspaceRoot: f.workspaceRoot,
               packageRoot: f.packageRoot,

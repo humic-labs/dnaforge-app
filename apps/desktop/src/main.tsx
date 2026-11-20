@@ -83,6 +83,7 @@ import {
 import { Providers } from './shared/context';
 import { CommandScopeProvider } from './commands';
 import { useCanvasStore } from './features/canvas/store';
+import { observeEntityViews } from './services/observe-entity-views';
 import './index.css';
 import type { ResidueLocation, Structure3dAttrs } from './features/page/embeds/structure3d/types';
 
@@ -2279,6 +2280,7 @@ if (new URLSearchParams(window.location.search).has('proteinExperimentWorker')) 
       let newDraftsOffered = false;
       const { installReferenceVersionUsageTracking } =
         await import('./features/sequence/reference-version-usage');
+      startupDisposers.push(observeEntityViews());
       startupDisposers.push(installReferenceVersionUsageTracking());
       startupDisposers.push(initDirtyReporter());
       startupDisposers.push(initSaveAllHandler());

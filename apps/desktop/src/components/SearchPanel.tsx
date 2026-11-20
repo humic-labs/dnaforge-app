@@ -1,9 +1,10 @@
-import { INTERACTION_CLASS } from '@waypoint/ui-components';
+import { Button } from './ui';
 import { useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent } from 'react';
-import type {
-  MountedCatalogEntitySearchResult,
-  SidebarSearchableCatalogEntityType,
-} from '../db/catalog-reference-search';
+import type { MountedCatalogEntitySearchResult } from '../db/catalog-reference-search';
+import {
+  searchResultNamedType,
+  SIDEBAR_SEARCHABLE_CATALOG_ENTITY_TYPES,
+} from '../shared/workspace-search-catalog';
 import {
   searchWorkspace,
   settleCatalogSearchOpen,
@@ -100,13 +101,25 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
     };
   }, [scope, query, folders, openLocalDesignIds]);
 
-  const displayedResults = useMemo(
-    () =>
-      SEARCH_RESULT_GROUPS.flatMap(({ entityType }) =>
-        results.filter((result) => result.entityType === entityType)
-      ),
-    [results]
-  );
+  const groups = useMemo(() => {
+    const byType = new Map<
+      string,
+      { title: string; entities: MountedCatalogEntitySearchResult[] }
+    >();
+    const ordered = [...results].sort(
+      (a, b) =>
+        SIDEBAR_SEARCHABLE_CATALOG_ENTITY_TYPES.indexOf(a.entityType) -
+        SIDEBAR_SEARCHABLE_CATALOG_ENTITY_TYPES.indexOf(b.entityType)
+    );
+    for (const result of ordered) {
+      const type = result.namedType ?? searchResultNamedType(result.entityType);
+      const existing = byType.get(type.key);
+      if (existing) existing.entities.push(result);
+      else byType.set(type.key, { title: type.label, entities: [result] });
+    }
+    return [...byType];
+  }, [results]);
+  const displayedResults = useMemo(() => groups.flatMap(([, group]) => group.entities), [groups]);
 
   const handleSelect = useCallback(
     (entity: MountedCatalogEntitySearchResult) => {
@@ -131,13 +144,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
     [current, loading, settled, displayedResults]
   );
 
-  const firstVisibleResult = useMemo(() => {
-    for (const { entityType } of SEARCH_RESULT_GROUPS) {
-      const match = results.find((result) => result.entityType === entityType);
-      if (match) return match;
-    }
-    return null;
-  }, [results]);
+  const firstVisibleResult = displayedResults[0];
 
   const handleSearchKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
@@ -212,18 +219,9 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
           </div>
         ) : (
           <>
-            {SEARCH_RESULT_GROUPS.map(({ entityType, title, itemLabel }) => {
-              const entities = results.filter((result) => result.entityType === entityType);
-              return entities.length > 0 ? (
-                <ResultSection
-                  key={entityType}
-                  title={title}
-                  itemLabel={itemLabel}
-                  entities={entities}
-                  onSelect={handleSelect}
-                />
-              ) : null;
-            })}
+            {groups.map(([key, { title, entities }]) => (
+              <ResultSection key={key} title={title} entities={entities} onSelect={handleSelect} />
+            ))}
 
             {!query.trim() && !hasResults && (
               <div className="p-4 text-center text-fg-muted text-sm">
@@ -249,63 +247,36 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
 
 interface ResultSectionProps {
   title: string;
-  itemLabel: string;
   entities: MountedCatalogEntitySearchResult[];
   onSelect: (entity: MountedCatalogEntitySearchResult) => void;
 }
 
-function ResultSection({ title, itemLabel, entities, onSelect }: ResultSectionProps) {
+function ResultSection({ title, entities, onSelect }: ResultSectionProps) {
   return (
     <section className="py-2" role="region" aria-label={title}>
       <div className="px-4 py-1 text-xs font-medium text-fg-subtle uppercase tracking-wide">
         {title}
       </div>
-      {entities.map((entity) => (
-        <button
-          key={`${entity.workspaceRoot}:${entity.entityId}`}
-          type="button"
-          aria-label={`Open ${entity.name} (${itemLabel})`}
-          onClick={() => onSelect(entity)}
-          className={`${INTERACTION_CLASS} w-full px-4 py-2 text-left flex items-center gap-2`}
-        >
-          <span className="text-base" aria-hidden="true">
-            {referenceIconFor(entity.entityType, 'w-4 h-4', entity.iconContext)}
-          </span>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm text-fg truncate">{entity.name}</div>
-            <div className="text-xs text-fg-muted truncate">{entity.workspaceName}</div>
-          </div>
-        </button>
-      ))}
+      {entities.map((entity) => {
+        const type = entity.namedType ?? searchResultNamedType(entity.entityType);
+        return (
+          <Button
+            key={`${entity.workspaceRoot}:${entity.entityId}`}
+            type="button"
+            aria-label={`Open ${entity.name} (${type.kindLabel})`}
+            onClick={() => onSelect(entity)}
+            variant="list-action"
+          >
+            <span className="text-base" aria-hidden="true">
+              {referenceIconFor(type.iconKind, 'w-4 h-4', entity.iconContext)}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm text-fg truncate">{entity.name}</div>
+              <div className="text-xs text-fg-muted truncate">{entity.workspaceName}</div>
+            </div>
+          </Button>
+        );
+      })}
     </section>
   );
 }
-
-interface SearchResultPresentation {
-  title: string;
-  itemLabel: string;
-}
-
-const SEARCH_RESULT_PRESENTATION = {
-  notebook: { title: 'Pages', itemLabel: 'page' },
-  sequence: { title: 'Sequences', itemLabel: 'sequence' },
-  primer: { title: 'Primers', itemLabel: 'primer' },
-  design: { title: 'Designs', itemLabel: 'design' },
-  structure: { title: 'Structures', itemLabel: 'structure' },
-  protein: { title: 'Proteins', itemLabel: 'protein' },
-  protocol: { title: 'Protocols', itemLabel: 'protocol' },
-  protocol_run: { title: 'Protocol runs', itemLabel: 'protocol run' },
-  alignment: { title: 'Alignments', itemLabel: 'alignment' },
-  trace: { title: 'Traces', itemLabel: 'trace' },
-  report: { title: 'Reports', itemLabel: 'report' },
-  construct: { title: 'Constructs', itemLabel: 'construct' },
-  sample: { title: 'Samples', itemLabel: 'sample' },
-  record: { title: 'Records', itemLabel: 'record' },
-  'track-view': { title: 'Track views', itemLabel: 'track view' },
-  'molecular-document': { title: 'Molecular views', itemLabel: 'molecular document' },
-  file: { title: 'Files', itemLabel: 'file' },
-} as const satisfies Record<SidebarSearchableCatalogEntityType, SearchResultPresentation>;
-
-const SEARCH_RESULT_GROUPS = (
-  Object.keys(SEARCH_RESULT_PRESENTATION) as SidebarSearchableCatalogEntityType[]
-).map((entityType) => ({ entityType, ...SEARCH_RESULT_PRESENTATION[entityType] }));

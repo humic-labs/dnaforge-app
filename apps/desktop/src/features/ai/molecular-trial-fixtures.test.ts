@@ -119,6 +119,23 @@ describe('controlled trial coordinate preparation', () => {
     await expect(prepareMolecularTrialFixtures('Bad', sources)).rejects.toThrow(/digest/);
   });
 
+  it('rejects a BinaryCIF asset in a text-only fresh trial', async () => {
+    const sources = await Promise.all([pinned(1), pinned(2)]);
+    const [{ view }] = await prepareMolecularTrialFixtures('Comparison', sources);
+    if (view.version !== 2) throw Error('Expected shared comparison');
+    const [asset] = view.pinnedAssets;
+    await expect(
+      assertFreshMolecularTrialAttributes({
+        source: 'file',
+        sourceId: view.coordinates.text,
+        coordinateSha256: view.coordinates.sha256,
+        molViewSpec: view.scene,
+        molViewSpecAssets: [{ ...asset, format: 'bcif', text: btoa(asset.text) }],
+        label: view.title,
+      })
+    ).rejects.toThrow(/needs text PDB or mmCIF coordinates/);
+  });
+
   it('checks models per resource while allowing partial scenes and transformed duplicate copies', async () => {
     const sources = await Promise.all([pinned(1), pinned(2)]);
     const [{ view, fixture }] = await prepareMolecularTrialFixtures('Comparison', sources);

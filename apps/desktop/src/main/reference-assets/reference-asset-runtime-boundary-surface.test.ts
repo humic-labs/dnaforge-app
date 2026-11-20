@@ -128,11 +128,13 @@ describe('prepared reference runtime write surface', () => {
     expect(filesystem).toContain('return withSafeWritablePath(path, (safePath)');
     expect(filesystem).toContain('await writeFile(safePath, content');
     expect(filesystem).toContain('mkdir(safePath');
-    expect(filesystem).toContain('await rename(safeOldPath, safeNewPath)');
+    expect(filesystem).toContain('renamePathWithoutReplacement(safeOldPath, safeNewPath)');
     expect(filesystem).toContain(
       'const plan = planMoveIntoDirectory(safeSourcePath, safeDestinationDir)'
     );
-    expect(filesystem).toContain('await rename(safeSourcePath, destPath)');
+    expect(filesystem).toContain(
+      'await movePathWithoutReplacement(safeSourcePath, destPath, assertCurrent,'
+    );
     const trash = handlerBody(shell, 'shellContract', 'trashItem');
     expect(trash).toContain('withSafeWritablePath(path,');
     const mutation = handlerBody(

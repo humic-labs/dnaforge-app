@@ -1,5 +1,8 @@
+import type { ComparisonSourceCommands } from './comparison-source-commands';
 import { createHash, randomUUID } from 'node:crypto';
 import { reconcileTrackView } from './reconcile-track-view';
+import type Database from 'better-sqlite3';
+import { publishTypedSavedText } from './saved-file-publication';
 import { mkdir, readdir, readFile, lstat } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import {
@@ -21,7 +24,15 @@ import {
 } from '../shared/track-view';
 
 export class TrackViewLibrary {
-  constructor(private readonly root: string) {}
+  constructor(
+    private readonly root: string,
+    private readonly store?: {
+      db(): Database.Database;
+      blobRoot?: string;
+      comparisons?: Pick<ComparisonSourceCommands, 'retain'>;
+      contacts?: Pick<ComparisonSourceCommands, 'retain'>;
+    }
+  ) {}
 
   private isLibraryPath(path: string): boolean {
     return isAbsolute(path) && isPathInsideBoundary(resolve(path), resolve(this.root));
@@ -225,16 +236,44 @@ export class TrackViewLibrary {
     await mkdir(this.root, { recursive: true });
     let result: Awaited<ReturnType<typeof writeWorkspaceTextFileAtomicInMain>>;
     try {
-      result = await writeWorkspaceTextFileAtomicInMain({
-        workspaceRoot: location.workspaceRoot ?? this.root,
-        path,
-        content,
-        artifactNoun: 'track view',
-        mode: request.expectedRevision === null ? 'create' : 'replace',
-        ...(request.expectedRevision === null
-          ? {}
-          : { expectedContentHash: request.expectedRevision }),
-      });
+      const db = this.store?.db() ?? (await import('./ipc/database')).getDb();
+      const projection = document.comparisonProjection ?? document.contactProjection;
+      if (projection) {
+        const owner = document.comparisonProjection
+          ? this.store?.comparisons
+          : this.store?.contacts;
+        if (!owner) throw new Error('The saved projection source requires its admitted project.');
+        await owner.retain(
+          db,
+          { project: projection.project, source: projection.source },
+          this.store?.blobRoot
+        );
+      }
+      result = await publishTypedSavedText(
+        db,
+        {
+          workspaceRoot: inLibrary ? undefined : location.workspaceRoot,
+          entityId: document.id,
+          path,
+          content,
+          expectedSha256: request.expectedRevision,
+          blobRoot: this.store?.blobRoot,
+        },
+        (mark) =>
+          writeWorkspaceTextFileAtomicInMain(
+            {
+              workspaceRoot: location.workspaceRoot ?? this.root,
+              path,
+              content,
+              artifactNoun: 'track view',
+              mode: request.expectedRevision === null ? 'create' : 'replace',
+              ...(request.expectedRevision === null
+                ? {}
+                : { expectedContentHash: request.expectedRevision }),
+            },
+            { durable: true, beforePublish: mark }
+          )
+      );
     } catch (error) {
       if (
         !(error instanceof WorkspaceFilePreconditionError) ||

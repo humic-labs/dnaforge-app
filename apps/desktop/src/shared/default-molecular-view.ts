@@ -3,7 +3,8 @@ import {
   molecularDocumentSchema,
   type MolecularDocument,
 } from './molecular-document';
-import { MOLECULAR_VIEW_MAX_COORDINATE_BYTES, coordinateDigest } from './molecular-view';
+import { coordinateDigest } from './molecular-view';
+import { assertMolecularCoordinateSize } from './molecular-storage';
 
 export const DEFAULT_MOLECULAR_VIEW_MARKER = 'dnaforge_default_view';
 
@@ -65,8 +66,7 @@ export async function buildDefaultMolecularDocument(input: {
   referenceId: string;
   source?: { source: string; sourceId?: string };
 }): Promise<MolecularDocument> {
-  if (new TextEncoder().encode(input.text).byteLength > MOLECULAR_VIEW_MAX_COORDINATE_BYTES)
-    throw new Error('The coordinate file is larger than a molecular view can hold.');
+  assertMolecularCoordinateSize(input);
   const title = input.name.trim().slice(0, 200) || 'Structure';
   return molecularDocumentSchema.parse({
     schema: MOLECULAR_DOCUMENT_SCHEMA,

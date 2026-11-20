@@ -51,6 +51,7 @@ async function execute(job: ScientificHistoryWorkerJob): Promise<void> {
     fileMustExist: true,
   });
   try {
+    if (job.kind === 'install') db.pragma('synchronous = FULL');
     db.pragma('foreign_keys = ON');
     const commit = job.kind === 'install' ? job.replicaCommit : undefined;
     const store =

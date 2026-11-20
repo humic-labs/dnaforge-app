@@ -1,13 +1,15 @@
+import { actOnAcceptedScientificEntity } from '../scientific-resource-lifecycle';
 import * as fs from 'node:fs';
 import * as git from 'isomorphic-git';
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
 import { serializeGenBank } from '@waypoint/sequence-utils';
 import { defineBlob } from '@waypoint/workspace-revisions';
 
 vi.mock('electron', () => ({
+  shell: { trashItem: async (path: string) => rmSync(path, { recursive: true }) },
   app: { getPath: () => '/tmp', getVersion: () => '1.0.0' },
   dialog: { showErrorBox: vi.fn() },
 }));
@@ -357,11 +359,13 @@ it.each(['current', 'tombstoned'] as const)(
       })
     );
     if (state === 'tombstoned') {
-      await submit({
-        operationId: 'delete-accepted-compute-sequence',
-        expectedHead: store.read().head,
-        source: { kind: 'delete', sourcePath: packageRelativePath },
-      });
+      expect(
+        await actOnAcceptedScientificEntity({
+          db: f.db,
+          action: 'archive',
+          input: { id: sequenceId, operationId: 'delete-accepted-compute-sequence' },
+        })
+      ).not.toBeNull();
       mkdirSync(join(packageRoot, '.forge'), { recursive: true });
       writeFileSync(productPath, text);
       writeFileSync(markerPath, marker);

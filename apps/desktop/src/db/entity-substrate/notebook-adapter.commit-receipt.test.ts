@@ -8,7 +8,7 @@ import { ensureSchema } from '../../main/schema';
 import { ensureWorkspaceOwnerInDb } from '../../main/catalog-projection-commands';
 import { registerCatalogEntityInDb } from '../../main/catalog-entity-registration';
 import { bindCatalogEntityFileInDb } from '../../main/catalog-file-binding';
-import { publishNotebookPackageV2InMain } from '../../main/notebook-package-authority';
+import { publishNotebookPackageV2InMain } from '../../main/__tests__/publish-notebook-fixture';
 import { replaceNotebookProjectionFromFileInMain } from '../../main/notebook-projection-authority';
 import { notebookPackagePaths } from '../notebook-package';
 import { settlePublishedNotebookProjection } from './notebook-adapter';

@@ -3,7 +3,16 @@ import type { SequenceDocumentWriteReceipt } from '../shared/sequence-edit-linea
 import { ScientificObjectStore } from './scientific-object-store';
 import { scientificWorkspaceIdForRoot } from './scientific-workspace-identity';
 import { retainSequenceSavePrimerPublication } from './sequence-save-primer-publications';
-import { createPrimerBindingOwnershipStore } from '../shared/primer-artifacts/primer-binding-ownership';
+import { isDeepStrictEqual } from 'node:util';
+import { canonicalPrimerProjectionSql } from './primer-authority-sql';
+import { recordCatalogEventInDb } from './catalog-association-commands';
+import {
+  PRIMER_BINDING_OWNERSHIP_EVENT_TYPE,
+  createPrimerBindingOwnershipStore,
+  parsePrimerBindingOwnership,
+  primerBindingOwnershipEventId,
+  type PrimerBindingOwnership,
+} from '../shared/primer-artifacts/primer-binding-ownership';
 import { createHash } from 'node:crypto';
 import { open, readFile } from 'node:fs/promises';
 import { createPrimerRepository } from '../shared/primer-artifacts/primer-repository';
@@ -30,6 +39,48 @@ import {
   assertWorkspaceSyncDatabaseFence,
 } from './workspace-sync-database-fence';
 import { assertNativeSequenceContentWritable } from './native-sequence-content-access';
+
+export function removeOwnedLegacyPrimerBindingInDb(
+  db: Database.Database,
+  intent: PrimerBindingOwnership
+): void {
+  db.transaction(() => {
+    const ownershipId = primerBindingOwnershipEventId(intent);
+    const ownership = db
+      .prepare(
+        'SELECT payload FROM catalog_entity_events WHERE id=? AND entity_id=? AND event_type=?'
+      )
+      .get(ownershipId, intent.documentId, PRIMER_BINDING_OWNERSHIP_EVENT_TYPE) as
+      | { payload: string }
+      | undefined;
+    if (!ownership || !isDeepStrictEqual(parsePrimerBindingOwnership(ownership.payload), intent))
+      throw new Error('The saved draft does not own this primer attachment.');
+    const binding = db.prepare('SELECT * FROM primer_bindings WHERE id=?').get(intent.bindingId) as
+      | { primer_id: string; sequence_id: number }
+      | undefined;
+    if (!binding) return;
+    if (binding.primer_id !== intent.primerId || binding.sequence_id !== intent.sequenceId)
+      throw new Error('The saved primer attachment belongs to another primer or sequence.');
+    const canonical = db
+      .prepare(
+        `SELECT 1 FROM primers p WHERE p.id=? AND ${canonicalPrimerProjectionSql('p.id', 'p.origin_details')}`
+      )
+      .get(intent.primerId);
+    if (canonical)
+      throw new Error('Recover the saved primer document before changing its attachment.');
+    recordCatalogEventInDb(db, {
+      entityId: intent.documentId,
+      eventType: 'rich_paste_primer_binding_removed',
+      actor: 'system',
+      payload: { ownershipId, binding },
+    });
+    db.prepare('DELETE FROM primer_bindings WHERE id=? AND primer_id=? AND sequence_id=?').run(
+      intent.bindingId,
+      intent.primerId,
+      intent.sequenceId
+    );
+  })();
+}
 
 export async function persistRichPastePrimerBindingsInMain(
   input: PersistRichPastePrimerBindingsInput,
@@ -185,7 +236,10 @@ export async function persistRichPastePrimerBindingsInMain(
             return saved;
           },
           persistOwnedLegacyBinding: legacy.persistOwnedPrimerBinding,
-          deleteLegacyBinding: legacy.deleteBinding,
+          removeOwnedLegacyBinding: async (intent) => {
+            assertFencedCurrent();
+            removeOwnedLegacyPrimerBindingInDb(options.db, intent);
+          },
           notifyBindingsChanged: (id) => options.onBindingsChanged?.(id),
         },
         createPrimerBindingOwnershipStore(() =>

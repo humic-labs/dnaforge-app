@@ -42,6 +42,16 @@ export function registerPrimerArtifactIpcHandlers(
   withReadContext: WithLimsReadContext
 ): void {
   handleGroup(primerArtifactContract, {
+    readCommittedPrimerSource: (event, request) => {
+      const { entityId, mutationToken } = checkedIdentity(request);
+      const read = async (db: Database.Database, runDatabase: <T>(work: () => T) => T) => {
+        const { readCommittedPrimerSource } = await import('./primer-committed-source');
+        return readCommittedPrimerSource(db, runDatabase, entityId);
+      };
+      return mutationToken
+        ? withLease(event.sender, { entityId }, read, mutationToken)
+        : withReadContext(event.sender, read);
+    },
     readPrimerArtifactRevisionState: (event, request) => {
       const identity = checkedIdentity(request);
       const read = (db: Database.Database, runDatabase: <R>(work: () => R) => R) =>

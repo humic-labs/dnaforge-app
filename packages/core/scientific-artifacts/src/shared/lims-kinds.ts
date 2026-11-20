@@ -1,28 +1,5 @@
-export const LIMS_ENTITY_KINDS = [
-  'sequence',
-  'oligo',
-  'rna_oligo',
-  'plasmid',
-  'genome',
-  'chromosome',
-  'strain',
-  'organism',
-  'protein',
-  'dna_sequence',
-  'rna_sequence',
-
-  'guide_rna',
-  'allele',
-  'locus',
-  'part',
-  'fragment',
-  'marker',
-  'external_ref',
-  'notebook',
-  'track-view',
-  'molecular-document',
-] as const;
-export type LimsEntityKind = (typeof LIMS_ENTITY_KINDS)[number];
+import type { LimsEntityKind } from './entity-types';
+export { LIMS_ENTITY_KINDS, type LimsEntityKind } from './entity-types';
 
 export interface LimsRelationshipTypeDefinition {
   name: string;

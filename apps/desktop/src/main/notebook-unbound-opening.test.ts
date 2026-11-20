@@ -37,7 +37,7 @@ import { ensureSchema } from './schema';
 import { registerDatabaseHandlers } from './ipc/database';
 import { createClient } from '../shared/ipc-contract';
 import { dbContract } from '../shared/ipc/db.contract';
-import { publishNotebookPackageV2InMain } from './notebook-package-authority';
+import { publishNotebookPackageV2InMain } from './__tests__/publish-notebook-fixture';
 import {
   buildNotebookPackageDocument,
   notebookPackagePaths,

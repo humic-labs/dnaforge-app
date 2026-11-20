@@ -20,7 +20,6 @@ const RESTORABLE_VIEWS = new Set<ActivityView>([
   'jobs',
   'lims',
   'references',
-  'terminal',
   'ai',
 ]);
 
@@ -176,10 +175,7 @@ export function readSidebarState(): SidebarState {
 
   return {
     activeView: viewIsRestorable ? storedView : 'files',
-    sidebarVisible:
-      !viewIsRestorable ||
-      (record.v === 1 && storedView === 'terminal') ||
-      record.sidebarVisible !== false,
+    sidebarVisible: !viewIsRestorable || record.sidebarVisible !== false,
     sidebarWidth: clampWidth(record.sidebarWidth),
   };
 }

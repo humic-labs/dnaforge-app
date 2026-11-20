@@ -19,6 +19,7 @@ import { mergeTableDataPatch } from './utils/merge-table-data';
 import { invalidateSavedResults, userOwnedCell } from './utils/source-result-edits';
 import { readSavedFormulaResult } from '../../source-formula-result';
 import { tableCellValue } from './utils/cell-value';
+import { copyTableCellReferenceOccurrences } from '../../notebook-reference-occurrences';
 import { tableOperationObservation } from './utils/operation-observation';
 import type {
   TableOperation,
@@ -614,6 +615,9 @@ export function tableDataModel({
     for (let r = 0; r < pasteRows; r++) {
       for (let c = 0; c < pasteCols; c++) {
         const sourceCell = cellData[r][c];
+        const pastedCell = moveSource
+          ? copyCell(sourceCell)
+          : copyTableCellReferenceOccurrences(copyCell(sourceCell));
         const targetRow = startRow + r;
         const targetCol = startCol + c;
         if (sourceCell.type === 'formula' && moveSource && !readSavedFormulaResult(sourceCell)) {
@@ -628,9 +632,9 @@ export function tableDataModel({
             requiredRows - 1,
             requiredCols - 1
           );
-          newCells[targetRow][targetCol] = { ...copyCell(sourceCell), value: adjustedFormula };
+          newCells[targetRow][targetCol] = { ...pastedCell, value: adjustedFormula };
         } else {
-          newCells[targetRow][targetCol] = copyCell(sourceCell);
+          newCells[targetRow][targetCol] = pastedCell;
         }
       }
     }

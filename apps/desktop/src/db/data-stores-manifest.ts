@@ -23,6 +23,42 @@ export interface SqliteTableDataStoreEntry extends DataStoreManifestEntry {
 }
 
 export const SQLITE_TABLE_DATA_STORES = {
+  notebook_reference_projections: {
+    id: 'sqlite.notebook_reference_projections',
+    label: 'Notebook link projection generations',
+    kind: 'sqlite-table',
+    table: 'notebook_reference_projections',
+    classification: 'PROJECTION',
+    sourceOfTruth: 'The exact canonical notebook source document and its reference occurrence IDs.',
+    rebuildPath: 'Re-ingest the canonical notebook through its native projection owner.',
+  },
+  saved_entity_row_versions: {
+    id: 'sqlite.saved_entity_row_versions',
+    label: 'Saved SQLite entity versions',
+    kind: 'sqlite-table',
+    table: 'saved_entity_row_versions',
+    classification: 'AUTHORITATIVE',
+    sourceOfTruth: 'Immutable row values retained in the same transaction as their source.',
+    rebuildPath: 'Recover an exact saved version from the desktop database or a retained profile backup.',
+  },
+  notebook_saved_reference_retention: {
+    id: 'sqlite.notebook_saved_reference_retention',
+    label: 'Saved reference retention for notebook links',
+    kind: 'sqlite-table',
+    table: 'notebook_saved_reference_retention',
+    classification: 'AUTHORITATIVE',
+    sourceOfTruth: 'Verified notebook references and saved records that predate usage tracking.',
+    rebuildPath: 'Restore with the desktop database to preserve offline notebooks and undo history.',
+  },
+  notebook_reference_occurrences: {
+    id: 'sqlite.notebook_reference_occurrences',
+    label: 'Saved notebook link occurrences',
+    kind: 'sqlite-table',
+    table: 'notebook_reference_occurrences',
+    classification: 'PROJECTION',
+    sourceOfTruth: 'Reference nodes in the generation recorded by notebook_reference_projections.',
+    rebuildPath: 'Re-ingest the canonical notebook through its native projection owner.',
+  },
   administration_actions: {
     id: 'sqlite.administration_actions',
     label: 'Retained native administration actions',
@@ -117,6 +153,20 @@ export const SQLITE_TABLE_DATA_STORES = {
       'The logical scientific namespace and confirmed cloud binding accepted by the native workspace owner.',
     rebuildPath:
       'Restore the original identity from a verified complete scientific history; never derive it from a new local path or numeric workspace id.',
+  },
+  retained_file_publication_witnesses:{
+    id:'sqlite.retained-file-publication-witnesses',label:'Native file publication identity',kind:'sqlite-table',table:'retained_file_publication_witnesses',classification:'AUTHORITATIVE',
+    sourceOfTruth:'The physical file identity sampled before its atomic publication.',
+    rebuildPath:'Restore with the SQLite library that owns the prepared revision.',
+  },
+  retained_file_source_revisions: {
+    id: 'sqlite.retained-file-source-revisions',
+    label: 'Saved file and package source revisions',
+    kind: 'sqlite-table',
+    table: 'retained_file_source_revisions',
+    classification: 'AUTHORITATIVE',
+    sourceOfTruth: 'Immutable, stable-identity manifests of the retained source blobs.',
+    rebuildPath: 'Restore the desktop database and its retained-file-blobs directory together.',
   },
   scientific_revision_records: {
     id: 'sqlite.scientific-revision-records',
@@ -987,6 +1037,11 @@ export const SQLITE_TABLE_DATA_STORES = {
 } as const satisfies Record<string, SqliteTableDataStoreEntry>;
 
 export const NON_SQLITE_DATA_STORES = {
+  retained_file_blobs: {
+    id:'desktop.retained-file-blobs',label:'Retained file contents',kind:'waypoint-directory',classification:'AUTHORITATIVE',
+    sourceOfTruth:'Verified content-addressed bytes for saved file and package revisions.',
+    rebuildPath:'Restore retained-file-blobs alongside its desktop library database.',
+  },
   workspace_sequence_packages: {
     id: 'workspace.sequence-packages',
     label: 'Managed project sequence packages',

@@ -23,7 +23,7 @@ import {
   tablePackagePaths,
   tablePackageRevisionPath,
 } from '../shared/table-package';
-import { publishTablePackageInMain, readTablePackageInMain } from './table-package';
+import { writeTablePackageFiles, readTablePackageInMain } from './table-package';
 import type { TableData } from '../shared/table-document-types';
 
 const port = vi.hoisted(() => ({ execute: vi.fn() }));
@@ -77,7 +77,7 @@ async function fixture() {
       optionalHeadExtension: ['retain'],
     })
   );
-  await publishTablePackageInMain(
+  await writeTablePackageFiles(
     { workspaceRoot, packageRoot, head: original, mode: 'create' },
     { assertCurrent() {} }
   );
@@ -99,7 +99,7 @@ async function fixture() {
       await pause?.();
       if (!input.expectedContentHash)
         throw new Error('A rich Save must capture its previous head hash');
-      await publishTablePackageInMain(
+      await writeTablePackageFiles(
         {
           workspaceRoot,
           packageRoot,
@@ -180,7 +180,7 @@ async function activationFixture() {
   const pendingHead = parseTablePackageHead(
     JSON.stringify({ ...original.head, status: 'pending-promotion', promotionId: randomUUID() })
   );
-  await publishTablePackageInMain(
+  await writeTablePackageFiles(
     { ...f, head: pendingHead, mode: 'replace', expectedContentHash: original.headContentHash },
     { assertCurrent() {} }
   );
@@ -188,7 +188,7 @@ async function activationFixture() {
   expect(pending.readOnly).toBe(true);
   identity = 'active-file-binding';
   const staged = await readTablePackageInMain(f);
-  await publishTablePackageInMain(
+  await writeTablePackageFiles(
     {
       ...f,
       head: { ...pendingHead, status: 'active' },
@@ -497,7 +497,7 @@ describe('rich table file working copy', () => {
       })
     );
     const before = await readFile(f.paths.headPath, 'utf8');
-    await publishTablePackageInMain(
+    await writeTablePackageFiles(
       {
         workspaceRoot: f.workspaceRoot,
         packageRoot: f.packageRoot,
@@ -528,7 +528,7 @@ describe('rich table file working copy', () => {
         snapshotSha256: createHash('sha256').update(serializeTableSnapshot(snapshot)).digest('hex'),
       })
     );
-    await publishTablePackageInMain(
+    await writeTablePackageFiles(
       {
         workspaceRoot: f.workspaceRoot,
         packageRoot: f.packageRoot,
