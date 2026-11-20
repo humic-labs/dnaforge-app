@@ -1394,6 +1394,12 @@ a[data-benchling-link-destination='external']::after {
   container-type: inline-size;
 }
 
+.tab-shell:not(:hover) [data-preview-close]:not(:focus-visible) > svg:last-child,
+.tab-shell:hover [data-preview-close] > [data-icon='eye'],
+[data-preview-close]:focus-visible > [data-icon='eye'] {
+  display: none;
+}
+
 @container (max-width: 6.5rem) {
   .tab-icon {
     display: none;

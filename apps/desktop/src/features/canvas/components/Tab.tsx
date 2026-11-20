@@ -7,12 +7,14 @@ import { entityColorFamily, type EntityColorContext } from '../../../shared/enti
 const TAB_TYPES_SHOWING_RAW_LABEL: ReadonlySet<TabType> = new Set(['sequence', 'chat', 'record']);
 import type { GitFileStatus } from '../../workspace/public/git';
 import { useDragStore } from '../dragStore';
+import { UI_TAB_CLOSE_SLOT_CLASS } from '../../../components/ui/styles';
 import { safeFocus } from '../../../shared/utils/safeFocus';
 import { iconForEntityKind } from '../../../components/icons/entity-icon-registry';
 import {
   AssemblyTabIcon,
   BiologyFileIcon,
   ChatTabIcon,
+  EyeIcon,
   GenericFileIcon,
   ImageFileIcon,
   NotebookTabIcon,
@@ -365,7 +367,7 @@ export const Tab = React.memo(function Tab({
           </span>
         )}
         {!isEditing && (
-          <span className="relative flex h-4 w-4 shrink-0 items-center justify-center">
+          <span className={UI_TAB_CLOSE_SLOT_CLASS}>
             {tab.isDirty && (
               <span
                 data-testid={`tab-dirty-${tab.id}`}
@@ -378,6 +380,7 @@ export const Tab = React.memo(function Tab({
             )}
             <button
               data-testid={`tab-close-${tab.id}`}
+              data-preview-close={tab.isExternalPreview && !tab.isDirty ? true : undefined}
               onClick={handleClose}
               className={`
  flex items-center justify-center w-full h-full rounded wp-interactive
@@ -393,6 +396,9 @@ export const Tab = React.memo(function Tab({
               aria-label={`Close ${tab.label}`}
               title="Close tab"
             >
+              {tab.isExternalPreview && !tab.isDirty && (
+                <EyeIcon size={12} className="text-fg-muted" />
+              )}
               <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
               </svg>

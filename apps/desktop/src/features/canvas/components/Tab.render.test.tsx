@@ -195,6 +195,30 @@ describe('Tab title extension default ', () => {
     expect(tab.textContent).toBe(screen.getByTestId('tab-label-t1').textContent);
   });
 
+  it.each([true, false])(
+    'puts the preview eye in the close button when active is %s',
+    (isActive) => {
+      const onClose = vi.fn();
+      renderTab(
+        {
+          type: 'file',
+          label: 'collection.fasta',
+          sourceFileView: { path: '/lab/collection.fasta', format: 'fasta', location: 'external' },
+        },
+        { isActive, onClose }
+      );
+      const close = screen.getByRole('button', { name: 'Close collection.fasta' });
+      expect(close.querySelector('[data-icon="eye"]')).toHaveAttribute('aria-hidden', 'true');
+      fireEvent.click(close);
+      expect(onClose).toHaveBeenCalledWith('t1');
+    }
+  );
+
+  it('omits the preview eye on a saved file', () => {
+    renderTab({ type: 'file', label: 'collection.fasta' });
+    expect(screen.getByRole('tab').querySelector('[data-icon="eye"]')).toBeNull();
+  });
+
   it('hides a recognized extension on any tab type that does not opt out', () => {
     renderTab({ type: 'structure', label: '1FS0.pdb' });
     expect(screen.getByTestId('tab-label-t1')).toHaveTextContent(/^1FS0$/);
