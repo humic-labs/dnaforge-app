@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { platform } from '../../../platform';
-import { alignedReadSourceGenerationsEqual } from '../../../shared/aligned-read-source-generation';
+import {
+  alignedReadSourceGenerationsEqual,
+  type AlignedReadSourceGenerationV1,
+} from '../../../shared/aligned-read-source-generation';
 import type { IndexedGenomeBamTrackState } from '../../../shared/indexed-genome';
 import type {
   RemoteAlignmentLocatorV1,
@@ -401,30 +404,33 @@ export function usePersistedBamTracks({
         admittedTrackIdsRef.current.add(track.trackId);
       } catch {}
     }
-    for (const track of snapshot) {
-      if (!changedTrackIds.has(track.trackId)) continue;
-      try {
-        const lane = laneFromIndexedGenomeBamTrack(track, {
-          assemblyId,
-          assemblyDisplayName,
-        });
-        if (lane.dataset.source) {
-          replaceLaneDataset(
-            laneOwnerId,
-            track.trackId,
-            assemblyId,
-            {
-              ...lane.dataset,
-              source: {
-                ...lane.dataset.source,
-                admissionError: `The aligned-read source changed on disk. Revalidating it against ${assemblyDisplayName}…`,
-              },
-            },
-            lane.source
-          );
-        }
-      } catch {}
-    }
+    const markRevalidating = (
+      trackId: string,
+      lane: Lane,
+      generation?: AlignedReadSourceGenerationV1
+    ) => {
+      if (cancelled || !changedTrackIds.has(trackId) || !lane.dataset.source) return;
+      if (generation) {
+        const live = useLaneContractStore
+          .getState()
+          .lanesForOwner(laneOwnerId)
+          .find((current) => current.dataset.trackId === trackId);
+        if (alignedReadSourceGenerationsEqual(live?.dataset.source?.generation, generation)) return;
+      }
+      replaceLaneDataset(
+        laneOwnerId,
+        trackId,
+        assemblyId,
+        {
+          ...lane.dataset,
+          source: {
+            ...lane.dataset.source,
+            admissionError: `The aligned-read source changed on disk. Revalidating it against ${assemblyDisplayName}…`,
+          },
+        },
+        lane.source
+      );
+    };
 
     const unsubscribeFromLanes = useLaneContractStore.subscribe(() => {
       const state = useLaneContractStore.getState();
@@ -542,6 +548,7 @@ export function usePersistedBamTracks({
             } as const;
           }
           if (isNetworkAlignedReadTrack(track)) {
+            markRevalidating(track.trackId, repairLane);
             const opened = await openAlignedReadSource({
               source: track.admittedSource,
               assemblyReferences: expectedReferences,
@@ -563,6 +570,7 @@ export function usePersistedBamTracks({
             track.source,
             platform().fs.stat
           );
+          markRevalidating(track.trackId, repairLane, generation);
           if (!alignedReadSourceGenerationsEqual(track.source.generation, generation)) {
             const header = await readAlignmentHeader({
               bamPath: track.source.bamPath,
@@ -629,6 +637,15 @@ export function usePersistedBamTracks({
               track,
               { assemblyId, assemblyDisplayName },
               message
+            );
+          }
+          if (!cancelled && repairLane && changedTrackIds.has(track.trackId)) {
+            replaceLaneDataset(
+              laneOwnerId,
+              track.trackId,
+              assemblyId,
+              repairLane.dataset,
+              repairLane.source
             );
           }
           const label =
