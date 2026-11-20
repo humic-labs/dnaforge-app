@@ -188,8 +188,7 @@ beforeEach(async () => {
   expect(
     prepareDisposableScenarioProfile({
       requested: true,
-      argv: [`--user-data-dir=${host.profile}`],
-      defaultUserData: host.profile,
+      explicitUserDataPath: host.profile,
     })
   ).toBe(host.profile);
   host.packaged = false;
