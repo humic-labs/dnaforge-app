@@ -73,6 +73,40 @@ describe('NCBI Datasets reference resolver', () => {
     await expect(readFile(gffPath, 'utf8')).resolves.toBe(GFF);
   });
 
+  it('reports the measured capacity and both parts of the space requirement before extraction', async () => {
+    const root = await temporaryFolder();
+    const archivePath = join(root, 'reference.zip');
+    const stagingRoot = join(root, 'staging');
+    await writeFile(archivePath, packageZip({ includeGff: true }));
+    const payload = Buffer.byteLength(FASTA) + Buffer.byteLength(GFF);
+    const reserve = 512 * 1024 * 1024;
+    const available = payload + reserve - 1;
+    vi.mocked(storage.readStorageCapacity).mockResolvedValue({
+      destinationPath: stagingRoot,
+      totalBytes: 2 ** 32,
+      freeBytes: 0,
+      importantBytes: available,
+      opportunisticBytes: null,
+      availableBytes: available,
+      source: 'macos-important-usage',
+      purpose: 'important',
+    });
+
+    await expect(
+      resolveNcbiDatasetsSelection({
+        selectedPath: archivePath,
+        selectedKind: 'file',
+        stagingRoot,
+      })
+    ).rejects.toThrow(
+      `${available} bytes available (macos-important-usage). ` +
+        `The package needs ${payload} bytes plus ${reserve} bytes of reserve.`
+    );
+    await expect(
+      readFile(join(stagingRoot, 'resolved-sources', 'reference.fna'))
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('preserves an unknown capacity error instead of reporting the destination full', async () => {
     const root = await temporaryFolder();
     const archivePath = join(root, 'reference.zip');
