@@ -330,8 +330,6 @@ function WorkspaceEditorInner(
     measuredContainerWidth ||
     Math.max(0, (initialContainerWidth ?? 0) - (showMinimap ? SEQUENCE_SCROLLBAR_WIDTH : 0));
   const [viewport, setViewport] = useState({ scrollTop: 0, height: 0 });
-  const viewportHeightHintValue =
-    surfaceVisible || measuredContainerWidth === 0 ? Math.max(0, viewportHeightHint ?? 0) : 0;
   const frozenScrollAnchorRef = useRef<{
     scrollTop: number;
     topBp: number | null;
@@ -348,16 +346,16 @@ function WorkspaceEditorInner(
   }
   wasFreezeViewportHeightRef.current = freezeViewportHeight;
 
-  const liveScrollContainerHeight =
-    scrollContainerElement && scrollContainerElement.clientHeight > 0
-      ? scrollContainerElement.clientHeight
+  const liveScrollContainerHeight = scrollContainerElement?.clientHeight ?? 0;
+  const viewportHeightHintValue =
+    liveScrollContainerHeight === 0 && (surfaceVisible || measuredContainerWidth === 0)
+      ? Math.max(0, viewportHeightHint ?? 0)
       : 0;
+  const renderHeight = liveScrollContainerHeight || viewportHeightHintValue;
   const renderViewport =
-    liveScrollContainerHeight > 0 && Math.abs(liveScrollContainerHeight - viewport.height) > 1
-      ? { ...viewport, height: liveScrollContainerHeight }
-      : viewportHeightHintValue > 0 && Math.abs(viewportHeightHintValue - viewport.height) > 1
-        ? { ...viewport, height: viewportHeightHintValue }
-        : viewport;
+    renderHeight > 0 && Math.abs(renderHeight - viewport.height) > 1
+      ? { ...viewport, height: renderHeight }
+      : viewport;
 
   const canvasScrollDrawRef = useRef<
     ((scrollTop: number, height: number, paintNow?: boolean) => void) | null

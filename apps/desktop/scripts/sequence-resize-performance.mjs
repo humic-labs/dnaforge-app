@@ -423,16 +423,23 @@ try {
     const divider = page.locator('[data-group][id^=group-] > [data-separator]').last();
     await expect(notes).toBeVisible();
     await drag('tab-' + axis, divider, shiftX, shiftY);
-    const pointerId = divider.evaluate(
-      (el) =>
-        new Promise((resolve) =>
-          el.addEventListener('pointerdown', (event) => resolve(event.pointerId), { once: true })
-        )
-    );
+    await divider.evaluate((el) => {
+      el.addEventListener(
+        'pointerdown',
+        (event) => {
+          el.dataset.probePointerId = String(event.pointerId);
+        },
+        { once: true }
+      );
+    });
     await divider.hover();
     await page.mouse.down();
     dragging = true;
-    const captured = await divider.evaluate((el, id) => el.hasPointerCapture(id), await pointerId);
+    const captured = await divider.evaluate((el) => {
+      const id = el.dataset.probePointerId;
+      delete el.dataset.probePointerId;
+      return id !== undefined && el.hasPointerCapture(Number(id));
+    });
     await page.mouse.up();
     dragging = false;
     if (!captured) receipt.failures.push('Tab ' + axis + ' divider lost pointer capture');
