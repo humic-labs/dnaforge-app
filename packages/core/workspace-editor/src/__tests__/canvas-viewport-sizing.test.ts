@@ -70,6 +70,26 @@ describe('canvas viewport sizing', () => {
     expect(result.selectionResized).toBe(true);
   });
 
+  it('keeps the backing buffers when switching between a split and the full document pane', () => {
+    const mainCanvas = document.createElement('canvas');
+    const selectionCanvas = document.createElement('canvas');
+    const options = {
+      mainCanvas,
+      selectionCanvas,
+      width: 1024,
+      reservedViewportHeight: 686,
+      totalHeight: 5000,
+      dpr: 2,
+      mainCanvasTransferred: false,
+    };
+    const split = syncViewportCanvasSizes({ ...options, viewportHeight: 226 });
+    const full = syncViewportCanvasSizes({ ...options, viewportHeight: 686 });
+    const stacked = syncViewportCanvasSizes({ ...options, viewportHeight: 226 });
+    expect(split.cssHeight).toBeGreaterThanOrEqual(786);
+    expect(full.mainResized || full.selectionResized).toBe(false);
+    expect(stacked.mainResized || stacked.selectionResized).toBe(false);
+  });
+
   it('retains full-resolution buffers throughout a continuous height resize', () => {
     const mainCanvas = document.createElement('canvas');
     const selectionCanvas = document.createElement('canvas');

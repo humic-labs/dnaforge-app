@@ -68,11 +68,7 @@ function doDraw(): void {
 
   cachedParams.viewport = vp;
 
-  const virtualCanvasHeight = viewportCanvasHeight(
-    vp.height,
-    cachedCanvasHeight,
-    cachedCanvasHeight
-  );
+  const virtualCanvasHeight = Math.max(cachedCanvasHeight, viewportCanvasHeight(vp.height, 0));
   cachedCanvasHeight = virtualCanvasHeight;
   const targetWidth = Math.ceil(cachedCanvasWidth * dpr);
   const targetHeight = Math.ceil(virtualCanvasHeight * dpr);
@@ -249,6 +245,7 @@ self.onmessage = (event: MessageEvent<MainToWorkerMessage>) => {
     }
 
     case 'viewport': {
+      if (msg.canvasHeight) cachedCanvasHeight = msg.canvasHeight;
       dpr = msg.dpr ?? dpr;
       if (msg.renderVersion === cachedRenderVersion && msg.presentationBands) {
         cachedPresentationVersion = msg.presentationVersion ?? cachedPresentationVersion;

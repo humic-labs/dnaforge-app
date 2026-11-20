@@ -309,6 +309,7 @@ function WorkspaceEditorInner(
     circularBufferViewportHeight,
     initialContainerWidth,
     surfaceVisible = true,
+    viewportCapacity,
     viewportHeightHint,
     freezeViewportHeight = false,
   }: WorkspaceEditorProps,
@@ -3621,6 +3622,7 @@ function WorkspaceEditorInner(
             newZoomController.cancelGesture();
           }}
           width={SEQUENCE_SCROLLBAR_WIDTH}
+          reservedHeight={viewportCapacity?.height}
           searchMatches={searchMatches}
           activeSearchIndex={activeSearchIndex}
         />
@@ -3661,8 +3663,12 @@ function WorkspaceEditorInner(
               onViewportPresented={onViewportPresented}
               viewportElementRef={containerRef}
               onOrfsPresented={onOrfsPresented}
+              reservedViewportHeight={viewportCapacity?.height}
               canvasSurfaceWidth={viewportCanvasWidth(
-                containerWidth,
+                Math.max(
+                  containerWidth,
+                  (viewportCapacity?.width ?? 0) - (showMinimap ? SEQUENCE_SCROLLBAR_WIDTH : 0)
+                ),
                 layout.totalWidth,
                 baseConfig.charsPerLine <= 0
               )}

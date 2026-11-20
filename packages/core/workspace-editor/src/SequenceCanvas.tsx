@@ -55,6 +55,7 @@ interface SequenceCanvasProps {
   ) => void;
 
   canvasSurfaceWidth?: number;
+  reservedViewportHeight?: number;
 
   scrollEndHeadroom?: number;
   config: WorkspaceEditorConfig;
@@ -210,6 +211,7 @@ export const SequenceCanvas: React.FC<SequenceCanvasProps> = ({
   onPaintLayoutPresented,
   onOrfsPresented,
   canvasSurfaceWidth,
+  reservedViewportHeight,
   scrollEndHeadroom = 0,
   config: partialConfig,
   geneticCode,
@@ -672,6 +674,7 @@ export const SequenceCanvas: React.FC<SequenceCanvasProps> = ({
     onPaintLayoutPresented,
     onOrfsPresented,
     canvasSurfaceWidth,
+    reservedViewportHeight,
     scrollEndHeadroom,
     config,
     precomputedLinePositions,

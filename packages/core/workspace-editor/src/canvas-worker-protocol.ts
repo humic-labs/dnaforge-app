@@ -37,6 +37,7 @@ export interface WorkerRenderMessage {
 
 export interface WorkerViewportMessage {
   type: 'viewport';
+  canvasHeight?: number;
   renderVersion?: number;
   presentationVersion?: number;
   presentationBands?: Array<{ top: number; bottom: number; dx: number }>;

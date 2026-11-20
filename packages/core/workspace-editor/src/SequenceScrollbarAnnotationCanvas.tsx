@@ -17,15 +17,17 @@ interface SequenceScrollbarAnnotationCanvasProps {
   readonly markers: readonly SequenceScrollbarAnnotationMarker[];
   readonly width: number;
   readonly height: number;
+  readonly reservedHeight?: number;
 }
 
 export function SequenceScrollbarAnnotationCanvas({
   markers,
+  reservedHeight = 0,
   width,
   height,
 }: SequenceScrollbarAnnotationCanvasProps): ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const surfaceHeight = Math.max(1, Math.ceil(height / 128) * 128);
+  const surfaceHeight = Math.max(1, Math.ceil(Math.max(height, reservedHeight) / 128) * 128);
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;

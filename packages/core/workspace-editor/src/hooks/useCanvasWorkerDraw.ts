@@ -176,6 +176,7 @@ interface UseCanvasWorkerDrawParams {
     paintConfig: WorkspaceEditorConfig
   ) => void;
   canvasSurfaceWidth?: number;
+  reservedViewportHeight?: number;
   config: WorkspaceEditorConfig;
   precomputedLinePositions: PrecomputedLinePosition[];
   fullSequence: string;
@@ -343,6 +344,7 @@ export function useCanvasWorkerDraw(params: UseCanvasWorkerDrawParams): void {
     onPaintLayoutPresented,
     onOrfsPresented,
     canvasSurfaceWidth,
+    reservedViewportHeight,
     config,
     precomputedLinePositions: preparedLinePositions,
     fullSequence,
@@ -704,6 +706,8 @@ export function useCanvasWorkerDraw(params: UseCanvasWorkerDrawParams): void {
     });
   }, [drawFnRef]);
   const layoutRef = useRef(layout);
+  const reservedViewportHeightRef = useRef(reservedViewportHeight);
+  reservedViewportHeightRef.current = reservedViewportHeight;
   const canvasSurfaceWidthRef = useRef(canvasSurfaceWidth ?? layout.totalWidth);
   const precomputedLinePositionsRef = useRef(precomputedLinePositions);
   precomputedLinePositionsRef.current = precomputedLinePositions;
@@ -769,6 +773,7 @@ export function useCanvasWorkerDraw(params: UseCanvasWorkerDrawParams): void {
     const viewportPostStart = performance.now();
     worker.postMessage({
       type: 'viewport',
+      canvasHeight: parseFloat(selectionCanvasRef.current?.style.height ?? '') || undefined,
       renderVersion: workerScene?.version,
       presentationVersion,
       presentationBands:
@@ -879,6 +884,7 @@ export function useCanvasWorkerDraw(params: UseCanvasWorkerDrawParams): void {
           mainCanvas: canvasRef.current,
           selectionCanvas: selectionCanvasRef.current,
           width: canvasSurfaceWidthRef.current,
+          reservedViewportHeight: reservedViewportHeightRef.current,
           viewportHeight: height,
           totalHeight: currentLayout.totalHeight,
           dpr: window.devicePixelRatio || 1,
@@ -902,7 +908,8 @@ export function useCanvasWorkerDraw(params: UseCanvasWorkerDrawParams): void {
       const expectedCanvasHeight = viewportCanvasHeight(
         height,
         currentLayout.totalHeight,
-        mainCanvasHeight
+        mainCanvasHeight,
+        reservedViewportHeightRef.current
       );
       if (height <= 0 || expectedCanvasHeight <= 0) {
         pendingMainDrawRef.current = false;
@@ -1287,6 +1294,7 @@ export function useCanvasWorkerDraw(params: UseCanvasWorkerDrawParams): void {
         mainCanvas: canvas,
         selectionCanvas: selectionCanvasRef.current,
         width: canvasSurfaceWidth ?? layout.totalWidth,
+        reservedViewportHeight,
         viewportHeight: vp.height,
         totalHeight: layout.totalHeight,
         dpr: window.devicePixelRatio || 1,
@@ -1438,6 +1446,7 @@ export function useCanvasWorkerDraw(params: UseCanvasWorkerDrawParams): void {
     workerState,
     layout,
     canvasSurfaceWidth,
+    reservedViewportHeight,
     scrollEndHeadroom,
     config,
     fullSequence,
@@ -1554,6 +1563,7 @@ export function useCanvasWorkerDraw(params: UseCanvasWorkerDrawParams): void {
         mainCanvas: c,
         selectionCanvas: sc,
         width: canvasSurfaceWidth ?? layout.totalWidth,
+        reservedViewportHeight,
         viewportHeight: vpHeight,
         totalHeight: layout.totalHeight,
         dpr,
@@ -1850,6 +1860,7 @@ export function useCanvasWorkerDraw(params: UseCanvasWorkerDrawParams): void {
     viewportElementRef,
     layout,
     canvasSurfaceWidth,
+    reservedViewportHeight,
     scrollEndHeadroom,
     config,
     fullSequence,

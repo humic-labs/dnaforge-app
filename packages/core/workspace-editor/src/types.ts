@@ -584,6 +584,8 @@ export interface WorkspaceEditorProps {
 
   surfaceVisible?: boolean;
 
+  viewportCapacity?: { width: number; height: number };
+
   viewportHeightHint?: number;
 
   freezeViewportHeight?: boolean;

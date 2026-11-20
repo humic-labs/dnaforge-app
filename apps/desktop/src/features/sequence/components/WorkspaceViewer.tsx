@@ -2448,6 +2448,10 @@ function WorkspaceViewerInternal({
       highWater: circularBufferHeightFreezeRef.current,
     });
   })();
+  const sequenceViewportCapacity = useMemo(
+    () => ({ width: surfaceLayoutWidth ?? 0, height: surfaceLayoutHeight }),
+    [surfaceLayoutWidth, surfaceLayoutHeight]
+  );
   const initialSequenceContainerWidth = horizontalSequenceMapLayout
     ? Math.max(0, (sideSplitWidth ?? 0) - sideMapPaneWidth)
     : (surfaceLayoutWidth ?? 0);
@@ -2679,6 +2683,7 @@ function WorkspaceViewerInternal({
                       circularBufferViewportHeight={circularBufferViewportHeight}
                       initialContainerWidth={initialSequenceContainerWidth}
                       surfaceVisible={sequenceSurfaceVisible}
+                      viewportCapacity={sequenceViewportCapacity}
                       viewportHeightHint={
                         sequenceSurfaceVisible
                           ? sequenceViewportHeightHint

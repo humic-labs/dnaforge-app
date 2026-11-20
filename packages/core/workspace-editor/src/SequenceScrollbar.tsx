@@ -39,6 +39,7 @@ export interface SequenceScrollbarProps {
   activeSearchIndex?: number;
   viewportScrollTop?: number;
   viewportHeight?: number;
+  reservedHeight?: number;
   totalHeight?: number;
   onNavigate?: (scrollTop: number) => void;
   onNavigationStart?: () => void;
@@ -65,6 +66,7 @@ const SequenceScrollbarInner = forwardRef<SequenceScrollbarHandle, SequenceScrol
       onNavigationStart,
       translationMode: _translationMode,
       width = 24,
+      reservedHeight,
     },
     ref
   ) => {
@@ -489,6 +491,7 @@ const SequenceScrollbarInner = forwardRef<SequenceScrollbarHandle, SequenceScrol
 
         <SequenceScrollbarAnnotationCanvas
           markers={annotationMarkers}
+          reservedHeight={reservedHeight}
           width={width}
           height={minimapHeight}
         />
@@ -629,6 +632,7 @@ const arePropsEqual = (
     prevProps.scannedCutSites === nextProps.scannedCutSites &&
     prevProps.selection === nextProps.selection &&
     prevProps.width === nextProps.width &&
+    prevProps.reservedHeight === nextProps.reservedHeight &&
     prevProps.onNavigationStart === nextProps.onNavigationStart &&
     prevProps.searchMatches === nextProps.searchMatches &&
     prevProps.activeSearchIndex === nextProps.activeSearchIndex
