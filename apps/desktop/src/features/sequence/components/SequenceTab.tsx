@@ -628,8 +628,10 @@ export function SequenceTab({
     isDirty: () => useSequenceStore.getState().isDirty(sequenceDocumentId) || hasMetadataEdits(),
     save: async () => {
       const session = sequenceMetadataSession(sequenceDocumentId);
+      const hadMetadataEdits = hasMetadataEdits();
       if (session ? !(await session.saveForClose()) : metadataDirty) return false;
-      if (!useSequenceStore.getState().isDirty(sequenceDocumentId)) return !hasMetadataEdits();
+      if (hadMetadataEdits && !useSequenceStore.getState().isDirty(sequenceDocumentId))
+        return !hasMetadataEdits();
       const metadataRevision = session?.readRevision() ?? 0;
       const result = await saveWithReceipt();
       if (
