@@ -129,7 +129,7 @@ export const APP_SHORTCUTS: readonly AppShortcut[] = [
   {
     id: 'terminal.toggle',
     area: 'application',
-    label: 'Toggle Terminal',
+    label: 'Focus Terminal Tab',
     scope: 'global',
     availability: 'active',
     chords: [['ctrl', '`']],
@@ -139,7 +139,7 @@ export const APP_SHORTCUTS: readonly AppShortcut[] = [
   {
     id: 'terminal.new',
     area: 'application',
-    label: 'New Terminal',
+    label: 'New Terminal Tab',
     scope: 'global',
     availability: 'active',
     chords: [['ctrl', 'shift', '`']],

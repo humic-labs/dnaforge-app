@@ -742,12 +742,12 @@ export function TextViewerTab({
                 Run selection
               </button>
               <button
-                aria-label="Run Selection in New Terminal"
+                aria-label="Run Selection in New Terminal Tab"
                 disabled={!editorView}
                 onClick={() => runSelection(true)}
                 className={`${INTERACTION_CLASS} px-2 py-1 text-xs text-fg-muted rounded`}
               >
-                Run in new terminal
+                Run in new terminal tab
               </button>
             </>
           )}

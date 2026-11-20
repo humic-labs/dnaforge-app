@@ -1,51 +1,5 @@
 @import './terminal-theme.css';
 
-.dnaforge-terminal-workspace {
-  flex: 0 0 min(52%, 1000px);
-  border-right: 1px solid hsl(var(--color-border));
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  color: hsl(var(--color-fg));
-  background: hsl(var(--color-bg));
-}
-.dnaforge-terminal-workspace > aside {
-  width: clamp(144px, 15vw, 250px);
-  max-width: 38%;
-  min-width: 0;
-  flex-shrink: 0;
-  display: flex;
-  overflow: hidden;
-  background: hsl(var(--color-bg-subtle));
-  border-right: 1px solid hsl(var(--color-border));
-}
-.dnaforge-terminal-workspace-main {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-}
-.dnaforge-terminal-workspace-empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: hsl(var(--color-fg-muted));
-  font-size: 13px;
-}
-.dnaforge-terminal-workspace-empty button {
-  padding: 6px 12px;
-  border: 1px solid hsl(var(--color-border));
-  border-radius: var(--radius-sm);
-}
-
-.dnaforge-terminal-parent {
-  position: relative;
-  min-width: 0;
-}
 .dnaforge-terminal-dock {
   position: relative;
   border-top: 1px solid var(--terminal-border);
@@ -59,29 +13,8 @@
 .dnaforge-terminal-dock[data-open='true'] {
   container-type: inline-size;
 }
-.dnaforge-terminal-dock[data-open='true'][data-presentation='workspace'] {
-  position: absolute;
-  inset: 16px;
-  z-index: 40;
-  border: 1px solid var(--terminal-border);
-  border-radius: 16px;
-  box-shadow:
-    0 20px 64px #11111b30,
-    0 2px 6px #11111b12,
-    inset 0 1px 0 #ffffff08;
-}
-.dnaforge-terminal-dock[data-open='true'][data-presentation='workspace'][data-maximized='true'] {
-  inset: 0;
-  border-radius: 0;
-}
-.dnaforge-terminal-dock[data-open='false'] {
-  position: absolute;
-  bottom: 16px;
-  right: 20px;
-  z-index: 40;
-  border: 1px solid var(--terminal-border);
-  border-radius: 12px;
-  box-shadow: 0 4px 14px #0002;
+.dnaforge-terminal-dock[data-presentation='window'] {
+  flex: 1;
 }
 .dnaforge-terminal-window {
   height: 100vh;
@@ -122,6 +55,7 @@
   gap: 4px;
 }
 .dnaforge-terminal-content {
+  display: flex;
   flex-direction: column-reverse;
   flex: 1;
   min-height: 0;
@@ -489,19 +423,7 @@
   max-width: 140px;
   color: hsl(var(--color-fg));
 }
-.dnaforge-terminal-dock[data-open='false'] .dnaforge-terminal-header {
-  min-height: 38px;
-  padding: 4px 10px;
-  gap: 8px;
-}
-.dnaforge-terminal-session-count {
-  color: var(--terminal-muted);
-  font-size: 11px;
-}
 @media (max-width: 700px) {
-  .dnaforge-terminal-dock[data-open='true'][data-presentation='workspace'] {
-    inset: 6px;
-  }
   .dnaforge-terminal-location {
     display: none;
   }
@@ -523,15 +445,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.dnaforge-terminal-resizer {
-  height: 4px;
-  cursor: row-resize;
-  flex-shrink: 0;
-  touch-action: none;
-}
-.dnaforge-terminal-resizer:hover {
-  background: #6488dd;
-}
 .dnaforge-terminal-error {
   color: #df6d6d;
   padding: 4px 10px;
@@ -541,9 +454,6 @@
   margin-left: 8px;
 }
 
-.dnaforge-terminal-parent:has(> .dnaforge-terminal-dock[data-maximized='true']) > main {
-  display: none;
-}
 .dnaforge-terminal-pane[data-drop-active] {
   outline: 2px solid var(--accent, #6488dd);
 }
@@ -698,13 +608,6 @@
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
 }
-.dnaforge-terminal-dock[data-presentation='editor']
-  .dnaforge-terminal-primary-actions
-  > button[hidden],
-.dnaforge-terminal-dock[data-presentation='editor'] .dnaforge-terminal-session-count {
-  display: none;
-}
-
 .dnaforge-terminal-dock[data-presentation='editor'][data-session-layout='sessions']
   .dnaforge-terminal-content {
   flex: 0 0 auto;
@@ -722,21 +625,6 @@
   border-bottom: 1px solid hsl(var(--color-border));
 }
 
-.dnaforge-terminal-dock.dnaforge-terminal-workspace-chrome {
-  position: relative;
-  inset: auto;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  min-height: 0;
-}
-.dnaforge-terminal-workspace-chrome .dnaforge-terminal-content {
-  flex: 0 0 auto;
-}
-.dnaforge-terminal-workspace-chrome .dnaforge-terminal-groups,
-.dnaforge-terminal-workspace-chrome button[hidden] {
-  display: none;
-}
 .dnaforge-terminal-tab-group {
   display: flex;
   align-items: center;

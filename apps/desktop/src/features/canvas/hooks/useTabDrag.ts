@@ -1,5 +1,4 @@
 import { useEffect, useCallback, useRef } from 'react';
-import { transferTerminalTab } from '../../terminal/public/tab-transfer';
 import { useDragStore } from '../dragStore';
 import { useCanvasStore } from '../store';
 import {
@@ -11,12 +10,6 @@ import {
 export type DropZone = 'center' | 'top' | 'bottom' | 'left' | 'right' | null;
 
 const EDGE_SIZE = 80;
-
-function terminalSidebarTarget(event: MouseEvent, tabType: string | null) {
-  return tabType === 'terminal' && event.target instanceof Element
-    ? event.target.closest<HTMLElement>('[data-terminal-sidebar]')
-    : null;
-}
 
 function calculateInsertIndex(
   mouseX: number,
@@ -226,15 +219,6 @@ export function useTabDrag() {
 
       updateTabPreview(e);
 
-      const sidebarTarget = terminalSidebarTarget(e, dragTabType);
-      if (sidebarTarget) {
-        activeZoneRef.current = null;
-        insertIndexRef.current = null;
-        setDropTarget(null, null);
-        updateOverlay(sidebarTarget, 'center');
-        return;
-      }
-
       const tabBars = document.querySelectorAll('[data-tab-bar]');
       for (const tabBar of tabBars) {
         const rect = tabBar.getBoundingClientRect();
@@ -305,7 +289,6 @@ export function useTabDrag() {
       isDragging,
       dragTabId,
       dragFromPanelId,
-      dragTabType,
       calculateZone,
       updateOverlay,
       updateTabPreview,
@@ -313,60 +296,52 @@ export function useTabDrag() {
     ]
   );
 
-  const handleMouseUp = useCallback(
-    (event: MouseEvent) => {
-      if (!isDragging || !dragTabId || !dragFromPanelId) {
-        endDrag();
-        return;
-      }
-
-      const activeZone = activeZoneRef.current;
-      const insertIndex = insertIndexRef.current;
-
-      if (zoneIndicatorRef.current) {
-        zoneIndicatorRef.current.remove();
-        zoneIndicatorRef.current = null;
-      }
-      if (tabPreviewRef.current) {
-        tabPreviewRef.current.remove();
-        tabPreviewRef.current = null;
-      }
-
-      if (terminalSidebarTarget(event, dragTabType)) {
-        const source = useCanvasStore.getState().panels[dragFromPanelId];
-        const tab = source?.tabs.find((item) => item.id === dragTabId);
-        if (tab?.type === 'terminal')
-          transferTerminalTab({ target: 'sidebar', viewId: tab.entityId });
-      } else if (activeZone && activeZone.zone) {
-        const { zone, panelId: targetPanelId } = activeZone;
-
-        console.log('[useTabDrag] Dropping:', {
-          zone,
-          targetPanelId,
-          dragFromPanelId,
-          dragTabId,
-          insertIndex,
-        });
-
-        if (zone === 'center') {
-          moveTabAtIndex(dragFromPanelId, targetPanelId, dragTabId, insertIndex);
-        } else {
-          const directionMap = {
-            top: 'up',
-            bottom: 'down',
-            left: 'left',
-            right: 'right',
-          } as const;
-          splitAndMoveTab(targetPanelId, directionMap[zone], dragFromPanelId, dragTabId);
-        }
-      }
-
-      activeZoneRef.current = null;
-      insertIndexRef.current = null;
+  const handleMouseUp = useCallback(() => {
+    if (!isDragging || !dragTabId || !dragFromPanelId) {
       endDrag();
-    },
-    [isDragging, dragTabId, dragFromPanelId, dragTabType, endDrag, moveTabAtIndex, splitAndMoveTab]
-  );
+      return;
+    }
+
+    const activeZone = activeZoneRef.current;
+    const insertIndex = insertIndexRef.current;
+
+    if (zoneIndicatorRef.current) {
+      zoneIndicatorRef.current.remove();
+      zoneIndicatorRef.current = null;
+    }
+    if (tabPreviewRef.current) {
+      tabPreviewRef.current.remove();
+      tabPreviewRef.current = null;
+    }
+
+    if (activeZone && activeZone.zone) {
+      const { zone, panelId: targetPanelId } = activeZone;
+
+      console.log('[useTabDrag] Dropping:', {
+        zone,
+        targetPanelId,
+        dragFromPanelId,
+        dragTabId,
+        insertIndex,
+      });
+
+      if (zone === 'center') {
+        moveTabAtIndex(dragFromPanelId, targetPanelId, dragTabId, insertIndex);
+      } else {
+        const directionMap = {
+          top: 'up',
+          bottom: 'down',
+          left: 'left',
+          right: 'right',
+        } as const;
+        splitAndMoveTab(targetPanelId, directionMap[zone], dragFromPanelId, dragTabId);
+      }
+    }
+
+    activeZoneRef.current = null;
+    insertIndexRef.current = null;
+    endDrag();
+  }, [isDragging, dragTabId, dragFromPanelId, endDrag, moveTabAtIndex, splitAndMoveTab]);
 
   useEffect(() => {
     if (isDragging && dragTabLabel && dragTabType) {
