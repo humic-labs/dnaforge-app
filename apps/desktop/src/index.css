@@ -1402,28 +1402,6 @@ a[data-benchling-link-destination='external']::after {
   );
 }
 
-.canvas-tab-strip-scroll[data-sliding] > .tab-shell {
-  transform: translateX(var(--tab-slide-x, 0px));
-  transition: transform 140ms ease-out;
-}
-
-.canvas-tab-strip-scroll[data-sliding] > [data-grabbed] {
-  z-index: 20;
-  background-color: hsl(var(--color-bg));
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  transition: none;
-}
-
-.tab-shell[data-grabbed] > .tab-inner {
-  opacity: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .canvas-tab-strip-scroll[data-sliding] > .tab-shell {
-    transition: none;
-  }
-}
-
 .tab-shell {
   container-type: inline-size;
 }
