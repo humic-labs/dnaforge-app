@@ -201,6 +201,35 @@ describe('notebook opening keeps competing content across SQLite reload', () => 
       );
     });
 
+  it('opens the newer file when an outside edit overtakes native equality validation', async () => {
+    await resolveSavedFile('base');
+    const firstRead = await artifacts.resolve();
+    await resolveSavedFile('outside edit');
+    artifacts.resolve.mockResolvedValueOnce(firstRead);
+    const consume = consumer();
+
+    await withWorkspaceArtifactOpen({ path, workspaceRoot: root, consume });
+
+    expect(consume).toHaveBeenCalledOnce();
+    expect(projectedContent()).toBe(JSON.stringify(content('outside edit')));
+    expect(useToastStore.getState().toasts).toEqual([]);
+  });
+
+  it('keeps a native equality failure when reopening yields the same file revision', async () => {
+    await resolveSavedFile('base');
+    const firstRead = await artifacts.resolve();
+    await resolveSavedFile('outside edit');
+    artifacts.resolve.mockResolvedValue(firstRead);
+    const consume = consumer();
+
+    await expect(withWorkspaceArtifactOpen({ path, workspaceRoot: root, consume })).rejects.toThrow(
+      'Entity projection equality fingerprint does not match its canonical file.'
+    );
+
+    expect(consume).not.toHaveBeenCalled();
+    expect(projectedContent()).toBe(JSON.stringify(content('base')));
+  });
+
   it('rejects a restored-tab/open consumer before it can overwrite genuine divergent edits', async () => {
     db.prepare('UPDATE pages SET content = ? WHERE id = ?').run(
       JSON.stringify(content('app edit')),

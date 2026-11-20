@@ -16,9 +16,10 @@ import {
 import { readNotebookProjectionSource } from '../db/notebook-projection-source';
 import { withNotebookPackageAuthorityLock } from '../db/notebook-package-migration';
 import { readSequenceProductSummary } from '../db/entity-substrate/sequence-product-summary-runtime';
-import type {
-  EntityProjectionSourceKey,
-  SettleEntityProjectionSourceInput,
+import {
+  PROJECTION_FINGERPRINT_MISMATCH,
+  type EntityProjectionSourceKey,
+  type SettleEntityProjectionSourceInput,
 } from '../shared/entity-projection-source';
 import { isSafeWorkspaceRelativePath } from '../shared/path-boundary';
 import { scopedProjectionId, workspaceScopeKey } from '../shared/workspace-scoped-identity';
@@ -599,7 +600,7 @@ export async function settleEntityProjectionSourceInMain(
   const settle = async () => {
     const snapshot = await equalitySnapshot(db, owner, runDatabase);
     if (input.fingerprint !== snapshot.fingerprint)
-      throw new Error('Entity projection equality fingerprint does not match its canonical file.');
+      throw new Error(PROJECTION_FINGERPRINT_MISMATCH);
     await snapshot.sources.assertUnchanged();
     runDatabase(() =>
       db.transaction(() => {

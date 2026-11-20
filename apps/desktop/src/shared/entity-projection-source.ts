@@ -1,3 +1,6 @@
+export const PROJECTION_FINGERPRINT_MISMATCH =
+  'Entity projection equality fingerprint does not match its canonical file.';
+
 export interface EntityProjectionSourceKey {
   adapterKind: string;
   entityId: string;

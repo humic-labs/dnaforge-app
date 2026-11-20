@@ -16,6 +16,7 @@ import {
   type NotebookPackageDocument,
 } from '../db/notebook-package';
 import { NotebookExternalConflictError } from '../db/notebook-package-migration';
+import { PROJECTION_FINGERPRINT_MISMATCH } from '../shared/entity-projection-source';
 import { reportEntityReconcileConflicts } from './workspace-reconcile-report';
 
 export async function withWorkspaceArtifactOpen<T>(input: {
@@ -36,24 +37,20 @@ export async function withWorkspaceArtifactOpen<T>(input: {
         if (repairPlan.kind === 'conflict') {
           throw new Error(`Artifact repair conflict: ${repairPlan.reason}`);
         }
-        let resolved: ResolvedWorkspaceArtifactSnapshot;
-        if (repairPlan.kind === 'file-binding-repair' || repairPlan.kind === 'catalog-recovery') {
-          const repaired = await applyAcceptedWorkspaceArtifactRepair(repairPlan, mutationToken);
-          const snapshot = await resolveArtifactFile({
+        const readSnapshot = () =>
+          resolveArtifactFile({
             path: input.path,
             workspaceRoot: input.workspaceRoot,
             mutationToken,
           });
-          resolved = { ...snapshot, repaired: repaired.repaired };
-        } else {
-          resolved = await resolveArtifactFile({
-            path: input.path,
-            workspaceRoot: input.workspaceRoot,
-            mutationToken,
-          });
-        }
-        if (resolved.artifact.kind === 'notebook') {
-          const artifact = resolved.artifact;
+        const repair =
+          repairPlan.kind === 'file-binding-repair' || repairPlan.kind === 'catalog-recovery'
+            ? await applyAcceptedWorkspaceArtifactRepair(repairPlan, mutationToken)
+            : undefined;
+        let resolved = await readSnapshot();
+        const reconcileNotebook = async (snapshot: ResolvedWorkspaceArtifactSnapshot) => {
+          if (snapshot.artifact.kind !== 'notebook') return;
+          const artifact = snapshot.artifact;
           const document: NotebookPackageDocument = {
             ...artifact.raw,
             schema: NOTEBOOK_PACKAGE_SCHEMA,
@@ -107,8 +104,32 @@ export async function withWorkspaceArtifactOpen<T>(input: {
             });
             throw new NotebookExternalConflictError(sourcePath);
           }
+        };
+        try {
+          await reconcileNotebook(resolved);
+        } catch (error) {
+          if (
+            !String(error).endsWith(PROJECTION_FINGERPRINT_MISMATCH) ||
+            resolved.artifact.kind !== 'notebook' ||
+            !resolved.authorityFingerprint ||
+            input.notebookConflictResolution
+          )
+            throw error;
+          const current = await readSnapshot();
+          if (
+            current.artifact.kind !== 'notebook' ||
+            current.entity.id !== resolved.entity.id ||
+            !current.authorityFingerprint ||
+            current.authorityFingerprint === resolved.authorityFingerprint
+          )
+            throw error;
+          await reconcileNotebook(current);
+          resolved = current;
         }
-        return input.consume(resolved, mutationToken);
+        return input.consume(
+          repair ? { ...resolved, repaired: repair.repaired } : resolved,
+          mutationToken
+        );
       },
       undefined,
       { waitForAvailability: true }
