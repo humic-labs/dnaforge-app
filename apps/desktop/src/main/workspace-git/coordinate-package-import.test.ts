@@ -3,6 +3,10 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+vi.mock('../molecular-catalog/inventory-worker', async () => ({
+  inventoryCoordinatesInWorker: (await import('../molecular-catalog/coordinate-inventory'))
+    .parseCoordinateInventory,
+}));
 vi.mock('electron', () => ({
   dialog: { showErrorBox: vi.fn() },
   app: { getPath: vi.fn(), getVersion: vi.fn(() => '1.0.0') },
@@ -144,8 +148,9 @@ describe('importing a coordinate file into a project ', () => {
       { targetRoot: repoPath, sourcePath: incoming },
       { db, managedRootDir: managedRoot }
     );
-    expect(result.relPath).toBe('1FS0.dnaforge-molecular.json');
-    expect(result.destPath).toBe(join(repoPath, '1FS0.dnaforge-molecular.json'));
+    expect(result.relPath).toBe(join('1FS0', '1FS0.dnaforge-molecular.json'));
+    expect(result.destPath).toBe(join(repoPath, result.relPath));
+    expect(readFileSync(join(repoPath, '1FS0', 'original', '1FS0.pdb'), 'utf8')).toBe(PDB);
     expect(existsSync(join(repoPath, '1FS0.pdb'))).toBe(false);
     expect(existsSync(incoming)).toBe(true);
     expect(

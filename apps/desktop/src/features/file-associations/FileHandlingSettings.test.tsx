@@ -237,7 +237,9 @@ describe('FileHandlingSettings', () => {
     expect(await screen.findByTestId('file-handler-genbank')).toHaveTextContent(
       '.gb, .gbk, .gbff, .genbank'
     );
-    expect(screen.getByTestId('file-handling-settings')).toHaveTextContent('Import to Edit');
+    const settings = screen.getByTestId('file-handling-settings');
+    expect(settings).toHaveTextContent('Previews keep a read-only copy');
+    expect(settings).toHaveTextContent('Import saves a separate copy in a project.');
     expect(screen.getByTestId('file-handler-genbank')).toHaveTextContent('Preview');
     expect(screen.getByTestId('file-handler-genbank')).toHaveTextContent(
       '.gb, .gbk, .gbff, .genbank'

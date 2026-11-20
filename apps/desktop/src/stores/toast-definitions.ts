@@ -612,12 +612,6 @@ export const TOAST_DEFINITIONS = {
     type: 'error',
     message: userMessage('notice.the-quick-look-import-could-not-be-completed'),
   }),
-  'open-quick-look-source-could-not-open-example-example-error': defineToast({
-    category: 'open quick look source',
-    source: 'lib/open-quick-look-source.ts',
-    type: 'error',
-    message: userMessage('notice.could-not-open-example-example-error'),
-  }),
   'app-hosted-compute-job-stopped': defineToast({
     category: 'App',
     source: 'App.tsx',
