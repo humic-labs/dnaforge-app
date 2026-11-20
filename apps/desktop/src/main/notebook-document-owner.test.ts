@@ -528,6 +528,42 @@ describe('native notebook working copy', () => {
     expect(reopened.copy.content).toEqual(disk.content);
     expect(reopened.dirty).toBe(false);
   });
+  it('discards the local draft when a concurrent save is refused after an external edit', async () => {
+    const publishing = Promise.withResolvers<void>();
+    const releasePublish = Promise.withResolvers<void>();
+    const f = await fixture(async () => {
+      publishing.resolve();
+      await releasePublish.promise;
+    });
+    const execute = (
+      operation: Parameters<typeof f.owner.execute>[0]['operation'],
+      expectedRevision?: string
+    ) => f.owner.execute({ documentId: 'book', operation, expectedRevision });
+
+    const original = await execute({ kind: 'inspect-copy' });
+    const draft = await execute({ kind: 'set-title', title: 'Local draft' }, original.revision);
+    const markdown = notebookPackagePaths(f.path).markdownPath;
+    const external = (await readFile(markdown, 'utf8')).replace('Original', 'Outside');
+    await writeFile(markdown, external);
+    const capture = await execute({ kind: 'capture-save' }, draft.revision);
+    await publishing.promise;
+    const discard = execute({ kind: 'discard' }, capture.revision);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    releasePublish.resolve();
+
+    const settled = await discard;
+    expect(settled.dirty).toBe(false);
+    expect(settled.copy.content.content?.[0].content?.[0].text).toBe('Outside');
+    expect(settled.copy.title).toBe('Book');
+    expect(await readFile(markdown, 'utf8')).toBe(external);
+    await expect(
+      execute({ kind: 'await-save', saveCaptureId: capture.saveCaptureId! })
+    ).rejects.toMatchObject({
+      code: 'NOTEBOOK_EXTERNAL_CONFLICT',
+      stateChanged: false,
+    });
+    await f.owner.close();
+  });
   it('rejects stale revisions and outside edits without overwriting either version', async () => {
     const f = await fixture();
     const initial = await f.owner.execute({

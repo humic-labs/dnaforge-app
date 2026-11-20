@@ -926,7 +926,8 @@ export class NativeNotebookWorkingCopyOwner {
             copy.version++;
             copy.persistedRevision = this.revision(copy);
           } else if (operation.kind === 'reload' || operation.kind === 'discard') {
-            await Promise.all(copy.saves.values());
+            if (operation.kind === 'discard') await Promise.allSettled(copy.saves.values());
+            else await Promise.all(copy.saves.values());
             scope.assertCurrent();
             if (operation.kind === 'reload' && this.dirty(copy))
               throw refused('DIRTY_NOTEBOOK', 'Save or discard this notebook before reloading.');
