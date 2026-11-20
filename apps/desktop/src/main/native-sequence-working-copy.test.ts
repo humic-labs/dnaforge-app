@@ -1,4 +1,9 @@
 import { createRegisteredProjectAuthorityFixture } from './__tests__/registered-project-authority-fixture';
+import { createTestDb } from './__tests__/test-db';
+import {
+  acquireWorkspaceSyncDatabaseFence,
+  assertCommittedDatabaseReadAllowed,
+} from './workspace-sync-database-fence';
 // @vitest-environment node
 
 import { createHash } from 'node:crypto';
@@ -504,6 +509,56 @@ describe('native sequence working copy without a view', () => {
       expect(await readFile(f.path, 'utf8')).toBe(bytes);
     } finally {
       await f.owner.close();
+    }
+  });
+  it('returns the admitted Save result when its authority read overlaps a database fence', async () => {
+    const db = createTestDb();
+    const written = Promise.withResolvers<void>();
+    const resume = Promise.withResolvers<void>();
+    let readWasBlocked = false;
+    const afterProduct = vi.fn(async () => {
+      written.resolve();
+      await resume.promise;
+    });
+    const f = await fixture(undefined, false, {
+      afterProduct,
+      assertResourceCurrent() {
+        try {
+          assertCommittedDatabaseReadAllowed(db);
+        } catch (error) {
+          readWasBlocked = true;
+          throw error;
+        }
+      },
+    });
+    try {
+      const edited = await f.command(await f.inspect(), {
+        kind: 'replace-bases',
+        start: 0,
+        end: 1,
+        bases: 'T',
+        expectedBases: 'A',
+      });
+      const captured = await f.command(edited, { kind: 'capture-save', message: 'Save document' });
+      await written.promise;
+      const release = await acquireWorkspaceSyncDatabaseFence(db);
+      const result = Promise.allSettled([
+        f.command(captured, { kind: 'publish-save', captureId: captured.captureId! }),
+      ]);
+      try {
+        await vi.waitFor(() => expect(readWasBlocked).toBe(true));
+      } finally {
+        release();
+        resume.resolve();
+      }
+      expect(await result).toMatchObject([
+        { status: 'fulfilled', value: { saved: true, dirty: false } },
+      ]);
+      expect(afterProduct).toHaveBeenCalledOnce();
+    } finally {
+      resume.resolve();
+      await f.owner.close();
+      db.close();
     }
   });
   it('refuses a captured Save if its resource authority changes after admission', async () => {

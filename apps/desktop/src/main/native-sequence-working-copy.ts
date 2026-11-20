@@ -1,6 +1,7 @@
 import { createKeyedMutex } from './workspace-git/keyed-mutex';
 import type { ScientificAcceptedDocumentRevision } from '@waypoint/domain-services';
 import { NativeDocumentCommandError } from '../shared/native-document-error';
+import { waitForWorkspaceSyncDatabase } from '../db/workspace-sync-retry';
 import { createHash, randomUUID } from 'node:crypto';
 import { getSequenceSavePolicy, type AnnotatedSequence } from '@waypoint/sequence-utils';
 import {
@@ -520,10 +521,14 @@ export class NativeSequenceWorkingCopyOwner {
       const saved = document.completedCaptures.get(captureId),
         scope = saved?.scope ?? document.captures.get(captureId)?.scope;
       if (!scope) throw refusal('STALE_SEQUENCE_SAVE_CAPTURE');
-      await beforeEffects(() => {
-        scope.assertCurrent();
-        this.assertUnprotected(scope.path);
-      });
+      const assertCurrent = () =>
+        beforeEffects(() =>
+          waitForWorkspaceSyncDatabase(async () => {
+            scope.assertCurrent();
+            this.assertUnprotected(scope.path);
+          })
+        );
+      await assertCurrent();
       if (operation.kind === 'publish-save')
         return { save: this.publishCapture(document, captureId) };
       if (operation.kind !== 'capture-save' || !saved) throw refusal('STALE_SEQUENCE_SAVE_CAPTURE');
@@ -536,7 +541,7 @@ export class NativeSequenceWorkingCopyOwner {
         return saved.continuation.snapshot;
       }
       await saved.promise;
-      await beforeEffects(() => scope.assertCurrent());
+      await assertCurrent();
       if (
         saved.continuationVersion === undefined ||
         request.expectedVersion !== saved.continuationVersion ||
