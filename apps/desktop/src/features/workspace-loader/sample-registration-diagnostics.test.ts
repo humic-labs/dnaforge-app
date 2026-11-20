@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const native = vi.hoisted(() => ({
   createSampleInstance: vi.fn(),
@@ -7,6 +10,7 @@ const native = vi.hoisted(() => ({
   execute: vi.fn().mockResolvedValue({ rowsAffected: 1 }),
   select: vi.fn().mockResolvedValue([]),
   sendBreadcrumbs: vi.fn(),
+  userData: '',
 }));
 
 vi.mock('../../platform', () => ({
@@ -17,24 +21,53 @@ vi.mock('../../platform', () => ({
 }));
 vi.mock('./managed-workspaces-flag', () => ({ isManagedWorkspacesEnabled: () => true }));
 vi.mock('../../lib/analytics', () => ({ trackRendererEvent: vi.fn() }));
+vi.mock('electron', () => ({
+  ipcMain: { on: vi.fn() },
+  app: { getPath: () => native.userData },
+}));
+vi.mock('../../main/diagnostics-upload', () => ({ reportRendererErrorSignal: vi.fn() }));
 
 import { openWorkspaceFromSource } from './open-workspace-from-source';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
+import { installBreadcrumbCapture } from '../../lib/renderer-breadcrumbs';
+import { registerDiagnosticsHandlers, writeRendererBreadcrumbs } from '../../main/ipc/diagnostics';
 
 const sample = { kind: 'sample-template', templateId: 'standard-samples' } as const;
 const privatePath = '/private/synthetic-sample';
 const privateName = 'synthetic private sample';
+let disposeBreadcrumbs: () => void;
+
+function registrationSpans(lines: string[]) {
+  return lines
+    .filter((line) => line.startsWith('sample_registration '))
+    .map((line) => {
+      const fields = Object.fromEntries(
+        line
+          .slice('sample_registration '.length)
+          .split(' ')
+          .map((field) => field.split('='))
+      );
+      expect(Object.keys(fields).sort()).toEqual(['correlation', 'duration_ms', 'method', 'phase']);
+      return {
+        method: fields.method,
+        correlation: fields.correlation,
+        phase: fields.phase,
+        duration_ms: Number(fields.duration_ms),
+      };
+    });
+}
 
 function spans() {
-  return native.sendBreadcrumbs.mock.calls.flatMap(([lines]: [string[]]) =>
-    lines.map((line) => JSON.parse(line))
-  );
+  window.dispatchEvent(new Event('pagehide'));
+  const lines: string[] = native.sendBreadcrumbs.mock.calls.at(-1)?.[0] ?? [];
+  return registrationSpans(lines);
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   useWorkspaceStore.getState().clearWorkspace();
   vi.stubGlobal('electronAPI', { sendBreadcrumbs: native.sendBreadcrumbs });
+  disposeBreadcrumbs = installBreadcrumbCapture();
   native.createSampleInstance.mockResolvedValue({
     rootPath: privatePath,
     displayName: privateName,
@@ -48,6 +81,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  disposeBreadcrumbs();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -130,4 +164,36 @@ it('does not make diagnostic delivery part of sample registration success', asyn
   const result = await openWorkspaceFromSource(sample);
   expect(result.instance.rootFolders[0].path).toBe(privatePath);
   expect(native.ensureWorkspaceOwner).toHaveBeenCalledOnce();
+});
+
+it('persists interleaved sample spans and existing warnings once through the real snapshot consumer', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'sample-registration-'));
+  native.userData = root;
+  registerDiagnosticsHandlers();
+  native.sendBreadcrumbs.mockImplementation((lines: string[]) =>
+    writeRendererBreadcrumbs(lines, 7)
+  );
+  try {
+    console.warn('existing-warning-before-sample');
+    window.dispatchEvent(new Event('pagehide'));
+    await openWorkspaceFromSource(sample);
+    console.warn('existing-warning-after-sample');
+    window.dispatchEvent(new Event('pagehide'));
+
+    const retained = readFileSync(join(root, 'logs', 'renderer-breadcrumbs.log'), 'utf8');
+    expect(retained.split('existing-warning-before-sample')).toHaveLength(2);
+    expect(retained.split('existing-warning-after-sample')).toHaveLength(2);
+    const registrations = registrationSpans(retained.split('\n'));
+    expect(registrations).toHaveLength(6);
+    expect(registrations.map(({ method, phase }) => [method, phase])).toEqual([
+      ['createSampleInstance', 'start'],
+      ['createSampleInstance', 'completed'],
+      ['importManaged', 'start'],
+      ['importManaged', 'completed'],
+      ['ensureWorkspaceOwner', 'start'],
+      ['ensureWorkspaceOwner', 'completed'],
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

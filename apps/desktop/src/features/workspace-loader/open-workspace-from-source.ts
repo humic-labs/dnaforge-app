@@ -16,6 +16,7 @@ import {
   soleWritableProjectRoot,
 } from '../../shared/project-root-selection';
 import { normalizePathForBoundary, pathIsAtOrUnder } from '../../shared/path-boundary';
+import { recordSampleRegistrationBreadcrumb } from '../../lib/renderer-breadcrumbs';
 
 export interface OpenWorkspaceContext {
   openFile?: (request: {
@@ -557,9 +558,12 @@ async function observeSampleRegistration<T>(
   }
   const record = (phase: 'start' | 'completed' | 'error'): void => {
     try {
-      window.electronAPI?.sendBreadcrumbs?.([
-        JSON.stringify({ method, correlation, phase, duration_ms: performance.now() - startedAt }),
-      ]);
+      recordSampleRegistrationBreadcrumb({
+        method,
+        correlation,
+        phase,
+        duration_ms: performance.now() - startedAt,
+      });
     } catch {}
   };
   record('start');
