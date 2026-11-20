@@ -9,6 +9,10 @@ export function ResizeHandle({ direction }: ResizeHandleProps) {
 
   return (
     <Separator
+      onPointerDown={(event) => {
+        if (event.isPrimary && event.button === 0)
+          event.currentTarget.setPointerCapture(event.pointerId);
+      }}
       className={`
         group relative
         ${isHorizontal ? 'h-1 cursor-row-resize' : 'w-1 cursor-col-resize'}

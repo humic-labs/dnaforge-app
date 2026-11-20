@@ -63,6 +63,19 @@ describe('resizePixiCanvas — backing buffer reallocation', () => {
     expect(app.canvas.style.width).toBe('418px');
   });
 
+  it('keeps the framebuffer through a large-window diagonal drag and releases substantial excess', () => {
+    const app = makeApp(0, 0);
+    Object.defineProperty(app.canvas.style, 'objectViewBox', { value: '' });
+    const resize = (w: number, h: number) =>
+      resizePixiCanvas(app, w, 800, 'window-resize', undefined, { width: w, height: h });
+    resize(2936, 1776);
+    app.renderer.resize.mockClear();
+    for (let n = 1; n <= 240; n++) resize(2936 - n, 1776 - Math.round((n * 150) / 240));
+    expect(app.renderer.resize).not.toHaveBeenCalled();
+    resize(1200, 850);
+    expect(app.renderer.resize).toHaveBeenCalledTimes(1);
+  });
+
   it('reallocates and reports backingChanged when the backing size differs', () => {
     const app = makeApp(800, 600);
     const result = resizePixiCanvas(app, 1024, 768, 'test');

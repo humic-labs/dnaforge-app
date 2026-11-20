@@ -15,6 +15,7 @@ const { values } = parseArgs({
     session: { type: 'string' },
     out: { type: 'string' },
     profile: { type: 'boolean' },
+    'window-size': { type: 'string' },
     video: { type: 'boolean' },
     'input-hz': { type: 'string', default: '60' },
   },
@@ -22,6 +23,19 @@ const { values } = parseArgs({
 assert.ok(!(values.video && values.profile), 'Record video and CPU profiles on separate runs');
 const inputHz = Number(values['input-hz']);
 assert.ok([60, 120].includes(inputHz), 'Choose 60 or 120 input updates per second');
+const requestedSize = values['window-size'];
+assert.ok(
+  requestedSize === undefined || /^\d+x\d+$/.test(requestedSize),
+  'Use --window-size WIDTHxHEIGHT'
+);
+const [windowWidth, windowHeight] = (requestedSize ?? '1250x820').split('x').map(Number);
+assert.ok(
+  Number.isSafeInteger(windowWidth) &&
+    windowWidth > 240 &&
+    Number.isSafeInteger(windowHeight) &&
+    windowHeight > 150,
+  'Window dimensions must allow the diagonal drag'
+);
 const session = await realpath(values.session);
 const out = path.resolve(values.out);
 assert.ok(out !== root && !out.startsWith(root + path.sep));
@@ -255,6 +269,10 @@ async function runPhase(label, sendInput) {
     expected,
     presented: native.length,
     completePresentations: completeFrames.length,
+    completeIntervalP95Ms:
+      completeIntervalsMs.toSorted((a, b) => a - b)[
+        Math.floor(completeIntervalsMs.length * 0.95)
+      ] ?? null,
     completeIntervalMaxMs: completeIntervalsMs.length ? Math.max(...completeIntervalsMs) : null,
     completeGapsOverBudget: completeIntervalsMs.filter((interval) => interval > 16.7).length,
     intervalP95Ms: intervals[Math.floor(intervals.length * 0.95)],
@@ -300,11 +318,6 @@ try {
       path.join(session, 'workspace')
     )
   );
-  receipt.display = await page.evaluate(() => ({
-    devicePixelRatio,
-    width: screen.width,
-    height: screen.height,
-  }));
   receipt.appVersion = provenance.appVersion;
   receipt.browserVersion = browser.version();
   initialSize = await page.evaluate(() => window.electronAPI.window.getSize());
@@ -317,11 +330,27 @@ try {
     (file) => '[data-testid="file-tree-item"][data-entry-path=' + CSS.escape(file) + ']',
     path.join(session, 'workspace', 'pUC19')
   );
+  if (!(await page.locator(entry).isVisible())) await page.getByTestId('files-button').click();
   await page.locator(entry).dblclick();
   await expect(page.locator('[role=tab][data-tab-label=pUC19][aria-selected=true]')).toBeVisible();
   await page.getByTestId('sequence-renderer-visibility-map').click();
   await page.waitForFunction(() => window.__webglReady && window.__webglGenome?.length === 2686);
-  await page.evaluate(() => window.electronAPI.window.setSize(1250, 820));
+  const sizeWindow = (width, height) =>
+    page.evaluate(([w, h]) => window.electronAPI.window.setSize(w, h), [width, height]);
+  await sizeWindow(windowWidth, windowHeight);
+  await expect
+    .poll(() => page.evaluate(() => window.electronAPI.window.getSize()))
+    .toEqual({ width: windowWidth, height: windowHeight });
+  receipt.display = await page.evaluate(() => ({
+    devicePixelRatio,
+    width: screen.width,
+    height: screen.height,
+  }));
+  receipt.testWindow = await page.evaluate(() => ({
+    width: innerWidth,
+    height: innerHeight,
+    dpr: devicePixelRatio,
+  }));
   const cdp = await page.context().newCDPSession(page);
   async function drag(label, divider, shiftX, shiftY) {
     await expect(divider).toBeVisible();
@@ -369,12 +398,9 @@ try {
   }
   await page.getByTestId('sequence-map-placement-vertical').click();
   await runPhase('native-window', (p) =>
-    page.evaluate(
-      ([w, h]) => window.electronAPI.window.setSize(w, h),
-      [Math.round(1250 - p * 240), Math.round(820 - p * 150)]
-    )
+    sizeWindow(Math.round(windowWidth - p * 240), Math.round(windowHeight - p * 150))
   );
-  await page.evaluate(() => window.electronAPI.window.setSize(1400, 900));
+  await sizeWindow(requestedSize ? windowWidth : 1400, requestedSize ? windowHeight : 900);
   const filename = `adjacent-${crypto.randomUUID()}.html`;
   const file = path.join(session, 'workspace', filename);
   await writeFile(file, '<!doctype html><title>Sequence notes</title><h1>Sequence notes</h1>', {
@@ -397,6 +423,19 @@ try {
     const divider = page.locator('[data-group][id^=group-] > [data-separator]').last();
     await expect(notes).toBeVisible();
     await drag('tab-' + axis, divider, shiftX, shiftY);
+    const pointerId = divider.evaluate(
+      (el) =>
+        new Promise((resolve) =>
+          el.addEventListener('pointerdown', (event) => resolve(event.pointerId), { once: true })
+        )
+    );
+    await divider.hover();
+    await page.mouse.down();
+    dragging = true;
+    const captured = await divider.evaluate((el, id) => el.hasPointerCapture(id), await pointerId);
+    await page.mouse.up();
+    dragging = false;
+    if (!captured) receipt.failures.push('Tab ' + axis + ' divider lost pointer capture');
     await sequenceTab.click({ button: 'right' });
     await page.getByText('Join All Panes', { exact: true }).click();
   }

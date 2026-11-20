@@ -16,8 +16,9 @@ export function clearPixiCanvas(app: Application): void {
 }
 
 function backingExtent(required: number, current: number): number {
-  if (current >= required && current - required < 128) return current;
-  return Math.ceil(required / 128) * 128;
+  const block = 128;
+  if (current >= required && current - required < 3 * block) return current;
+  return Math.ceil(required / block) * block;
 }
 
 export function resizePixiCanvas(
