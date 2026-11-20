@@ -705,6 +705,11 @@ export function useCanvasWorkerDraw(params: UseCanvasWorkerDrawParams): void {
       else drawFnRef.current?.();
     });
   }, [drawFnRef]);
+  const viewportHeight = viewportRef.current.height;
+  useLayoutEffect(() => {
+    if (viewportHeight > 0) queueMainLayoutPaint();
+  }, [viewportHeight, queueMainLayoutPaint]);
+
   const layoutRef = useRef(layout);
   const reservedViewportHeightRef = useRef(reservedViewportHeight);
   reservedViewportHeightRef.current = reservedViewportHeight;

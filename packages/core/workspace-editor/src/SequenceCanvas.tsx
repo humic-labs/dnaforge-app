@@ -718,11 +718,6 @@ export const SequenceCanvas: React.FC<SequenceCanvasProps> = ({
     previewCDS,
   });
 
-  useLayoutEffect(() => {
-    if (!viewport || viewport.height <= 0) return;
-    drawFnRef.current?.();
-  }, [viewport?.height, drawFnRef]);
-
   useEffect(() => {
     if (!isSelectingRef.current && !isHighlightingRef.current) {
       const effectiveSelection =
