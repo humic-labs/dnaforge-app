@@ -119,6 +119,7 @@ import {
   committedQualifiersForExtensionPreview,
 } from '@waypoint/workspace-editor';
 import {
+  reserveSequencePaneExtent,
   resolvePaneResizeDisplaySize,
   resolveSequencePaneHeightDuringMapResize,
 } from './pane-resize-display-size';
@@ -2434,10 +2435,16 @@ function WorkspaceViewerInternal({
       highWater: circularBufferHeightFreezeRef.current,
     });
   })();
-  const sequenceViewportCapacity = useMemo(
-    () => ({ width: surfaceLayoutWidth ?? 0, height: surfaceLayoutHeight }),
-    [surfaceLayoutWidth, surfaceLayoutHeight]
-  );
+  const reservedSequenceViewport = useRef({ width: 0, height: 0 });
+  const sequenceViewportCapacity = useMemo(() => {
+    const previous = reservedSequenceViewport.current;
+    const width = reserveSequencePaneExtent(surfaceLayoutWidth ?? 0, previous.width);
+    const height = reserveSequencePaneExtent(surfaceLayoutHeight, previous.height);
+    if (width !== previous.width || height !== previous.height) {
+      reservedSequenceViewport.current = { width, height };
+    }
+    return reservedSequenceViewport.current;
+  }, [surfaceLayoutWidth, surfaceLayoutHeight]);
   const initialSequenceContainerWidth = horizontalSequenceMapLayout
     ? Math.max(0, (sideSplitWidth ?? 0) - sideMapPaneWidth)
     : (surfaceLayoutWidth ?? 0);
