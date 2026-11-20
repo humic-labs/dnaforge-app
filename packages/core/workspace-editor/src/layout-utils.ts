@@ -376,9 +376,16 @@ export function viewportCenterRowBoundsChanged(
 ): boolean {
   const before = previous?.summary;
   const after = current.summary;
-  if (!before || !after || before.rowYOffsets === after.rowYOffsets) return false;
+  if (
+    !before?.totalRows ||
+    !after?.totalRows ||
+    before.rowYOffsets === after.rowYOffsets ||
+    before.rowYOffsets.length <= before.totalRows ||
+    after.rowYOffsets.length <= after.totalRows
+  )
+    return false;
   const row = absoluteRowIndexForY(centerY, before);
-  if (row < 0 || row >= after.totalRows) return false;
+  if (row >= after.totalRows) return false;
   return (
     before.rowYOffsets[row] !== after.rowYOffsets[row] ||
     before.rowYOffsets[row + 1] !== after.rowYOffsets[row + 1]

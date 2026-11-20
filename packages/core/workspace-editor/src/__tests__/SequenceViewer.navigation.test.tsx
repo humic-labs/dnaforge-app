@@ -101,7 +101,7 @@ describe('SequenceViewer controlled navigation', () => {
         direction: 1 as const,
       })),
     };
-    const expanded = Array.from({ length: 36 }, (_, index) => ({
+    const expanded = Array.from({ length: 60 }, (_, index) => ({
       name: `overlap ${index}`,
       type: 'misc_feature',
       start: 257_000 + Math.floor(index / 3) * 500 + (index % 3),

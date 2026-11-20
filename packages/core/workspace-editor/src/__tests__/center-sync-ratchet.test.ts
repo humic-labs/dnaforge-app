@@ -5,6 +5,7 @@ import {
   getSequencePositionAtScrollY,
   getScrollYForSequencePosition,
   yForAbsoluteRowIndex,
+  viewportCenterRowBoundsChanged,
 } from '../layout-utils';
 import { DEFAULT_EDITOR_CONFIG } from '../types';
 
@@ -36,6 +37,27 @@ describe(' center-sync ratchet: getSequencePositionAtScrollY advances across the
   const cpr = 80;
   const layout = computeSequenceLayoutImpl(seq, { ...DEFAULT_EDITOR_CONFIG, charsPerLine: cpr });
   const summary = layout.summary!;
+
+  it('compares only existing center-row bounds, including the last row bottom', () => {
+    const table = (values: number[], totalRows = values.length - 1) => ({
+      ...layout,
+      summary: { ...summary, totalRows, rowYOffsets: Float64Array.from(values) },
+    });
+    const original = table([0, 10, 20]);
+    const lastRowTaller = table([0, 10, 22]);
+    const shorter = table([0, 10]);
+    const empty = table([0]);
+    const missingEnd = table([0, 10], 2);
+
+    expect(viewportCenterRowBoundsChanged(original, lastRowTaller, 15)).toBe(true);
+    expect(viewportCenterRowBoundsChanged(original, lastRowTaller, 5)).toBe(false);
+    expect(viewportCenterRowBoundsChanged(original, shorter, 15)).toBe(false);
+    expect(viewportCenterRowBoundsChanged(original, shorter, 5)).toBe(false);
+    expect(viewportCenterRowBoundsChanged(empty, original, 5)).toBe(false);
+    expect(viewportCenterRowBoundsChanged(original, empty, 5)).toBe(false);
+    expect(viewportCenterRowBoundsChanged(missingEnd, original, 15)).toBe(false);
+    expect(viewportCenterRowBoundsChanged(original, missingEnd, 15)).toBe(false);
+  });
 
   it('layout has a non-zero inter-row gap (otherwise this test proves nothing)', () => {
     expect(summary.rowGapPx).toBeGreaterThan(0);
