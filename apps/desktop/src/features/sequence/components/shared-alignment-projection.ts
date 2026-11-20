@@ -1,9 +1,12 @@
 import type { CoordinateSpace } from '@waypoint/workspace-editor';
+import type { ChromatogramLaneOptions } from '../tracks/chromatogram-lane';
 import type { SharedAlignmentLane } from './shared-sequence-read-model';
 
 export interface AlignmentProjectionTrack {
   readonly id: string;
   readonly label: string;
+  readonly referenceOffset?: number;
+  readonly sanger?: ChromatogramLaneOptions;
   readonly alignedReference: string;
   readonly alignedQuery: string;
 }
@@ -25,25 +28,43 @@ export function buildSharedAlignmentProjection(
   const parsed = tracks.map((track) => {
     const alignedReference = track.alignedReference.toUpperCase();
     const alignedQuery = track.alignedQuery.toUpperCase();
+    const ungappedReference = alignedReference.replace(/-/g, '');
+    const doubled = normalizedReference + normalizedReference;
+    const offset =
+      track.referenceOffset ??
+      (ungappedReference === normalizedReference ? 0 : doubled.indexOf(ungappedReference));
     if (
+      !ungappedReference ||
       alignedReference.length !== alignedQuery.length ||
-      alignedReference.replace(/-/g, '') !== normalizedReference
-    ) {
+      offset < 0 ||
+      offset >= reference.length ||
+      ungappedReference.length > reference.length ||
+      doubled.slice(offset, offset + ungappedReference.length) !== ungappedReference ||
+      (track.referenceOffset === undefined &&
+        ungappedReference !== normalizedReference &&
+        doubled.indexOf(ungappedReference, offset + 1) >= 0 &&
+        doubled.indexOf(ungappedReference, offset + 1) < reference.length)
+    )
       return null;
-    }
     const insertions: string[][] = Array.from({ length: reference.length + 1 }, () => []);
-    const bases: string[] = [];
+    const bases: string[] = Array(reference.length).fill('-');
     const boundaryByColumn = new Int32Array(alignedReference.length);
     const insertionIndexByColumn = new Int32Array(alignedReference.length).fill(-1);
-    let boundary = 0;
+    let virtual = offset;
     for (let column = 0; column < alignedReference.length; column += 1) {
+      const boundary =
+        virtual === reference.length &&
+        offset + ungappedReference.length <= reference.length &&
+        alignedReference[column] === '-'
+          ? reference.length
+          : virtual % reference.length;
       boundaryByColumn[column] = boundary;
       if (alignedReference[column] === '-') {
         insertionIndexByColumn[column] = insertions[boundary].length;
         insertions[boundary].push(alignedQuery[column]);
       } else {
-        bases.push(alignedQuery[column]);
-        boundary += 1;
+        bases[boundary] = alignedQuery[column];
+        virtual += 1;
       }
     }
     return { track, insertions, bases, boundaryByColumn, insertionIndexByColumn };
@@ -73,6 +94,7 @@ export function buildSharedAlignmentProjection(
     return {
       id: `alignment-query-${row.track.id}`,
       kind: 'alignment',
+      sanger: row.track.sanger,
       label: row.track.label,
       alignedReference: sharedReference,
       alignedQuery: queryColumns.join(''),

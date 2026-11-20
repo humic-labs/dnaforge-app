@@ -1,3 +1,4 @@
+import { getTraceData } from '../../trace/public';
 import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import { supportsWheelMomentum } from '@waypoint/platform/wheel-motion';
 import { type UserMessage } from '@waypoint/user-messages';
@@ -2598,10 +2599,15 @@ function WorkspaceViewerInternal({
                   tracks={
                     sharedReadViewerActive ? (
                       <SharedSequenceReadViewer
+                        sangerGains={seqView.sangerGains}
+                        onSangerGainsChange={(sangerGains) => patchSeqView({ sangerGains })}
+                        viewProjection={sequenceViewProjection}
+                        rawPeakPositions={getTraceData(sourceSequence)?.peakPositions}
                         sequence={sequenceWithExtensionPreview}
                         plasmid={webglPlasmid}
                         coordinateSpace={coordinateSpace}
                         alignmentLanes={alignmentLanes}
+                        searchMatches={search.isOpen ? search.matches : undefined}
                         comparison={comparison}
                         selectedAnnotation={
                           comparison ? selectedAnnotation : selectedAnnotationForMinimap
@@ -2628,7 +2634,9 @@ function WorkspaceViewerInternal({
                           search.releaseActiveHighlight();
                           handleSequenceHighlightedRangeChange(range);
                         }}
-                        onViewportChange={handleViewportChange}
+                        onViewportChange={(range) =>
+                          handleViewportChange(range, 'scroll', 'biological')
+                        }
                         scrollToPosition={scrollToPosition}
                         columnNavigation={columnNavigation}
                         scrollCommandId={scrollCommandId}
@@ -2968,7 +2976,7 @@ function WorkspaceViewerInternal({
               {}
               <WorkspaceViewerFindOverlay
                 isOpen={search.isOpen}
-                isGapped={isGapped}
+                isGapped={isGapped && surface !== 'sequence'}
                 query={search.query}
                 mode={search.mode}
                 matchCount={search.matchCount}

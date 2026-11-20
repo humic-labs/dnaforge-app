@@ -98,7 +98,7 @@ describe('buildAlignedChromatogramOptions', () => {
     expect(result.coverageEnd).toBe(8);
   });
 
-  it('drops insertions in the read (gap in reference) and reports the count', () => {
+  it('retains inserted peaks at their reference boundary', () => {
     const trace = fakeTrace(5);
     const result = buildAlignedChromatogramOptions({
       referenceSequence: 'ACGT',
@@ -108,9 +108,10 @@ describe('buildAlignedChromatogramOptions', () => {
       alignedReference: 'AC-GT',
     });
 
-    expect(result.laneOptions.baseToColumn).toEqual([0, 1, 2, 3]);
-    expect(result.retainedPeaks).toEqual([0, 1, 3, 4]);
-    expect(result.droppedInsertions).toBe(1);
+    expect(result.laneOptions.baseToColumn).toEqual([0, 1, 2, 2, 3]);
+    expect(result.laneOptions.insertionPeaks).toEqual([{ peak: 2, boundary: 2, index: 0 }]);
+    expect(result.retainedPeaks).toEqual([0, 1, 2, 3, 4]);
+    expect(result.droppedInsertions).toBe(0);
   });
 
   it('finds the correct reference offset when the alignment is in the middle of a long ref', () => {
@@ -227,7 +228,7 @@ describe('buildAlignedChromatogramOptions', () => {
     expect(fwdResult.laneOptions.reverseComplemented).toBe(false);
   });
 
-  it('RC alignment with insertion drops produces correct peak sample positions', () => {
+  it('RC alignment with an insertion produces correct peak sample positions', () => {
     const totalSamples = 100;
     const ch = (): number[] => new Array(totalSamples).fill(0);
     const trace: TraceData = {
@@ -244,8 +245,8 @@ describe('buildAlignedChromatogramOptions', () => {
       alignedReference: 'AC-GT',
       reverseComplemented: true,
     });
-    expect(result.retainedPeaks).toEqual([0, 1, 3, 4]);
-    expect([...result.laneOptions.trace.peakPositions]).toEqual([9, 29, 69, 89]);
+    expect(result.retainedPeaks).toEqual([0, 1, 2, 3, 4]);
+    expect([...result.laneOptions.trace.peakPositions]).toEqual([9, 29, 49, 69, 89]);
   });
 
   it('extracts mutation columns where read disagrees with reference', () => {

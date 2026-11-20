@@ -15,22 +15,35 @@ import { debugWarn } from '../../../utils/debug-log';
 export function queryInReferenceCoordinates(
   alignedReference: string,
   alignedQuery: string,
-  reference: string
+  reference: string,
+  circularOffset?: number
 ): string {
+  const segment = degap(alignedReference).toUpperCase();
+  const offset = circularOffset ?? 0;
+  const length = reference.length;
   if (
+    !length ||
+    !segment ||
     alignedReference.length !== alignedQuery.length ||
-    degap(alignedReference).toUpperCase() !== reference.toUpperCase()
+    !Number.isSafeInteger(offset) ||
+    offset < 0 ||
+    offset >= length ||
+    segment.length > length ||
+    (circularOffset === undefined && segment.length !== length) ||
+    (reference + reference).slice(offset, offset + segment.length).toUpperCase() !== segment
   ) {
     throw new Error(
       'This alignment does not cover the reference in its original coordinate order. Protein consequences cannot be assigned safely.'
     );
   }
-  let projected = '';
+  const projected = Array<string>(length).fill('N');
+  let position = offset;
   for (let index = 0; index < alignedReference.length; index++) {
     if (alignedReference[index] === '-') continue;
-    projected += alignedQuery[index] === '-' ? 'N' : alignedQuery[index];
+    projected[position % length] = alignedQuery[index] === '-' ? 'N' : alignedQuery[index];
+    position++;
   }
-  return projected;
+  return projected.join('');
 }
 
 export function toMutationEffect(
@@ -55,7 +68,7 @@ export function toMutationEffect(
     };
   }
 
-  if (impact.in_annotation) {
+  if (impact.in_annotation && !impact.affects_cds) {
     return {
       featureName: impact.annotation_names[0] || '',
       featureType: 'annotation',
@@ -135,7 +148,9 @@ export function getTrackStatus(
 
 export function calculateCoverage(
   alignedRef: string,
-  alignedQuery: string
+  alignedQuery: string,
+  offset = 0,
+  referenceLength?: number
 ): { start: number; end: number } {
   let start = 0;
   let end = 0;
@@ -153,10 +168,16 @@ export function calculateCoverage(
     }
   }
 
-  return { start, end };
+  const canonical = (position: number) =>
+    referenceLength && position ? ((position - 1 + offset) % referenceLength) + 1 : position;
+  return { start: canonical(start), end: canonical(end) };
 }
 
-export function getAlignmentEvidence(alignedRef: string, alignedQuery: string) {
+export function getAlignmentEvidence(
+  alignedRef: string,
+  alignedQuery: string,
+  referenceLength?: number
+) {
   const first = alignedQuery.search(/[^-]/);
   const last = alignedQuery.replace(/-+$/, '').length - 1;
   let total = 0;
@@ -179,6 +200,9 @@ export function getAlignmentEvidence(alignedRef: string, alignedQuery: string) {
     )
       unresolved++;
   }
+  const missing = Math.max(0, (referenceLength ?? total) - total);
+  total += missing;
+  unresolved += missing;
   return {
     total,
     unresolved,
@@ -216,7 +240,12 @@ export function computeTrackMutations(track: VerificationTrack): MutationMarker[
 
   return track.mutations
     .map((mutation): MutationMarker | null => {
-      const startCol = refPosToColumnMap.get(mutation.position);
+      const { referenceLength, referenceOffset } = track.alignment;
+      const position =
+        referenceLength && referenceOffset
+          ? ((mutation.position - 1 - referenceOffset + referenceLength) % referenceLength) + 1
+          : mutation.position;
+      const startCol = refPosToColumnMap.get(position);
 
       if (startCol === undefined) {
         debugWarn(
@@ -235,7 +264,7 @@ export function computeTrackMutations(track: VerificationTrack): MutationMarker[
         };
       } else if (mutation.type === 'deletion') {
         const length = mutation.length || 1;
-        const endPos = mutation.position + length - 1;
+        const endPos = position + length - 1;
 
         let endCol: number;
         if (endPos > lastRefPos) {

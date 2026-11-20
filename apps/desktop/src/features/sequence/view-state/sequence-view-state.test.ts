@@ -25,6 +25,25 @@ import {
 } from './sequence-view-state';
 
 describe('SequenceViewState model', () => {
+  it('reopens each document with its own gains for direct and attached reads', () => {
+    const gains = { 'sanger-direct': 2, 'sanger-attached-read1': 8, 'sanger-attached-read2': 1 };
+    const patch = { sangerGains: gains };
+    expect(tabViewStateToModelPatch(modelPatchToTabViewState(patch))).toEqual(patch);
+    writeSequenceViewMemory('gain-first', patch);
+    writeSequenceViewMemory('gain-first', { zoom: 100 });
+    writeSequenceViewMemory('gain-second', { sangerGains: { 'sanger-direct': 4 } });
+    expect(
+      resolveSeededViewState({ memory: readSequenceViewMemory('gain-first') }).sangerGains
+    ).toEqual(gains);
+    expect(
+      resolveSeededViewState({ memory: readSequenceViewMemory('gain-second') }).sangerGains
+    ).toEqual({ 'sanger-direct': 4 });
+    expect(
+      normalizeSequenceViewStatePatch({
+        sangerGains: { 'sanger-direct': 9, 'sanger-attached-bad': NaN },
+      }).sangerGains
+    ).toEqual({});
+  });
   it('round trips a data-layer reference through the existing tab and per-document view memory', () => {
     const selection = { project: '/project', layerId: `layer-${'a'.repeat(64)}` };
     const patch = { dataLayerSelection: selection };

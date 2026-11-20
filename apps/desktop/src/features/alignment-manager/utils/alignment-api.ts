@@ -17,6 +17,7 @@ import {
 import type { Annotation, GeneticCodeSpec, SequenceDocument } from '@waypoint/sequence-utils';
 
 export interface AlignmentApiResponse {
+  circular_offset?: number;
   aligned_query: string;
   aligned_reference: string;
   identity: number;

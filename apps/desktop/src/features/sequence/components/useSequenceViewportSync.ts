@@ -521,7 +521,11 @@ export function useSequenceViewportSync({
   );
 
   const handleViewportChange = useCallback(
-    (range: ViewportRange, source: ViewportChangeSource = 'scroll') => {
+    (
+      range: ViewportRange,
+      source: ViewportChangeSource = 'scroll',
+      units: 'column' | 'biological' = 'column'
+    ) => {
       const previousRange = lastViewportRangeRef.current.range;
       lastViewportRangeRef.current.range = range;
       if (
@@ -536,7 +540,9 @@ export function useSequenceViewportSync({
       if (seqLen <= 0) return;
 
       const gappedSeq =
-        coordinateSpace?.mode === 'gapped' ? coordinateSpace?.gappedSequence : undefined;
+        units === 'column' && coordinateSpace?.mode === 'gapped'
+          ? coordinateSpace.gappedSequence
+          : undefined;
       const colToBio = (col: number): number =>
         gappedSeq ? gappedToBioClamped(col, gappedSeq) : col + 1;
       const centerBio =

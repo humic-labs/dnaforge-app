@@ -64,7 +64,6 @@ export function buildAlignedChromatogramOptions(input: AlignmentInput): Alignmen
   }
 
   let refIdx = 0;
-  let droppedInsertions = 0;
   const retainedPeaks: number[] = [];
   const baseToColumn: number[] = [];
   const mutationColumns: number[] = [];
@@ -80,57 +79,42 @@ export function buildAlignedChromatogramOptions(input: AlignmentInput): Alignmen
     }
   }
 
-  const findMatchingReadBase = (alignedChar: string, fromIdx: number): number => {
-    if (alignedChar === '-') return fromIdx;
-    const u = alignedChar.toUpperCase();
-    for (let i = fromIdx; i < readSequence.length; i++) {
-      const r = readSequence[i].toUpperCase();
-      if (r === u || r === 'N' || u === 'N') return i;
-    }
-    return -1;
-  };
-
-  let readCursor = 0;
+  const called = alignedQuery.replace(/-/g, '').toUpperCase();
+  const normalizedRead = readSequence.toUpperCase();
+  let readCursor = normalizedRead.indexOf(called);
+  if (!called || readCursor < 0 || normalizedRead.indexOf(called, readCursor + 1) >= 0) {
+    throw new Error('The aligned query does not uniquely match the called bases.');
+  }
+  const insertionPeaks: Array<{ peak: number; boundary: number; index: number }> = [];
+  let insertionIndex = 0;
   for (let alignIdx = 0; alignIdx < alignedQuery.length; alignIdx++) {
-    const qChar = alignedQuery[alignIdx];
-    const rChar = alignedReference[alignIdx];
-
-    if (qChar === '-' && rChar === '-') {
+    const qChar = alignedQuery[alignIdx].toUpperCase();
+    const rChar = alignedReference[alignIdx].toUpperCase();
+    const refColumn = refOffset + refIdx;
+    if (rChar === '-') {
+      if (qChar !== '-') {
+        insertionPeaks.push({
+          peak: retainedPeaks.length,
+          boundary: refColumn,
+          index: insertionIndex++,
+        });
+        retainedPeaks.push(readCursor++);
+        baseToColumn.push(refColumn);
+      }
       continue;
     }
+    insertionIndex = 0;
     if (qChar === '-') {
       if (coverageStart >= 0 && alignIdx < lastQueryNonGap) {
-        const refColumn = refOffset + refIdx;
         deletionColumns.push(refColumn);
         coverageEnd = refColumn + 1;
       }
-      refIdx++;
-      continue;
-    }
-    if (rChar === '-') {
-      const matchedReadIdx = findMatchingReadBase(qChar, readCursor);
-      if (matchedReadIdx >= 0) {
-        readCursor = matchedReadIdx + 1;
-      }
-      droppedInsertions++;
-      continue;
-    }
-
-    const matchedReadIdx = findMatchingReadBase(qChar, readCursor);
-    if (matchedReadIdx < 0) {
-      droppedInsertions++;
     } else {
-      const refColumn = refOffset + refIdx;
-      retainedPeaks.push(matchedReadIdx);
+      retainedPeaks.push(readCursor++);
       baseToColumn.push(refColumn);
       if (coverageStart < 0) coverageStart = refColumn;
       coverageEnd = refColumn + 1;
-      const qU = qChar.toUpperCase();
-      const rU = rChar.toUpperCase();
-      if (qU !== rU && qU !== 'N' && rU !== 'N') {
-        mutationColumns.push(refColumn);
-      }
-      readCursor = matchedReadIdx + 1;
+      if (qChar !== rChar && qChar !== 'N' && rChar !== 'N') mutationColumns.push(refColumn);
     }
     refIdx++;
   }
@@ -149,8 +133,15 @@ export function buildAlignedChromatogramOptions(input: AlignmentInput): Alignmen
   const laneOptions: ChromatogramLaneOptions = {
     trace: trimmedTrace,
     sequence: trimmedSequence,
+    sourcePeakPositions: retainedPeaks.map(
+      (i) => rawTrace.peakPositions[reverseComplemented ? readSequence.length - 1 - i : i]
+    ),
+    sourceBaseIndices: retainedPeaks.map((i) =>
+      reverseComplemented ? readSequence.length - 1 - i : i
+    ),
     quality: trimmedQuality,
     baseToColumn,
+    insertionPeaks,
     totalColumns: referenceSequence.length,
     mutationColumns,
     deletionColumns,
@@ -162,7 +153,7 @@ export function buildAlignedChromatogramOptions(input: AlignmentInput): Alignmen
     coverageStart: coverageStart < 0 ? 0 : coverageStart,
     coverageEnd,
     retainedPeaks,
-    droppedInsertions,
+    droppedInsertions: 0,
     mutationColumns,
     deletionColumns,
   };
