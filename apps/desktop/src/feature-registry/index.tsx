@@ -4,7 +4,6 @@ import { remoteHostsRendererFeature } from '../features/remote-hosts/public/feat
 import { releaseNotesRendererFeature } from '../features/release-notes/public/feature';
 import { pageReferencesRendererFeature } from '../features/page/public/feature';
 import { journeyTelemetryRendererFeature } from '../features/journey-telemetry/public/feature';
-import { terminalRendererFeature } from '../features/terminal/public/feature';
 import { aiRendererFeature } from '../features/ai/public/feature';
 import type { ScreenCategory } from '../lib/screen-telemetry';
 import type {
@@ -45,7 +44,6 @@ export const RENDERER_FEATURES: readonly RendererFeature[] = [
   pageReferencesRendererFeature,
   { id: 'original-project-recovery', Activation: OriginalProjectRecoveryDialog },
   journeyTelemetryRendererFeature,
-  terminalRendererFeature,
   aiRendererFeature,
 ];
 assertUniqueRendererFeatures(RENDERER_FEATURES);

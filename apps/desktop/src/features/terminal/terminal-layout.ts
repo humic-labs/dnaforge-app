@@ -15,29 +15,30 @@ export interface TerminalGroup {
   id: string;
   sessions: string[];
   viewId?: string;
-  placement?: 'panel' | 'editor';
   direction?: 'horizontal' | 'vertical';
   sizes?: Record<string, number>;
 }
 
-export type TerminalPresentation = 'tabs' | 'sessions' | 'panel';
-export const TERMINAL_WORKSPACE_TAB_ID = 'terminal-workspace';
+export interface SavedTerminalGroup extends TerminalGroup {
+  placement?: 'panel' | 'editor';
+}
 
 export function terminalGroupViewId(group: TerminalGroup): string {
   return group.viewId || group.id;
 }
 
 export function migrateTerminalGroupViews(
-  groups: TerminalGroup[],
-  previous: TerminalPresentation | 'workspace' = 'tabs',
-  floatingWindow = false
+  groups: SavedTerminalGroup[],
+  previous?: string,
+  floatingViewId?: string
 ): TerminalGroup[] {
-  return groups.map((group) => ({
+  return groups.map(({ placement, ...group }) => ({
     ...group,
-    viewId: group.viewId || (previous === 'sessions' ? TERMINAL_WORKSPACE_TAB_ID : group.id),
-    placement: floatingWindow
-      ? 'panel'
-      : (group.placement ?? (previous === 'panel' ? 'panel' : 'editor')),
+    viewId:
+      floatingViewId ??
+      (placement === 'panel'
+        ? group.id
+        : group.viewId || (previous === 'sessions' ? 'terminal-workspace' : group.id)),
   }));
 }
 
@@ -46,9 +47,7 @@ export function moveTerminalGroupToView(
   sessionId: string,
   viewId: string
 ): TerminalGroup[] {
-  return groups.map((group) =>
-    group.sessions.includes(sessionId) ? { ...group, viewId, placement: 'editor' } : group
-  );
+  return groups.map((group) => (group.sessions.includes(sessionId) ? { ...group, viewId } : group));
 }
 
 export function moveIndividualTerminalToView(
@@ -163,8 +162,7 @@ export function unsplitTerminalPane(
     {
       id: groupId,
       sessions: [id],
-      placement: source.placement ?? 'panel',
-      ...(source.viewId ? { viewId: source.viewId } : {}),
+      viewId: terminalGroupViewId(source),
       ...(source.direction ? { direction: source.direction } : {}),
     },
   ];
