@@ -7,7 +7,7 @@ import test from 'node:test';
 import {
   fetchQueuedHead,
   queueContributionCommits,
-  readDevelopmentQueue,
+  readContributionQueue,
 } from './check-queue-cla.mjs';
 import { unsignedCommits } from './check-cla-sign-off.mjs';
 
@@ -99,7 +99,9 @@ test('a queued contribution keeps its original PR base when the target advances'
   const entry = f.entry(squash, advancedBase, prHead);
   entry.pullRequest.baseRefOid = f.base;
   assert.deepEqual(
-    queueContributionCommits(advancedBase, squash, { cwd: f.cwd, entries: [entry] }).map(({ sha }) => sha),
+    queueContributionCommits(advancedBase, squash, { cwd: f.cwd, entries: [entry] }).map(
+      ({ sha }) => sha
+    ),
     [prHead]
   );
 });
@@ -306,7 +308,7 @@ function response(nodes, hasNextPage = false, endCursor = null) {
 
 test('development discovery reads all authenticated queue pages for the exact event repository', async () => {
   const calls = [];
-  const entries = await readDevelopmentQueue(
+  const entries = await readContributionQueue(
     event,
     event.merge_group.base_sha,
     event.merge_group.head_sha,
@@ -321,12 +323,42 @@ test('development discovery reads all authenticated queue pages for the exact ev
   assert.deepEqual(
     calls.map(({ variables }) => variables),
     [
-      { owner: 'example', name: 'project', after: null },
-      { owner: 'example', name: 'project', after: 'next' },
+      { owner: 'example', name: 'project', branch: 'dev', after: null },
+      { owner: 'example', name: 'project', branch: 'dev', after: 'next' },
     ]
   );
   assert.match(calls[0].query, /baseCommit\{oid\} headCommit\{oid\}/u);
   assert.match(calls[0].query, /pullRequest\{number state headRefOid baseRefOid baseRefName\}/u);
+});
+
+test('main queue entries bind the original pull request to main', async (t) => {
+  const f = fixture(t);
+  f.git('switch', '-c', 'feature');
+  const topic = f.commit('signed');
+  const squash = f.squash(f.base, topic);
+  const entry = f.entry(squash, f.base, topic);
+  entry.pullRequest.baseRefName = 'main';
+  const group = {
+    ...event,
+    merge_group: { base_ref: 'refs/heads/main', base_sha: f.base, head_sha: squash },
+  };
+  const entries = await readContributionQueue(
+    group,
+    f.base,
+    squash,
+    async ({ query, variables }) => {
+      assert.equal(variables.branch, 'main');
+      assert.match(query, /mergeQueue\(branch:\$branch\)/u);
+      return response([entry]);
+    }
+  );
+  const options = { cwd: f.cwd, entries, branch: 'main' };
+  assert.deepEqual(
+    queueContributionCommits(f.base, squash, options).map((c) => c.sha),
+    [topic]
+  );
+  entry.pullRequest.baseRefName = 'dev';
+  assert.throws(() => queueContributionCommits(f.base, squash, options), /does not target main/u);
 });
 
 test('development discovery fails closed on API errors, wrong repositories and incomplete pagination', async (t) => {
@@ -349,7 +381,7 @@ test('development discovery fails closed on API errors, wrong repositories and i
   ]) {
     await t.test(name, () =>
       assert.rejects(
-        readDevelopmentQueue(
+        readContributionQueue(
           event,
           event.merge_group.base_sha,
           event.merge_group.head_sha,
@@ -372,7 +404,7 @@ test('development discovery fails closed on API errors, wrong repositories and i
     const changed = structuredClone(event);
     change(changed);
     await assert.rejects(
-      readDevelopmentQueue(changed, event.merge_group.base_sha, event.merge_group.head_sha, () =>
+      readContributionQueue(changed, event.merge_group.base_sha, event.merge_group.head_sha, () =>
         assert.fail('Must reject before network')
       )
     );
