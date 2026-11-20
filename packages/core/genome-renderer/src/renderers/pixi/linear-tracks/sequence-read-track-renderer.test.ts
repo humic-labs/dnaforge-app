@@ -30,10 +30,13 @@ const read: Extract<SequenceReadTrackData, { kind: 'sanger' }> = {
   mixedCalls: new Map([[0, 'M']]),
 };
 
-function draw(data: typeof read, scale: number) {
+function draw(data: typeof read, scale: number, offset = 0) {
   const renderer = new ReadRenderer();
   const container = renderer.mount({ theme, chromosome });
+  const marks = container.children[1] as Graphics;
+  const markRect = vi.spyOn(marks, 'rect');
   const curves = container.children[2] as Graphics;
+  const moveTo = vi.spyOn(curves, 'moveTo');
   const lineTo = vi.spyOn(curves, 'lineTo');
   const rect = vi.spyOn(curves, 'rect');
   renderer.paint({
@@ -41,22 +44,39 @@ function draw(data: typeof read, scale: number) {
     chromosome,
     theme,
     data,
-    pathMapper: { pixelsPerBp: scale, bpLeftX: (column: number) => column * scale },
+    pathMapper: { pixelsPerBp: scale, bpLeftX: (column: number) => column * scale + offset },
     viewportWidthPx: scale * chromosome.length,
     layoutEntry: { height: 138 },
     viewportBpRange: { start: 0, end: chromosome.length },
   } as TrackPaintArgs<SequenceReadTrackData>);
-  return { lineTo, rect, diagnostics: renderer.getDiagnostics(container) };
+  return { moveTo, lineTo, rect, markRect, diagnostics: renderer.getDiagnostics(container) };
 }
 
 it('amplifies weak peaks and clips the strongest peaks inside their own band', () => {
   const normal = draw(read, 8);
   const amplified = draw({ ...read, gain: 8 }, 8);
-  expect(normal.lineTo.mock.calls).toContainEqual([4, 122.8]);
-  expect(amplified.lineTo.mock.calls).toContainEqual([4, expect.closeTo(72.4, 6)]);
-  expect(amplified.lineTo.mock.calls).toContainEqual([12, 58]);
+  expect(normal.lineTo.mock.calls).toContainEqual([4, expect.closeTo(88.7, 6)]);
+  expect(amplified.lineTo.mock.calls).toContainEqual([4, expect.closeTo(30.6, 6)]);
+  expect(amplified.lineTo.mock.calls).toContainEqual([12, 14]);
   expect(amplified.diagnostics).toMatchObject({ qualityBars: 2, baseGlyphs: 2, mixedCalls: 1 });
   expect(read.trace.channels.A).toEqual([10, 100]);
+});
+
+it('keeps quality below the waveform and samples tied to the read during fractional pans', () => {
+  const panned = draw({ ...read, quality: [20, 40] }, 8, 0.375);
+  expect(panned.markRect.mock.calls).toContainEqual([0.375, 109, 8, 11]);
+  expect(panned.markRect.mock.calls).toContainEqual([8.375, 98, 8, 22]);
+  const original = draw(read, 8);
+  expect(panned.lineTo.mock.calls).toEqual(
+    original.lineTo.mock.calls.map(([x, y]) => [x + 0.375, y])
+  );
+  expect(panned.lineTo.mock.calls).toContainEqual([5.375, expect.closeTo(79.3625, 6)]);
+});
+
+it('starts a separate curve after a deletion instead of drawing through its column', () => {
+  const gap = draw({ ...read, baseToColumn: [0, 2], deletionColumns: [1] }, 8);
+  expect(gap.moveTo.mock.calls.filter(([x]) => x === 16)).toHaveLength(4);
+  expect(gap.lineTo.mock.calls.some(([x]) => x > 8 && x < 16)).toBe(false);
 });
 
 it('draws both covered portions of a circular overview and leaves the intervening span empty', () => {

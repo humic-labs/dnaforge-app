@@ -758,6 +758,19 @@ export function SharedSequenceReadViewer({
     return () => observer.disconnect();
   }, []);
 
+  const nativeQueryRow = Boolean(sequencePresentation?.alignedQuery);
+  useLayoutEffect(() => {
+    const renderer = mapRef.current?.getLinearRenderer();
+    if (!scene || !renderer) return;
+    renderer.setTrackHitHandler((hit) => {
+      if (hit.kind !== 'select-bp-range') return;
+      mapRef.current?.setSelection(hit.startBp, hit.endBp - 1);
+      const lane = scene.lanes.find((candidate) => candidate.id === hit.trackId);
+      commitColumns({ start: hit.startBp, end: hit.endBp - 1 }, lane);
+    });
+    return () => renderer.setTrackHitHandler(null);
+  }, [scene, rendererEpoch, genomeEpoch, commitColumns]);
+
   useLayoutEffect(() => {
     if (!scene) return;
     const map = mapRef.current;
@@ -774,15 +787,7 @@ export function SharedSequenceReadViewer({
     } catch (error) {
       if (!String(error).includes('already registered')) throw error;
     }
-    renderer.setTrackHitHandler((hit) => {
-      if (hit.kind !== 'select-bp-range') return;
-      mapRef.current?.setSelection(hit.startBp, hit.endBp - 1);
-      const lane = scene.lanes.find((candidate) => candidate.id === hit.trackId);
-      commitColumns({ start: hit.startBp, end: hit.endBp - 1 }, lane);
-    });
-    const lanes = scene.lanes.filter(
-      (lane) => !(lane.kind === 'alignment' && sequencePresentation?.alignedQuery)
-    );
+    const lanes = scene.lanes.filter((lane) => !(lane.kind === 'alignment' && nativeQueryRow));
     const instances: Track[] = lanes.map((lane, order) => ({
       id: lane.id,
       type: SEQUENCE_READ_TRACK_TYPE,
@@ -796,28 +801,23 @@ export function SharedSequenceReadViewer({
     renderer.setTrackInstances(instances);
     for (const lane of lanes) renderer.setTrackData(lane.id, lane);
     map.requestRender();
-  }, [scene, sequence.id, rendererEpoch, genomeEpoch, commitColumns, sequencePresentation]);
+  }, [scene, sequence.id, rendererEpoch, genomeEpoch, nativeQueryRow]);
 
   useLayoutEffect(() => {
     const map = mapRef.current;
     const renderer = map?.getLinearRenderer();
     if (!renderer || !map) return;
+    let changed = false;
     for (const lane of sangerLanes) {
       const gain = sangerGains?.[sangerGainKey(lane.id)] ?? 1;
-      renderer.updateTrackData<typeof lane & { gain?: number }>(lane.id, (current) =>
-        (current.gain ?? 1) === gain ? current : { ...current, gain }
+      const updated = renderer.updateTrackData<typeof lane & { gain?: number }>(
+        lane.id,
+        (current) => ((current.gain ?? 1) === gain ? current : { ...current, gain })
       );
+      changed ||= updated;
     }
-    if (sangerLanes.length) map.requestRender();
-  }, [
-    sangerLanes,
-    sangerGains,
-    sequence.id,
-    rendererEpoch,
-    genomeEpoch,
-    commitColumns,
-    sequencePresentation,
-  ]);
+    if (changed) map.requestRender();
+  }, [sangerLanes, sangerGains, sequence.id, rendererEpoch, genomeEpoch, nativeQueryRow, scene]);
 
   useLayoutEffect(() => {
     if (!scene || genomeEpoch === 0 || size.width <= 1 || size.height <= 1) return;
@@ -1243,6 +1243,7 @@ export function SharedSequenceReadViewer({
             <IndexedGenomeTileNativeMap
               ref={mapRef}
               genome={rendererGenome}
+              hasQuantitativeTracks={sangerLanes.length > 0}
               annotationChangeDecorations={annotationChangeDecorations}
               sequencePresentation={sequencePresentation}
               showResidueNumbers={showResidueNumbers}
