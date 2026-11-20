@@ -262,6 +262,8 @@ jobs:
         run: uv run --frozen pytest -q
   run-from-source:
     name: Run the app from source on macOS
+    env:
+      DNAFORGE_TEMPORARY_HELPER_BUILD: '1'
     runs-on: macos-latest
     timeout-minutes: 40
     steps:

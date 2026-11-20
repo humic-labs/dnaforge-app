@@ -15,7 +15,7 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 const HELPERS_DIR = path.resolve(__dirname, '..', 'resources', 'helpers');
 const DEFAULT_CARGO_TARGET_DIR = path.resolve(REPO_ROOT, '.cache', 'desktop-cargo-target');
 
-function main() {
+function buildHelpers(cargoTargetDir) {
   const platform = os.platform();
   const arch = os.arch();
   const suffix = helperPlatformSuffix(platform, arch);
@@ -41,9 +41,6 @@ function main() {
   for (const helper of helpers) {
     const extension = platform === 'win32' ? '.exe' : '';
     const dest = path.join(HELPERS_DIR, helperExecutableName(helper, platform, arch));
-    const cargoTargetDir = process.env.CARGO_TARGET_DIR
-      ? path.resolve(REPO_ROOT, process.env.CARGO_TARGET_DIR)
-      : DEFAULT_CARGO_TARGET_DIR;
 
     console.log(`Building ${helper} for ${suffix}...`);
     const buildTarget = helper === 'dna-coverage' ? suffix : null;
@@ -115,6 +112,20 @@ function installHelperAtomically(source, destination, platform, mode = 0o755) {
     fs.renameSync(temporary, destination);
   } finally {
     fs.rmSync(temporary, { force: true });
+  }
+}
+
+function main() {
+  if (process.env.DNAFORGE_TEMPORARY_HELPER_BUILD !== '1') {
+    const target = path.resolve(REPO_ROOT, process.env.CARGO_TARGET_DIR || DEFAULT_CARGO_TARGET_DIR);
+    return buildHelpers(target);
+  }
+
+  const target = fs.mkdtempSync(path.join(os.tmpdir(), 'dnaforge-helper-build-'));
+  try {
+    buildHelpers(target);
+  } finally {
+    fs.rmSync(target, { recursive: true, force: true });
   }
 }
 
