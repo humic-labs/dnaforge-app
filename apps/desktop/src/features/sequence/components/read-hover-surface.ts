@@ -287,6 +287,8 @@ export function createReadHoverSurface({
   const textureLimit = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
   Object.assign(canvas.style, { position: 'absolute', pointerEvents: 'none', borderRadius: '0' });
   let disposed = false;
+  let lastSource: HTMLCanvasElement | undefined;
+  let opaqueSource = false;
   let allocatedWidth = 0;
   let allocatedHeight = 0;
   function hide(): false {
@@ -329,12 +331,23 @@ export function createReadHoverSurface({
         allocatedWidth = width;
         allocatedHeight = height;
       }
-      if (source.width === crop.presentedWidth && source.height === crop.presentedHeight) {
-        scratch.drawImage(source, left, top, width, height, 0, 0, width, height);
-      } else {
-        scratch.drawImage(source, -left, -top, crop.presentedWidth, crop.presentedHeight);
+      if (source !== lastSource) {
+        opaqueSource = source.getContext('webgl2')?.getContextAttributes()?.alpha === false;
+        lastSource = source;
       }
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, input);
+      const nativeSize =
+        source.width === crop.presentedWidth && source.height === crop.presentedHeight;
+      if (opaqueSource && nativeSize) {
+        gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, left);
+        gl.pixelStorei(gl.UNPACK_SKIP_ROWS, top);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, source);
+        gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
+        gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+      } else {
+        if (nativeSize) scratch.drawImage(source, left, top, width, height, 0, 0, width, height);
+        else scratch.drawImage(source, -left, -top, crop.presentedWidth, crop.presentedHeight);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, input);
+      }
       gl.uniform4f(shape, crop.x, crop.y, crop.w, crop.h);
       gl.uniform2f(clipSize, crop.clipW, crop.clipH);
       gl.uniform1f(radius, Math.min(cornerRadius * scale, crop.w / 2, crop.h / 2));
