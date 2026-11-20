@@ -19,7 +19,12 @@ import type {
   BackboneSegment as MapBackboneSegment,
 } from '../map-types';
 import { convertPlasmid, cssColorToHex, primerRenderId } from './plasmid-to-genome';
-import { useHiddenMapIdlePolicy, usePixiMap, type HoverFeatureInfo } from './use-pixi-map';
+import {
+  useHiddenMapIdlePolicy,
+  usePixiMap,
+  type HoverFeatureInfo,
+  type UsePixiMapOptions,
+} from './use-pixi-map';
 import {
   resolveWebGLPerformanceMode,
   type WebGLPerformanceMode,
@@ -65,7 +70,7 @@ export interface WebGLMapProps {
 
   geometryHeight?: number;
   centerStadiumOverview?: boolean;
-  reserveCanvasSpace?: boolean;
+  reserveCanvasSpace?: UsePixiMapOptions['reserveCanvasSpace'];
   surfaceVisible?: boolean;
   width?: number;
   circular?: boolean;

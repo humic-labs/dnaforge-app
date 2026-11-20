@@ -1,7 +1,9 @@
 import type { CSSProperties } from 'react';
 import type { SequenceMapPlacement } from '../view-state/sequence-view-state';
 
-const BORDER = '1px solid hsl(var(--color-border))';
+import { MAP_PANE_BORDER_WIDTH } from './side-map-pane-width';
+
+const BORDER = `${MAP_PANE_BORDER_WIDTH}px solid hsl(var(--color-border))`;
 const MAP_BG = 'hsl(var(--color-bg-subtle))';
 
 export function workspaceViewerLayoutFlags(args: {

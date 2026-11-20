@@ -51,6 +51,18 @@ describe('resizePixiCanvas — backing buffer reallocation', () => {
     expect(css).toHaveBeenLastCalledWith('object-view-box', 'inset(0 6px 0px 0)');
   });
 
+  it('presents a side map in the existing document buffer on the first split', () => {
+    const app = makeApp(896, 768);
+    Object.defineProperty(app.canvas.style, 'objectViewBox', { value: '' });
+    const result = resizePixiCanvas(app, 418, 686, 'side-by-side', undefined, {
+      width: 842,
+      height: 686,
+    });
+    expect(result).toEqual({ width: 418, height: 686, backingChanged: false });
+    expect(app.renderer.resize).not.toHaveBeenCalled();
+    expect(app.canvas.style.width).toBe('418px');
+  });
+
   it('reallocates and reports backingChanged when the backing size differs', () => {
     const app = makeApp(800, 600);
     const result = resizePixiCanvas(app, 1024, 768, 'test');

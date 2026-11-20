@@ -81,6 +81,7 @@ import {
   clampSideMapPaneWidth,
   defaultSideMapPaneWidth,
   usableSideSplitWidth,
+  MAP_PANE_BORDER_WIDTH,
 } from './side-map-pane-width';
 import { clampWebglMapZoom, resolveWebglMapZoomBounds } from './SequenceMapPaneControls';
 import { RestrictionEnzymeDrawerPanel } from './RestrictionEnzymeDrawerPanel';
@@ -824,7 +825,11 @@ function WorkspaceViewerInternal({
   const setMapPlacement = useCallback(
     (next: SequenceMapPlacement) => {
       if (next !== mapPlacement) circularBufferHeightFreezeRef.current = 0;
-      patchSeqView({ mapPlacement: next, mapLayout: mapLayoutForPlacement(next) });
+      patchSeqView({
+        rendererVisibility: 'both',
+        mapPlacement: next,
+        mapLayout: mapLayoutForPlacement(next),
+      });
     },
     [mapPlacement, patchSeqView]
   );
@@ -2174,7 +2179,10 @@ function WorkspaceViewerInternal({
     morphToCircle: mapRenderMorphToCircle,
     minHeight: MIN_MINIMAP_PANE,
   });
-  const sideSplitWidth = usableSideSplitWidth(surfaceLayoutWidth, showSideResizeHandle);
+  const sideSplitWidth = usableSideSplitWidth(
+    surfaceLayoutWidth,
+    showSideResizeHandle || mapOnlyVisible
+  );
   const sideMapPaneWidth = clampSideMapPaneWidth(
     workspaceViewerRequestedSideMapPaneWidth(
       sideMapPaneWidthDraft,
@@ -2183,6 +2191,13 @@ function WorkspaceViewerInternal({
     ),
     sideSplitWidth
   );
+  const mapCanvasCapacity = useMemo(
+    () => ({ width: surfaceLayoutWidth ?? 0, height: surfaceLayoutHeight }),
+    [surfaceLayoutWidth, surfaceLayoutHeight]
+  );
+  const mapContentWidth = horizontalSequenceMapLayout
+    ? Math.max(0, sideMapPaneWidth - MAP_PANE_BORDER_WIDTH)
+    : (surfaceLayoutWidth ?? minimapWidth);
   const handleMapPaneResizeStart = useCallback(
     (event: React.MouseEvent<HTMLDivElement>, axis: SequenceMapPaneResizeAxis) => {
       event.preventDefault();
@@ -2445,9 +2460,10 @@ function WorkspaceViewerInternal({
     }
     return reservedSequenceViewport.current;
   }, [surfaceLayoutWidth, surfaceLayoutHeight]);
-  const initialSequenceContainerWidth = horizontalSequenceMapLayout
-    ? Math.max(0, (sideSplitWidth ?? 0) - sideMapPaneWidth)
-    : (surfaceLayoutWidth ?? 0);
+  const initialSequenceContainerWidth =
+    horizontalSequenceMapLayout || mapOnlyVisible
+      ? Math.max(0, (sideSplitWidth ?? 0) - sideMapPaneWidth)
+      : (surfaceLayoutWidth ?? 0);
   const minimapContainerStyle = workspaceViewerMinimapContainerStyle({
     mapPaneVisible,
     mapOnlyVisible,
@@ -2681,7 +2697,7 @@ function WorkspaceViewerInternal({
                       viewportHeightHint={
                         sequenceSurfaceVisible
                           ? sequenceViewportHeightHint
-                          : Math.max(0, surfaceLayoutHeight - minimapHeight - 4)
+                          : Math.round(surfaceLayoutHeight)
                       }
                       freezeViewportHeight={mapPaneResizePreviewActive}
                       editable={workspaceViewerSequenceEditable(readOnly, editingActive)}
@@ -2876,11 +2892,13 @@ function WorkspaceViewerInternal({
                     missingAnnotationColor={genomicMarkup.missingColor}
                     ref={setMinimapHandle}
                     plasmid={webglPlasmid}
-                    width={minimapWidth}
+                    width={mapContentWidth}
                     height={webglMapGeometry.renderHeight}
                     geometryHeight={webglMapGeometry.geometryHeight}
                     surfaceVisible={actualWebGLMapVisible}
-                    reserveCanvasSpace={surface === 'sequence' && mapTopologyCircular}
+                    reserveCanvasSpace={
+                      surface === 'sequence' && mapTopologyCircular && mapCanvasCapacity
+                    }
                     centerStadiumOverview={surface !== 'assembly' && mapTopologyCircular}
                     circular={mapTopologyCircular}
                     morphToCircle={workspaceViewerMapMorphToCircle(

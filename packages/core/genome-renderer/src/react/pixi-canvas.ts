@@ -1,4 +1,5 @@
 import { Container, type Application } from 'pixi.js';
+import type { UsePixiMapOptions } from './types';
 import { perfTime as ptime, recordWebGLTrace } from '@waypoint/genome-renderer';
 
 function liveResolution(): number {
@@ -25,7 +26,7 @@ export function resizePixiCanvas(
   height: number,
   reason: string,
   cssSize?: { width: number; height: number },
-  reserveSpace = false
+  reserveSpace: UsePixiMapOptions['reserveCanvasSpace'] = false
 ): { width: number; height: number; backingChanged: boolean } {
   const targetWidth = Math.max(1, Math.round(width));
   const targetHeight = Math.max(1, Math.round(height));
@@ -38,8 +39,13 @@ export function resizePixiCanvas(
   const currentScreenHeight = Math.round(app.renderer.height);
   const canvas = app.canvas as HTMLCanvasElement;
   const crop = reserveSpace && 'objectViewBox' in canvas.style;
-  const widthCapacity = crop ? backingExtent(targetWidth, currentScreenWidth) : targetWidth;
-  const heightCapacity = crop ? backingExtent(targetHeight, currentScreenHeight) : targetHeight;
+  const reserved = typeof reserveSpace === 'object' ? reserveSpace : undefined;
+  const widthCapacity = crop
+    ? backingExtent(Math.max(targetWidth, reserved?.width ?? 0), currentScreenWidth)
+    : targetWidth;
+  const heightCapacity = crop
+    ? backingExtent(Math.max(targetHeight, reserved?.height ?? 0), currentScreenHeight)
+    : targetHeight;
   const resolutionChanged = Math.abs(currentResolution - targetResolution) > 0.001;
   const backingChanged =
     currentScreenWidth !== widthCapacity ||

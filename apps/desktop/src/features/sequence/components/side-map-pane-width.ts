@@ -1,3 +1,4 @@
+export const MAP_PANE_BORDER_WIDTH = 1;
 export const DEFAULT_SIDE_MAP_PANE_WIDTH = 520;
 export const MIN_SIDE_MAP_PANE_WIDTH = 280;
 export const MIN_SIDE_SEQUENCE_PANE_WIDTH = 320;

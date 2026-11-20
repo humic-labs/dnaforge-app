@@ -331,7 +331,7 @@ function WorkspaceEditorInner(
     Math.max(0, (initialContainerWidth ?? 0) - (showMinimap ? SEQUENCE_SCROLLBAR_WIDTH : 0));
   const [viewport, setViewport] = useState({ scrollTop: 0, height: 0 });
   const viewportHeightHintValue =
-    surfaceVisible || viewport.height === 0 ? Math.max(0, viewportHeightHint ?? 0) : 0;
+    surfaceVisible || measuredContainerWidth === 0 ? Math.max(0, viewportHeightHint ?? 0) : 0;
   const frozenScrollAnchorRef = useRef<{
     scrollTop: number;
     topBp: number | null;

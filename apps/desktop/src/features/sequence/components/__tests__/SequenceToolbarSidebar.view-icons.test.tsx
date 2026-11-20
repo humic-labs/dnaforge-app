@@ -60,11 +60,11 @@ describe('SequenceToolbarSidebar — split placement is two axis toggles', () =>
     }
   });
 
-  it('a split button entered from a non-split view turns split on', () => {
+  it('enters the split with a single placement action', () => {
     const { onMapPlacementChange, onRendererVisibilityChange } = renderSplit('top', 'sequence');
     fireEvent.click(screen.getByTestId('sequence-map-placement-horizontal'));
     expect(onMapPlacementChange).toHaveBeenCalledWith('right');
-    expect(onRendererVisibilityChange).toHaveBeenCalledWith('both');
+    expect(onRendererVisibilityChange).not.toHaveBeenCalled();
   });
 
   it.each([

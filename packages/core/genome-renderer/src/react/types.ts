@@ -143,7 +143,7 @@ export interface UsePixiMapOptions {
   height: number;
   geometryHeight?: number;
   centerStadiumOverview?: boolean;
-  reserveCanvasSpace?: boolean;
+  reserveCanvasSpace?: boolean | { width: number; height: number };
   surfaceVisible?: boolean;
   morph?: number;
   selectionStart?: number | null;
