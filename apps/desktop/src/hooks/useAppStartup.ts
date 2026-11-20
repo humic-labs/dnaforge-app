@@ -243,7 +243,16 @@ export function useAppStartup({
         }
 
         await failClosedAnalyticsForSession();
-        if (!bannerSeen && decision.needsDisclosure && (await hasTelemetryDestination())) {
+        const defaultGrantNeedsDisclosure =
+          bannerSeen &&
+          decision.needsDisclosure &&
+          (await getSetting('analytics_consent')) === 'true' &&
+          (await getSetting('analytics_consent_basis')) === 'default';
+        if (
+          (!bannerSeen || defaultGrantNeedsDisclosure) &&
+          decision.needsDisclosure &&
+          (await hasTelemetryDestination())
+        ) {
           useToastStore.getState().addRichToast({
             definition: 'data-privacy-opt-in',
             message: toUserMessage(DESKTOP_ANALYTICS_OPT_IN_MESSAGE),
