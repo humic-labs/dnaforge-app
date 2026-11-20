@@ -19,6 +19,10 @@ function tab(overrides: Partial<Tab> = {}): Tab {
 }
 
 describe('artifact document lifecycle', () => {
+  it('does not offer to reopen an ended terminal session', () => {
+    expect(shouldRememberClosedTab(tab({ type: 'terminal' }))).toBe(false);
+  });
+
   it('saves a published design by its owning tab rather than treating its ID as a path', () => {
     expect(saveTargetForTab(tab({ type: 'design', entityId: 'design-1' }))).toEqual({
       kind: 'tab',

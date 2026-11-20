@@ -521,6 +521,7 @@ function App({
     toggleSidebar,
     commitSidebarWidth,
     handleOpenSettings,
+    revealWorkspace,
   } = useSidebar({ toolboxBadge });
   const activeViewRef = useRef(activeView);
   const activeViewGenerationRef = useRef(0);
@@ -677,7 +678,6 @@ function App({
     settingsViewActive,
     homeViewActive,
     referencesViewActive,
-    terminalViewActive,
     featureViewActive,
     emptyFilesHomeActive,
     homeWorkbenchActive,
@@ -686,7 +686,7 @@ function App({
   } = useWorkspaceMainMode(activeView, sidebarVisible);
 
   const workspaceExplorerInsetRef = useRef(sidebarVisible ? sidebarWidth + 2 : 0);
-  if (!workspaceTakeoverActive && !terminalViewActive) {
+  if (!workspaceTakeoverActive) {
     workspaceExplorerInsetRef.current = sidebarVisible ? sidebarWidth + 2 : 0;
   }
 
@@ -737,6 +737,11 @@ function App({
       projectHomePath,
       renameFolder,
     });
+
+  const revealTerminalTab = useCallback(() => {
+    if (workspaceTakeoverActive || workspaceOccludedByLimsOverlay) revealWorkspace();
+    setProjectHomePath(null);
+  }, [workspaceTakeoverActive, workspaceOccludedByLimsOverlay, revealWorkspace]);
 
   const [devFixturesMounted] = useDevFixturesMounted();
   const openInFocusedPanel = useCanvasStore((s) => s.openInFocusedPanel);
@@ -1829,9 +1834,9 @@ function App({
           onViewChange={handleActivityViewChange}
           onToggleSidebar={toggleSidebar}
           onOpenReferenceGenome={openReferenceLibrary}
-          onOpenTerminal={
+          onNewTerminalTab={
             isDesktopRuntime()
-              ? () => dispatchCommand(COMMAND_IDS.terminalToggle, { source: 'ui' })
+              ? () => dispatchCommand(COMMAND_IDS.terminalNew, { source: 'ui' })
               : undefined
           }
           toolboxBadge={toolboxBadge}
@@ -1894,8 +1899,7 @@ function App({
           files={fileBrowserContent}
         />
 
-        {terminalViewActive ? rendererFeatureSidebarView('terminal') : null}
-        <div className="dnaforge-terminal-parent flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden">
           <RendererFeatureActivations openView={handleViewChange} />
           <WorkspaceMain
             occluded={workspaceOccludedByLimsOverlay || Boolean(projectHomeProject)}
@@ -1945,9 +1949,7 @@ function App({
           {isDesktopRuntime() ? (
             <TerminalDock
               defaultCwd={workspacePath ?? undefined}
-              workspaceActive={terminalViewActive}
-              onOpenWorkspace={() => handleViewChange('terminal')}
-              onCloseWorkspace={() => handleViewChange('files')}
+              onRevealWorkspace={revealTerminalTab}
             />
           ) : null}
         </div>

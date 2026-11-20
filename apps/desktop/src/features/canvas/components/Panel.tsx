@@ -5,7 +5,7 @@ import { userMessage } from '@waypoint/user-messages';
 import { findUnsettledEntityDetailsSession } from '../../entity-details/public/editing-sessions';
 import { requestManagedSequenceMetadata } from '../../sequence/public/managed-sequence-metadata';
 import React, { useCallback, useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { terminalTabDropTarget } from '../../terminal/public/tab-transfer';
+import { closeTerminalTab } from '../../terminal/public/open-terminal';
 import { TabBar } from './TabBar';
 import { TabPortalTarget } from './TabPortalTarget';
 import { EmptyPanel } from './EmptyPanel';
@@ -184,7 +184,8 @@ function PanelBody({ panel, isFocused }: PanelProps) {
     []
   );
 
-  const advanceCloseQueue = useCallback(() => {
+  const closingTerminal = useRef(false);
+  const advanceCloseQueue = useCallback(async () => {
     saveRequestedRef.current = null;
     setWaitingForSave(false);
     setPendingCloseTab(null);
@@ -231,6 +232,26 @@ function PanelBody({ panel, isFocused }: PanelProps) {
         bulkCloseOriginalTabRef.current = null;
         return;
       }
+      if (tab.type === 'terminal') {
+        closingTerminal.current = true;
+        const stillOwned = () =>
+          useCanvasStore
+            .getState()
+            .panels[
+              panel.id
+            ]?.tabs.some((candidate) => candidate.id === tabId && candidate.entityId === tab.entityId) ===
+          true;
+        try {
+          if (!(await closeTerminalTab(tab.entityId, stillOwned))) {
+            closeQueue.current = [];
+            observeCanvasClose(pendingCloseOperationRef.current, 'cancelled');
+            pendingCloseOperationRef.current = null;
+            return;
+          }
+        } finally {
+          closingTerminal.current = false;
+        }
+      }
       if (isTabDirty(tab)) {
         setActiveTab(panel.id, tab.id);
         setPendingCloseTab(tab);
@@ -248,7 +269,7 @@ function PanelBody({ panel, isFocused }: PanelProps) {
 
   const beginCloseRequest = useCallback(
     (tabIds: readonly string[]) => {
-      if (pendingCloseTab) return;
+      if (pendingCloseTab || closingTerminal.current) return;
       closeQueue.current = [...new Set(tabIds)];
       bulkCloseOriginalTabRef.current =
         closeQueue.current.length > 1
@@ -544,7 +565,6 @@ function PanelBody({ panel, isFocused }: PanelProps) {
         className="flex-1 overflow-hidden min-h-0 relative"
         data-panel-content={panel.id}
         data-tab-count={panel.tabs.length}
-        {...(panel.tabs.length === 0 ? terminalTabDropTarget(panel.id) : {})}
       >
         {activeTab ? <TabPortalTarget tab={activeTab} /> : <EmptyPanel />}
       </div>

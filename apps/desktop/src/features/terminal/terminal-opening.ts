@@ -50,3 +50,20 @@ export async function openTerminalView(request: TerminalOpenRequest): Promise<Te
     );
   return opener(request);
 }
+
+type TabCloser = (viewId: string, stillOwned: () => boolean) => Promise<boolean>;
+let tabCloser: TabCloser | undefined;
+
+export function registerTerminalTabCloser(handler: TabCloser): () => void {
+  tabCloser = handler;
+  return () => {
+    if (tabCloser === handler) tabCloser = undefined;
+  };
+}
+
+export async function closeTerminalTab(
+  viewId: string,
+  stillOwned: () => boolean
+): Promise<boolean> {
+  return tabCloser ? tabCloser(viewId, stillOwned) : false;
+}

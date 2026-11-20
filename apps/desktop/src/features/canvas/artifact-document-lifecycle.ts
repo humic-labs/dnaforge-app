@@ -17,7 +17,7 @@ export function isEphemeralArtifactDraft(tab: Tab): boolean {
 }
 
 export function shouldRememberClosedTab(tab: Tab): boolean {
-  return !isEphemeralArtifactDraft(tab) && !tab.openingTrackViewPath;
+  return tab.type !== 'terminal' && !isEphemeralArtifactDraft(tab) && !tab.openingTrackViewPath;
 }
 
 export function saveTargetForTab(tab: Tab): SaveDocumentTarget {

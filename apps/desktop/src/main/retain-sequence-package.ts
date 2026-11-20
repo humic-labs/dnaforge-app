@@ -1,14 +1,14 @@
 import type Database from 'better-sqlite3';
 import { createHash } from 'node:crypto';
 import { lstatSync, type Stats } from 'node:fs';
-import { lstat, readFile } from 'node:fs/promises';
+import { lstat, readFile, realpath } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import {
   parseSequencePackageDocument,
   sequencePackageMetaPaths,
   sequencePrimerArtifactLookupPaths,
 } from '../db/sequence-package';
-import { captureSavedFileMembers, type SavedFileSourceMember } from './saved-file-sources';
+import { stageSavedFileMembers, type SavedFileSourceMember } from './saved-file-sources';
 import { savedFileWorkspace } from './saved-file-publication';
 import { assertPhysicalPackageMember } from './workspace-git/package-member-boundary';
 
@@ -41,12 +41,12 @@ async function existingPrimerExportPaths(root: string, declared: string): Promis
   return members;
 }
 
-export async function retainSequencePackage(
+async function prepareSequenceRetention(
   db: Database.Database,
   input: { workspaceRoot: string; packageRoot: string },
   expectedPackageId?: string,
   assertCurrent?: () => void
-): Promise<string> {
+): Promise<() => string> {
   const { workspaceRoot, packageRoot } = input;
   assertCurrent?.();
   if (resolve(workspaceRoot) === resolve(packageRoot))
@@ -91,33 +91,65 @@ export async function retainSequencePackage(
   assertCurrent?.();
   const workspace = savedFileWorkspace(db, workspaceRoot);
   if (!workspace) throw new Error('The sequence package has no owning project.');
-  await captureSavedFileMembers(
-    db,
-    {
-      workspaceId: workspace.id,
-      entityId: document.id,
-      path: packageRoot,
-      members,
-    },
-    () => {
-      assertCurrent?.();
-      for (const { path, stat } of identities) {
-        const now = lstatSync(path);
-        if (
-          !now.isFile() ||
-          stat.dev !== now.dev ||
-          stat.ino !== now.ino ||
-          stat.size !== now.size ||
-          stat.mtimeMs !== now.mtimeMs ||
-          stat.ctimeMs !== now.ctimeMs
-        )
-          throw new Error(
-            'A sequence package member changed while saving its recoverable version.'
-          );
-      }
+  const publish = await stageSavedFileMembers(db, {
+    workspaceId: workspace.id,
+    entityId: document.id,
+    path: packageRoot,
+    members,
+  });
+  return () => {
+    assertCurrent?.();
+    for (const { path, stat } of identities) {
+      const now = lstatSync(path);
+      if (
+        !now.isFile() ||
+        stat.dev !== now.dev ||
+        stat.ino !== now.ino ||
+        stat.size !== now.size ||
+        stat.mtimeMs !== now.mtimeMs ||
+        stat.ctimeMs !== now.ctimeMs
+      )
+        throw new Error('A sequence package member changed while saving its recoverable version.');
     }
-  );
-  return document.id;
+    const currentWorkspace = savedFileWorkspace(db, workspaceRoot);
+    if (currentWorkspace?.id !== workspace.id)
+      throw new Error('The sequence package workspace ownership changed during retention.');
+    publish();
+    return document.id;
+  };
+}
+
+export async function retainSequencePackage(
+  db: Database.Database,
+  input: { workspaceRoot: string; packageRoot: string },
+  expectedPackageId?: string,
+  assertCurrent?: () => void
+): Promise<string> {
+  const publish = await prepareSequenceRetention(db, input, expectedPackageId, assertCurrent);
+  return publish();
+}
+
+const RETENTION_BATCH_SIZE = 4;
+
+export async function retainSequencePackagesInOrder(
+  db: Database.Database,
+  input: { workspaceRoot: string; packageRoots: readonly string[] }
+): Promise<void> {
+  const roots = [...new Set(input.packageRoots)];
+  for (let offset = 0; offset < roots.length; offset += RETENTION_BATCH_SIZE) {
+    const prepared = await Promise.allSettled(
+      roots.slice(offset, offset + RETENTION_BATCH_SIZE).map(async (packageRoot) =>
+        prepareSequenceRetention(db, {
+          workspaceRoot: input.workspaceRoot,
+          packageRoot: await realpath(packageRoot),
+        })
+      )
+    );
+    for (const result of prepared) {
+      if (result.status === 'rejected') throw result.reason;
+      result.value();
+    }
+  }
 }
 
 export async function withRetainedSequencePackage<T>(

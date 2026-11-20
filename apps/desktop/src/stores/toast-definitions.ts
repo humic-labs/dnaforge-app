@@ -116,6 +116,12 @@ export const TOAST_DEFINITIONS = {
     type: 'error',
     message: userMessage('document.openFailed'),
   }),
+  'terminal-action-failed': defineToast({
+    category: 'Terminal',
+    source: 'features/terminal/TerminalDock.tsx',
+    type: 'error',
+    message: userMessage('operation.failed'),
+  }),
   'terminal-shell-exited': defineToast({
     category: 'Terminal',
     source: 'features/terminal/TerminalDock.tsx',
