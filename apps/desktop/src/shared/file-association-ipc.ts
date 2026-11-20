@@ -1,9 +1,9 @@
-import type { FileAssociationFamilyId } from './file-associations';
+import type { FileAssociationFamilyId, HandlerFamilyId } from './file-associations';
 
 export interface FileActivationDelivery {
   readonly deliveryId: string;
   readonly path: string;
-  readonly familyId: FileAssociationFamilyId;
+  readonly familyId: HandlerFamilyId;
 }
 
 export type FileAssociationHandlerState =
@@ -16,16 +16,20 @@ export type FileAssociationHandlerState =
 export type FileAssociationDefaultAction = 'native' | 'system-settings' | 'instructions' | 'none';
 
 export interface FileAssociationHandlerStatus {
-  readonly familyId: FileAssociationFamilyId;
+  readonly familyId: HandlerFamilyId;
   readonly state: FileAssociationHandlerState;
   readonly handlerName: string | null;
   readonly handlerPath: string | null;
+  readonly mixedHandlers?: readonly {
+    readonly extension: string;
+    readonly handlerName: string | null;
+  }[];
   readonly defaultAction: FileAssociationDefaultAction;
   readonly detail: string | null;
 }
 
 export interface FileAssociationDefaultRequestResult {
-  readonly familyId: FileAssociationFamilyId;
+  readonly familyId: HandlerFamilyId;
   readonly outcome: 'requested' | 'opened-settings' | 'instructions' | 'unavailable';
   readonly detail: string | null;
 }
@@ -77,4 +81,32 @@ export interface PromoteQuickLookPackageResult {
     readonly destPath: string;
     readonly relPath: string;
   }[];
+}
+
+export interface ExternalPreviewReceipt {
+  readonly version: 1;
+  readonly packageId: string;
+  readonly familyId: HandlerFamilyId;
+  readonly sourcePath: string;
+  readonly sourceFileName: string;
+  readonly contentHash: string;
+  readonly sequence?: QuickLookPackageReceipt;
+  readonly acquisitionId?: string;
+}
+
+export interface ProjectPreviewPackage {
+  readonly packageId: string;
+  readonly packageInstanceId: string;
+  readonly familyId: Exclude<HandlerFamilyId, FileAssociationFamilyId>;
+  readonly sourceFileName: string;
+  readonly contentHash: string;
+  readonly entryPath: string;
+  readonly productPaths: readonly string[];
+  readonly presentation: import('./source-document-package').SourceDocumentPresentation;
+  readonly bytes: Uint8Array;
+}
+
+export interface PreviewTabSnapshot {
+  readonly ownerId: string;
+  readonly receipts: readonly (ExternalPreviewReceipt | QuickLookPackageReceipt)[];
 }

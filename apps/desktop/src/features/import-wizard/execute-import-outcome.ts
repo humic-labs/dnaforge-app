@@ -10,6 +10,10 @@ export interface ImportExecDeps {
     targetRoot: string;
   }) => Promise<{ workspaceRoot: string; receipt: ImportReviewReceipt }>;
   importFile: (request: ImportFileRequest) => Promise<ImportFileResult>;
+  importCapturedFileAsNewWorkspace?: (
+    sourcePath: string,
+    name: string
+  ) => Promise<{ workspaceRoot: string; file: ImportFileResult }>;
   importFolder: (request: { targetRoot: string; sourcePath: string }) => Promise<ImportFileResult>;
   importManaged: (request: { sourcePath: string }) => Promise<{ repoPath: string }>;
   importFileAsNewWorkspace: (request: { sourcePath: string }) => Promise<{ repoPath: string }>;
@@ -72,8 +76,18 @@ export async function executeImportOutcome(
   const anyNewWorkspace = originalOutcome.items.some(
     (i) => resolveItemTarget(i.target, resolvedBatch).kind === 'new-workspace'
   );
+  const publishFirstPackage =
+    deps.importCapturedFileAsNewWorkspace &&
+    !originalOutcome.importIntent &&
+    originalOutcome.items.every(
+      (item) =>
+        item.packageInputPath &&
+        resolveItemTarget(item.target, resolvedBatch).kind === 'new-workspace'
+    )
+      ? deps.importCapturedFileAsNewWorkspace
+      : undefined;
   let outcome = originalOutcome;
-  if (anyNewWorkspace) {
+  if (anyNewWorkspace && !publishFirstPackage) {
     const name = deriveNewWorkspaceName(originalOutcome);
     const { rootPath } = await deps.createEmptyWorkspace({ name });
     result.workspaceRoot = rootPath;
@@ -92,7 +106,7 @@ export async function executeImportOutcome(
           : i
       ),
     };
-  } else {
+  } else if (!publishFirstPackage) {
     result.workspaceRoot =
       resolvedBatch.kind === 'existing-root' ? resolvedBatch.rootPath : undefined;
   }
@@ -112,6 +126,13 @@ export async function executeImportOutcome(
     }
     return registryRootPromise;
   };
+
+  function recordFile(sourcePath: string, file: ImportFileResult) {
+    if (file.skipped) return recordSkip('duplicates');
+    const paths = file.packageProductPaths?.length ? file.packageProductPaths : [file.destPath];
+    result.imported += paths.length;
+    result.written.push(...paths.map((destPath) => ({ sourcePath, destPath })));
+  }
 
   const touched = new Set<string>();
   for (const action of planImportWrites(outcome)) {
@@ -161,16 +182,7 @@ export async function executeImportOutcome(
           sourcePath: action.sourcePath,
           dedup: action.dedup,
         });
-        if (r.skipped) {
-          recordSkip('duplicates');
-        } else {
-          result.imported += r.packageProductPaths?.length || 1;
-          for (const destPath of r.packageProductPaths?.length
-            ? r.packageProductPaths
-            : [r.destPath]) {
-            result.written.push({ sourcePath: action.sourcePath, destPath });
-          }
-        }
+        recordFile(action.sourcePath, r);
       } else if (action.kind === 'import-folder') {
         const r = await deps.importFolder({
           targetRoot: action.targetRoot,
@@ -186,6 +198,22 @@ export async function executeImportOutcome(
         const r = await deps.importManaged({ sourcePath: action.sourcePath });
         result.imported += 1;
         result.written.push({ sourcePath: action.sourcePath, destPath: r.repoPath });
+      } else if (action.kind === 'new-workspace-then-file' && publishFirstPackage) {
+        const path = action.sourcePath;
+        if (result.workspaceRoot) {
+          recordFile(
+            path,
+            await deps.importFile({ sourcePath: path, targetRoot: result.workspaceRoot })
+          );
+        } else {
+          const name = deriveNewWorkspaceName(originalOutcome);
+          const { workspaceRoot, file } = await publishFirstPackage(path, name);
+          result.workspaceRoot = workspaceRoot;
+          result.createdNewWorkspace = true;
+          result.createdWorkspaceName = name;
+          touched.add(workspaceRoot);
+          recordFile(path, file);
+        }
       } else if (action.kind === 'new-workspace-then-file') {
         const r = await deps.importFileAsNewWorkspace({ sourcePath: action.sourcePath });
         result.imported += 1;

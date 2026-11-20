@@ -3,6 +3,10 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+vi.mock('../molecular-catalog/inventory-worker', async () => ({
+  inventoryCoordinatesInWorker: (await import('../molecular-catalog/coordinate-inventory'))
+    .parseCoordinateInventory,
+}));
 vi.mock('electron', () => ({
   dialog: { showErrorBox: vi.fn() },
   app: { getPath: vi.fn(), getVersion: vi.fn(() => '1.0.0') },
@@ -54,19 +58,22 @@ describe('coordinate files become molecular view packages ', () => {
     expect(isDefaultMolecularScene(snapshot.scene)).toBe(true);
   });
 
-  it('keeps an existing view and picks the next free name', async () => {
-    writeFileSync(join(tmp, '1ABC.dnaforge-molecular.json'), 'existing view');
-    const source = join(tmp, '1ABC.cif');
-    writeFileSync(source, 'data_1ABC\n_atom_site.id 1\n');
-    const result = await materializeCoordinatePackage(source, {
-      removeSource: (path) => unlink(path),
-    });
-    expect(result).toEqual({
-      converted: true,
-      productPath: join(tmp, '1ABC 2.dnaforge-molecular.json'),
-    });
-    expect(readFileSync(join(tmp, '1ABC.dnaforge-molecular.json'), 'utf8')).toBe('existing view');
-  });
+  it.each(['cif', 'mmcif', 'mcif'])(
+    'keeps an existing view and picks the next free name for .%s',
+    async (extension) => {
+      writeFileSync(join(tmp, '1ABC.dnaforge-molecular.json'), 'existing view');
+      const source = join(tmp, `1ABC.${extension}`);
+      writeFileSync(source, 'data_1ABC\n_atom_site.id 1\n');
+      const result = await materializeCoordinatePackage(source, {
+        removeSource: (path) => unlink(path),
+      });
+      expect(result).toEqual({
+        converted: true,
+        productPath: join(tmp, '1ABC 2.dnaforge-molecular.json'),
+      });
+      expect(readFileSync(join(tmp, '1ABC.dnaforge-molecular.json'), 'utf8')).toBe('existing view');
+    }
+  );
 
   it('leaves non-coordinate files alone', async () => {
     const path = join(tmp, 'notes.txt');
@@ -152,8 +159,9 @@ describe('importing a coordinate file into a project ', () => {
       { targetRoot: repoPath, sourcePath: incoming },
       { db, managedRootDir: managedRoot }
     );
-    expect(result.relPath).toBe('1FS0.dnaforge-molecular.json');
-    expect(result.destPath).toBe(join(repoPath, '1FS0.dnaforge-molecular.json'));
+    expect(result.relPath).toBe(join('1FS0', '1FS0.dnaforge-molecular.json'));
+    expect(result.destPath).toBe(join(repoPath, result.relPath));
+    expect(readFileSync(join(repoPath, '1FS0', 'original', '1FS0.pdb'), 'utf8')).toBe(PDB);
     expect(existsSync(join(repoPath, '1FS0.pdb'))).toBe(false);
     expect(existsSync(incoming)).toBe(true);
     expect(

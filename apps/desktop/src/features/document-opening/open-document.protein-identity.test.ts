@@ -1,4 +1,11 @@
-import { mkdirSync, realpathSync, writeFileSync, readFileSync, statSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  realpathSync,
+  writeFileSync,
+  readFileSync,
+  statSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,6 +22,7 @@ import {
   classifyFastaInMain,
 } from '../../main/fasta-kind-authority';
 import { bindCatalogEntityFileInDb } from '../../main/catalog-file-binding';
+import { preservedFastaMarkerPath } from '../../shared/preserved-fasta';
 import { openDocument, resolveFileDocumentKindFromSource } from './open-document';
 import { getTabTypeForFile } from '../../utils/fileTypes';
 import { resolveExactNativeCatalogDestination } from '../../services/native-catalog-destination';
@@ -33,6 +41,8 @@ const state = vi.hoisted(() => ({
 vi.mock('../../platform', () => ({
   platform: () => ({
     fs: {
+      exists: async (path: string) => existsSync(path),
+      readFileBounded: async (path: string) => readFileSync(path),
       stat: async (path: string) => {
         const source = statSync(path);
         return { isFile: source.isFile(), isDirectory: source.isDirectory() };
@@ -110,6 +120,24 @@ beforeEach(() => {
 afterEach(() => fixture.cleanup());
 
 describe('checked native protein file opening', () => {
+  it.each(['mixed.faa', 'mixed.ffn'])(
+    'reopens imported %s as a whole file without classifying its duplicate records',
+    async (name) => {
+      const source = join(root, name);
+      writeFileSync(source, '>duplicate short\nACTG\n>duplicate protein\nPTIDEP\n');
+      writeFileSync(await preservedFastaMarkerPath(source), 'a'.repeat(64) + '\n');
+      const open = await openSelectedDocument(source, 'sequence');
+      expect(open).toMatchObject({ status: 'presented', tabType: 'file' });
+      expect(useCanvasStore.getState().panels.main.tabs).toEqual([
+        expect.objectContaining({
+          readOnly: true,
+          sourceFileView: { path: source, format: 'fasta', location: 'project' },
+        }),
+      ]);
+      expect(state.sequence).not.toHaveBeenCalled();
+    }
+  );
+
   it('uses the exact native protein identity before an ambiguous FASTA extension', async () => {
     const result = await openDocument({
       target: { kind: 'file', path, tabType: 'sequence' },

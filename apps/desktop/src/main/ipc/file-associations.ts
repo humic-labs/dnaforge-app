@@ -1,3 +1,5 @@
+import type { WebContents } from 'electron';
+import type { ExternalPreviewLifecycle } from '../file-associations/external-preview-lifecycle';
 import { handleGroup } from '../../shared/ipc-contract';
 import type {
   FileActivationDelivery,
@@ -7,12 +9,15 @@ import type {
   PromoteQuickLookPackageResult,
   QuickLookPackageReceipt,
 } from '../../shared/file-association-ipc';
-import type { FileAssociationFamilyId } from '../../shared/file-associations';
+import { handlerFamily, type FileAssociationFamilyId } from '../../shared/file-associations';
 import type { DefaultHandlerService } from '../file-associations/default-handler-service';
 import { assertSafePath } from './path-allowlist';
+import { readFileBoundedFromHandle } from './bounded-file-read';
+import { resolvePreviewSource } from '../selected-preview-files';
 import { fileAssociationsContract } from '../../shared/ipc/file-associations.contract';
 
 export interface RegisterFileAssociationHandlersDeps {
+  readonly lifecycle: ExternalPreviewLifecycle;
   readonly takePendingAndMarkReady: () => FileActivationDelivery[];
   readonly defaultHandler: DefaultHandlerService;
   readonly materializeQuickLookPackage: (
@@ -151,22 +156,73 @@ function parsePromoteQuickLookRequest(value: unknown): PromoteQuickLookPackageRe
 }
 
 export function registerFileAssociationHandlers(deps: RegisterFileAssociationHandlersDeps): void {
+  const watched = new WeakSet<WebContents>();
+  const owner = (sender: WebContents): number => {
+    if (!watched.has(sender)) {
+      watched.add(sender);
+      const id = sender.id;
+      const detach = () => {
+        void deps.lifecycle.detach(id).catch((error) => console.warn('[Preview ownership]', error));
+      };
+      sender.on('did-navigate', detach);
+      sender.on('render-process-gone', detach);
+      sender.once('destroyed', detach);
+    }
+    return sender.id;
+  };
   handleGroup(fileAssociationsContract, {
+    openPreview: async (e, request) => {
+      const sender = owner(e.sender);
+      const family = handlerFamily(request.familyId).id;
+      return deps.lifecycle.open(
+        sender,
+        await resolvePreviewSource(request.sourcePath, assertSafePath),
+        family
+      );
+    },
+    adoptPreview: (e, { receipt }) => deps.lifecycle.adopt(owner(e.sender), receipt),
+    releasePreview: (e, { receipt }) => deps.lifecycle.release(owner(e.sender), receipt),
+    syncPreviewTabs: (e, snapshot) => deps.lifecycle.sync(owner(e.sender), snapshot),
+    savePreview: (_e, request) => deps.lifecycle.save(request.receipt, request.destination),
+    readPreviewPackage: (_e, { receipt }) => deps.lifecycle.read(receipt),
+    resolvePreviewImportSource: (_e, { receipt }) => deps.lifecycle.original(receipt),
+    describeProjectPreviewPackage: async (_e, request) => {
+      const { bytes: _original, ...descriptor } = await deps.lifecycle.project(
+        request.workspaceRoot,
+        request.path
+      );
+      return descriptor;
+    },
+    readProjectPreviewPackage: (_e, request) =>
+      deps.lifecycle.project(request.workspaceRoot, request.path),
+    readPreviewPresentation: (_e, { receipt }) => deps.lifecycle.presentation(receipt),
+    readProjectPreviewPresentation: (_e, request) =>
+      deps.lifecycle.projectPresentation(request.workspaceRoot, request.path, request),
+
+    readPreviewBytes: async (_event, path, maxBytes) =>
+      readFileBoundedFromHandle(await resolvePreviewSource(path, assertSafePath), maxBytes),
     takePendingActivations: () => deps.takePendingAndMarkReady(),
-    materializeQuickLookPackage: async (_event, request: unknown) => {
+    materializeQuickLookPackage: async (event, request: unknown) => {
       const parsed = parseMaterializeQuickLookRequest(request);
-      const sourcePath = await assertSafePath(parsed.sourcePath, {
-        requireAbsolute: true,
-        errorPrefix: 'Quick Look source',
-      });
-      return deps.materializeQuickLookPackage({ ...parsed, sourcePath });
+      const sourcePath = await resolvePreviewSource(parsed.sourcePath, (path) =>
+        assertSafePath(path, { requireAbsolute: true, errorPrefix: 'Quick Look source' })
+      );
+      const acquired = await deps.lifecycle.open(
+        owner(event.sender),
+        sourcePath,
+        parsed.familyId,
+        true
+      );
+      return acquired.sequence!;
     },
     prepareQuickLookPackage: (_event, request: unknown) =>
       deps.prepareQuickLookPackage(parsePrepareQuickLookRequest(request)),
-    promoteQuickLookPackage: (_event, request: unknown) =>
-      deps.promoteQuickLookPackage(parsePromoteQuickLookRequest(request)),
+    promoteQuickLookPackage: (_event, request: unknown) => {
+      const { receipt, destination } = parsePromoteQuickLookRequest(request);
+      return deps.lifecycle.save(receipt, destination);
+    },
     queryHandlers: () => deps.defaultHandler.queryAll(),
     requestDefault: (_event, familyId: unknown) =>
-      deps.defaultHandler.requestDefault(parseFamilyId(familyId)),
+      deps.defaultHandler.requestDefault(handlerFamily(familyId).id),
   });
 }

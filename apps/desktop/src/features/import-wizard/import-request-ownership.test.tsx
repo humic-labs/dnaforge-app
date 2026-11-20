@@ -8,7 +8,7 @@ import type { ImportWizardState } from '../workspace-loader/public/import-wizard
 const ports = vi.hoisted(() => ({ build: vi.fn(), open: vi.fn() }));
 vi.mock('./build-import-wizard-state', () => ({ buildImportWizardState: ports.build }));
 vi.mock('./run-import-flow', () => ({ runImportFlow: vi.fn() }));
-vi.mock('../../lib/open-quick-look-source', () => ({ openQuickLookSource: vi.fn() }));
+vi.mock('../../lib/open-external-preview', () => ({ openExternalFiles: vi.fn() }));
 vi.mock('../../utils/environment', async (original) => ({
   ...(await original<typeof import('../../utils/environment')>()),
   isBrowserOnly: () => false,

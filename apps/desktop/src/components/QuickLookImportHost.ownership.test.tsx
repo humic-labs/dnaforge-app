@@ -10,7 +10,7 @@ import { useQuickLookImportStore } from '../stores/quick-look-import-store';
 const mocks = vi.hoisted(() => ({
   createEmptyWorkspace: vi.fn(),
   findByMemberPath: vi.fn(),
-  promoteQuickLookPackage: vi.fn(),
+  savePreview: vi.fn(),
   readDir: vi.fn(),
 }));
 
@@ -18,7 +18,15 @@ vi.mock('../platform', () => ({
   platform: () => ({
     fs: { readDir: mocks.readDir },
     fileAssociations: {
-      promoteQuickLookPackage: mocks.promoteQuickLookPackage,
+      savePreview: mocks.savePreview,
+      adoptPreview: async ({ receipt }: { receipt: QuickLookPackageReceipt }) => ({
+        ...receipt,
+        packageId: 'preview',
+        version: 1,
+        sequence: receipt,
+      }),
+      syncPreviewTabs: vi.fn(),
+      releasePreview: vi.fn(),
     },
     workspace: {
       createEmptyWorkspace: mocks.createEmptyWorkspace,
@@ -96,7 +104,7 @@ describe('QuickLookImportHost', () => {
   beforeEach(() => {
     mocks.createEmptyWorkspace.mockReset();
     mocks.findByMemberPath.mockReset();
-    mocks.promoteQuickLookPackage.mockReset();
+    mocks.savePreview.mockReset();
     mocks.readDir.mockReset();
     mocks.readDir.mockResolvedValue([]);
     onDestinationCommit.mockReset();
@@ -106,7 +114,7 @@ describe('QuickLookImportHost', () => {
       displayName: 'pUC19',
       createdAt: 1,
     });
-    mocks.promoteQuickLookPackage.mockResolvedValue({
+    mocks.savePreview.mockResolvedValue({
       destPath: durableProductPath,
       relPath: 'pUC19/pUC19.gb',
       committed: true,
@@ -148,9 +156,9 @@ describe('QuickLookImportHost', () => {
   });
 
   it('late promotion completion cannot dismiss a replacement import request', async () => {
-    let resolve!: (value: Awaited<ReturnType<typeof mocks.promoteQuickLookPackage>>) => void;
-    const result = await mocks.promoteQuickLookPackage();
-    mocks.promoteQuickLookPackage.mockImplementationOnce(
+    let resolve!: (value: Awaited<ReturnType<typeof mocks.savePreview>>) => void;
+    const result = await mocks.savePreview();
+    mocks.savePreview.mockImplementationOnce(
       () =>
         new Promise((done) => {
           resolve = done;
@@ -160,6 +168,7 @@ describe('QuickLookImportHost', () => {
     render(<QuickLookImportHost onDestinationCommit={onDestinationCommit} />);
     fireEvent.click(screen.getByText('Research'));
     fireEvent.click(screen.getByTestId('quick-look-import-confirm'));
+    await waitFor(() => expect(resolve).toBeTypeOf('function'));
     const replacement = {
       ...receipt,
       sourcePath: '/different.gb',
@@ -173,9 +182,9 @@ describe('QuickLookImportHost', () => {
   });
 
   it('retired promotion cannot overwrite the replacement request recovery state', async () => {
-    let resolve!: (value: Awaited<ReturnType<typeof mocks.promoteQuickLookPackage>>) => void;
-    const result = await mocks.promoteQuickLookPackage();
-    mocks.promoteQuickLookPackage.mockImplementationOnce(
+    let resolve!: (value: Awaited<ReturnType<typeof mocks.savePreview>>) => void;
+    const result = await mocks.savePreview();
+    mocks.savePreview.mockImplementationOnce(
       () =>
         new Promise((done) => {
           resolve = done;
@@ -185,6 +194,7 @@ describe('QuickLookImportHost', () => {
     render(<QuickLookImportHost onDestinationCommit={onDestinationCommit} />);
     fireEvent.click(screen.getByText('Research'));
     fireEvent.click(screen.getByTestId('quick-look-import-confirm'));
+    await waitFor(() => expect(resolve).toBeTypeOf('function'));
     const replacement = {
       ...receipt,
       sourcePath: '/different.gb',
@@ -201,9 +211,9 @@ describe('QuickLookImportHost', () => {
     });
   });
   it('a saved import remains retryable when its dialog unmounts during native promotion', async () => {
-    let resolve!: (value: Awaited<ReturnType<typeof mocks.promoteQuickLookPackage>>) => void;
-    const result = await mocks.promoteQuickLookPackage();
-    mocks.promoteQuickLookPackage.mockImplementationOnce(
+    let resolve!: (value: Awaited<ReturnType<typeof mocks.savePreview>>) => void;
+    const result = await mocks.savePreview();
+    mocks.savePreview.mockImplementationOnce(
       () =>
         new Promise((done) => {
           resolve = done;
@@ -213,6 +223,7 @@ describe('QuickLookImportHost', () => {
     const first = render(<QuickLookImportHost onDestinationCommit={onDestinationCommit} />);
     fireEvent.click(screen.getByText('Research'));
     fireEvent.click(screen.getByTestId('quick-look-import-confirm'));
+    await waitFor(() => expect(resolve).toBeTypeOf('function'));
     first.unmount();
     await act(async () => resolve(result));
     render(<QuickLookImportHost onDestinationCommit={onDestinationCommit} />);

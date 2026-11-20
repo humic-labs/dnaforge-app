@@ -16,6 +16,9 @@ vi.mock('./path-allowlist', () => ({ assertSafePath }));
 
 function deps(): RegisterFileAssociationHandlersDeps {
   return {
+    lifecycle: {
+      open: vi.fn(async () => ({ sequence: {} })),
+    } as unknown as RegisterFileAssociationHandlersDeps['lifecycle'],
     takePendingAndMarkReady: vi.fn(() => []),
     defaultHandler: {
       queryAll: vi.fn(async () => []),
@@ -38,6 +41,23 @@ async function materializeHandler(): Promise<(...args: unknown[]) => unknown> {
   if (!handler) throw new Error('Quick Look materialization handler was not registered.');
   return handler;
 }
+
+describe('fileAssociations:requestDefault', () => {
+  it.each(['genbank', 'snapgene', 'fasta', 'structure', 'chromatogram'])(
+    'forwards a request for %s to the native handler service',
+    async (familyId) => {
+      const dependencies = deps();
+      const { registerFileAssociationHandlers } = await import('./file-associations');
+      registerFileAssociationHandlers(dependencies);
+      const handler = ipcHandlers.get('fileAssociations:requestDefault');
+      if (!handler) throw new Error('Default request handler was not registered.');
+
+      await handler({}, familyId);
+
+      expect(dependencies.defaultHandler.requestDefault).toHaveBeenCalledWith(familyId);
+    }
+  );
+});
 
 describe('fileAssociations:materializeQuickLookPackage', () => {
   beforeEach(() => {
@@ -70,12 +90,17 @@ describe('fileAssociations:materializeQuickLookPackage', () => {
     const handler = ipcHandlers.get('fileAssociations:materializeQuickLookPackage');
     if (!handler) throw new Error('Quick Look materialization handler was not registered.');
 
-    await handler({}, { sourcePath: '/allowed/alias.gb', familyId: 'genbank' });
+    await handler(
+      { sender: { id: 7, on: vi.fn(), once: vi.fn() } },
+      { sourcePath: '/allowed/alias.gb', familyId: 'genbank' }
+    );
 
-    expect(dependencies.materializeQuickLookPackage).toHaveBeenCalledWith({
-      sourcePath: '/allowed/canonical.gb',
-      familyId: 'genbank',
-    });
+    expect(dependencies.lifecycle.open).toHaveBeenCalledWith(
+      7,
+      '/allowed/canonical.gb',
+      'genbank',
+      true
+    );
   });
 
   it('routes protected package preparation to the main-owned store', async () => {

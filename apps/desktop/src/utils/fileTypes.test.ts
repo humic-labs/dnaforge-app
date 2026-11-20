@@ -35,6 +35,9 @@ describe('stripDisplayExtension', () => {
     expect(stripDisplayExtension('notes.wpnote.json')).toBe('notes');
     expect(stripDisplayExtension('qPCR_F1.primer.json')).toBe('qPCR_F1');
   });
+  it.each(['   .fasta', '   .wpdesign.json'])('keeps a visible filename for %j', (name) => {
+    expect(stripDisplayExtension(name)).toBe(name);
+  });
   it('leaves extensionless names and titles untouched', () => {
     expect(stripDisplayExtension('Chat')).toBe('Chat');
     expect(stripDisplayExtension('EGFP subcloning into pUC19')).toBe('EGFP subcloning into pUC19');

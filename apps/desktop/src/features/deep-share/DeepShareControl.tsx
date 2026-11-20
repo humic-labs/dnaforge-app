@@ -6,6 +6,7 @@ import {
 } from '@waypoint/user-messages';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { confirmDialog } from '../../components/confirm-dialog-store';
+import { Button } from '../../components/ui';
 import { OpenExternalIcon } from '../../components/icons';
 import { platform } from '../../platform';
 import { Tooltip } from '../../shared/components/Tooltip';
@@ -24,9 +25,6 @@ import {
   prepareShareAdministration,
   publishShareAdministration,
 } from './administration-client';
-
-const ACTION_CLASS =
-  'inline-flex h-7 flex-shrink-0 items-center gap-1.5 rounded border border-border bg-bg-base px-2.5 text-xs font-medium text-fg shadow-sm transition-colors hover:border-accent wp-interactive disabled:pointer-events-none disabled:opacity-50';
 
 interface FocusedDeepShareRow {
   repo_uuid: string;
@@ -551,8 +549,8 @@ export function DeepShareControl(props: {
         }
         side="bottom"
       >
-        <button
-          type="button"
+        <Button
+          variant="appbar"
           aria-label={label}
           title={
             disabledReason != null
@@ -563,11 +561,10 @@ export function DeepShareControl(props: {
           data-testid="deep-share-button"
           data-share-disabled-reason={disabledReason ?? undefined}
           onClick={() => void (retainedPublication ? publish() : openReview())}
-          className={ACTION_CLASS}
         >
-          <OpenExternalIcon className="h-3.5 w-3.5" />
+          <OpenExternalIcon size={12} />
           <span>{label}</span>
-        </button>
+        </Button>
       </Tooltip>
       {review && reviewOwner.current === context && (
         <DeepShareManifestDialog

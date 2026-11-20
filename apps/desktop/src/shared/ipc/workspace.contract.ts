@@ -8,6 +8,7 @@ import type {
   CreateEmptyWorkspaceResult,
   ImportContentRequest,
   ImportFileRequest,
+  ImportFileAsWorkspaceRequest,
   ImportFileResult,
   ImportManagedWorkspaceRequest,
   ImportManagedWorkspaceResult,
@@ -81,11 +82,7 @@ export const workspaceContract = defineGroup('workspace', {
     SequenceImportPreviewResult
   >(),
   importFileAsNewWorkspace: invoke<
-    [
-      request: {
-        sourcePath: string;
-      },
-    ],
+    [request: ImportFileAsWorkspaceRequest],
     ImportManagedWorkspaceResult
   >(),
   registerImportedSequence: invoke<

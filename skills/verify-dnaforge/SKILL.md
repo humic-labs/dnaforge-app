@@ -8,6 +8,9 @@ description:
 
 # Verify DNAForge desktop workflows
 
+For native document delivery, preview and import, follow the
+[external files workflow](features/external-files.md).
+
 For release and usage analytics notices, follow the
 [desktop relaunch checks](features/desktop-notices.md).
 

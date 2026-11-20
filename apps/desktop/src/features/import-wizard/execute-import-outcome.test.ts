@@ -49,6 +49,39 @@ describe('executeImportOutcome ', () => {
     expect(res).toMatchObject({ imported: 1, skipped: 0, failed: 0 });
   });
 
+  it('publishes a new project with its first successfully saved reviewed package', async () => {
+    const publish = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Package could not be saved'))
+      .mockResolvedValueOnce({
+        workspaceRoot: '/new',
+        file: { destPath: '/new/b', relPath: 'b', committed: true },
+      });
+    const d = deps({ importCapturedFileAsNewWorkspace: publish });
+    const items = ['a.gb', 'b.gb', 'c.gb'].map((name) =>
+      file(name, { packageInputPath: '/preview/' + name })
+    );
+    const res = await executeImportOutcome(
+      outcome({ items, destination: { kind: 'new-workspace' } }),
+      d
+    );
+    expect(d.createEmptyWorkspace).not.toHaveBeenCalled();
+    expect(publish).toHaveBeenCalledTimes(2);
+    expect(d.importFile).toHaveBeenCalledWith({ sourcePath: '/drop/c.gb', targetRoot: '/new' });
+    expect(res).toMatchObject({
+      workspaceRoot: '/new',
+      createdNewWorkspace: true,
+      imported: 2,
+      failed: 1,
+    });
+    const failed = await executeImportOutcome(
+      outcome({ items: items.slice(0, 1), destination: { kind: 'new-workspace' } }),
+      deps({ importCapturedFileAsNewWorkspace: vi.fn().mockRejectedValue(new Error('Full')) })
+    );
+    expect(failed).toMatchObject({ imported: 0, failed: 1, written: [] });
+    expect(failed.createdNewWorkspace).toBeUndefined();
+  });
+
   it('counts every package produced from one multi-record sequence file', async () => {
     const d = deps({
       importFile: vi.fn(async () => ({

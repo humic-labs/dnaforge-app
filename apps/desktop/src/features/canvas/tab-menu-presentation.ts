@@ -33,6 +33,7 @@ export interface TabStripPresentation {
   readonly isDirty: boolean;
   readonly isIndexedSequence: boolean;
   readonly isMolecularDocument?: boolean;
+  readonly isExternalPreview?: boolean;
   readonly iconContext?: EntityColorContext;
 }
 
@@ -53,8 +54,14 @@ export function projectTabStripTab(tab: Tab): TabStripPresentation {
   return {
     id: tab.id,
     type: editor.type,
-    label: tab.type === 'sequence' ? sequenceDisplayName(tab.label) : tab.label,
+    label:
+      tab.type === 'sequence'
+        ? sequenceDisplayName(tab.quickLookSource?.sourceFileName ?? tab.label)
+        : tab.label,
     isDirty: isTabDirty(tab),
+    ...(tab.quickLookSource || tab.sourceFileView?.location === 'external'
+      ? { isExternalPreview: true }
+      : {}),
     iconContext: {
       kind: tab.entityKind ?? (tab.trackView ? 'track-view' : editor.type),
       molecule,
@@ -94,7 +101,7 @@ export function projectTabMenuPanels(
               tab.sequenceDocument?.kind === 'managed-sequence',
             canRevealInWorkspace:
               Boolean(tab.trackView) ||
-              DIRECT_FILE_TYPES.has(tab.type) ||
+              (DIRECT_FILE_TYPES.has(tab.type) && tab.sourceFileView?.location !== 'external') ||
               tab.type === 'page' ||
               tab.type === 'design' ||
               (tab.type === 'sequence' &&
@@ -120,6 +127,8 @@ export async function resolveTabWorkspacePath(
     .getState()
     .panels[panelId]?.tabs.find((candidate) => candidate.id === tabId);
   if (!tab) return null;
+  if (tab.sourceFileView)
+    return tab.sourceFileView.location === 'project' ? tab.sourceFileView.path : null;
   if (tab.legacyMigrationRead) {
     const { revalidateLegacyMigrationFastaRead } =
       await import('../../services/legacy-migration-fasta-read');

@@ -1,5 +1,6 @@
 import { installAssociationPathRouter, installProtocolUrlRouter } from './early-file-association';
 import './background-launch-cwd';
+import { rememberSelectedPreviewFile } from './selected-preview-files';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { getShellReadiness, installShellReadiness } from './ipc/shell-readiness';
 import { installSequenceWheelMetadata } from './sequence-wheel-ownership';
@@ -389,6 +390,8 @@ if (scenarioProfileAdmissionDiagnostic) {
 nativeDocuments.bindProfile(app.getPath('userData'));
 
 fileAssociations.configure({
+  allowDefaultChanges:
+    app.isPackaged && startupProfile.kind === 'release-shared' && app.getName() === 'DNAForge',
   userDataPath: app.getPath('userData'),
   helperSourcePath: join(__dirname, '../../resources/helpers-src/dnaforge-file-association.m'),
   openExternal: (url) => shell.openExternal(url),
@@ -399,6 +402,7 @@ function focusMainWindow(): void {
 }
 
 function routeAssociationPaths(paths: readonly string[]): void {
+  for (const path of paths) rememberSelectedPreviewFile(path);
   const deliveries = fileAssociations.activationQueue.enqueue(paths);
   if (deliveries.length > 0 && mainWindowRef && !mainWindowRef.isDestroyed()) {
     sendRendererIpc(mainWindowRef.webContents, 'file-association:open-files', deliveries);

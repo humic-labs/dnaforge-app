@@ -294,6 +294,8 @@ export const Tab = React.memo(function Tab({
       data-tab-label={tab.label}
       data-tab-type={tab.type}
       aria-selected={isActive}
+      data-external-preview={tab.isExternalPreview || undefined}
+      aria-description={tab.isExternalPreview ? 'Read-only preview. Not imported.' : undefined}
       tabIndex={isActive ? 0 : -1}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
@@ -315,9 +317,11 @@ export const Tab = React.memo(function Tab({
       {!isActive && (
         <span
           aria-hidden
-          className={`pointer-events-none absolute inset-y-1 rounded-md bg-bg-subtle opacity-0 transition-opacity duration-fast group-hover:opacity-100 ${
-            isBeforeActive ? 'left-1 right-2' : isAfterActive ? 'left-2 right-1' : 'inset-x-1'
-          }`}
+          className={`pointer-events-none absolute inset-y-1 rounded-md ${
+            tab.isExternalPreview
+              ? 'bg-[var(--document-preview-bg)]'
+              : 'bg-bg-subtle opacity-0 transition-opacity duration-fast group-hover:opacity-100'
+          } ${isBeforeActive ? 'left-1 right-2' : isAfterActive ? 'left-2 right-1' : 'inset-x-1'}`}
         />
       )}
       {!isActive && !isBeforeActive && (
@@ -344,7 +348,8 @@ export const Tab = React.memo(function Tab({
         ) : (
           <span
             data-testid={`tab-label-${tab.id}`}
-            className={`tab-label flex-1 ${
+            title={tab.isExternalPreview ? `${tab.label} — read-only preview` : tab.label}
+            className={`tab-label flex-1 ${tab.isExternalPreview ? 'italic' : ''} ${
               gitStatus === 'modified'
                 ? 'text-yellow-600 dark:text-yellow-300'
                 : gitStatus === 'untracked' || gitStatus === 'added'
@@ -360,11 +365,7 @@ export const Tab = React.memo(function Tab({
           </span>
         )}
         {!isEditing && (
-          <span
-            className={`tab-trailing relative flex-shrink-0 w-4 h-4 flex items-center justify-center${
-              isActive ? ' tab-trailing-pinned' : ''
-            }`}
-          >
+          <span className="relative flex h-4 w-4 shrink-0 items-center justify-center">
             {tab.isDirty && (
               <span
                 data-testid={`tab-dirty-${tab.id}`}

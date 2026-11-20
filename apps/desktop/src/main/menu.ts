@@ -54,8 +54,12 @@ export function buildMenu(mainWindow: BrowserWindow): Menu {
 
   const importMenuItems: Electron.MenuItemConstructorOptions[] = [
     {
+      label: 'Open Files…',
+      accelerator: electronAccelerator('files.open-files'),
+      click: () => sendRendererIpc(mainWindow.webContents, 'menu:open-files'),
+    },
+    {
       label: 'Import Files...',
-      accelerator: electronAccelerator('files.import-files'),
       click: () => sendRendererIpc(mainWindow.webContents, 'menu:import-files'),
     },
     {

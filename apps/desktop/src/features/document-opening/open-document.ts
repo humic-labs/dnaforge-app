@@ -1,3 +1,5 @@
+import { isSourceDocumentMarkerPath } from '../../shared/source-document-package';
+import { isFastaSource, isPreservedFasta } from '../../shared/preserved-fasta';
 import { getTabTypeForFile } from '../../utils/fileTypes';
 import { isAdoptableMarkdownPath } from '../../shared/markdown-notebook';
 import { platform } from '../../platform';
@@ -25,6 +27,7 @@ import { resolveFilesystemDocumentTarget } from './filesystem-target';
 type FileHandler = (request: OpenFileDocumentRequest) => Promise<DocumentOpenResult>;
 type TrackViewOpenRequest = Pick<OpenDocumentRequest, 'signal' | 'placement' | 'label'>;
 type FileDocumentKind =
+  | 'fasta-collection'
   | 'legacy-fasta'
   | 'track-view'
   | 'molecular-document'
@@ -57,6 +60,7 @@ async function openLiteral(
     type === 'entity' ||
     type === 'track-view' ||
     type === 'molecular-document' ||
+    type === 'fasta-collection' ||
     type === 'legacy-fasta'
   )
     return { status: 'unsupported', message: 'Unsupported document view.' };
@@ -130,6 +134,11 @@ const openSequence: FileHandler = async (request) =>
   });
 
 const fileHandlers = {
+  'fasta-collection': async (request) => {
+    const { openProjectFastaCollection } = await import('../../lib/open-external-preview');
+    if (request.signal?.aborted) return cancelledDocumentOpen();
+    return openProjectFastaCollection(request.target.path, request.placement);
+  },
   'legacy-fasta': async (request) => {
     const authority = await resolveNativeFastaSourceAuthority(request.target.path);
     if (!authority || authority.status === 'declared')
@@ -214,6 +223,8 @@ export async function resolveFileDocumentKindFromSource(
   target: OpenFileDocumentRequest['target']
 ): Promise<FileDocumentKind | null> {
   const kind = resolveFileDocumentKind(target);
+  if (isFastaSource(target.path) && (await isPreservedFasta(target.path, platform().fs)))
+    return 'fasta-collection';
   if ((kind !== 'sequence' && kind !== 'protein') || inferCatalogFileKind(target.path) !== 'fasta')
     return kind;
   const authority = await resolveNativeFastaSourceAuthority(target.path);
@@ -304,6 +315,10 @@ async function dispatchDocument(request: OpenDocumentRequest): Promise<DocumentO
     return result;
   }
   if (target.kind === 'file') {
+    if (isSourceDocumentMarkerPath(target.path)) {
+      const { openProjectSourcePackage } = await import('../../lib/open-external-preview');
+      return openProjectSourcePackage(target.path, request.placement, request.signal);
+    }
     if (/\.(md|markdown)$/i.test(target.path) && platform().notebook.adoptMarkdown) {
       const root = findWorkspaceRootForPath(useWorkspaceStore.getState().folders, target.path);
       if (root && isAdoptableMarkdownPath(target.path.slice(root.length + 1))) {
@@ -322,11 +337,9 @@ async function dispatchDocument(request: OpenDocumentRequest): Promise<DocumentO
       }
     }
     const inferredKind = resolveFileDocumentKind(target);
-    const kind =
-      (inferredKind === 'sequence' || inferredKind === 'protein') &&
-      inferCatalogFileKind(target.path) === 'fasta'
-        ? await resolveFileDocumentKindFromSource(target)
-        : inferredKind;
+    const kind = isFastaSource(target.path)
+      ? await resolveFileDocumentKindFromSource(target)
+      : inferredKind;
     if (!kind)
       return { status: 'unsupported', message: `Unsupported document view: ${target.tabType}` };
     return fileHandlers[kind]({

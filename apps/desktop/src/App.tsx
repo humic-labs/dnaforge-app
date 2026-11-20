@@ -125,7 +125,6 @@ import { GoToFileDialog } from './keyboard/GoToFileDialog';
 import { useAppShortcutActions } from './keyboard/useAppShortcutActions';
 import { startReferenceInvalidationListeners } from './features/page/entity-ref/reference-generation';
 import { useUpdateToasts } from './hooks/useUpdateToasts';
-import { useFileAssociationOpportunities } from './hooks/use-file-association-opportunities';
 import { SetupBanner } from './components/SetupBanner';
 import {
   BenchlingMigrationWizard,
@@ -618,7 +617,6 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
   ]);
 
   useUpdateToasts();
-  useFileAssociationOpportunities();
 
   useDevLimsSeedPrompt();
 

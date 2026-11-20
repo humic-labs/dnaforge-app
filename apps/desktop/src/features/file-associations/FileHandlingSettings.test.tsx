@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   requestDefault: vi.fn(),
   addToast: vi.fn(),
   dialogOpen: vi.fn(),
-  openQuickLookSource: vi.fn(),
+  openExternalPreview: vi.fn(),
 }));
 
 vi.mock('../../platform', () => ({
@@ -24,8 +24,8 @@ vi.mock('../../platform', () => ({
     },
   }),
 }));
-vi.mock('../../lib/open-quick-look-source', () => ({
-  openQuickLookSource: mocks.openQuickLookSource,
+vi.mock('../../lib/open-external-preview', () => ({
+  openExternalPreview: mocks.openExternalPreview,
 }));
 vi.mock('../../stores/toast-store', () => ({
   useToastStore: {
@@ -60,7 +60,29 @@ describe('FileHandlingSettings', () => {
       detail: null,
     });
     mocks.dialogOpen.mockResolvedValue(null);
-    mocks.openQuickLookSource.mockResolvedValue('tab-1');
+    mocks.openExternalPreview.mockResolvedValue('tab-1');
+  });
+
+  it('shows each suffix and its current application for mixed defaults', async () => {
+    mocks.queryHandlers.mockResolvedValue([
+      {
+        familyId: 'genbank',
+        state: 'other',
+        handlerName: 'Multiple applications',
+        defaultAction: 'native',
+        mixedHandlers: [
+          { extension: 'gb', handlerName: 'SnapGene' },
+          { extension: 'gbk', handlerName: null },
+        ],
+      },
+    ]);
+    render(<FileHandlingSettings />);
+    expect((await screen.findByText('No default app')).previousElementSibling).toHaveTextContent(
+      '.gbk'
+    );
+    expect(
+      screen.getByText('SnapGene', { selector: 'dd' }).previousElementSibling
+    ).toHaveTextContent('.gb');
   });
 
   it('keeps the newest status when an older native query finishes last', async () => {
@@ -142,7 +164,7 @@ describe('FileHandlingSettings', () => {
 
   it('reports a preview failure without leaving Settings or locking its controls', async () => {
     mocks.dialogOpen.mockResolvedValue('/Users/scientist/pUC19.gb');
-    mocks.openQuickLookSource.mockRejectedValueOnce(new Error('Source is unreadable'));
+    mocks.openExternalPreview.mockRejectedValueOnce(new Error('Source is unreadable'));
     const onReveal = vi.fn();
     window.addEventListener(REVEAL_OPEN_DOCUMENT_EVENT, onReveal);
     try {
@@ -200,7 +222,7 @@ describe('FileHandlingSettings', () => {
         await waitFor(() =>
           expect(screen.getByTestId('file-handler-preview-genbank')).toBeEnabled()
         );
-        expect(mocks.openQuickLookSource).not.toHaveBeenCalled();
+        expect(mocks.openExternalPreview).not.toHaveBeenCalled();
         expect(onReveal).not.toHaveBeenCalled();
         expect(mocks.addToast).toHaveBeenCalledTimes(shouldWarn ? 1 : 0);
       } finally {
@@ -215,7 +237,9 @@ describe('FileHandlingSettings', () => {
     expect(await screen.findByTestId('file-handler-genbank')).toHaveTextContent(
       '.gb, .gbk, .gbff, .genbank'
     );
-    expect(screen.getByTestId('file-handling-settings')).toHaveTextContent('Import to Edit');
+    const settings = screen.getByTestId('file-handling-settings');
+    expect(settings).toHaveTextContent('Previews keep a read-only copy');
+    expect(settings).toHaveTextContent('Import saves a separate copy in a project.');
     expect(screen.getByTestId('file-handler-genbank')).toHaveTextContent('Preview');
     expect(screen.getByTestId('file-handler-genbank')).toHaveTextContent(
       '.gb, .gbk, .gbff, .genbank'
@@ -223,9 +247,9 @@ describe('FileHandlingSettings', () => {
     expect(screen.getByTestId('file-handler-preview-genbank')).toHaveTextContent('Preview a file');
     expect(screen.getByTestId('file-handler-snapgene')).toHaveTextContent('.dna');
     expect(screen.getByTestId('file-handler-snapgene')).toHaveTextContent('Imports as GenBank');
-    expect(screen.getByTestId('file-handler-snapgene')).toHaveTextContent(
-      'format compatibility is under review'
-    );
+    expect(screen.getByTestId('file-handler-fasta')).toHaveTextContent('.faa');
+    expect(screen.getByTestId('file-handler-structure')).toHaveTextContent('.bcif');
+    expect(screen.getByTestId('file-handler-chromatogram')).toHaveTextContent('.ab1');
     expect(screen.queryByText('format-validation-pending')).toBeNull();
   });
 
@@ -320,30 +344,17 @@ describe('FileHandlingSettings', () => {
     expect(screen.queryByRole('button', { name: 'Make DNAForge default' })).toBeNull();
   });
 
-  it('opens a chosen file as a Quick Look and leaves Settings', async () => {
-    mocks.dialogOpen.mockResolvedValue('/Users/scientist/Downloads/pUC19.gb');
-    const revealed: string[] = [];
-    const onReveal = (event: Event) => {
-      revealed.push(event.type);
-    };
-    window.addEventListener(REVEAL_OPEN_DOCUMENT_EVENT, onReveal);
+  it.each([
+    ['genbank', 'pUC19.gb'],
+    ['fasta', 'proteins.faa'],
+    ['structure', 'coordinates.bcif'],
+    ['chromatogram', 'sequence.ab1'],
+  ])('opens a %s file through the shared external preview', async (family, filename) => {
+    const sourcePath = '/Users/scientist/Downloads/' + filename;
+    mocks.dialogOpen.mockResolvedValue(sourcePath);
     render(<FileHandlingSettings />);
-    fireEvent.click(await screen.findByTestId('file-handler-preview-genbank'));
-
-    await waitFor(() => expect(mocks.openQuickLookSource).toHaveBeenCalled());
-    expect(mocks.dialogOpen).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'Preview a GenBank file',
-        filters: [{ name: 'GenBank', extensions: ['gb', 'gbk', 'gbff', 'genbank'] }],
-      })
-    );
-    expect(mocks.openQuickLookSource).toHaveBeenCalledWith({
-      sourcePath: '/Users/scientist/Downloads/pUC19.gb',
-      familyId: 'genbank',
-      sourceSurface: 'menu',
-    });
-    expect(revealed).toEqual([REVEAL_OPEN_DOCUMENT_EVENT]);
-    window.removeEventListener(REVEAL_OPEN_DOCUMENT_EVENT, onReveal);
+    fireEvent.click(await screen.findByTestId('file-handler-preview-' + family));
+    await waitFor(() => expect(mocks.openExternalPreview).toHaveBeenCalledWith(sourcePath));
   });
 
   it('re-queries the factual handler state when the app regains focus', async () => {

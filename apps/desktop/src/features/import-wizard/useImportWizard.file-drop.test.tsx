@@ -5,7 +5,7 @@ import type { ImportFlowDeps } from './run-import-flow';
 const mocks = vi.hoisted(() => ({
   getPathForFile: vi.fn(),
   openDialog: vi.fn(),
-  openQuickLookSource: vi.fn(),
+  openExternalFiles: vi.fn(),
   runImportFlow: vi.fn(),
 }));
 
@@ -24,8 +24,8 @@ vi.mock('../../platform', () => ({
   }),
 }));
 
-vi.mock('../../lib/open-quick-look-source', () => ({
-  openQuickLookSource: mocks.openQuickLookSource,
+vi.mock('../../lib/open-external-preview', () => ({
+  openExternalFiles: mocks.openExternalFiles,
 }));
 
 vi.mock('../../utils/environment', async (importOriginal) => ({
@@ -41,10 +41,10 @@ vi.mock('../canvas', () => ({
 
 import { useImportWizard } from './useImportWizard';
 
-function fileDrop(file: File): Event {
+function fileDrop(...files: File[]): Event {
   const event = new Event('drop', { bubbles: true, cancelable: true });
   Object.defineProperty(event, 'dataTransfer', {
-    value: { files: [file], types: ['Files'], dropEffect: 'none' },
+    value: { files, types: ['Files'], dropEffect: 'none' },
   });
   return event;
 }
@@ -54,8 +54,8 @@ describe('useImportWizard window file-drop boundary', () => {
     mocks.getPathForFile.mockReset();
     mocks.openDialog.mockReset();
     mocks.openDialog.mockResolvedValue(null);
-    mocks.openQuickLookSource.mockReset();
-    mocks.openQuickLookSource.mockResolvedValue(undefined);
+    mocks.openExternalFiles.mockReset();
+    mocks.openExternalFiles.mockResolvedValue(undefined);
     mocks.runImportFlow.mockReset();
   });
 
@@ -106,14 +106,23 @@ describe('useImportWizard window file-drop boundary', () => {
     act(() => window.dispatchEvent(event));
 
     await waitFor(() =>
-      expect(mocks.openQuickLookSource).toHaveBeenCalledWith({
-        sourcePath,
-        familyId: 'genbank',
-        sourceSurface: 'unknown',
-      })
+      expect(mocks.openExternalFiles).toHaveBeenCalledWith([sourcePath], 'unknown')
     );
     expect(event.defaultPrevented).toBe(true);
     expect(mocks.getPathForFile).toHaveBeenCalledWith(file);
+  });
+
+  it('previews every supported file in a drop without starting an import', async () => {
+    mocks.getPathForFile.mockImplementation((file: File) => `/selected/${file.name}`);
+    renderHook(() => useImportWizard());
+    act(() => window.dispatchEvent(fileDrop(new File([], 'one.gb'), new File([], 'two.dna'))));
+    await waitFor(() =>
+      expect(mocks.openExternalFiles).toHaveBeenCalledWith(
+        ['/selected/one.gb', '/selected/two.dna'],
+        'unknown'
+      )
+    );
+    expect(mocks.runImportFlow).not.toHaveBeenCalled();
   });
 
   it('does not also open a file drop already claimed by another surface', async () => {
@@ -127,7 +136,7 @@ describe('useImportWizard window file-drop boundary', () => {
     await Promise.resolve();
 
     expect(mocks.getPathForFile).not.toHaveBeenCalled();
-    expect(mocks.openQuickLookSource).not.toHaveBeenCalled();
+    expect(mocks.openExternalFiles).not.toHaveBeenCalled();
   });
 
   it('lets Import with agent choose one ZIP archive or one folder', async () => {

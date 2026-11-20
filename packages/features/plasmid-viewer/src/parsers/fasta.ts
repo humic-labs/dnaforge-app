@@ -17,8 +17,11 @@ export interface ParsedFastaSequence {
   length: number;
 }
 
-export function parseFasta(content: string): ParsedFastaSequence[] {
-  const lines = content.split(/\r?\n/);
+export function parseFasta(
+  content: string,
+  options: { complete?: boolean } = {}
+): ParsedFastaSequence[] {
+  const lines = content.split(/\r\n|[\r\n]/);
   const sequences: ParsedFastaSequence[] = [];
 
   let currentName = '';
@@ -33,6 +36,9 @@ export function parseFasta(content: string): ParsedFastaSequence[] {
     if (!trimmed) continue;
 
     if (trimmed.startsWith('>')) {
+      if (options.complete && currentName && !currentSequence) {
+        throw new FastaParseError(`Record ${sequences.length + 1} has no sequence.`, lineNumber);
+      }
       if (currentName && currentSequence) {
         sequences.push({
           name: currentName,
@@ -43,7 +49,10 @@ export function parseFasta(content: string): ParsedFastaSequence[] {
       }
 
       const headerContent = trimmed.substring(1).trim();
-      const spaceIndex = headerContent.indexOf(' ');
+      if (options.complete && !headerContent) {
+        throw new FastaParseError('Missing FASTA record name.', lineNumber);
+      }
+      const spaceIndex = headerContent.search(/\s/);
 
       if (spaceIndex === -1) {
         currentName = headerContent || `Sequence_${sequences.length + 1}`;
@@ -59,22 +68,26 @@ export function parseFasta(content: string): ParsedFastaSequence[] {
 
     if (trimmed.startsWith(';')) continue;
 
+    if (options.complete && !currentName) {
+      throw new FastaParseError('Expected a FASTA header before the sequence.', lineNumber);
+    }
     if (currentName) {
       const cleanedLine = trimmed.replace(/\s/g, '');
 
-      if (!/^[ACGTURYSWKMBDHVN\-.*]+$/i.test(cleanedLine)) {
-        if (!/^[ACDEFGHIKLMNPQRSTVWY*\-XBZJ]+$/i.test(cleanedLine)) {
-          throw new FastaParseError(
-            `Invalid sequence characters on line ${lineNumber}: "${cleanedLine.substring(0, 20)}..."`,
-            lineNumber
-          );
-        }
+      const proteinAlphabet = options.complete
+        ? /^[A-Z*.\-]+$/i
+        : /^[ACDEFGHIKLMNPQRSTVWY*\-XBZJ]+$/i;
+      if (!/^[ACGTURYSWKMBDHVN\-.*]+$/i.test(cleanedLine) && !proteinAlphabet.test(cleanedLine)) {
+        throw new FastaParseError(`Invalid sequence characters on line ${lineNumber}.`, lineNumber);
       }
 
       currentSequence += cleanedLine;
     }
   }
 
+  if (options.complete && currentName && !currentSequence) {
+    throw new FastaParseError(`Record ${sequences.length + 1} has no sequence.`, lineNumber);
+  }
   if (currentName && currentSequence) {
     sequences.push({
       name: currentName,

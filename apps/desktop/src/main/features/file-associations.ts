@@ -8,6 +8,7 @@ import {
 } from '../file-associations/default-handler-service';
 import { createNativeDefaultHandlerDependencies } from '../file-associations/native-default-handler';
 import { promoteQuickLookToDestination } from '../file-associations/quick-look-destination-promotion';
+import { createExternalPreviewLifecycle } from '../file-associations/external-preview-lifecycle';
 import { createQuickLookPackageStore } from '../file-associations/quick-look-package-store';
 import { getDb } from '../ipc/database';
 import {
@@ -26,12 +27,14 @@ import {
 import type { MainFeature } from './main-feature';
 
 export interface FileAssociationsConfiguration {
+  readonly allowDefaultChanges: boolean;
   readonly userDataPath: string;
   readonly helperSourcePath: string;
   readonly openExternal: (url: string) => Promise<void>;
 }
 
 interface ConfiguredFileAssociations {
+  readonly userDataPath: string;
   readonly packageStore: ReturnType<typeof createQuickLookPackageStore>;
   readonly promotionJournalRoot: string;
   readonly preparationJournalRoot: string;
@@ -43,6 +46,7 @@ export function createFileAssociations() {
   let configured: ConfiguredFileAssociations | null = null;
 
   function configure({
+    allowDefaultChanges,
     userDataPath,
     helperSourcePath,
     openExternal,
@@ -53,6 +57,7 @@ export function createFileAssociations() {
       '.promotions'
     );
     configured = {
+      userDataPath,
       packageStore: createQuickLookPackageStore(userDataPath),
       promotionJournalRoot,
       preparationJournalRoot: join(promotionJournalRoot, 'workspace-preparations'),
@@ -61,6 +66,7 @@ export function createFileAssociations() {
           platform: process.platform,
           appBundleId: 'com.dnaforge.desktop',
           isPackaged: app.isPackaged,
+          allowDefaultChanges,
           resourcesPath: process.resourcesPath,
           execPath: process.execPath,
           helperSourcePath,
@@ -97,12 +103,8 @@ export function createFileAssociations() {
   function handlerDependencies(): RegisterFileAssociationHandlersDeps {
     const { packageStore, promotionJournalRoot, preparationJournalRoot, defaultHandler } =
       required();
-    return {
-      takePendingAndMarkReady: () => activationQueue.takePendingAndMarkReady(),
-      defaultHandler,
-      materializeQuickLookPackage: (request) => packageStore.materialize(request),
-      prepareQuickLookPackage: (request) => packageStore.preparePackage(request.packageRoot),
-      promoteQuickLookPackage: (request) => {
+    const promoteQuickLookPackage: RegisterFileAssociationHandlersDeps['promoteQuickLookPackage'] =
+      (request) => {
         const db = getDb();
         const managedRoot = managedRootDir();
         return promoteQuickLookToDestination(request, {
@@ -126,6 +128,7 @@ export function createFileAssociations() {
                 db,
                 managedRootDir: managedRoot,
                 promotionJournalRoot,
+                independentCopies: true,
               })
             ),
           discardWorkspace: (workspace) =>
@@ -136,15 +139,34 @@ export function createFileAssociations() {
               packagePromotionJournalRoot: promotionJournalRoot,
             }),
         });
-      },
+      };
+    return {
+      takePendingAndMarkReady: () => activationQueue.takePendingAndMarkReady(),
+      defaultHandler,
+      materializeQuickLookPackage: (request) => packageStore.materialize(request),
+      prepareQuickLookPackage: (request) => packageStore.preparePackage(request.packageRoot),
+      promoteQuickLookPackage,
+      lifecycle: createExternalPreviewLifecycle(
+        required().userDataPath,
+        packageStore,
+        promoteQuickLookPackage
+      ),
     };
   }
 
   const feature: MainFeature = {
     id: 'file-associations',
     registerIpc: () => {
-      registerFileAssociationHandlers(handlerDependencies());
-      return () => undefined;
+      const deps = handlerDependencies();
+      registerFileAssociationHandlers(deps);
+      const timer = setInterval(
+        () => {
+          void deps.lifecycle.sweep().catch((error) => console.warn('[Preview storage]', error));
+        },
+        15 * 60 * 1000
+      );
+      timer.unref?.();
+      return () => clearInterval(timer);
     },
   };
 

@@ -125,6 +125,7 @@ function retargetTabDocument(tab: Tab, identity: CanvasTabIdentity, updates: Tab
           legacyMigrationRead: undefined,
           legacyFasta: undefined,
           quickLookSource: undefined,
+          previewReceipt: undefined,
         }
       : {}),
     type: identity.type,
@@ -133,6 +134,8 @@ function retargetTabDocument(tab: Tab, identity: CanvasTabIdentity, updates: Tab
       tab.type === identity.type && tab.entityId === entityId
         ? tab.structureRenderError
         : undefined,
+    sourceFileView:
+      identity.type === tab.type && entityId === tab.entityId ? tab.sourceFileView : undefined,
     sequenceDocument: identity.type === 'sequence' ? identity.sequenceDocument : undefined,
     assemblyEditDesignId:
       tab.type === identity.type && tab.entityId === entityId
@@ -418,7 +421,8 @@ function repairArtifactDocumentTabs(state: CanvasState): CanvasState {
 
 export function partializeCanvasState(
   state: CanvasState & CanvasActions
-): Pick<CanvasState, 'panels' | 'layout' | 'focusedPanelId'> {
+): Pick<CanvasState, 'panels' | 'layout' | 'focusedPanelId'> &
+  Partial<Pick<CanvasState, 'recentlyClosed'>> {
   const durable = repairArtifactDocumentTabs(removeLegacyReferenceLibraryTabs(state));
 
   const panels = Object.fromEntries(
@@ -454,10 +458,14 @@ export function partializeCanvasState(
       },
     ])
   );
+  const recentlyClosed = (durable.recentlyClosed ?? []).filter(
+    ({ tab }) => tab.quickLookSource || tab.sourceFileView?.location === 'external'
+  );
   return {
     panels,
     layout: durable.layout,
     focusedPanelId: durable.focusedPanelId,
+    ...(recentlyClosed.length ? { recentlyClosed } : {}),
   };
 }
 

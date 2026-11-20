@@ -5,7 +5,6 @@ import type { SequenceTabInfoChrome } from '../features/sequence/components/Sequ
 import {
   sequenceDisplayName,
   sequencePresentation,
-  quickLookSequenceDisplayName,
   type SequenceDisplayName,
   type SequencePresentation,
 } from './sequence-presentation';
@@ -56,12 +55,6 @@ describe('sequence presentation contract', () => {
     );
     expectTypeOf<ComponentProps<typeof SequenceTabInfoChrome>>().not.toHaveProperty(
       'deepShareTargetReference'
-    );
-  });
-
-  it('admits Quick Look source and record labels before rendering their controls', () => {
-    expect(quickLookSequenceDisplayName('source.gb', 'record.fasta')).toBe(
-      'Quick Look / source / record'
     );
   });
 });

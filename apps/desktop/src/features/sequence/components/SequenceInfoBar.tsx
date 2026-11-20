@@ -3,7 +3,11 @@ import type { ReactNode } from 'react';
 import type { SequenceDisplayName } from '../../../shared/sequence-presentation';
 import { EditIcon } from '../../../components/icons';
 import { Button } from '../../../components/ui';
-import { DOCUMENT_TAB_UNDERBAR_MIN_CLASS } from '../public/document-tab-underbar';
+import {
+  UI_DOCUMENT_PREVIEW_LABEL_CLASS,
+  UI_DOCUMENT_PREVIEW_ROW_CLASS,
+  UI_SEQUENCE_INFO_ROW_CLASS,
+} from '../../../components/ui/styles';
 import { SequenceViewerModeToggle, type SequenceViewMode } from './SequenceViewerModeToggle';
 import type {
   SequenceMapLayout,
@@ -26,10 +30,9 @@ interface SequenceInfoBarProps {
   showViewModeToggle?: boolean;
   showRendererVisibilityToggle?: boolean;
   showMapLayoutToggle?: boolean;
-  accessMode?: {
-    kind: 'read-only';
-    onImportToEdit?: () => void;
-  };
+  accessMode?:
+    | { kind: 'read-only' }
+    | { kind: 'external-preview'; sourceFileName: string; onImportToEdit: () => void };
   recordSelector?: {
     readonly records: readonly {
       readonly recordId: string;
@@ -42,6 +45,7 @@ interface SequenceInfoBarProps {
   limsBadge?: ReactNode;
 
   trailingContent?: ReactNode;
+  shareControl?: ReactNode;
 
   onEdit?: () => void;
   editingPending?: boolean;
@@ -67,11 +71,14 @@ export function SequenceInfoBar({
   recordSelector,
   limsBadge,
   trailingContent,
+  shareControl,
   onEdit,
   editingPending = false,
   editButtonTestId = 'sequence-edit-button',
 }: SequenceInfoBarProps) {
-  if (!documentLabel) return null;
+  const preview = accessMode?.kind === 'external-preview' ? accessMode : undefined;
+  const label = preview?.sourceFileName ?? documentLabel;
+  if (!label) return null;
 
   const hasMeta = sequenceLength != null || circular != null;
   const showToggle = showViewModeToggle && viewMode != null && onViewModeChange != null;
@@ -88,29 +95,34 @@ export function SequenceInfoBar({
   return (
     <div
       data-testid="sequence-info-bar"
-      className={`flex-shrink-0 flex items-center gap-3 px-3 py-0 ${DOCUMENT_TAB_UNDERBAR_MIN_CLASS} bg-bg border-b border-border-hover text-xs text-fg-muted`}
+      role={preview ? 'group' : undefined}
+      aria-label={preview ? 'Read-only preview · Not imported' : undefined}
+      className={preview ? UI_DOCUMENT_PREVIEW_ROW_CLASS : UI_SEQUENCE_INFO_ROW_CLASS}
     >
-      <span
-        data-testid="sequence-info-path"
-        className="truncate text-fg min-w-0"
-        title={documentLabel}
-      >
-        {documentLabel}
+      <span className={preview ? 'flex min-w-0 flex-[1_1_9rem] items-center gap-2' : 'contents'}>
+        {preview && (
+          <span title="Read-only · Not imported" className={UI_DOCUMENT_PREVIEW_LABEL_CLASS}>
+            Preview
+          </span>
+        )}
+        <span data-testid="sequence-info-path" className="truncate text-fg min-w-0" title={label}>
+          {label}
+        </span>
       </span>
 
-      {}
       {(accessMode ||
         recordSelector ||
         limsBadge ||
         trailingContent ||
+        shareControl ||
         onEdit ||
         showVisibilityToggle ||
         showMapLayout ||
         showToggle ||
         hasMeta) && (
-        <div className="ml-auto flex-shrink-0 flex items-center gap-3">
+        <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-3 gap-y-1">
           {recordSelector && recordSelector.records.length > 1 ? (
-            <label className="flex items-center gap-1.5">
+            <label className="flex min-w-0 max-w-full items-center gap-1.5">
               <span className="text-fg-muted">Record</span>
               <span className="inline-block min-w-0 max-w-56">
                 <MenuNativeSelect
@@ -130,41 +142,13 @@ export function SequenceInfoBar({
               </span>
             </label>
           ) : null}
-          {accessMode?.kind === 'read-only' ? (
-            <span className="flex items-center gap-2">
-              <span data-testid="sequence-read-only-indicator" className="font-medium text-fg">
-                Read Only
-              </span>
-              {accessMode.onImportToEdit ? (
-                <button
-                  type="button"
-                  data-testid="quick-look-import-button"
-                  onClick={accessMode.onImportToEdit}
-                  className="rounded border border-accent/70 bg-accent/10 px-2 py-0.5 font-medium text-accent hover:bg-accent/20"
-                >
-                  Import to Edit
-                </button>
-              ) : null}
+          {accessMode?.kind === 'read-only' && (
+            <span data-testid="sequence-read-only-indicator" className="font-medium text-fg">
+              Read Only
             </span>
-          ) : null}
+          )}
           {limsBadge}
           {trailingContent}
-          {onEdit ? (
-            <Button
-              type="button"
-              title={editingPending ? 'Loading sequence' : 'Edit sequence'}
-              aria-label="Edit sequence"
-              aria-busy={editingPending}
-              disabled={editingPending}
-              onClick={onEdit}
-              data-testid={editButtonTestId}
-            >
-              <span className="inline-flex items-center gap-1">
-                <EditIcon size={12} />
-                <span>{editingPending ? 'Loading…' : 'Edit'}</span>
-              </span>
-            </Button>
-          ) : null}
           {showVisibilityToggle && (
             <SequenceRendererVisibilityToggle
               value={rendererVisibility!}
@@ -186,6 +170,30 @@ export function SequenceInfoBar({
               {circular != null && <span>{circular ? 'circular' : 'linear'}</span>}
             </span>
           )}
+          {preview && (
+            <Button
+              variant="appbar"
+              data-testid="quick-look-import-button"
+              onClick={preview.onImportToEdit}
+            >
+              Import to Edit
+            </Button>
+          )}
+          {onEdit ? (
+            <Button
+              variant="appbar"
+              title={editingPending ? 'Loading sequence' : 'Edit sequence'}
+              aria-label="Edit sequence"
+              aria-busy={editingPending}
+              disabled={editingPending}
+              onClick={onEdit}
+              data-testid={editButtonTestId}
+            >
+              <EditIcon size={12} />
+              <span>{editingPending ? 'Loading…' : 'Edit'}</span>
+            </Button>
+          ) : null}
+          {shareControl}
         </div>
       )}
     </div>

@@ -1,7 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { readdir, rename, unlink } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { convertTreeToPlasmidPackages } from './convert-tree-to-packages';
+import {
+  readProjectSourceDocumentPackage,
+  readProjectSourceDocumentPresentation,
+} from '../source-document-package-store';
+import { parseSequencePackageDocument } from '../../db/sequence-package';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative, dirname } from 'node:path';
+
+vi.mock('../molecular-catalog/inventory-worker', async () => ({
+  inventoryCoordinatesInWorker: (await import('../molecular-catalog/coordinate-inventory'))
+    .parseCoordinateInventory,
+}));
 
 vi.mock('electron', () => ({
   dialog: { showErrorBox: vi.fn() },
@@ -11,8 +24,17 @@ vi.mock('electron', () => ({
 import type Database from 'better-sqlite3';
 import { createTestDb } from '../__tests__/test-db';
 import { ensureSchema } from '../schema';
-import { importFileAsNewManagedWorkspace, MANAGED_WORKSPACE_MARKER } from './import';
-import { resolveHeadCommit } from './index';
+import {
+  importFileAsNewManagedWorkspace,
+  importFileIntoWorkspaceRoot,
+  MANAGED_WORKSPACE_MARKER,
+} from './import';
+import { readFileAtHead, resolveHeadCommit } from './index';
+import { convertTreeToMolecularPackages } from './coordinate-package-import';
+import { resolveImportedCoordinate } from '../imported-coordinate-location';
+import { readMolecularDocumentFile } from '../molecular-document-library';
+import { MOLECULAR_DOCUMENT_FILE_KIND } from '../../shared/molecular-document';
+import { MOLECULAR_MIGRATION_DIRECTORY } from './molecular-migration-journal';
 
 describe('importFileAsNewManagedWorkspace ', () => {
   let db: Database.Database;
@@ -57,6 +79,168 @@ describe('importFileAsNewManagedWorkspace ', () => {
     const src = loose('reads.fastq', '@x\nACGT\n+\n!!!!\n');
     await importFileAsNewManagedWorkspace(src, { db, managedRootDir: managedRoot });
     expect(readFileSync(src, 'utf8')).toBe('@x\nACGT\n+\n!!!!\n');
+  });
+
+  it('preserves duplicate records and original bytes in new and existing projects across conversion scans', async () => {
+    const bytes =
+      '>dup DNA\r\n' + 'ACGT'.repeat(35) + '\r\n>dup another DNA\r\n' + 'TGCA'.repeat(40) + '\r\n';
+    const src = loose('reads.fa', bytes);
+    const request = {
+      sourcePath: src,
+      expectedSourceSha256: createHash('sha256').update(bytes).digest('hex'),
+      preserveOriginal: true as const,
+    };
+    const deps = { db, managedRootDir: managedRoot };
+    const project = await importFileAsNewManagedWorkspace(request, deps);
+    const copy = await importFileIntoWorkspaceRoot(
+      { ...request, targetRoot: project.repoPath },
+      deps
+    );
+    expect(copy.destPath).not.toBe(project.entryPath);
+    expect((await convertTreeToPlasmidPackages(project.repoPath)).converted).toBe(0);
+    const ids = new Set<string>();
+    for (const path of [project.entryPath!, copy.destPath]) {
+      const { descriptor } = await readProjectSourceDocumentPackage(project.repoPath, path);
+      expect(descriptor.presentation).toBe('sequence-package');
+      expect(descriptor.productPaths).toHaveLength(2);
+      expect(readFileSync(descriptor.originalPath, 'utf8')).toBe(bytes);
+      for (const product of descriptor.productPaths) {
+        const document = parseSequencePackageDocument(
+          readFileSync(join(dirname(product), '.forge', 'plasmid.json'), 'utf8')
+        );
+        ids.add(document.id);
+        expect(readFileSync(product, 'utf8')).toContain('LOCUS');
+      }
+    }
+    expect(ids.size).toBe(4);
+    expect(readFileSync(src, 'utf8')).toBe(bytes);
+  });
+
+  it('rejects changed preview bytes without publishing a new project or leaving its files', async () => {
+    const src = loose('changed.faa', '>name\nPEPTIDE\n');
+    await expect(
+      importFileAsNewManagedWorkspace(
+        { sourcePath: src, expectedSourceSha256: 'f'.repeat(64), preserveOriginal: true },
+        { db, managedRootDir: managedRoot }
+      )
+    ).rejects.toThrow('changed after preview');
+    expect(existsSync(managedRoot) ? await readdir(managedRoot) : []).toEqual([]);
+    expect(db.prepare('SELECT name FROM workspaces').all()).toEqual([]);
+  });
+
+  it('returns stable molecular documents from both preview import destinations and retains the exact input', async () => {
+    const original =
+      'HEADER    SAMPLE\r\nATOM      1  CA  ALA A   1      11.104  13.207   2.100  1.00 20.00           C\r\nEND\r\n';
+    const sourcePath = loose('model.pdb', original);
+    const expectedSourceSha256 = createHash('sha256').update(original).digest('hex');
+    const request = { sourcePath, expectedSourceSha256, preserveOriginal: true as const };
+    const deps = { db, managedRootDir: managedRoot };
+    const project = await importFileAsNewManagedWorkspace(request, deps);
+    writeFileSync(join(project.repoPath, '.gitignore'), MOLECULAR_MIGRATION_DIRECTORY + '/\n');
+    const second = await importFileIntoWorkspaceRoot(
+      { ...request, targetRoot: project.repoPath },
+      deps
+    );
+    expect(project.entryPath).toMatch(/model\.dnaforge-molecular\.json$/);
+    expect(second.destPath).not.toBe(project.entryPath);
+    expect(
+      (await convertTreeToMolecularPackages(project.repoPath, { removeSource: unlink })).converted
+    ).toBe(0);
+    const ids = new Set<string>();
+    for (const path of [project.entryPath!, second.destPath]) {
+      const { document } = await readMolecularDocumentFile({
+        workspaceRoot: project.repoPath,
+        path,
+      });
+      ids.add(document.id);
+      expect(document.history[0].snapshot.coordinates.text).toBe(original);
+    }
+    expect(ids.size).toBe(2);
+    for (const path of [project.entryPath!, second.destPath]) {
+      const { descriptor } = await readProjectSourceDocumentPackage(project.repoPath, path);
+      expect(readFileSync(descriptor.originalPath, 'utf8')).toBe(original);
+      expect(
+        (
+          await readFileAtHead(
+            project.repoPath,
+            relative(project.repoPath, descriptor.originalPath).split('\\').join('/')
+          )
+        ).toString('utf8')
+      ).toBe(original);
+    }
+    expect(readFileSync(sourcePath, 'utf8')).toBe(original);
+    expect(existsSync(join(project.repoPath, 'model.pdb'))).toBe(false);
+    const revised = original.replace('SAMPLE', 'REVISED');
+    const replacement = loose('updated.pdb', revised);
+    await importFileIntoWorkspaceRoot(
+      {
+        sourcePath: replacement,
+        targetRoot: project.repoPath,
+        dedup: { mode: 'replace', expectedRelPath: relative(project.repoPath, project.entryPath!) },
+      },
+      deps
+    );
+    const after = await readProjectSourceDocumentPresentation(project.repoPath, project.entryPath!);
+    expect(after.familyId === 'structure' && 'coordinates' in after && after.coordinates.text).toBe(
+      revised
+    );
+    expect(after.sourceSha256).toBe(expectedSourceSha256);
+    const { document: updatedDocument } = await readMolecularDocumentFile({
+      workspaceRoot: project.repoPath,
+      path: project.entryPath!,
+    });
+    expect(ids.has(updatedDocument.id)).toBe(true);
+    expect(updatedDocument.history).toHaveLength(2);
+    expect(readFileSync(replacement, 'utf8')).toBe(revised);
+  });
+
+  it('recovers a previous loose-path tab by its completed conversion and current project binding', async () => {
+    const project = await importFileAsNewManagedWorkspace(loose('notes.txt', 'Notes'), {
+      db,
+      managedRootDir: managedRoot,
+    });
+    const root = project.repoPath;
+    const path = join(root, 'model.pdb');
+    const location = { workspaceRoot: root, path };
+    writeFileSync(join(root, 'model.dnaforge-molecular.json'), 'Occupied');
+    const original =
+      'HEADER    EARLIER\nATOM      1  CA  ALA A   1      11.104  13.207   2.100  1.00 20.00           C\nEND\n';
+    writeFileSync(path, original);
+    expect(await resolveImportedCoordinate(db, location)).toBeNull();
+    await convertTreeToMolecularPackages(root, { removeSource: unlink });
+    const first = { workspaceRoot: root, path: join(root, 'model 2.dnaforge-molecular.json') };
+    expect(await resolveImportedCoordinate(db, location)).toEqual(first);
+    expect(
+      await resolveImportedCoordinate(db, { ...location, expectedSourceSha256: 'f'.repeat(64) })
+    ).toBeNull();
+    writeFileSync(path, original.replace('EARLIER', 'LATER'));
+    await expect(resolveImportedCoordinate(db, location)).rejects.toThrow(
+      'occupies the original path'
+    );
+    await convertTreeToMolecularPackages(root, { removeSource: unlink });
+    expect(await resolveImportedCoordinate(db, location)).toBeNull();
+    const pinned = {
+      ...location,
+      expectedSourceSha256: createHash('sha256').update(original).digest('hex'),
+    };
+    expect(await resolveImportedCoordinate(db, pinned)).toEqual(first);
+    const { document } = await readMolecularDocumentFile(first);
+    const moved = { ...first, path: join(root, 'renamed.dnaforge-molecular.json') };
+    await rename(first.path, moved.path);
+    expect(await resolveImportedCoordinate(db, pinned)).toBeNull();
+    const owner = db.prepare('SELECT id FROM workspaces WHERE path=?').get(root) as { id: number };
+    const entityId = project.workspaceUuid + '::' + document.id;
+    db.prepare(
+      `INSERT INTO catalog_entities(id,type,name,locator,storage_type,workspace_id,created_at,updated_at)
+      VALUES(?,'molecular-document','Model',?,'file',?,1,1)`
+    ).run(entityId, 'entity://molecular-document/' + entityId, owner.id);
+    db.prepare(
+      `INSERT INTO catalog_entity_files(id,entity_id,workspace_id,path,file_kind,status,created_at,updated_at)
+      VALUES('binding',?,?,?,?,'current',1,1)`
+    ).run(entityId, owner.id, moved.path, MOLECULAR_DOCUMENT_FILE_KIND);
+    expect(await resolveImportedCoordinate(db, pinned)).toEqual(moved);
+    writeFileSync(moved.path, readFileSync(join(root, 'model 3.dnaforge-molecular.json')));
+    expect(await resolveImportedCoordinate(db, pinned)).toBeNull();
   });
 
   it('rejects a directory (that path is importIntoManagedWorkspaceRepo)', async () => {

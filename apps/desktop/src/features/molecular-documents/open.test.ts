@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Structure3dAttrs } from '../page/public/embeds/structure3d/types';
 import type { MolecularView } from '../../shared/molecular-view';
+import type { SourceFileView } from '../../shared/external-preview';
 
 const mocks = vi.hoisted(() => ({
   read: vi.fn(),
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
         entityId: string;
         label: string;
         initialStructureAttrs?: Structure3dAttrs;
+        sourceFileView?: SourceFileView;
         isDirty?: boolean;
       }>;
     }
@@ -25,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   cache: new Map<string, { container: HTMLDivElement; plugin: object | null }>(),
   updateStructure: vi.fn(),
   updateTab: vi.fn(),
+  retargetTab: vi.fn(),
 }));
 vi.mock('./services', () => ({ readMolecularDocument: mocks.read }));
 vi.mock('../canvas/public/store', () => ({
@@ -32,6 +35,7 @@ vi.mock('../canvas/public/store', () => ({
     getState: () => ({
       panels: mocks.panels,
       updateTab: mocks.updateTab,
+      retargetTab: mocks.retargetTab,
     }),
   },
 }));
@@ -158,6 +162,48 @@ beforeEach(() => {
 });
 
 describe('reopening current native molecular documents', () => {
+  it('promotes the same project source tab to the editable saved identity and current view', async () => {
+    const sourcePath = '/project/old.pdb';
+    const replacement = { tabId: 'source', sourcePath };
+    const product = saved(newPath);
+    mocks.read.mockResolvedValue(product);
+    mocks.panels.panel = {
+      id: 'panel',
+      tabs: [
+        {
+          id: 'source',
+          type: 'file',
+          label: 'old.pdb',
+          entityId: `source-view:project:${sourcePath}`,
+          sourceFileView: { path: sourcePath, format: 'structure', location: 'project' },
+        },
+      ],
+    };
+    const result = await openMolecularDocument(newPath, { replaceProjectSource: replacement });
+    expect(result).toMatchObject({ status: 'presented', disposition: 'reused', tabId: 'source' });
+    expect(mocks.retargetTab).toHaveBeenCalledWith(
+      'panel',
+      'source',
+      { type: 'structure', entityId },
+      expect.objectContaining({
+        label: product.document.name,
+        readOnly: false,
+        initialStructureAttrs: expect.objectContaining({
+          molecularDocumentPath: newPath,
+          molecularDocumentId: documentId,
+          molecularDocumentReference: product.documentReference,
+          molViewSpec: changedScene,
+        }),
+      })
+    );
+    mocks.panels.panel.tabs[0].sourceFileView!.path = '/project/another.pdb';
+    expect(
+      (await openMolecularDocument(newPath, { replaceProjectSource: replacement })).status
+    ).toBe('cancelled');
+    expect(mocks.retargetTab).toHaveBeenCalledTimes(1);
+    expect(mocks.present).not.toHaveBeenCalled();
+  });
+
   it('preserves published records that have not changed the native scene when the file changes', async () => {
     const attrs = setupTab();
     const publication = await prepareMolecularDataPublication({

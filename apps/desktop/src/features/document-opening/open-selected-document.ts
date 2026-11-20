@@ -1,3 +1,4 @@
+import { isFastaSource } from '../../shared/preserved-fasta';
 import {
   toUserMessage,
   userMessage,
@@ -23,7 +24,6 @@ import {
   openDocument,
   resolveFileDocumentKindFromSource,
 } from './open-document';
-import { inferCatalogFileKind } from '../../shared/catalog-file-kind';
 import { TRACK_VIEW_SUFFIX } from '../../shared/track-view';
 import {
   admitGenomeViewFileOpen,
@@ -47,9 +47,10 @@ export async function openSelectedDocument(
   let legacyFasta = false;
   const name = userMessageValue(label || path.split(/[\\/]/).at(-1) || 'This file');
   try {
-    if (inferCatalogFileKind(path) === 'fasta') {
+    if (isFastaSource(path)) {
       const sourceKind = await resolveFileDocumentKindFromSource({ kind: 'file', path, tabType });
       if (sourceKind === 'protein' || sourceKind === 'sequence') acceptedTabType = sourceKind;
+      if (sourceKind === 'fasta-collection') acceptedTabType = 'file';
       legacyFasta = sourceKind === 'legacy-fasta';
     }
     if (signal?.aborted) return cancelledDocumentOpen();

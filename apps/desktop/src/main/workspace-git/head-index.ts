@@ -1,3 +1,4 @@
+import { SOURCE_DOCUMENT_MARKER_PATH } from '../../shared/source-document-package';
 import fs from 'node:fs';
 import { execFile } from 'node:child_process';
 import { stat } from 'node:fs/promises';
@@ -339,12 +340,26 @@ export async function collectManagedCatalogHeadIndex(
           Buffer.from(await readBlobBytesAtCommit(repoPath, headCommit, path)).toString('utf8'),
       })
     : new Set<string>();
+  const originals = new Set(
+    entries
+      .filter(
+        ({ relPath }) =>
+          relPath === SOURCE_DOCUMENT_MARKER_PATH ||
+          relPath.endsWith('/' + SOURCE_DOCUMENT_MARKER_PATH)
+      )
+      .map(({ relPath }) => relPath.slice(0, -SOURCE_DOCUMENT_MARKER_PATH.length) + 'original')
+  );
   const selected: ManagedHeadEntry[] = [];
   let visibleFileCount = 0;
   let scannedFileCount = 0;
 
   for (const entry of entries) {
-    if (isSequenceMigrationRecoveryPath(entry.relPath)) continue;
+    const separator = entry.relPath.lastIndexOf('/');
+    if (
+      originals.has(entry.relPath.slice(0, separator)) ||
+      isSequenceMigrationRecoveryPath(entry.relPath)
+    )
+      continue;
     scannedFileCount++;
     if (isVisibleManagedHeadFile(entry.relPath)) visibleFileCount++;
     if (

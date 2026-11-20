@@ -101,6 +101,7 @@ interface EventEntry<Args extends unknown[]> {
 }
 
 export interface RendererSendContract {
+  'file-association:native-drop': EventEntry<[path: string]>;
   'benchling-migration:render-validation-ready': EventEntry<[ready: boolean]>;
   'diagnostics:renderer-error': EventEntry<
     [payload: { errorClass: string; source: 'error' | 'unhandledrejection' }]
@@ -130,6 +131,7 @@ export interface MainSendContract {
   'menu:check-for-updates': EventEntry<[]>;
   'menu:close-tab': EventEntry<[]>;
   'menu:explorer': EventEntry<[]>;
+  'menu:open-files': EventEntry<[]>;
   'menu:import-files': EventEntry<[]>;
   'menu:import-folder': EventEntry<[]>;
   'menu:import-registry-records': EventEntry<[]>;
@@ -260,6 +262,7 @@ export type GenericMainSendChannel = Extract<
   | 'menu:close-tab'
   | 'menu:reopen-closed-tab'
   | 'menu:redo'
+  | 'menu:open-files'
   | 'menu:import-files'
   | 'menu:import-folder'
   | 'menu:import-registry-records'

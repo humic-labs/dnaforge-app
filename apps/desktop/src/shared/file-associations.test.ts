@@ -1,10 +1,6 @@
 // @vitest-environment node
 
-import {
-  FILE_ASSOCIATION_FAMILIES,
-  associationFamilyForPath,
-  associationPromptReady,
-} from './file-associations';
+import { FILE_ASSOCIATION_FAMILIES, associationFamilyForPath } from './file-associations';
 
 describe(' file association registry', () => {
   it('owns the exact supported family metadata', () => {
@@ -14,7 +10,6 @@ describe(' file association registry', () => {
         displayName: 'GenBank',
         extensions: ['gb', 'gbk', 'gbff', 'genbank'],
         capability: 'editor',
-        promptReady: true,
         macos: expect.objectContaining({ role: 'Editor', rank: 'Alternate' }),
         windows: expect.objectContaining({ progId: 'DNAForge.GenBank' }),
       }),
@@ -23,8 +18,6 @@ describe(' file association registry', () => {
         displayName: 'SnapGene DNA',
         extensions: ['dna'],
         capability: 'viewer',
-        promptReady: false,
-        readinessBlocker: 'format-validation-pending',
         macos: expect.objectContaining({ role: 'Viewer', rank: 'Alternate' }),
         windows: expect.objectContaining({ progId: 'DNAForge.SnapGene' }),
       }),
@@ -36,10 +29,5 @@ describe(' file association registry', () => {
     expect(associationFamilyForPath('C:\\data\\construct.DNA')?.id).toBe('snapgene');
     expect(associationFamilyForPath('/tmp/design.fasta')).toBeNull();
     expect(associationFamilyForPath('/tmp/.gb')).toBeNull();
-  });
-
-  it('keeps automatic prompting behind the checked-in readiness gate', () => {
-    expect(associationPromptReady('genbank')).toBe(true);
-    expect(associationPromptReady('snapgene')).toBe(false);
   });
 });

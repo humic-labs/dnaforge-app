@@ -58,6 +58,16 @@ describe(' File > Import menu', () => {
     expect(findByLabel(file!.submenu ?? [], 'Bulk Import Registry Records...')).toBeTruthy();
   });
 
+  it('assigns the Open shortcut to external previews', () => {
+    const { window, send } = makeWindow();
+    buildMenu(window);
+    const item = findByLabel(capturedTemplate!, 'Open Files…');
+    expect(item?.accelerator).toBe('CmdOrCtrl+O');
+    expect(findByLabel(capturedTemplate!, 'Import Files...')?.accelerator).toBeUndefined();
+    item!.click!();
+    expect(send).toHaveBeenCalledWith('menu:open-files');
+  });
+
   it('"Import Files..." fires menu:import-files', () => {
     const { window, send } = makeWindow();
     buildMenu(window);

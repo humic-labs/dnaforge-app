@@ -40,7 +40,7 @@ export function SequenceTabInfoChrome({
   readOnly: boolean;
   presentation: SequencePresentation;
   quickLook?: {
-    label: SequenceDisplayName;
+    sourceFileName: string;
     records: readonly {
       recordId: string;
       displayName: SequenceDisplayName;
@@ -82,7 +82,7 @@ export function SequenceTabInfoChrome({
       {}
       <div data-testid={isHostedDocument ? 'hosted-document-bar' : undefined}>
         <SequenceInfoBar
-          documentLabel={quickLook?.label ?? presentation.name}
+          documentLabel={presentation.name}
           sequenceLength={sequenceLength}
           circular={circular}
           viewMode={viewMode}
@@ -95,12 +95,15 @@ export function SequenceTabInfoChrome({
           showRendererVisibilityToggle={false}
           showMapLayoutToggle={false}
           accessMode={
-            readOnly
+            quickLook
               ? {
-                  kind: 'read-only',
-                  onImportToEdit: quickLook?.onImportToEdit,
+                  kind: 'external-preview',
+                  sourceFileName: quickLook.sourceFileName,
+                  onImportToEdit: quickLook.onImportToEdit,
                 }
-              : undefined
+              : readOnly
+                ? { kind: 'read-only' }
+                : undefined
           }
           recordSelector={
             quickLook
@@ -113,22 +116,18 @@ export function SequenceTabInfoChrome({
           }
           limsBadge={quickLook ? undefined : limsBadge}
           trailingContent={
-            isHostedDocument || (!readOnly && !quickLook && shareControl) ? (
+            isHostedDocument ? (
               <>
-                {isHostedDocument ? (
-                  <>
-                    <span>{annotationCount ?? 0} annotations</span>
-                    <span data-testid="hosted-version-id">
-                      {hostedPendingDraft
-                        ? `Local draft · based on revision ${hostedRevisionNumber}`
-                        : `Revision ${hostedRevisionNumber}`}
-                    </span>
-                  </>
-                ) : null}
-                {!isHostedDocument && !readOnly && !quickLook ? shareControl : null}
+                <span>{annotationCount ?? 0} annotations</span>
+                <span data-testid="hosted-version-id">
+                  {hostedPendingDraft
+                    ? `Local draft · based on revision ${hostedRevisionNumber}`
+                    : `Revision ${hostedRevisionNumber}`}
+                </span>
               </>
             ) : undefined
           }
+          shareControl={!isHostedDocument && !readOnly && !quickLook ? shareControl : undefined}
           onEdit={
             !readOnly && !isViewerEditMode ? () => onRequestEdit(sequenceDocumentId) : undefined
           }

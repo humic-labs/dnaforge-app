@@ -4,7 +4,6 @@ import { join, resolve } from 'node:path';
 import {
   createNativeDefaultHandlerDependencies,
   parseMacHandlerResponse,
-  parseWindowsProgId,
   resolveMacDefaultHandlerHelperPath,
 } from './native-default-handler';
 
@@ -33,14 +32,14 @@ describe(' native default-handler adapters', () => {
         runCommand,
         openExternal: vi.fn(),
       });
-      await expect(dependencies.queryMacHandler('com.dnaforge.genbank')).resolves.toBeNull();
+      await expect(dependencies.queryMacHandler('genbank')).resolves.toBeNull();
       expect(runCommand).toHaveBeenCalledWith(
         '/usr/bin/xcrun',
         expect.arrayContaining([helperSourcePath])
       );
       expect(runCommand).toHaveBeenCalledWith(
         join(userDataPath, 'helpers', 'dnaforge-file-association'),
-        ['query-extension', 'gbff']
+        ['query-extensions', 'gb', 'gbk', 'gbff', 'genbank']
       );
     } finally {
       cwd.mockRestore();
@@ -59,7 +58,7 @@ describe(' native default-handler adapters', () => {
       runCommand,
       openExternal: vi.fn(),
     });
-    await expect(dependencies.queryMacHandler('com.dnaforge.genbank')).rejects.toThrow(
+    await expect(dependencies.queryMacHandler('genbank')).rejects.toThrow(
       'Could not read the current default app'
     );
     expect(runCommand).not.toHaveBeenCalled();
@@ -81,13 +80,52 @@ describe(' native default-handler adapters', () => {
     );
   });
 
-  it('parses Windows UserChoice ProgId output and treats missing values as unset', () => {
+  it('preserves the individual macOS handlers when a family has mixed defaults', () => {
     expect(
-      parseWindowsProgId(
-        '\nHKEY_CURRENT_USER\\Software\\...\\UserChoice\n    ProgId    REG_SZ    DNAForge.GenBank\n'
-      )
-    ).toBe('DNAForge.GenBank');
-    expect(parseWindowsProgId('ERROR: The system was unable to find the registry key.')).toBeNull();
+      parseMacHandlerResponse(
+        JSON.stringify({
+          ok: true,
+          handler: { name: 'Multiple applications' },
+          byExtension: { gb: { name: 'SnapGene', bundleId: 'com.gslbiotech.snapgene' }, gbk: null },
+        })
+      )?.mixedHandlers
+    ).toEqual([
+      { extension: 'gb', handlerName: 'SnapGene' },
+      { extension: 'gbk', handlerName: null },
+    ]);
+  });
+
+  it('distinguishes a Windows shell query failure from a genuinely unassociated extension', async () => {
+    const runCommand = vi
+      .fn()
+      .mockResolvedValue({ code: 1, stderr: 'COM query failed', stdout: '' });
+    const deps = createNativeDefaultHandlerDependencies({
+      platform: 'win32',
+      appBundleId: 'com.dnaforge.desktop',
+      isPackaged: false,
+      helperSourcePath: resolve(
+        __dirname,
+        '../../../resources/helpers-src/dnaforge-file-association.m'
+      ),
+      resourcesPath: 'resources',
+      execPath: 'DNAForge.exe',
+      runCommand,
+      openExternal: vi.fn(),
+    });
+    await expect(deps.queryWindowsProgIds()).rejects.toThrow('COM query failed');
+    const args = runCommand.mock.calls[0][1];
+    expect(args).toContain('-EncodedCommand');
+    expect(args).not.toContain('-ExecutionPolicy');
+    const command = Buffer.from(args.at(-1), 'base64').toString('utf16le');
+    expect(command).toContain('QueryCurrentDefault');
+    const extensions = command.match(/-Extensions '([a-z0-9,]+)'$/u)?.[1]?.split(',') ?? [];
+    expect(extensions).toContain('dna');
+    const results: Record<string, { progId: string; name: string } | null> = Object.fromEntries(
+      extensions.map((extension) => [extension, null])
+    );
+    results.dna = { progId: 'SnapGene.DNA', name: 'SnapGene' };
+    runCommand.mockResolvedValue({ code: 0, stderr: '', stdout: JSON.stringify(results) });
+    await expect(deps.queryWindowsProgIds()).resolves.toEqual(results);
   });
 
   it('resolves the helper beside the packaged app Helpers directory only', () => {
@@ -119,12 +157,12 @@ describe(' native default-handler adapters', () => {
       runCommand,
       openExternal,
     });
-    await expect(mac.queryMacHandler('com.dnaforge.genbank')).resolves.toMatchObject({
+    await expect(mac.queryMacHandler('genbank')).resolves.toMatchObject({
       bundleId: 'com.dnaforge.desktop',
     });
     expect(runCommand).toHaveBeenCalledWith(
       '/Applications/DNAForge.app/Contents/Helpers/dnaforge-file-association',
-      ['query', 'com.dnaforge.genbank']
+      ['query-extensions', 'gb', 'gbk', 'gbff', 'genbank']
     );
 
     const windows = createNativeDefaultHandlerDependencies({
@@ -160,15 +198,18 @@ describe(' native default-handler adapters', () => {
       openExternal: vi.fn(async () => undefined),
     });
 
-    await expect(unpackaged.queryMacHandler('com.dnaforge.genbank')).resolves.toMatchObject({
+    await expect(unpackaged.queryMacHandler('genbank')).resolves.toMatchObject({
       name: 'Preview',
     });
     expect(runCommand).toHaveBeenCalledWith('/tmp/dnaforge-file-association', [
-      'query-extension',
+      'query-extensions',
       'gb',
+      'gbk',
+      'gbff',
+      'genbank',
     ]);
     expect(unpackaged.macDefaultAction).toBe('instructions');
-    await expect(unpackaged.setMacHandler('com.dnaforge.genbank')).resolves.toMatchObject({
+    await expect(unpackaged.setMacHandler('genbank')).resolves.toMatchObject({
       ok: false,
       detail: expect.stringContaining('development window'),
     });

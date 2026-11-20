@@ -48,6 +48,38 @@ describe('createQuickLookPackageStore', () => {
     await fs.rm(root, { recursive: true, force: true });
   });
 
+  it('adopts a former generation from its cached original without rebinding an existing project copy', async () => {
+    const path = join(sourceRoot, 'old.gb');
+    const bytes = Buffer.from(
+      'LOCUS       old      4 bp    DNA     linear\nORIGIN\n        1 acgt\n//\n'
+    );
+    await fs.writeFile(path, bytes);
+    const store = createQuickLookPackageStore(userDataRoot);
+    const current = await store.materialize({ sourcePath: path, familyId: 'genbank' });
+    const currentRoot = generationRootFor(current.packageRoot);
+    const legacyKey = createHash('sha256')
+      .update('genbank\0' + current.sourcePath + '\0' + current.contentHash)
+      .digest('hex');
+    const oldRoot = join(dirname(currentRoot), legacyKey);
+    await fs.rename(currentRoot, oldRoot);
+    const originalInput = JSON.stringify(current);
+    const legacy = JSON.parse(originalInput.replaceAll(currentRoot, oldRoot));
+    const previousId = JSON.parse(
+      await fs.readFile(join(legacy.packageRoot, '.forge', 'plasmid.json'), 'utf8')
+    ).id;
+    await fs.unlink(path);
+    const adopted = await store.recoverReceipt(legacy);
+    expect(adopted.contentHash).toBe(current.contentHash);
+    expect(adopted.packageRoot).toBe(current.packageRoot);
+    expect(await fs.readFile(await store.originalPath(adopted))).toEqual(bytes);
+    const newId = JSON.parse(
+      await fs.readFile(join(adopted.packageRoot, '.forge', 'plasmid.json'), 'utf8')
+    ).id;
+    expect(newId).not.toBe(previousId);
+    await fs.appendFile(adopted.productPath, 'tampered');
+    await expect(store.originalPath(adopted)).rejects.toThrow(/incomplete or changed/);
+  });
+
   it('copies exact GenBank bytes into one persistent package without changing the source', async () => {
     const sourcePath = join(sourceRoot, 'pUC19.gb');
     const sourceBytes = Buffer.from(
@@ -111,6 +143,29 @@ describe('createQuickLookPackageStore', () => {
     ).rejects.toThrow(`more than ${QUICK_LOOK_MAX_GENBANK_RECORDS.toLocaleString()} records`);
     expect(await fs.readdir(join(userDataRoot, 'quick-look-packages')).catch(() => [])).toEqual([]);
   });
+
+  it.each([
+    ['2 aa', 'mf', 'nucleotide LOCUS'],
+    ['3 bp', 'ac', 'length'],
+    ['2 bp', 'ef', 'nucleotide alphabet'],
+  ])(
+    'rejects the whole external set when a later record has unsupported %s / %s',
+    async (locus, sequence, reason) => {
+      const path = join(sourceRoot, 'mixed.gb');
+      const text =
+        'LOCUS       repeat   2 bp DNA\nORIGIN\n        1 ac\n//\n' +
+        `LOCUS       repeat   ${locus}\nORIGIN\n        1 ${sequence}\n//\n`;
+      await fs.writeFile(path, text);
+      await expect(
+        createQuickLookPackageStore(userDataRoot).materialize({
+          sourcePath: path,
+          familyId: 'genbank',
+        })
+      ).rejects.toThrow(reason);
+      expect(await fs.readFile(path, 'utf8')).toBe(text);
+      expect(await fs.readdir(join(userDataRoot, 'quick-look-packages'))).toEqual([]);
+    }
+  );
 
   it('creates one ordinary package per GenBank record and preserves the complete source once', async () => {
     const sourcePath = join(sourceRoot, 'assembly.gbk');

@@ -165,6 +165,10 @@ export interface MolecularDocumentLocation {
   workspaceRoot: string;
 }
 
+export interface ImportedCoordinateLocation extends MolecularDocumentLocation {
+  expectedSourceSha256?: string;
+}
+
 export interface SavedMolecularDocument extends MolecularDocumentLocation {
   document: MolecularDocument;
 
@@ -190,6 +194,9 @@ export interface MolecularDocumentSourceProjection {
 }
 
 export interface MolecularDocumentsBridge {
+  resolveImportedCoordinate(
+    request: ImportedCoordinateLocation
+  ): Promise<MolecularDocumentLocation | null>;
   reconcileSourceLinks(
     request: ReconcileMolecularDocumentSourcesRequest,
     mutationToken?: string

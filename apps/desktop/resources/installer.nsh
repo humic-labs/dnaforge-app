@@ -440,7 +440,9 @@
 
 ; Completion marker — primary path only (plan: dual-write is critical on init).
 !macro customInstall
-  !insertmacro DNAForgeRegisterFileAssociations
+  !if "${PRODUCT_NAME}" == "DNAForge"
+    !insertmacro DNAForgeRegisterFileAssociations
+  !endif
   ; Prefer $R6 from customInit; if empty, re-read persisted attempt id (best-effort).
   ${If} $R6 == ""
     Push $R0
@@ -476,5 +478,7 @@
 ; Remove only DNAForge-owned ProgIDs, capability values, and Open With entries.
 ; Never delete an extension key or UserChoice: those belong to Windows/the user.
 !macro customUnInstall
-  !insertmacro DNAForgeUnregisterFileAssociations
+  !if "${PRODUCT_NAME}" == "DNAForge"
+    !insertmacro DNAForgeUnregisterFileAssociations
+  !endif
 !macroend

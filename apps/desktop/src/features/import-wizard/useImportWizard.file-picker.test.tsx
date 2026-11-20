@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   listeners: new Map<string, () => void>(),
   folders: [{ path: '/projects/research' }],
   openDialog: vi.fn(),
+  openExternalFiles: vi.fn(),
   runImportFlow: vi.fn(),
 }));
 
@@ -40,16 +41,40 @@ vi.mock('../../utils/environment', async (importOriginal) => ({
 vi.mock('../canvas/public', () => ({
   useCanvasStore: { getState: () => ({ openChatTab: vi.fn() }) },
 }));
-vi.mock('../../lib/open-quick-look-source', () => ({ openQuickLookSource: vi.fn() }));
+vi.mock('../../lib/open-external-preview', () => ({ openExternalFiles: mocks.openExternalFiles }));
 
 import { useImportWizard } from './useImportWizard';
 
 beforeEach(() => {
   mocks.listeners.clear();
   mocks.openDialog.mockReset();
+  mocks.openExternalFiles.mockReset();
   mocks.openDialog.mockResolvedValue(null);
   mocks.runImportFlow.mockReset();
   mocks.runImportFlow.mockResolvedValue(undefined);
+});
+
+it('opens the selection from the native Open picker through the preview route', async () => {
+  const paths = ['/Downloads/model.cif', '/Downloads/collection.fasta'];
+  mocks.openDialog.mockResolvedValue(paths);
+  const hook = renderHook(() => useImportWizard());
+  try {
+    await act(async () => mocks.listeners.get('menu:open-files')!());
+    expect(mocks.openDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        multiple: true,
+        filters: expect.arrayContaining([
+          expect.objectContaining({
+            extensions: expect.arrayContaining(['dna', 'gbk', 'fa', 'cif', 'ab1']),
+          }),
+        ]),
+      })
+    );
+    await waitFor(() => expect(mocks.openExternalFiles).toHaveBeenCalledWith(paths, 'menu'));
+    expect(mocks.runImportFlow).not.toHaveBeenCalled();
+  } finally {
+    hook.unmount();
+  }
 });
 
 it('File Import Files starts with a native filter that permits PDFs and other documents', async () => {

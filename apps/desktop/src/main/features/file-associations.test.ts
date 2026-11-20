@@ -45,6 +45,7 @@ vi.mock('../file-associations/native-default-handler', () => ({
 }));
 vi.mock('../file-associations/quick-look-package-store', () => ({
   createQuickLookPackageStore: mocks.createStore,
+  QUICK_LOOK_STORE_MAX_BYTES: 2 * 1024 ** 3,
 }));
 vi.mock('../file-associations/quick-look-destination-promotion', () => ({
   promoteQuickLookToDestination: mocks.promote,
@@ -67,6 +68,7 @@ const USER_DATA = '/user-data';
 const PROMOTIONS = join(USER_DATA, QUICK_LOOK_PACKAGE_STORE_DIRECTORY, '.promotions');
 const PREPARATIONS = join(PROMOTIONS, 'workspace-preparations');
 const CONFIGURATION = {
+  allowDefaultChanges: false,
   userDataPath: USER_DATA,
   helperSourcePath: '/helpers/association.m',
   openExternal: mocks.openExternal,
@@ -209,6 +211,7 @@ describe('file associations main feature', () => {
     ) => unknown;
     importer({ snapshot: 's' }, '/physical');
     expect(mocks.importGeneration).toHaveBeenCalledWith({ snapshot: 's' }, '/physical', {
+      independentCopies: true,
       db: mocks.db,
       managedRootDir: '/managed',
       promotionJournalRoot: PROMOTIONS,

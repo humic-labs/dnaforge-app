@@ -1,9 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  readFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { lstat, readFile, readdir, readlink, realpath, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 vi.mock('electron', () => ({
   dialog: { showErrorBox: vi.fn() },
@@ -591,6 +599,37 @@ describe('importFileIntoWorkspaceRoot ', () => {
       ],
     };
   }
+
+  it('gives each saved copy its own sequence identity while keeping exact source products and reusing a verified retry', async () => {
+    const repoPath = await makeManagedRepo();
+    const other = join(repoPath, 'second');
+    mkdirSync(other);
+    const records = [makeQuickLookSnapshot('first'), makeQuickLookSnapshot('duplicate')];
+    const snapshot = { sourceFileName: 'collection.gb', records };
+    const deps = {
+      db,
+      managedRootDir: managedRoot,
+      promotionJournalRoot: join(tmp, 'promotions'),
+      independentCopies: true,
+    };
+    const readMarker = (root: string) =>
+      JSON.parse(readFileSync(join(root, '.forge', 'plasmid.json'), 'utf8'));
+    const opened = await importQuickLookGenerationIntoWorkspaceRoot(snapshot, repoPath, deps);
+    const duplicate = await importQuickLookGenerationIntoWorkspaceRoot(snapshot, other, deps);
+    const saved = await importQuickLookGenerationIntoWorkspaceRoot(snapshot, repoPath, deps);
+    expect(saved.records).toEqual(opened.records);
+    for (const [i, record] of records.entries()) {
+      const sourceMarker = readMarker(record.packageRoot);
+      const first = readMarker(dirname(opened.records[i].destPath));
+      const second = readMarker(dirname(duplicate.records[i].destPath));
+      expect(new Set([sourceMarker.id, first.id, second.id]).size).toBe(3);
+      expect({ ...first, id: sourceMarker.id }).toEqual(sourceMarker);
+      expect({ ...second, id: sourceMarker.id }).toEqual(sourceMarker);
+      expect(readFileSync(opened.records[i].destPath)).toEqual(
+        readFileSync(join(record.packageRoot, record.productRelativePath))
+      );
+    }
+  });
 
   it('publishes every record in one collision-safe group and reuses it on retry', async () => {
     const repoPath = await makeManagedRepo();

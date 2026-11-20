@@ -3,7 +3,7 @@ import type {
   FileAssociationDefaultRequestResult,
   FileAssociationHandlerStatus,
 } from '../../shared/file-association-ipc';
-import type { FileAssociationFamilyId } from '../../shared/file-associations';
+import type { HandlerFamilyId } from '../../shared/file-associations';
 
 export const OPEN_FILE_HANDLING_SETTINGS_EVENT = 'dnaforge:open-file-handling-settings';
 export const REVEAL_OPEN_DOCUMENT_EVENT = 'dnaforge:reveal-open-document';
@@ -23,7 +23,7 @@ export async function queryFileAssociationHandlers(): Promise<
 }
 
 export async function requestFileAssociationDefault(
-  familyId: FileAssociationFamilyId
+  familyId: HandlerFamilyId
 ): Promise<FileAssociationDefaultRequestResult> {
   if (!devOverride) return platform().fileAssociations.requestDefault(familyId);
   const target = devOverride.find((status) => status.familyId === familyId);

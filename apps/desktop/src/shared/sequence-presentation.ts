@@ -26,11 +26,3 @@ export function sequenceDisplayName(value: unknown): SequenceDisplayName {
 export function sequencePresentation(name: unknown): SequencePresentation {
   return Object.freeze({ name: sequenceDisplayName(name) });
 }
-
-export function quickLookSequenceDisplayName(
-  sourceFileName: string,
-  recordName?: string
-): SequenceDisplayName {
-  const source = sequenceDisplayName(sourceFileName);
-  return `Quick Look / ${source}${recordName ? ` / ${sequenceDisplayName(recordName)}` : ''}` as SequenceDisplayName;
-}

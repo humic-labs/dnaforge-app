@@ -16,6 +16,22 @@ function loadFileAssociationRegistry(desktopRoot) {
   if (registry?.version !== 1 || !Array.isArray(registry.families)) {
     throw new Error('File association registry must use version 1 and contain families.');
   }
+  const previews = JSON.parse(
+    readFileSync(join(desktopRoot, 'resources', 'external-previews.json'), 'utf8')
+  );
+  for (const preview of previews.families) {
+    registry.families.push({
+      ...preview,
+      documentDescription: preview.displayName,
+      documentIcons: { macos: 'icon.icns', windows: 'DNAForge.exe' },
+      macos: {
+        contentType: preview.macosTypes[0].id,
+        role: 'Viewer',
+        ownership: 'imported',
+        rank: 'Alternate',
+      },
+    });
+  }
   const extensions = new Set();
   for (const [index, family] of registry.families.entries()) {
     nonEmptyString(family?.id, `families[${index}].id`);
@@ -50,14 +66,22 @@ function loadFileAssociationRegistry(desktopRoot) {
 }
 
 function projectMacAssociationMetadata(registry) {
-  const typeDeclaration = (family) => ({
-    UTTypeIdentifier: family.macos.contentType,
-    UTTypeDescription: family.documentDescription,
-    UTTypeConformsTo: family.macos.conformsTo,
-    UTTypeTagSpecification: {
-      'public.filename-extension': family.extensions,
-      ...(family.macos.mimeTypes.length > 0 ? { 'public.mime-type': family.macos.mimeTypes } : {}),
-    },
+  const declarations = registry.families.flatMap((family) => {
+    const types = family.macosTypes ?? [
+      {
+        id: family.macos.contentType,
+        conformsTo: family.macos.conformsTo[0],
+      },
+    ];
+    return types.map((type) => ({
+      UTTypeIdentifier: type.id,
+      UTTypeDescription: family.documentDescription,
+      UTTypeConformsTo: [type.conformsTo],
+      UTTypeTagSpecification: {
+        'public.filename-extension': type.extensions ?? family.extensions,
+        ...(family.macos.mimeTypes?.length ? { 'public.mime-type': family.macos.mimeTypes } : {}),
+      },
+    }));
   });
   return {
     documentTypes: registry.families.map((family) => ({
@@ -65,20 +89,19 @@ function projectMacAssociationMetadata(registry) {
       CFBundleTypeIconFile: family.documentIcons.macos,
       CFBundleTypeRole: family.macos.role,
       LSHandlerRank: family.macos.rank,
-      LSItemContentTypes: [family.macos.contentType],
+      LSItemContentTypes: family.macosTypes?.map((type) => type.id) ?? [
+        family.macos.contentType,
+        ...(family.macos.aliases ?? []),
+      ],
     })),
-    exportedTypes: registry.families
-      .filter((family) => family.macos.ownership === 'exported')
-      .map(typeDeclaration),
-    importedTypes: registry.families
-      .filter((family) => family.macos.ownership === 'imported')
-      .map(typeDeclaration),
+    exportedTypes: [],
+    importedTypes: declarations,
   };
 }
 
 function generateWindowsAssociationInclude(registry) {
   const lines = [
-    '; GENERATED from resources/file-associations.json. Do not edit by hand.',
+    '; GENERATED from resources/file-associations.json and resources/external-previews.json. Do not edit by hand.',
     '; Run: node scripts/generate-file-association-packaging.cjs',
     '',
     '!macro DNAForgeRegisterFileAssociations',
@@ -140,7 +163,10 @@ function injectMacAssociationMetadata(context, registry, run = spawnSync) {
     'Contents',
     'Info.plist'
   );
-  const projected = projectMacAssociationMetadata(registry);
+  const projected =
+    context.packager.appInfo.productFilename === 'DNAForge'
+      ? projectMacAssociationMetadata(registry)
+      : { documentTypes: [], exportedTypes: [], importedTypes: [] };
   const mutations = [
     ['CFBundleDocumentTypes', projected.documentTypes],
     ['UTExportedTypeDeclarations', projected.exportedTypes],

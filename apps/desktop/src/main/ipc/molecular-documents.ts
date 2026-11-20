@@ -6,10 +6,12 @@ import { handleGroup } from '../../shared/ipc-contract';
 import { packMolecularDocument, unpackMolecularDocument } from '../../shared/molecular-document';
 import { MolecularDocumentLibrary } from '../molecular-document-library';
 import { molecularDocumentsContract } from '../../shared/ipc/molecular-documents.contract';
+import { resolveImportedCoordinate } from '../imported-coordinate-location';
 
 export function registerMolecularDocumentIpcHandlers(): void {
   const library = new MolecularDocumentLibrary();
   handleGroup(molecularDocumentsContract, {
+    resolveImportedCoordinate: (_event, request) => resolveImportedCoordinate(getDb(), request),
     reconcileSourceLinks: (event, request, mutationToken) => {
       const db = getDb();
       return withDeclaredRendererWorkspaceMutation({

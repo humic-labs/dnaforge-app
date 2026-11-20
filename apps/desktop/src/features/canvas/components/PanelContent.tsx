@@ -76,6 +76,12 @@ import { FastaKindReadStatus } from '../../../components/FastaKindReadStatus';
 import { sequencePresentation } from '../../../shared/sequence-presentation';
 import { EntityDetailsDrawer } from '../../entity-details/public/EntityDetails';
 
+const SourceFileViewer = lazy(() =>
+  import('../../external-preview/SourceFileViewer').then((module) => ({
+    default: module.SourceFileViewer,
+  }))
+);
+
 const [adjacencyGraphModule] = Object.values(
   import.meta.glob<{ AdjacencyGraphWizard: ComponentType }>(
     '../../adjacency-graph/public/wizard.ts',
@@ -158,7 +164,12 @@ function SequenceDocumentTabContent({ tab }: { tab: Tab }) {
     let cancelled = false;
     if (!ref) return;
     setState((current) => (current.status === 'ready' ? current : { status: 'loading' }));
-    void resolveSequenceDocument(ref)
+    const opening = tab.quickLookSource
+      ? import('../../external-preview/restore-quick-look-sequence').then(
+          ({ restoreQuickLookSequence }) => restoreQuickLookSequence(tab)
+        )
+      : resolveSequenceDocument(ref);
+    void opening
       .catch(async (error: unknown) => {
         if (!isHostedBrowserRuntime()) throw error;
         const { resolveHostedTabDocument } = await import('../../../hosted/hydrate-session');
@@ -184,6 +195,7 @@ function SequenceDocumentTabContent({ tab }: { tab: Tab }) {
         ({ resolved, authority }) => {
           if (cancelled) return;
           setState({ status: 'ready', document: resolved, authority });
+          if (tab.quickLookSource) return;
           if (resolved.name && resolved.name !== labelHintRef.current) {
             useCanvasStore.getState().updateTabByEntityId(tab.entityId, { label: resolved.name });
           }
@@ -201,7 +213,9 @@ function SequenceDocumentTabContent({ tab }: { tab: Tab }) {
           if (!cancelled) {
             setState({
               status: 'error',
-              message: toUserMessage(error, 'failure.the-sequence-document-could-not-open'),
+              message: tab.quickLookSource
+                ? 'This preview package could not be restored. Reopen the original file from File → Open.'
+                : toUserMessage(error, 'failure.the-sequence-document-could-not-open'),
             });
           }
         }
@@ -209,14 +223,19 @@ function SequenceDocumentTabContent({ tab }: { tab: Tab }) {
     return () => {
       cancelled = true;
     };
-  }, [ref, tab.entityId, tab.sourceFileName, hostedRetryKey]);
+  }, [
+    ref,
+    tab.entityId,
+    tab.sourceFileName,
+    tab.quickLookSource,
+    tab.previewReceipt,
+    hostedRetryKey,
+  ]);
 
   if (!ref || state.status === 'error') {
     return (
       <div className="h-full flex items-center justify-center p-6 text-sm text-fg-muted">
-        {state.status === 'error'
-          ? toUserMessage(state.message, 'operation.failed')
-          : 'The sequence document reference is missing.'}
+        {state.status === 'error' ? state.message : 'The sequence document reference is missing.'}
       </div>
     );
   }
@@ -543,6 +562,16 @@ function PanelContentInternal({
     if (found) closeTab(found.panelId, found.tabId);
   };
 
+  if (tab.sourceFileView) {
+    return (
+      <TabErrorBoundary key={tab.id} label={tab.label} onClose={handleClose}>
+        <Suspense fallback={<LoadingTab />}>
+          <SourceFileViewer key={tab.entityId} view={tab.sourceFileView} tabId={tab.id} />
+        </Suspense>
+      </TabErrorBoundary>
+    );
+  }
+
   const isFileTab =
     fileBackedTabPath(tab) !== null || (tab.type === 'sequence' && !!tab.sequenceDocument);
   const filePath = fileBackedTabPath(tab);
@@ -827,7 +856,17 @@ function PanelContentInternal({
 
   return (
     <TabErrorBoundary key={tab.id} label={tab.label} onClose={handleClose}>
-      {content}
+      {tab.quickLookSource ? (
+        <section
+          aria-label="External file preview"
+          data-testid="external-preview-frame"
+          className="h-full min-h-0"
+        >
+          {content}
+        </section>
+      ) : (
+        content
+      )}
       {tab.type !== 'primer' &&
       tab.viewState?.entityDetailsOpen &&
       tab.viewState.entityDetailsEntityId ? (

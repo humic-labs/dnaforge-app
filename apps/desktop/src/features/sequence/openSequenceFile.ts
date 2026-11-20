@@ -59,7 +59,6 @@ import {
 import { readStableWorkspaceGeneration } from '../../services/workspace-sync-renderer-generation';
 import { withRendererWorkspaceMutation } from '../../services/workspace-mutation-transaction';
 import type { QuickLookPackageReceipt } from '../../shared/file-association-ipc';
-import type { FileAssociationFamilyId } from '../../shared/file-associations';
 import { MANAGED_DNA_FILE_EXTENSIONS } from '@waypoint/sequence-utils/sequence-file-types';
 
 export interface QuickLookSequencePresentation {
@@ -160,12 +159,6 @@ function presentationTabPatch(
     quickLookSource: presentation.receipt,
     sourceFileName: presentation.receipt.sourceFileName,
   };
-}
-
-function presentationAssociationFamilyId(
-  presentation: SequenceOpenPresentation | undefined
-): FileAssociationFamilyId | undefined {
-  return presentation?.receipt.familyId;
 }
 
 export async function openSequenceFileResult(
@@ -705,7 +698,6 @@ async function openResolvedSequenceFile(
             sourceSurface: telemetry.sourceSurface,
             sizeBucket: fileSizeBucket(size),
             fileSizeBytes: size,
-            associationFamilyId: presentationAssociationFamilyId(active.options.presentation),
             importOperationIds: telemetry.importOperationIds,
           });
         }
@@ -767,7 +759,6 @@ async function openResolvedSequenceFile(
           sourceSurface: telemetry.sourceSurface,
           sizeBucket: fileSizeBucket(size),
           fileSizeBytes: size,
-          associationFamilyId: presentationAssociationFamilyId(active.options.presentation),
           importOperationIds: telemetry.importOperationIds,
         });
       }

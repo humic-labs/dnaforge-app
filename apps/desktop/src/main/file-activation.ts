@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { realpathSync } from 'node:fs';
 
-import { associationFamilyForPath } from '../shared/file-associations';
+import { externalFormatForPath } from '../shared/external-preview';
 import type { FileActivationDelivery } from '../shared/file-association-ipc';
 
 type Realpath = (candidate: string) => string;
@@ -25,7 +25,7 @@ export function extractAssociationPathsFromArgv(
     if (argument.length === 0 || argument.startsWith('-') || isProtocolArgument(argument)) {
       continue;
     }
-    if (!associationFamilyForPath(argument)) continue;
+    if (!externalFormatForPath(argument)) continue;
     candidates.push(paths.resolve(cwd, argument));
   }
   return candidates;
@@ -55,7 +55,7 @@ export function canonicalAssociationPath(
 ): string | null {
   const paths = pathImplementation(platform);
   const absolute = paths.resolve(cwd, input);
-  if (!associationFamilyForPath(absolute)) return null;
+  if (!externalFormatForPath(absolute)) return null;
   try {
     return realpath(absolute);
   } catch {
@@ -90,8 +90,8 @@ export class FileActivationQueue {
     for (const input of paths) {
       const canonical = canonicalAssociationPath(input, this.cwd, this.platform, this.realpath);
       if (!canonical) continue;
-      const family = associationFamilyForPath(canonical);
-      if (!family) continue;
+      const familyId = externalFormatForPath(canonical);
+      if (!familyId) continue;
       const dedupeKey =
         this.platform === 'win32' ? canonical.toLocaleLowerCase('en-US') : canonical;
       if (batchKeys.has(dedupeKey) || (!this.rendererReady && this.pendingKeys.has(dedupeKey))) {
@@ -102,7 +102,7 @@ export class FileActivationQueue {
       accepted.push({
         deliveryId: `file-activation-${this.nextDeliveryNumber}`,
         path: canonical,
-        familyId: family.id,
+        familyId,
       });
       this.nextDeliveryNumber += 1;
     }

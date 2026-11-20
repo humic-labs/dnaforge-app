@@ -15,7 +15,7 @@ function dependencies(
       path: '/System/Applications/TextEdit.app',
     })),
     setMacHandler: vi.fn(async () => ({ ok: true, detail: null })),
-    queryWindowsProgId: vi.fn(async () => 'Preview.File'),
+    queryWindowsProgIds: vi.fn(async () => ({})),
     openWindowsDefaultApps: vi.fn(async () => undefined),
     ...overrides,
   };
@@ -24,16 +24,18 @@ function dependencies(
 describe(' effective default-handler service', () => {
   it('reports a factual macOS handler and native action', async () => {
     const service = createDefaultHandlerService(dependencies());
-    await expect(service.queryAll()).resolves.toEqual([
-      expect.objectContaining({
-        familyId: 'genbank',
-        state: 'other',
-        handlerName: 'TextEdit',
-        handlerPath: '/System/Applications/TextEdit.app',
-        defaultAction: 'native',
-      }),
-      expect.objectContaining({ familyId: 'snapgene', state: 'other' }),
-    ]);
+    await expect(service.queryAll()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          familyId: 'genbank',
+          state: 'other',
+          handlerName: 'TextEdit',
+          handlerPath: '/System/Applications/TextEdit.app',
+          defaultAction: 'native',
+        }),
+        expect.objectContaining({ familyId: 'snapgene', state: 'other' }),
+      ])
+    );
   });
 
   it('recognizes DNAForge as the effective macOS default', async () => {
@@ -59,19 +61,32 @@ describe(' effective default-handler service', () => {
     const service = createDefaultHandlerService(
       dependencies({
         platform: 'win32',
-        queryWindowsProgId: vi.fn(async (extension) => defaults.get(extension) ?? null),
+        queryWindowsProgIds: vi.fn(async () =>
+          Object.fromEntries(
+            Array.from(defaults, ([ext, progId]) => [
+              ext,
+              { progId, name: progId === 'Other.GenBank' ? 'SnapGene' : 'DNAForge' },
+            ])
+          )
+        ),
       })
     );
 
-    await expect(service.queryAll()).resolves.toEqual([
-      expect.objectContaining({
-        familyId: 'genbank',
-        state: 'other',
-        defaultAction: 'system-settings',
-        detail: 'The registered GenBank extensions use different default applications.',
-      }),
-      expect.objectContaining({ familyId: 'snapgene', state: 'default' }),
-    ]);
+    await expect(service.queryAll()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          familyId: 'genbank',
+          state: 'other',
+          defaultAction: 'system-settings',
+          detail: 'The registered GenBank extensions use different default applications.',
+          mixedHandlers: expect.arrayContaining([
+            { extension: 'gbff', handlerName: 'SnapGene' },
+            { extension: 'gb', handlerName: 'DNAForge' },
+          ]),
+        }),
+        expect.objectContaining({ familyId: 'snapgene', state: 'default' }),
+      ])
+    );
   });
 
   it('returns unavailable rather than guessing after a native query failure', async () => {
@@ -98,7 +113,7 @@ describe(' effective default-handler service', () => {
       outcome: 'requested',
       detail: null,
     });
-    expect(macDeps.setMacHandler).toHaveBeenCalledWith('com.dnaforge.genbank');
+    expect(macDeps.setMacHandler).toHaveBeenCalledWith('genbank');
 
     const windowsDeps = dependencies({ platform: 'win32' });
     const windows = createDefaultHandlerService(windowsDeps);
@@ -121,15 +136,26 @@ describe(' effective default-handler service', () => {
         })),
       })
     );
-    await expect(service.queryAll()).resolves.toEqual([
-      expect.objectContaining({
-        familyId: 'genbank',
-        state: 'other',
-        handlerName: 'SnapGene',
-        defaultAction: 'instructions',
-      }),
-      expect.objectContaining({ familyId: 'snapgene', defaultAction: 'instructions' }),
-    ]);
+    await expect(service.queryAll()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          familyId: 'genbank',
+          state: 'other',
+          handlerName: 'SnapGene',
+          defaultAction: 'instructions',
+        }),
+        expect.objectContaining({ familyId: 'snapgene', defaultAction: 'instructions' }),
+      ])
+    );
+  });
+
+  it('offers no Windows settings action to a development or preview process', async () => {
+    const deps = dependencies({ platform: 'win32', windowsDefaultAction: 'none' });
+    const service = createDefaultHandlerService(deps);
+    await expect(service.requestDefault('genbank')).resolves.toMatchObject({
+      outcome: 'unavailable',
+    });
+    expect(deps.openWindowsDefaultApps).not.toHaveBeenCalled();
   });
 
   it('reports unsupported platforms without exposing a false action', async () => {

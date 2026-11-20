@@ -167,18 +167,6 @@ import type {
   AgentAttachmentReadRequest,
   AgentAttachmentReadResult,
 } from '../shared/agent-attachments';
-import type {
-  FileActivationDelivery,
-  FileAssociationDefaultRequestResult,
-  FileAssociationHandlerStatus,
-  MaterializeQuickLookPackageRequest,
-  PrepareQuickLookPackageRequest,
-  PromoteQuickLookPackageRequest,
-  PromoteQuickLookPackageResult,
-  QuickLookPackageReceipt,
-} from '../shared/file-association-ipc';
-import type { FileAssociationFamilyId } from '../shared/file-associations';
-
 import type { AdmittedTextFileReadRequest } from '../shared/admitted-file-read';
 import type { UpdateInstallResult, UpdateSimulationArguments } from '../shared/update-ipc';
 import type { PrepackedAnnotationSceneLoadInput } from '@waypoint/genome-renderer';
@@ -269,6 +257,7 @@ import type {
   CreateEmptyWorkspaceResult,
   ImportContentRequest,
   ImportFileRequest,
+  ImportFileAsWorkspaceRequest,
   ImportFileResult,
   ImportManagedWorkspaceRequest,
   ImportManagedWorkspaceResult,
@@ -609,19 +598,9 @@ export interface PlatformBridge {
   scientificObjects: import('../shared/ipc/contract').ClientOf<
     typeof import('../shared/ipc/scientific-objects.contract').scientificObjectsContract
   >;
-  fileAssociations: {
-    takePendingActivations(): Promise<FileActivationDelivery[]>;
-    materializeQuickLookPackage(
-      request: MaterializeQuickLookPackageRequest
-    ): Promise<QuickLookPackageReceipt>;
-    prepareQuickLookPackage(request: PrepareQuickLookPackageRequest): Promise<boolean>;
-    promoteQuickLookPackage(
-      request: PromoteQuickLookPackageRequest
-    ): Promise<PromoteQuickLookPackageResult>;
-    onOpenFiles(callback: (deliveries: FileActivationDelivery[]) => void): () => void;
-    queryHandlers(): Promise<FileAssociationHandlerStatus[]>;
-    requestDefault(familyId: FileAssociationFamilyId): Promise<FileAssociationDefaultRequestResult>;
-  };
+  fileAssociations: ClientOf<
+    typeof import('../shared/ipc/file-associations.contract').fileAssociationsContract
+  >;
   db: ArtifactDatabase &
     import('../shared/ipc/contract').ClientOf<
       typeof import('../shared/ipc/db.contract').dbContract
@@ -971,9 +950,9 @@ export interface PlatformBridge {
     previewSequenceImport(
       request: SequenceImportPreviewRequest
     ): Promise<SequenceImportPreviewResult>;
-    importFileAsNewWorkspace(request: {
-      sourcePath: string;
-    }): Promise<ImportManagedWorkspaceResult>;
+    importFileAsNewWorkspace(
+      request: ImportFileAsWorkspaceRequest
+    ): Promise<ImportManagedWorkspaceResult>;
     registerImportedSequence(
       request: RegisterImportedSequenceRequest
     ): Promise<RegisterImportedSequenceResult>;

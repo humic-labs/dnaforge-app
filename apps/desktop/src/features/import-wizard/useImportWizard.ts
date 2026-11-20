@@ -1,5 +1,5 @@
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { platform } from '../../platform';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { useCanvasStore } from '../canvas/public';
@@ -12,8 +12,8 @@ import { buildImportWizardState } from './build-import-wizard-state';
 import { runImportFlow } from './run-import-flow';
 import { openImportWizard, useImportWizardStore } from './import-wizard-store';
 import { summarizeImportResult } from './import-result-summary';
-import { associationFamilyForPath } from '../../shared/file-associations';
-import { openQuickLookSource } from '../../lib/open-quick-look-source';
+import { externalPreviewFilters, externalFormatForPath } from '../../shared/external-preview';
+import { openExternalFiles } from '../../lib/open-external-preview';
 import type {
   DnaSequenceImportIntent,
   EntityImportDestination,
@@ -24,6 +24,8 @@ import { emitLimsRegistryChanged } from '../lims/public/events';
 import { isBrowserOnly } from '../../utils/environment';
 import { findWorkspaceRootForPath } from '../../db/workspace-catalog';
 import { applyLimsImportReview } from '../lims/public/import-review-client';
+import { ImportPackageSession } from './import-package-session';
+import type { ImportWizardState } from '../workspace-loader/public/import-wizard-state';
 
 export interface ImportWizardController {
   openEntityImport: (request: EntityImportRequest) => Promise<void>;
@@ -39,6 +41,7 @@ interface ImportPathsLaunch {
 export function useImportWizard(): ImportWizardController {
   const folders = useWorkspaceStore((s) => s.folders);
   const selectedPath = useWorkspaceStore((s) => s.selectedPath);
+  const packageSessions = useRef(new WeakMap<ImportWizardState, ImportPackageSession>());
 
   const importPaths = useCallback(
     async (paths: string[], launch: ImportPathsLaunch = {}) => {
@@ -46,6 +49,7 @@ export function useImportWizard(): ImportWizardController {
 
       const activeRequest = useImportWizardStore.getState().request;
       if (activeRequest) {
+        const packages = packageSessions.current.get(activeRequest.initial);
         const addedState = await buildImportWizardState(paths, {
           folders,
           selectedPath: null,
@@ -53,7 +57,9 @@ export function useImportWizard(): ImportWizardController {
           importIntent: activeRequest.initial.importIntent,
           stat: (p) => platform().fs.stat(p),
           readText: (p) => platform().fs.readTextFile(p),
-          previewDedup: (req) => platform().workspace.previewImportDedup(req),
+          captureInput: packages?.capture.bind(packages),
+          previewDedup: (req) =>
+            packages ? packages.previewDedup(req) : platform().workspace.previewImportDedup(req),
           previewSequenceImport: (sourcePath) =>
             platform().workspace.previewSequenceImport({ sourcePath }),
         });
@@ -66,6 +72,7 @@ export function useImportWizard(): ImportWizardController {
         return;
       }
 
+      const packages = isBrowserOnly() ? undefined : new ImportPackageSession();
       await runImportFlow(paths, {
         buildState: async (p) => ({
           ...(await buildImportWizardState(p, {
@@ -77,13 +84,18 @@ export function useImportWizard(): ImportWizardController {
             importIntent: launch.importIntent,
             stat: (path) => platform().fs.stat(path),
             readText: (path) => platform().fs.readTextFile(path),
-            previewDedup: (req) => platform().workspace.previewImportDedup(req),
+            captureInput: packages?.capture.bind(packages),
+            previewDedup: (req) =>
+              packages ? packages.previewDedup(req) : platform().workspace.previewImportDedup(req),
             previewSequenceImport: (sourcePath) =>
               platform().workspace.previewSequenceImport({ sourcePath }),
           })),
           agentRequested: launch.agentRequested ?? false,
         }),
-        openWizard: openImportWizard,
+        openWizard: (state) => {
+          if (packages) packageSessions.current.set(state, packages);
+          return openImportWizard(state);
+        },
         execDeps: {
           importRecords: async ({ review, targetRoot }) => {
             const document = await platform().importReview.snapshot(review.id);
@@ -107,12 +119,18 @@ export function useImportWizard(): ImportWizardController {
               throw new Error('The native spreadsheet import did not return an outcome.');
             return { workspaceRoot: applied.workspaceRoot, receipt: applied.receipt };
           },
-          importFile: (r) => platform().workspace.importFile(r),
+          importFile: (r) =>
+            packages ? packages.importFile(r) : platform().workspace.importFile(r),
           importFolder: (r) => platform().workspace.importFolder(r),
           importManaged: (r) => platform().workspace.importManaged({ sourcePath: r.sourcePath }),
           importFileAsNewWorkspace: (r) => platform().workspace.importFileAsNewWorkspace(r),
+          importCapturedFileAsNewWorkspace: packages?.importNewWorkspace.bind(packages),
           createEmptyWorkspace: (r) => platform().workspace.createEmptyWorkspace(r),
-          registerImportedSequence: (r) => platform().workspace.registerImportedSequence(r),
+          registerImportedSequence: async (r) =>
+            platform().workspace.registerImportedSequence({
+              ...r,
+              sourcePath: packages ? await packages.verifiedInput(r.sourcePath) : r.sourcePath,
+            }),
         },
 
         onComplete: (result) => {
@@ -156,7 +174,7 @@ export function useImportWizard(): ImportWizardController {
         },
 
         onAgentFile: (paths) => attachImportedFilesToChat(paths),
-      });
+      }).finally(() => packages?.close());
     },
     [folders, selectedPath]
   );
@@ -248,16 +266,24 @@ export function useImportWizard(): ImportWizardController {
 
   const handleUnclaimedDropPaths = useCallback(
     async (paths: string[]): Promise<void> => {
-      if (paths.length === 1) {
-        const family = associationFamilyForPath(paths[0]);
-        if (family) {
-          await openQuickLookSource({
-            sourcePath: paths[0],
-            familyId: family.id,
-            sourceSurface: 'unknown',
-          });
-          return;
+      if (!isBrowserOnly()) {
+        const files: string[] = [];
+        const folders: string[] = [];
+        for (const path of paths) {
+          if (
+            !externalFormatForPath(path) &&
+            (
+              await platform()
+                .fs.stat(path)
+                .catch(() => null)
+            )?.isDirectory
+          )
+            folders.push(path);
+          else files.push(path);
         }
+        await openExternalFiles(files, 'unknown');
+        if (folders.length) await importPaths(folders);
+        return;
       }
       await importPaths(paths);
     },
@@ -326,6 +352,20 @@ export function useImportWizard(): ImportWizardController {
 
   useEffect(() => {
     const p = platform();
+    const offOpen = p.on('menu:open-files', () => {
+      void (async () => {
+        const picked = await p.dialog.open({
+          title: 'Open Files',
+          multiple: true,
+          filters: externalPreviewFilters(),
+        });
+        await openExternalFiles(Array.isArray(picked) ? picked : picked ? [picked] : [], 'menu');
+      })().catch((error) =>
+        useToastStore
+          .getState()
+          .addToast(toUserMessage(error, 'file.previewFailed'), { definition: 'file-open-failed' })
+      );
+    });
     const offFiles = p.on('menu:import-files', () => {
       void (async () => {
         const picked = await p.dialog.open({
@@ -346,6 +386,7 @@ export function useImportWizard(): ImportWizardController {
       openLimsImportFromSharedPicker(null, null);
     });
     return () => {
+      offOpen();
       offFiles();
       offFolder();
       offRegistryRecords();

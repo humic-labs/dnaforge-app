@@ -58,7 +58,7 @@ function isRecordTerminator(bytes: Uint8Array, start: number, end: number): bool
 
 export function indexGenBankRecords(
   sourceBytes: Uint8Array,
-  options: { readonly maxRecords?: number } = {}
+  options: { readonly maxRecords?: number; readonly verifyNucleotideLocus?: boolean } = {}
 ): IndexedGenBankRecord[] {
   if (
     options.maxRecords !== undefined &&
@@ -115,9 +115,19 @@ export function indexGenBankRecords(
   return ranges.map((range, ordinal) => {
     let parsed: AnnotatedSequence;
     try {
-      parsed = parseGenBankFull(
-        decoder.decode(sourceBytes.subarray(range.startByte, range.endByteExclusive))
-      );
+      const text = decoder.decode(sourceBytes.subarray(range.startByte, range.endByteExclusive));
+      parsed = parseGenBankFull(text);
+      if (options.verifyNucleotideLocus) {
+        const locus = /^LOCUS[^\r\n]+?\s+(\d+)[ \t]+(bp|aa)\b/i.exec(text.split(/[\r\n]/, 1)[0]);
+        if (!locus || locus[2].toLowerCase() !== 'bp')
+          throw new GenBankParseError(
+            'The sequence viewer requires a nucleotide LOCUS with a length in base pairs.'
+          );
+        if (Number(locus[1]) !== parsed.sequence.length)
+          throw new GenBankParseError('The LOCUS length does not match the sequence in ORIGIN.');
+        if (!/^[ACGTURYSWKMBDHVN]+$/i.test(parsed.sequence))
+          throw new GenBankParseError('ORIGIN contains a symbol outside the nucleotide alphabet.');
+      }
     } catch (error) {
       throw new GenBankParseError(
         `Record ${ordinal + 1} could not be parsed: ${error instanceof Error ? error.message : String(error)}`

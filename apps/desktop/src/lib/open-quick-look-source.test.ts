@@ -5,7 +5,13 @@ import { useToastStore } from '../stores/toast-store';
 
 const mocks = vi.hoisted(() => ({ materialize: vi.fn(), openPackage: vi.fn() }));
 vi.mock('../platform', () => ({
-  platform: () => ({ fileAssociations: { materializeQuickLookPackage: mocks.materialize } }),
+  platform: () => ({
+    fileAssociations: {
+      openPreview: mocks.materialize,
+      syncPreviewTabs: vi.fn(),
+      releasePreview: vi.fn(),
+    },
+  }),
 }));
 vi.mock('../features/sequence/managed-sequence-repository', () => ({
   managedSequenceRepository: { openPackage: mocks.openPackage },
@@ -18,7 +24,7 @@ beforeEach(() => {
 
 it('shows a package-read failure after successful Quick Look materialization', async () => {
   mocks.materialize.mockResolvedValue({
-    packageRoot: '/cache/quick-look/package',
+    sequence: { packageRoot: '/cache/quick-look/package' },
     sourceFileName: 'sample.gb',
   });
   mocks.openPackage.mockRejectedValue(new Error('The package manifest is unreadable'));
