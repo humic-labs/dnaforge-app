@@ -92,6 +92,7 @@ export interface TabViewState {
   sequenceShowPrimers?: boolean;
   sequenceShowResidueNumbers?: boolean;
 
+  sequenceSangerGains?: Readonly<Record<string, number>>;
   sequenceAnnotationColorMode?: string;
 
   sequenceDataLayerSelection?: SequenceDataLayerViewSelection | null;

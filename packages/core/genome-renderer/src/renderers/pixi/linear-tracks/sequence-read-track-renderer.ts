@@ -21,6 +21,8 @@ export type SequenceReadTrackData =
       readonly kind: 'sanger';
       readonly label: string;
       readonly trace: TraceData;
+      readonly gain?: number;
+      readonly mixedCalls?: ReadonlyMap<number, string>;
       readonly sequence: string;
       readonly quality?: ReadonlyArray<number>;
       readonly baseToColumn: ReadonlyArray<number>;
@@ -32,6 +34,9 @@ export type SequenceReadTrackData =
 interface ReadTrackDiagnostics {
   readonly kind: 'alignment' | 'sanger' | null;
   readonly paintCount: number;
+  readonly gain: number;
+  readonly mixedCalls: number;
+  readonly coverageSegments: number;
   readonly channelStrokes: number;
   readonly curveSegments: number;
   readonly qualityBars: number;
@@ -159,6 +164,9 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
       texts: [],
       diagnostics: {
         kind: null,
+        gain: 1,
+        mixedCalls: 0,
+        coverageSegments: 0,
         paintCount: 0,
         channelStrokes: 0,
         curveSegments: 0,
@@ -198,6 +206,9 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
     textAt(state, 0, data.label, 8, 3, muted, 11);
 
     const counts = {
+      gain: data.kind === 'sanger' ? (data.gain ?? 1) : 1,
+      mixedCalls: 0,
+      coverageSegments: 0,
       channelStrokes: 0,
       curveSegments: 0,
       qualityBars: 0,
@@ -265,6 +276,9 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
     bounds: { start: number; end: number },
     ink: number,
     counts: {
+      gain: number;
+      mixedCalls: number;
+      coverageSegments: number;
       channelStrokes: number;
       curveSegments: number;
       qualityBars: number;
@@ -312,13 +326,15 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
           .fill({ color: quality < 20 ? 0xf59e0b : 0x22c55e, alpha: 0.25 });
         counts.qualityBars += 1;
       }
+      const mixed = data.mixedCalls?.get(peak);
+      if (mixed) counts.mixedCalls += 1;
       textAt(
         state,
         textIndex++,
-        data.sequence[peak] ?? '',
+        mixed ?? data.sequence[peak] ?? '',
         x + Math.max(0, (pixelsPerBase - 8) / 2),
         34,
-        mutationSet.has(column) ? 0xdc2626 : ink,
+        mutationSet.has(column) ? 0xdc2626 : mixed ? 0xb45309 : ink,
         12
       );
       counts.baseGlyphs += 1;
@@ -327,11 +343,23 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
     if (pixelsPerBase < 1.5) {
       const first = data.baseToColumn[0];
       const last = data.baseToColumn[data.baseToColumn.length - 1];
-      if (first !== undefined && last !== undefined && !cycle) {
-        const left = Math.max(0, args.pathMapper.bpLeftX(first));
-        const right = Math.min(args.viewportWidthPx, args.pathMapper.bpLeftX(last + 1));
-        if (right > left)
-          state.curves.rect(left, 62, right - left, 12).fill({ color: 0x6366f1, alpha: 0.55 });
+      if (first === undefined || last === undefined) return;
+      const drawSpan = (start: number, end: number) => {
+        const left = Math.max(0, args.pathMapper.bpLeftX(start));
+        const right = Math.min(args.viewportWidthPx, args.pathMapper.bpLeftX(end));
+        if (right <= left) return;
+        state.curves.rect(left, 62, right - left, 12).fill({ color: 0x6366f1, alpha: 0.55 });
+        counts.coverageSegments += 1;
+      };
+      if (!cycle) {
+        drawSpan(first, last + 1);
+      } else if (last - first + 1 >= cycle) {
+        drawSpan(0, cycle);
+      } else {
+        const start = ((first % cycle) + cycle) % cycle;
+        const end = start + last - first + 1;
+        drawSpan(start, Math.min(end, cycle));
+        if (end > cycle) drawSpan(0, end - cycle);
       }
       return;
     }
@@ -357,7 +385,9 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
           continue;
         }
         const y =
-          traceTop + traceHeight * (1 - Math.min(1, sampleAmplitude(values, sample) / maxValue));
+          traceTop +
+          traceHeight *
+            (1 - Math.min(1, (sampleAmplitude(values, sample) / maxValue) * counts.gain));
         if (active) {
           state.curves.lineTo(x, y);
           counts.curveSegments += 1;
@@ -383,6 +413,7 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
     if (column < 0 || column >= args.chromosome.length) return null;
     return {
       kind: 'select-bp-range',
+      trackId: args.layoutEntry.id,
       startBp: column,
       endBp: column + 1,
       chromosomeId: args.chromosome.id,

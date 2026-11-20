@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { describe, expect, it } from 'vitest';
-import type { Annotation, AnnotatedSequence } from '@waypoint/sequence-utils';
+import type { Annotation, AnnotatedSequence, TraceData } from '@waypoint/sequence-utils';
 import {
   applySequenceStrandOverrides,
   complementBase,
@@ -34,6 +34,54 @@ const baseSequence: AnnotatedSequence = {
 };
 
 describe('sequence view projection', () => {
+  it.each([
+    { orientation: 'reverse-complement', originOffset: 0 },
+    { orientation: 'forward', originOffset: 2 },
+    { orientation: 'reverse-complement', originOffset: 2 },
+  ] as const)(
+    'keeps the waveform under its call at $orientation and origin $originOffset',
+    (view) => {
+      const calls = 'ACTG';
+      const trace: TraceData = {
+        channels: { A: [], C: [], G: [], T: [] },
+        peakPositions: [2, 6, 11, 16],
+        baseOrder: 'GATC',
+        maxValue: 400,
+      };
+      for (const channel of ['A', 'C', 'G', 'T'] as const) {
+        trace.channels[channel] = Array.from({ length: 20 }, (_, sample) => {
+          const index = trace.peakPositions.indexOf(sample);
+          return calls[index] === channel ? (index + 1) * 100 : 0;
+        });
+      }
+      const source = {
+        ...baseSequence,
+        sequence: calls,
+        length: calls.length,
+        quality: [11, 22, 33, 44],
+        metadata: { trace },
+        annotations: [],
+      };
+      const original = structuredClone(source);
+      const projection = buildSequenceViewProjection({
+        sequenceLength: calls.length,
+        circular: true,
+        ...view,
+      });
+      const displayed = projectSequenceToView(source, projection);
+      const result = displayed.metadata?.trace as TraceData;
+      Array.from(displayed.sequence).forEach((call, i) => {
+        const sourceIndex = projection.viewIndexToSource(i);
+        const sample = result.peakPositions[i];
+        expect(result.channels[call as keyof TraceData['channels']][sample]).toBe(
+          (sourceIndex + 1) * 100
+        );
+        expect(displayed.quality?.[i]).toBe(source.quality[sourceIndex]);
+      });
+      expect(result.peakPositions).toEqual([...result.peakPositions].sort((a, b) => a - b));
+      expect(source).toEqual(original);
+    }
+  );
   it.each(['forward', 'reverse-complement'] as const)(
     'shares paired schema scar columns and highlights between both %s viewers',
     (orientation) => {

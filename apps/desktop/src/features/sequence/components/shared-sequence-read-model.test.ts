@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { Genome } from '@waypoint/genome-renderer';
 import type { TraceData } from '@waypoint/sequence-utils';
+import { buildAlignedChromatogramOptions } from '../tracks/aligned-chromatogram';
+import { buildSequenceViewProjection } from '../view-state/sequence-view-projection';
+import { buildSharedAlignmentProjection } from './shared-alignment-projection';
 import { buildSharedSequenceReadScene } from './shared-sequence-read-model';
 
 const trace: TraceData = {
@@ -172,6 +175,106 @@ describe('shared sequence/read scene', () => {
         mutationColumns: [3],
       }),
     ]);
+  });
+
+  it('keeps inserted calls, samples, and quality on a shared axis in both orientations', () => {
+    const reference = 'AGT';
+    const { laneOptions } = buildAlignedChromatogramOptions({
+      referenceSequence: reference,
+      readSequence: 'ACGT',
+      trace,
+      readQuality: [10, 20, 30, 40],
+      alignedReference: 'A-GT',
+      alignedQuery: 'ACGT',
+    });
+    const attachments = [{ id: 'trace', label: 'trace', laneOptions }];
+    const forward = buildSharedSequenceReadScene({
+      genome: { ...genome(), sequence: reference, length: 3, features: [] },
+      documentId: 'sequence',
+      attachedReads: attachments,
+    });
+    expect(forward.genome.sequence).toBe('A-GT');
+    expect(forward.axis.columnToBio(1)).toBeNull();
+    expect(forward.lanes[0]).toMatchObject({
+      baseToColumn: [0, 1, 2, 3],
+      sourcePeakPositions: [1, 3, 4, 5],
+    });
+    const reverse = buildSharedSequenceReadScene({
+      genome: { ...genome(), sequence: 'ACT', length: 3, features: [] },
+      documentId: 'sequence',
+      attachedReads: attachments,
+      viewProjection: buildSequenceViewProjection({
+        sequenceLength: 3,
+        circular: false,
+        orientation: 'reverse-complement',
+      }),
+    });
+    expect(reverse.genome.sequence).toBe('AC-T');
+    expect(reverse.lanes[0]).toMatchObject({
+      baseToColumn: [0, 1, 2, 3],
+      sourceBaseIndices: [3, 2, 1, 0],
+      sourcePeakPositions: [5, 4, 3, 1],
+      quality: [40, 30, 20, 10],
+    });
+  });
+
+  it('preserves peak order over an origin crossing in a saved circular alignment', () => {
+    const reference = 'ACGT';
+    const { laneOptions } = buildAlignedChromatogramOptions({
+      referenceSequence: reference,
+      readSequence: 'TACG',
+      trace,
+      readQuality: [10, 20, 30, 40],
+      referenceOffset: 3,
+      alignedReference: 'T-AC',
+      alignedQuery: 'TACG',
+    });
+    const projection = buildSharedAlignmentProjection(reference, [
+      {
+        id: 'q',
+        label: 'q',
+        referenceOffset: 3,
+        alignedReference: 'T-AC',
+        alignedQuery: 'TACG',
+        sanger: { ...laneOptions, cycleLength: 4 },
+      },
+    ])!;
+    const scene = buildSharedSequenceReadScene({
+      genome: { ...genome(), circular: true },
+      documentId: 'r',
+      coordinateSpace: projection.coordinateSpace,
+      alignmentLanes: projection.lanes,
+    });
+    expect(scene.genome.sequence).toBe('-ACGT');
+    expect(scene.axis.columnToBio(0)).toBeNull();
+    expect(projection.projectTrackColumn('q', 1)).toBe(0);
+    expect(scene.lanes[1]).toMatchObject({
+      kind: 'sanger',
+      sequence: 'TACG',
+      baseToColumn: [4, 5, 6, 7],
+      cycleLength: 5,
+      sourceBaseIndices: [0, 1, 2, 3],
+    });
+  });
+
+  it('keeps an existing alignment insertion selectable after an earlier bridge insertion expands the axis', () => {
+    const { laneOptions } = buildAlignedChromatogramOptions({
+      referenceSequence: 'ACGT',
+      readSequence: 'ACGT',
+      alignedReference: '-ACGT',
+      alignedQuery: 'ACG-T',
+      trace,
+    });
+    const scene = buildSharedSequenceReadScene({
+      genome: genome(),
+      documentId: 'r',
+      coordinateSpace: { mode: 'gapped', gappedSequence: 'AC-GT', alignedQuery: 'ACTGT' },
+      attachedReads: [{ id: 'bridge', label: 'bridge', laneOptions }],
+    });
+    expect(scene.genome.sequence).toBe('-AC-GT');
+    expect(scene.coordinateSpace?.alignedQuery).toBe('-ACTGT');
+    expect(scene.inputColumnToDisplayColumn?.(2)).toBe(3);
+    expect(scene.lanes[1]).toMatchObject({ baseToColumn: [0, 1, 2, 5], deletionColumns: [4] });
   });
 
   it('rejects an alignment from another reference instead of painting shifted data', () => {

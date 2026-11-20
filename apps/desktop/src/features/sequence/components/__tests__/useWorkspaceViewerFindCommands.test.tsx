@@ -106,6 +106,26 @@ it('keeps an inactive assembly from intercepting the visible sequence', () => {
   expect(screen.getByTestId('assembly')).toHaveTextContent('false');
 });
 
+it('opens nucleotide and amino acid Find on a gapped sequence', () => {
+  openTab('sequence', 'aligned-reference');
+  const controller = search();
+  render(
+    <CommandScopeProvider>
+      <Surface
+        surface="sequence"
+        commandEntityId="aligned-reference"
+        isGapped
+        search={controller}
+      />
+    </CommandScopeProvider>
+  );
+  act(() => {
+    getMountedCommandRegistry()!.dispatchCommand(COMMAND_IDS.sequenceFind);
+    getMountedCommandRegistry()!.dispatchCommand(COMMAND_IDS.sequenceFindAminoAcid);
+  });
+  expect(controller.openInMode.mock.calls).toEqual([['nucleotide'], ['aminoAcid']]);
+});
+
 it('does not open Find on a gapped assembly', () => {
   openTab('design', 'assembly');
   const controller = search();

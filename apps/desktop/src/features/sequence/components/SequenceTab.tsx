@@ -45,6 +45,7 @@ import {
   useRichSequenceClipboard,
   type ReReadPastedFeatures,
 } from '../../sequence-clipboard/public/use-rich-sequence-clipboard';
+import { useAlignmentTraces } from './use-alignment-traces';
 import { useAlignmentDerivedState } from '../../alignment-manager/public/hooks/useAlignmentDerivedState';
 import { useVerificationStore } from '../../alignment-manager/public/store';
 import { selectAlignmentQueryFiles } from '../../alignment-manager/public/select-alignment-query-files';
@@ -1073,22 +1074,12 @@ export function SequenceTab({
     getTrackMutations,
   } = useAlignmentDerivedState(sequenceDocumentId);
 
-  const alignmentProjection = useMemo(() => {
-    if (!activeSession || !alignmentPanelOpen || !alignmentVisible) return null;
-    const visibleTracks = activeSession.tracks.filter(
+  const visibleAlignmentTracks = useMemo(() => {
+    if (!activeSession || !alignmentPanelOpen || !alignmentVisible) return [];
+    return activeSession.tracks.filter(
       (track) =>
         !hiddenTrackIds.includes(track.id) &&
         (viewMode === 'stacked' || track.id === (selectedTrackId ?? activeSession.tracks[0]?.id))
-    );
-    return buildSharedAlignmentProjection(
-      sequence?.sequence ?? '',
-      visibleTracks.map((track) => ({
-        id: track.id,
-        label: track.label,
-        alignedReference: track.alignment.alignedReference,
-        alignedQuery: track.alignment.alignedQuery,
-      })),
-      selectedTrackId
     );
   }, [
     activeSession,
@@ -1097,8 +1088,26 @@ export function SequenceTab({
     hiddenTrackIds,
     viewMode,
     selectedTrackId,
-    sequence?.sequence,
   ]);
+  const alignmentTraces = useAlignmentTraces(
+    filePath,
+    sequence?.sequence ?? '',
+    visibleAlignmentTracks
+  );
+  const alignmentProjection = useMemo(() => {
+    return buildSharedAlignmentProjection(
+      sequence?.sequence ?? '',
+      visibleAlignmentTracks.map((track) => ({
+        sanger: alignmentTraces.get(track.id),
+        referenceOffset: track.alignment.referenceOffset,
+        id: track.id,
+        label: track.label,
+        alignedReference: track.alignment.alignedReference,
+        alignedQuery: track.alignment.alignedQuery,
+      })),
+      selectedTrackId
+    );
+  }, [alignmentTraces, visibleAlignmentTracks, selectedTrackId, sequence?.sequence]);
 
   const coordinateSpace = useMemo((): CoordinateSpace | undefined => {
     if (alignmentProjection) return alignmentProjection.coordinateSpace;

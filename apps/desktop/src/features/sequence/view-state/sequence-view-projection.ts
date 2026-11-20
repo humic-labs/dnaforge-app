@@ -17,6 +17,7 @@ import {
   type Annotation,
 } from '@waypoint/sequence-utils';
 import type { MutationMarker, PrimerDisplay, RulerDecoration } from '@waypoint/workspace-editor';
+import { getTraceData, reverseComplementTrace, rotateTrace } from '../../trace/public';
 import type { AnnotationDraft } from '../types';
 import type { SequenceOrientation } from './sequence-view-state';
 
@@ -333,9 +334,20 @@ export function projectSequenceToView(
     projection.orientation === 'reverse-complement'
       ? reverseComplement(rotatedSequence, projection.nucleicAcid)
       : rotatedSequence;
+  const sourceTrace = getTraceData(sequence);
+  const rotatedTrace = sourceTrace && rotateTrace(sourceTrace, projection.originOffset);
   return {
     ...sequence,
     sequence: viewSequence,
+    ...(rotatedTrace && {
+      metadata: {
+        ...sequence.metadata,
+        trace:
+          projection.orientation === 'reverse-complement'
+            ? reverseComplementTrace(rotatedTrace)
+            : rotatedTrace,
+      },
+    }),
     length: viewSequence.length,
     strandOverrides: projection.strandOverrides,
     quality:

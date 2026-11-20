@@ -325,12 +325,13 @@ async function readCurrentSessionAlignmentMaterialization(
   };
 }
 
-async function retainedEvidencePaths(
+export async function retainedEvidencePaths(
   sourcePath: string,
   runId: string
 ): Promise<{
   packageRoot: string;
   referenceReadPath: string;
+  queryHashes: ReadonlyMap<string, string>;
   queryPaths: ReadonlyMap<string, string>;
 }> {
   const packageRoot = await findSequencePackageRootForReference(sourcePath);
@@ -343,6 +344,7 @@ async function retainedEvidencePaths(
   return {
     packageRoot,
     referenceReadPath: fromPackageRelative(run.reference.artifact.path, packageRoot),
+    queryHashes: new Map(run.queries.map((query) => [query.id, query.artifact.sha256])),
     queryPaths: new Map(
       run.queries.map((query) => [query.id, fromPackageRelative(query.artifact.path, packageRoot)])
     ),
@@ -1349,6 +1351,7 @@ export const useVerificationStore = create<VerificationStore>()(
                 ...(query.queryFingerprint ? { queryFingerprint: query.queryFingerprint } : {}),
                 alignment: {
                   alignedReference: alignmentResult.aligned_reference,
+                  referenceOffset: alignmentResult.circular_offset,
                   alignedQuery: alignmentResult.aligned_query,
                   identity: alignmentResult.identity,
                   coverageStart: coverage.start,

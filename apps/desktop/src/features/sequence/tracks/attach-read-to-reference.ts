@@ -80,8 +80,11 @@ export async function attachReadToReference(
       isCircular,
     }),
   ]);
-  const useRc = rcAln.identity > fwdAln.identity;
-  const winning = useRc ? rcAln : fwdAln;
+  const winning = rcAln.identity > fwdAln.identity ? rcAln : fwdAln;
+  const alignedCalls = winning.aligned_query.replace(/-/g, '').toUpperCase();
+  const useRc =
+    !readSequence.toUpperCase().includes(alignedCalls) &&
+    reverseComplement(readSequence).includes(alignedCalls);
   const orientedReadSequence = useRc ? reverseComplement(readSequence) : readSequence;
   const orientedReadQuality = useRc ? [...quality].reverse() : quality;
 

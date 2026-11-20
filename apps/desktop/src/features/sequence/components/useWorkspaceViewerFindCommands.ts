@@ -30,12 +30,14 @@ export function useWorkspaceViewerFindCommands({
     claimOnMount: viewerCommandIsActive,
   });
 
-  const sequenceFindEnabled = useCallback(() => !isGapped, [isGapped]);
+  const sequenceFindEnabled = useCallback(
+    () => surface === 'sequence' || !isGapped,
+    [surface, isGapped]
+  );
 
   useCommandHandler(
     COMMAND_IDS.sequenceFind,
     () => {
-      if (isGapped) return false;
       search.openInMode(search.isOpen && search.mode === 'nucleotide' ? 'aminoAcid' : 'nucleotide');
       return true;
     },
@@ -49,7 +51,6 @@ export function useWorkspaceViewerFindCommands({
   useCommandHandler(
     COMMAND_IDS.sequenceFindAminoAcid,
     () => {
-      if (isGapped) return false;
       search.openInMode('aminoAcid');
       return true;
     },
