@@ -116,22 +116,18 @@ export function SequenceTabInfoChrome({
           }
           limsBadge={quickLook ? undefined : limsBadge}
           trailingContent={
-            isHostedDocument || (!readOnly && !quickLook && shareControl) ? (
+            isHostedDocument ? (
               <>
-                {isHostedDocument ? (
-                  <>
-                    <span>{annotationCount ?? 0} annotations</span>
-                    <span data-testid="hosted-version-id">
-                      {hostedPendingDraft
-                        ? `Local draft · based on revision ${hostedRevisionNumber}`
-                        : `Revision ${hostedRevisionNumber}`}
-                    </span>
-                  </>
-                ) : null}
-                {!isHostedDocument && !readOnly && !quickLook ? shareControl : null}
+                <span>{annotationCount ?? 0} annotations</span>
+                <span data-testid="hosted-version-id">
+                  {hostedPendingDraft
+                    ? `Local draft · based on revision ${hostedRevisionNumber}`
+                    : `Revision ${hostedRevisionNumber}`}
+                </span>
               </>
             ) : undefined
           }
+          shareControl={!isHostedDocument && !readOnly && !quickLook ? shareControl : undefined}
           onEdit={
             !readOnly && !isViewerEditMode ? () => onRequestEdit(sequenceDocumentId) : undefined
           }

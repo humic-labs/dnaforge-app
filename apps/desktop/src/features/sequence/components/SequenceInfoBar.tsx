@@ -45,6 +45,7 @@ interface SequenceInfoBarProps {
   limsBadge?: ReactNode;
 
   trailingContent?: ReactNode;
+  shareControl?: ReactNode;
 
   onEdit?: () => void;
   editingPending?: boolean;
@@ -70,6 +71,7 @@ export function SequenceInfoBar({
   recordSelector,
   limsBadge,
   trailingContent,
+  shareControl,
   onEdit,
   editingPending = false,
   editButtonTestId = 'sequence-edit-button',
@@ -112,14 +114,13 @@ export function SequenceInfoBar({
         recordSelector ||
         limsBadge ||
         trailingContent ||
+        shareControl ||
         onEdit ||
         showVisibilityToggle ||
         showMapLayout ||
         showToggle ||
         hasMeta) && (
-        <div
-          className={`ml-auto flex items-center gap-x-3 ${preview ? 'min-w-0 max-w-full flex-wrap justify-end gap-y-1' : 'flex-shrink-0'}`}
-        >
+        <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-3 gap-y-1">
           {recordSelector && recordSelector.records.length > 1 ? (
             <label className="flex min-w-0 max-w-full items-center gap-1.5">
               <span className="text-fg-muted">Record</span>
@@ -146,33 +147,8 @@ export function SequenceInfoBar({
               Read Only
             </span>
           )}
-          {preview && (
-            <Button
-              variant="appbar"
-              data-testid="quick-look-import-button"
-              onClick={preview.onImportToEdit}
-            >
-              Import to Edit
-            </Button>
-          )}
           {limsBadge}
           {trailingContent}
-          {onEdit ? (
-            <Button
-              type="button"
-              title={editingPending ? 'Loading sequence' : 'Edit sequence'}
-              aria-label="Edit sequence"
-              aria-busy={editingPending}
-              disabled={editingPending}
-              onClick={onEdit}
-              data-testid={editButtonTestId}
-            >
-              <span className="inline-flex items-center gap-1">
-                <EditIcon size={12} />
-                <span>{editingPending ? 'Loading…' : 'Edit'}</span>
-              </span>
-            </Button>
-          ) : null}
           {showVisibilityToggle && (
             <SequenceRendererVisibilityToggle
               value={rendererVisibility!}
@@ -194,6 +170,30 @@ export function SequenceInfoBar({
               {circular != null && <span>{circular ? 'circular' : 'linear'}</span>}
             </span>
           )}
+          {preview && (
+            <Button
+              variant="appbar"
+              data-testid="quick-look-import-button"
+              onClick={preview.onImportToEdit}
+            >
+              Import to Edit
+            </Button>
+          )}
+          {onEdit ? (
+            <Button
+              variant="appbar"
+              title={editingPending ? 'Loading sequence' : 'Edit sequence'}
+              aria-label="Edit sequence"
+              aria-busy={editingPending}
+              disabled={editingPending}
+              onClick={onEdit}
+              data-testid={editButtonTestId}
+            >
+              <EditIcon size={12} />
+              <span>{editingPending ? 'Loading…' : 'Edit'}</span>
+            </Button>
+          ) : null}
+          {shareControl}
         </div>
       )}
     </div>
