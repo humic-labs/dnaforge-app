@@ -2880,6 +2880,7 @@ function WorkspaceViewerInternal({
                     width={minimapWidth}
                     height={webglMapGeometry.renderHeight}
                     geometryHeight={webglMapGeometry.geometryHeight}
+                    surfaceVisible={actualWebGLMapVisible}
                     reserveCanvasSpace={surface === 'sequence' && mapTopologyCircular}
                     centerStadiumOverview={surface !== 'assembly' && mapTopologyCircular}
                     circular={mapTopologyCircular}

@@ -66,6 +66,7 @@ export interface WebGLMapProps {
   geometryHeight?: number;
   centerStadiumOverview?: boolean;
   reserveCanvasSpace?: boolean;
+  surfaceVisible?: boolean;
   width?: number;
   circular?: boolean;
   morphToCircle?: number;
@@ -178,6 +179,7 @@ export const WebGLMap = memo(
       geometryHeight,
       centerStadiumOverview,
       reserveCanvasSpace,
+      surfaceVisible,
       width = 800,
       circular = true,
       morphToCircle = 0,
@@ -583,6 +585,7 @@ export const WebGLMap = memo(
       geometryHeight,
       centerStadiumOverview,
       reserveCanvasSpace,
+      surfaceVisible,
       morph: morphToCircle,
       highlightRange,
       digestFocusRange: webglDigestFocusRange,

@@ -417,12 +417,14 @@ function Harness(
     | 'morph'
     | 'backboneSegments'
     | 'performanceMode'
+    | 'surfaceVisible'
   > &
     Partial<Pick<UsePixiMapOptions, 'width' | 'height'>> & { indexed?: boolean }
 ) {
   const hook = props.indexed ? useIndexedPixiMap : usePixiMap;
   const { containerRef, handle } = hook({
     genome: props.genome,
+    surfaceVisible: props.surfaceVisible,
     hiddenMapIdlePolicy: props.hiddenMapIdlePolicy,
     compiledBroadSurfaceRequirement: props.compiledBroadSurfaceRequirement,
     annotationPresentationSnapshot: props.annotationPresentationSnapshot,
@@ -1152,6 +1154,20 @@ describe('usePixiMap annotation/source lifecycle', () => {
 
     expect(lifecycle.renderNowCount).toBe(drawn);
     expect(lifecycle.resumeCount).toBe(resumed);
+  });
+
+  it('paints a retained map on reveal before the intersection observer runs again', async () => {
+    const source = genome('A');
+    const view = render(<Harness genome={source} surfaceVisible={false} />);
+    await waitFor(() => expect(latestHandle?.getLinearRenderer()).not.toBeNull());
+    act(() => lifecycle.intersections[0]?.(false));
+    const host = view.container.firstElementChild as HTMLElement;
+    vi.spyOn(host, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 800, 500));
+    const drawn = lifecycle.renderNowCount;
+
+    view.rerender(<Harness genome={source} surfaceVisible />);
+
+    expect(lifecycle.renderNowCount).toBe(drawn + 1);
   });
 
   it('preserves the biological camera center across live container resume geometry', async () => {

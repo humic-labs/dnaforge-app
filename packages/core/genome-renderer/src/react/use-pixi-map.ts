@@ -166,6 +166,19 @@ export function useIndexedPixiMap(options: UseIndexedPixiMapOptions): {
   });
 }
 
+function isContainerActuallyVisible(container: HTMLElement | null): boolean {
+  if (!container?.isConnected) return false;
+  const rect = container.getBoundingClientRect();
+  return (
+    rect.width > 0 &&
+    rect.height > 0 &&
+    rect.bottom >= 0 &&
+    rect.right >= 0 &&
+    rect.top <= window.innerHeight &&
+    rect.left <= window.innerWidth
+  );
+}
+
 function usePixiMapImpl(options: PixiMapImplOptions): {
   containerRef: React.RefObject<HTMLDivElement>;
   handle: PixiMapHandle;
@@ -438,6 +451,11 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
   useLayoutEffect(() => {
     if (frameCircuitIsOpen()) return;
     const state = stateRef.current;
+    const revealed =
+      options.surfaceVisible &&
+      !visibleRef.current &&
+      isContainerActuallyVisible(containerRef.current);
+    if (revealed) visibleRef.current = true;
     const geometryHeight = options.geometryHeight ?? options.height;
     const morph = options.morph ?? 0;
     const geometryChanged =
@@ -474,7 +492,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
       state.height = options.height;
       return false;
     });
-    if (backingChanged || geometryChanged) {
+    if (backingChanged || geometryChanged || revealed) {
       invalidateRender();
       renderLoopRef.current?.renderNow();
     }
@@ -487,6 +505,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     options.geometryHeight,
     options.centerStadiumOverview,
     options.reserveCanvasSpace,
+    options.surfaceVisible,
     options.morph,
   ]);
 
@@ -847,19 +866,6 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
       return container.isConnected && size.width > 0 && size.height > 0;
     };
 
-    const isContainerActuallyVisible = () => {
-      if (!container.isConnected) return false;
-      const rect = container.getBoundingClientRect();
-      return (
-        rect.width > 0 &&
-        rect.height > 0 &&
-        rect.bottom >= 0 &&
-        rect.right >= 0 &&
-        rect.top <= window.innerHeight &&
-        rect.left <= window.innerWidth
-      );
-    };
-
     const resizePreviewActive = () =>
       container.closest('[data-webgl-resize-preview="true"]') !== null;
 
@@ -1011,7 +1017,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
       Parameters<IntersectionObserverCallback>
     >((entries) => {
       const entry = entries[0];
-      const nowVisible = entry.isIntersecting || isContainerActuallyVisible();
+      const nowVisible = entry.isIntersecting || isContainerActuallyVisible(container);
       const wasVisible = visibleRef.current;
       visibleRef.current = nowVisible;
       if (nowVisible && !wasVisible) {
@@ -1046,7 +1052,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
               if (
                 !destroyed &&
                 !visibleRef.current &&
-                !isContainerActuallyVisible() &&
+                !isContainerActuallyVisible(container) &&
                 !frameCircuitIsOpen()
               ) {
                 teardownPixi(reason);
@@ -1059,7 +1065,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
               if (
                 !destroyed &&
                 !visibleRef.current &&
-                !isContainerActuallyVisible() &&
+                !isContainerActuallyVisible(container) &&
                 !frameCircuitIsOpen()
               ) {
                 teardownPixi(idleReleaseReason);
