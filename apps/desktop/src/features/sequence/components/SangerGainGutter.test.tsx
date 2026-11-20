@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import type { IndexedGenomeTileNativeMapHandle } from './IndexedGenomeTileNativeMap';
@@ -45,4 +46,41 @@ it('positions independent gain controls at their rendered lanes and restores the
   expect(
     screen.getByRole('slider', { name: 'Trace gain for Source' }).getAttribute('aria-valuetext')
   ).toBe('2×');
+});
+
+it('attaches the gutter after its canvas sibling exposes the renderer', () => {
+  const lane = { id: 'sanger-direct-later', label: 'Later' } as SharedSangerLane;
+  const map = {
+    getLinearRenderer: () => ({
+      getLaneScreenSnapshot: () => ({
+        trackScreenBounds: { [lane.id]: { topPx: 52, heightPx: 138 } },
+      }),
+      getPresentedTrackScrollReceipt: () => null,
+    }),
+    subscribeToPresentedFrames: () => () => {},
+  } as unknown as IndexedGenomeTileNativeMapHandle;
+  function Canvas({ mapRef }: { mapRef: { current: IndexedGenomeTileNativeMapHandle | null } }) {
+    useLayoutEffect(() => {
+      mapRef.current = map;
+    }, [mapRef]);
+    return <canvas />;
+  }
+  function Viewer() {
+    const mapRef = useRef<IndexedGenomeTileNativeMapHandle | null>(null);
+    return (
+      <>
+        <SangerGainGutter
+          mapRef={mapRef}
+          lanes={[lane]}
+          onGainChange={() => {}}
+          rendererEpoch={1}
+        />
+        <Canvas mapRef={mapRef} />
+      </>
+    );
+  }
+  render(<Viewer />);
+  expect(
+    screen.getByRole('slider', { name: 'Trace gain for Later' }).parentElement?.style.visibility
+  ).toBe('visible');
 });

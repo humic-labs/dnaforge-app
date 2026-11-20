@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, type RefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 
+import { Button, VerticalRangeField } from '../../../components/ui';
 import type { IndexedGenomeTileNativeMapHandle } from './IndexedGenomeTileNativeMap';
 import type { SharedSangerLane } from './shared-sequence-read-model';
 
@@ -22,7 +23,7 @@ function gainLabel(gain: number): string {
 export function SangerGainGutter({ mapRef, lanes, gains, onGainChange, rendererEpoch }: Props) {
   const gutter = useRef<HTMLDivElement>(null);
   const controls = useRef(new Map<string, HTMLDivElement>());
-  useLayoutEffect(() => {
+  useEffect(() => {
     const map = mapRef.current;
     if (!map || !rendererEpoch) return;
     const sync = () => {
@@ -60,30 +61,26 @@ export function SangerGainGutter({ mapRef, lanes, gains, onGainChange, rendererE
               if (node) controls.current.set(lane.id, node);
               else controls.current.delete(lane.id);
             }}
-            className="invisible absolute inset-x-0 flex flex-col items-center justify-center gap-1 text-[10px] text-fg-muted"
+            className="invisible absolute inset-x-0 flex flex-col items-center justify-center gap-1 text-xs text-fg-muted"
           >
             <span>Gain</span>
-            <input
-              type="range"
+            <VerticalRangeField
               min={0}
               max={3}
               step={0.125}
               aria-label={`Trace gain for ${lane.label}`}
-              aria-orientation="vertical"
               aria-valuetext={gainLabel(gain)}
               value={Math.log2(gain)}
               onChange={(event) => onGainChange(lane, 2 ** event.currentTarget.valueAsNumber)}
-              className="h-16 w-4 cursor-pointer"
-              style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
             />
-            <button
-              type="button"
+            <Button
+              variant="link"
               title="Reset gain to 1×"
               aria-label={`Reset gain for ${lane.label}`}
               onClick={() => onGainChange(lane, 1)}
             >
               {gainLabel(gain)}
-            </button>
+            </Button>
           </div>
         );
       })}

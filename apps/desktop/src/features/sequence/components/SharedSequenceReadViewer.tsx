@@ -35,6 +35,7 @@ import {
   type AnnotationChangeDecoration,
   type LinearSequencePresentation,
 } from '@waypoint/genome-renderer';
+import { Button } from '../../../components/ui';
 import { useDarkMode } from '../../../shared/context/DarkModeContext';
 import { useAttachedReadsStore } from '../tracks/attached-reads-store';
 import { getTraceData } from '../../trace/public';
@@ -1285,9 +1286,9 @@ export function SharedSequenceReadViewer({
             {activePick.call.quality == null ? '' : ` · Q${activePick.call.quality}`}
             {activePick.call.sample == null ? '' : ` · Peak sample ${activePick.call.sample}`}
           </span>
-          <button type="button" onClick={copyPickedBases}>
+          <Button variant="link" onClick={copyPickedBases}>
             Copy read bases
-          </button>
+          </Button>
           {copyError && <span role="alert">Could not copy read bases.</span>}
         </div>
       )}

@@ -1,6 +1,7 @@
 export {
   Button,
   TextField,
+  VerticalRangeField,
   TextArea,
   Notice,
   Select,
