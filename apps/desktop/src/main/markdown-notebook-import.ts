@@ -353,7 +353,8 @@ export class MarkdownNotebookImporter {
       assertEnrollment();
       if (compromised) throw compromised;
     };
-    const preferredRoot = this.project(root).path;
+    const project = this.project(root);
+    const preferredRoot = project.path;
     let requestedPath = isAbsolute(requested) ? resolve(requested) : resolve(root, requested);
     const preferredMember = relative(preferredRoot, requestedPath);
     if (isSafeWorkspaceRelativePath(preferredMember)) requestedPath = join(root, preferredMember);
@@ -392,6 +393,18 @@ export class MarkdownNotebookImporter {
       withKnownWorkspacePathMutation(this.options.db(), [root], async () => {
         assertCurrent();
         assertKnownWorkspaceContentWritable(this.options.db(), root);
+        const retainedArtifact = this.options
+          .db()
+          .prepare(
+            `SELECT 1 FROM catalog_entity_files AS file
+             JOIN catalog_entities AS entity ON entity.id = file.entity_id
+             WHERE file.workspace_id = ? AND file.relative_path = ? AND file.status = 'current'
+               AND entity.status = 'active' AND entity.type = 'file'
+               AND json_valid(entity.metadata) AND json_extract(entity.metadata, '$.imported') = 1
+               AND json_extract(entity.metadata, '$.projection') = 'fallback'`
+          )
+          .get(project.id, member);
+        if (retainedArtifact) return null;
         const receiptDirectory = join(root, '.forge', 'markdown-imports');
         await this.physical(root, receiptDirectory, true);
         await mkdir(receiptDirectory, { recursive: true });
