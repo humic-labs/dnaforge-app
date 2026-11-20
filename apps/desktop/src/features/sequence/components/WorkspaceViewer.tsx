@@ -1099,7 +1099,6 @@ function WorkspaceViewerInternal({
     const column = sequencePane?.parentElement;
     if (!sequencePane || !column) return;
 
-    let frameId: number | null = null;
     let lastHeight = 0;
     const measure = () => {
       if (mapPaneResizePreviewActiveRef.current) return;
@@ -1119,25 +1118,12 @@ function WorkspaceViewerInternal({
       lastHeight = paneHeight;
       setSequenceLayoutViewportHeight(paneHeight);
     };
-    const scheduleMeasure = () => {
-      if (frameId !== null) return;
-      frameId = requestAnimationFrame(() => {
-        frameId = null;
-        measure();
-      });
-    };
-
-    const resizeObserver = new ResizeObserver(scheduleMeasure);
+    const resizeObserver = new ResizeObserver(measure);
     resizeObserver.observe(column);
     resizeObserver.observe(sequencePane);
     measure();
-    window.addEventListener('resize', scheduleMeasure);
 
-    return () => {
-      if (frameId !== null) cancelAnimationFrame(frameId);
-      resizeObserver.disconnect();
-      window.removeEventListener('resize', scheduleMeasure);
-    };
+    return () => resizeObserver.disconnect();
   }, [sequenceViewMode, sequenceSurfaceVisible, isEditMode]);
 
   const prevSequenceViewModeRef = useRef(sequenceViewMode);
@@ -2683,6 +2669,7 @@ function WorkspaceViewerInternal({
                       circularBufferViewportHeight={circularBufferViewportHeight}
                       initialContainerWidth={initialSequenceContainerWidth}
                       surfaceVisible={sequenceSurfaceVisible}
+                      mapPlacement={mapSurfaceVisible ? mapPlacement : undefined}
                       viewportCapacity={sequenceViewportCapacity}
                       viewportHeightHint={
                         sequenceSurfaceVisible

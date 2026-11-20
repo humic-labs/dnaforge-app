@@ -584,6 +584,8 @@ export interface WorkspaceEditorProps {
 
   surfaceVisible?: boolean;
 
+  mapPlacement?: 'top' | 'bottom' | 'left' | 'right';
+
   viewportCapacity?: { width: number; height: number };
 
   viewportHeightHint?: number;

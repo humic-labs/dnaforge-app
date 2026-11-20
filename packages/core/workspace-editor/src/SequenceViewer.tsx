@@ -309,6 +309,7 @@ function WorkspaceEditorInner(
     circularBufferViewportHeight,
     initialContainerWidth,
     surfaceVisible = true,
+    mapPlacement,
     viewportCapacity,
     viewportHeightHint,
     freezeViewportHeight = false,
@@ -1204,7 +1205,6 @@ function WorkspaceEditorInner(
     if (!container) return;
     let lastWidth = 0;
     let lastHeight = 0;
-    let rafId: number | null = null;
 
     let reattachWidthSettling = false;
     let reattachWidthStability: PortalWidthStability = INITIAL_PORTAL_WIDTH_STABILITY;
@@ -1268,11 +1268,9 @@ function WorkspaceEditorInner(
 
     measureScrollContainerRef.current = handleResize;
     handleResize();
-    rafId = requestAnimationFrame(handleResize);
 
     const resizeObserver = new ResizeObserver(() => handleResize());
     resizeObserver.observe(container);
-    window.addEventListener('resize', handleResize);
 
     const onPortalHostAttachedForWidth = () => {
       if (containerRef.current !== container || !container.isConnected) return;
@@ -1301,19 +1299,17 @@ function WorkspaceEditorInner(
 
     return () => {
       measureScrollContainerRef.current = null;
-      if (rafId !== null) cancelAnimationFrame(rafId);
       if (settleRafId !== null) cancelAnimationFrame(settleRafId);
       reattachWidthSettling = false;
       reattachWidthStability = INITIAL_PORTAL_WIDTH_STABILITY;
       resizeObserver.disconnect();
-      window.removeEventListener('resize', handleResize);
       window.removeEventListener('waypoint:tab-portal-host-attached', onPortalHostAttachedForWidth);
     };
   }, [scrollContainerElement, getPreviousLayoutForScrollPreservation]);
 
   useLayoutEffect(() => {
     if (surfaceVisible) measureScrollContainerRef.current?.();
-  }, [initialContainerWidth, surfaceVisible]);
+  }, [mapPlacement, surfaceVisible]);
 
   const zoomWrapAnchorRef = useRef<WrapScreenAnchor | null>(null);
   const releasedZoomAnchorRef = useRef<{
