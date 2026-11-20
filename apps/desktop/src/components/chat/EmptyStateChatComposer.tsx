@@ -161,7 +161,7 @@ export function EmptyStateChatComposer({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-2 text-balance">
         {suggestions.map((suggestion) => (
           <button
             key={suggestion}
