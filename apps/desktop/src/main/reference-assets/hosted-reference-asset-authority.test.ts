@@ -2085,6 +2085,36 @@ describe('hosted reference asset authority', () => {
     await vi.waitFor(() => expect(runPreparation).toHaveBeenCalledOnce());
   });
 
+  it('reports the source failure that cancelled its pending sibling', async () => {
+    const cacheRoot = await temporaryRoot(temporaryRoots);
+    const authority = createHostedReferenceAssetAuthority({
+      cacheRoot,
+      projectRoot: PROJECT_ROOT,
+      sourceBuildFingerprint: 'focused-test',
+      indexerBinary: '/unused/injected-indexer',
+      catalog: [CATALOG_ENTRY],
+      listPrepared: async () => [],
+      fetchAsset: async (url, init) => {
+        if (new URL(url).pathname.endsWith(CATALOG_ENTRY.sources.annotations.relativePath)) {
+          return new Response(null, { status: 404 });
+        }
+        return new Promise<Response>((_, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), {
+            once: true,
+          });
+        });
+      },
+    });
+
+    await expect(
+      authority.installHosted({
+        catalogId: CATALOG_ENTRY.id,
+        themeMode: 'light',
+        onProgress: () => undefined,
+      })
+    ).rejects.toThrow('Could not download hosted GFF3: HTTP 404.');
+  });
+
   it('completes short file writes while concurrently streaming and verifying a real HTTP source pair', async () => {
     const cacheRoot = await temporaryRoot(temporaryRoots);
     const fastaBytes = await readFile(PUC19_FASTA);
