@@ -2,10 +2,16 @@ import { scientificWorkTables } from './scientific-object-schema';
 import type Database from 'better-sqlite3';
 import { verifyLimsAuditHashChainInDb } from './lims-projection-rebuild';
 import { randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { constants } from 'node:fs';
-import { copyFile, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
-import { isAbsolute, join } from 'node:path';
+import { chmod, copyFile, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import {
+  isSequencePackageMetaPath,
+  parseSequencePackageDocument,
+  serializeSequencePackageDocument,
+} from '../db/sequence-package';
 import { getDirtyState } from './dirty-state-cache';
 import { acquireWorkspaceSyncDatabaseFence } from './workspace-sync-database-fence';
 import {
@@ -39,6 +45,59 @@ const SCIENTIFIC_TABLES = [
 ] as const;
 const UUID = /^[0-9a-f-]{36}$/u;
 const LEGACY_RECOVERY_SCHEMAS = new Set([42, 43, 47, 48]);
+const SCHEMA_41_MEMBER_FIELDS = new Set([
+  'id',
+  'role',
+  'path',
+  'replaceable',
+  'createdAt',
+  'mediaType',
+]);
+
+async function schema41PackageManifests(source: string, files: ScientificRecoveryFile[]) {
+  const replacements = new Map<ScientificRecoveryFile, string>();
+  const markers = files.filter(
+    (file) => file.kind === 'file' && isSequencePackageMetaPath(join(source, file.path))
+  );
+  const packageRoots = new Set(markers.map((file) => file.path.split('/').slice(0, -2).join('/')));
+  for (const file of markers) {
+    const parents = file.path.split('/').slice(0, -2);
+    if (
+      parents.some(
+        (name, i) =>
+          name.startsWith('.') ||
+          name === 'node_modules' ||
+          packageRoots.has(parents.slice(0, i).join('/'))
+      )
+    )
+      continue;
+    const sourceText = await readFile(join(source, file.path), 'utf8');
+    const raw = JSON.parse(sourceText);
+    if (
+      raw.formatVersion === undefined ||
+      (Number.isInteger(raw.formatVersion) && raw.formatVersion <= 8)
+    )
+      continue;
+    const parsed = parseSequencePackageDocument(sourceText);
+    const old = { ...raw, formatVersion: 8 };
+    const roundTrip = JSON.parse(
+      serializeSequencePackageDocument(parseSequencePackageDocument(JSON.stringify(old)))
+    );
+    if (
+      raw.formatVersion !== 9 ||
+      parsed.members.some((member) =>
+        Object.keys(member).some((key) => !SCHEMA_41_MEMBER_FIELDS.has(key))
+      ) ||
+      !isDeepStrictEqual(roundTrip, raw)
+    ) {
+      throw new Error(
+        `The prior application cannot preserve all package metadata in ${file.path}.`
+      );
+    }
+    replacements.set(file, JSON.stringify(old, null, 2) + '\n');
+  }
+  return replacements;
+}
 
 interface LegacyRecoveryReceipt {
   format: 'dnaforge.legacy-recovery-copy';
@@ -573,6 +632,10 @@ export async function createScientificLegacyRecovery(input: {
         throw new Error('This checkpoint requires a different recovery application.');
       const directory = scientificRecoveryDirectory(db);
       const source = join(directory, baseline.id);
+      const legacyManifests = await schema41PackageManifests(
+        join(source, 'project'),
+        baseline.files
+      );
       const preserved = await captureScientificRecoveryCheckpoint({
         db,
         workspaceId,
@@ -591,6 +654,15 @@ export async function createScientificLegacyRecovery(input: {
 
       const project = join(profile, 'project');
       await copyScientificRecoveryTree(join(source, 'project'), project, baseline.files, deps);
+      for (const [file, text] of legacyManifests) {
+        const target = join(project, file.path);
+        const temporary = join(dirname(target), randomUUID() + '.tmp');
+        await writeFile(temporary, text, { flag: 'wx', mode: file.mode });
+        await chmod(temporary, file.mode);
+        await (deps.flushFile ?? flushScientificRecoveryFile)(temporary);
+        await rename(temporary, target);
+        await syncDirectory(dirname(target));
+      }
       const databasePath = join(profile, 'dnaforge.db');
       await copyFile(
         join(source, 'database.db'),
