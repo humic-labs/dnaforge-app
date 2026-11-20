@@ -1681,15 +1681,11 @@ async function downloadHostedSourcesConcurrently(input: {
         onDownloadedBytes: input.onDownloadedBytes,
       });
     } catch (error) {
-      abortController.abort();
-      throw error;
+      abortController.abort(error);
     }
   });
-  const settled = await Promise.allSettled(downloads);
-  const failure = settled.find(
-    (result): result is PromiseRejectedResult => result.status === 'rejected'
-  );
-  if (failure) throw failure.reason;
+  await Promise.all(downloads);
+  abortController.signal.throwIfAborted();
 }
 
 async function streamHostedSourceToFile(input: {
