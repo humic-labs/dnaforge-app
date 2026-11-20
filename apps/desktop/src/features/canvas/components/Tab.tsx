@@ -294,6 +294,7 @@ export const Tab = React.memo(function Tab({
       data-tab-label={tab.label}
       data-tab-type={tab.type}
       aria-selected={isActive}
+      data-external-preview={tab.isExternalPreview || undefined}
       aria-description={tab.isExternalPreview ? 'Read-only preview. Not imported.' : undefined}
       tabIndex={isActive ? 0 : -1}
       onMouseDown={handleMouseDown}

@@ -1,6 +1,6 @@
 import { INTERACTION_CLASS } from '@waypoint/ui-components';
 export const UI_DOCUMENT_PREVIEW_ROW_CLASS =
-  'external-preview-toolbar flex min-h-9 min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 bg-bg px-3 py-1 text-xs text-fg-muted [background-image:linear-gradient(to_bottom,transparent_20%,hsl(var(--color-accent)_/_0.3))]';
+  'external-preview-toolbar flex min-h-9 min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 bg-[var(--document-preview-bg)] px-3 py-1 text-xs text-fg-muted';
 export const UI_DOCUMENT_PREVIEW_LABEL_CLASS =
   'shrink-0 font-bold text-emerald-800 dark:text-emerald-300';
 export const UI_SEQUENCE_INFO_ROW_CLASS =
