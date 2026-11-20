@@ -79,7 +79,7 @@ import {
   rememberOriginalDefaultProject,
   resolveOriginalDefaultProject,
 } from '../original-default-project';
-import { retainSequencePackage } from '../retain-sequence-package';
+import { retainSequencePackagesInOrder } from '../retain-sequence-package';
 import { findKnownWorkspaceRoot } from './known-workspace-scope';
 import { benchlingProjectionLayoutPolicy } from './benchling-projection-layout';
 import { withKnownWorkspacePathMutation } from '../workspace-sync-mutation-lease';
@@ -785,12 +785,10 @@ async function retainImportedPackages(
   const workspaceRoot = await findKnownWorkspaceRoot(targetRoot, deps);
   if (!workspaceRoot) throw new Error('The imported package has no owning project.');
   const physicalWorkspace = await realpath(workspaceRoot);
-  for (const packageRoot of new Set(packageRoots)) {
-    await retainSequencePackage(deps.db, {
-      workspaceRoot: physicalWorkspace,
-      packageRoot: await realpath(packageRoot),
-    });
-  }
+  await retainSequencePackagesInOrder(deps.db, {
+    workspaceRoot: physicalWorkspace,
+    packageRoots,
+  });
 }
 
 function sequenceRootsFromPackageFiles(paths: readonly string[]): string[] {
