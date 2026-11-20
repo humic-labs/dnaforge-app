@@ -994,6 +994,7 @@ export function useZoomController(opts: UseZoomControllerOpts): UseZoomControlle
     }
 
     if (pending) {
+      clearAnchorDeadline();
       anchorLayoutGenerationRef.current += 1;
       const generation = anchorLayoutGenerationRef.current;
       if (anchorFinalizeRafRef.current !== null) {
@@ -1009,7 +1010,6 @@ export function useZoomController(opts: UseZoomControllerOpts): UseZoomControlle
             return;
           }
           pendingScrollAnchorRef.current = null;
-          clearAnchorDeadline();
           finishPendingSettle();
           if (typeof window !== 'undefined' && typeof performance !== 'undefined') {
             const w = canvasTestWindow(window);

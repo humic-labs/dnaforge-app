@@ -111,6 +111,35 @@ describe('useZoomController — the gesture must finish after a commit ', () => 
 });
 
 describe('useZoomController — the gesture must not wedge or bank delta ', () => {
+  it('finishes an applied zoom when presentation frames arrive after the layout deadline', async () => {
+    const { rerender, commits, zoomTarget } = await zoomOutOnce(true);
+    const frames: FrameRequestCallback[] = [];
+    const paint = vi
+      .spyOn(globalThis, 'requestAnimationFrame')
+      .mockImplementation((callback) => frames.push(callback));
+    const timing = (
+      window as Window & {
+        __zoomPerf?: { anchorAbandons?: unknown[]; anchorSettles?: unknown[] };
+      }
+    ).__zoomPerf!;
+    const abandoned = timing.anchorAbandons?.length ?? 0;
+    const settled = timing.anchorSettles?.length ?? 0;
+    try {
+      act(() => rerender(commits[0]));
+      expect(zoomTarget.style.transform).toBe(CLEARED_TRANSFORM);
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      expect(timing.anchorAbandons?.length ?? 0).toBe(abandoned);
+      for (let frame = 0; frame < 2; frame++) {
+        const callbacks = frames.splice(0);
+        expect(callbacks.length).toBeGreaterThan(0);
+        act(() => callbacks.forEach((callback) => callback(performance.now())));
+      }
+      expect(timing.anchorSettles?.length ?? 0).toBe(settled + 1);
+    } finally {
+      paint.mockRestore();
+    }
+  });
+
   it('abandons an anchor the owner never reports, instead of waiting forever', async () => {
     const { rerender, zoomTarget, commits, gestureStates } = await zoomOutOnce(true);
 
