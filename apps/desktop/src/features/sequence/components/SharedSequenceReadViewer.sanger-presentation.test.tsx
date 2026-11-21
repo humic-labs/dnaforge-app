@@ -6,13 +6,14 @@ import {
   waitFor,
   type RenderOptions,
 } from '@testing-library/react';
-import { StrictMode, useLayoutEffect, type PropsWithChildren } from 'react';
+import { StrictMode, useLayoutEffect, useMemo, type PropsWithChildren } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Application } from 'pixi.js';
 import type { Genome, IndexedPixiLinearRenderer, RenderState } from '@waypoint/genome-renderer';
 import type { PixiMapHandle, UseIndexedPixiMapOptions } from '@waypoint/genome-renderer/react';
 type PixiPresentedFrame = Parameters<Parameters<PixiMapHandle['subscribeToPresentedFrames']>[0]>[0];
 import type { AnnotatedSequence } from '@waypoint/sequence-utils';
+import type { TrackStoreBridge } from '../../../shared/track-store';
 
 interface Boundary {
   native: SequenceDocumentClientBridge | undefined;
@@ -82,6 +83,35 @@ vi.mock('../../../platform', async (importOriginal) => {
   };
 });
 
+vi.mock('@waypoint/sequence-utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@waypoint/sequence-utils')>()),
+  loadAllEnzymes: async () => [],
+}));
+vi.mock('../annotation-catalog/annotation-catalog-registry', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../annotation-catalog/annotation-catalog-registry')>();
+  const emptyCatalogStore: TrackStoreBridge = {
+    root: async () => '/owned-synthetic/empty-annotation-store',
+    listAssemblies: async () => [],
+    listTracks: async () => [],
+    readMeta: async () => {
+      throw new Error('UNEXPECTED_ANNOTATION_META_READ');
+    },
+    readTrackFile: async () => {
+      throw new Error('UNEXPECTED_ANNOTATION_FILE_READ');
+    },
+    refresh: async () => ({ seeded: 0 }),
+  };
+  return {
+    ...actual,
+    loadAnnotationCatalogs: (bridge: TrackStoreBridge = emptyCatalogStore) =>
+      actual.loadAnnotationCatalogs(bridge),
+  };
+});
+
+vi.mock('./SequenceToolbarSidebar', () => ({ SequenceToolbarSidebar: () => null }));
+vi.mock('./WorkspaceViewerContextMenu', () => ({ WorkspaceViewerContextMenu: () => null }));
+
 vi.mock('../../../hooks/useMockedFileSystem', () => ({
   getFileSystem: async () => ({ readFile: boundary.readFile }),
 }));
@@ -149,6 +179,12 @@ import type {
   SequenceDocumentSnapshot,
 } from '../../../shared/sequence-document';
 import { useFileWatcher } from '../hooks/useFileWatcher';
+import { useCanvasStore } from '../../canvas/public/store';
+import { useSequenceViewState } from '../view-state/useSequenceViewState';
+import {
+  clearSequenceViewMemory,
+  writeSequenceViewMemory,
+} from '../view-state/sequence-view-state';
 
 let rendererModule: typeof import('@waypoint/genome-renderer');
 let pixi: typeof import('pixi.js');
@@ -875,5 +911,357 @@ describe('Sanger read caller presentation', () => {
       useSequenceStore.getState().clearAll();
       expect(boundary.listeners.size).toBe(0);
     }
+  });
+
+  describe('WorkspaceViewer production projection', () => {
+    let WorkspaceViewer: (typeof import('./WorkspaceViewer'))['WorkspaceViewer'];
+    beforeAll(async () => {
+      ({ WorkspaceViewer } = await import('./WorkspaceViewer'));
+    });
+
+    it('retains the accepted read through the real orientation projection and fresh current-genome paint', async () => {
+      const documentKey = 'owned-workspace-sanger-projection';
+      useSequenceStore.getState().clearAll();
+      useCanvasStore.getState().reset();
+      writeSequenceViewMemory(documentKey, {
+        rendererVisibility: 'sequence',
+        orientation: 'forward',
+        zoom: 100,
+      });
+      const previousOrfVisibility = localStorage.getItem('waypoint-orf-visible');
+      localStorage.setItem('waypoint-orf-visible', 'false');
+      useCanvasStore.getState().openTab('main', {
+        type: 'sequence',
+        entityId: documentKey,
+        label: documentKey,
+        sequenceDocument: { kind: 'catalog-sequence', entityId: documentKey },
+        loadStatus: 'loaded',
+      });
+      const loaded = renderHook(() => useSequence(filePath, documentKey));
+      const viewState = renderHook(() =>
+        useSequenceViewState(documentKey, { circular: false, surface: 'sequence' })
+      );
+      let f: Awaited<ReturnType<typeof mountViewer>> | undefined;
+      function WorkspaceCaller() {
+        const read = useSequence(filePath, documentKey);
+        return read.data ? (
+          <WorkspaceViewer
+            entityId={documentKey}
+            sequence={read.data}
+            dataLayerSourceSequence={read.data}
+            plasmid={annotatedSequenceToParsedPlasmid(read.data)}
+            circular={Boolean(read.data.circular)}
+            surface="sequence"
+            readOnly
+            hideMinimap
+          />
+        ) : null;
+      }
+      try {
+        await waitFor(() => expect(loaded.result.current.isLoading).toBe(false));
+        const accepted = loaded.result.current.data;
+        if (!accepted) throw new Error('ACTUAL_WORKSPACE_ACCEPTED_READ_REQUIRED');
+        expect(accepted.id).toBe(documentKey);
+        expect(accepted.sequence).toBe('ACGTAC');
+        expect(boundary.readFile).toHaveBeenCalledTimes(1);
+        const parsed = oneEvent('parsed');
+        const version = useSequenceStore.getState().getVersion(documentKey);
+        const lineage = useSequenceStore.getState().draftLineages[documentKey];
+        boundary.clock.now = 2_000;
+        f = await mountViewer(accepted, undefined, <WorkspaceCaller />);
+        const identityGenome = options().genome;
+        const identityData = lane(f.data.mock.calls).data;
+        expect(identityGenome.sequence).toBe('ACGTAC');
+        f.renderer.render(state());
+        const identityPaint = paintReceipt(f.renderer, f.data.mock.calls);
+        expect(identityPaint.receipt).toMatchObject({
+          traceVisible: true,
+          qualityVisible: true,
+          basesVisible: true,
+        });
+        boundary.clock.now = 3_000;
+        frame(identityGenome);
+        expect(oneEvent('first_viewport_presented')).toMatchObject({
+          operation_id: parsed.operation_id,
+          sanger_read_revision_id: parsed.sanger_read_revision_id,
+          sanger_started_at_ms: 1_000,
+          sanger_parse_started_at_ms: 1_000,
+          sanger_view_started_at_ms: 2_000,
+          occurred_at_ms: 3_000,
+        });
+        const identityView = oneEvent('first_viewport_presented');
+        boundary.clock.now = 4_000;
+        act(() => viewState.result.current[1]({ orientation: 'reverse-complement' }));
+        await waitFor(() => expect(options().genome).not.toBe(identityGenome));
+        expect(viewState.result.current[0].orientation).toBe('reverse-complement');
+        expect(options().genome.sequence).toBe('GTACGT');
+        expect(useSequenceStore.getState().sequences[documentKey]).toBe(accepted);
+        expect(accepted.sequence).toBe('ACGTAC');
+        expect(useSequenceStore.getState().getVersion(documentKey)).toBe(version);
+        expect(useSequenceStore.getState().draftLineages[documentKey]).toBe(lineage);
+        await f.renderer.loadGenome(options().genome);
+        act(() => options().onRendererGenomeCommit?.(2));
+        const active = f;
+        await waitFor(() => expect(lane(active.data.mock.calls).data).not.toBe(identityData));
+        frame(options().genome);
+        expect(events('first_viewport_presented')).toHaveLength(1);
+        f.renderer.render(state());
+        const projectedPaint = paintReceipt(f.renderer, f.data.mock.calls);
+        expect(projectedPaint.paintCount).toBeGreaterThan(identityPaint.paintCount);
+        expect(projectedPaint.receipt).toMatchObject({
+          traceVisible: true,
+          qualityVisible: true,
+          basesVisible: true,
+        });
+        boundary.clock.now = 5_000;
+        frame({ ...options().genome });
+        expect(events('first_viewport_presented')).toHaveLength(1);
+        frame(options().genome);
+        const presentations = events('first_viewport_presented');
+        expect(presentations, 'WORKSPACE_PROJECTED_READ_FIRST_VIEWPORT_REQUIRED').toHaveLength(2);
+        expect(presentations[1]).toMatchObject({
+          operation_id: parsed.operation_id,
+          sanger_read_revision_id: parsed.sanger_read_revision_id,
+          sanger_started_at_ms: 1_000,
+          sanger_parse_started_at_ms: 1_000,
+          sanger_view_started_at_ms: 4_000,
+          occurred_at_ms: 5_000,
+          sanger_trace_visible: true,
+          sanger_quality_visible: true,
+          sanger_bases_visible: true,
+        });
+        expect(presentations[1]?.sanger_view_id).toMatch(uuid);
+        expect(presentations[1]?.sanger_view_id).not.toBe(identityView.sanger_view_id);
+        frame(options().genome);
+        expect(events('first_viewport_presented')).toHaveLength(2);
+        expect(events('read_requested')).toHaveLength(1);
+        expect(events('parsed')).toHaveLength(1);
+        expect(boundary.readFile).toHaveBeenCalledTimes(1);
+        for (const event of events()) {
+          expect(Object.keys(event).filter((key) => !eventKeys.has(key))).toEqual([]);
+        }
+        for (const canary of [filePath, documentKey, 'ACGTAC', 'GTACGT']) {
+          expect(JSON.stringify(events())).not.toContain(canary);
+        }
+      } finally {
+        f?.view.unmount();
+        viewState.unmount();
+        loaded.unmount();
+        clearSequenceViewMemory(documentKey);
+        if (previousOrfVisibility === null) localStorage.removeItem('waypoint-orf-visible');
+        else localStorage.setItem('waypoint-orf-visible', previousOrfVisibility);
+        useCanvasStore.getState().reset();
+        useSequenceStore.getState().clearAll();
+        expect(boundary.listeners.size).toBe(0);
+      }
+    });
+
+    it('follows a new native read through a stable nonidentity Workspace projection without reusing its previous binding', async () => {
+      const documentId = 'owned-native-workspace-live-projection';
+      function nativeSnapshot(): SequenceDocumentSnapshot {
+        const parsed = parseBinarySequenceFileAsAnnotated(syntheticAb1(), filePath);
+        if (parsed.format !== 'ab1') throw new Error('ACTUAL_NATIVE_WORKSPACE_AB1_REQUIRED');
+        const sequence = { ...parsed.sequence, id: documentId };
+        const model = createSequenceDocumentModel();
+        model.getState().setSequence(documentId, sequence);
+        const snapshot = model.getState();
+        const draft = snapshot.drafts[documentId];
+        const lineage = snapshot.draftLineages[documentId];
+        if (!draft || !lineage) throw new Error('ACTUAL_NATIVE_WORKSPACE_LINEAGE_REQUIRED');
+        return {
+          documentId,
+          path: filePath,
+          workspaceRoot: '/owned-synthetic',
+          revision: 'native-workspace-revision-1',
+          persistedRevision: 'native-workspace-revision-1',
+          version: 1,
+          savedVersion: 1,
+          ready: true,
+          readOnly: true,
+          dirty: false,
+          saving: false,
+          canUndo: false,
+          canRedo: false,
+          length: sequence.length,
+          annotationCount: 0,
+          capabilities: [],
+          copy: { sequence, savedSequence: sequence, draft, lineage, version: 1, savedVersion: 1 },
+        };
+      }
+      let renderedSequence: AnnotatedSequence | null = null;
+      function NativeWorkspaceCaller() {
+        const read = useSequence(filePath, documentId);
+        const plasmid = useMemo(
+          () => (read.data ? annotatedSequenceToParsedPlasmid(read.data) : null),
+          [read.data]
+        );
+        renderedSequence = read.data;
+        return read.data && plasmid ? (
+          <WorkspaceViewer
+            entityId={documentId}
+            sequence={read.data}
+            dataLayerSourceSequence={read.data}
+            plasmid={plasmid}
+            circular={Boolean(read.data.circular)}
+            surface="sequence"
+            readOnly
+            hideMinimap
+          />
+        ) : null;
+      }
+      useSequenceStore.getState().clearAll();
+      useCanvasStore.getState().reset();
+      writeSequenceViewMemory(documentId, {
+        rendererVisibility: 'sequence',
+        orientation: 'reverse-complement',
+        zoom: 100,
+      });
+      const previousOrfVisibility = localStorage.getItem('waypoint-orf-visible');
+      localStorage.setItem('waypoint-orf-visible', 'false');
+      useCanvasStore.getState().openTab('main', {
+        type: 'sequence',
+        entityId: documentId,
+        label: documentId,
+        sequenceDocument: { kind: 'catalog-sequence', entityId: documentId },
+        loadStatus: 'loaded',
+      });
+      boundary.nativeTransportEnabled = true;
+      const initial = nativeSnapshot();
+      if (!initial.copy) throw new Error('ACTUAL_NATIVE_WORKSPACE_INITIAL_COPY_REQUIRED');
+      useSequenceStore.getState().setSequence(documentId, initial.copy.sequence);
+      const native = new SequenceDocumentClientBridge(useSequenceStore);
+      boundary.execute.mockReset().mockResolvedValue(initial);
+      let watcher:
+        | { result: { current: ReturnType<typeof useFileWatcher> }; unmount(): void }
+        | undefined;
+      let f: Awaited<ReturnType<typeof mountViewer>> | undefined;
+      try {
+        await native.execute(documentId, { kind: 'reload' }, { expectedVersion: 1 });
+        boundary.native = native;
+        const before = useSequenceStore.getState();
+        const working = before.sequences[documentId];
+        if (!working) throw new Error('ACTUAL_NATIVE_WORKSPACE_WORKING_READ_REQUIRED');
+        const first = nativeSnapshot();
+        if (!first.copy) throw new Error('ACTUAL_NATIVE_WORKSPACE_FIRST_COPY_REQUIRED');
+        boundary.execute.mockReset().mockResolvedValue(first);
+        const mountedWatcher = renderHook(() =>
+          useFileWatcher({ filePath, documentId, isDirty: false })
+        );
+        watcher = mountedWatcher;
+        await act(async () => {
+          await mountedWatcher.result.current.reloadFromDisk();
+        });
+        expect(useSequenceStore.getState().sequences[documentId]).toBe(working);
+        expect(useSequenceStore.getState().getVersion(documentId)).toBe(1);
+        expect(useSequenceStore.getState().draftLineages[documentId]).toBe(first.copy.lineage);
+        const firstRead = oneEvent('revision_ready');
+        boundary.clock.now = 2_000;
+        f = await mountViewer(working, undefined, <NativeWorkspaceCaller />);
+        expect(renderedSequence).toBe(working);
+        expect(working.sequence).toBe('ACGTAC');
+        const projectedGenome = options().genome;
+        expect(projectedGenome.sequence).toBe('GTACGT');
+        const projectedData = lane(f.data.mock.calls).data;
+        f.renderer.render(state());
+        const firstPaint = paintReceipt(f.renderer, f.data.mock.calls);
+        expect(firstPaint.receipt).toMatchObject({
+          traceVisible: true,
+          qualityVisible: true,
+          basesVisible: true,
+        });
+        boundary.clock.now = 3_000;
+        frame(projectedGenome);
+        const firstPresentation = oneEvent('first_viewport_presented');
+        expect(firstPresentation).toMatchObject({
+          operation_id: firstRead.operation_id,
+          sanger_read_revision_id: firstRead.sanger_read_revision_id,
+          sanger_started_at_ms: 1_000,
+          sanger_view_started_at_ms: 2_000,
+          occurred_at_ms: 3_000,
+        });
+        const next = nativeSnapshot();
+        if (!next.copy) throw new Error('ACTUAL_NATIVE_WORKSPACE_NEXT_COPY_REQUIRED');
+        expect(next.copy.sequence).not.toBe(working);
+        expect(next.copy.lineage).not.toBe(first.copy.lineage);
+        boundary.execute.mockResolvedValue(next);
+        boundary.clock.now = 4_000;
+        await act(async () => {
+          await mountedWatcher.result.current.reloadFromDisk();
+        });
+        const current = useSequenceStore.getState();
+        expect(current.getVersion(documentId)).toBe(1);
+        expect(current.savedVersions[documentId]).toBe(1);
+        expect(current.sequences[documentId]).toBe(working);
+        expect(current.draftLineages[documentId]).toBe(next.copy.lineage);
+        expect(renderedSequence).toBe(working);
+        expect(working.sequence).toBe('ACGTAC');
+        expect(options().genome).toBe(projectedGenome);
+        expect(lane(f.data.mock.calls).data).toBe(projectedData);
+        const reads = events('revision_ready');
+        expect(reads).toHaveLength(2);
+        const accepted = reads[1];
+        if (!accepted) throw new Error('ACTUAL_CURRENT_NATIVE_WORKSPACE_READ_REQUIRED');
+        expect(accepted.operation_id).not.toBe(firstRead.operation_id);
+        expect(accepted.sanger_read_revision_id).not.toBe(firstRead.sanger_read_revision_id);
+        expect(accepted.sanger_started_at_ms).toBe(4_000);
+        expect(accepted.sanger_parse_started_at_ms).toBeUndefined();
+        frame(projectedGenome);
+        expect(events('first_viewport_presented')).toHaveLength(1);
+        f.renderer.render(state());
+        const painted = paintReceipt(f.renderer, f.data.mock.calls);
+        expect(painted.paintCount).toBeGreaterThan(firstPaint.paintCount);
+        expect(painted.receipt).toMatchObject({
+          traceVisible: true,
+          qualityVisible: true,
+          basesVisible: true,
+        });
+        boundary.clock.now = 5_000;
+        frame(projectedGenome);
+        const presented = events('first_viewport_presented');
+        expect(presented, 'LIVE_PROJECTED_NATIVE_READ_BINDING_REQUIRED').toHaveLength(2);
+        expect(presented[1]).toMatchObject({
+          operation_id: accepted.operation_id,
+          sanger_read_revision_id: accepted.sanger_read_revision_id,
+          sanger_origin: 'native_reload',
+          sanger_started_at_ms: 4_000,
+          sanger_view_started_at_ms: 4_000,
+          occurred_at_ms: 5_000,
+          sanger_trace_visible: true,
+          sanger_quality_visible: true,
+          sanger_bases_visible: true,
+        });
+        expect(presented[1]?.sanger_view_id).toMatch(uuid);
+        expect(presented[1]?.sanger_view_id).not.toBe(firstPresentation.sanger_view_id);
+        frame(projectedGenome);
+        expect(events('first_viewport_presented')).toHaveLength(2);
+        expect(events('read_requested')).toHaveLength(2);
+        expect(events('parsed')).toEqual([]);
+        expect(boundary.readFile).not.toHaveBeenCalled();
+        for (const event of events()) {
+          expect(Object.keys(event).filter((key) => !eventKeys.has(key))).toEqual([]);
+        }
+        for (const canary of [
+          filePath,
+          documentId,
+          'native-workspace-revision-1',
+          'ACGTAC',
+          'GTACGT',
+        ]) {
+          expect(JSON.stringify(events())).not.toContain(canary);
+        }
+      } finally {
+        f?.view.unmount();
+        watcher?.unmount();
+        await native.flush('discard');
+        boundary.native = undefined;
+        boundary.nativeTransportEnabled = false;
+        clearSequenceViewMemory(documentId);
+        if (previousOrfVisibility === null) localStorage.removeItem('waypoint-orf-visible');
+        else localStorage.setItem('waypoint-orf-visible', previousOrfVisibility);
+        useCanvasStore.getState().reset();
+        useSequenceStore.getState().clearAll();
+        expect(boundary.listeners.size).toBe(0);
+      }
+    });
   });
 });
