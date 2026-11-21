@@ -92,6 +92,7 @@ export const CLOSED_BETA_EVENTS = [
   'agent_auth_state_observed',
   'model_preference_observed',
   'indexed_genome_stage',
+  'sanger_read_stage',
 ] as const;
 
 export type ClosedBetaEvent = (typeof CLOSED_BETA_EVENTS)[number];
@@ -180,6 +181,7 @@ export const CLOSED_BETA_EVENT_PROPERTIES = {
   'agent_auth_state_observed': ['feature_area', 'operation_id', 'occurred_at_ms', 'auth_vendor', 'auth_stage', 'auth_outcome', 'auth_reason'],
   'model_preference_observed': ['feature_area', 'operation_id', 'occurred_at_ms', 'preference_stage', 'preference_outcome', 'preference_route_kind', 'preference_selection_source', 'preference_model_source', 'preference_failure_code'],
   'indexed_genome_stage': ['feature_area', 'operation_id', 'genome_generation_id', 'viewport_operation_id', 'genome_stage', 'genome_origin', 'genome_reason', 'genome_started_at_ms', 'viewport_started_at_ms', 'occurred_at_ms'],
+  'sanger_read_stage': ['feature_area', 'operation_id', 'sanger_read_revision_id', 'sanger_view_id', 'viewport_operation_id', 'sanger_stage', 'sanger_origin', 'sanger_classification', 'sanger_reason', 'sanger_started_at_ms', 'sanger_parse_started_at_ms', 'sanger_view_started_at_ms', 'viewport_started_at_ms', 'sanger_viewport_kind', 'sanger_trace_available', 'sanger_quality_available', 'sanger_trace_visible', 'sanger_quality_visible', 'sanger_bases_visible', 'occurred_at_ms'],
 } as const satisfies Readonly<Record<ClosedBetaEvent, readonly string[]>>;
 
 export const CLOSED_BETA_EVENT_VERSIONS = {
@@ -266,4 +268,5 @@ export const CLOSED_BETA_EVENT_VERSIONS = {
   'agent_auth_state_observed': 1,
   'model_preference_observed': 1,
   'indexed_genome_stage': 1,
+  'sanger_read_stage': 1,
 } as const satisfies Readonly<Record<ClosedBetaEvent, number>>;
