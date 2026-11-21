@@ -51,6 +51,7 @@ export interface CopyablePrimerBinding {
   bindingStart: number;
   bindingEnd: number;
   strand: 1 | -1;
+  sourceWorkspaceRoot?: string;
 }
 
 export interface RichSequencePrimerBinding {
@@ -58,6 +59,7 @@ export interface RichSequencePrimerBinding {
   start: number;
   end: number;
   strand: 1 | -1;
+  sourceWorkspaceRoot?: string;
 }
 
 export interface RichSequenceAnnotation extends DesignAnnotation {
@@ -220,7 +222,7 @@ export function richSequenceFragmentForEditor(fragment: RichSequenceFragment): E
     })),
     primerBindings: fragment.primerBindings.map((binding) => ({
       ...binding,
-      sourceWorkspaceRoot: fragment.sourceWorkspaceRoot,
+      sourceWorkspaceRoot: binding.sourceWorkspaceRoot ?? fragment.sourceWorkspaceRoot,
     })),
   };
 }
@@ -352,6 +354,7 @@ export function extractPrimerBindingsForRange(
         containingSegment.relativeOffset + binding.bindingStart - containingSegment.sourceStart,
       end: containingSegment.relativeOffset + binding.bindingEnd - containingSegment.sourceStart,
       strand: binding.strand,
+      ...(binding.sourceWorkspaceRoot ? { sourceWorkspaceRoot: binding.sourceWorkspaceRoot } : {}),
     });
   }
 
