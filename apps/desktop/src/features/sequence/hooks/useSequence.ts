@@ -3,6 +3,7 @@ import type { AnnotatedSequence } from '@waypoint/sequence-utils';
 import { useFileContent } from '../../../hooks/useFileContent';
 import { useSequenceStore } from '../store';
 import { useCanvasStore } from '../../canvas/public/store';
+import { bindSangerReadProjection } from '../sanger-read-lifecycle-telemetry';
 import type { SequenceFileLoadErrorClass } from '../../../hooks/useFileContent';
 import {
   registerReadOnlySequencePreview,
@@ -52,6 +53,19 @@ export function useSequence(filePath: string, documentKey: string): UseSequenceR
     if (sequence && !cachedData) {
       if (isReadOnlyPreview) registerReadOnlySequencePreview(documentKey);
       setSequence(documentKey, sequence, acceptedRevision ?? undefined);
+      const published = useSequenceStore.getState();
+      const document = published.sequences[documentKey];
+      const version = published.getVersion(documentKey);
+      const lineage = published.draftLineages[documentKey];
+      if (document)
+        bindSangerReadProjection(sequence, document, () => {
+          const current = useSequenceStore.getState();
+          return (
+            current.sequences[documentKey] === document &&
+            current.getVersion(documentKey) === version &&
+            current.draftLineages[documentKey] === lineage
+          );
+        });
     }
   }, [sequence, acceptedRevision, cachedData, documentKey, setSequence, isReadOnlyPreview]);
 
