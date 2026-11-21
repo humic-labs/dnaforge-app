@@ -12,6 +12,8 @@ import { useWorkspaceStore } from '../../../stores/workspaceStore';
 import { readStableWorkspaceGeneration } from '../../../services/workspace-sync-renderer-generation';
 import { readSequenceText } from '../read-sequence-text';
 import { isHostedBrowserRuntime } from '../../../utils/environment';
+import { getSequenceDocumentMetadata, sequenceFormatFromFilename } from '@waypoint/sequence-utils';
+import { beginSangerRead } from '../sanger-read-lifecycle-telemetry';
 
 function isMissingWatchedFile(err: unknown): boolean {
   if (['ENOENT', 'DOCUMENT_NOT_FOUND'].includes((err as NodeJS.ErrnoException)?.code ?? ''))
@@ -58,11 +60,16 @@ export function useFileWatcher({
   onReloadRef.current = onReload;
   const readGeneration = useRef(0);
   const readScope = useRef('');
+  const activeRead = useRef<{
+    observation: ReturnType<typeof beginSangerRead>;
+  } | null>(null);
   readScope.current = JSON.stringify([documentId, filePath]);
   useEffect(() => {
     readGeneration.current += 1;
     return () => {
       readGeneration.current += 1;
+      activeRead.current?.observation?.end('read_cancelled', 'closed');
+      activeRead.current = null;
     };
   }, [documentId, filePath]);
 
@@ -77,6 +84,13 @@ export function useFileWatcher({
     async (options: { discardUnchangedDraft?: boolean } = {}) => {
       const generation = readGeneration.current;
       const scope = JSON.stringify([documentId, filePath]);
+      const request: NonNullable<typeof activeRead.current> = { observation: undefined };
+      activeRead.current?.observation?.end('read_superseded', 'superseded');
+      activeRead.current = request;
+      const ownsRequest = () =>
+        generation === readGeneration.current &&
+        scope === readScope.current &&
+        activeRead.current === request;
       const initial = useSequenceStore.getState();
       const initialVersion = initial.getVersion(documentId);
       const initialWorking = initial.sequences[documentId];
@@ -84,7 +98,7 @@ export function useFileWatcher({
       let readHostedIdentity: (() => string | null) | null = null;
       let initialHostedIdentity: string | null = null;
       const ownsRead = (): boolean => {
-        if (generation !== readGeneration.current || scope !== readScope.current) return false;
+        if (!ownsRequest()) return false;
         if (
           readHostedIdentity &&
           (!initialHostedIdentity || readHostedIdentity() !== initialHostedIdentity)
@@ -112,6 +126,8 @@ export function useFileWatcher({
         const native = getNativeSequenceDocumentClient();
         if (native) {
           if (!ownsRead()) return;
+          if (sequenceFormatFromFilename(filePath) === 'ab1')
+            request.observation = beginSangerRead('native_reload');
           const discarded = options.discardUnchangedDraft
             ? await native.execute(
                 documentId,
@@ -119,15 +135,53 @@ export function useFileWatcher({
                 { expectedVersion: initialVersion }
               )
             : null;
-          await native.execute(
-            documentId,
-            { kind: 'reload' },
-            { expectedVersion: discarded?.version ?? initialVersion }
-          );
-          if (generation === readGeneration.current && scope === readScope.current) {
-            setShowExternalChangeToast(false);
-            onReloadRef.current?.();
+          if (
+            !ownsRequest() ||
+            getNativeSequenceDocumentClient() !== native ||
+            (discarded && useSequenceStore.getState().getVersion(documentId) !== discarded.version)
+          ) {
+            request.observation?.end('read_superseded', 'superseded');
+            return;
           }
+          const accepted = await native.execute(documentId, { kind: 'reload' });
+          if (!ownsRequest() || getNativeSequenceDocumentClient() !== native) {
+            request.observation?.end('read_superseded', 'superseded');
+            return;
+          }
+          const current = useSequenceStore.getState();
+          const copy = accepted.copy;
+          const sequence = current.sequences[documentId];
+          if (!accepted.ready || !copy || !sequence) {
+            request.observation?.end('read_failed', 'source_unavailable');
+            return;
+          }
+          if (
+            accepted.documentId !== documentId ||
+            accepted.version !== copy.version ||
+            accepted.savedVersion !== copy.savedVersion ||
+            current.getVersion(documentId) !== accepted.version ||
+            current.savedVersions[documentId] !== accepted.savedVersion ||
+            current.draftLineages[documentId] !== copy.lineage
+          ) {
+            request.observation?.end('read_superseded', 'stale_revision');
+            return;
+          }
+          request.observation?.revisionReady(
+            getSequenceDocumentMetadata(sequence)?.format,
+            sequence,
+            () => {
+              const latest = useSequenceStore.getState();
+              return (
+                getNativeSequenceDocumentClient() === native &&
+                latest.getVersion(documentId) === accepted.version &&
+                latest.savedVersions[documentId] === accepted.savedVersion &&
+                latest.sequences[documentId] === sequence &&
+                latest.draftLineages[documentId] === copy.lineage
+              );
+            }
+          );
+          setShowExternalChangeToast(false);
+          onReloadRef.current?.();
           return;
         }
         if (isHostedBrowserRuntime()) {
@@ -177,6 +231,7 @@ export function useFileWatcher({
         console.log('[useFileWatcher] Reloaded from disk:', filePath);
         onReloadRef.current?.();
       } catch (err) {
+        request.observation?.end('read_failed', 'source_unavailable');
         if (!ownsRead()) return;
 
         if (isMissingWatchedFile(err)) {
