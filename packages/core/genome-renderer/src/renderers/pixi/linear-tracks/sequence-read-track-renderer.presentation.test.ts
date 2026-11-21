@@ -91,10 +91,11 @@ function receipt(
 ) {
   const getter: unknown = Reflect.get(renderer, 'getPaintReceipt');
   expect(typeof getter, 'CURRENT_READ_PAINT_IDENTITY_RECEIPT_MISSING').toBe('function');
-  return Reflect.apply(getter as Function, renderer, [
-    container,
-    expectedData,
-  ]) as PaintReceipt | null;
+  return Reflect.apply(
+    getter as (container: Container, expectedData: SequenceReadTrackData) => PaintReceipt | null,
+    renderer,
+    [container, expectedData]
+  ) as PaintReceipt | null;
 }
 
 describe('Sanger read paint ownership', () => {
