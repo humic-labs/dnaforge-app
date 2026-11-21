@@ -36,6 +36,14 @@ interface AcceptedRead {
 
 const acceptedReads = new WeakMap<AnnotatedSequence, AcceptedRead>();
 const bindingListeners = new WeakMap<AnnotatedSequence, Set<() => void>>();
+const viewSources = new WeakMap<AnnotatedSequence, AnnotatedSequence>();
+
+export function bindSangerReadViewProjection(
+  source: AnnotatedSequence,
+  projected: AnnotatedSequence
+) {
+  if (source !== projected) viewSources.set(projected, viewSources.get(source) ?? source);
+}
 
 function publishSangerReadBinding(sequence: AnnotatedSequence, read: AcceptedRead) {
   acceptedReads.set(sequence, read);
@@ -43,20 +51,21 @@ function publishSangerReadBinding(sequence: AnnotatedSequence, read: AcceptedRea
 }
 
 export function getSangerReadBinding(sequence: AnnotatedSequence) {
-  const read = acceptedReads.get(sequence);
+  const read = acceptedReads.get(viewSources.get(sequence) ?? sequence);
   return read?.current() ? read : undefined;
 }
 
 export function subscribeToSangerReadBinding(sequence: AnnotatedSequence, listener: () => void) {
-  let listeners = bindingListeners.get(sequence);
+  const source = viewSources.get(sequence) ?? sequence;
+  let listeners = bindingListeners.get(source);
   if (!listeners) {
     listeners = new Set();
-    bindingListeners.set(sequence, listeners);
+    bindingListeners.set(source, listeners);
   }
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
-    if (listeners.size === 0) bindingListeners.delete(sequence);
+    if (listeners.size === 0) bindingListeners.delete(source);
   };
 }
 
@@ -150,8 +159,8 @@ export function beginSangerRead(origin: FileReadOrigin) {
 
 export function beginSangerReadView(sequence: AnnotatedSequence) {
   try {
-    const read = acceptedReads.get(sequence);
-    if (!read?.current()) return undefined;
+    const read = getSangerReadBinding(sequence);
+    if (!read) return undefined;
     const viewId = crypto.randomUUID();
     const startedAt = Date.now();
     let phase: 'pending' | 'admitted' | 'presented' | 'closed' = 'pending';
