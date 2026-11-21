@@ -269,26 +269,52 @@ async function copyDirectoryNoSymlinks(
   destinationDir: string,
   templateRootReal: string
 ): Promise<void> {
-  const sourceReal = await realpath(sourceDir);
-  assertDescendant(sourceReal, templateRootReal);
-  await mkdir(destinationDir, { recursive: true });
+  const files: { sourcePath: string; destinationPath: string }[] = [];
 
-  const entries = await readdir(sourceDir, { withFileTypes: true });
-  for (const entry of entries) {
-    const sourcePath = join(sourceDir, entry.name);
-    const destinationPath = join(destinationDir, entry.name);
-    const entryStat = await lstat(sourcePath);
-    if (entryStat.isSymbolicLink()) {
-      throw new Error(`Sample workspace template cannot contain symlinks: ${sourcePath}`);
-    }
-    if (entry.isDirectory()) {
-      await copyDirectoryNoSymlinks(sourcePath, destinationPath, templateRootReal);
-    } else if (entry.isFile()) {
-      await copyFile(sourcePath, destinationPath);
-    } else {
-      throw new Error(`Unsupported sample workspace template entry: ${sourcePath}`);
+  async function collectDirectory(source: string, destination: string): Promise<void> {
+    const sourceReal = await realpath(source);
+    assertDescendant(sourceReal, templateRootReal);
+    await mkdir(destination, { recursive: true });
+
+    const entries = await readdir(source, { withFileTypes: true });
+    for (const entry of entries) {
+      const sourcePath = join(source, entry.name);
+      const destinationPath = join(destination, entry.name);
+      const entryStat = await lstat(sourcePath);
+      if (entryStat.isSymbolicLink()) {
+        throw new Error(`Sample workspace template cannot contain symlinks: ${sourcePath}`);
+      }
+      if (entry.isDirectory()) {
+        await collectDirectory(sourcePath, destinationPath);
+      } else if (entry.isFile()) {
+        files.push({ sourcePath, destinationPath });
+      } else {
+        throw new Error(`Unsupported sample workspace template entry: ${sourcePath}`);
+      }
     }
   }
+
+  await collectDirectory(sourceDir, destinationDir);
+  let nextFile = 0;
+  let failed = false;
+  let failure: unknown;
+  async function copyNextFile(): Promise<void> {
+    while (!failed) {
+      const file = files[nextFile++];
+      if (!file) return;
+      try {
+        await copyFile(file.sourcePath, file.destinationPath);
+      } catch (error) {
+        if (!failed) {
+          failure = error;
+          failed = true;
+        }
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(4, files.length) }, copyNextFile));
+  if (failed) throw failure;
 }
 
 async function assertDirectory(path: string, message: string): Promise<void> {
