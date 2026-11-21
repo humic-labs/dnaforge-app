@@ -2576,6 +2576,7 @@ export class PixiLinearRenderer {
           viewportBpRange,
           viewportWidthPx: state.width,
           viewportHeightPx: state.height,
+          contentClipTopPx: track.zone === 'above-legacy' ? 0 : this.scrollingBounds.y,
           layoutEntry: entry,
           containerTopPx,
           data: this.trackDataStore.get(track.id),

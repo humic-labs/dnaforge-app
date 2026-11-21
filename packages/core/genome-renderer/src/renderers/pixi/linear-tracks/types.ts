@@ -29,6 +29,7 @@ export interface TrackPaintArgs<TData = unknown> {
   viewportBpRange: BpRange;
   viewportWidthPx: number;
   viewportHeightPx: number;
+  contentClipTopPx?: number;
   layoutEntry: TrackLayoutEntry;
   containerTopPx: number;
   data: TData | null;
