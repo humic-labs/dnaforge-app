@@ -82,6 +82,12 @@ async function flushQueued(this: object) {
 const mockPostHog = {
   captureExceptionImmediate: vi.fn().mockResolvedValue(undefined),
   capture: vi.fn(captureQueued),
+  captureImmediate: vi.fn(async function (
+    this: object,
+    input: Parameters<typeof captureQueued>[0]
+  ): Promise<void> {
+    mockPostHog.capture.call(this, input);
+  }),
   groupIdentify: vi.fn(),
   on: vi.fn(function (this: object, name: string, callback: (value: unknown) => void) {
     const state = stateFor(this);
