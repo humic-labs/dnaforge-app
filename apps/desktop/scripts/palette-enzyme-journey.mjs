@@ -1,16 +1,30 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect } from '@playwright/test';
+import { reloadNativePage } from './lib/native-journey-readiness.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-const sourceFiles = execFileSync('git', ['ls-files', '-co', '--exclude-standard', '-z'], {
-  cwd: root,
-  encoding: 'utf8',
-})
+const root = path.resolve(
+  process.env.DNAFORGE_VERIFY_ROOT ??
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
+);
+const sourceFiles = execFileSync(
+  'git',
+  [
+    'ls-files',
+    '-co',
+    '--exclude-standard',
+    '-z',
+    '--',
+    'apps/desktop/src',
+    'apps/desktop/scripts',
+    'packages',
+  ],
+  { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
+)
   .split('\0')
   .filter((file) => /^(apps\/desktop\/(src|scripts)|packages)\//u.test(file));
 const sourceHash = createHash('sha256');
@@ -49,6 +63,12 @@ page.on('response', (response) => {
     errors.push(`${response.status()} ${response.url()}`);
 });
 const observations = [];
+const startupObservations = [];
+const reload = (name) =>
+  reloadNativePage(page, {
+    observe: ({ phase, startup }) =>
+      startupObservations.push({ name: `${name}-${phase}`, value: startup }),
+  });
 const capture = async (name, value) => {
   await page.screenshot({ path: path.join(out, `${name}.png`) });
   observations.push({ name, value });
@@ -68,16 +88,18 @@ try {
     console.log(JSON.stringify(runtime));
   } else {
     const workspace = path.join(out, 'workspace');
+    const referencePath = path.join(out, 'reference.fa');
     mkdirSync(workspace, { recursive: true });
     execFileSync('git', ['init', '-q', workspace]);
-    copyFileSync(
-      path.join(root, 'test-fixtures/sequences/circular/pUC19.gb'),
-      path.join(workspace, 'pUC19.gb')
+    cpSync(
+      path.join(
+        root,
+        'apps/desktop/resources/sample-workspaces/standard-samples/workspace/sequences/plasmids/pUC19'
+      ),
+      path.join(workspace, 'pUC19'),
+      { recursive: true }
     );
-    writeFileSync(
-      path.join(workspace, 'reference.fa'),
-      `>chr1\n${'ACGT'.repeat(250)}\n>chr2\n${'AGCT'.repeat(500)}\n`
-    );
+    writeFileSync(referencePath, `>chr1\n${'ACGT'.repeat(250)}\n>chr2\n${'AGCT'.repeat(500)}\n`);
     copyFileSync(
       path.join(root, 'test-fixtures/indexed/palette-signal.bw'),
       path.join(workspace, 'signal.bw')
@@ -85,7 +107,7 @@ try {
     await page.evaluate(async (workspaceRoot) => {
       window.__webglExposeForTests = true;
       await window.__test.setWorkspaceFoldersForTest([workspaceRoot]);
-      await window.__test.openFile(`${workspaceRoot}/pUC19.gb`);
+      await window.__test.openFile(`${workspaceRoot}/pUC19/pUC19.gb`);
     }, workspace);
     await page.getByTestId('toolbar-restriction-enzymes').click();
     await page.getByPlaceholder('Name', { exact: true }).fill('SacI');
@@ -107,7 +129,7 @@ try {
     await expect.poll(sites).toEqual([expect.objectContaining({ name: 'SacI' })]);
     const selected = await sites();
     await capture('02-selected-sacI', selected);
-    await page.reload();
+    await reload('restore-enzymes');
     await page.getByTestId('toolbar-restriction-enzymes').waitFor();
     await expect.poll(sites).toEqual(selected);
     await page.getByTestId('toolbar-restriction-enzymes').click();
@@ -115,11 +137,12 @@ try {
     await expect.poll(sites).toEqual([]);
     await capture('03-empty-enzyme-selection', await sites());
 
-    const saved = await page.evaluate(async (workspaceRoot) => {
+    const trackInputs = { workspaceRoot: workspace, referencePath };
+    const saved = await page.evaluate(async ({ workspaceRoot, referencePath }) => {
       const { platform } = await import('/src/platform/index.ts');
       const imported = await platform().referenceAssets.importLocal({
         operationId: crypto.randomUUID(),
-        sourcePath: `${workspaceRoot}/reference.fa`,
+        sourcePath: referencePath,
         themeMode: 'light',
       });
       if (imported.status !== 'ready') throw new Error(JSON.stringify(imported));
@@ -144,7 +167,7 @@ try {
       });
       await window.__test.openFile(savedView.path);
       return savedView;
-    }, workspace);
+    }, trackInputs);
     await expect(page.getByTestId('indexed-genome-tab')).toHaveAttribute(
       'data-coordinate-ready',
       'true',
@@ -196,7 +219,7 @@ try {
       diagnostics: await diagnostics(),
       document: JSON.parse(readFileSync(saved.path, 'utf8')),
     });
-    await page.reload();
+    await reload('restore-track-color');
     await page
       .getByRole('button', { name: 'Open settings for Measured signal', exact: true })
       .click();
@@ -220,6 +243,7 @@ try {
         root,
         commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
         observations,
+        startupObservations,
         errors,
       },
       null,

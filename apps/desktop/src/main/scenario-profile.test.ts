@@ -59,8 +59,7 @@ describe('scenario launch physical data boundary', () => {
     const path = temporaryProfile();
     const input = {
       requested: true,
-      argv: ['DNAForge', `--user-data-dir=${path}`, '--e2e'],
-      defaultUserData: path,
+      explicitUserDataPath: path,
     };
     expect(prepareDisposableScenarioProfile(input)).not.toBeNull();
     writeFileSync(join(path, 'dnaforge.db'), 'only this approved scenario owns the database');
@@ -94,8 +93,7 @@ describe('scenario launch physical data boundary', () => {
     expect(
       prepareDisposableScenarioProfile({
         requested: true,
-        argv: [`--user-data-dir=${path}`],
-        defaultUserData: path,
+        explicitUserDataPath: path,
       })
     ).toBe(realpathSync(path));
     const marker = readFileSync(join(path, '.dnaforge-disposable-scenario.json'), 'utf8');
@@ -126,8 +124,7 @@ describe('scenario launch physical data boundary', () => {
     expect(
       prepareDisposableScenarioProfile({
         requested: true,
-        argv: [`--user-data-dir=${path}`],
-        defaultUserData: path,
+        explicitUserDataPath: path,
       })
     ).toBeNull();
     expect(isDisposableScenarioProfileAuthorized(path)).toBe(false);
@@ -157,8 +154,7 @@ describe('scenario launch physical data boundary', () => {
     expect(
       prepareDisposableScenarioProfile({
         requested: true,
-        argv: [`--user-data-dir=${link}`],
-        defaultUserData: link,
+        explicitUserDataPath: link,
       })
     ).toBeNull();
     expect(isDisposableScenarioProfileAuthorized(target)).toBe(false);
@@ -169,8 +165,7 @@ describe('scenario launch physical data boundary', () => {
     expect(
       prepareDisposableScenarioProfile({
         requested: true,
-        argv: [`--user-data-dir=${path}`],
-        defaultUserData: path,
+        explicitUserDataPath: path,
         treatExplicitUserDataAsShared: true,
       })
     ).toBeNull();

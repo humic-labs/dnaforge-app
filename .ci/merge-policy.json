@@ -1,0 +1,57 @@
+{
+  "version": 2,
+  "repository": {
+    "id": 1454956566,
+    "name": "humic-labs/dnaforge-app",
+    "defaultBranch": "dev"
+  },
+  "authority": {
+    "claWorkflow": ".github/workflows/cla.yml",
+    "ref": "refs/heads/dev",
+    "appId": 15368
+  },
+  "branches": {
+    "dev": {
+      "role": "development",
+      "upstream": null,
+      "workflow": ".github/workflows/pr-preflight.yml",
+      "requiredChecks": ["Every commit agrees to the CLA", "PR Preflight"],
+      "queue": true
+    },
+    "staging": {
+      "role": "promotion",
+      "upstream": "dev",
+      "workflow": ".github/workflows/ci.yml",
+      "requiredChecks": ["Every commit agrees to the CLA", "Promotion qualification", "Electron E2E"],
+      "queue": false
+    },
+    "prod": {
+      "role": "promotion",
+      "upstream": "staging",
+      "workflow": ".github/workflows/ci.yml",
+      "requiredChecks": ["Every commit agrees to the CLA", "Promotion qualification", "Electron E2E"],
+      "queue": false
+    }
+  },
+  "externalChecks": {
+    "Electron E2E": { "appId": 5792306 }
+  },
+  "desktop": { "shards": 8 },
+  "native": { "journeys": ["workspace", "track", "genome", "canvas", "chat", "palettes"] },
+  "delivery": {
+    "default": "prepare",
+    "holdLabels": ["do-not-merge", "merge-hold", "hold"],
+    "pollIntervalMs": 20000,
+    "maxWaitMs": 3600000,
+    "maxRequests": 1200
+  },
+  "queue": {
+    "mergeMethod": "SQUASH",
+    "groupingStrategy": "ALLGREEN",
+    "maxEntriesToBuild": 5,
+    "minEntriesToMerge": 1,
+    "maxEntriesToMerge": 3,
+    "checkResponseTimeoutMinutes": 180
+  },
+  "release": { "sourceBranch": "prod", "channel": "stable" }
+}

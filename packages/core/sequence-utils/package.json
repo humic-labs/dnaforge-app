@@ -45,6 +45,11 @@
       "types": "./src/protein-sequence.ts",
       "import": "./src/protein-sequence.ts",
       "default": "./src/protein-sequence.ts"
+    },
+    "./restriction-enzymes/cut-site-stream": {
+      "types": "./src/restriction-enzymes/cut-site-stream.ts",
+      "import": "./src/restriction-enzymes/cut-site-stream.ts",
+      "default": "./src/restriction-enzymes/cut-site-stream.ts"
     }
   },
   "scripts": {

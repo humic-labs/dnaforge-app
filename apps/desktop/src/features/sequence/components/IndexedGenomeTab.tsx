@@ -933,7 +933,7 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
   const appliedInitialIndexedViewportRef = useRef<string | null>(null);
   const pendingIndexedViewportCommitRef = useRef<number | null>(null);
   const pendingIndexedViewportPersistRef = useRef<IndexedViewportRange | null>(null);
-  const indexedViewportPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelPendingViewportSave = useRef<(() => void) | null>(null);
   const indexedViewportLengthRef = useRef(0);
   const pendingIndexedViewportCommandRef = useRef<{
     viewerCommandId: number;
@@ -942,10 +942,8 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
   } | null>(null);
 
   const flushIndexedViewportPersist = useCallback(() => {
-    if (indexedViewportPersistTimerRef.current !== null) {
-      clearTimeout(indexedViewportPersistTimerRef.current);
-      indexedViewportPersistTimerRef.current = null;
-    }
+    cancelPendingViewportSave.current?.();
+    cancelPendingViewportSave.current = null;
     const pending = pendingIndexedViewportPersistRef.current;
     pendingIndexedViewportPersistRef.current = null;
     if (!pending) return;
@@ -981,13 +979,18 @@ export function IndexedGenomeTab({ tab, isActive = true }: IndexedGenomeTabProps
         start: normalized.start0,
         end: normalized.end0,
       };
-      if (indexedViewportPersistTimerRef.current !== null) {
-        clearTimeout(indexedViewportPersistTimerRef.current);
-      }
-      indexedViewportPersistTimerRef.current = setTimeout(
-        flushIndexedViewportPersist,
-        INDEXED_VIEWPORT_PERSIST_DEBOUNCE_MS
-      );
+      cancelPendingViewportSave.current?.();
+      const timer = setTimeout(() => {
+        if (typeof window.requestIdleCallback !== 'function') {
+          flushIndexedViewportPersist();
+          return;
+        }
+        const idle = window.requestIdleCallback(flushIndexedViewportPersist, {
+          timeout: INDEXED_VIEWPORT_PERSIST_DEBOUNCE_MS,
+        });
+        cancelPendingViewportSave.current = () => window.cancelIdleCallback(idle);
+      }, INDEXED_VIEWPORT_PERSIST_DEBOUNCE_MS);
+      cancelPendingViewportSave.current = () => clearTimeout(timer);
     },
     [flushIndexedViewportPersist]
   );

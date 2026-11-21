@@ -7,6 +7,7 @@ import {
   beginReadVisibleMembershipJob,
   finishReadVisibleMembershipJob,
   isReadVisibleMembershipJobComplete,
+  indexImmutablePileupReads,
 } from './pileup-read-visible-membership';
 
 function read(start: number, end: number, readId = `${start}-${end}`): PileupRecord {
@@ -84,5 +85,70 @@ describe('current visible read membership', () => {
     expect(compare([], [])).toBe(true);
     expect(compare([read(0, 10)], [read(200, 210)])).toBe(true);
     expect(compare([], [], 200, 100)).toBe(false);
+  });
+
+  it('does not read the clock again without consuming more input', () => {
+    const shared = Array.from({ length: 32 }, (_, i) => read(100 + i, 200 + i));
+    const job = beginReadVisibleMembershipJob(shared, [...shared], 100, 400);
+    const checkedItems: number[] = [];
+    advanceReadVisibleMembershipJob(job, Number.POSITIVE_INFINITY, {
+      workBudgetMs: 2,
+      now: () => {
+        checkedItems.push(job.candidateCursor + job.incomingCursor);
+        return 0;
+      },
+    });
+    expect(checkedItems).toEqual(Array.from({ length: 17 }, (_, i) => i * 4));
+    expect(finishReadVisibleMembershipJob(job)).toBe(true);
+  });
+
+  it.each([100, 2000])('yields long matching scans with viewport starting at %i', (start) => {
+    const shared = Array.from({ length: 1000 }, (_, i) => read(100 + i, 200 + i));
+    const job = beginReadVisibleMembershipJob(shared, [...shared], start, start + 1400);
+    let checks = 0;
+    const consumed = advanceReadVisibleMembershipJob(job, Number.POSITIVE_INFINITY, {
+      workBudgetMs: 2,
+      now: () => checks++,
+    });
+    expect(consumed).toBe(8);
+    expect(job.candidateCursor + job.incomingCursor).toBe(8);
+    expect(isReadVisibleMembershipJobComplete(job)).toBe(false);
+    advanceReadVisibleMembershipJob(job, Number.POSITIVE_INFINITY);
+    expect(finishReadVisibleMembershipJob(job)).toBe(true);
+  });
+});
+
+describe('viewport scans over indexed read arrays', () => {
+  const filler = (count: number, start: number) =>
+    Array.from({ length: count }, () => read(start, start + 1));
+
+  it('skips whole offscreen blocks and preserves original row positions', () => {
+    const crossing = read(1, 1200);
+    const reads = indexImmutablePileupReads([
+      ...filler(256, 1),
+      ...filler(100, 5000),
+      crossing,
+      ...filler(300, 5000),
+    ]);
+    const incoming = indexImmutablePileupReads([crossing, ...filler(600, 2000)]);
+    const job = beginReadVisibleMembershipJob(reads, incoming, 1000, 1100);
+    expect(advanceReadVisibleMembershipJob(job, Infinity)).toBeLessThan(600);
+    expect(finishReadVisibleMembershipJob(job)).toBe(true);
+    const rows = new Int32Array(reads.length);
+    rows[356] = -1;
+    const hidden = beginReadVisibleMembershipJob(reads, incoming, 1000, 1100, rows);
+    advanceReadVisibleMembershipJob(hidden, Infinity);
+    expect(finishReadVisibleMembershipJob(hidden)).toBe(false);
+  });
+
+  it('retains the order of crossing reads in unsorted blocks and skips an empty interval', () => {
+    const a = read(-1000, 2000),
+      b = read(999, 1010);
+    const first = indexImmutablePileupReads([a, ...filler(600, 50), b]);
+    const reversed = indexImmutablePileupReads([b, ...filler(600, 50), a]);
+    expect(compare(first, reversed, 1000, 1001)).toBe(false);
+    const outside = beginReadVisibleMembershipJob(first, reversed, 2000, 2100);
+    expect(advanceReadVisibleMembershipJob(outside, 1)).toBe(0);
+    expect(finishReadVisibleMembershipJob(outside)).toBe(true);
   });
 });

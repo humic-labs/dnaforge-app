@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { chromium } from 'playwright';
 import { expect } from '@playwright/test';
+import {
+  NATIVE_JOURNEY_COMMAND_TIMEOUT_MS,
+  waitForInitialWorkspaceIndexing,
+} from './lib/native-journey-readiness.mjs';
+import { finalizeJourneyRecording } from './lib/native-journey-recording.mjs';
 
 const { values } = parseArgs({
   options: { out: { type: 'string' }, phase: { type: 'string', default: 'transitions' } },
@@ -15,18 +20,36 @@ assert.ok(['transitions', 'restored'].includes(values.phase));
 const out = resolve(values.out);
 const stage = join(out, values.phase);
 mkdirSync(join(stage, 'frames'), { recursive: true });
-const appDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const root = resolve(appDir, '../..');
+const root = resolve(
+  process.env.DNAFORGE_VERIFY_ROOT ?? resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+);
+const appDir = join(root, 'apps/desktop');
 const receipt = {
   phase: values.phase,
   sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
   startedAt: new Date().toISOString(),
   steps: [],
   pageErrors: [],
+  consoleErrors: [],
   frames: [],
 };
 let browser;
 let cdp;
+let page;
+function interruptJourney(reason) {
+  receipt.status = 'failed';
+  receipt.error = receipt.error ? `${receipt.error}\n${reason}` : reason;
+  receipt.finishedAt = new Date().toISOString();
+  writeFileSync(join(stage, 'receipt.json'), JSON.stringify(receipt, null, 2));
+  console.error(receipt.error);
+  process.exit(1);
+}
+const deadline = setTimeout(
+  () => interruptJourney('Workspace journey exceeded its execution deadline'),
+  NATIVE_JOURNEY_COMMAND_TIMEOUT_MS
+);
+const onTermination = () => interruptJourney('Workspace journey received SIGTERM');
+process.once('SIGTERM', onTermination);
 try {
   const status = execFileSync(
     process.execPath,
@@ -38,13 +61,86 @@ try {
   const endpoint = status.match(/DevTools\/CDP:\s*(http:\/\/127\.0\.0\.1:\d+)/u)?.[1];
   assert.ok(renderer && endpoint);
   browser = await chromium.connectOverCDP(endpoint);
-  const page = browser
+  page = browser
     .contexts()
     .flatMap((c) => c.pages())
     .find((p) => new URL(p.url()).origin === new URL(renderer).origin);
   assert.ok(page);
   receipt.renderer = renderer;
   page.on('pageerror', (error) => receipt.pageErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error' || message.type() === 'warning')
+      receipt.consoleErrors.push({ type: message.type(), text: message.text() });
+  });
+  await page.evaluate(async () => {
+    const { platform } = await import('/src/platform/index.ts');
+    const bridge = platform();
+    const calls = [];
+    const reads = new Map();
+    const pending = new Map();
+    let nextId = 0;
+    for (const group of [
+      'workspace',
+      'fs',
+      'db',
+      'notebook',
+      'molecularCatalog',
+      'molecularData',
+      'scientificObjects',
+      'lims',
+    ]) {
+      const owner = Object.isFrozen(bridge[group]) ? { ...bridge[group] } : bridge[group];
+      bridge[group] = owner;
+      for (const [method, original] of Object.entries(owner)) {
+        if (typeof original !== 'function' || /^(subscribe|on[A-Z])/.test(method)) continue;
+        owner[method] = function (...args) {
+          const call = { id: ++nextId, method: `${group}.${method}`, startedAt: Date.now() };
+          pending.set(call.id, call);
+          const finish = (status) => {
+            pending.delete(call.id);
+            const finishedAt = Date.now();
+            if (group === 'fs' && ['exists', 'stat', 'readTextFile'].includes(method)) {
+              const summary = reads.get(call.method) ?? {
+                method: call.method,
+                count: 0,
+                maxDurationMs: 0,
+              };
+              summary.count += 1;
+              summary.maxDurationMs = Math.max(summary.maxDurationMs, finishedAt - call.startedAt);
+              reads.set(call.method, summary);
+            } else {
+              calls.push({ ...call, status, finishedAt });
+              if (calls.length > 2048) calls.shift();
+            }
+          };
+          try {
+            const result = Reflect.apply(original, this, args);
+            if (result && typeof result.then === 'function')
+              return result.then(
+                (value) => {
+                  finish('fulfilled');
+                  return value;
+                },
+                (error) => {
+                  finish('rejected');
+                  throw error;
+                }
+              );
+            finish('returned');
+            return result;
+          } catch (error) {
+            finish('threw');
+            throw error;
+          }
+        };
+      }
+    }
+    window.__workspaceJourneyCalls = () => ({
+      completed: calls,
+      reads: [...reads.values()],
+      pending: [...pending.values()],
+    });
+  });
   cdp = await page.context().newCDPSession(page);
   cdp.on('Page.screencastFrame', (frame) => {
     const file = `frames/${String(receipt.frames.length).padStart(6, '0')}.jpg`;
@@ -63,8 +159,12 @@ try {
           ])
         )[0]?.value ?? null,
       projects: await window.electronAPI.db.select(
-        'SELECT path,name,archived_at,trashed_at FROM workspaces'
+        'SELECT path,name,repo_uuid,access_mode,archived_at,trashed_at FROM workspaces'
       ),
+      notices: [...document.querySelectorAll('[data-toast-definition]')].map((element) => ({
+        definition: element.getAttribute('data-toast-definition'),
+        text: element.textContent,
+      })),
     }));
   const step = async (name) => {
     const observed = await observe();
@@ -88,6 +188,7 @@ try {
     return folder;
   }
   async function archive(folder, refusal = false) {
+    receipt.lastArchive = { path: folder.path, refusal, before: await observe() };
     await page.keyboard.press('Escape');
     await page
       .locator(
@@ -102,24 +203,100 @@ try {
       assert.ok((await observe()).folders.some((f) => f.path === folder.path));
     } else {
       const confirm = page.getByRole('button', { name: 'Archive', exact: true });
-      if (await confirm.isVisible()) await confirm.click();
+      await confirm.click();
       await expect
-        .poll(async () => (await observe()).folders.some((f) => f.path === folder.path))
+        .poll(async () => {
+          const observed = await observe();
+          receipt.lastArchive.after = { ...observed, observedAt: new Date().toISOString() };
+          return observed.folders.some((f) => f.path === folder.path);
+        })
         .toBe(false);
     }
   }
   if (values.phase === 'transitions') {
+    const runtimeProfile = await page.evaluate(() => window.electronAPI.runtime.getProfile());
+    receipt.setup = { runtimeProfile };
+    assert.equal(
+      runtimeProfile.kind,
+      'scenario-e2e',
+      'Workspace transitions require a fresh, task-owned scenario profile'
+    );
+    assert.equal(runtimeProfile.scenarioMutationAllowed, true);
+    await expect
+      .poll(
+        async () => {
+          const sampleSeed = {
+            completed: await page.evaluate(() =>
+              localStorage.getItem('waypoint:example-workspace-seeded')
+            ),
+            visible: await page
+              .getByTestId('project-root-name')
+              .filter({ hasText: /^DNAForge Samples$/u })
+              .isVisible(),
+            pendingImports: await page.getByTestId('pending-import-row').count(),
+          };
+          receipt.setup.sampleSeed = { ...sampleSeed, observedAt: new Date().toISOString() };
+          return sampleSeed;
+        },
+        {
+          timeout: 60000,
+          message: 'Fresh-profile sample setup must finish before project mutations',
+        }
+      )
+      .toEqual({ completed: '1', visible: true, pendingImports: 0 });
+    const initialFolders = (await observe()).folders;
+    receipt.setup.indexing = {
+      before: { at: new Date().toISOString(), folders: initialFolders },
+    };
+    try {
+      await waitForInitialWorkspaceIndexing(
+        page,
+        initialFolders.map((folder) => folder.path)
+      );
+      receipt.setup.indexing.after = {
+        at: new Date().toISOString(),
+        folders: (await observe()).folders,
+        visibleErrors: await page
+          .locator('[data-testid="project-index-error"]:visible')
+          .allTextContents(),
+        mountErrors: receipt.consoleErrors.filter((entry) =>
+          entry.text.startsWith('[App] Failed to reconcile workspace on mount:')
+        ),
+      };
+      assert.deepEqual(
+        receipt.setup.indexing.after.visibleErrors,
+        [],
+        'Initial project records must load before workspace transitions'
+      );
+      assert.deepEqual(
+        receipt.setup.indexing.after.mountErrors,
+        [],
+        'Initial project indexing failed'
+      );
+    } catch (error) {
+      receipt.setup.indexing.failedAt = new Date().toISOString();
+      throw error;
+    }
     await page.keyboard.press('Escape');
-    const initial = await observe();
     const suffix = Date.now();
     const first = await create(`Session A ${suffix}`);
     await step('created-first-project-and-selected-it');
-    for (const folder of initial.folders.filter((f) => !f.pinned)) await archive(folder);
+    for (const folder of (await observe()).folders.filter(
+      (f) => !f.pinned && f.path !== first.path
+    )) {
+      await waitForInitialWorkspaceIndexing(page, [folder.path]);
+      await archive(folder);
+    }
     const second = await create(`Session B ${suffix}`);
     await step('created-second-project-and-selected-it');
     await archive(second);
     await expect.poll(async () => (await observe()).preference).toBe(first.path);
     await step('removed-current-project-and-selected-remainder');
+    assert.deepEqual(
+      (await observe()).folders.filter((f) => !f.pinned).map((f) => f.path),
+      [first.path],
+      'Last-project refusal requires exactly one open project'
+    );
     await archive(first, true);
     const final = await step('refused-removal-of-last-project');
     assert.deepEqual(
@@ -142,44 +319,20 @@ try {
   receipt.error = error.stack ?? String(error);
   process.exitCode = 1;
 } finally {
+  if (page)
+    receipt.commands = await page
+      .evaluate(() => window.__workspaceJourneyCalls?.())
+      .catch((error) => ({ captureError: String(error) }));
   if (cdp) await cdp.send('Page.stopScreencast').catch(() => {});
-  receipt.finishedAt = new Date().toISOString();
-  writeFileSync(join(stage, 'receipt.json'), JSON.stringify(receipt, null, 2));
-  if (receipt.frames.length > 1) {
-    const manifest = receipt.frames
-      .map(
-        (frame, i) =>
-          `file '${frame.file}'\nduration ${Math.max(0.01, (receipt.frames[i + 1]?.timestamp ?? frame.timestamp + 0.25) - frame.timestamp)}`
-      )
-      .join('\n');
-    writeFileSync(join(stage, 'frames.txt'), manifest);
-    const video = spawnSync(
-      'ffmpeg',
-      [
-        '-hide_banner',
-        '-loglevel',
-        'error',
-        '-y',
-        '-f',
-        'concat',
-        '-safe',
-        '0',
-        '-i',
-        'frames.txt',
-        '-vsync',
-        'vfr',
-        '-pix_fmt',
-        'yuv420p',
-        'workflow.mp4',
-      ],
-      { cwd: stage, encoding: 'utf8' }
-    );
-    if (video.status !== 0) {
-      console.error(video.stderr);
-      process.exitCode = 1;
-    }
+  try {
+    finalizeJourneyRecording(stage, receipt);
+    if (receipt.status !== 'passed') process.exitCode = 1;
+    if (receipt.mediaError) console.error(receipt.mediaError);
+  } finally {
+    await browser?.close();
   }
-  await browser?.close();
 }
+clearTimeout(deadline);
+process.off('SIGTERM', onTermination);
 console.log(`WORKSPACE_SESSION_${receipt.status.toUpperCase()} ${join(stage, 'receipt.json')}`);
 if (receipt.error) console.error(receipt.error);

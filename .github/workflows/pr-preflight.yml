@@ -1,0 +1,229 @@
+name: Development preflight
+on:
+  pull_request:
+    branches:
+      - dev
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - converted_to_draft
+  merge_group:
+    branches:
+      - dev
+    types:
+      - checks_requested
+permissions:
+  contents: read
+concurrency:
+  group: preflight-${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  plan:
+    name: Preflight plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      draft: ${{ steps.plan.outputs.draft }}
+      desktop: ${{ steps.plan.outputs.desktop }}
+      shards: ${{ steps.plan.outputs.shards }}
+      control: ${{ steps.plan.outputs.control }}
+    steps:
+      - &a1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha }}
+          path: .ci-control
+          persist-credentials: false
+      - &a2
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .ci-control/.nvmrc
+      - &a4
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda
+      - id: plan
+        name: Select affected work using the protected base
+        env:
+          BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha }}
+        run: node .ci-control/scripts/ci/preflight.mjs plan --root "$GITHUB_WORKSPACE" --base "$BASE_SHA" --out "$RUNNER_TEMP/candidate/manifest.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: preflight-candidate
+          path: ${{ runner.temp }}/candidate/manifest.json
+          if-no-files-found: error
+          retention-days: 30
+  syntax:
+    name: Changed-source syntax
+    needs:
+      - plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - *a1
+      - &a3
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.plan.outputs.control }}
+          path: .ci-control
+          persist-credentials: false
+      - *a2
+      - &a5
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: preflight-candidate
+          path: ${{ runner.temp }}/candidate
+      - name: Install pinned syntax parsers
+        run: npm install --prefix "$RUNNER_TEMP/preflight-parsers" --ignore-scripts --no-audit --no-fund typescript@5.8.3 yaml@2.8.4
+      - name: Parse committed changed source
+        env:
+          CI_PARSER_ROOT: ${{ runner.temp }}/preflight-parsers
+        run: node .ci-control/scripts/ci/preflight.mjs syntax --root "$GITHUB_WORKSPACE" --manifest "$RUNNER_TEMP/candidate/manifest.json" --out "$RUNNER_TEMP/syntax/report.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: preflight-report-syntax
+          path: ${{ runner.temp }}/syntax/report.json
+          if-no-files-found: error
+          retention-days: 30
+  controls:
+    name: Delivery control regressions
+    needs:
+      - plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - *a1
+      - *a3
+      - *a2
+      - run: node --test scripts/ci/*.test.mjs .github/scripts/*.test.mjs
+  typecheck:
+    name: Affected workspace typechecks
+    needs:
+      - plan
+    if: needs.plan.outputs.draft == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - *a1
+      - *a3
+      - *a4
+      - *a2
+      - &a6
+        name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - *a5
+      - run: node .ci-control/scripts/ci/preflight.mjs typecheck --root "$GITHUB_WORKSPACE" --manifest "$RUNNER_TEMP/candidate/manifest.json" --out "$RUNNER_TEMP/typecheck/report.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: preflight-report-typecheck
+          path: ${{ runner.temp }}/typecheck/report.json
+          if-no-files-found: error
+          retention-days: 30
+  desktop-discovery:
+    name: Selected desktop suite inventory
+    needs:
+      - plan
+    if: needs.plan.outputs.draft == 'false' && needs.plan.outputs.desktop == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - *a1
+      - *a3
+      - *a4
+      - *a2
+      - *a6
+      - *a5
+      - name: Verify discovery against real test partitions
+        run: node --test scripts/ci/integration/qualification-shards.test.mjs
+      - run: node .ci-control/scripts/ci/qualification.mjs inventory --root "$GITHUB_WORKSPACE" --manifest "$RUNNER_TEMP/candidate/manifest.json" --out "$RUNNER_TEMP/inventory/report.json"
+      - name: Build the app required by selected bundle tests
+        run: pnpm --dir apps/desktop build
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: preflight-app-bundle
+          path: apps/desktop/out
+          if-no-files-found: error
+          retention-days: 1
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: preflight-report-inventory
+          path: ${{ runner.temp }}/inventory/report.json
+          if-no-files-found: error
+          retention-days: 30
+  desktop-tests:
+    name: Affected desktop shard ${{ matrix.shard }}
+    needs:
+      - plan
+      - desktop-discovery
+    if: needs.plan.outputs.draft == 'false' && needs.plan.outputs.desktop == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - *a1
+      - *a3
+      - *a4
+      - *a2
+      - *a6
+      - *a5
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: preflight-app-bundle
+          path: apps/desktop/out
+      - name: Build the native helpers used by desktop tests
+        run: |-
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends musl-tools
+          rustup target add x86_64-unknown-linux-musl
+          pnpm --dir apps/desktop helpers:build
+      - run: node .ci-control/scripts/ci/qualification.mjs desktop --root "$GITHUB_WORKSPACE" --manifest "$RUNNER_TEMP/candidate/manifest.json" --shard "${{ matrix.shard }}" --out "$RUNNER_TEMP/shard/report.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: preflight-report-desktop-${{ matrix.shard }}
+          path: ${{ runner.temp }}/shard
+          if-no-files-found: error
+          retention-days: 30
+  preflight:
+    name: PR Preflight
+    needs:
+      - plan
+      - syntax
+      - typecheck
+      - desktop-discovery
+      - desktop-tests
+      - controls
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - *a3
+      - *a2
+      - *a5
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: preflight-report-*
+          path: ${{ runner.temp }}/reports
+      - name: Require complete source-bound preflight evidence
+        env:
+          PREFLIGHT_NEEDS: ${{ toJSON(needs) }}
+        run: node .ci-control/scripts/ci/preflight.mjs assess --manifest "$RUNNER_TEMP/candidate/manifest.json" --reports "$RUNNER_TEMP/reports" --out "$RUNNER_TEMP/result/preflight.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: preflight-${{ github.sha }}
+          path: ${{ runner.temp }}/result/preflight.json
+          if-no-files-found: error
+          retention-days: 30

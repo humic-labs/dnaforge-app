@@ -5,6 +5,7 @@ import type { PileupRecord, PileupTrackData } from '@waypoint/genome-data';
 
 import { startWebGLRenderLoop, type WebGLRenderLoop } from '../../../react/webgl-render-loop';
 import { webglThemeForMode, type WebGLRenderTheme } from '../shared/theme';
+import * as readVertices from './annotation-record-vertices';
 import { buildCoverageGpuAtlas } from './coverage-gpu-atlas';
 import { PENDING_INTERVAL_BAND_HEIGHT_PX } from './pileup-pending-interval-layer';
 import { PersistentRowLayout } from './pileup-row-layout';
@@ -2989,6 +2990,130 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         240
       );
 
+    it.each([
+      { authority: 'static', count: 4, withMarks: false, firstVertices: 24 },
+      { authority: 'static', count: 5, withMarks: false, firstVertices: 0 },
+      { authority: 'tile-engine', count: 4, withMarks: false, firstVertices: 0 },
+      { authority: 'static', count: 4, withMarks: true, firstVertices: 0 },
+    ] as const)(
+      'publishes a prepared first mesh for $count $authority reads with marks=$withMarks',
+      ({ authority, count, withMarks, firstVertices }) => {
+        const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
+        const container = renderer.mount(mountArgs);
+        const records = makeWindowReads(count, 1_000);
+        if (withMarks) {
+          records[0] = { ...records[0], mismatches: [{ pos: 102, kind: 'sub', readBase: 'T' }] };
+        }
+        const args = readPaint(container, records, 1_000);
+        const paint = { ...args, data: { ...args.data, dataAuthority: authority } };
+        let time = 0;
+        const clock = vi.spyOn(performance, 'now').mockImplementation(() => time);
+        const begin = PileupReadDifferenceLayer.prototype.beginPreparation;
+        const setup = vi.spyOn(PileupReadDifferenceLayer.prototype, 'beginPreparation');
+        try {
+          setup.mockImplementationOnce(function (this: PileupReadDifferenceLayer, input) {
+            time += 3;
+            return begin.call(this, input);
+          });
+          renderer.paint(paint);
+          const first = renderer.getDiagnostics(container)!;
+          expect(first.rowsUsed).toBeGreaterThan(0);
+          expect(first.rowsVertexCount).toBe(firstVertices);
+          renderer.paint(paint);
+          expect(renderer.getDiagnostics(container)!.rowsVertexCount).toBe(count * 6);
+        } finally {
+          setup.mockRestore();
+          clock.mockRestore();
+        }
+      }
+    );
+
+    it.each([
+      { name: 'a small static input', count: 3, expectedVertices: 18 },
+      { name: 'a fifth record', count: 5, expectedVertices: 0 },
+      { name: 'tile input', count: 3, tiled: true, expectedVertices: 0 },
+      { name: 'mismatch marks', count: 3, marked: true, expectedVertices: 0 },
+      { name: 'a wide height field', count: 3, recordEnd: 100_000, expectedVertices: 0 },
+      { name: 'a wide aggregate field', count: 3, windowEnd: 100_000, expectedVertices: 0 },
+      { name: 'a shorter elapsed budget', count: 3, budgetMs: 0.25, expectedVertices: 0 },
+    ])(
+      'handles $name when the first row assignment starts after its deadline',
+      ({ count, expectedVertices, tiled, marked, recordEnd, windowEnd, budgetMs }) => {
+        const renderer = new PixiPileupTrackRenderer({
+          type: 'pileup-test',
+          maxRows: 16,
+          readRowsAssignWorkBudgetMs: budgetMs,
+        });
+        const container = renderer.mount(mountArgs);
+        const records = makeWindowReads(count, 1_000);
+        if (marked) records[0].mismatches = [{ pos: 102, kind: 'sub', readBase: 'T' }];
+        if (recordEnd) records[0].end = recordEnd;
+        const args = readPaint(container, records, windowEnd ?? 1_000);
+        const data: PileupTrackData = {
+          ...args.data,
+          dataAuthority: tiled ? 'tile-engine' : 'static',
+        };
+        if (!windowEnd) delete data.readSource;
+        let time = 0;
+        const clock = vi.spyOn(performance, 'now').mockImplementation(() => time);
+        const begin = PersistentRowLayout.prototype.beginAssignment;
+        const setup = vi.spyOn(PersistentRowLayout.prototype, 'beginAssignment');
+        try {
+          setup.mockImplementationOnce(function (this: PersistentRowLayout, ...args) {
+            time += 3;
+            return begin.apply(this, args);
+          });
+          renderer.paint({ ...args, data });
+          const first = renderer.getDiagnostics(container)!;
+          expect(first.rowsVertexCount).toBe(expectedVertices);
+          expect(first.rowsUsed > 0).toBe(expectedVertices > 0);
+          renderer.paint({ ...args, data });
+          expect(renderer.getDiagnostics(container)!.rowsVertexCount).toBe(count * 6);
+        } finally {
+          setup.mockRestore();
+          clock.mockRestore();
+        }
+      }
+    );
+
+    it.each([
+      { marks: 3, firstMarks: 3 },
+      { marks: 4, firstMarks: 0 },
+    ])('bounds first-paint preparation for a row with $marks marks', ({ marks, firstMarks }) => {
+      const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
+      const container = renderer.mount(mountArgs);
+      const record = read(100, 106, 'marked', {
+        mismatches: Array.from({ length: marks }, (_, i) => ({ pos: 100 + i, kind: 'sub' })),
+      });
+      const args = paintArgsZoom(
+        container,
+        { records: [record] },
+        10,
+        { start: 100, end: 106 },
+        60
+      );
+      let time = 0;
+      const clock = vi.spyOn(performance, 'now').mockImplementation(() => time);
+      const begin = PersistentRowLayout.prototype.beginAssignment;
+      const setup = vi.spyOn(PersistentRowLayout.prototype, 'beginAssignment');
+      try {
+        setup.mockImplementationOnce(function (this: PersistentRowLayout, ...args) {
+          time += 3;
+          return begin.apply(this, args);
+        });
+        renderer.paint(args);
+        expect(renderer.getDiagnostics(container)?.readDifferenceInstanceCount).toBe(firstMarks);
+        renderer.paint(args);
+        const settled = renderer.getDiagnostics(container)!;
+        expect(settled.readDifferenceInstanceCount).toBe(marks);
+        expect(settled.readDifferenceBuildCount).toBe(1);
+      } finally {
+        setup.mockRestore();
+        clock.mockRestore();
+        renderer.unmount(container);
+      }
+    });
+
     it('shares the elapsed allowance with height finalization before publishing new reads', () => {
       const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test' });
       const container = renderer.mount(mountArgs);
@@ -3052,6 +3177,72 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       }
     });
 
+    it.each(['all overlap', 'touches the left boundary', 'touches the right boundary'] as const)(
+      'counts drawable rows for a source window when the input %s',
+      (bounds) => {
+        const renderer = new PixiPileupTrackRenderer({ type: 'pileup-test', maxRows: 3 });
+        const container = renderer.mount(mountArgs);
+        const assigned = vi.spyOn(PersistentRowLayout.prototype, 'finishAssignment');
+        const vertices = vi.spyOn(readVertices, 'beginAnnotationRecordVerticesJob');
+        const clock = vi.spyOn(performance, 'now').mockReturnValue(1000);
+        try {
+          let boundsReadsBeforeVertices = 0;
+          const interior = read(155, 170, 'interior');
+          Object.defineProperty(interior, 'end', {
+            get() {
+              if (assigned.mock.calls.length > 0 && vertices.mock.calls.length === 0) {
+                boundsReadsBeforeVertices++;
+              }
+              return 170;
+            },
+          });
+          const records = [
+            read(90, 111, 'crosses-left'),
+            read(122, 135, 'first-row'),
+            read(122, 136, 'second-row'),
+            read(122, 137, 'third-row'),
+            read(123, 138, 'hidden'),
+            interior,
+            read(190, 210, 'crosses-right'),
+          ];
+          if (bounds === 'touches the left boundary') records.unshift(read(80, 100));
+          if (bounds === 'touches the right boundary') records.push(read(200, 215));
+          const args = paintArgsZoom(
+            container,
+            {
+              dataAuthority: 'tile-engine',
+              coverage: {
+                bins: [4, 4],
+                binSize: 100,
+                maxDepth: 4,
+                provenance: { exact: true, method: 'pyramid-maxpool', source: 'tile-engine' },
+              },
+              records,
+              readSource: { truncated: false, windowStartBp: 100, windowEndBp: 200 },
+            },
+            4 / 150,
+            { start: 100, end: 200 }
+          );
+          paintCommittedReadFront(renderer, args);
+          expect(renderer.getDiagnostics(container)).toMatchObject({
+            rowsMeshVisible: true,
+            rowsUsed: 3,
+            rowsMeshRecordCount: 7,
+            rowsVertexCount: 36,
+            hiddenReadCount: 1,
+          });
+          expect(assigned).toHaveBeenCalledOnce();
+          expect(vertices).toHaveBeenCalledOnce();
+          if (bounds === 'all overlap') expect(boundsReadsBeforeVertices).toBe(0);
+        } finally {
+          assigned.mockRestore();
+          vertices.mockRestore();
+          clock.mockRestore();
+          renderer.unmount(container);
+        }
+      }
+    );
+
     it('uses remaining preparation time for drawing when assignment finishes', () => {
       const renderer = new PixiPileupTrackRenderer({
         type: 'pileup-test',
@@ -3089,45 +3280,128 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       }
     });
 
+    function idleAssignmentClock() {
+      const callbacks: IdleRequestCallback[] = [];
+      vi.stubGlobal('requestIdleCallback', (callback: IdleRequestCallback) =>
+        callbacks.push(callback)
+      );
+      const cancel = vi.fn();
+      vi.stubGlobal('cancelIdleCallback', cancel);
+      const clock = vi.spyOn(performance, 'now').mockReturnValue(0);
+      const advance = PersistentRowLayout.prototype.advanceAssignmentWithinBudget;
+      const slices = vi
+        .spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget')
+        .mockImplementation(function (this: PersistentRowLayout, job, cap, ms) {
+          let now = 0;
+          return advance.call(this, job, cap, ms, () => now++ * 2);
+        });
+      return {
+        callbacks,
+        cancel,
+        slices,
+        restore() {
+          slices.mockRestore();
+          clock.mockRestore();
+          vi.unstubAllGlobals();
+        },
+      };
+    }
+
+    it.each([[0.75, 0.75], [15, 2]])(
+      'advances dense rows within %d ms of spare time and publishes them on paint',
+      (availableMs, expectedBudgetMs) => {
+        const { callbacks, slices, restore } = idleAssignmentClock();
+        const r = new PixiPileupTrackRenderer({ type: 'pileup', readRowsAssignRecordsPerFrame: 10 });
+        const c = r.mount(mountArgs);
+        const records = makeWindowReads(12, 100_000);
+        try {
+          r.paint(readPaint(c, records));
+          expect(callbacks).toHaveLength(1);
+          const job = slices.mock.calls[0][0];
+          expect(job.processedCount).toBe(4);
+          callbacks[0]({ didTimeout: false, timeRemaining: () => availableMs });
+          expect(slices.mock.lastCall).toEqual([job, 6, expectedBudgetMs]);
+          expect(job.processedCount).toBe(8);
+          expect(r.getReadPresentationSnapshot(c)?.kind).toBe('pending');
+          r.paint(readPaint(c, records));
+          expect(r.getReadPresentationSnapshot(c)?.kind).toBe('reads');
+          expect(callbacks).toHaveLength(1);
+        } finally {
+          r.unmount(c);
+          restore();
+        }
+      }
+    );
+
+    it('skips exhausted idle deadlines and discards work on replacement or unmount', () => {
+      const { callbacks, cancel, slices, restore } = idleAssignmentClock();
+      const r = new PixiPileupTrackRenderer({ type: 'pileup' });
+      const c = r.mount(mountArgs);
+      const records = makeWindowReads(100, 100_000);
+      let mounted = true;
+      try {
+        r.paint(readPaint(c, records));
+        expect(callbacks).toHaveLength(1);
+        callbacks[0]({ didTimeout: false, timeRemaining: () => 0 });
+        expect(slices).toHaveBeenCalledTimes(1);
+        r.paint(readPaint(c, records));
+        const original = slices.mock.lastCall![0];
+        r.paint(readPaint(c, records.slice(1)));
+        expect(cancel).toHaveBeenCalledWith(2);
+        expect(slices.mock.lastCall![0]).not.toBe(original);
+        const afterReplacement = slices.mock.calls.length;
+        callbacks[1]({ didTimeout: false, timeRemaining: () => 10 });
+        expect(slices).toHaveBeenCalledTimes(afterReplacement);
+        r.unmount(c);
+        mounted = false;
+        expect(cancel).toHaveBeenCalledWith(3);
+        callbacks[2]({ didTimeout: false, timeRemaining: () => 10 });
+        expect(slices).toHaveBeenCalledTimes(afterReplacement);
+      } finally {
+        if (mounted) r.unmount(c);
+        restore();
+      }
+    });
+
     it('prioritizes a missing read front within the urgent elapsed-work budget', () => {
       const r = new PixiPileupTrackRenderer({ type: 'pileup-test' });
       const c = r.mount(mountArgs);
       const records = makeWindowReads(5_500, 100_000);
-      const advance = PersistentRowLayout.prototype.advanceAssignmentWithinBudget;
-      const assignment = vi
-        .spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget')
-        .mockImplementation(function (this: PersistentRowLayout, job, maxRecords, budgetMs) {
-          return advance.call(this, job, maxRecords, budgetMs, () => job.processedCount * 0.001);
-        });
-      let meshClock: ReturnType<typeof vi.spyOn> | undefined;
+      const msPerRecord = 0.001;
+      const recordsPerBudgetCheck = 4;
+      let clockReads = 0;
+      const clock = vi
+        .spyOn(performance, 'now')
+        .mockImplementation(() => ++clockReads * recordsPerBudgetCheck * msPerRecord);
+      const assignment = vi.spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget');
       try {
         r.paint(readPaint(c, records));
         expect(assignment.mock.lastCall?.[1]).toBe(4_096);
         expect(assignment.mock.lastCall?.[2]).toBeGreaterThan(0);
         expect(assignment.mock.lastCall?.[2]).toBeLessThanOrEqual(2);
         let d = r.getDiagnostics(c)!;
-        const expectedRecords = Math.floor(assignment.mock.lastCall![2] * 1_000);
+        const expectedRecords = Math.floor(assignment.mock.lastCall![2] / msPerRecord);
         expect(d.rowsAssignmentBuildRecordsLastFrame).toBeGreaterThanOrEqual(expectedRecords);
-        expect(d.rowsAssignmentBuildRecordsLastFrame).toBeLessThanOrEqual(expectedRecords + 4);
+        expect(d.rowsAssignmentBuildRecordsLastFrame).toBeLessThanOrEqual(
+          expectedRecords + recordsPerBudgetCheck
+        );
         expect(d.rowsAssignmentBuildInProgress).toBe(true);
-        while (d.rowsAssignmentBuildInProgress) {
+        for (let frame = 0; d.rowsAssignmentBuildInProgress && frame < 100; frame++) {
           r.paint(readPaint(c, records));
           d = r.getDiagnostics(c)!;
         }
-        let clock = 0;
-        meshClock = vi.spyOn(performance, 'now').mockImplementation(() => (clock += 0.01));
-        let mesh = r.getDiagnostics(c)!;
-        for (let frame = 0; frame < 100; frame++) {
+        expect(d.rowsAssignmentBuildInProgress).toBe(false);
+        let mesh = d;
+        for (let frame = 0; mesh.rowsMeshBuildRecordsLastFrame === 0 && frame < 100; frame++) {
+          expect(r.hasPendingPaintWork(c)).toBe(true);
           r.paint(readPaint(c, records));
           mesh = r.getDiagnostics(c)!;
-          if (mesh.rowsMeshBuildRecordsLastFrame > 0) break;
-          expect(r.hasPendingPaintWork(c)).toBe(true);
         }
         expect(mesh.rowsMeshBuildRecordsLastFrame).toBeGreaterThan(0);
         expect(mesh.rowsMeshBuildRecordsLastFrame).toBeLessThan(records.length);
         expect(mesh.rowsMeshBuildInProgress).toBe(true);
       } finally {
-        meshClock?.mockRestore();
+        clock.mockRestore();
         assignment.mockRestore();
         r.unmount(c);
       }
@@ -6776,6 +7050,70 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
     expect(d.morphRowsMeshVisible).toBe(false);
     expect(d.renderedReadMorphRowsAlpha).toBe(0);
     expect(d.renderedReadRowsAlpha + d.renderedReadDensityAlpha).toBeCloseTo(1, 2);
+  });
+
+  it('prepares row heights only when the same exact reads switch from tiled to static coverage', () => {
+    const renderer = new PixiPileupTrackRenderer({
+      type: 'pileup-test',
+      rowHeightPx: 10,
+      maxRows: 8,
+    });
+    const container = renderer.mount(mountArgs);
+    const tiled: PileupTrackData = {
+      dataAuthority: 'tile-engine',
+      coverage: {
+        bins: Array(20).fill(12),
+        binSize: 100,
+        maxDepth: 120,
+        provenance: { exact: true, method: 'pyramid-maxpool', source: 'tile-engine' },
+      },
+      records: [read(0, 400, 'first'), read(20, 420, 'second')],
+      readSource: {
+        truncated: false,
+        windowStartBp: 0,
+        windowEndBp: 2000,
+        sourceGenerationKey: 'same-bam',
+      },
+    };
+    const prepare = vi.spyOn(rowHeightField, 'beginReadRowHeightFieldJob');
+    const paint = (data: PileupTrackData) => {
+      const args = paintArgsZoom(container, data, 4 / 150, { start: 100, end: 350 });
+      renderer.paint(args);
+      for (let i = 0; renderer.hasPendingPaintWork(container) && i < 20; i++) renderer.paint(args);
+      expect(renderer.hasPendingPaintWork(container)).toBe(false);
+      const diagnostics = renderer.getDiagnostics(container)!;
+      expect(diagnostics.rowsMeshVisible).toBe(true);
+      for (const [row, readId] of ['first', 'second'].entries()) {
+        const localX = args.pathMapper.bpLeftX(200);
+        const localY = diagnostics.readRowsTopPx + diagnostics.effectiveRowHeightPx * (row + 0.5);
+        expect(
+          renderer.hitTestReadEvent(container, {
+            trackId: 'test-bam',
+            localX,
+            localY,
+            screenX: localX,
+            screenY: args.containerTopPx + localY,
+            pathMapper: args.pathMapper,
+            chromosomeGlobalStartBp: 0,
+          })
+        ).toMatchObject({ readId, sourceGenerationKey: 'same-bam' });
+      }
+      return diagnostics;
+    };
+    try {
+      const native = paint(tiled);
+      expect(native.aggregateDepthSource).toBe('tile-engine-coverage');
+      expect(native.readDensityMorph).toBe(0);
+      const tiledPreparationCount = prepare.mock.calls.length;
+      const legacy = paint({ ...tiled, dataAuthority: 'static' });
+      expect(legacy.readDensityMorph).toBeGreaterThan(0.95);
+      expect(legacy.readDensityRowStackMaxFill).toBeGreaterThan(0);
+      expect(legacy.readDensityMaxFill).toBeCloseTo(legacy.readDensityRowStackMaxFill, 2);
+      expect(tiledPreparationCount).toBe(0);
+    } finally {
+      prepare.mockRestore();
+      renderer.unmount(container);
+    }
   });
 
   it('morphs aggregate height from coverage depth toward lane-packed row height', async () => {

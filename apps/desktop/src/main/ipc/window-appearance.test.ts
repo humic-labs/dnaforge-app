@@ -5,10 +5,16 @@ const registration = vi.hoisted(() => {
   const state: {
     handlers: MainHandlersOf<typeof windowContract> | null;
     find: ReturnType<typeof vi.fn>;
-  } = { handlers: null, find: vi.fn() };
+    getAllDisplays: ReturnType<typeof vi.fn>;
+  } = { handlers: null, find: vi.fn(), getAllDisplays: vi.fn() };
   return state;
 });
-vi.mock('electron', () => ({ BrowserWindow: { fromWebContents: registration.find }, Menu: {} }));
+vi.mock('electron', () => ({
+  app: { commandLine: { hasSwitch: () => false } },
+  BrowserWindow: { fromWebContents: registration.find },
+  screen: { getAllDisplays: registration.getAllDisplays },
+  Menu: {},
+}));
 vi.mock('../../shared/ipc-contract', () => ({
   mainIpc: { handle: vi.fn() },
   handleGroup: (_contract: unknown, handlers: MainHandlersOf<typeof windowContract>) => {
@@ -46,6 +52,7 @@ function nativeWindow() {
 beforeEach(() => {
   registration.handlers = null;
   registration.find.mockReset();
+  registration.getAllDisplays.mockReset();
 });
 describe('actual sending-window zoom implementation and registered handler', () => {
   it.each([0.25, 1.2, 1.25, 5])(
@@ -135,4 +142,35 @@ describe('actual sending-window zoom implementation and registered handler', () 
       Reflect.apply(handler, undefined, [{ sender: { id: 41, isDestroyed: () => true } }, 1.5])
     ).toEqual({ status: 'refused', reason: 'window_unavailable' });
   });
+});
+
+it('returns a common SDR compositor profile only for displays the sending window overlaps', () => {
+  const srgb = '{primaries:BT709, transfer:SRGB, matrix:RGB, range:FULL}';
+  const p3 = '{primaries:P3, transfer:SRGB, matrix:RGB, range:FULL}';
+  const bounds = { x: -20, y: 10, width: 40, height: 20 };
+  const native = { isDestroyed: () => false, getContentBounds: () => bounds };
+  const sender = { id: 7, isDestroyed: () => false };
+  registration.find.mockReturnValue(native);
+  const displays = [
+    { bounds: { x: -100, y: 0, width: 100, height: 100 }, colorSpace: srgb },
+    { bounds: { x: 0, y: 0, width: 100, height: 100 }, colorSpace: p3 },
+  ];
+  registration.getAllDisplays.mockReturnValue(displays);
+  registerWindowHandlers();
+  const handler = registration.handlers?.getDisplayColorSpace;
+  if (!handler) throw new Error('Missing window display color space handler');
+  const profile = () => Reflect.apply(handler, undefined, [{ sender }]);
+  expect(profile()).toBeNull();
+  expect(registration.find).toHaveBeenCalledWith(sender);
+  bounds.x = -40;
+  expect(profile()).toBe('srgb');
+  bounds.x = 0;
+  expect(profile()).toBe('display-p3');
+  displays[1].colorSpace = srgb;
+  bounds.x = -20;
+  expect(profile()).toBe('srgb');
+  bounds.x = 100;
+  expect(profile()).toBeNull();
+  registration.find.mockReturnValue(null);
+  expect(profile()).toBeNull();
 });

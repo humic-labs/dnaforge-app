@@ -8,6 +8,7 @@
   flanks after panning outside the previous interval.
 - Cross between readable rows and the combined read/coverage presentation with
   continuous zoom and pan input.
+- Inspect a matching read and a read with a known difference at the same zoom.
 - Save As, close and reopen with the same source, annotation selection and
   presentation settings.
 - Measure loading, input stalls, bounded tile caches and retained memory across
@@ -52,6 +53,15 @@ in `pileup-performance-journey.json`, and the original captures. The running
 source and native runtime must match and be clean. Before the opening clock, the
 native shell must be ready and its own sidecar health check must pass.
 
+For a slow gesture, compare `lastInputToAllAcknowledgedMs` on the Node clock
+with `cadence.wheel.firstTrustedEventMs` and `lastTrustedEventMs`, which are
+relative to the existing renderer cadence start. These receipt fields do not
+change the clocks or limits used for the result. `cadence.longAnimationFrames`
+retains up to eight native frame entries and four script attributions per entry
+when the browser supports them. It reports omitted counts and explicit
+`unsupported` or `unavailable` status. Script attribution contains only code
+filenames, function names and durations; URLs and local file paths are omitted.
+
 Every measured view must show complete, current read geometry without missing
 flanks, truncation, stale source data or an unfinished loading indicator. The
 selected mRNA track, admitted annotation source, active drawing owner and
@@ -61,6 +71,25 @@ Require the saved file to retain its admitted read source and the reopened view
 to pass the same checks. Apply the unchanged loading, scheduling, cache and
 retained-memory limits in
 [the performance contract](../../../docs/pileup-performance.md).
+
+For row layout and read differences, pan a 44 kb view across its previous
+boundary and retain the recording through the first fully drawn frame. At a
+readable zoom, hover a matching read and one with a known substitution in the
+saved alignment. Check each read identifier and the substitution position
+against the fixture. Keep the viewport, input and fixture identical for the
+before and after captures.
+
+The sidecar’s focused checks exercise both types of reads. From `apps/api` with
+its development environment active, run the following command.
+
+```sh
+python -m pytest tests/test_alignment_tiles_nucleotides.py tests/test_alignment_tiles_payload_contract.py
+```
+
+A full-read tile containing only reference matches retains its read rows and
+returns no alternate columns. The guides-only response omits read rows. In a
+mixed tile both modes count matching reads toward the depth at a substitution. A
+cancelled request must stop before returning a successful result.
 
 ## Gotchas
 
