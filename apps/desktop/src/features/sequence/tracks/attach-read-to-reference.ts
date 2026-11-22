@@ -74,6 +74,7 @@ export async function attachReadToReference(
 
     if (!documentId.trim()) throw new Error('A sequence document ID is required.');
 
+    const reverseReadSequence = reverseComplement(readSequence);
     const [fwdAln, rcAln] = await Promise.all([
       callPairwiseCircularAware({
         query: readSequence,
@@ -81,14 +82,18 @@ export async function attachReadToReference(
         isCircular,
       }),
       callPairwiseCircularAware({
-        query: reverseComplement(readSequence),
+        query: reverseReadSequence,
         reference: referenceSequence,
         isCircular,
       }),
     ]);
-    const useRc = rcAln.identity > fwdAln.identity;
-    const winning = useRc ? rcAln : fwdAln;
-    const orientedReadSequence = useRc ? reverseComplement(readSequence) : readSequence;
+    const preferRc = rcAln.identity > fwdAln.identity;
+    const winning = preferRc ? rcAln : fwdAln;
+    const alignedCalls = winning.aligned_query.replace(/-/g, '').toUpperCase();
+    const matchesForward = alignedCalls === readSequence.toUpperCase();
+    const matchesReverse = alignedCalls === reverseReadSequence;
+    const useRc = matchesForward !== matchesReverse ? matchesReverse : preferRc;
+    const orientedReadSequence = useRc ? reverseReadSequence : readSequence;
     const orientedReadQuality = useRc ? [...quality].reverse() : quality;
 
     const built = buildAlignedChromatogramOptions({
