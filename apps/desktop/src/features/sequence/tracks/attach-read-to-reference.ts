@@ -9,6 +9,8 @@ import { callPairwiseCircularAware } from '../../alignment-manager/public/utils/
 import { useAttachedReadsStore, type AttachedRead } from './attached-reads-store';
 import { buildAlignedChromatogramOptions } from './aligned-chromatogram';
 
+const activeReadAttachments = new Map<string, symbol>();
+
 function reverseComplement(seq: string): string {
   return sharedReverseComplement(seq.toUpperCase());
 }
@@ -62,63 +64,72 @@ export async function attachReadToReference(
   ab1Path: string,
   opts: AttachOptions = {}
 ): Promise<AttachResult> {
-  const { sequence: referenceSequence, isCircular } = await readReference(refPath);
-  const { trace, sequence: readSequence, quality } = await readAb1(ab1Path);
-  const L = referenceSequence.length;
+  const key = JSON.stringify([documentId, opts.readIdOverride ?? ab1Path]);
+  const request = Symbol();
+  activeReadAttachments.set(key, request);
+  try {
+    const { sequence: referenceSequence, isCircular } = await readReference(refPath);
+    const { trace, sequence: readSequence, quality } = await readAb1(ab1Path);
+    const L = referenceSequence.length;
 
-  if (!documentId.trim()) throw new Error('A sequence document ID is required.');
+    if (!documentId.trim()) throw new Error('A sequence document ID is required.');
 
-  const [fwdAln, rcAln] = await Promise.all([
-    callPairwiseCircularAware({
-      query: readSequence,
-      reference: referenceSequence,
-      isCircular,
-    }),
-    callPairwiseCircularAware({
-      query: reverseComplement(readSequence),
-      reference: referenceSequence,
-      isCircular,
-    }),
-  ]);
-  const useRc = rcAln.identity > fwdAln.identity;
-  const winning = useRc ? rcAln : fwdAln;
-  const orientedReadSequence = useRc ? reverseComplement(readSequence) : readSequence;
-  const orientedReadQuality = useRc ? [...quality].reverse() : quality;
+    const [fwdAln, rcAln] = await Promise.all([
+      callPairwiseCircularAware({
+        query: readSequence,
+        reference: referenceSequence,
+        isCircular,
+      }),
+      callPairwiseCircularAware({
+        query: reverseComplement(readSequence),
+        reference: referenceSequence,
+        isCircular,
+      }),
+    ]);
+    const useRc = rcAln.identity > fwdAln.identity;
+    const winning = useRc ? rcAln : fwdAln;
+    const orientedReadSequence = useRc ? reverseComplement(readSequence) : readSequence;
+    const orientedReadQuality = useRc ? [...quality].reverse() : quality;
 
-  const built = buildAlignedChromatogramOptions({
-    referenceSequence,
-    trace,
-    readSequence: orientedReadSequence,
-    readQuality: orientedReadQuality,
-    alignedQuery: winning.aligned_query,
-    alignedReference: winning.aligned_reference,
-    reverseComplemented: useRc,
-    referenceOffset: winning.refStart,
-  });
+    const built = buildAlignedChromatogramOptions({
+      referenceSequence,
+      trace,
+      readSequence: orientedReadSequence,
+      readQuality: orientedReadQuality,
+      alignedQuery: winning.aligned_query,
+      alignedReference: winning.aligned_reference,
+      reverseComplemented: useRc,
+      referenceOffset: winning.refStart,
+    });
 
-  const laneOptions = winning.wraps
-    ? {
-        ...built.laneOptions,
-        cycleLength: L,
-        totalColumns: L,
-      }
-    : built.laneOptions;
+    const laneOptions = winning.wraps
+      ? {
+          ...built.laneOptions,
+          cycleLength: L,
+          totalColumns: L,
+        }
+      : built.laneOptions;
 
-  const read: AttachedRead = {
-    id: opts.readIdOverride ?? ab1Path,
-    label: ab1Path.split('/').pop() ?? ab1Path,
-    laneOptions,
-    identity: winning.identity,
-    coverageStart: built.coverageStart,
-    coverageEnd: built.coverageEnd,
-  };
+    const read: AttachedRead = {
+      id: opts.readIdOverride ?? ab1Path,
+      label: ab1Path.split('/').pop() ?? ab1Path,
+      laneOptions,
+      identity: winning.identity,
+      coverageStart: built.coverageStart,
+      coverageEnd: built.coverageEnd,
+    };
 
-  useAttachedReadsStore.getState().attach(documentId, read);
+    if (activeReadAttachments.get(key) !== request)
+      throw new Error('The read attachment was superseded by a newer request.');
+    useAttachedReadsStore.getState().attach(documentId, read);
 
-  return {
-    read,
-    identity: winning.identity,
-    reverseComplemented: useRc,
-    wraps: winning.wraps,
-  };
+    return {
+      read,
+      identity: winning.identity,
+      reverseComplemented: useRc,
+      wraps: winning.wraps,
+    };
+  } finally {
+    if (activeReadAttachments.get(key) === request) activeReadAttachments.delete(key);
+  }
 }
