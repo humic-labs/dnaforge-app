@@ -31,6 +31,7 @@ import {
   UI_PROSE_WRAP_CLASS,
   UI_READONLY_FIELD_CLASS,
   UI_SECONDARY_BUTTON_CLASS,
+  UI_COMPACT_SECONDARY_BUTTON_CLASS,
   UI_SEGMENTED_SURFACE_CLASS,
   segmentedOptionClass,
   UI_SURFACE_CLASS,
@@ -127,6 +128,7 @@ export const Button = forwardRef<
     variant?:
       | 'primary'
       | 'secondary'
+      | 'compact-secondary'
       | 'danger'
       | 'icon'
       | 'link'
@@ -145,6 +147,7 @@ export const Button = forwardRef<
     'toolbar-color': toolbarToggleClass(pressed, true),
     primary: UI_PRIMARY_BUTTON_CLASS,
     secondary: UI_SECONDARY_BUTTON_CLASS,
+    'compact-secondary': UI_COMPACT_SECONDARY_BUTTON_CLASS,
     danger: UI_DANGER_BUTTON_CLASS,
     icon: UI_ICON_BUTTON_CLASS,
     link: UI_LINK_BUTTON_CLASS,

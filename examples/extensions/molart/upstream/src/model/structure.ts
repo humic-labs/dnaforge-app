@@ -114,7 +114,7 @@ export function buildStructure(raw: RawStructure, opts: BuildOptions = {}): Stru
     else if ((a.name === 'O' || a.name === 'OT1') && cur.o < 0) cur.o = k;
     else if (a.name === 'P' && cur.p < 0) cur.p = k;
     else {
-      const nm = a.name.replace('*', "'");   // old files write C4* for C4'
+      const nm = a.name.replaceAll('*', "'");   // old files write C4* for C4'
       if (nm === "O5'" && cur.o5 < 0) cur.o5 = k;
       else if (nm === "C4'" && cur.c4 < 0) cur.c4 = k;
       else if (nm === "C1'" && cur.c1 < 0) cur.c1 = k;

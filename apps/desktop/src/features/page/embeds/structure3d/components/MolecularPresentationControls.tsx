@@ -1,3 +1,4 @@
+import { Button } from '../../../../../components/ui';
 import { extensionCaptureReason } from '../molstar/extension-render-capture';
 import { MenuNativeSelect } from '@waypoint/ui-components';
 import {
@@ -533,16 +534,16 @@ export function MolecularPresentationControls({
           disabled={!ready || busy}
         />
       )}
-      <button
+      <Button
         type="button"
-        className={button}
+        variant="compact-secondary"
         disabled={!nativeReady || busy}
         title={extensionActive ? extensionCaptureReason : 'Record the current view in a notebook'}
         onClick={openNotebook}
         data-testid="presentation-notebook"
       >
         Notebook
-      </button>
+      </Button>
       {base && (
         <button
           type="button"
@@ -557,16 +558,16 @@ export function MolecularPresentationControls({
           History
         </button>
       )}
-      <button
+      <Button
         type="button"
-        className={button}
+        variant="compact-secondary"
         disabled={!nativeReady || busy || !dirty || projectBaselinePending}
         onClick={() => void save()}
         title={extensionActive ? extensionCaptureReason : undefined}
         data-testid="presentation-save"
       >
         Save
-      </button>
+      </Button>
       {dirty && (
         <span
           role="status"

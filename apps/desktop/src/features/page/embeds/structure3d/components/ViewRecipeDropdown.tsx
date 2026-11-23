@@ -1,5 +1,6 @@
 'use client';
 
+import { UI_FIELD_CLASS } from '../../../../../components/ui/styles';
 import { memo, useRef } from 'react';
 import { MenuRow, MenuTrigger, useMenu } from '@waypoint/ui-components';
 import { PortalMenu } from '@/components/PortalMenu';
@@ -139,6 +140,7 @@ export const ViewRecipeDropdown = memo(function ViewRecipeDropdown({
         <>
           <input
             type="file"
+            className={UI_FIELD_CLASS}
             hidden
             ref={inputRef}
             accept=".json"
