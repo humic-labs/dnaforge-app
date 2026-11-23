@@ -1023,21 +1023,25 @@ export function FileBrowser({
       } catch (err) {
         telemetry.fail('move_failed');
         const raw = err instanceof Error ? err.message : '';
-        useToastStore.getState().addToast(
-          fileChangeCommitted
-            ? userMessage('notice.file-change-saved-project-update-incomplete')
-            : raw.replace(/^MOVE_[A-Z_]+:\s*/, '')
+        if (fileChangeCommitted) {
+          useToastStore
+            .getState()
+            .addToast(userMessage('notice.file-change-saved-project-update-incomplete'), {
+              definition: 'workspace-refresh-warning',
+            });
+        } else {
+          useToastStore.getState().addToast(
+            raw.replace(/^MOVE_[A-Z_]+:\s*/, '')
               ? toUserMessage(raw.replace(/^MOVE_[A-Z_]+:\s*/, ''), 'operation.failed')
               : userMessageWithValues('notice.couldn-t-move-value', {
                   value0: userMessageValue(source.split('/').pop() ?? source),
                 }),
-          fileChangeCommitted
-            ? { definition: 'workspace-refresh-warning' }
-            : {
-                definition: 'file-browser-move-item-into-dir',
-                variant: raw.startsWith('MOVE_NOOP') ? 'info' : 'error',
-              }
-        );
+            {
+              definition: 'file-browser-move-item-into-dir',
+              variant: raw.startsWith('MOVE_NOOP') ? 'info' : 'error',
+            }
+          );
+        }
         console.error('[FileBrowser] Failed to move:', err);
       }
     },
