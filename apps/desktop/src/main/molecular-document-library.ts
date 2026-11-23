@@ -2,22 +2,26 @@ import type Database from 'better-sqlite3';
 import { publishTypedSavedText } from './saved-file-publication';
 import { createHash } from 'node:crypto';
 import { lstat, readFile } from 'node:fs/promises';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, relative } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
 import {
   MOLECULAR_DOCUMENT_SCHEMA,
-  MOLECULAR_DOCUMENT_SUFFIX,
   molecularDocumentSchema,
-  parseMolecularDocument,
   serializeMolecularDocument,
-  validateMolecularDocumentCoordinates,
   type MolecularDocumentLocation,
   type SaveMolecularDocumentRequest,
   type SavedMolecularDocument,
 } from '../shared/molecular-document';
-import { assertMolecularDocumentSize } from '../shared/molecular-storage';
+import {
+  assertMolecularDocumentSize,
+  MOLECULAR_DOCUMENT_MAX_BYTES,
+} from '../shared/molecular-storage';
 import { supportsMolecularDocumentExtension } from '../shared/molecular-document-extensions';
+import { readMolecularDocumentContent } from '../shared/molecular-document-reader';
+import { DocumentReadError } from '../shared/document-read-failure';
+import { isMolecularDocumentFile } from '../shared/document-availability';
+import { inspectBoundedWorkspaceFile } from './benchling-migration/bounded-workspace-file';
 import {
   canonicalWorkspacePath,
   writeWorkspaceTextFileAtomicInMain,
@@ -86,20 +90,38 @@ export async function readMolecularDocumentFile(
   input: MolecularDocumentLocation
 ): Promise<SavedMolecularDocument> {
   const location = locationSchema.parse(input);
-  if (!location.path.endsWith(MOLECULAR_DOCUMENT_SUFFIX))
+  if (!isMolecularDocumentFile(location.path))
     throw new Error('This file is not a molecular document.');
-  const { candidate } = await canonicalWorkspacePath({
+  const { root, candidate } = await canonicalWorkspacePath({
     ...location,
     allowMissing: false,
     artifactNoun: 'molecular document',
   });
   const stat = await lstat(candidate);
-  if (!stat.isFile()) throw new Error('The molecular document is not a regular file.');
+  if (!stat.isFile()) throw new DocumentReadError('unsupported-format');
   assertMolecularDocumentSize(stat.size);
-  const bytes = await readFile(candidate, 'utf8');
-  const document = parseMolecularDocument(bytes);
-  await validateMolecularDocumentCoordinates(document);
-  return { ...location, document, revision: createHash('sha256').update(bytes).digest('hex') };
+  return inspectBoundedWorkspaceFile(
+    root,
+    relative(root, candidate)
+      .split(/[\\\\/]/u)
+      .join('/'),
+    MOLECULAR_DOCUMENT_MAX_BYTES,
+    async (bytes) => {
+      let text: string;
+      try {
+        text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      } catch (error) {
+        throw new DocumentReadError('malformed', false, { cause: error });
+      }
+      const document = await readMolecularDocumentContent(text, bytes.byteLength);
+      return {
+        ...location,
+        document,
+        revision: createHash('sha256').update(bytes).digest('hex'),
+        sizeBytes: bytes.byteLength,
+      };
+    }
+  );
 }
 
 export class MolecularDocumentLibrary {
@@ -113,10 +135,13 @@ export class MolecularDocumentLibrary {
   async save(input: SaveMolecularDocumentRequest): Promise<SavedMolecularDocument> {
     const request = saveSchema.parse(input);
     const { document, destination, expectedRevision } = request;
-    if (!destination.path.endsWith(MOLECULAR_DOCUMENT_SUFFIX))
+    if (!isMolecularDocumentFile(destination.path))
       throw new Error('Choose a molecular document destination.');
-    await validateMolecularDocumentCoordinates(document);
     const content = serializeMolecularDocument(document);
+    const savedDocument = await readMolecularDocumentContent(
+      content,
+      Buffer.byteLength(content, 'utf8')
+    );
     return withWorkspaceMutation(destination.workspaceRoot, async () => {
       if (expectedRevision !== null) {
         const previous = await readMolecularDocumentFile(destination);
@@ -180,8 +205,9 @@ export class MolecularDocumentLibrary {
       );
       return {
         ...destination,
-        document,
+        document: savedDocument,
         revision: result.contentHash,
+        sizeBytes: Buffer.byteLength(content, 'utf8'),
         ...(result.cleanupWarning ? { warning: result.cleanupWarning } : {}),
       };
     });

@@ -1,6 +1,9 @@
 import { createHash, webcrypto } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { URL as FileURL } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { stageLiteralOpenSnapshot } from '../document-opening/literal-open-snapshot';
 import {
   failPdfPhaseOnce,
   holdPdfPhase,
@@ -249,6 +252,30 @@ describe('PdfTab rendering', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
     await waitFor(() => expect(state.pageNumbers.at(-1)).toBe(2));
     expect(screen.getByLabelText('Current PDF page')).toHaveValue(2);
+  });
+
+  it('opens the admitted PDF bytes and reads the path again on an explicit source reload', async () => {
+    const path = '/workspace/admitted.pdf';
+    const bytes = new Uint8Array(
+      readFileSync(
+        new FileURL(
+          '../../../../../test-fixtures/documents/paper-protocol-synthetic.pdf',
+          import.meta.url
+        )
+      )
+    );
+    stageLiteralOpenSnapshot(path, { kind: 'pdf', bytes });
+    state.readFailure = true;
+
+    render(<PdfTab filePath={path} />);
+
+    await screen.findByTestId('pdf-tab');
+    expect(state.getDocumentInputs).toEqual([{ data: bytes }]);
+    expect(state.readPaths).toEqual([]);
+
+    act(() => state.changed?.(path));
+    await screen.findByTestId('pdf-tab-error');
+    expect(state.readPaths).toEqual([path]);
   });
 
   it('rerenders the actual page at the requested zoom', async () => {

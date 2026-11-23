@@ -3,11 +3,11 @@ import {
   MOLECULAR_DOCUMENT_FILE_KIND,
   MOLECULAR_DOCUMENT_SCHEMA,
   MOLECULAR_DOCUMENT_SUFFIX,
-  parseMolecularDocument,
   serializeMolecularDocument,
-  validateMolecularDocumentCoordinates,
   type MolecularDocument,
+  type SavedMolecularDocument,
 } from '../../shared/molecular-document';
+import { readMolecularDocumentContent } from '../../shared/molecular-document-reader';
 import { coordinateDigest } from '../../shared/molecular-view';
 import { scopedProjectionId } from '../../shared/workspace-scoped-identity';
 import {
@@ -25,6 +25,21 @@ import {
 
 import { molecularDocumentProjectionFields as documentFields } from '../../shared/molecular-document-projection';
 
+type FileRevision = { hash: string; sizeBytes: number };
+const capturedRevisions = new WeakMap<MolecularDocument, FileRevision>();
+
+export function rememberMolecularDocumentSource(saved: SavedMolecularDocument): void {
+  if (saved.sizeBytes !== undefined)
+    capturedRevisions.set(saved.document, { hash: saved.revision, sizeBytes: saved.sizeBytes });
+}
+
+async function sourceRevision(document: MolecularDocument, bytes?: string): Promise<FileRevision> {
+  const captured = capturedRevisions.get(document);
+  if (captured) return captured;
+  const text = bytes ?? serializeMolecularDocument(document);
+  return { hash: await coordinateDigest(text), sizeBytes: new TextEncoder().encode(text).byteLength };
+}
+
 async function owningWorkspaceId(context: EntityReconcileContext): Promise<number | null> {
   return context.workspaceId !== undefined
     ? context.workspaceId
@@ -36,8 +51,8 @@ export const molecularDocumentAdapter: WorkspaceEntityAdapter<MolecularDocument>
   schema: MOLECULAR_DOCUMENT_SCHEMA,
   matchesPath: (path) => path.toLowerCase().endsWith(MOLECULAR_DOCUMENT_SUFFIX),
   async parse(bytes) {
-    const document = parseMolecularDocument(bytes);
-    await validateMolecularDocumentCoordinates(document);
+    const document = await readMolecularDocumentContent(bytes);
+    capturedRevisions.set(document, await sourceRevision(document, bytes));
     return document;
   },
   serialize: serializeMolecularDocument,
@@ -87,7 +102,7 @@ export const molecularDocumentAdapter: WorkspaceEntityAdapter<MolecularDocument>
   async writeProjection(document, id, fileMtimeMs, path, context) {
     const fields = documentFields(document);
     const workspaceId = await owningWorkspaceId(context);
-    const bytes = serializeMolecularDocument(document);
+    const revision = await sourceRevision(document);
     await registerCatalogEntity({
       id,
       type: 'molecular-document',
@@ -102,8 +117,8 @@ export const molecularDocumentAdapter: WorkspaceEntityAdapter<MolecularDocument>
       path,
       fileKind: MOLECULAR_DOCUMENT_FILE_KIND,
       workspaceRoot: context.workspaceRoot,
-      contentHash: `sha256:${await coordinateDigest(bytes)}`,
-      sizeBytes: new TextEncoder().encode(bytes).byteLength,
+      contentHash: `sha256:${revision.hash}`,
+      sizeBytes: revision.sizeBytes,
       modifiedAt: fileMtimeMs,
       status: 'current',
     });
@@ -160,7 +175,7 @@ export const molecularDocumentAdapter: WorkspaceEntityAdapter<MolecularDocument>
         path,
         workspaceRoot: context.workspaceRoot,
         entityId: id,
-        documentHash: await coordinateDigest(serializeMolecularDocument(document)),
+        documentHash: (await sourceRevision(document)).hash,
       },
       context.mutationToken
     );

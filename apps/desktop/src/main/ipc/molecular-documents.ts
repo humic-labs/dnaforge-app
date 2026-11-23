@@ -6,6 +6,9 @@ import { handleGroup } from '../../shared/ipc-contract';
 import { packMolecularDocument, unpackMolecularDocument } from '../../shared/molecular-document';
 import { MolecularDocumentLibrary } from '../molecular-document-library';
 import { molecularDocumentsContract } from '../../shared/ipc/molecular-documents.contract';
+import { documentReadReason } from '../../shared/document-read-failure';
+import { molecularDocumentReadFailure } from '../../shared/molecular-document-read-failure';
+import { readRegisteredMolecularDocument } from '../registered-molecular-document';
 
 export function registerMolecularDocumentIpcHandlers(): void {
   const library = new MolecularDocumentLibrary({ db: getDb });
@@ -25,8 +28,14 @@ export function registerMolecularDocumentIpcHandlers(): void {
       });
     },
     read: async (_event, request) => {
-      const saved = await library.read(request);
-      return { ...saved, document: packMolecularDocument(saved.document) };
+      try {
+        const saved = await readRegisteredMolecularDocument(getDb(), request);
+        return { ...saved, document: packMolecularDocument(saved.document) };
+      } catch (error) {
+        throw new Error(documentReadReason(molecularDocumentReadFailure(error).code), {
+          cause: error,
+        });
+      }
     },
     save: async (_event, request) => {
       const saved = await library.save({

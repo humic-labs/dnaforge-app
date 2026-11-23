@@ -125,7 +125,8 @@ declare global {
       molecularDocuments: ClientOf<typeof molecularDocumentsContract>;
       notebook: ClientOf<typeof notebookContract>;
       workspace: ClientOf<typeof workspaceNativeDocumentsContract> &
-        ClientOf<typeof workspaceContract>;
+        ClientOf<typeof workspaceContract> &
+        ClientOf<typeof workspaceBrowserContract>;
       hostedAi: HostedAiBridge;
       fs: ClientOf<typeof fsContract> & ClientOf<typeof fsInlineReferenceTargetContract>;
     };

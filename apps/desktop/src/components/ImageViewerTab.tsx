@@ -8,8 +8,7 @@ import {
   useMemo,
   type CSSProperties,
 } from 'react';
-import { getExtension, getFilename } from '../utils/fileTypes';
-import { platform } from '../platform';
+import { getFilename } from '../utils/fileTypes';
 import {
   beginReadableContentOwner,
   type ReadableContentOwner,
@@ -20,6 +19,12 @@ import {
   type ImageReadFailure,
 } from '../features/document-opening/image-view-lifecycle';
 import {
+  createImageFileUrl,
+  decodedImageSize,
+  readImageFileBytes,
+} from '../features/document-opening/image-file-content';
+import { useInitialLiteralOpenSnapshot } from '../features/document-opening/literal-open-snapshot';
+import {
   IMAGE_ZOOM_PRESETS,
   IMAGE_MIN_ZOOM,
   IMAGE_MAX_ZOOM,
@@ -29,20 +34,6 @@ import {
   type ImageSize,
 } from './image-view-geometry';
 
-const MAX_IMAGE_VIEWER_BYTES = 256 * 1024 * 1024;
-const IMAGE_MIME_BY_EXT: Record<string, string> = {
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  gif: 'image/gif',
-  webp: 'image/webp',
-  svg: 'image/svg+xml',
-  bmp: 'image/bmp',
-  ico: 'image/x-icon',
-  avif: 'image/avif',
-  tif: 'image/tiff',
-  tiff: 'image/tiff',
-};
 const FAILURE_GUIDANCE: Record<ImageReadFailure, string> = {
   read_unknown:
     'The file could not be read. Check access, availability, and the 256 MiB limit, then retry.',
@@ -85,6 +76,7 @@ function revoke(attempt: Attempt): void {
 }
 
 export function ImageViewerTab({ filePath, sourceFileName, canvasTabId }: ImageViewerTabProps) {
+  const readInitialSnapshot = useInitialLiteralOpenSnapshot(filePath, 'image');
   const [view, setView] = useState<View>({
     attempt: null,
     status: 'reading',
@@ -162,15 +154,12 @@ export function ImageViewerTab({ filePath, sourceFileName, canvasTabId }: ImageV
       void (async () => {
         let bytesRead = false;
         try {
-          const bytes = await platform().fs.readFileBounded(filePath, MAX_IMAGE_VIEWER_BYTES);
+          const snapshot = retry ? undefined : readInitialSnapshot();
+          const bytes = await (snapshot?.bytes ?? readImageFileBytes(filePath));
           if (!current(attempt)) return;
           bytesRead = true;
           attempt.lease.bytesReady();
-          const extension = getExtension(sourceFileName ?? filePath);
-          const blob = new Blob([bytes], {
-            type: (extension && IMAGE_MIME_BY_EXT[extension]) || '',
-          });
-          attempt.url = URL.createObjectURL(blob);
+          attempt.url = createImageFileUrl(bytes, sourceFileName ?? filePath);
           if (!current(attempt)) {
             revoke(attempt);
             return;
@@ -183,7 +172,16 @@ export function ImageViewerTab({ filePath, sourceFileName, canvasTabId }: ImageV
       })();
       return attempt;
     },
-    [canvasTabId, current, endAttempt, endDrag, failAttempt, filePath, sourceFileName]
+    [
+      canvasTabId,
+      current,
+      endAttempt,
+      endDrag,
+      failAttempt,
+      filePath,
+      readInitialSnapshot,
+      sourceFileName,
+    ]
   );
   useEffect(() => {
     startAttempt();
@@ -201,8 +199,8 @@ export function ImageViewerTab({ filePath, sourceFileName, canvasTabId }: ImageV
         image.getAttribute('src') !== attempt.url
       )
         return;
-      const natural = { width: image.naturalWidth, height: image.naturalHeight };
-      if (![natural.width, natural.height].every((value) => Number.isFinite(value) && value > 0)) {
+      const natural = decodedImageSize(image);
+      if (!natural) {
         failAttempt(attempt, 'decode_unknown');
         return;
       }

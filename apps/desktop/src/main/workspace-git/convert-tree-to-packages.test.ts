@@ -110,6 +110,18 @@ describe('convertTreeToPlasmidPackages', () => {
     expect(await exists(join(root, 'Yeast/Collision'))).toBe(false);
   });
 
+  it('leaves a truncated GenBank record at its original path during project migration', async () => {
+    const broken = GB('Interrupted').replace(/\/\/\s*$/u, '');
+    const source = await file('Interrupted.gb', broken);
+
+    const result = await convertTreeToPlasmidPackages(root);
+
+    expect(result.converted).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(await readFile(source, 'utf8')).toBe(broken);
+    expect(await exists(join(root, 'Interrupted'))).toBe(false);
+  });
+
   it('splits a multi-record FASTA into a package per record', async () => {
     await file(
       'many.fasta',

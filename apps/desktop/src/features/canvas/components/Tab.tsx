@@ -105,6 +105,7 @@ export function getTabIconForTab(
   tab: TabStripPresentation,
   className = 'w-3.5 h-3.5 flex-shrink-0'
 ) {
+  if (tab.molecularDocumentStatus) return getTabIcon('file', className);
   if (tab.type === 'structure' && tab.isMolecularDocument)
     return iconForEntityKind('molecular-document', className, {
       ...tab.iconContext,
@@ -270,6 +271,7 @@ export const Tab = React.memo(function Tab({
       data-tab-index={index}
       data-tab-label={tab.label}
       data-tab-type={tab.type}
+      data-document-availability={tab.molecularDocumentStatus}
       aria-selected={isActive}
       tabIndex={isActive ? 0 : -1}
       onMouseDown={handleMouseDown}

@@ -1181,7 +1181,14 @@ export function registerFilesystemHandlers(): void {
 
       try {
         watchFile(filePath, { interval: 500 }, (curr, prev) => {
-          if (curr.mtimeMs !== prev.mtimeMs || curr.size !== prev.size) {
+          if (
+            curr.mtimeMs !== prev.mtimeMs ||
+            curr.ctimeMs !== prev.ctimeMs ||
+            curr.ino !== prev.ino ||
+            curr.dev !== prev.dev ||
+            curr.mode !== prev.mode ||
+            curr.size !== prev.size
+          ) {
             scheduleFileChanged(filePath);
           }
         });

@@ -1,3 +1,4 @@
+import legacyFixture from './molecular-document-v1.json';
 import { MOLECULAR_DOCUMENT_SCHEMA, type MolecularDocument } from '../../shared/molecular-document';
 import { coordinateDigest, type MolecularView } from '../../shared/molecular-view';
 
@@ -9,19 +10,14 @@ export async function molecularDocumentFixture(): Promise<MolecularDocument> {
   const documentId = '11111111-1111-4111-8111-111111111111';
   const firstId = '22222222-2222-4222-8222-222222222222';
   const secondId = '33333333-3333-4333-8333-333333333333';
-  const text = 'HEADER    preserved coordinate bytes\nATOM      1  CA  ALA A   1\nEND\n';
+  const asset = legacyFixture.history[0].snapshot.coordinates.sha256;
+  const text = legacyFixture.coordinateAssets[asset as keyof typeof legacyFixture.coordinateAssets];
   const snapshot: MolecularView = {
     kind: 'molecular-view',
     version: 1,
     title: 'Binding pocket',
     caption: 'Exact original explanation',
-    scene: JSON.stringify({
-      kind: 'single',
-      root: {
-        kind: 'root',
-        children: [{ kind: 'download', params: { url: 'structure.pdb' }, children: [] }],
-      },
-    }),
+    scene: legacyFixture.history[0].snapshot.scene,
     coordinates: { format: 'pdb', text, sha256: await coordinateDigest(text) },
     source: { source: 'pdb', sourceId: '1ABC' },
     evidence: [{ title: 'Source evidence', url: 'https://example.org/evidence' }],

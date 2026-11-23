@@ -1005,6 +1005,9 @@ export interface PlatformBridge {
     }): Promise<import('../shared/workspace-git-types').WorkspaceEntityMigrationResult>;
     onMigrationCandidatesChanged?(callback: (event: { workspaceRoot: string }) => void): () => void;
     listChildren(request: WorkspaceListChildrenRequest): Promise<WorkspaceListChildrenResult>;
+    checkDocument?(
+      request: import('../shared/document-availability').DocumentAvailabilityRequest
+    ): Promise<import('../shared/document-availability').DocumentAvailabilityProbe>;
     reconcileNativeRecords(request: NativeCatalogRecordReconcileRequest): Promise<number>;
     setDocumentCommandRoots(request: NativeDocumentWorkspaceRootsRequest): Promise<boolean>;
     resolveRegisteredProject?(

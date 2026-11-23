@@ -34,6 +34,8 @@ const LINK_STATE_EVENTS = new Set<string>([
   'link_tombstoned',
 ]);
 
+export class UnverifiedLimsHistoryError extends Error {}
+
 export interface LimsProjectionRebuildResult {
   appliedEvents: number;
   skippedDuplicateEvents: number;
@@ -402,7 +404,9 @@ function assertVerifiedAuditRows(rows: readonly AuditReplayRow[]): void {
           (field) => previous[field as keyof AuditReplayRow] !== row[field as keyof AuditReplayRow]
         )
       ) {
-        throw new Error(`Registry history integrity check failed: conflicting event ${key}`);
+        throw new UnverifiedLimsHistoryError(
+          `Registry history integrity check failed: conflicting event ${key}`
+        );
       }
       continue;
     }
@@ -411,7 +415,7 @@ function assertVerifiedAuditRows(rows: readonly AuditReplayRow[]): void {
   const health = verifyLimsAuditHashChainRows([...unique.values()]);
   if (!health.ok) {
     const first = health.failures[0];
-    throw new Error(
+    throw new UnverifiedLimsHistoryError(
       `Registry history integrity check failed at event ${first.eventSeq}: ${first.reason}`
     );
   }
@@ -462,20 +466,16 @@ function resolveManagedWorkspacePath(db: Database.Database, path: string): strin
   return root + (root.includes('\\') ? suffix.replace(/\//g, '\\') : suffix);
 }
 
-export function repairLimsEntityFromVerifiedAuditInDb(
-  db: Database.Database,
-  entityId: string
-): boolean {
+type RecoveredSchema = { schema: LimsSchemaRow; revision: LimsSchemaRevisionRow };
+
+function planLimsEntityRecoveryFromVerifiedAudit(db: Database.Database, entityId: string) {
   const rows = db
     .prepare('SELECT * FROM lims_audit ORDER BY event_seq ASC')
     .all() as AuditReplayRow[];
   assertVerifiedAuditRows(rows);
   const entities = new Map<string, unknown>();
   const links = new Map<string, LimsLink>();
-  const schemas = new Map<
-    string,
-    Array<{ schema: LimsSchemaRow; revision: LimsSchemaRevisionRow }>
-  >();
+  const schemas = new Map<string, RecoveredSchema[]>();
   const revisionOwners = new Map<string, string>();
   for (const row of rows) {
     const after = parseJson<unknown>(row.after);
@@ -501,7 +501,7 @@ export function repairLimsEntityFromVerifiedAuditInDb(
     }
   }
   const requested = entities.get(entityId);
-  if (!isLimsEntity(requested) || requested.id !== entityId) return false;
+  if (!isLimsEntity(requested) || requested.id !== entityId) return null;
   const adjacency = new Map<string, LimsLink[]>();
   for (const link of links.values()) {
     for (const endpoint of new Set([link.fromEntityId, link.toEntityId])) {
@@ -510,52 +510,94 @@ export function repairLimsEntityFromVerifiedAuditInDb(
       adjacency.set(endpoint, edges);
     }
   }
-  return db.transaction(() => {
-    const existingEntity = db.prepare('SELECT 1 FROM lims_entity WHERE id=?');
-    const existingSchema = db.prepare('SELECT 1 FROM lims_schema WHERE id=?');
-    const existingRevision = db.prepare('SELECT 1 FROM lims_schema_revision WHERE id=?');
-    const existingLink = db.prepare('SELECT 1 FROM lims_link WHERE id=?');
-    const missingLinks = new Map<string, LimsLink>();
-    const queue = [entityId];
-    const visited = new Set<string>();
-    for (let index = 0; index < queue.length; index++) {
-      const id = queue[index];
-      if (visited.has(id)) continue;
-      visited.add(id);
+  const existingEntity = db.prepare('SELECT 1 FROM lims_entity WHERE id=?');
+  const existingSchema = db.prepare('SELECT 1 FROM lims_schema WHERE id=?');
+  const existingRevision = db.prepare('SELECT 1 FROM lims_schema_revision WHERE id=?');
+  const existingLink = db.prepare('SELECT 1 FROM lims_link WHERE id=?');
+  const missingEntities = new Map<string, LimsEntity>();
+  const missingSchemas = new Map<string, LimsSchemaRow>();
+  const missingRevisions = new Map<string, RecoveredSchema>();
+  const missingLinks = new Map<string, LimsLink>();
+  const queue = [entityId];
+  const visited = new Set<string>();
+  for (let index = 0; index < queue.length; index++) {
+    const id = queue[index];
+    if (visited.has(id)) continue;
+    visited.add(id);
 
-      if (existingEntity.get(id)) continue;
-      const state = entities.get(id);
-      if (!isLimsEntity(state) || state.id !== id) {
-        throw new Error(`Registry recovery has no verified authority for related record ${id}.`);
-      }
-      const schemaId = state.schemaId ?? revisionOwners.get(state.schemaRevisionId);
-      const family = schemaId ? (schemas.get(schemaId) ?? []) : [];
-      const latest = family.at(-1);
-      if (latest && !existingSchema.get(latest.schema.id)) {
-        upsertLimsSchemaProjectionInsideTx(db, latest.schema);
-      }
-      for (const schema of family) {
-        if (!existingRevision.get(schema.revision.id)) {
-          upsertLimsSchemaRevisionProjectionInsideTx(db, schema.revision);
-        }
-      }
-      if (!existingRevision.get(state.schemaRevisionId)) {
-        throw new Error(
-          `Registry recovery has no verified schema revision for related record ${id}.`
-        );
-      }
-      replayHistoricalLimsEntityProjectionInsideTx(db, resolveRecoveredEntityBindings(db, state));
-      for (const link of adjacency.get(id) ?? []) {
-        if (!existingLink.get(link.id)) missingLinks.set(link.id, link);
-        for (const endpoint of [link.fromEntityId, link.toEntityId]) {
-          if (!existingEntity.get(endpoint)) queue.push(endpoint);
-        }
+    if (existingEntity.get(id)) continue;
+    const state = entities.get(id);
+    if (!isLimsEntity(state) || state.id !== id) {
+      throw new UnverifiedLimsHistoryError(
+        `Registry recovery has no verified authority for related record ${id}.`
+      );
+    }
+    const schemaId = state.schemaId ?? revisionOwners.get(state.schemaRevisionId);
+    const family = schemaId ? (schemas.get(schemaId) ?? []) : [];
+    const latest = family.at(-1);
+    if (latest && !existingSchema.get(latest.schema.id)) {
+      missingSchemas.set(latest.schema.id, latest.schema);
+    }
+    for (const schema of family) {
+      if (!missingRevisions.has(schema.revision.id) && !existingRevision.get(schema.revision.id)) {
+        missingRevisions.set(schema.revision.id, schema);
       }
     }
-    for (const link of missingLinks.values()) {
-      if (existingLink.get(link.id)) continue;
-      upsertLimsLinkProjectionInsideTx(db, link);
+    if (
+      !missingRevisions.has(state.schemaRevisionId) &&
+      !existingRevision.get(state.schemaRevisionId)
+    ) {
+      throw new UnverifiedLimsHistoryError(
+        `Registry recovery has no verified schema revision for related record ${id}.`
+      );
     }
+    missingEntities.set(id, resolveRecoveredEntityBindings(db, state));
+    for (const link of adjacency.get(id) ?? []) {
+      if (!existingLink.get(link.id)) missingLinks.set(link.id, link);
+      for (const endpoint of [link.fromEntityId, link.toEntityId]) {
+        if (!visited.has(endpoint) && !existingEntity.get(endpoint)) queue.push(endpoint);
+      }
+    }
+  }
+  return { missingEntities, missingSchemas, missingRevisions, missingLinks };
+}
+
+export function inspectLimsEntityFromVerifiedAuditInDb(db: Database.Database, entityId: string) {
+  const hasHistory = db
+    .prepare("SELECT 1 FROM lims_audit WHERE subject_table='lims_entity' AND subject_id=? LIMIT 1")
+    .get(entityId);
+  if (!hasHistory) return null;
+  const plan = planLimsEntityRecoveryFromVerifiedAudit(db, entityId);
+  const entity = plan?.missingEntities.get(entityId);
+  if (!plan || !entity) return null;
+  const schema = plan.missingRevisions.get(entity.schemaRevisionId);
+  const currentSchema =
+    schema &&
+    (plan.missingSchemas.get(schema.schema.id) ??
+      (db.prepare('SELECT * FROM lims_schema WHERE id=?').get(schema.schema.id) as
+        | LimsSchemaRow
+        | undefined));
+  return {
+    entity,
+    restoredSchema:
+      schema && currentSchema ? { schema: currentSchema, revision: schema.revision } : undefined,
+  };
+}
+
+export function repairLimsEntityFromVerifiedAuditInDb(
+  db: Database.Database,
+  entityId: string
+): boolean {
+  return db.transaction(() => {
+    const plan = planLimsEntityRecoveryFromVerifiedAudit(db, entityId);
+    if (!plan) return false;
+    for (const schema of plan.missingSchemas.values())
+      upsertLimsSchemaProjectionInsideTx(db, schema);
+    for (const { revision } of plan.missingRevisions.values())
+      upsertLimsSchemaRevisionProjectionInsideTx(db, revision);
+    for (const entity of plan.missingEntities.values())
+      replayHistoricalLimsEntityProjectionInsideTx(db, entity);
+    for (const link of plan.missingLinks.values()) upsertLimsLinkProjectionInsideTx(db, link);
     return true;
   })();
 }

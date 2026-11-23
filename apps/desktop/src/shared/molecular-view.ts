@@ -7,6 +7,7 @@ import {
 } from './molecular-view-schema';
 import { binaryCoordinateBytes, isBinaryCoordinateText } from './binary-coordinates';
 import { assertMolecularCoordinateSize } from './molecular-storage';
+import { DocumentReadError } from './document-read-failure';
 import {
   molecularDataDigest,
   validateMolecularDataMapping,
@@ -167,9 +168,13 @@ export async function validateMolecularViewCoordinates(
     if (previous?.format === asset.format && previous.text === asset.text) continue;
     assertMolecularCoordinateSize(asset);
     if (asset.format === 'bcif' && !isBinaryCoordinateText(asset.text))
-      throw new Error('Saved binary coordinates are not valid base64.');
+      throw new DocumentReadError('coordinates', true, {
+        detail: 'Saved binary coordinates are not valid base64.',
+      });
     if ((await coordinateDigest(asset.text)) !== asset.sha256)
-      throw new Error('Saved molecular coordinate digest does not match its pinned bytes.');
+      throw new DocumentReadError('coordinates', true, {
+        detail: 'Saved molecular coordinate digest does not match its pinned bytes.',
+      });
     validated.set(asset.sha256, asset);
   }
   if (view.molecularData) {

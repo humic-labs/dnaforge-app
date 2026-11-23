@@ -1,8 +1,8 @@
 // @vitest-environment node
 
 import { randomUUID } from 'node:crypto';
-import { access, readFile, readdir } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { access, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { dirname, join, relative } from 'node:path';
 import type Database from 'better-sqlite3';
 import type { JSONContent } from '@tiptap/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -20,7 +20,11 @@ import { NotebookDocumentModel } from '../shared/notebook-model/document';
 import { canonicalNotebookJson } from '../db/notebook-markdown-codec';
 import { contentFingerprint } from '../shared/content-fingerprint';
 import { stripWorkspaceScope } from '../shared/workspace-scoped-identity';
-import { notebookTableReference, tableDocumentKey } from '../shared/table-document-reference';
+import {
+  notebookTableReference,
+  richTableReference,
+  tableDocumentKey,
+} from '../shared/table-document-reference';
 import {
   parseTablePackageHead,
   parseTableSnapshot,
@@ -267,6 +271,68 @@ async function attempt(operation: () => Promise<unknown>) {
 }
 
 describe('retired inline table native authority', () => {
+  it('reopens the native notebook and its exact rich table beside a malformed unrelated package', async () => {
+    const t = await fixture();
+    const neighbor = join(t.f.workspaceRoot, 'Broken table', '.forge', 'table.json');
+    const invalid = '{"schema":"dnaforge.table.v1",';
+    await mkdir(dirname(neighbor), { recursive: true });
+    await writeFile(neighbor, invalid);
+    const original = await packageBytes(t.sourcePath);
+    await t.restart();
+
+    const reopened = await t.inspect();
+    expect(reopened.readOnly).toBe(false);
+    expect(reopened.copy.content.content?.[0].content?.[0].text).toBe(
+      'Other notebook content remains.'
+    );
+    assertCanonical(reopened, t);
+    await expect(
+      t.commands.execute({ kind: 'resolve', reference: t.table.reference })
+    ).resolves.toMatchObject({
+      kind: 'resolved',
+      table: { tableId: t.table.tableId },
+    });
+    expect(await packageBytes(t.sourcePath)).toEqual(original);
+    expect(await readFile(neighbor, 'utf8')).toBe(invalid);
+  });
+
+  it('preserves a missing saved table reference and still refuses to resolve its absent identity', async () => {
+    const t = await fixture();
+    if (t.table.reference.backing.kind !== 'rich-file')
+      throw new Error('Expected an owned rich table.');
+    const reference = richTableReference(t.table.reference.backing.projectId, randomUUID());
+    await t.restoreOutside({
+      type: 'embed',
+      attrs: {
+        type: 'table-reference',
+        version: 1,
+        refId: 'unclaimed-table-block',
+        data: { reference, presentation: 'embed' },
+      },
+    });
+    await t.restart();
+    const reopened = await t.inspect();
+    expect(reopened.readOnly).toBe(true);
+    expect(
+      reopened.copy.content.content?.find((node) => node.attrs?.refId === 'unclaimed-table-block')
+        ?.attrs?.data.reference
+    ).toEqual(reference);
+    await expect(t.commands.execute({ kind: 'resolve', reference })).rejects.toThrow(
+      'no unique verified package'
+    );
+  });
+
+  it('reports corrupt saved bytes for the exact table the notebook uses', async () => {
+    const t = await fixture();
+    const actual = await readTablePackageInMain(t.destination);
+    await writeFile(actual.headPath, JSON.stringify({ ...actual.head, snapshot: null }));
+    await t.restart();
+    await expect(
+      t.commands.execute({ kind: 'resolve', reference: t.table.reference })
+    ).rejects.toThrow(/TABLE_PACKAGE_INVALID/u);
+    await expect(t.inspect()).rejects.toThrow(/TABLE_PACKAGE_INVALID/u);
+  });
+
   it('keeps exact Undo and Redo inside the rich table owner and prevents a fresh inline writer', async () => {
     const t = await fixture();
     const original = await readTablePackageInMain(t.destination);

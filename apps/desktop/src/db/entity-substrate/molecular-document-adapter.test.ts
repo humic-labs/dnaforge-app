@@ -3,11 +3,13 @@ vi.mock('../../lib/analytics', () => ({ trackRendererEvent: vi.fn() }));
 import { clearMockData, setMockFileContent } from '../../test/platform-mocks';
 import { initializeTestSchema } from '../../test/initializeTestSchema';
 import { molecularDocumentFixture } from '../../test/fixtures/molecular-documents';
+import legacyMolecularDocument from '../../test/fixtures/molecular-document-v1.json';
 import { platform } from '../../platform';
 import { serializeMolecularDocument } from '../../shared/molecular-document';
 import { coordinateDigest } from '../../shared/molecular-view';
 import {
   getCatalogEntityForFilePath,
+  getCatalogFileForPath,
   resolveWorkspaceId,
   resolveWorkspaceScope,
 } from '../workspace-catalog';
@@ -101,6 +103,31 @@ describe('molecular document file projections', () => {
         fields: { currentReferenceId: changed.currentReferenceId },
       },
     ]);
+  });
+
+  it('binds a compatible older document to the original bytes that opened', async () => {
+    const workspaceRoot = '/projects/one';
+    const path = `${workspaceRoot}/Older story.dnaforge-molecular.json`;
+    const bytes = JSON.stringify(legacyMolecularDocument) + '\n';
+    setMockFileContent(path, bytes);
+    const context = {
+      workspaceRoot,
+      workspaceId: await resolveWorkspaceId(workspaceRoot),
+      workspaceScope: await resolveWorkspaceScope(workspaceRoot),
+    };
+    const result = await reconcileEntityFile(molecularDocumentAdapter, bytes, path, Date.now(), context);
+    const originalHash = await coordinateDigest(bytes);
+    expect(result.outcome).toBe('created');
+    expect(await getCatalogFileForPath(path)).toMatchObject({
+      content_hash: `sha256:${originalHash}`,
+      size_bytes: new TextEncoder().encode(bytes).byteLength,
+    });
+    const document = await molecularDocumentAdapter.parse(bytes, path);
+    await molecularDocumentAdapter.reconcileRelationships!(document, result.id, path, context);
+    expect(platform().molecularDocuments.reconcileSourceLinks).toHaveBeenCalledWith(
+      expect.objectContaining({ path, documentHash: originalHash }),
+      undefined
+    );
   });
 
   it('delegates source projection with its file identity, exact document hash and mutation capability', async () => {

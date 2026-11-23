@@ -1,12 +1,13 @@
 import type { FilesystemStat } from '../../shared/filesystem-stat';
 import { detectDocumentPackage, type DocumentPackageIo } from '../../shared/document-package';
 import type { DocumentTarget } from './types';
+import { typedDocumentKindForPath } from '../../shared/document-availability';
 
 interface FilesystemDocumentIo extends DocumentPackageIo {
   stat(path: string): Promise<Pick<FilesystemStat, 'isFile' | 'isDirectory'>>;
 }
 type TargetResolution =
-  | { status: 'resolved'; target: DocumentTarget }
+  | { status: 'resolved'; target: DocumentTarget; packageRoot?: string }
   | { status: 'unsupported'; message: string }
   | { status: 'cancelled' };
 
@@ -43,15 +44,37 @@ async function inspectFilesystemDocumentTarget(
   io: FilesystemDocumentIo
 ): Promise<TargetResolution> {
   const source = await io.stat(target.path);
-  if (source.isFile) return { status: 'resolved', target };
+  if (source.isFile) {
+    if (typedDocumentKindForPath(target.path) === 'sequence-package') {
+      const packageRoot = target.path.replace(/[\\/]\.forge[\\/][^\\/]+$/iu, '');
+      return {
+        status: 'resolved',
+        target: { kind: 'sequence-package', path: packageRoot },
+        packageRoot,
+      };
+    }
+    return { status: 'resolved', target };
+  }
   if (source.isDirectory) {
     const container = await detectDocumentPackage(target.path, io);
     if (container?.kind === 'sequence')
-      return { status: 'resolved', target: { kind: 'sequence-package', path: target.path } };
+      return {
+        status: 'resolved',
+        target: { kind: 'sequence-package', path: target.path },
+        packageRoot: target.path,
+      };
     if (container?.kind === 'notebook')
-      return { status: 'resolved', target: { kind: 'file', path: target.path, tabType: 'page' } };
+      return {
+        status: 'resolved',
+        target: { kind: 'file', path: target.path, tabType: 'page' },
+        packageRoot: target.path,
+      };
     if (container)
-      return { status: 'resolved', target: { kind: 'file', path: container.metadataPath } };
+      return {
+        status: 'resolved',
+        target: { kind: 'file', path: container.metadataPath },
+        packageRoot: target.path,
+      };
     return { status: 'unsupported', message: 'This folder is not an openable document package.' };
   }
   return { status: 'unsupported', message: 'This path is not a regular file or document package.' };

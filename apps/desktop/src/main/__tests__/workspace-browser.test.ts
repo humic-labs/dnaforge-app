@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, mkdtempSync, readFileSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -8,12 +9,17 @@ import type Database from 'better-sqlite3';
 import { ensureSchema } from '../schema';
 import { createTestDb } from './test-db';
 
-vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() }, app: { getPath: vi.fn() } }));
+vi.mock('electron', () => ({
+  ipcMain: { handle: vi.fn() },
+  app: { getPath: vi.fn(() => '/dnaforge-workspace-browser-test-app-data') },
+}));
 vi.mock('../ipc/path-allowlist', () => ({
   assertSafePath: vi.fn(async (path: string) => path),
 }));
 
-import { listWorkspaceChildren } from '../ipc/workspace-browser';
+import { checkWorkspaceDocument, listWorkspaceChildren } from '../ipc/workspace-browser';
+import { readRegisteredMolecularDocument } from '../registered-molecular-document';
+import molecularDocument from '../../test/fixtures/molecular-document-v1.json';
 
 describe('workspace:listChildren', () => {
   let db: Database.Database;
@@ -51,6 +57,89 @@ describe('workspace:listChildren', () => {
   });
 
   afterEach(() => db.close());
+
+  it('checks the actual bytes after replacement and repair even with the original timestamp', async () => {
+    const path = join(root, 'Structure.dnaforge-molecular.json');
+    const file = { workspaceRoot: root, path };
+    const original = JSON.stringify(molecularDocument);
+    writeFileSync(path, original);
+    const { mtime, atime } = statSync(path);
+    expect((await readRegisteredMolecularDocument(db, file)).document.name).toBe(
+      molecularDocument.name
+    );
+    const initial = await checkWorkspaceDocument(db, file);
+    expect(initial).toEqual({
+      state: 'ready',
+      kind: 'molecular-document',
+      revision: createHash('sha256').update(original).digest('hex'),
+      paths: [path],
+    });
+    const corrupted = '{'.padEnd(original.length, ' ');
+    writeFileSync(path, corrupted);
+    utimesSync(path, atime, mtime);
+    expect(await checkWorkspaceDocument(db, file)).toMatchObject({
+      state: 'blocked',
+      reason: expect.stringMatching(/damaged or incomplete/),
+    });
+    await expect(readRegisteredMolecularDocument(db, file)).rejects.toThrow();
+    expect(readFileSync(path, 'utf8')).toBe(corrupted);
+
+    writeFileSync(path, original);
+    utimesSync(path, atime, mtime);
+    expect(await checkWorkspaceDocument(db, file)).toEqual(initial);
+    db.prepare('UPDATE workspaces SET archived_at = 1 WHERE id = 1').run();
+    expect(await checkWorkspaceDocument(db, file)).toMatchObject({
+      state: 'blocked',
+      reason: expect.stringMatching(/project is unavailable/),
+    });
+    expect(readFileSync(path, 'utf8')).toBe(original);
+  });
+
+  it('does not let a broken primer use the normal document open path', async () => {
+    const path = join(root, 'Oligo.primer.json');
+    writeFileSync(path, '{');
+    expect(await checkWorkspaceDocument(db, { workspaceRoot: root, path })).toMatchObject({
+      state: 'blocked',
+      code: 'malformed',
+      recognized: false,
+    });
+    expect(readFileSync(path, 'utf8')).toBe('{');
+  });
+
+  it('recognizes the actual native schema before reporting a newer format', async () => {
+    const path = join(root, 'Structure.dnaforge-molecular.json');
+    const request = { workspaceRoot: root, path };
+    writeFileSync(path, JSON.stringify({ ...molecularDocument, schema: 'dnaforge.molecular-document.v99' }));
+    expect(await checkWorkspaceDocument(db, request)).toMatchObject({
+      state: 'blocked',
+      code: 'newer-format',
+      recognized: true,
+    });
+    writeFileSync(path, JSON.stringify({ schema: 'another.format.v99' }));
+    expect(await checkWorkspaceDocument(db, request)).toMatchObject({
+      state: 'blocked',
+      code: 'unsupported-format',
+      recognized: false,
+    });
+  });
+
+  it('leaves plain files alone and distinguishes a missing typed file from broken bytes', async () => {
+    expect(await checkWorkspaceDocument(db, {
+      workspaceRoot: root,
+      path: join(root, 'Strains', 'notes.txt'),
+    })).toEqual({ state: 'unchecked' });
+    expect(await checkWorkspaceDocument(db, {
+      workspaceRoot: root,
+      path: join(root, 'No copy.dnaforge-molecular.json'),
+    })).toMatchObject({ state: 'blocked', code: 'missing', recognized: false });
+  });
+
+  it('refuses a typed request outside the admitted project before trying a reader', async () => {
+    expect(await checkWorkspaceDocument(db, {
+      workspaceRoot: root,
+      path: join(root, '..', 'outside.pdf'),
+    })).toMatchObject({ state: 'blocked', code: 'permission', recognized: false });
+  });
 
   it('merges filesystem children with exact-parent catalog placements', async () => {
     const result = await listWorkspaceChildren(db, {

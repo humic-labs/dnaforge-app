@@ -19,6 +19,7 @@ import { detectDocumentPackage, type DocumentPackageKind } from '../shared/docum
 import { getCatalogEntityForFilePath } from '../db/workspace-catalog';
 import type { EntityColorContext } from '../shared/entity-color-family';
 import { catalogIconContext } from '../shared/catalog-icon-context';
+import type { DocumentAvailability } from '../shared/document-availability';
 import {
   benchlingImportDisplayName,
   isManagedBenchlingProvenanceSidecar,
@@ -53,6 +54,8 @@ export interface FileEntry {
   sequenceDocument?: ManagedSequenceDocumentRef;
 
   iconContext?: EntityColorContext;
+
+  documentAvailability?: DocumentAvailability | { state: 'checking' };
 
   isNotebookPackage?: boolean;
 
@@ -221,7 +224,7 @@ async function readDirectoryEntries(
             packageRoot: fullPath,
           };
         } catch {
-          packageName = 'Sequence';
+          packageName = entry.name;
         }
       }
       if (!iconContext && !isDir && entry.name.toLowerCase().endsWith('.primer.json')) {

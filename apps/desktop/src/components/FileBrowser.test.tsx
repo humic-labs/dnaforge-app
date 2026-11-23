@@ -14,6 +14,7 @@ import type {
 import { useToastStore } from '../stores/toast-store';
 import { CommandScopeProviderForTest } from '../commands';
 import type { TrackViewsBridge } from '../shared/track-view';
+import * as documentAvailability from '../features/document-opening/useDocumentAvailability';
 
 function openExplorerAddPicker(rootPath = '/mock/test/workspace'): HTMLElement {
   fireEvent.contextMenu(rootTreeItemByPath(rootPath));
@@ -1512,6 +1513,34 @@ describe('FileBrowser', () => {
         screen.queryByRole('menu', { name: 'File actions for plasmid' })
       ).not.toBeInTheDocument();
       expect(plasmidRow).toHaveAttribute('data-selected', 'true');
+    });
+
+    it('keeps file recovery actions and omits ordinary Open when the reader refuses a file', async () => {
+      const admission = vi.spyOn(documentAvailability, 'useDocumentAvailability').mockImplementation(
+        (_root, path) => path?.endsWith('plasmid.gb')
+          ? {
+              state: 'blocked', code: 'malformed', recognized: true,
+              reason: 'This file is damaged or incomplete. Try another copy.',
+            }
+          : undefined
+      );
+      const open = vi.fn();
+      const openInNewPanel = vi.fn();
+      try {
+        render(<FileBrowser onFileSelect={open} onOpenInNewPanel={openInNewPanel} onAddFolder={vi.fn()} />);
+        const label = await screen.findByText('plasmid');
+        fireEvent.contextMenu(label);
+        const menu = screen.getByRole('menu', { name: 'File actions for plasmid' });
+        expect(within(menu).queryByRole('menuitem', { name: 'Open' })).not.toBeInTheDocument();
+        expect(within(menu).queryByRole('menuitem', { name: /Open in New Panel/ })).not.toBeInTheDocument();
+        expect(within(menu).getByRole('menuitem', { name: /Show in folder/ })).toBeInTheDocument();
+        expect(within(menu).getByRole('menuitem', { name: /Rename/ })).toBeInTheDocument();
+        fireEvent.doubleClick(label);
+        expect(open).not.toHaveBeenCalled();
+        expect(openInNewPanel).not.toHaveBeenCalled();
+      } finally {
+        admission.mockRestore();
+      }
     });
 
     it('wires Copy Relative Path to the filesystem-relative path', async () => {

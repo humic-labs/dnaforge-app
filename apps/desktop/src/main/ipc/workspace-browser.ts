@@ -22,6 +22,9 @@ import { developerImportSourceRootsInDb } from '../registry-source-eligibility';
 import { isDeveloperImportSourcePath } from '../../shared/developer-import-sources';
 import { workspaceBrowserContract } from '../../shared/ipc/workspace-browser.contract';
 import { catalogIconContext } from '../../shared/catalog-icon-context';
+import { checkWorkspaceDocument } from '../workspace-document-open-check';
+
+export { checkWorkspaceDocument } from '../workspace-document-open-check';
 
 type WorkspaceRow = Readonly<{ id: number; path: string }>;
 
@@ -200,6 +203,7 @@ export function registerWorkspaceBrowserHandlers(): void {
     },
     listChildren: (_event, request: WorkspaceListChildrenRequest) =>
       listWorkspaceChildren(getDb(), request),
+    checkDocument: (_event, request) => checkWorkspaceDocument(getDb(), request),
   });
 }
 

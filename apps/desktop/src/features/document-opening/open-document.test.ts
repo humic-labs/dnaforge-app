@@ -3,6 +3,7 @@ import { openDocument, resolveFileDocumentKind } from './open-document';
 import { cancelledDocumentOpen } from '../canvas/public/document-presentation';
 import { useCanvasStore } from '../canvas/store';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
+import { documentReadReason } from '../../shared/document-read-failure';
 import { finishGenomeViewFileOpen } from '../sequence/public/genome-view-open-request';
 
 const mocks = vi.hoisted(() => ({
@@ -10,12 +11,14 @@ const mocks = vi.hoisted(() => ({
   structure: vi.fn(),
   projects: vi.fn(),
   stat: vi.fn(),
+  checkDocument: vi.fn(),
 }));
 vi.mock('../../platform', () => ({
   platform: () => ({
     fs: {
       stat: mocks.stat,
     },
+    workspace: { checkDocument: mocks.checkDocument },
   }),
 }));
 vi.mock('../workspace-loader/public/project-edit-folders', async (importOriginal) => ({
@@ -32,6 +35,7 @@ describe('common document opening', () => {
     vi.resetAllMocks();
     mocks.projects.mockResolvedValue([]);
     mocks.stat.mockResolvedValue({ isFile: true, isDirectory: false });
+    mocks.checkDocument.mockResolvedValue({ state: 'unchecked' });
     useWorkspaceStore.setState({ folders: [] });
     useCanvasStore.setState({
       panels: { main: { id: 'main', tabs: [], activeTabId: null } },
@@ -74,9 +78,59 @@ describe('common document opening', () => {
     mocks.structure.mockRejectedValue(new Error('Corrupt coordinates'));
     expect(
       await openDocument({ target: { kind: 'file', path: '/ws/bad.pdb', tabType: 'sequence' } })
-    ).toEqual({ status: 'failed', message: 'Corrupt coordinates' });
+    ).toEqual({ status: 'failed', message: 'DNAForge couldn’t open this file.' });
     expect(mocks.sequence).not.toHaveBeenCalled();
     expect(useCanvasStore.getState().panels.main.tabs).toEqual([]);
+  });
+
+  it.each([
+    'sample.primer.json',
+    'sample.wpnote.json',
+    'sample.wpdesign.json',
+    'sample.entity.json',
+    'sample.dnaforge-track-view.json',
+    'sample.dnaforge-protocol.json',
+    'sample.faa',
+    'sample.gb',
+    'sample.pdb',
+    'sample.pdf',
+    'sample.png',
+    'sample.csv',
+    'sample.xlsx',
+    'sample.html',
+  ])('blocks %s before a typed tab opens when the current reader refuses it', async (name) => {
+    const message = 'DNAForge couldn’t open this file.';
+    mocks.checkDocument.mockResolvedValue({
+      state: 'blocked', code: 'unknown', recognized: false, reason: message,
+    });
+    expect(await openDocument({ target: { kind: 'file', path: `/ws/${name}` } }))
+      .toEqual({ status: 'blocked', message });
+    expect(useCanvasStore.getState().panels.main.tabs).toEqual([]);
+    expect(mocks.sequence).not.toHaveBeenCalled();
+    expect(mocks.structure).not.toHaveBeenCalled();
+  });
+
+  it('checks the real PDF reader even when a caller supplies a PDF hint for an extensionless file', async () => {
+    mocks.checkDocument.mockResolvedValue({
+      state: 'blocked', code: 'unsupported-format', recognized: false,
+      reason: 'This format cannot be opened in DNAForge.',
+    });
+    await expect(openDocument({ target: { kind: 'file', path: '/ws/blob', tabType: 'pdf' } }))
+      .resolves.toMatchObject({ status: 'blocked' });
+    expect(mocks.checkDocument).toHaveBeenCalledWith(expect.objectContaining({
+      path: '/ws/blob', literalKind: 'pdf',
+    }));
+    expect(useCanvasStore.getState().panels.main.tabs).toEqual([]);
+  });
+
+  it('keeps a proven missing file distinct when the filesystem bridge cannot preserve the error code', async () => {
+    mocks.stat.mockRejectedValue(new Error('The underlying bridge failed.'));
+    const message = documentReadReason('missing');
+    mocks.checkDocument.mockResolvedValue({
+      state: 'blocked', code: 'missing', recognized: false, reason: message,
+    });
+    await expect(openDocument({ target: { kind: 'file', path: '/ws/absent.pdf' } }))
+      .resolves.toEqual({ status: 'blocked', message });
   });
 
   it('cancels during filesystem classification while another caller still opens', async () => {

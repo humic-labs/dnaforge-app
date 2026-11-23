@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
+import { URL as FileURL } from 'node:url';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
+import { stageLiteralOpenSnapshot } from '../features/document-opening/literal-open-snapshot';
 import { ImageViewerTab } from './ImageViewerTab';
 
 afterEach(() => {
@@ -48,6 +51,29 @@ describe('ImageViewerTab', () => {
       });
       expect(readFileBoundedMock).toHaveBeenCalledWith('/path/to/figure.png', 256 * 1024 * 1024);
       expect(URL.createObjectURL).toHaveBeenCalled();
+    });
+
+    it('uses the admitted image bytes even if the source vanishes before mounting', async () => {
+      const path = '/path/to/admitted.png';
+      const bytes = new Uint8Array(
+        readFileSync(new FileURL('../../../../test-fixtures/images/sample.png', import.meta.url))
+      );
+      stageLiteralOpenSnapshot(path, { kind: 'image', bytes });
+      readFileBoundedMock.mockRejectedValue(new Error('ENOENT'));
+
+      render(<ImageViewerTab filePath={path} />);
+
+      const image = await screen.findByTestId<HTMLImageElement>('image-viewer-img');
+      Object.defineProperties(image, {
+        naturalWidth: { value: 24 },
+        naturalHeight: { value: 24 },
+      });
+      fireEvent.load(image);
+      expect(screen.getByText('24 × 24')).toBeVisible();
+      expect(readFileBoundedMock).not.toHaveBeenCalled();
+      expect(URL.createObjectURL).toHaveBeenCalledWith(
+        expect.objectContaining({ size: bytes.byteLength, type: 'image/png' })
+      );
     });
 
     it('surfaces a read error instead of a broken image', async () => {

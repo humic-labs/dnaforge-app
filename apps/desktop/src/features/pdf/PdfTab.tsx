@@ -23,6 +23,7 @@ import { TelemetryBlockedSurface } from '../../components/TelemetryBlockedSurfac
 import { COMMAND_IDS, COMMAND_SCOPES, useCommandHandler, useCommandScope } from '../../commands';
 import { useCanvasStore } from '../canvas/public/store';
 import { commitReadableContent, failReadableContent } from '../../lib/readable-content-telemetry';
+import { useInitialLiteralOpenSnapshot } from '../document-opening/literal-open-snapshot';
 
 type PdfTabProps = {
   filePath: string;
@@ -47,6 +48,7 @@ export function PdfTab({ filePath, tabId, isActive = true }: PdfTabProps) {
 }
 
 function OwnedPdfTab({ filePath, tabId = filePath, isActive = true }: PdfTabProps) {
+  const readInitialSnapshot = useInitialLiteralOpenSnapshot(filePath, 'pdf');
   const viewportRef = useRef<HTMLElement>(null);
   const continuousRef = useRef<PdfContinuousViewportHandle>(null);
   const active = useRef(isActive);
@@ -191,7 +193,7 @@ function OwnedPdfTab({ filePath, tabId = filePath, isActive = true }: PdfTabProp
       setLoaded(null);
       setLoadError(null);
       try {
-        const bytes = await platform().fs.readFile(filePath);
+        const bytes = await (readInitialSnapshot()?.bytes ?? platform().fs.readFile(filePath));
         if (import.meta.env.MODE === 'test')
           await (await import('./pdf-test-controls')).waitPdfPhase('bytes');
         if (cancelled || failed) return;
@@ -225,7 +227,7 @@ function OwnedPdfTab({ filePath, tabId = filePath, isActive = true }: PdfTabProp
         currentDocument.current === generationId ? 'closed' : 'superseded'
       );
     };
-  }, [filePath, generationId, tabId, loadAttempt]);
+  }, [filePath, generationId, tabId, loadAttempt, readInitialSnapshot]);
 
   useEffect(() => {
     if (!document || !sha256) return;

@@ -105,6 +105,7 @@ import type { DocumentPackageKind } from '../shared/document-package';
 import { fileMenuPathActions } from './file-menu-path-actions';
 import { beginSequenceEntryRename } from './sequence-entry-rename';
 import { openFileBrowserFile } from './open-file-browser-file';
+import { canOpenDocument } from '../shared/document-availability';
 
 export type { WorkspaceCreationContext } from './fileBrowserTypes';
 
@@ -172,6 +173,7 @@ interface FilesystemContextMenuState {
   isNotebookPackage?: boolean;
   packageKind?: DocumentPackageKind;
   sequenceDocument?: ManagedSequenceDocumentRef;
+  documentAvailability?: FileEntry['documentAvailability'];
   isRootFolder: boolean;
   pinned: boolean;
 }
@@ -419,6 +421,14 @@ export function FileBrowser({
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const filesystemContextMenu = contextMenu?.kind === 'filesystem' ? contextMenu : null;
   const catalogContextMenu = contextMenu?.kind === 'catalog' ? contextMenu : null;
+  useEffect(() => {
+    const availability = filesystemContextMenu?.documentAvailability;
+    if (!filesystemContextMenu || !availability || !('paths' in availability)) return;
+    const paths = new Set([filesystemContextMenu.path, ...(availability.paths ?? [])]);
+    return platform().on('file-changed', (path) => {
+      if (paths.has(path)) setContextMenu(null);
+    });
+  }, [filesystemContextMenu]);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [pendingArtifacts, setPendingArtifacts] = useState<PendingArtifactCreate[]>([]);
   const [treeSelectedEntryIds, setTreeSelectedEntryIds] = useState<Set<string>>(new Set());
@@ -596,6 +606,7 @@ export function FileBrowser({
         isNotebookPackage: entry.isNotebookPackage ?? false,
         packageKind: entry.packageKind,
         sequenceDocument: entry.sequenceDocument,
+        documentAvailability: entry.documentAvailability,
         isRootFolder: false,
         pinned: folders.find((folder) => folder.path === workspaceRoot)?.pinned ?? false,
       });
@@ -2010,8 +2021,17 @@ export function FileBrowser({
             setContextMenu(null);
             setAddPickerLaunch(null);
           }}
-          onOpen={filesystemContextMenu.isDirectory ? undefined : handleContextMenuOpen}
-          onOpenInNewPanel={onOpenInNewPanel ? handleContextMenuOpenInNewPanel : undefined}
+          onOpen={
+            filesystemContextMenu.isDirectory ||
+            !canOpenDocument(filesystemContextMenu.documentAvailability)
+              ? undefined
+              : handleContextMenuOpen
+          }
+          onOpenInNewPanel={
+            onOpenInNewPanel && canOpenDocument(filesystemContextMenu.documentAvailability)
+              ? handleContextMenuOpenInNewPanel
+              : undefined
+          }
           onRename={
             contextAllowsWrites && !filesystemContextMenu.isRootFolder
               ? handleStartRename

@@ -894,6 +894,21 @@ export const USER_MESSAGES = {
   'file.moveDestinationExists': 'An item with that name already exists in that folder.',
   'document.quickLookTooLarge': 'The file is too large for Quick Look.',
   'document.openFailed': 'We couldn’t open this file. Try again.',
+  'document.readUnknown': 'DNAForge couldn’t open this file.',
+  'document.readDamaged': 'This file is damaged or incomplete. Try another copy.',
+  'document.readCoordinates':
+    'The saved coordinates could not be loaded. Try another copy of the structure.',
+  'document.readScene': 'The saved view could not be loaded. Try another copy of this document.',
+  'document.readMissingAsset':
+    'A file this document needs is missing. Ask for a complete copy.',
+  'document.readTooLarge': 'This file is larger than DNAForge can open.',
+  'document.readNewer': 'This file needs a newer or compatible version of DNAForge.',
+  'document.readUnsupported': 'This format cannot be opened in DNAForge.',
+  'document.readPassword': 'This file is password-protected.',
+  'document.readRuntimeUnavailable': 'A component needed to open this file is unavailable.',
+  'document.readProjectUnavailable':
+    'This project is unavailable. Open the project or ask for access, then try again.',
+  'document.readChanged': 'The file changed while it was being checked. Try again.',
   'document.saveFailed': 'We couldn’t save your changes. Keep this file open and try again.',
   'document.renderFailed': 'We couldn’t display this sequence. Try opening it again.',
   'hosted.unavailable': 'This action is not available in the web app yet.',

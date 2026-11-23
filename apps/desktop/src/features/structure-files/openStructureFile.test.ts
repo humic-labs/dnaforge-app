@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { useCanvasStore } from '../canvas/store';
 import { useOversizedDialogStore } from '../sequence/oversized-dialog-store';
 import { HARD_CAP_BYTES } from '../../shared/oversized-guard';
@@ -51,7 +53,16 @@ import {
   getStructureFileSnapshotCacheDiagnostics,
 } from './structure-file-snapshots';
 
-const PDB_TEXT = 'HEADER    TEST STRUCTURE\nATOM      1  N   GLY A   1\nEND\n';
+const PDB_TEXT = [
+  'HEADER    TEST STRUCTURE',
+  'ATOM      1  N   GLY A   1      11.104  13.207  12.408  1.00 20.00           N',
+  'END',
+  '',
+].join('\n');
+
+const BINARY_CIF = new Uint8Array(
+  readFileSync(resolve(process.cwd(), '../../test-fixtures/structure-complexes/rcsb/1FS0.bcif'))
+);
 
 function resetCanvasStore(): void {
   useCanvasStore.setState({
@@ -169,7 +180,7 @@ describe('openStructureFile', () => {
     const uuid = vi
       .spyOn(crypto, 'randomUUID')
       .mockReturnValue('3cd0dca8-46e7-4d72-a41c-1313a5d5501e');
-    const bytes = new Uint8Array([131, 165, 100, 97, 116, 97, 1, 2, 3]);
+    const bytes = BINARY_CIF;
     mockStat.mockResolvedValue({ size: bytes.length, isFile: true, isDirectory: false, mtime: 99 });
     mockReadFile.mockResolvedValue(bytes);
 
@@ -226,6 +237,18 @@ describe('openStructureFile', () => {
       }).toEqual(thinTab)
     ).toThrow();
     expect(() => expect({}).toEqual(thinTab)).toThrow();
+  });
+
+  it('refuses to register or present the unreadable bytes returned by the Open read', async () => {
+    mockReadFile.mockResolvedValue(BINARY_CIF.subarray(0, 80));
+    const result = await openStructureFileResult({
+      filePath: '/lab/project/truncated.bcif',
+      label: 'Truncated coordinates',
+    });
+    expect(result).toMatchObject({ status: 'failed' });
+    expect(allTabs()).toEqual([]);
+    expect(mockRegisterWorkspaceFile).not.toHaveBeenCalled();
+    expect(getStructureFileSnapshotCacheDiagnostics().viewIds).toEqual([]);
   });
 
   it('deduplicates concurrent and repeated unchanged opens by logical view identity', async () => {

@@ -6,6 +6,7 @@ import {
   type MolecularView,
 } from './molecular-view';
 import { MOLECULAR_DOCUMENT_FILE_SUFFIX } from './registry-file-types';
+import { DocumentReadError } from './document-read-failure';
 import {
   assertMolecularDocumentExtensionsSupported,
   molecularDocumentExtensionFields,
@@ -169,6 +170,7 @@ export interface SavedMolecularDocument extends MolecularDocumentLocation {
   document: MolecularDocument;
 
   revision: string;
+  sizeBytes?: number;
   warning?: string;
 }
 
@@ -292,7 +294,10 @@ export function unpackMolecularDocument(value: unknown): MolecularDocument {
   const used = new Set<string>();
   const restore = <T extends { sha256: string }>(pointer: T) => {
     const text = stored.coordinateAssets[pointer.sha256];
-    if (text === undefined) throw new Error('A pinned molecular coordinate asset is missing.');
+    if (text === undefined)
+      throw new DocumentReadError('missing-asset', true, {
+        detail: 'A pinned molecular coordinate asset is missing.',
+      });
     used.add(pointer.sha256);
     return { ...pointer, text };
   };

@@ -11,10 +11,10 @@
         "version": 1,
         "title": "Binding pocket",
         "caption": "Exact original explanation",
-        "scene": "{\"kind\":\"single\",\"root\":{\"kind\":\"root\",\"children\":[{\"kind\":\"download\",\"params\":{\"url\":\"structure.pdb\"},\"children\":[]}]}}",
+        "scene": "{\"kind\":\"single\",\"metadata\":{\"version\":\"1\",\"timestamp\":\"2026-01-01T00:00:00Z\"},\"root\":{\"kind\":\"root\",\"children\":[{\"kind\":\"download\",\"params\":{\"url\":\"structure.pdb\"},\"children\":[{\"kind\":\"parse\",\"params\":{\"format\":\"pdb\"},\"children\":[{\"kind\":\"structure\",\"params\":{\"type\":\"model\"},\"children\":[{\"kind\":\"component\",\"params\":{\"selector\":\"all\"},\"children\":[{\"kind\":\"representation\",\"params\":{\"type\":\"ball_and_stick\"},\"children\":[{\"kind\":\"color\",\"params\":{\"color\":\"#ef8336\"}}]}]}]}]}]}]}}",
         "coordinates": {
           "format": "pdb",
-          "sha256": "9bee0369d43c4756ee42f5b6d130d2ebf267f48ee1d06b4a23435349bff5c0f4"
+          "sha256": "a91b7c62a8a0ba96784edd75684770bbbf29db5ad2fc7ae584d269ee43fd1310"
         },
         "source": {
           "source": "pdb",
@@ -41,10 +41,10 @@
         "version": 1,
         "title": "Edited pocket",
         "caption": "A later explanation",
-        "scene": "{\"kind\":\"single\",\"root\":{\"kind\":\"root\",\"children\":[{\"kind\":\"download\",\"params\":{\"url\":\"structure.pdb\"},\"children\":[]}]}}",
+        "scene": "{\"kind\":\"single\",\"metadata\":{\"version\":\"1\",\"timestamp\":\"2026-01-01T00:00:00Z\"},\"root\":{\"kind\":\"root\",\"children\":[{\"kind\":\"download\",\"params\":{\"url\":\"structure.pdb\"},\"children\":[{\"kind\":\"parse\",\"params\":{\"format\":\"pdb\"},\"children\":[{\"kind\":\"structure\",\"params\":{\"type\":\"model\"},\"children\":[{\"kind\":\"component\",\"params\":{\"selector\":\"all\"},\"children\":[{\"kind\":\"representation\",\"params\":{\"type\":\"ball_and_stick\"},\"children\":[{\"kind\":\"color\",\"params\":{\"color\":\"#ef8336\"}}]}]}]}]}]}]}}",
         "coordinates": {
           "format": "pdb",
-          "sha256": "9bee0369d43c4756ee42f5b6d130d2ebf267f48ee1d06b4a23435349bff5c0f4"
+          "sha256": "a91b7c62a8a0ba96784edd75684770bbbf29db5ad2fc7ae584d269ee43fd1310"
         },
         "source": {
           "source": "pdb",
@@ -67,6 +67,6 @@
     }
   ],
   "coordinateAssets": {
-    "9bee0369d43c4756ee42f5b6d130d2ebf267f48ee1d06b4a23435349bff5c0f4": "HEADER    preserved coordinate bytes\nATOM      1  CA  ALA A   1\nEND\n"
+    "a91b7c62a8a0ba96784edd75684770bbbf29db5ad2fc7ae584d269ee43fd1310": "HEADER    SYNTHETIC TEST COORDINATES\nATOM      1  N   ALA A   1       0.000   1.450   0.000  1.00 20.00           N  \nATOM      2  CA  ALA A   1       0.000   0.000   0.000  1.00 20.00           C  \nATOM      3  C   ALA A   1       1.500   0.000   0.000  1.00 20.00           C  \nATOM      4  O   ALA A   1       2.000  -1.100   0.000  1.00 20.00           O  \nEND\n"
   }
 }

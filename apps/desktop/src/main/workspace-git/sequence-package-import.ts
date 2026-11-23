@@ -466,6 +466,7 @@ async function inspectGenBankSource(
 ): Promise<{
   sourceSha256: string;
   recordCount: number;
+  completeRecords: boolean;
   size: number;
   locusName: string | null;
 }> {
@@ -482,6 +483,8 @@ async function inspectGenBankSource(
     const buffer = Buffer.allocUnsafe(64 * 1024);
     let carry = '';
     let recordCount = 0;
+    let awaitingTerminator = false;
+    let interruptedRecord = false;
     let bytesRead = 0;
     let firstLine = true;
     let locusName: string | null = null;
@@ -490,7 +493,13 @@ async function inspectGenBankSource(
       const line = firstLine ? rawLine.replace(/^\uFEFF/, '') : rawLine;
       firstLine = false;
       if (line === GENBANK_LOCUS_ENCODING_COMMENT) locusEncoded = true;
-      if (!line.startsWith('LOCUS')) return;
+      if (line.trim() === '//') {
+        awaitingTerminator = false;
+        return;
+      }
+      if (!/^LOCUS\b/u.test(line)) return;
+      if (awaitingTerminator) interruptedRecord = true;
+      awaitingTerminator = true;
       recordCount += 1;
       if (locusName !== null) return;
       const match = line.match(/^LOCUS\s+(.+?)\s+\d+\s+bp\b/i);
@@ -523,6 +532,7 @@ async function inspectGenBankSource(
     return {
       sourceSha256: hash.digest('hex'),
       recordCount,
+      completeRecords: !awaitingTerminator && !interruptedRecord,
       size: bytesRead,
       locusName: locusName && locusEncoded ? decodeGenBankLocusName(locusName) : locusName,
     };
@@ -589,6 +599,14 @@ export async function previewImportedSequencePackages(
         kind: 'blocked',
         sourcePath,
         reason: `"${fileName}" contains no GenBank records. It was left as-is.`,
+        reasonCode: 'parse_failure',
+      };
+    }
+    if (!inspection.completeRecords) {
+      return {
+        kind: 'blocked',
+        sourcePath,
+        reason: `"${fileName}" has a GenBank record without a closing // line.`,
         reasonCode: 'parse_failure',
       };
     }

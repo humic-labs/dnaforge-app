@@ -10,9 +10,9 @@ import {
 import { binaryCoordinateText } from '../../shared/binary-coordinates';
 import {
   MOLECULAR_DOCUMENT_SUFFIX,
-  parseMolecularDocument,
   serializeMolecularDocument,
 } from '../../shared/molecular-document';
+import { readMolecularDocumentContent } from '../../shared/molecular-document-reader';
 import {
   migrateMolecularFile,
   collectMolecularMigrationGitContent,
@@ -65,8 +65,8 @@ async function materializeCoordinatePackageWithJournal(
   return migrateMolecularFile(
     coordinatePath,
     'coordinate',
-    async (bytes) => ({
-      content: serializeMolecularDocument(
+    async (bytes) => {
+      const content = serializeMolecularDocument(
         await buildDefaultMolecularDocument({
           name: stem,
           format,
@@ -78,9 +78,10 @@ async function materializeCoordinatePackageWithJournal(
           documentId: randomUUID(),
           referenceId: randomUUID(),
         })
-      ),
-      productNames: molecularViewNames(stem),
-    }),
+      );
+      await readMolecularDocumentContent(content);
+      return { content, productNames: molecularViewNames(stem) };
+    },
     options
   );
 }
@@ -229,7 +230,10 @@ export async function renameExtensionNamedMolecularViews(
         path,
         'extension-name',
         async (bytes) => {
-          const document = parseMolecularDocument(bytes.toString('utf8'));
+          const document = await readMolecularDocumentContent(
+            bytes.toString('utf8'),
+            bytes.byteLength
+          );
           if (options.protectedEntityIds?.has(document.id))
             throw new Error('MOLECULAR_MIGRATION_IDENTITY_OWNED');
           const name = coordinateFileStem(document.name).trim() || document.name;

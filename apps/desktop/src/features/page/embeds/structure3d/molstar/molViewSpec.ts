@@ -22,10 +22,10 @@ import { invalidateMolecularScientificReview } from './molecularScientificReview
 import { MmcifFormat } from 'molstar/lib/mol-model-formats/structure/mmcif';
 import { PluginCommands } from 'molstar/lib/mol-plugin/commands';
 import { setSubtreeVisibility } from 'molstar/lib/mol-plugin/behavior/static/state';
-import { ComponentExpressionT } from 'molstar/lib/extensions/mvs/tree/mvs/param-types';
 import { PluginStateObject } from 'molstar/lib/mol-plugin-state/objects';
 import { Asset } from 'molstar/lib/mol-util/assets';
 import { fovNormalizedCameraPosition } from 'molstar/lib/mol-util/camera';
+import type { Camera } from 'molstar/lib/mol-canvas3d/camera';
 import type { MolstarPlugin } from './cache';
 import type { StructureCoordinateModelSelection } from '../types';
 import { findDuplicateMolViewSpecGeometry } from './molViewSpecGeometry';
@@ -114,8 +114,13 @@ export {
   type MolecularRenderProfileSelection,
 } from './molecularRenderProfile';
 
-import { MolViewSpecSceneError } from './molViewSpecError';
-export { MolViewSpecSceneError } from './molViewSpecError';
+import {
+  MolViewSpecSceneError,
+  assertMolViewSpecSnapshotIndex,
+  molViewSpecPrimaryResourceName,
+  validateMolViewSpecScene,
+} from '../../../../../shared/mol-view-spec-scene';
+export { MolViewSpecSceneError, validateMolViewSpecScene };
 
 export function requireSerializableMolViewSpecVisibility(
   hiddenChainInstanceIds: readonly string[] | undefined
@@ -147,6 +152,7 @@ type SceneRuntime = {
   representationRefs?: Map<string, string>;
   nativeRepresentationRefs?: Map<string, string>;
   committedCamera?: { scene: string; cameraSnapshot?: string };
+  openingCamera?: { scene: string; snapshotIndex: number; pose: string };
   nativeCaptureMetadata?: { key: string; timestamp: string };
   starterTimestamp?: string;
 };
@@ -369,10 +375,22 @@ export function getMolViewSpecCoordinates(plugin: MolstarPlugin) {
 export type MolViewSpecCameraPolicy = 'capture-current' | 'preserve-authored';
 export type MolViewSpecCaptureOptions = {
   cameraPolicy?: MolViewSpecCameraPolicy;
+  preserveUnchangedOpeningCamera?: boolean;
   authoredCameraSnapshot?: string;
 
   savedCameraBaseline?: { scene: string; cameraSnapshot?: string };
 };
+
+function cameraPose(camera: Camera.Snapshot): string {
+  return JSON.stringify([
+    camera.position,
+    camera.target,
+    camera.up,
+    camera.mode,
+    camera.fov,
+    camera.minNear,
+  ]);
+}
 
 function sameSingleViewAuthoredCamera(scene: MVSData, baseline: string): boolean {
   try {
@@ -424,7 +442,14 @@ export function captureMolViewSpecView(
   if (!camera)
     throw new MolViewSpecSceneError('PLUGIN_NOT_READY', 'The visible camera is not ready.');
   const initialSnapshotIndex = activeMolViewSpecSnapshotIndex(plugin);
-  const preserveCamera = options.cameraPolicy === 'preserve-authored' && !!runtime.scene;
+  const openingCamera = runtime.openingCamera;
+  const preserveCamera =
+    !!runtime.scene &&
+    (options.cameraPolicy === 'preserve-authored' ||
+      (options.preserveUnchangedOpeningCamera &&
+        openingCamera?.scene === runtime.scene &&
+        openingCamera.snapshotIndex === initialSnapshotIndex &&
+        openingCamera.pose === cameraPose(camera)));
   const root = scene.kind === 'multiple' ? scene.snapshots[initialSnapshotIndex].root : scene.root;
   if (!preserveCamera) {
     root.children = (root.children ?? []).filter((node) => node.kind !== 'camera');
@@ -585,10 +610,6 @@ export function commitCurrentMolViewSpecCamera(plugin: MolstarPlugin): {
     cameraSnapshot: captured.cameraSnapshot,
   };
 }
-
-const expressionFields = new Set(
-  Object.keys((ComponentExpressionT as unknown as { props: Record<string, unknown> }).props)
-);
 
 export function resetMolViewSpecRuntime(plugin: MolstarPlugin): void {
   invalidateMolecularScientificReview(plugin);
@@ -914,7 +935,7 @@ export function bindMolViewSpecCoordinates(
   format: 'pdb' | 'mmcif' | 'bcif'
 ): SceneRuntime {
   if (data instanceof Uint8Array) format = 'bcif';
-  const name = format === 'mmcif' ? 'structure.cif' : `structure.${format}`;
+  const name = molViewSpecPrimaryResourceName(format);
   const sourceUrl = `arcp://uuid,${crypto.randomUUID()}/scene.mvsj`;
   const asset = Asset.Url(new URL(name, sourceUrl).href);
   const bytes = typeof data === 'string' ? data : new Uint8Array(data);
@@ -1080,75 +1101,6 @@ function inheritMolViewSpecNativeVisibility(plugin: MolstarPlugin): void {
     )
       setSubtreeVisibility(state, cell.transform.ref, true);
   }
-}
-
-export function validateMolViewSpecScene(
-  scene: string,
-  resourceNames: string | readonly string[]
-): MVSData {
-  const allowedResources = new Set(
-    typeof resourceNames === 'string' ? [resourceNames] : resourceNames
-  );
-  let document: MVSData;
-  try {
-    document = JSON.parse(scene) as MVSData;
-    if (!document || typeof document !== 'object' || !document.metadata)
-      throw new Error('Missing MolViewSpec metadata.');
-    const version = document.metadata.version;
-    if (typeof version !== 'string' || Number(version.split('.')[0]) !== MVSData.SupportedVersion) {
-      throw new MolViewSpecSceneError(
-        'MVS_UNSUPPORTED_VERSION',
-        `This Molstar runtime supports MolViewSpec major version ${MVSData.SupportedVersion}.`
-      );
-    }
-    const issues = MVSData.validationIssues(document, { noExtra: true });
-    if (issues?.length) throw new Error(issues.slice(0, 12).join('\n'));
-  } catch (error) {
-    if (error instanceof MolViewSpecSceneError) throw error;
-    throw new MolViewSpecSceneError(
-      'MVS_INVALID_SCENE',
-      error instanceof Error ? error.message : 'Invalid MVSJ document.'
-    );
-  }
-  if (document.kind === 'multiple' && !document.snapshots.length)
-    throw new MolViewSpecSceneError('MVS_INVALID_SCENE', 'A story must contain at least one view.');
-  type SceneNode = { kind: string; params?: unknown; children?: SceneNode[] };
-  const pending: SceneNode[] =
-    document.kind === 'multiple'
-      ? document.snapshots.map((snapshot) => snapshot.root)
-      : [document.root];
-  let nodes = 0;
-  while (pending.length) {
-    const node = pending.pop()!;
-    if (++nodes > 2_000)
-      throw new MolViewSpecSceneError(
-        'MVS_INVALID_SCENE',
-        'The scene exceeds the 2,000-node limit.'
-      );
-    const params = node.params as Record<string, unknown> | undefined;
-    if (node.kind === 'component' && typeof params?.selector === 'object' && params.selector) {
-      const expressions = Array.isArray(params.selector) ? params.selector : [params.selector];
-      for (const expression of expressions) {
-        const unknown = Object.keys(expression).filter((key) => !expressionFields.has(key));
-        if (unknown.length)
-          throw new MolViewSpecSceneError(
-            'MVS_INVALID_SCENE',
-            `Unknown MolViewSpec selector fields: ${unknown.join(', ')}. Use the installed official component expression schema; unsupported fields are not silently ignored.`
-          );
-      }
-    }
-    for (const key of ['url', 'uri']) {
-      const uri = params?.[key];
-      if (uri !== undefined && !allowedResources.has(String(uri))) {
-        throw new MolViewSpecSceneError(
-          'MVS_UNSUPPORTED_RESOURCE',
-          `Scene resource ${String(uri)} is not pinned to this view. Available resources: ${[...allowedResources].join(', ')}.`
-        );
-      }
-    }
-    pending.push(...(node.children ?? []));
-  }
-  return document;
 }
 
 function canvasInSnapshot(document: MVSData, index: number): string | null {
@@ -1804,15 +1756,7 @@ export async function loadMolViewSpecScene(
     validateMolViewSpecScene(scene, activeMolViewSpecResourceNames(plugin))
   );
   const initialIndex = options.initialSnapshotIndex ?? 0;
-  if (
-    !Number.isInteger(initialIndex) ||
-    initialIndex < 0 ||
-    (document.kind === 'multiple' ? initialIndex >= document.snapshots.length : initialIndex !== 0)
-  )
-    throw new MolViewSpecSceneError(
-      'MVS_STORY_STEP_INVALID',
-      'The requested opening story step does not exist.'
-    );
+  assertMolViewSpecSnapshotIndex(document, initialIndex);
   if (!isCurrent())
     throw new MolViewSpecSceneError(
       'VIEW_CHANGED',
@@ -1882,6 +1826,7 @@ export async function loadMolViewSpecScene(
   const previousScene = runtime.scene;
   const previousNativeSnapshotIds = runtime.nativeSnapshotIds;
   const previousCommittedCamera = runtime.committedCamera;
+  const previousOpeningCamera = runtime.openingCamera;
   const previousTransparentBackground = plugin.canvas3d?.props.transparentBackground;
   try {
     const bound = bindMolViewSpecRepresentations(
@@ -1964,6 +1909,12 @@ export async function loadMolViewSpecScene(
     runtime.representationRefs = bound.refs;
     runtime.nativeRepresentationRefs = undefined;
     runtime.committedCamera = undefined;
+    const openedCamera = plugin.canvas3d?.camera.getSnapshot();
+    runtime.openingCamera = openedCamera && {
+      scene: runtime.scene,
+      snapshotIndex: initialIndex,
+      pose: cameraPose(openedCamera),
+    };
     runtime.nativeSnapshotIds = plugin.managers.snapshot.state.entries
       .toArray()
       .map((entry) => entry.snapshot.id);
@@ -1986,6 +1937,7 @@ export async function loadMolViewSpecScene(
       runtime.scene = previousScene;
       runtime.nativeSnapshotIds = previousNativeSnapshotIds;
       runtime.committedCamera = previousCommittedCamera;
+      runtime.openingCamera = previousOpeningCamera;
       if (previousTransparentBackground !== undefined)
         plugin.canvas3d?.setProps({ transparentBackground: previousTransparentBackground });
       notifyStructureSceneReplaced(plugin);
@@ -1993,6 +1945,7 @@ export async function loadMolViewSpecScene(
       runtime.scene = undefined;
       runtime.nativeSnapshotIds = undefined;
       runtime.committedCamera = undefined;
+      runtime.openingCamera = undefined;
       throw new MolViewSpecSceneError(
         'MVS_ROLLBACK_FAILED',
         'Scene application failed and the previous viewer state could not be restored.',

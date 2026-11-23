@@ -5379,7 +5379,10 @@
                     "nextOpenInput": {
                       "type": "object",
                       "properties": {
-                        "type": { "type": "string", "const": "sequence" },
+                        "type": {
+                          "type": "string",
+                          "enum": ["sequence", "structure", "file", "pdf", "scientific-document"]
+                        },
                         "entityId": { "type": "string" }
                       },
                       "required": ["type", "entityId"],
@@ -5403,6 +5406,90 @@
                     "importRequired": { "type": "boolean" },
                     "biologyMatches": { "type": "array", "items": { "type": "string" } },
                     "biologySearchPartial": { "type": "boolean" },
+                    "documentAvailability": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": { "state": { "type": "string", "const": "unchecked" } },
+                          "required": ["state"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "state": { "type": "string", "const": "ready" },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "pdf",
+                                "image",
+                                "table",
+                                "html",
+                                "molecular-document",
+                                "structure",
+                                "sequence",
+                                "protein",
+                                "notebook",
+                                "design",
+                                "primer",
+                                "entity",
+                                "selection",
+                                "sequence-package",
+                                "table-package",
+                                "protocol",
+                                "protocol-run",
+                                "track-view"
+                              ]
+                            },
+                            "revision": { "type": "string" },
+                            "paths": { "type": "array", "items": { "type": "string" } },
+                            "sequencePackage": {
+                              "type": "object",
+                              "properties": {
+                                "documentId": { "type": "string" },
+                                "name": { "type": "string" },
+                                "productPath": { "type": "string" },
+                                "schemaName": { "type": "string" }
+                              },
+                              "required": ["documentId", "name", "productPath"],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": ["state", "kind", "revision"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "state": { "type": "string", "const": "blocked" },
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "unknown",
+                                "malformed",
+                                "newer-format",
+                                "unsupported-format",
+                                "missing",
+                                "missing-asset",
+                                "permission",
+                                "project",
+                                "too-large",
+                                "changed",
+                                "password",
+                                "runtime",
+                                "coordinates",
+                                "scene"
+                              ]
+                            },
+                            "reason": { "type": "string" },
+                            "recognized": { "type": "boolean" },
+                            "paths": { "type": "array", "items": { "type": "string" } }
+                          },
+                          "required": ["state", "code", "reason", "recognized"],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
                     "iconContext": {
                       "type": "object",
                       "properties": {

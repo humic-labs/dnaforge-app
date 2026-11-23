@@ -44,6 +44,7 @@ import { writeWorkspaceTextFileAtomicInMain } from './primer-artifact-files';
 import { syncDirectory } from './fs-durability';
 import {
   publishTablePackageInMain,
+  readMatchingTablePackageInMain,
   readTablePackageInMain,
   readTableSnapshotInMain,
   type ReadTablePackageResult,
@@ -443,8 +444,13 @@ export class NativeTableDocumentCommands {
         physicalDirectory(authority.workspaceRoot, markerDirectory, false);
         if (await existing(join(markerDirectory, 'table.json'))) {
           const location = await this.destination(authority, directory);
-          const actual = await this.readPackage(location);
-          if (actual.head.id === tableId) matches.push(actual);
+          const actual = this.options.io?.readPackage
+            ? await this.readPackage(location)
+            : await readMatchingTablePackageInMain(
+                { ...location, expectedDocumentId: tableId },
+                (head) => head.id === tableId
+              );
+          if (actual?.head.id === tableId) matches.push(actual);
           continue;
         }
         if (await detectDocumentPackage(directory, packageIo)) continue;

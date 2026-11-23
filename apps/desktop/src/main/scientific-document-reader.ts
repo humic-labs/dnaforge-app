@@ -19,7 +19,10 @@ import {
   type ScientificDocumentReadResult,
 } from '@waypoint/domain-services';
 import { type DesktopScientificDocumentReadRequest } from '../shared/scientific-document-ipc';
+import { readCompressedGenBank } from '../shared/compressed-genbank-reader';
+import { DocumentReadError } from '../shared/document-read-failure';
 import { HARD_CAP_BYTES } from '../shared/oversized-guard';
+import { isCompressedGenBankPath } from '../shared/scientific-file-types';
 import { workspaceScopeKey } from '../shared/workspace-scoped-identity';
 import { canonicalWorkspacePath } from './primer-artifact-files';
 import { ScientificObjectStore } from './scientific-object-store';
@@ -210,13 +213,22 @@ export async function readScientificDocumentInMain(
         `Scientific document exceeds the ${HARD_CAP_BYTES}-byte read limit.`
       );
     }
+    const compressed = isCompressedGenBankPath(canonical.candidate);
     let content: string;
     try {
-      content = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-    } catch {
+      content = compressed
+        ? await readCompressedGenBank(bytes)
+        : new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch (error) {
+      if (error instanceof DocumentReadError && error.code === 'too-large')
+        return scientificDocumentFailure(
+          'UNSUPPORTED_FORMAT',
+          'Scientific document exceeds the decoded read limit.'
+        );
+      if (!(error instanceof TypeError) && !(error instanceof DocumentReadError)) throw error;
       return scientificDocumentFailure(
         'INVALID_ENCODING',
-        'Scientific document must contain valid UTF-8 text.'
+        'Scientific document must contain valid UTF-8 text and, if compressed, a complete gzip stream.'
       );
     }
     return {
@@ -227,10 +239,12 @@ export async function readScientificDocumentInMain(
         name: basename(canonical.candidate),
         format: scientificDocumentFormat(document),
         content,
-        byteLength: bytes.byteLength,
+        byteLength: Buffer.byteLength(content, 'utf8'),
         revision: {
           kind: 'local-file',
-          contentSha256: createHash('sha256').update(bytes).digest('hex'),
+          contentSha256: createHash('sha256')
+            .update(compressed ? content : bytes)
+            .digest('hex'),
         },
         support: { route: 'desktop', access: 'read-write' },
       }),

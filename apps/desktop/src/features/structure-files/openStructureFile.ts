@@ -17,6 +17,7 @@ import {
   registerWorkspaceFile,
 } from '../../db/workspace-catalog';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
+import { documentReadError } from '../../shared/document-read-failure';
 import { HARD_CAP_BYTES, SOFT_WARN_BYTES } from '../../shared/oversized-guard';
 import { getStructureFileFormat, type StructureFileFormat } from '../../utils/fileTypes';
 import type {
@@ -447,6 +448,14 @@ async function openStructureFileOnce(
         format,
         'error'
       );
+    }
+    if (!getActiveOptions()) return cancelledDocumentOpen();
+    try {
+      const { readLooseCoordinateModel } = await import('../../shared/loose-coordinate-reader');
+      await readLooseCoordinateModel(data, format);
+    } catch (error) {
+      if (!getActiveOptions()) return cancelledDocumentOpen();
+      return { status: 'failed', message: documentReadError(error).message };
     }
     if (!getActiveOptions()) return cancelledDocumentOpen();
     const coordinateDigestSha256 = await digestStructureData(data);

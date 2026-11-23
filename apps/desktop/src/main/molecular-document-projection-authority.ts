@@ -1,10 +1,9 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import {
   MOLECULAR_DOCUMENT_FILE_KIND,
-  serializeMolecularDocument,
   type MolecularDocumentSourceProjection,
   type ReconcileMolecularDocumentSourcesRequest,
 } from '../shared/molecular-document';
@@ -34,10 +33,7 @@ export async function reconcileMolecularDocumentSourceLinksInMain(
     path: request.path,
     workspaceRoot: request.workspaceRoot,
   });
-  const documentHash = createHash('sha256')
-    .update(serializeMolecularDocument(saved.document))
-    .digest('hex');
-  if (documentHash !== request.documentHash)
+  if (saved.revision !== request.documentHash)
     throw new Error('The molecular document changed before its source projection. Reopen it.');
   return runDatabase(() =>
     db.transaction(() => {

@@ -7,6 +7,7 @@ import type {
   IndexedGenomeTabState,
   GenomeOpenSource,
 } from '../../shared/indexed-genome';
+import { documentReadError } from '../../shared/document-read-failure';
 import {
   buildIndexedGenomePaths,
   CURRENT_INDEXED_GENOME_SCHEMA,
@@ -40,6 +41,48 @@ interface PersistedIndexMetadata extends IndexedGenomeMetadata {
   sourceExt: string;
   indexedAt: number;
   schemaVersion?: number;
+}
+
+type IndexedGenomeCacheInput = Pick<
+  PrepareIndexedGenomeSessionInput,
+  'stat' | 'workspaceRoot' | 'migrateUncompressedFasta' | 'indexerBinary'
+> & { source: Pick<GenomeOpenSource, 'sourcePath' | 'sourceExt'> };
+
+/** Use the same source identity as normal Open. An observer requests a read-only cache lookup. */
+export async function readCurrentIndexedGenomeCache(
+  input: IndexedGenomeCacheInput,
+  observer?: {
+    observe(path: string): Promise<void>;
+    readText(path: string, limit: number): Promise<string>;
+  }
+) {
+  const paths = buildIndexedGenomePaths(createPathInput(input));
+  await observer?.observe(paths.metadataPath);
+  const persisted = await readPersistedMetadata(paths.metadataPath, observer?.readText);
+  const sourceExt = input.source.sourceExt ?? extensionForPath(input.source.sourcePath);
+  if (
+    !persisted ||
+    (persisted.schemaVersion ?? 0) < CURRENT_INDEXED_GENOME_SCHEMA ||
+    !persistedMetadataMatchesSource(persisted, input, sourceExt)
+  ) {
+    return null;
+  }
+  if (observer) {
+    const { fastaPath, faiPath, gziPath, gffPath, tbiPath } = paths.manifest;
+    await Promise.all(
+      [fastaPath, faiPath, gziPath, ...(persisted.featureCount === 0 ? [] : [gffPath, tbiPath])]
+        .filter((path): path is string => Boolean(path))
+        .map((path) => observer.observe(path))
+    );
+  }
+  const manifest = await completeIndexedGenomeManifest(paths.manifest, {
+    sourceExt: persisted.sourceExt,
+    featureCount: persisted.featureCount,
+    migrateUncompressedFasta: input.migrateUncompressedFasta,
+    indexerBinary: input.indexerBinary,
+    requireExistingBgzf: Boolean(observer),
+  });
+  return manifest ? { manifest, persisted } : null;
 }
 
 export interface PrepareIndexedGenomeSessionInput {
@@ -281,28 +324,14 @@ async function prepareIndexedGenomeSessionUncached(
     };
   }
 
-  const persisted = await readPersistedMetadata(paths.metadataPath);
-  const cacheIsStale =
-    persisted != null &&
-    (persisted.schemaVersion == null || persisted.schemaVersion < CURRENT_INDEXED_GENOME_SCHEMA);
-  const persistedMatchesSource =
-    persisted != null && persistedMetadataMatchesSource(persisted, input, sourceExt);
-  const existingManifest =
-    cacheIsStale || !persistedMatchesSource
-      ? null
-      : await completeIndexedGenomeManifest(paths.manifest, {
-          sourceExt: persisted?.sourceExt ?? sourceExt,
-          featureCount: persisted?.featureCount,
-          migrateUncompressedFasta: input.migrateUncompressedFasta,
-          indexerBinary: input.indexerBinary,
-        });
-
-  if (existingManifest) {
+  const cached = await readCurrentIndexedGenomeCache(input);
+  if (cached) {
+    const { manifest: existingManifest, persisted } = cached;
     throwIfAborted(input.signal);
     const length = await input.loadChromosomeLength(existingManifest, input.signal);
     throwIfAborted(input.signal);
     const featureCount =
-      typeof persisted?.featureCount === 'number' ? persisted.featureCount : undefined;
+      typeof persisted.featureCount === 'number' ? persisted.featureCount : undefined;
     return {
       reusedExistingIndex: true,
       tabState: {
@@ -316,14 +345,14 @@ async function prepareIndexedGenomeSessionUncached(
         manifest: { ...existingManifest, length },
         metadata: {
           length,
-          circular: persisted?.circular ?? existingManifest.circular ?? false,
+          circular: persisted.circular,
           ...(featureCount !== undefined ? { featureCount } : {}),
-          ...(persisted?.annotationTypes ? { annotationTypes: persisted.annotationTypes } : {}),
-          ...(persisted?.annotationRasterReady !== undefined
+          ...(persisted.annotationTypes ? { annotationTypes: persisted.annotationTypes } : {}),
+          ...(persisted.annotationRasterReady !== undefined
             ? { annotationRasterReady: persisted.annotationRasterReady }
             : {}),
         },
-        indexedAt: persisted?.indexedAt,
+        indexedAt: persisted.indexedAt,
       },
     };
   }
@@ -390,7 +419,7 @@ async function prepareIndexedGenomeSessionUncached(
 }
 
 function createPathInput(input: {
-  source: GenomeOpenSource;
+  source: Pick<GenomeOpenSource, 'sourcePath'>;
   stat: GenomeSourceStat;
   workspaceRoot: string;
 }): IndexedGenomePathInput {
@@ -405,7 +434,7 @@ function createPathInput(input: {
 
 function persistedMetadataMatchesSource(
   persisted: PersistedIndexMetadata,
-  input: PrepareIndexedGenomeSessionInput,
+  input: IndexedGenomeCacheInput,
   sourceExt: string
 ): boolean {
   return (
@@ -495,9 +524,12 @@ async function completeIndexedGenomeManifest(
     featureCount?: number;
     migrateUncompressedFasta?: PrepareIndexedGenomeSessionInput['migrateUncompressedFasta'];
     indexerBinary?: string;
+    requireExistingBgzf?: boolean;
   } = {}
 ): Promise<IndexedGenomeManifest | null> {
-  const sequenceManifest = await resolveIndexedGenomeSequenceManifest(manifest, options);
+  const sequenceManifest = options.requireExistingBgzf
+    ? manifest
+    : await resolveIndexedGenomeSequenceManifest(manifest, options);
   if (!sequenceManifest) return null;
   manifest = sequenceManifest;
   const hasFasta = await exists(manifest.fastaPath);
@@ -532,11 +564,15 @@ async function completeIndexedGenomeManifest(
   };
 }
 
-async function readPersistedMetadata(path: string): Promise<PersistedIndexMetadata | null> {
+async function readPersistedMetadata(
+  path: string,
+  readText?: (path: string, limit: number) => Promise<string>
+): Promise<PersistedIndexMetadata | null> {
   try {
-    const parsed = JSON.parse(await readFile(path, 'utf8')) as Partial<PersistedIndexMetadata>;
+    const text = readText ? await readText(path, 1024 * 1024) : await readFile(path, 'utf8');
+    const parsed = JSON.parse(text) as Partial<PersistedIndexMetadata> | null;
     if (
-      typeof parsed.length !== 'number' ||
+      typeof parsed?.length !== 'number' ||
       typeof parsed.circular !== 'boolean' ||
       typeof parsed.chrom !== 'string' ||
       typeof parsed.sourcePath !== 'string' ||
@@ -567,7 +603,11 @@ async function readPersistedMetadata(path: string): Promise<PersistedIndexMetada
       indexedAt: parsed.indexedAt,
       ...(typeof parsed.schemaVersion === 'number' ? { schemaVersion: parsed.schemaVersion } : {}),
     };
-  } catch {
+  } catch (error) {
+    if (readText && !(error instanceof SyntaxError)) {
+      const { code } = documentReadError(error);
+      if (code !== 'missing' && code !== 'missing-asset') throw error;
+    }
     return null;
   }
 }

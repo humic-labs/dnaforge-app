@@ -14,7 +14,7 @@ import {
 import type { TableLegacyAlias } from '../shared/table-package';
 import type { NativeNotebookScope } from './notebook-document-owner';
 import type { NativeTableDocumentCommands } from './table-document-commands';
-import { readTablePackageInMain, type ReadTablePackageResult } from './table-package';
+import { readMatchingTablePackageInMain, type ReadTablePackageResult } from './table-package';
 
 interface NotebookTableAliasesOptions {
   tableDocuments?: () => Pick<NativeTableDocumentCommands, 'execute'>;
@@ -57,7 +57,11 @@ async function assertDirectory(root: string, path: string): Promise<void> {
   }
 }
 
-async function packages(scope: NativeNotebookScope): Promise<ReadTablePackageResult[]> {
+async function packages(
+  scope: NativeNotebookScope,
+  notebookId: string,
+  blockIds: ReadonlySet<unknown>
+): Promise<ReadTablePackageResult[]> {
   const result: ReadTablePackageResult[] = [];
   const pending = [scope.workspaceRoot];
   let count = 0;
@@ -79,12 +83,24 @@ async function packages(scope: NativeNotebookScope): Promise<ReadTablePackageRes
     if (await existing(marker)) {
       await assertDirectory(scope.workspaceRoot, marker);
       if (await existing(join(marker, 'table.json'))) {
-        result.push(
-          await readTablePackageInMain({
-            workspaceRoot: scope.workspaceRoot,
-            packageRoot: directory,
-          })
+        const matched = await readMatchingTablePackageInMain(
+          { workspaceRoot: scope.workspaceRoot, packageRoot: directory },
+          (head) =>
+            head.status !== 'pending-promotion' &&
+            Array.isArray(head.aliases) &&
+            head.aliases.some(
+              (alias: unknown) =>
+                alias !== null &&
+                typeof alias === 'object' &&
+                'kind' in alias &&
+                alias.kind === 'notebook-inline' &&
+                'notebookId' in alias &&
+                alias.notebookId === notebookId &&
+                'blockId' in alias &&
+                blockIds.has(alias.blockId)
+            )
         );
+        if (matched) result.push(matched);
         continue;
       }
       if (await detectDocumentPackage(directory, io)) continue;
@@ -121,13 +137,14 @@ function archivedBlock(claim: AliasClaim): JSONContent {
   return block;
 }
 
-function tableNodes(content: JSONContent): boolean {
+function collectTableBlocks(content: JSONContent, ids = new Set<unknown>()) {
   if (
     content.type === 'embed' &&
     (content.attrs?.type === 'table' || content.attrs?.type === 'table-reference')
   )
-    return true;
-  return Boolean(content.content?.some(tableNodes));
+    ids.add(content.attrs.refId);
+  else for (const node of content.content ?? []) collectTableBlocks(node, ids);
+  return ids;
 }
 
 export function createNotebookTableAliases(options: NotebookTableAliasesOptions) {
@@ -135,10 +152,11 @@ export function createNotebookTableAliases(options: NotebookTableAliasesOptions)
     scope: NativeNotebookScope,
     content: JSONContent
   ): Promise<PreparedAliases> => {
-    if (!tableNodes(content)) return { content, verify: async () => scope.assertCurrent() };
+    const blockIds = collectTableBlocks(content);
+    if (!blockIds.size) return { content, verify: async () => scope.assertCurrent() };
     const inspect = async () => {
-      const tables = await packages(scope);
       const notebookId = stripWorkspaceScope(scope.documentId);
+      const tables = await packages(scope, notebookId, blockIds);
       const claims = new Map<string, AliasClaim[]>();
       for (const table of tables) {
         if (table.head.status !== 'active') continue;

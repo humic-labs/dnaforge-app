@@ -6,6 +6,7 @@ import { platform } from '../platform';
 import { resolveFilePathWithFallback } from '../hooks/resolveFilePath';
 import { commitReadableContent, failReadableContent } from '../lib/readable-content-telemetry';
 import { FRAME_TAB_NAME_PREFIX } from '../shared/frame-tab-navigation';
+import { useInitialLiteralOpenSnapshot } from '../features/document-opening/literal-open-snapshot';
 
 type ViewMode = 'rendered' | 'source';
 type HtmlReadState =
@@ -18,6 +19,7 @@ interface HtmlViewerTabProps {
 }
 
 export function HtmlViewerTab({ filePath }: HtmlViewerTabProps) {
+  const readInitialSnapshot = useInitialLiteralOpenSnapshot(filePath, 'html');
   const [read, setRead] = useState<HtmlReadState>({ filePath, phase: 'loading' });
   const current: HtmlReadState = read.filePath === filePath ? read : { filePath, phase: 'loading' };
   const html = current.phase === 'ready' ? current.html : null;
@@ -40,7 +42,7 @@ export function HtmlViewerTab({ filePath }: HtmlViewerTabProps) {
     (async () => {
       try {
         const resolved = resolveFilePathWithFallback(filePath);
-        const content = await platform().fs.readTextFile(resolved);
+        const content = await (readInitialSnapshot()?.text ?? platform().fs.readTextFile(resolved));
         if (cancelled) return;
         setRead({ filePath, phase: 'ready', html: content });
         commitReadableContent(filePath);
@@ -59,7 +61,7 @@ export function HtmlViewerTab({ filePath }: HtmlViewerTabProps) {
     return () => {
       cancelled = true;
     };
-  }, [filePath]);
+  }, [filePath, readInitialSnapshot]);
 
   const handleCopyPath = useCallback(async () => {
     try {

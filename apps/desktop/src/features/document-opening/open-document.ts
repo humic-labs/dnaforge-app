@@ -17,10 +17,21 @@ import type { OpenDocumentRequest, OpenFileDocumentRequest } from './types';
 import { registerPendingReadableContent } from '../../lib/readable-content-telemetry';
 import { beginPdfRead } from '../pdf/public/telemetry';
 import { TRACK_VIEW_SUFFIX } from '../../shared/track-view';
-import { MOLECULAR_DOCUMENT_FILE_SUFFIX } from '../../shared/registry-file-types';
+import {
+  isLiteralDocumentKind,
+  isMolecularDocumentFile,
+  typedDocumentKindForPath,
+} from '../../shared/document-availability';
+import {
+  documentReadError,
+  documentReadReason,
+  isDocumentReadReason,
+} from '../../shared/document-read-failure';
 import { requestGenomeViewFileOpen } from '../sequence/public/genome-view-open-request';
 import { beginImageOpenRequest, admitImageOpen } from './image-view-lifecycle';
 import { resolveFilesystemDocumentTarget } from './filesystem-target';
+import { prepareDocumentOpen } from './check-document-open';
+import { stageLiteralOpenSnapshot, type LiteralOpenSnapshot } from './literal-open-snapshot';
 
 type FileHandler = (request: OpenFileDocumentRequest) => Promise<DocumentOpenResult>;
 type TrackViewOpenRequest = Pick<OpenDocumentRequest, 'signal' | 'placement' | 'label'>;
@@ -60,10 +71,21 @@ async function openLiteral(
     type === 'legacy-fasta'
   )
     return { status: 'unsupported', message: 'Unsupported document view.' };
-  const result = presentDocument(
-    { type, entityId: request.target.path, label: request.label },
-    request.placement
-  );
+  const rollback =
+    request.initialLiteral?.kind === type
+      ? stageLiteralOpenSnapshot(request.target.path, request.initialLiteral)
+      : undefined;
+  let result: DocumentOpenResult;
+  try {
+    result = presentDocument(
+      { type, entityId: request.target.path, label: request.label },
+      request.placement
+    );
+  } catch (error) {
+    rollback?.();
+    throw error;
+  }
+  if (result.status !== 'presented') rollback?.();
   if (result.status === 'presented' && admittedKind === 'protein') {
     const tab = useCanvasStore
       .getState()
@@ -198,8 +220,8 @@ const fileHandlers = {
 export function resolveFileDocumentKind(
   target: OpenFileDocumentRequest['target']
 ): FileDocumentKind | null {
+  if (isMolecularDocumentFile(target.path)) return 'molecular-document';
   if (target.tabType === 'page') return 'page';
-  if (target.path.endsWith(MOLECULAR_DOCUMENT_FILE_SUFFIX)) return 'molecular-document';
   if (target.path.endsWith(TRACK_VIEW_SUFFIX)) return 'track-view';
   if (isEntityArtifactPath(target.path)) return 'entity';
   const recognized = getTabTypeForFile(target.path);
@@ -242,12 +264,25 @@ export async function openDocument(request: OpenDocumentRequest): Promise<Docume
       : null;
   try {
     let resolvedRequest = request;
+    let packageRoot: string | undefined;
+    let initialLiteral: LiteralOpenSnapshot | undefined;
     if (request.target.kind === 'file') {
+      const target = request.target;
       const resolution = await resolveFilesystemDocumentTarget(
         request.target,
         platform().fs,
         request.signal
-      );
+      ).catch(async (error) => {
+        const kind = resolveFileDocumentKind(target);
+        const { availability } = await prepareDocumentOpen(
+          target.path,
+          false,
+          isLiteralDocumentKind(kind) ? kind : undefined
+        );
+        if (availability.state === 'blocked')
+          throw new Error(availability.reason, { cause: error });
+        throw error;
+      });
       if (request.signal?.aborted || resolution.status === 'cancelled') {
         const result = cancelledDocumentOpen();
         admitImageOpen(imageRequest, result);
@@ -258,8 +293,29 @@ export async function openDocument(request: OpenDocumentRequest): Promise<Docume
         return resolution;
       }
       resolvedRequest = { ...request, target: resolution.target };
+      packageRoot = resolution.packageRoot;
     }
-    const result = await dispatchDocument(resolvedRequest);
+    const target = resolvedRequest.target;
+    if (target.kind === 'file' || target.kind === 'sequence-package') {
+      const path = packageRoot ?? target.path;
+      // This opener reads and validates the molecular revision it presents.
+      if (!isMolecularDocumentFile(path)) {
+        const kind = target.kind === 'file' ? resolveFileDocumentKind(target) : undefined;
+        const { availability, snapshot } = await prepareDocumentOpen(
+          path,
+          Boolean(packageRoot) || target.kind === 'sequence-package',
+          isLiteralDocumentKind(kind) ? kind : undefined
+        );
+        if (request.signal?.aborted) return cancelledDocumentOpen();
+        if (availability.state === 'blocked') {
+          const result = { status: 'blocked', message: availability.reason } as const;
+          admitImageOpen(imageRequest, result);
+          return result;
+        }
+        initialLiteral = snapshot;
+      }
+    }
+    const result = await dispatchDocument(resolvedRequest, initialLiteral);
     admitImageOpen(imageRequest, result);
     if (result.status === 'presented' && request.navigation && !request.signal?.aborted) {
       useCanvasStore.getState().setTabViewState(result.panelId, result.tabId, {
@@ -269,15 +325,25 @@ export async function openDocument(request: OpenDocumentRequest): Promise<Docume
     }
     return result;
   } catch (error) {
+    const path = request.target.kind === 'file' ? request.target.path : undefined;
+    const typed = path ? typedDocumentKindForPath(path) : undefined;
+    const message = error instanceof Error ? error.message : String(error);
     const result: DocumentOpenResult = request.signal?.aborted
       ? cancelledDocumentOpen()
-      : { status: 'failed', message: error instanceof Error ? error.message : String(error) };
+      : typed && isDocumentReadReason(message)
+        ? { status: 'blocked', message }
+        : typed
+          ? { status: 'failed', message: documentReadReason(documentReadError(error).code) }
+          : { status: 'failed', message };
     admitImageOpen(imageRequest, result);
     return result;
   }
 }
 
-async function dispatchDocument(request: OpenDocumentRequest): Promise<DocumentOpenResult> {
+async function dispatchDocument(
+  request: OpenDocumentRequest,
+  initialLiteral?: LiteralOpenSnapshot
+): Promise<DocumentOpenResult> {
   const { target } = request;
   if (target.kind === 'legacy-migration-file') {
     const { resolveLegacyMigrationFastaRead } =
@@ -332,6 +398,7 @@ async function dispatchDocument(request: OpenDocumentRequest): Promise<DocumentO
     return fileHandlers[kind]({
       ...request,
       target,
+      initialLiteral,
       label: request.label?.trim() || target.path.split(/[\\/]/).pop() || 'Untitled',
     });
   }
