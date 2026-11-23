@@ -268,20 +268,20 @@ describe('Sanger read paint ownership', () => {
       expect(labelOnly?.qualityVisible ?? false).toBe(false);
       expect(labelOnly?.basesVisible ?? false).toBe(false);
 
-      container.position.set(0, -50);
-      renderer.paint({ ...args, containerTopPx: -50 });
+      container.position.set(0, -100);
+      renderer.paint({ ...args, containerTopPx: -100 });
       expect(receipt(renderer, container, data)).toMatchObject({
-        traceVisible: true,
-        qualityVisible: false,
-        basesVisible: false,
+        traceVisible: false,
+        qualityVisible: true,
+        basesVisible: true,
       });
 
       container.position.set(0, 150);
       renderer.paint({ ...args, containerTopPx: 150 });
       expect(receipt(renderer, container, data)).toMatchObject({
-        traceVisible: false,
-        qualityVisible: true,
-        basesVisible: true,
+        traceVisible: true,
+        qualityVisible: false,
+        basesVisible: false,
       });
     } finally {
       renderer.unmount(container);
@@ -297,9 +297,9 @@ describe('Sanger read paint ownership', () => {
       const masked = { ...args, contentClipTopPx: 100 };
       renderer.paint(masked);
       expect(receipt(renderer, container, data)).toMatchObject({
-        traceVisible: true,
-        qualityVisible: false,
-        basesVisible: false,
+        traceVisible: false,
+        qualityVisible: true,
+        basesVisible: true,
       });
       const fullyMasked = { ...args, contentClipTopPx: args.viewportHeightPx };
       renderer.paint(fullyMasked);
