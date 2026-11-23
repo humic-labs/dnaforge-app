@@ -156,7 +156,15 @@ export function ReadTrackGutter({
   onPreviewCommand,
   ...reference
 }: Props) {
-  const bands = useLaneScreenBands(mapRef, rendererEpoch);
+  const trackLayoutKey = useMemo(
+    () =>
+      JSON.stringify([
+        layout.rows.filter((row) => row.kind === 'group').map((row) => row.id),
+        bindings.map(({ track }) => [track.id, track.order, track.visible, track.sizing]),
+      ]),
+    [bindings, layout.rows]
+  );
+  const bands = useLaneScreenBands(mapRef, rendererEpoch, trackLayoutKey);
   const scrollLayerRef = useTrackGutterScroll(mapRef, rendererEpoch);
   const width = useTrackGutterLayoutStore((s) => s.width);
   const resize = useTrackGutterLayoutStore((s) => s.setWidth);

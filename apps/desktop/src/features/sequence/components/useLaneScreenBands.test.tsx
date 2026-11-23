@@ -10,6 +10,24 @@ describe('useLaneScreenBands', () => {
     vi.useRealTimers();
   });
 
+  it('reads newly mounted track bounds before the next user interaction', () => {
+    vi.useFakeTimers();
+    const renderer = { getLaneScreenSnapshot: vi.fn(() => ({ trackScreenBounds: {} })) };
+    const map = {
+      getLinearRenderer: () => renderer,
+      requestRender: vi.fn(),
+      subscribeToPresentedFrames: () => () => {},
+    } as unknown as IndexedGenomeTileNativeMapHandle;
+    const mapRef = { current: map };
+    const { result, unmount } = renderHook(() => useLaneScreenBands(mapRef, 1, 'read'));
+    renderer.getLaneScreenSnapshot.mockReturnValue({
+      trackScreenBounds: { read: { topPx: 98, heightPx: 138 } },
+    });
+    act(() => vi.advanceTimersByTime(20));
+    expect(result.current.dataBounds.read).toEqual({ topPx: 98, heightPx: 138 });
+    unmount();
+  });
+
   it('reads the presented renderer projection used to align the lane gutter', () => {
     vi.useFakeTimers();
     const getLaneScreenSnapshot = vi.fn(() => ({

@@ -22,7 +22,8 @@ function bandsKey(b: LaneScreenBands): string {
 
 export function useLaneScreenBands(
   webglRef: RefObject<IndexedGenomeTileNativeMapHandle | null>,
-  rendererEpoch = 0
+  rendererEpoch = 0,
+  trackLayoutKey = ''
 ): LaneScreenBands {
   const [bands, setBands] = useState<LaneScreenBands>(EMPTY);
   const lastKeyRef = useRef<string>('');
@@ -31,11 +32,12 @@ export function useLaneScreenBands(
     let unsubscribe: (() => void) | undefined;
     let retryFrame: number | null = null;
     let disposed = false;
-    const read = (presented = false) => {
+    const read = (map: IndexedGenomeTileNativeMapHandle, presented = false) => {
       if (disposed) return;
-      const renderer = webglRef.current?.getLinearRenderer?.();
+      const renderer = map.getLinearRenderer?.();
       const snap = renderer?.getLaneScreenSnapshot?.();
-      const next = snap ? normalizeLaneScreenBands(snap) : EMPTY;
+      if (!snap) return;
+      const next = normalizeLaneScreenBands(snap);
       const key = bandsKey(next);
       if (key !== lastKeyRef.current) {
         lastKeyRef.current = key;
@@ -50,9 +52,15 @@ export function useLaneScreenBands(
         retryFrame = requestAnimationFrame(attach);
         return;
       }
-      read();
-      unsubscribe = map.subscribeToPresentedFrames(() => read(true));
+      unsubscribe = map.subscribeToPresentedFrames(() => read(map, true));
+      read(map);
       map.requestRender();
+      if (trackLayoutKey) {
+        retryFrame = requestAnimationFrame(() => {
+          read(map);
+          map.requestRender();
+        });
+      }
     };
     attach();
     return () => {
@@ -60,7 +68,7 @@ export function useLaneScreenBands(
       if (retryFrame !== null) cancelAnimationFrame(retryFrame);
       unsubscribe?.();
     };
-  }, [webglRef, rendererEpoch]);
+  }, [webglRef, rendererEpoch, trackLayoutKey]);
 
   return bands;
 }

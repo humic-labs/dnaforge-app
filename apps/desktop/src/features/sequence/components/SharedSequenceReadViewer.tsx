@@ -865,7 +865,7 @@ export function SharedSequenceReadViewer({
   const trackLanes = useMemo(
     () =>
       (scene?.lanes ?? EMPTY_READS).filter(
-        (lane) => !(lane.kind === 'alignment' && nativeQueryRow)
+        (lane) => lane.kind !== 'alignment' || (!nativeQueryRow && !lane.sanger)
       ),
     [scene, nativeQueryRow]
   );
