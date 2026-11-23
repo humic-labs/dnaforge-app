@@ -7,6 +7,8 @@ can develop locally and open a pull request without running our hosted CI.
 
 ## Before you start
 
+- For desktop UI proposals, mockups and code, start with the
+  [desktop styling guide for buttons and toolbar actions](docs/UI_STYLING.md).
 - Search the existing issues first. For a bug, include the DNAForge version,
   your operating system and the steps that reproduce it. Leave out private
   sequences and lab data; a public sequence that shows the problem is enough.

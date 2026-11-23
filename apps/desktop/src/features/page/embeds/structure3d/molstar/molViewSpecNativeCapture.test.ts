@@ -1,3 +1,4 @@
+import { markExtensionDrawing } from './extension-render-capture';
 import { molstarPluginFixture } from '@/test/fixtures/molstar-plugin';
 import { describe, expect, it, vi } from 'vitest';
 import { MVSData } from 'molstar/lib/extensions/mvs/mvs-data';
@@ -152,6 +153,14 @@ function exportedRepresentation(scene: string) {
 }
 
 describe('faithful native raw-view capture', () => {
+  it('refuses to export an active extension as a native scene', async () => {
+    const { plugin } = await nativeView();
+    const release = markExtensionDrawing(plugin);
+    expect(() => captureMolViewSpecView(plugin)).toThrow('Switch to a built-in view');
+    release();
+    expect(captureMolViewSpecView(plugin).scene).toBeTruthy();
+  });
+
   it('captures actual native membership, appearance and camera without applying the proposed starter', async () => {
     const f = await nativeView();
     const captured = captureMolViewSpecView(f.plugin);

@@ -91,7 +91,7 @@ patchedDependencies:
     hash: oq4dyk2lqcrxpquwgf3b74dcgi
     path: patches/electron@45.1.0.patch
   molstar@5.7.0:
-    hash: day5w2rdz4dptvos7ogfuha6gm
+    hash: vwed3a5jzql35vk2pemqhhpcgi
     path: patches/molstar@5.7.0.patch
   pixi.js@8.18.1:
     hash: kwnywjzvgnev3bv4qvc4ixsmzq
@@ -514,7 +514,7 @@ importers:
         version: 9.0.9
       molstar:
         specifier: ^5.5.0
-        version: 5.7.0(patch_hash=day5w2rdz4dptvos7ogfuha6gm)(@types/react@18.3.18)(encoding@0.1.13)(fp-ts@2.16.11)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 5.7.0(patch_hash=vwed3a5jzql35vk2pemqhhpcgi)(@types/react@18.3.18)(encoding@0.1.13)(fp-ts@2.16.11)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       node-pty:
         specifier: 1.1.0
         version: 1.1.0
@@ -21902,7 +21902,7 @@ snapshots:
 
   module-details-from-path@1.0.4: {}
 
-  molstar@5.7.0(patch_hash=day5w2rdz4dptvos7ogfuha6gm)(@types/react@18.3.18)(encoding@0.1.13)(fp-ts@2.16.11)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  molstar@5.7.0(patch_hash=vwed3a5jzql35vk2pemqhhpcgi)(@types/react@18.3.18)(encoding@0.1.13)(fp-ts@2.16.11)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       '@types/argparse': 2.0.17
       '@types/benchmark': 2.1.5

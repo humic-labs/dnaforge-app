@@ -1,3 +1,4 @@
+import { extensionCaptureReason, extensionOwnsDrawing } from './extension-render-capture';
 import {
   constructMolecularBindingRegions,
   requireMolecularSurfaceOwnership,
@@ -400,6 +401,8 @@ export function captureMolViewSpecView(
   plugin: MolstarPlugin,
   options: MolViewSpecCaptureOptions = {}
 ) {
+  if (extensionOwnsDrawing(plugin))
+    throw new MolViewSpecSceneError('MVS_EXTENSION_CAPTURE_UNSUPPORTED', extensionCaptureReason);
   const runtime = runtimeFor(plugin);
   requireNonduplicatedGeometry(plugin);
   let scene: MVSData;

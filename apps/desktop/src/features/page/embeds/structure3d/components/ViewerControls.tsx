@@ -18,7 +18,10 @@ import { SelectionsDrawer } from './SelectionsDrawer';
 import { StructureFocusSelect } from './StructureFocusSelect';
 import { visualLayersForView } from '../utils/viewLayerOverrides';
 
+import type { ProteinExtensionView } from '../hooks/useProteinExtensionView';
+
 interface ViewerControlsProps {
+  proteinExtensions?: ProteinExtensionView;
   colorMode: Structure3dColorMode;
   showWater: boolean;
   spin: boolean;
@@ -44,6 +47,7 @@ interface ViewerControlsProps {
 }
 
 export const ViewerControls = memo(function ViewerControls({
+  proteinExtensions,
   colorMode,
   showWater,
   spin,
@@ -83,6 +87,7 @@ export const ViewerControls = memo(function ViewerControls({
     return (
       <div className="flex-1 min-w-0 p-2 flex flex-col gap-3 overflow-y-clip">
         <ViewRecipeDropdown
+          extensions={proteinExtensions}
           activeRecipeId={activeRecipeId ?? null}
           activeRecipeNameFallback={view?.recipe.name}
           recipes={viewRecipes ?? []}
@@ -183,6 +188,7 @@ export const ViewerControls = memo(function ViewerControls({
   return (
     <div className="relative flex flex-wrap items-center gap-4 px-4 py-3 border-t border-border bg-bg-subtle">
       <ViewRecipeDropdown
+        extensions={proteinExtensions}
         activeRecipeId={activeRecipeId ?? null}
         activeRecipeNameFallback={view?.recipe.name}
         recipes={viewRecipes ?? []}
