@@ -1,6 +1,8 @@
 import { toUserMessage } from '@waypoint/user-messages';
 import { useCallback, useMemo } from 'react';
+import { cleanSequenceFromEditorState } from '@waypoint/workspace-editor/model';
 import {
+  deriveSequenceEditTransition,
   resolveSequenceGeneticCode,
   STANDARD_GENETIC_CODE_ID,
   type Annotation,
@@ -8,12 +10,14 @@ import {
   type AnnotatedSequence,
 } from '@waypoint/sequence-utils';
 import type { BoundPrimer } from '../primers/public/types';
+import { useSequenceStore } from '../sequence/store';
 import { useToastStore } from '../../stores/toast-store';
 import {
   buildRichSequenceFragmentFromSelection,
   inclusiveCopiedSourceCoordinates,
   richSequenceFragmentForEditor,
   type CopiedSequenceOrientation,
+  type CopyablePrimerBinding,
 } from './rich-sequence-clipboard';
 import { resolveSequenceClipboardText, writeRichSequenceClipboard } from './clipboard-service';
 import {
@@ -67,15 +71,80 @@ export function useRichSequenceClipboard({
           return;
         }
 
+        const sourceSequence = selection.sourceSequence ?? sequence.sequence;
+        let sourcePrimerBindings: CopyablePrimerBinding[] = primerRecords.map((primer) => ({
+          primerId: primer.id,
+          bindingStart: primer.binding.bindingStart,
+          bindingEnd: primer.binding.bindingEnd,
+          strand: primer.binding.strand === -1 ? -1 : 1,
+        }));
+        const state = useSequenceStore.getState();
+        const draft = state.drafts[documentId];
+        if (draft) {
+          const baseline = state.draftLineages[documentId]?.baseline;
+          if (!baseline) throw new Error('The copied draft has no saved coordinate baseline.');
+          const clean = cleanSequenceFromEditorState(draft);
+          if (clean.sequence !== sourceSequence)
+            throw new Error('The copied sequence no longer matches the current draft.');
+          const transition = deriveSequenceEditTransition({
+            baselineSequence: baseline.sequence,
+            draftSequence: draft.sequence,
+            cleanSequence: clean.sequence,
+            insertedRanges: draft.insertedRanges,
+            deletedRanges: draft.deletedRanges,
+            substitutedRanges: draft.substitutedRanges,
+          });
+          let offset = 0;
+          for (const operation of transition.operations) {
+            if (operation.kind === 'substitute') continue;
+            if (operation.kind === 'insert') {
+              const at = operation.at + offset;
+              sourcePrimerBindings = sourcePrimerBindings.flatMap((binding) => {
+                if (at <= binding.bindingStart)
+                  return [
+                    {
+                      ...binding,
+                      bindingStart: binding.bindingStart + operation.length,
+                      bindingEnd: binding.bindingEnd + operation.length,
+                    },
+                  ];
+                return at < binding.bindingEnd ? [] : [binding];
+              });
+              offset += operation.length;
+            } else {
+              const start = operation.start + offset;
+              const end = operation.end + offset;
+              sourcePrimerBindings = sourcePrimerBindings.flatMap((binding) => {
+                if (binding.bindingEnd <= start) return [binding];
+                if (binding.bindingStart >= end)
+                  return [
+                    {
+                      ...binding,
+                      bindingStart: binding.bindingStart - (end - start),
+                      bindingEnd: binding.bindingEnd - (end - start),
+                    },
+                  ];
+                return [];
+              });
+              offset -= operation.end - operation.start;
+            }
+          }
+          sourcePrimerBindings.push(
+            ...clean.pendingPrimerBindings.map((binding) => ({
+              primerId: binding.primerId,
+              bindingStart: binding.start,
+              bindingEnd: binding.end,
+              strand: binding.strand,
+              ...(binding.sourceWorkspaceRoot
+                ? { sourceWorkspaceRoot: binding.sourceWorkspaceRoot }
+                : {}),
+            }))
+          );
+        }
         const copied = buildRichSequenceFragmentFromSelection({
-          sourceSequence: selection.sourceSequence ?? sequence.sequence,
+          sourceSequence,
           sourceAnnotations: selection.sourceAnnotations ?? sequence.annotations ?? [],
-          sourcePrimerBindings: primerRecords.map((primer) => ({
-            primerId: primer.id,
-            bindingStart: primer.binding.bindingStart,
-            bindingEnd: primer.binding.bindingEnd,
-            strand: primer.binding.strand === -1 ? -1 : 1,
-          })),
+          sourcePrimerBindings,
           sourceWorkspaceRoot: workspaceRoot,
           sourceId: documentId,
           sourceName: sequence.name || displayName || 'Sequence',

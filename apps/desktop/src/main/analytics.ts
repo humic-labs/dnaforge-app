@@ -1948,7 +1948,16 @@ function emitWithContext(
 ): void {
   if (!client || !analyticsEnabled) return;
   const capture = prepareSdkCapture(queued, context);
-  if (capture) client.capture(capture);
+  if (!capture) return;
+  if (
+    capture.event === 'desktop_main_error_captured' &&
+    capture.properties?.feature_area === 'reliability' &&
+    capture.properties?.fatal === true
+  ) {
+    void client.captureImmediate(capture);
+  } else {
+    client.capture(capture);
+  }
 }
 
 async function boundedShutdown(posthog: PostHog): Promise<void> {

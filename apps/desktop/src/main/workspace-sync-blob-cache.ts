@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { TextDecoder } from 'node:util';
 import { decodeBundleFileContent, type WorkspaceSyncFile } from '@waypoint/share-bundle';
 import { syncDirectory } from './fs-durability';
-import { copyStableFileSync } from './workspace-git/copy-independent-file';
+import { copyStableFile, copyStableFileSync } from './workspace-git/copy-independent-file';
 import { claimRegularFileNoClobber } from './workspace-git/exclusive-file-claim';
 
 export interface WorkspaceSyncBlobIdentity {
@@ -148,7 +148,7 @@ export async function captureWorkspaceSyncBlob(
     if (!sameFile(await lstat(source), before)) {
       throw new Error('Workspace sync source changed before capture.');
     }
-    copyStableFileSync(source, temp);
+    await copyStableFile(source, temp);
     output = await open(temp, constants.O_RDWR | (constants.O_NOFOLLOW ?? 0));
     const copied = await output.stat();
     if (
