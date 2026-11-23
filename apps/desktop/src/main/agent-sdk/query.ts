@@ -446,6 +446,7 @@ export async function queryClaudeCode(
     options = { ...options, cwd: confinement.cwd, scratchRoot: confinement.scratchRoot };
     const assistantText: string[] = [];
     const resultText: string[] = [];
+    let receivedResult = false;
     const traceEvents: ProviderTraceEvent[] = [];
     const traceAdapter = new ClaudeTraceAdapter({ sdkVersion: null, cliVersion: null });
     let traceSequence = 0;
@@ -677,8 +678,9 @@ export async function queryClaudeCode(
           }
         }
       }
-      if (m.type === 'result' && typeof m.result === 'string' && m.result.trim().length > 0) {
-        resultText.push(m.result);
+      if (m.type === 'result') {
+        receivedResult = true;
+        if (typeof m.result === 'string' && m.result.trim().length > 0) resultText.push(m.result);
       }
     }
 
@@ -701,6 +703,7 @@ export async function queryClaudeCode(
         ...(providerConversationId ? { providerConversationId } : {}),
       };
     }
+    if (!receivedResult) throw new Error('Claude Code exited before returning a result.');
     const text =
       options.emitTrace && traceEvents.length > 0
         ? traceAdapter.extractFinalText(traceEvents)
