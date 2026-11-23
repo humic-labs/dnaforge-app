@@ -312,7 +312,9 @@ describe('runChatTurn CLI execution and trace lifecycle', () => {
         failure: { reason: 'provider_capacity', stage: 'provider_stream' },
       });
       await act(async () => {
-        await useChatStore.getState().sendMessage('Test this turn', null);
+        await useChatStore.getState().sendMessage('Test this turn', null, undefined, [], {
+          activateConversation: true,
+        });
       });
       const request = mockAgentSessionStart.mock.calls[0][0];
       const message = userMessage('assistant.nativeCapacity');
