@@ -1613,6 +1613,111 @@ describe('AgentSessionManager', () => {
     });
   });
 
+  it.each(['claude-agent-sdk', 'codex-sdk'] as const)(
+    'settles the original %s chat once from its final reply after restart',
+    async (provider) => {
+      for (const complete of [true, false]) {
+        const db = createTestDb();
+        ensureSchema(db, ':memory:');
+        const turn = 'chat';
+        const conversation = 'conversation_chat';
+        const answer = 'The final answer';
+        const trace =
+          provider === 'claude-agent-sdk'
+            ? {
+                type: 'result',
+                subtype: 'success',
+                is_error: false,
+                result: complete ? answer : '',
+              }
+            : {
+                type: 'turn.completed',
+                appServer: {
+                  method: 'turn/completed',
+                  params: {
+                    turn: {
+                      status: 'completed',
+                      items: [
+                        {
+                          type: 'agentMessage',
+                          phase: complete ? 'final_answer' : 'commentary',
+                          text: answer,
+                        },
+                      ],
+                    },
+                  },
+                },
+              };
+        const query = vi.fn(async (_prompt: string, options: QueryOptions) => {
+          options.traceSink?.({
+            transport: provider,
+            sequence: 0,
+            receivedAt: new Date().toISOString(),
+            providerEventType:
+              provider === 'claude-agent-sdk' ? 'result.success' : 'turn.completed',
+            terminal: 'completed',
+            raw: trace,
+            display: publicAgentTraceDisplay({ kind: 'result', title: 'Completed' }),
+            versions: { sdkVersion: null, cliVersion: null },
+          });
+          return {
+            ok: true,
+            text: complete ? answer : 'Stream fragment',
+            durationMs: 100,
+            stopState: 'completed' as const,
+          };
+        });
+        const deps = {
+          db,
+          describeCapabilities: async () => capability(provider),
+          resolveScratchCwd: async () => '/tmp/scratch',
+          queryCodex: query,
+          queryClaudeCode: query,
+          appendShadowLedgerEvent: vi.fn(),
+        };
+        const manager = new AgentSessionManager(deps);
+        insertRunningTurn(db, turn, provider);
+        db.prepare(
+          "INSERT INTO messages (id, conversation_id, turn_id, role, content, created_at) VALUES ('user', ?, ?, 'user', 'Question', 1)"
+        ).run(conversation, turn);
+        await manager.startSession({
+          sessionId: 'native',
+          provider,
+          conversationId: conversation,
+          turnId: turn,
+          authorityProfileId: provider + ':app-supervised',
+          prompt: 'Question',
+          cwd: null,
+          workspaceGrounding: 'not-required',
+        });
+        const events = () =>
+          db
+            .prepare('SELECT properties_json FROM analytics_event_outbox WHERE reference_id = ?')
+            .all('native') as { properties_json: string }[];
+        expect(events()).toHaveLength(0);
+        for (let restart = 0; restart < 2; restart++) {
+          new AgentSessionManager(deps);
+          expect(db.prepare('SELECT status FROM chat_turns WHERE id = ?').pluck().get(turn)).toBe(
+            complete ? 'completed' : 'interrupted'
+          );
+          expect(
+            db
+              .prepare('SELECT content FROM messages WHERE turn_id = ? ORDER BY rowid')
+              .pluck()
+              .all(turn)
+          ).toEqual(complete ? ['Question', answer] : ['Question']);
+          expect(events()).toHaveLength(1);
+          expect(JSON.parse(events()[0].properties_json)).toMatchObject({
+            value_delivered: complete,
+          });
+          expect(events()[0].properties_json).not.toContain(answer);
+          expect(query).toHaveBeenCalledTimes(1);
+        }
+        db.close();
+      }
+    }
+  );
+
   it('commits one content-free terminal event after a successful local turn', async () => {
     const db = createTestDb();
     ensureSchema(db, ':memory:');
