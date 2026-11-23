@@ -182,6 +182,28 @@ export function SidebarIcon({ size = 14, className }: IconProps) {
   );
 }
 
+export function DocumentPreviewIcon({ size = 14, className }: IconProps) {
+  return (
+    <svg
+      data-icon="document-preview"
+      aria-hidden="true"
+      className={className}
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.35"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M7.2 13.5H3.1a.9.9 0 0 1-.9-.9V2a.8.8 0 0 1 .8-.8H8l3.2 3.3v1.1M7.9 1.5v3.1h3" />
+      <circle cx="10.4" cy="9.6" r="2.65" />
+      <path d="m12.4 11.6 2.4 2.6" />
+    </svg>
+  );
+}
+
 export function EyeIcon({ size = 14, className }: IconProps) {
   return (
     <svg

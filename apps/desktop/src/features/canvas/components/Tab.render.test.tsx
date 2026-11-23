@@ -196,7 +196,7 @@ describe('Tab title extension default ', () => {
   });
 
   it.each([true, false])(
-    'puts the preview eye in the close button when active is %s',
+    'puts the document preview icon in the close button when active is %s',
     (isActive) => {
       const onClose = vi.fn();
       renderTab(
@@ -208,15 +208,18 @@ describe('Tab title extension default ', () => {
         { isActive, onClose }
       );
       const close = screen.getByRole('button', { name: 'Close collection.fasta' });
-      expect(close.querySelector('[data-icon="eye"]')).toHaveAttribute('aria-hidden', 'true');
+      expect(close.querySelector('[data-icon="document-preview"]')).toHaveAttribute(
+        'aria-hidden',
+        'true'
+      );
       fireEvent.click(close);
       expect(onClose).toHaveBeenCalledWith('t1');
     }
   );
 
-  it('omits the preview eye on a saved file', () => {
+  it('omits the document preview icon on a saved file', () => {
     renderTab({ type: 'file', label: 'collection.fasta' });
-    expect(screen.getByRole('tab').querySelector('[data-icon="eye"]')).toBeNull();
+    expect(screen.getByRole('tab').querySelector('[data-icon="document-preview"]')).toBeNull();
   });
 
   it('hides a recognized extension on any tab type that does not opt out', () => {

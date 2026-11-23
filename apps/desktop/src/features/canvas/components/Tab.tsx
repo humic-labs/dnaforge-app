@@ -14,7 +14,7 @@ import {
   AssemblyTabIcon,
   BiologyFileIcon,
   ChatTabIcon,
-  EyeIcon,
+  DocumentPreviewIcon,
   GenericFileIcon,
   ImageFileIcon,
   NotebookTabIcon,
@@ -402,7 +402,7 @@ export const Tab = React.memo(function Tab({
               title="Close tab"
             >
               {tab.isExternalPreview && !tab.isDirty && (
-                <EyeIcon size={12} className="text-fg-muted" />
+                <DocumentPreviewIcon size={12} className="text-fg-muted" />
               )}
               <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
