@@ -202,7 +202,7 @@
     "electron-vite": "^5.0.0",
     "fake-indexeddb": "^6.2.5",
     "fflate": "0.8.2",
-    "jsdom": "^24.0.0",
+    "jsdom": "^31.0.1",
     "magic-string": "0.30.21",
     "memfs": "^4.51.1",
     "postcss": "^8.5.6",
