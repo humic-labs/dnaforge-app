@@ -3,6 +3,7 @@ import { openDocument, resolveFileDocumentKind } from './open-document';
 import { cancelledDocumentOpen } from '../canvas/public/document-presentation';
 import { useCanvasStore } from '../canvas/store';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
+import { documentReadReason } from '../../shared/document-read-failure';
 import { finishGenomeViewFileOpen } from '../sequence/public/genome-view-open-request';
 
 const mocks = vi.hoisted(() => ({
@@ -124,7 +125,7 @@ describe('common document opening', () => {
 
   it('keeps a proven missing file distinct when the filesystem bridge cannot preserve the error code', async () => {
     mocks.stat.mockRejectedValue(new Error('The underlying bridge failed.'));
-    const message = 'The file could not be found.';
+    const message = documentReadReason('missing');
     mocks.checkDocument.mockResolvedValue({
       state: 'blocked', code: 'missing', recognized: false, reason: message,
     });
