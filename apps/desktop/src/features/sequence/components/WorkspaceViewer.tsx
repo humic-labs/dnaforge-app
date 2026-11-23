@@ -119,6 +119,7 @@ import {
   committedBoundsForExtensionPreview,
   committedQualifiersForExtensionPreview,
 } from '@waypoint/workspace-editor';
+import { useSequencePaneCapacity } from './useSequencePaneCapacity';
 import {
   reserveSequencePaneExtent,
   resolvePaneResizeDisplaySize,
@@ -2207,10 +2208,7 @@ function WorkspaceViewerInternal({
     ),
     sideSplitWidth
   );
-  const mapCanvasCapacity = useMemo(
-    () => ({ width: surfaceLayoutWidth ?? 0, height: surfaceLayoutHeight }),
-    [surfaceLayoutWidth, surfaceLayoutHeight]
-  );
+  const mapCanvasCapacity = useSequencePaneCapacity(surfaceLayoutWidth ?? 0, surfaceLayoutHeight);
   const mapContentWidth = horizontalSequenceMapLayout
     ? Math.max(0, sideMapPaneWidth - MAP_PANE_BORDER_WIDTH)
     : (surfaceLayoutWidth ?? minimapWidth);
@@ -2469,13 +2467,13 @@ function WorkspaceViewerInternal({
   const reservedSequenceViewport = useRef({ width: 0, height: 0 });
   const sequenceViewportCapacity = useMemo(() => {
     const previous = reservedSequenceViewport.current;
-    const width = reserveSequencePaneExtent(surfaceLayoutWidth ?? 0, previous.width);
-    const height = reserveSequencePaneExtent(surfaceLayoutHeight, previous.height);
+    const width = reserveSequencePaneExtent(mapCanvasCapacity.width, previous.width);
+    const height = reserveSequencePaneExtent(mapCanvasCapacity.height, previous.height);
     if (width !== previous.width || height !== previous.height) {
       reservedSequenceViewport.current = { width, height };
     }
     return reservedSequenceViewport.current;
-  }, [surfaceLayoutWidth, surfaceLayoutHeight]);
+  }, [mapCanvasCapacity]);
   const initialSequenceContainerWidth =
     horizontalSequenceMapLayout || mapOnlyVisible
       ? Math.max(0, (sideSplitWidth ?? 0) - sideMapPaneWidth)

@@ -73,9 +73,14 @@ export function resolveSequencePaneHeightDuringMapResize(input: {
   return Math.max(minSequenceHeight, Math.round(available));
 }
 
+const paneExtentBlock = 128;
+
+export function roundedSequencePaneExtent(required: number): number {
+  return Math.ceil(required / paneExtentBlock) * paneExtentBlock;
+}
+
 export function reserveSequencePaneExtent(required: number, previous: number): number {
   if (required <= 0) return previous;
-  const block = 128;
-  if (required <= previous && previous - required < 3 * block) return previous;
-  return (Math.ceil(required / block) + 1) * block;
+  if (required <= previous && previous - required < 3 * paneExtentBlock) return previous;
+  return roundedSequencePaneExtent(required) + paneExtentBlock;
 }
