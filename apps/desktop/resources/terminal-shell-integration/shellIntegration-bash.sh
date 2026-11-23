@@ -398,6 +398,9 @@ __vsc_update_prompt() {
 
 __vsc_precmd() {
 	__vsc_command_complete "$__vsc_status"
+	if [[ ${TERM_PROGRAM-} == DNAForge && -n ${__vsc_first_prompt-} && -t 1 && ${COLUMNS-} =~ ^([1-9][0-9]{0,2}|1000)$ ]]; then
+		builtin printf '%*s\r\e[K' "$COLUMNS" ''
+	fi
 	__vsc_current_command=""
 	# Report prompt is a work in progress, currently encoding is too slow
 	if [ "$__vsc_stable" = "0" ]; then
