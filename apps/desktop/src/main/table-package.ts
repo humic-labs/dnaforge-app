@@ -183,16 +183,22 @@ async function readText(root: string, path: string): Promise<string> {
   }
 }
 
-export async function readTablePackageInMain(
-  input: ReadTablePackageInput
-): Promise<ReadTablePackageResult> {
+async function readTableHead(input: TablePackageLocation) {
   const owner = await location(input);
   const { headPath } = tablePackagePaths(owner.packageRoot);
   const headText = await readText(owner.workspaceRoot, headPath);
+  return { ...owner, headPath, headText };
+}
+
+async function readTablePackageFromHead(
+  captured: Awaited<ReturnType<typeof readTableHead>>,
+  input: ReadTablePackageInput
+): Promise<ReadTablePackageResult> {
+  const { workspaceRoot, packageRoot, headText } = captured;
   const head = parseTablePackageHead(headText);
   const snapshotText = await readText(
-    owner.workspaceRoot,
-    tablePackageRevisionPath(owner.packageRoot, head.snapshotSha256)
+    workspaceRoot,
+    tablePackageRevisionPath(packageRoot, head.snapshotSha256)
   );
   const verified = await verifyTablePackageRead({
     headText,
@@ -201,13 +207,40 @@ export async function readTablePackageInMain(
     expectedSnapshotSha256: input.expectedSnapshotSha256,
   });
   return {
-    ...owner,
+    ...captured,
     ...verified,
-    headPath,
-    headText,
     snapshotText,
     headContentHash: hash(headText),
   };
+}
+
+export async function readTablePackageInMain(
+  input: ReadTablePackageInput
+): Promise<ReadTablePackageResult> {
+  return readTablePackageFromHead(await readTableHead(input), input);
+}
+
+/** Discovery may skip a marker without the requested identity. A match still needs full verification. */
+export async function readMatchingTablePackageInMain(
+  input: ReadTablePackageInput,
+  matches: (head: Record<string, unknown>) => boolean
+): Promise<ReadTablePackageResult | null> {
+  const captured = await readTableHead(input);
+  let head: unknown;
+  try {
+    head = JSON.parse(captured.headText);
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+    return null;
+  }
+  if (
+    !head ||
+    typeof head !== 'object' ||
+    Array.isArray(head) ||
+    !matches(head as Record<string, unknown>)
+  )
+    return null;
+  return readTablePackageFromHead(captured, input);
 }
 
 export async function readTableSnapshotInMain(input: ReadTableSnapshotInput): Promise<{
