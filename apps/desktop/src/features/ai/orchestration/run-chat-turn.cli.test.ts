@@ -137,6 +137,55 @@ describe('runChatTurn CLI execution and trace lifecycle', () => {
     }
   );
 
+  it.each(['claude-agent-sdk', 'codex-sdk'] as const)(
+    'uses the %s model selected when a follow-up was queued',
+    async (transport) => {
+      const previous = useAISettingsStore.getState();
+      const settings = {
+        ...previous,
+        assistantRoute: { kind: 'cli' as const, transport, permissionMode: 'app-supervised' as const },
+        agentTransport: transport,
+        agentDetection: {
+          codex: {
+            cli: 'installed' as const, path: '/fixture/codex', auth: 'authenticated' as const,
+            authMode: 'chatgpt' as const, authFilePresent: true, defaultModel: 'original',
+          },
+          claudeCode: {
+            cli: 'installed' as const, path: '/fixture/claude', auth: 'authenticated' as const,
+            defaultModel: 'original', keychainEntryPresent: false, credentialsFilePresent: true,
+          },
+        },
+      };
+      const selectModel = (model: string) =>
+        vi.mocked(useAISettingsStore.getState).mockReturnValue({
+          ...settings,
+          cliModelSettings: { ...previous.cliModelSettings, [transport]: { model, reasoningEffort: null } },
+        });
+      selectModel('original');
+      let releaseFirst = () => {};
+      const gate = new Promise<void>((resolve) => { releaseFirst = resolve; });
+      mockAgentSessionStart.mockImplementationOnce(async () => {
+        await gate;
+        return { transport, ok: true, text: 'First reply', durationMs: 1 };
+      });
+      const send = (text: string) =>
+        useChatStore.getState().sendMessage(text, null, 'model-capture-conversation');
+      const first = send('First');
+      try {
+        await vi.waitFor(() => expect(mockAgentSessionStart).toHaveBeenCalledTimes(1));
+        await send('Queued follow-up');
+        selectModel('changed');
+      } finally {
+        releaseFirst();
+      }
+      await first;
+      await vi.waitFor(() => expect(mockAgentSessionStart).toHaveBeenCalledTimes(2));
+      expect(mockAgentSessionStart.mock.calls.map(([request]) => [request.provider, request.model])).toEqual([
+        [transport, 'original'], [transport, 'original'],
+      ]);
+    }
+  );
+
   it('rejects a stale account model before accepting a user message or attachments', async () => {
     const previous = useAISettingsStore.getState();
     vi.mocked(useAISettingsStore.getState).mockReturnValue({
