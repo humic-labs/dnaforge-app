@@ -62,6 +62,7 @@ export interface TrackGutterProps {
   onAddTrack?: () => void;
   onOpenMutationNavigator?: () => void;
   width?: number;
+  className?: string;
   onResize?: (width: number) => void;
   collapsed?: boolean;
   annotationTrackRegistry?: ReadonlyArray<AnnotationTrackDefinition>;
@@ -901,6 +902,7 @@ export function TrackGutter({
   onAddTrack,
   onOpenMutationNavigator,
   width = GUTTER_DEFAULT_WIDTH,
+  className,
   onResize,
   collapsed = false,
   annotationTrackRegistry,
@@ -1429,7 +1431,7 @@ export function TrackGutter({
       ref={gutterRef}
       data-testid="track-gutter"
       style={{ width }}
-      className={`relative h-full shrink-0 overflow-visible ${GUTTER_BG_CLASS}`}
+      className={cn('relative h-full shrink-0 overflow-visible', GUTTER_BG_CLASS, className)}
     >
       <GutterEdgeLine />
       <div data-testid="track-gutter-scroll-viewport" className="absolute inset-0 overflow-hidden">

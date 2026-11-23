@@ -17,6 +17,7 @@ import type {
 import { useLaneScreenBands } from './useLaneScreenBands';
 import { useTrackGutterScroll } from './useTrackGutterScroll';
 import { useTrackGutterLayoutStore } from './track-gutter-layout-store';
+import './read-track-gutter.css';
 
 interface Props extends Pick<
   TrackGutterProps,
@@ -133,7 +134,7 @@ function TrackParameters({
             change(logarithmic ? 2 ** e.currentTarget.valueAsNumber : e.currentTarget.valueAsNumber)
           }
         />
-        <span>{control.label}</span>
+        <span className="read-track-parameter-label">{control.label}</span>
         <Button
           variant="link"
           aria-label={`Reset ${control.key} for ${label}`}
@@ -244,6 +245,7 @@ export function ReadTrackGutter({
   return (
     <TrackGutter
       {...reference}
+      className="read-track-gutter"
       rows={rows}
       width={width}
       onResize={resize}
