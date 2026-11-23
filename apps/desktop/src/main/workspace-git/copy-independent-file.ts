@@ -8,7 +8,7 @@ import {
   rmSync,
   chmodSync,
 } from 'node:fs';
-import { copyFile, lstat, mkdtemp, rm } from 'node:fs/promises';
+import { chmod, copyFile, link, lstat, mkdtemp, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import { claimRegularFileNoClobber } from './exclusive-file-claim';
@@ -52,6 +52,46 @@ export function copyStableFileSync(sourcePath: string, destinationPath: string):
     linkSync(clonedPath, destinationPath);
   } finally {
     rmSync(staging, { recursive: true, force: true });
+  }
+}
+
+export async function copyStableFile(sourcePath: string, destinationPath: string): Promise<void> {
+  const before = await lstat(sourcePath);
+  if (!before.isFile() || before.isSymbolicLink()) {
+    throw new Error('IMPORT_COPY_SOURCE_NOT_REGULAR');
+  }
+  const staging = await mkdtemp(join(dirname(destinationPath), '.dnaforge-leased-copy-'));
+  try {
+    const clonedPath = join(staging, 'copy');
+    if (process.platform === 'darwin' && before.size >= 1024 * 1024) {
+      await execute('/bin/cp', ['-c', sourcePath, clonedPath], {
+        windowsHide: true,
+        maxBuffer: 64 * 1024,
+      });
+    } else {
+      await copyFile(sourcePath, clonedPath, constants.COPYFILE_EXCL | constants.COPYFILE_FICLONE);
+    }
+    const after = await lstat(sourcePath);
+    const cloned = await lstat(clonedPath);
+    if (
+      !after.isFile() ||
+      after.isSymbolicLink() ||
+      before.dev !== after.dev ||
+      before.ino !== after.ino ||
+      before.size !== after.size ||
+      before.mtimeMs !== after.mtimeMs ||
+      before.ctimeMs !== after.ctimeMs ||
+      !cloned.isFile() ||
+      cloned.isSymbolicLink() ||
+      cloned.size !== before.size ||
+      (cloned.dev === before.dev && cloned.ino === before.ino)
+    ) {
+      throw new Error('IMPORT_COPY_SOURCE_CHANGED');
+    }
+    await chmod(clonedPath, 0o600);
+    await link(clonedPath, destinationPath);
+  } finally {
+    await rm(staging, { recursive: true, force: true });
   }
 }
 
