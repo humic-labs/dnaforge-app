@@ -55,9 +55,13 @@ import {
   assertTextFileAtomicWriteInput,
   type TextFileAtomicWriteInput,
 } from '../../shared/text-file-atomic';
-import { recoverNativeCatalogRecordPublications } from '../native-catalog-record-mutations';
+import {
+  recoverNativeCatalogRecordPublications,
+  recoverNativeCatalogRecordsWithDatabaseFence,
+} from '../native-catalog-record-mutations';
 import {
   assertCommittedDatabaseReadAllowed,
+  trackRendererWorkspaceMutation,
   withRendererDatabaseStatement,
 } from '../workspace-sync-database-fence';
 import { FileWatchConsumers } from './file-watch-consumers';
@@ -782,8 +786,9 @@ export function registerFilesystemHandlers(): void {
       const { assertInsideKnownWorkspace } = await import('../workspace-git/known-workspace-scope');
       const { getDb } = await import('./database');
       const { managedRootDir } = await import('./workspace-git');
+      const db = getDb();
       const knownRoot = await assertInsideKnownWorkspace(workspaceRoot, {
-        db: getDb(),
+        db,
         managedRootDir: managedRootDir(),
       });
       assertRendererCurrent();
@@ -822,21 +827,30 @@ export function registerFilesystemHandlers(): void {
       } else {
         releaseMutation = await acquireWorkspaceMutationShared(rootIdentity);
       }
+      const finishForeground = trackRendererWorkspaceMutation(db);
+      const release = () => {
+        releaseMutation();
+        finishForeground();
+      };
       try {
         assertRendererCurrent();
         await assertWorkspaceMigrationActionsSettled(knownRoot);
-        await recoverNativeCatalogRecordPublications({
-          db: getDb(),
-          workspacePath: knownRoot,
-          runDatabase: (operation) => {
-            assertRendererCurrent();
-            return withRendererDatabaseStatement(getDb(), event.sender, operation);
-          },
-        });
+        if (waitForAvailability && !db.inTransaction) {
+          await recoverNativeCatalogRecordsWithDatabaseFence(db, knownRoot, assertRendererCurrent);
+        } else {
+          await recoverNativeCatalogRecordPublications({
+            db,
+            workspacePath: knownRoot,
+            runDatabase: (operation) => {
+              assertRendererCurrent();
+              return withRendererDatabaseStatement(db, event.sender, operation);
+            },
+          });
+        }
         assertRendererCurrent();
-        return workspaceMutationCapabilities.issue(event.sender.id, rootIdentity, releaseMutation);
+        return workspaceMutationCapabilities.issue(event.sender.id, rootIdentity, release);
       } catch (error) {
-        releaseMutation();
+        release();
         throw error;
       }
     },

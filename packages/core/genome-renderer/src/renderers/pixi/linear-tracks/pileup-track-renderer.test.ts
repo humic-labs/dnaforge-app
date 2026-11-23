@@ -4523,7 +4523,11 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       }
     });
 
-    it('finishes the next usable read mesh when a newer BAM window arrives mid-build', async () => {
+    it('finishes the next usable read mesh when a newer BAM window arrives mid-build', async ({
+      onTestFinished,
+    }) => {
+      const preparationClock = vi.spyOn(performance, 'now').mockReturnValue(1_000);
+      onTestFinished(() => preparationClock.mockRestore());
       const { PixiPileupTrackRenderer } = await import('./pileup-track-renderer');
       const r = new PixiPileupTrackRenderer({
         type: 'pileup-test',

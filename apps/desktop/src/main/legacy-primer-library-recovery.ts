@@ -27,6 +27,8 @@ import { commitPathsIfDirty, isGitRepo } from './workspace-git';
 import {
   acquireWorkspaceSyncDatabaseFence,
   assertWorkspaceSyncDatabaseFence,
+  waitForRendererWorkspaceMutations,
+  withWorkspaceSyncDatabaseFence,
 } from './workspace-sync-database-fence';
 import {
   assertWorkspaceMutationLease,
@@ -173,6 +175,7 @@ async function recover(options: RecoveryOptions): Promise<LegacyPrimerLibraryRec
   let snapshot: SourceSnapshot;
   let preparationJournal: Journal | null = null;
   let sourceCount = 0;
+  await waitForRendererWorkspaceMutations(db);
   const releasePreparation = await acquireWorkspaceSyncDatabaseFence(db);
   try {
     const checkPreparation = () => {
@@ -313,17 +316,19 @@ async function recover(options: RecoveryOptions): Promise<LegacyPrimerLibraryRec
   if (!destination) throw new Error('The recovered primer destination is unavailable.');
   const errors: Array<{ primerId: string; message: string }> = [];
   let recovered = 0;
-  try {
+  const publish = async (row?: DbPrimerRow) => {
+    await waitForRendererWorkspaceMutations(db);
     await withKnownWorkspacePathsMutationAcrossWorkspaces(
       db,
       [destination.root],
       async (leases) => {
         assertCurrent();
-        assertKnownWorkspaceContentWritable(db, destination.root);
         const lease = leases.get(workspaceMutationRootIdentity(destination.root));
         if (!lease) throw new Error('The recovered project mutation lease is unavailable.');
-        const release = await acquireWorkspaceSyncDatabaseFence(db);
-        try {
+        await withWorkspaceSyncDatabaseFence(db, async (release) => {
+          assertKnownWorkspaceContentWritable(db, destination.root);
+          if (!isDeepStrictEqual(loadJournal(db), journal))
+            throw new Error('The retained primer recovery journal changed between publications.');
           const check = () => {
             assertCurrent();
             assertWorkspaceMutationLease(lease, destination.root);
@@ -417,6 +422,53 @@ async function recover(options: RecoveryOptions): Promise<LegacyPrimerLibraryRec
               check();
             },
           };
+          if (!row) {
+            const sourceRelativePath = `.forge/recovery/legacy-primer-library-source-${journal.sourceHash}.json`;
+            const sourcePath = join(destination.root, sourceRelativePath);
+            const sourceDirectory = join(
+              options.profileDirectory,
+              'primer-library-recovery',
+              journal.operationId
+            );
+            const addressed = join(sourceDirectory, `${journal.sourceHash}.json`);
+            const sourceBytes = await readFile(
+              (await fileExists(addressed)) ? addressed : join(sourceDirectory, 'source.json'),
+              'utf8'
+            );
+            if (hash(sourceBytes) !== journal.sourceHash)
+              throw new Error(
+                'The retained primer source changed before portable backup publication.'
+              );
+            if (await fileExists(sourcePath)) {
+              if (hash(await readFile(sourcePath)) !== journal.sourceHash)
+                throw new Error(
+                  'The project recovery source backup differs from the retained original.'
+                );
+            } else {
+              const canonical = await canonicalWorkspacePath({
+                workspaceRoot: destination.root,
+                path: sourcePath,
+                allowMissing: true,
+                artifactNoun: 'primer recovery source',
+              });
+              await mkdir(canonical.parent, { recursive: true, mode: 0o700 });
+              await syncDirectory(destination.root);
+              await syncDirectory(join(destination.root, '.forge'));
+              await persistence.fs.writeWorkspaceTextFileAtomic({
+                workspaceRoot: destination.root,
+                path: sourcePath,
+                content: sourceBytes,
+                mode: 'create',
+                artifactNoun: 'primer recovery source',
+              });
+            }
+            await persistence.commitPaths(
+              destination.root,
+              'Retain original primer library recovery source',
+              [sourceRelativePath]
+            );
+            return;
+          }
           const native = createNativePrimerArtifactWriter({
             db,
             workspaceRoot: destination.root,
@@ -425,178 +477,134 @@ async function recover(options: RecoveryOptions): Promise<LegacyPrimerLibraryRec
             assertCurrent: check,
             publicationAuthority: { mutationLease: lease, databaseFence: release },
           });
-          const sourceRelativePath = `.forge/recovery/legacy-primer-library-source-${journal.sourceHash}.json`;
-          const sourcePath = join(destination.root, sourceRelativePath);
-          const sourceDirectory = join(
-            options.profileDirectory,
-            'primer-library-recovery',
-            journal.operationId
-          );
-          const addressed = join(sourceDirectory, `${journal.sourceHash}.json`);
-          const sourceBytes = await readFile(
-            (await fileExists(addressed)) ? addressed : join(sourceDirectory, 'source.json'),
-            'utf8'
-          );
-          if (hash(sourceBytes) !== journal.sourceHash)
-            throw new Error(
-              'The retained primer source changed before portable backup publication.'
-            );
-          if (await fileExists(sourcePath)) {
-            if (hash(await readFile(sourcePath)) !== journal.sourceHash)
-              throw new Error(
-                'The project recovery source backup differs from the retained original.'
-              );
-          } else {
-            const canonical = await canonicalWorkspacePath({
-              workspaceRoot: destination.root,
-              path: sourcePath,
-              allowMissing: true,
-              artifactNoun: 'primer recovery source',
-            });
-            await mkdir(canonical.parent, { recursive: true, mode: 0o700 });
-            await syncDirectory(destination.root);
-            await syncDirectory(join(destination.root, '.forge'));
-            await persistence.fs.writeWorkspaceTextFileAtomic({
-              workspaceRoot: destination.root,
-              path: sourcePath,
-              content: sourceBytes,
-              mode: 'create',
-              artifactNoun: 'primer recovery source',
-            });
-          }
-          await persistence.commitPaths(
-            destination.root,
-            'Retain original primer library recovery source',
-            [sourceRelativePath]
-          );
-          for (const row of snapshot.rows) {
-            try {
-              check();
-              const expected = fingerprint(row, sourceBindings(snapshot, row.id));
-              const existing = db
-                .prepare('SELECT workspace_id,fields FROM lims_entity WHERE id=?')
-                .get(row.id) as { workspace_id: number | null; fields: string } | undefined;
-              if (existing) {
-                const project = db
-                  .prepare('SELECT id FROM workspaces WHERE path=? AND repo_uuid=?')
-                  .get(destination.root, destination.uuid) as { id: number } | undefined;
-                const fields = JSON.parse(existing.fields) as {
-                  artifact?: { relativePath?: string; contentHash?: string };
-                };
-                if (
-                  !project ||
-                  existing.workspace_id !== project.id ||
-                  typeof fields.artifact?.relativePath !== 'string'
-                )
-                  throw new Error(
-                    'A recovered primer identity belongs to another record or project.'
-                  );
-                const loaded = await native.owner.readPrimerArtifactAtPath(
-                  join(destination.root, fields.artifact.relativePath),
-                  destination.root
-                );
-                const artifact = loaded.artifact;
-                if (
-                  artifact.id !== row.id ||
-                  artifact.recovery?.source !== 'legacy' ||
-                  artifact.recovery.sourceFingerprint !== expected ||
-                  hash(serializePrimerArtifact(artifact)) !==
-                    fields.artifact.contentHash?.replace(/^sha256:/, '')
-                )
-                  throw new Error(
-                    'The saved recovered primer differs from its retained identity or current Registry revision.'
-                  );
-                const projected = await native.owner.projectPrimerArtifact(
-                  artifact,
-                  destination.root
-                );
-                const currentPrimer = await readPrimerById(native.database, row.id);
-                const bindings = db
-                  .prepare(
-                    "SELECT path,workspace_id,content_hash FROM catalog_entity_files WHERE entity_id=? AND status='current'"
-                  )
-                  .all(row.id) as Array<{
-                  path: string;
-                  workspace_id: number | null;
-                  content_hash: string | null;
-                }>;
-                if (
-                  !isDeepStrictEqual(currentPrimer, projected.primer) ||
-                  currentPrimer?.workspaceId !== project.id ||
-                  bindings.length !== 1 ||
-                  bindings[0].workspace_id !== project.id ||
-                  workspaceMutationRootIdentity(bindings[0].path) !==
-                    workspaceMutationRootIdentity(
-                      join(destination.root, artifact.file.workspaceRelativePath)
-                    ) ||
-                  bindings[0].content_hash !== `sha256:${hash(serializePrimerArtifact(artifact))}`
-                )
-                  throw new Error(
-                    'The recovered primer file binding or compatibility projection is incomplete.'
-                  );
-                recovered++;
-                continue;
-              }
-              assertLegacySource(db, row, expected);
-              const publishedHash = Object.hasOwn(journal.files, row.id)
-                ? journal.files[row.id]
-                : undefined;
-              const stem = await legacyPrimerRecoveryArtifactStem(row.name, row.id);
-              const path = defaultPrimerArtifactPath(destination.root, stem);
-              if (await fileExists(path)) {
-                if (!publishedHash)
-                  throw new Error(
-                    'The pending primer file has no retained publication intent; its bytes were preserved.'
-                  );
-                if (hash(await readFile(path)) !== publishedHash)
-                  throw new Error(
-                    'The pending recovered primer file changed; its bytes were preserved.'
-                  );
-              } else if (publishedHash) {
-                const content = await readFile(
-                  join(intentDirectory, `${publishedHash}.primer.json`),
-                  'utf8'
-                );
-                const retained = parsePrimerArtifact(content);
-                if (
-                  hash(content) !== publishedHash ||
-                  retained.id !== row.id ||
-                  retained.recovery?.sourceFingerprint !== expected ||
-                  retained.file.workspaceRelativePath !== `primers/${stem}.primer.json`
-                )
-                  throw new Error(
-                    'The retained primer publication intent does not match its original record.'
-                  );
-                await persistence.fs.writeWorkspaceTextFileAtomic({
-                  workspaceRoot: destination.root,
-                  path,
-                  content,
-                  mode: 'create',
-                  artifactNoun: 'recovered primer',
-                });
-              }
-              const result = await native.recoverSelectedLegacyPrimers([
-                { id: row.id, sourceFingerprint: expected },
-              ]);
-              if (result.errors.length)
-                throw new Error(result.errors.map((error) => error.message).join('; '));
-              if (result.recovered !== 1)
+          try {
+            check();
+            const expected = fingerprint(row, sourceBindings(snapshot, row.id));
+            const existing = db
+              .prepare('SELECT workspace_id,fields FROM lims_entity WHERE id=?')
+              .get(row.id) as { workspace_id: number | null; fields: string } | undefined;
+            if (existing) {
+              const project = db
+                .prepare('SELECT id FROM workspaces WHERE path=? AND repo_uuid=?')
+                .get(destination.root, destination.uuid) as { id: number } | undefined;
+              const fields = JSON.parse(existing.fields) as {
+                artifact?: { relativePath?: string; contentHash?: string };
+              };
+              if (
+                !project ||
+                existing.workspace_id !== project.id ||
+                typeof fields.artifact?.relativePath !== 'string'
+              )
                 throw new Error(
-                  'The selected primer did not acquire its verified file-backed representation.'
+                  'A recovered primer identity belongs to another record or project.'
+                );
+              const loaded = await native.owner.readPrimerArtifactAtPath(
+                join(destination.root, fields.artifact.relativePath),
+                destination.root
+              );
+              const artifact = loaded.artifact;
+              if (
+                artifact.id !== row.id ||
+                artifact.recovery?.source !== 'legacy' ||
+                artifact.recovery.sourceFingerprint !== expected ||
+                hash(serializePrimerArtifact(artifact)) !==
+                  fields.artifact.contentHash?.replace(/^sha256:/, '')
+              )
+                throw new Error(
+                  'The saved recovered primer differs from its retained identity or current Registry revision.'
+                );
+              const projected = await native.owner.projectPrimerArtifact(
+                artifact,
+                destination.root
+              );
+              const currentPrimer = await readPrimerById(native.database, row.id);
+              const bindings = db
+                .prepare(
+                  "SELECT path,workspace_id,content_hash FROM catalog_entity_files WHERE entity_id=? AND status='current'"
+                )
+                .all(row.id) as Array<{
+                path: string;
+                workspace_id: number | null;
+                content_hash: string | null;
+              }>;
+              if (
+                !isDeepStrictEqual(currentPrimer, projected.primer) ||
+                currentPrimer?.workspaceId !== project.id ||
+                bindings.length !== 1 ||
+                bindings[0].workspace_id !== project.id ||
+                workspaceMutationRootIdentity(bindings[0].path) !==
+                  workspaceMutationRootIdentity(
+                    join(destination.root, artifact.file.workspaceRelativePath)
+                  ) ||
+                bindings[0].content_hash !== `sha256:${hash(serializePrimerArtifact(artifact))}`
+              )
+                throw new Error(
+                  'The recovered primer file binding or compatibility projection is incomplete.'
                 );
               recovered++;
-            } catch (error) {
-              errors.push({
-                primerId: row.id,
-                message: error instanceof Error ? error.message : String(error),
+              return;
+            }
+            assertLegacySource(db, row, expected);
+            const publishedHash = Object.hasOwn(journal.files, row.id)
+              ? journal.files[row.id]
+              : undefined;
+            const stem = await legacyPrimerRecoveryArtifactStem(row.name, row.id);
+            const path = defaultPrimerArtifactPath(destination.root, stem);
+            if (await fileExists(path)) {
+              if (!publishedHash)
+                throw new Error(
+                  'The pending primer file has no retained publication intent; its bytes were preserved.'
+                );
+              if (hash(await readFile(path)) !== publishedHash)
+                throw new Error(
+                  'The pending recovered primer file changed; its bytes were preserved.'
+                );
+            } else if (publishedHash) {
+              const content = await readFile(
+                join(intentDirectory, `${publishedHash}.primer.json`),
+                'utf8'
+              );
+              const retained = parsePrimerArtifact(content);
+              if (
+                hash(content) !== publishedHash ||
+                retained.id !== row.id ||
+                retained.recovery?.sourceFingerprint !== expected ||
+                retained.file.workspaceRelativePath !== `primers/${stem}.primer.json`
+              )
+                throw new Error(
+                  'The retained primer publication intent does not match its original record.'
+                );
+              await persistence.fs.writeWorkspaceTextFileAtomic({
+                workspaceRoot: destination.root,
+                path,
+                content,
+                mode: 'create',
+                artifactNoun: 'recovered primer',
               });
             }
+            const result = await native.recoverSelectedLegacyPrimers([
+              { id: row.id, sourceFingerprint: expected },
+            ]);
+            if (result.errors.length)
+              throw new Error(result.errors.map((error) => error.message).join('; '));
+            if (result.recovered !== 1)
+              throw new Error(
+                'The selected primer did not acquire its verified file-backed representation.'
+              );
+            recovered++;
+          } catch (error) {
+            errors.push({
+              primerId: row.id,
+              message: error instanceof Error ? error.message : String(error),
+            });
           }
-        } finally {
-          release();
-        }
+        });
       }
     );
+  };
+  try {
+    await publish();
+    for (const row of snapshot.rows) await publish(row);
   } catch (error) {
     errors.push({ primerId: '', message: error instanceof Error ? error.message : String(error) });
   }

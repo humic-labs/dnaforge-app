@@ -97,6 +97,7 @@ type WorkspaceProjectActionsOptions = WorkspaceArtifactActionsOptions &
   Omit<BenchlingWorkspaceActionsOptions, 'openWorkspaceSource' | 'refreshWorkspaceLibrary'> & {
     readonly shellPrepared: boolean;
     readonly workspaceLoading: boolean;
+    readonly waitForStartupProjectMounts: () => Promise<void>;
     readonly workspacePath: string | null;
     readonly selectedPath: string | null;
     readonly projectHomePath: string | null;
@@ -407,6 +408,7 @@ export function useWorkspaceProjectActions(options: WorkspaceProjectActionsOptio
   ]);
 
   useFirstProjectBootstrap({
+    waitForStartupProjectMounts: options.waitForStartupProjectMounts,
     libraryLoaded,
     workspaceLoading,
     workspacePath,

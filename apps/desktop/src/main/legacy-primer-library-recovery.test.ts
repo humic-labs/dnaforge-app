@@ -4,6 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createTestDb } from './__tests__/test-db';
+import {
+  assertRendererDatabaseStatementAllowed,
+  trackRendererWorkspaceMutation,
+  withWorkspaceSyncDatabaseFence,
+} from './workspace-sync-database-fence';
 import { ensureSchema } from './schema';
 import { recoverLegacyPrimerLibraryInMain } from './legacy-primer-library-recovery';
 import { parsePrimerArtifact } from '../shared/primers/primer-artifact';
@@ -56,6 +61,67 @@ const recover = (
     managedRootDir: join(directory, 'projects'),
     onCheckpoint,
   });
+
+it('lets queued database work observe completed primers between publications', async () => {
+  let countBetweenPublications: Promise<number> | undefined;
+  const result = await recover((phase) => {
+    if (phase === 'published' && !countBetweenPublications) {
+      countBetweenPublications = withWorkspaceSyncDatabaseFence(db, async () => {
+        return db
+          .prepare<
+            [],
+            { n: number }
+          >('SELECT COUNT(*) AS n FROM lims_entity WHERE id IN (SELECT id FROM primers)')
+          .get()!.n;
+      });
+    }
+  });
+
+  expect(result).toMatchObject({ status: 'complete', recovered: 3 });
+  expect(await countBetweenPublications).toBe(1);
+});
+
+it('keeps the database available through all steps of a foreground workspace mutation', async () => {
+  let foreground: Promise<void> | undefined;
+  const result = await recover((phase) => {
+    if (phase !== 'published' || foreground) return;
+    const finish = trackRendererWorkspaceMutation(db);
+    foreground = (async () => {
+      await withWorkspaceSyncDatabaseFence(db, async () => {});
+      await readdir(directory);
+      assertRendererDatabaseStatementAllowed(db);
+      expect(
+        db.prepare('SELECT COUNT(*) AS n FROM primers WHERE workspace_id IS NOT NULL').get()
+      ).toEqual({ n: 1 });
+      await readdir(directory);
+      assertRendererDatabaseStatementAllowed(db);
+    })().finally(finish);
+  });
+  await foreground;
+  expect(result).toMatchObject({ status: 'complete', recovered: 3 });
+});
+
+it('preserves a recovery journal changed by foreground work between publications', async () => {
+  const key = 'primer_legacy_library_recovery_v1';
+  let edit: Promise<void> | undefined;
+  const result = await recover((phase) => {
+    if (phase !== 'published' || edit) return;
+    const finish = trackRendererWorkspaceMutation(db);
+    edit = withWorkspaceSyncDatabaseFence(db, async () => {
+      db.prepare("UPDATE settings SET value=json_set(value,'$.files.external',?) WHERE key=?").run(
+        'a'.repeat(64),
+        key
+      );
+    }).finally(finish);
+  });
+  await edit;
+  expect(result).toMatchObject({ status: 'pending', recovered: 1, total: 3 });
+  expect(
+    db
+      .prepare("SELECT json_extract(value,'$.files.external') AS hash FROM settings WHERE key=?")
+      .get(key)
+  ).toEqual({ hash: 'a'.repeat(64) });
+});
 
 it('gives existing unassigned primers one portable project without inventing original ownership', async () => {
   const result = await recover();
