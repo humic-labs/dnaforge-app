@@ -34,6 +34,10 @@ export function assertWorkspaceSyncDatabaseFence(db: Database.Database, release:
 
 export async function acquireWorkspaceSyncDatabaseFence(db: Database.Database): Promise<Release> {
   const state = stateFor(db);
+  const call = new Error('Database fence origin').stack;
+  const wait = setTimeout(() => {
+    console.warn('[DatabaseFence] waiting', call);
+  }, 3_000);
   const previous = state.tail;
   let releaseQueue: (() => void) | undefined;
   state.tail = new Promise<void>((resolve) => {
@@ -45,10 +49,15 @@ export async function acquireWorkspaceSyncDatabaseFence(db: Database.Database): 
     await new Promise<void>((resolve) => state.transactionSettledWaiters.push(resolve));
   }
   state.fenced = true;
+  clearTimeout(wait);
+  const held = setTimeout(() => {
+    console.warn('[DatabaseFence] held', call);
+  }, 3_000);
   let released = false;
   const release = () => {
     if (released) return;
     released = true;
+    clearTimeout(held);
     heldFences.delete(release);
     state.fenced = false;
     state.requested = false;
