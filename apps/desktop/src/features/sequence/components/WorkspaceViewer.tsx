@@ -2315,7 +2315,7 @@ function WorkspaceViewerInternal({
           pane.style.height = `${size.height}px`;
         }
         if (webglRoot) {
-          webglRoot.style.width = `${size.width}px`;
+          if (webglRoot.style.width !== '100%') webglRoot.style.width = `${size.width}px`;
           webglRoot.style.height = `${size.height}px`;
         }
         setWebglDisplaySize(size);
@@ -2908,6 +2908,9 @@ function WorkspaceViewerInternal({
                     missingAnnotationColor={genomicMarkup.missingColor}
                     ref={setMinimapHandle}
                     plasmid={webglPlasmid}
+                    style={
+                      surface === 'sequence' && mapTopologyCircular ? { width: '100%' } : undefined
+                    }
                     width={mapContentWidth}
                     height={webglMapGeometry.renderHeight}
                     geometryHeight={webglMapGeometry.geometryHeight}

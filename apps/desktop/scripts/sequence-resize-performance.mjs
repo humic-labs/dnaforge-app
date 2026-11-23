@@ -16,6 +16,7 @@ const { values } = parseArgs({
     out: { type: 'string' },
     profile: { type: 'boolean' },
     'window-size': { type: 'string' },
+    'shrink-by': { type: 'string', default: '240x150' },
     video: { type: 'boolean' },
     'input-hz': { type: 'string', default: '60' },
   },
@@ -24,17 +25,20 @@ assert.ok(!(values.video && values.profile), 'Record video and CPU profiles on s
 const inputHz = Number(values['input-hz']);
 assert.ok([60, 120].includes(inputHz), 'Choose 60 or 120 input updates per second');
 const requestedSize = values['window-size'];
+function dimensions(value, option) {
+  assert.ok(/^\d+x\d+$/.test(value), 'Use ' + option + ' WIDTHxHEIGHT');
+  const size = value.split('x').map(Number);
+  assert.ok(
+    size.every((n) => Number.isSafeInteger(n) && n > 0),
+    'Dimensions must be positive'
+  );
+  return size;
+}
+const [windowWidth, windowHeight] = dimensions(requestedSize ?? '1250x820', '--window-size');
+const [shrinkWidth, shrinkHeight] = dimensions(values['shrink-by'], '--shrink-by');
 assert.ok(
-  requestedSize === undefined || /^\d+x\d+$/.test(requestedSize),
-  'Use --window-size WIDTHxHEIGHT'
-);
-const [windowWidth, windowHeight] = (requestedSize ?? '1250x820').split('x').map(Number);
-assert.ok(
-  Number.isSafeInteger(windowWidth) &&
-    windowWidth > 240 &&
-    Number.isSafeInteger(windowHeight) &&
-    windowHeight > 150,
-  'Window dimensions must allow the diagonal drag'
+  windowWidth > shrinkWidth && windowHeight > shrinkHeight,
+  'Window must fit the diagonal drag'
 );
 const session = await realpath(values.session);
 const out = path.resolve(values.out);
@@ -96,11 +100,14 @@ async function runPhase(label, sendInput) {
           const host = pane.querySelector('canvas');
           if (host) window.__resizeMapBuffers.add(`${host.width}x${host.height}`);
           if (mapper && length && host) {
-            const midpoint = (mapper.backboneAt(0).y + mapper.backboneAt(length / 2).y) / 2;
+            const start = mapper.backboneAt(0);
+            const opposite = mapper.backboneAt(length / 2);
+            const canvas = host.getBoundingClientRect();
             const rect = pane.getBoundingClientRect();
             window.__resizeCenters.push([
               performance.timeOrigin + performance.now(),
-              midpoint + host.getBoundingClientRect().top - rect.top - rect.height / 2,
+              (start.y + opposite.y) / 2 + canvas.top - rect.top - rect.height / 2,
+              (start.x + opposite.x) / 2 + canvas.left - rect.left - rect.width / 2,
             ]);
           }
           window.__resizeObservations.push([
@@ -280,6 +287,7 @@ async function runPhase(label, sendInput) {
     firstWrap: first,
     ...geometry,
     liveCenterErrorMax: Math.max(...geometry.centers.map(([, offset]) => Math.abs(offset))),
+    liveHorizontalCenterErrorMax: Math.max(...geometry.centers.map(([, , x]) => Math.abs(x))),
     traceStatus: result.status,
     traceFailures: result.failures,
     distinctSizes: new Set(geometry.samples.map(([, ...size]) => size.join(','))).size,
@@ -310,6 +318,7 @@ async function runPhase(label, sendInput) {
     phase.centerError > 4 ||
     !geometry.centers.length ||
     phase.liveCenterErrorMax > 4 ||
+    phase.liveHorizontalCenterErrorMax > 4 ||
     (!label.endsWith('height') && first === phase.wrap)
   )
     receipt.failures.push(label);
@@ -363,6 +372,7 @@ try {
     width: screen.width,
     height: screen.height,
   }));
+  receipt.windowShrink = { width: shrinkWidth, height: shrinkHeight };
   receipt.testWindow = await page.evaluate(() => ({
     width: innerWidth,
     height: innerHeight,
@@ -415,7 +425,10 @@ try {
   }
   await page.getByTestId('sequence-map-placement-vertical').click();
   await runPhase('native-window', (p) =>
-    sizeWindow(Math.round(windowWidth - p * 240), Math.round(windowHeight - p * 150))
+    sizeWindow(
+      Math.round(windowWidth - p * shrinkWidth),
+      Math.round(windowHeight - p * shrinkHeight)
+    )
   );
   await sizeWindow(requestedSize ? windowWidth : 1400, requestedSize ? windowHeight : 900);
   const filename = `adjacent-${crypto.randomUUID()}.html`;

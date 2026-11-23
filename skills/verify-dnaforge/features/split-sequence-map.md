@@ -101,7 +101,9 @@ To compare two revisions, use the same window size, display scale and input rate
 for both. For example, add `--window-size 3294x1890 --input-hz 120` to run all
 five gestures at that starting size. Record each gesture's longest gap between
 complete frames as well as its 95th percentile. A slow single frame can be
-visible even if the average frame rate looks fine.
+visible even if the average frame rate looks fine. Use `--shrink-by 720x150` to
+exercise a wider diagonal drag. The live map center must stay within four CSS
+pixels of the pane center on each axis during the drag.
 
 Each gesture schedules 90 input updates at a target of 60 Hz. Use `--input-hz 120` for 180 updates at twice the target presentation rate. Compare the actual input intervals with complete frame intervals and the minimum complete presentations in any one-second window. The receipt records the estimated display refresh rate from Chromium’s refresh outcomes and the cadence of presented frames during each gesture, reported partial or dropped frames, and the number of distinct size observations. Inspect the timeline and exact dimensions inside each phase directory. For a separate screen recording, repeat with `--video` and a different output directory. Each phase retains its original frames and `video.ffconcat` with their capture times. `--profile` collects JavaScript CPU samples for diagnosis. Use the ordinary run for frame pacing.
 
