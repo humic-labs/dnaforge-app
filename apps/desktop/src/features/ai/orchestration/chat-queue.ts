@@ -86,7 +86,8 @@ async function drainConversationQueue(
   get: ChatStoreGet,
   conversationId: string,
   preserveInitialHeadOnPreconditionFailure: boolean,
-  onInitialHeadSettled?: (accepted: boolean) => void
+  onInitialHeadSettled?: (accepted: boolean) => void,
+  onInitialMessageSaved?: () => void
 ): Promise<void> {
   const releaseDrain = conversationExecution(conversationId).beginDrain();
   if (!releaseDrain) return;
@@ -117,7 +118,7 @@ async function drainConversationQueue(
         (message) => message.role === 'user'
       ).length;
       const onAccepted = (): void => {
-        settleInitialHead(true);
+        if (!initialHeadSettled) onInitialMessageSaved?.();
         const effects = takeSubmissionEffects(conversationId, next.id);
         if (effects?.routeFallback) announceAssistantRouteFallback(effects.routeFallback);
         const onStarted = effects?.onStarted;
@@ -364,13 +365,25 @@ export async function submitChatMessage(
     settleFirst = resolve;
   });
   pendingFirstMessages.set(resolvedConversationId, firstMessage);
-  void drainConversationQueue(set, get, resolvedConversationId, false, (accepted) => {
+  const releaseFirst = (accepted: boolean) => {
     if (pendingFirstMessages.get(resolvedConversationId) === firstMessage) {
       pendingFirstMessages.delete(resolvedConversationId);
     }
     settleFirst(accepted);
+  };
+  return new Promise<'accepted' | 'rejected'>((resolve) => {
+    void drainConversationQueue(
+      set,
+      get,
+      resolvedConversationId,
+      false,
+      (accepted) => {
+        releaseFirst(accepted);
+        resolve(accepted ? 'accepted' : 'rejected');
+      },
+      () => releaseFirst(true)
+    );
   });
-  return (await firstMessage) ? 'accepted' : 'rejected';
 }
 
 export function stopChatGeneration(
