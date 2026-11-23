@@ -471,6 +471,24 @@ describe('agent-sdk query transports', () => {
     });
   });
 
+  it.each([true, false])(
+    'fails a Claude stream that closes before its result (trace %s)',
+    async (emitTrace) => {
+      mockClaudeQuery.mockReturnValue(
+        claudeMessages([
+          { type: 'system', subtype: 'init', session_id: 'fixture-session' },
+          { type: 'assistant', message: { content: [{ type: 'text', text: 'Partial answer' }] } },
+        ])
+      );
+      const { queryClaudeCode } = await import('../query');
+      await expect(queryClaudeCode('Reply OK.', { emitTrace })).resolves.toMatchObject({
+        ok: false,
+        stopState: 'failed',
+        providerConversationId: 'fixture-session',
+      });
+    }
+  );
+
   it('uses the Claude terminal result instead of a pre-tool assistant preamble', async () => {
     mockClaudeQuery.mockReturnValue(
       claudeMessages([
