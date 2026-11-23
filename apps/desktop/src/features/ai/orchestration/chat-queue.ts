@@ -1,3 +1,5 @@
+import { isDesktopRuntime } from '../../../utils/environment';
+import { persistQueuedMessage } from '../../../db/chat-message-queue';
 import { captureCliModelSettings } from './cli-turn-model';
 import {
   toUserMessage,
@@ -41,6 +43,8 @@ import {
 import { runChatTurn } from './run-chat-turn';
 
 import { conversationExecution } from './conversation-execution';
+
+const pendingFirstMessages = new Map<string, Promise<boolean>>();
 
 function takeSubmissionEffects(conversationId: string, messageId: string) {
   return conversationExecution(conversationId).takeSubmission(messageId);
@@ -113,6 +117,7 @@ async function drainConversationQueue(
         (message) => message.role === 'user'
       ).length;
       const onAccepted = (): void => {
+        settleInitialHead(true);
         const effects = takeSubmissionEffects(conversationId, next.id);
         if (effects?.routeFallback) announceAssistantRouteFallback(effects.routeFallback);
         const onStarted = effects?.onStarted;
@@ -214,7 +219,7 @@ async function drainConversationQueue(
   }
 }
 
-export function submitChatMessage(
+export async function submitChatMessage(
   set: ChatStoreSet,
   get: ChatStoreGet,
   content: string,
@@ -315,6 +320,22 @@ export function submitChatMessage(
       : {}),
     createdAt: Date.now(),
   };
+  if (wasAlreadyQueuedOrRunning && isDesktopRuntime()) {
+    try {
+      const firstMessage = pendingFirstMessages.get(resolvedConversationId);
+      if (firstMessage && !get().conversations.some((row) => row.id === resolvedConversationId)) {
+        if (!(await firstMessage)) throw new Error('The conversation could not be saved.');
+      }
+      if (isChatConversationDeleted(resolvedConversationId)) return 'rejected';
+      await persistQueuedMessage(resolvedConversationId, item);
+    } catch (cause) {
+      const error = toUserMessage(cause, 'assistant.failed');
+      if (options?.onNotStarted) options.onNotStarted(error);
+      else setConversationState(set, resolvedConversationId, () => ({ error }));
+      return 'rejected';
+    }
+    if (isChatConversationDeleted(resolvedConversationId)) return 'rejected';
+  }
   conversationExecution(resolvedConversationId).submitted(item.id, {
     onStarted: options?.onStarted,
     onNotStarted: options?.onNotStarted,
@@ -328,25 +349,28 @@ export function submitChatMessage(
   if (
     conversationExecution(resolvedConversationId).isDraining ||
     isChatSendClaimed(resolvedConversationId) ||
-    previous.isLoading
+    get()._convStates.get(resolvedConversationId)?.isLoading
   ) {
     return Promise.resolve('accepted');
   }
 
-  if (previous.queuedMessages.length > 0) {
+  if (wasAlreadyQueuedOrRunning) {
     void drainConversationQueue(set, get, resolvedConversationId, true);
     return Promise.resolve('accepted');
   }
 
-  return new Promise<'accepted' | 'rejected'>((resolve) => {
-    void drainConversationQueue(
-      set,
-      get,
-      resolvedConversationId,
-      wasAlreadyQueuedOrRunning,
-      (accepted) => resolve(accepted ? 'accepted' : 'rejected')
-    );
+  let settleFirst!: (accepted: boolean) => void;
+  const firstMessage = new Promise<boolean>((resolve) => {
+    settleFirst = resolve;
   });
+  pendingFirstMessages.set(resolvedConversationId, firstMessage);
+  void drainConversationQueue(set, get, resolvedConversationId, false, (accepted) => {
+    if (pendingFirstMessages.get(resolvedConversationId) === firstMessage) {
+      pendingFirstMessages.delete(resolvedConversationId);
+    }
+    settleFirst(accepted);
+  });
+  return (await firstMessage) ? 'accepted' : 'rejected';
 }
 
 export function stopChatGeneration(
