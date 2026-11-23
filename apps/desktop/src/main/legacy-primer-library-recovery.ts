@@ -322,7 +322,7 @@ async function recover(options: RecoveryOptions): Promise<LegacyPrimerLibraryRec
         assertKnownWorkspaceContentWritable(db, destination.root);
         const lease = leases.get(workspaceMutationRootIdentity(destination.root));
         if (!lease) throw new Error('The recovered project mutation lease is unavailable.');
-        const release = await acquireWorkspaceSyncDatabaseFence(db);
+        let release = await acquireWorkspaceSyncDatabaseFence(db);
         try {
           const check = () => {
             assertCurrent();
@@ -417,14 +417,6 @@ async function recover(options: RecoveryOptions): Promise<LegacyPrimerLibraryRec
               check();
             },
           };
-          const native = createNativePrimerArtifactWriter({
-            db,
-            workspaceRoot: destination.root,
-            operationId: journal.operationId,
-            persistence,
-            assertCurrent: check,
-            publicationAuthority: { mutationLease: lease, databaseFence: release },
-          });
           const sourceRelativePath = `.forge/recovery/legacy-primer-library-source-${journal.sourceHash}.json`;
           const sourcePath = join(destination.root, sourceRelativePath);
           const sourceDirectory = join(
@@ -470,6 +462,16 @@ async function recover(options: RecoveryOptions): Promise<LegacyPrimerLibraryRec
             [sourceRelativePath]
           );
           for (const row of snapshot.rows) {
+            release();
+            release = await acquireWorkspaceSyncDatabaseFence(db);
+            const native = createNativePrimerArtifactWriter({
+              db,
+              workspaceRoot: destination.root,
+              operationId: journal.operationId,
+              persistence,
+              assertCurrent: check,
+              publicationAuthority: { mutationLease: lease, databaseFence: release },
+            });
             try {
               check();
               const expected = fingerprint(row, sourceBindings(snapshot, row.id));

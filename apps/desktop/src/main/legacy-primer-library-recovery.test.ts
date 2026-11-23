@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createTestDb } from './__tests__/test-db';
+import { withWorkspaceSyncDatabaseFence } from './workspace-sync-database-fence';
 import { ensureSchema } from './schema';
 import { recoverLegacyPrimerLibraryInMain } from './legacy-primer-library-recovery';
 import { parsePrimerArtifact } from '../shared/primers/primer-artifact';
@@ -56,6 +57,25 @@ const recover = (
     managedRootDir: join(directory, 'projects'),
     onCheckpoint,
   });
+
+it('lets queued database work observe completed primers between publications', async () => {
+  let countBetweenPublications: Promise<number> | undefined;
+  const result = await recover((phase) => {
+    if (phase === 'published' && !countBetweenPublications) {
+      countBetweenPublications = withWorkspaceSyncDatabaseFence(db, async () => {
+        return db
+          .prepare<
+            [],
+            { n: number }
+          >('SELECT COUNT(*) AS n FROM lims_entity WHERE id IN (SELECT id FROM primers)')
+          .get()!.n;
+      });
+    }
+  });
+
+  expect(result).toMatchObject({ status: 'complete', recovered: 3 });
+  expect(await countBetweenPublications).toBe(1);
+});
 
 it('gives existing unassigned primers one portable project without inventing original ownership', async () => {
   const result = await recover();
