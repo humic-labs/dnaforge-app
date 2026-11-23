@@ -13,6 +13,8 @@ export type {
   TrackSizingProfile,
   TrackSource,
   TrackType,
+  TrackRangeControl,
+  TrackSettingsDefinition,
   TrackTypeDefinition,
   TrackTypeRegistry,
 } from './types';
@@ -51,3 +53,5 @@ export {
 } from './builtins';
 
 export { createTrackTypeRegistry, defaultBuiltinRegistry } from './registry';
+
+export { createTrackInstance, resolveTrackSettings, migrateTrackSettings } from './track-instance';

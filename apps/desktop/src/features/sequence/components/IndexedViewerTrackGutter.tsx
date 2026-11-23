@@ -100,6 +100,7 @@ import type {
 } from '../data-layers/useSequenceDataLayers';
 import type { LaneLimit } from './indexed-genome-legacy-adapter';
 import type { TranscriptDisplayMode } from './isoform-collapse';
+import { useTrackGutterScroll } from './useTrackGutterScroll';
 import { ReferenceTrackControls } from './ReferenceTrackControls';
 import {
   READ_PILEUP_DEFAULT_MAX_ROWS,
@@ -108,7 +109,6 @@ import {
 } from '../read-pileup-import';
 import { buildLaneGutterRows, type GutterRow } from './track-gutter-rows';
 import {
-  applyPresentedTrackScrollReceipt,
   GUTTER_ADD_ROW_HEIGHT_PX,
   GUTTER_UNBANDED_ROW_HEIGHT_PX,
   TRACK_HEIGHT_MAX_PX,
@@ -342,23 +342,9 @@ export function IndexedViewerTrackGutter({
       ),
     [ownedLanes]
   );
-  const gutterScrollLayerRef = useRef<HTMLDivElement | null>(null);
+  const setGutterScrollLayer = useTrackGutterScroll(webglRef);
   const previewOrderRef = useRef<ReadonlyArray<string> | null>(null);
   const previewDragRef = useRef<TrackPresentationDrag | null>(null);
-  const lastAppliedScrollRef = useRef<{
-    target: HTMLDivElement;
-    trackScrollTop: number;
-  } | null>(null);
-  const setGutterScrollLayer = useCallback(
-    (target: HTMLDivElement | null) => {
-      gutterScrollLayerRef.current = target;
-      const receipt = webglRef.current?.getLinearRenderer?.()?.getPresentedTrackScrollReceipt?.();
-      if (!target || !receipt) return;
-      applyPresentedTrackScrollReceipt(target, receipt);
-      lastAppliedScrollRef.current = { target, trackScrollTop: receipt.trackScrollTop };
-    },
-    [webglRef]
-  );
   useEffect(() => {
     const parent = axisPortalAnchorRef.current?.parentElement;
     if (!parent) return;
@@ -373,43 +359,6 @@ export function IndexedViewerTrackGutter({
     observer.observe(parent, { childList: true });
     return () => observer.disconnect();
   }, []);
-  useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    let retryFrame: number | null = null;
-    let disposed = false;
-
-    const syncPresentedScroll = () => {
-      const target = gutterScrollLayerRef.current;
-      const receipt = webglRef.current?.getLinearRenderer?.()?.getPresentedTrackScrollReceipt?.();
-      const applied = lastAppliedScrollRef.current;
-      if (
-        !target ||
-        !receipt ||
-        (applied?.target === target && applied.trackScrollTop === receipt.trackScrollTop)
-      ) {
-        return;
-      }
-      applyPresentedTrackScrollReceipt(target, receipt);
-      lastAppliedScrollRef.current = { target, trackScrollTop: receipt.trackScrollTop };
-    };
-    const attach = () => {
-      if (disposed) return;
-      const map = webglRef.current;
-      if (!map) {
-        retryFrame = requestAnimationFrame(attach);
-        return;
-      }
-      syncPresentedScroll();
-      unsubscribe = map.subscribeToPresentedFrames(syncPresentedScroll);
-      map.requestRender();
-    };
-    attach();
-    return () => {
-      disposed = true;
-      if (retryFrame !== null) cancelAnimationFrame(retryFrame);
-      unsubscribe?.();
-    };
-  }, [webglRef]);
   const handleVerticalScroll = useCallback(
     (deltaY: number) => webglRef.current?.scrollTracksBy(deltaY) ?? false,
     [webglRef]

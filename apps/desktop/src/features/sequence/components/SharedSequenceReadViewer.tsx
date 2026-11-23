@@ -36,10 +36,6 @@ import {
 import type { ParsedPlasmid } from '@waypoint/plasmid-viewer';
 import { convertPlasmid } from '@waypoint/plasmid-viewer';
 import {
-  PixiSequenceReadTrackRenderer,
-  SEQUENCE_READ_TRACK_TYPE,
-  CHROMATOGRAM_TYPE,
-  type SupplementalLinearTrack,
   type AnnotationChangeDecoration,
   type LinearSequencePresentation,
 } from '@waypoint/genome-renderer';
@@ -71,7 +67,16 @@ import { alignmentColumnChanges, annotationDnaData } from './alignment-annotatio
 import { annotationDnaColors, comparisonChangeColor } from './sequence-comparison-colors';
 import { ComparisonColorControls } from './ComparisonColorControls';
 import { useIndexedLaneContractTracks } from './useIndexedLaneContractTracks';
-import { SangerGainGutter, sangerGainKey } from './SangerGainGutter';
+import { ReadTrackGutter } from './ReadTrackGutter';
+import { deriveAnnotationTrackRegistry } from '../annotation-track-registry';
+import { createGroupHeaderBindings } from './track-group-bands';
+import {
+  createReadTrackBindingFactory,
+  editReadTrackLayout,
+  resolveReadTrackLayout,
+  type ReadTrackLayout,
+  type ReadTrackCommand,
+} from './read-track-presentation';
 import { SequenceComparisonKey } from './SequenceComparisonKey';
 import type { SequenceComparisonInput } from './sequence-comparison-input';
 import {
@@ -100,7 +105,8 @@ interface SharedSequenceReadViewerProps {
   readonly searchMatches?: readonly SearchMatch[];
   readonly comparisonDataColors?: readonly ResolvedDataColor<SequenceComparisonColorTarget>[];
   readonly sangerGains?: Readonly<Record<string, number>>;
-  readonly onSangerGainsChange: (gains: Readonly<Record<string, number>>) => void;
+  readonly readTrackLayout?: ReadTrackLayout;
+  readonly onReadTrackLayoutChange: (layout: ReadTrackLayout) => void;
   readonly trackOwnerId?: string;
   readonly changedAnnotationNames?: ReadonlySet<string>;
   readonly hideReverseComplement?: boolean;
@@ -188,7 +194,8 @@ export function SharedSequenceReadViewer({
   comparison,
   comparisonDataColors,
   sangerGains,
-  onSangerGainsChange,
+  readTrackLayout,
+  onReadTrackLayoutChange,
   changedAnnotationNames,
   hideReverseComplement,
   selectedAnnotation,
@@ -371,20 +378,52 @@ export function SharedSequenceReadViewer({
     [sourceScene, cdsModel, cdsLayout]
   );
   const scene = cdsPresentation?.scene ?? sourceScene;
+  const hiddenAnnotationTypes = readTrackLayout?.reference?.hiddenAnnotationTypes ?? EMPTY_READS;
+  const annotationTrackRegistry = useMemo(
+    () =>
+      deriveAnnotationTrackRegistry(
+        (scene?.genome.features ?? []).map((feature) => feature.annotationTrackId ?? feature.type)
+      ),
+    [scene?.genome.features]
+  );
+  const visibleAnnotationTypes = useMemo(
+    () =>
+      new Set(
+        annotationTrackRegistry
+          .map((track) => track.trackId)
+          .filter((type) => !hiddenAnnotationTypes.includes(type))
+      ),
+    [annotationTrackRegistry, hiddenAnnotationTypes]
+  );
   const rendererGenome = useMemo(() => {
     if (!scene) return null;
     const axis =
       baseComparison?.beforeAxis ?? (scene.coordinateSpace?.mode === 'gapped' ? scene.axis : null);
-    if (!axis) return scene.genome;
+    const genome =
+      hiddenAnnotationTypes.length && scene.genome.features?.length
+        ? {
+            ...scene.genome,
+            features: scene.genome.features.filter((f) =>
+              visibleAnnotationTypes.has(f.annotationTrackId ?? f.type)
+            ),
+          }
+        : scene.genome;
+    if (!axis) return genome;
     const origin = comparison?.referenceOrigin ?? 0;
     return {
-      ...scene.genome,
+      ...genome,
       formatRulerLabel: (column: number) => {
         const base = axis.columnToBio(column);
         return base === null ? null : String(origin + base + 1);
       },
     };
-  }, [scene, baseComparison, comparison?.referenceOrigin]);
+  }, [
+    scene,
+    baseComparison,
+    comparison?.referenceOrigin,
+    hiddenAnnotationTypes,
+    visibleAnnotationTypes,
+  ]);
   const columnNavigation = useMemo(() => {
     const project = sourceScene?.inputColumnToDisplayColumn;
     if (!inputNavigation || !project) return inputNavigation;
@@ -823,42 +862,56 @@ export function SharedSequenceReadViewer({
       },
     [sequence.id, scene?.genome.name, scene?.axis.length]
   );
-  const readTracks = useMemo(() => {
-    const chromatogram = new PixiSequenceReadTrackRenderer(CHROMATOGRAM_TYPE.type);
-    const alignment = new PixiSequenceReadTrackRenderer();
-    return (scene?.lanes ?? [])
-      .filter((lane) => !(lane.kind === 'alignment' && nativeQueryRow))
-      .map(
-        (lane, order) =>
-          ({
-            track: {
-              id: lane.id,
-              type: lane.kind === 'sanger' ? CHROMATOGRAM_TYPE.type : SEQUENCE_READ_TRACK_TYPE,
-              order,
-              visible: true,
-              assemblyId: sequence.id,
-              label: lane.label,
-              zone: 'below-legacy' as const,
-              sizing:
-                lane.kind === 'sanger'
-                  ? CHROMATOGRAM_TYPE.defaultSizing
-                  : { kind: 'fixed' as const, pixels: 42 },
-            },
-            renderer: lane.kind === 'sanger' ? chromatogram : alignment,
-            data: lane,
-          }) satisfies SupplementalLinearTrack
-      );
-  }, [scene, nativeQueryRow, sequence.id]);
-  const readBindings = useMemo(
+  const trackLanes = useMemo(
     () =>
-      readTracks.map((binding) => {
-        const gain = sangerGains?.[sangerGainKey(binding.track.id)] ?? 1;
-        return binding.data.kind === 'sanger' && gain !== 1
-          ? { ...binding, data: { ...binding.data, gain } }
-          : binding;
-      }),
-    [readTracks, sangerGains]
+      (scene?.lanes ?? EMPTY_READS).filter(
+        (lane) => !(lane.kind === 'alignment' && nativeQueryRow)
+      ),
+    [scene, nativeQueryRow]
   );
+  const storedLayout = useMemo(
+    () => resolveReadTrackLayout(trackLanes, readTrackLayout, sangerGains),
+    [trackLanes, readTrackLayout, sangerGains]
+  );
+  const [preview, setPreview] = useState<{
+    base: ReadTrackLayout;
+    command: ReadTrackCommand;
+  } | null>(null);
+  const layout = useMemo(
+    () =>
+      preview?.base === storedLayout
+        ? editReadTrackLayout(storedLayout, preview.command)
+        : storedLayout,
+    [storedLayout, preview]
+  );
+  const bindReadTracks = useMemo(createReadTrackBindingFactory, []);
+  const readBindings = useMemo(
+    () => bindReadTracks(trackLanes, sequence.id, layout),
+    [bindReadTracks, trackLanes, sequence.id, layout]
+  );
+  const bindGroupHeaders = useMemo(createGroupHeaderBindings, []);
+  const headerBindings = useMemo(
+    () => bindGroupHeaders(layout.rows, sequence.id),
+    [bindGroupHeaders, layout.rows, sequence.id]
+  );
+  const trackBindings = useMemo(
+    () => [...headerBindings, ...readBindings],
+    [headerBindings, readBindings]
+  );
+  const commitTrackCommand = (command: ReadTrackCommand) => {
+    setPreview(null);
+    const next = editReadTrackLayout(storedLayout, command);
+    if (next !== storedLayout) onReadTrackLayoutChange(next);
+  };
+  const setVisibleAnnotationTypes = (types: ReadonlySet<string>) => {
+    const hiddenAnnotationTypes = annotationTrackRegistry
+      .map((track) => track.trackId)
+      .filter((type) => !types.has(type));
+    onReadTrackLayoutChange({
+      ...storedLayout,
+      reference: { ...storedLayout.reference, hiddenAnnotationTypes },
+    });
+  };
   useIndexedLaneContractTracks({
     enabled: !!scene,
     webglRef: mapRef,
@@ -866,7 +919,7 @@ export function SharedSequenceReadViewer({
     rendererAssembly: null,
     manifestChrom: sequence.id,
     sequenceChromosome: sequenceChromosome ?? undefined,
-    supplementalTracks: readBindings,
+    supplementalTracks: trackBindings,
     onTrackSelection: (start, end, trackId) =>
       commitColumns(
         { start, end },
@@ -1226,7 +1279,7 @@ export function SharedSequenceReadViewer({
           return;
         }
         if (
-          !(event.target instanceof Element && event.target.closest('[data-sanger-gain-controls]'))
+          !(event.target instanceof Element && event.target.closest('[data-testid="track-gutter"]'))
         )
           dismissColumnSelection();
       }}
@@ -1294,15 +1347,26 @@ export function SharedSequenceReadViewer({
         </div>
       )}
       <div className="flex min-h-0 flex-1">
-        {sangerLanes.length > 0 && (
-          <SangerGainGutter
+        {scene && !comparison && (
+          <ReadTrackGutter
             mapRef={mapRef}
-            lanes={sangerLanes}
-            gains={sangerGains}
-            onGainChange={(lane, gain) =>
-              onSangerGainsChange({ ...sangerGains, [sangerGainKey(lane.id)]: gain })
+            rendererEpoch={rendererEpoch + genomeEpoch}
+            referenceLabel={scene.genome.name}
+            bindings={readBindings}
+            layout={layout}
+            onCommand={commitTrackCommand}
+            onPreviewCommand={(command) =>
+              setPreview(command ? { base: storedLayout, command } : null)
             }
-            rendererEpoch={rendererEpoch}
+            annotationTrackRegistry={annotationTrackRegistry}
+            visibleTypes={visibleAnnotationTypes}
+            onSetVisibleTypes={setVisibleAnnotationTypes}
+            onToggleVisibleType={(type) => {
+              const next = new Set(visibleAnnotationTypes);
+              if (next.has(type)) next.delete(type);
+              else next.add(type);
+              setVisibleAnnotationTypes(next);
+            }}
           />
         )}
         <div

@@ -571,6 +571,8 @@ export type {
   TrackSizingProfile,
   TrackSource,
   TrackType,
+  TrackRangeControl,
+  TrackSettingsDefinition,
   TrackTypeDefinition,
   TrackTypeRegistry,
 } from './tracks';
@@ -602,6 +604,9 @@ export {
   SEQUENCE_COMPOSITE_TYPE,
   VARIANT_TYPE,
   createTrackTypeRegistry,
+  createTrackInstance,
+  resolveTrackSettings,
+  migrateTrackSettings,
   defaultBuiltinRegistry,
 } from './tracks';
 export type { CytobandVerticalLayout } from './tracks';

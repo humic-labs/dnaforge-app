@@ -4,6 +4,11 @@ import type { PileupRecord } from '@waypoint/genome-data';
 import { alignedReadSourceGenerationKey } from '@waypoint/genome-data';
 import {
   BUILTIN_TRACK_TYPES,
+  BUILTIN_TRACK_TYPE_DEFINITIONS,
+  createTrackInstance,
+  GENERIC_INTERVAL_TYPE,
+  PILEUP_TYPE,
+  VARIANT_TYPE,
   CYTOBAND_TYPE,
   PENDING_INTERVAL_BAND_HEIGHT_PX,
   PixiAnnotationTrackRenderer,
@@ -160,16 +165,14 @@ export function useIndexedLaneContractTracks({
       (rendererAssembly != null || chromosomeForChrom(manifestChrom) != null);
     const cytobandTrack: Track | null =
       hasIdeogram && cytobandVisible
-        ? {
+        ? createTrackInstance(CYTOBAND_TYPE, {
             id: `cytoband-${ideogramId}`,
-            type: BUILTIN_TRACK_TYPES.cytoband,
             order: 0,
             visible: true,
             assemblyId: ideogramId,
-            sizing: CYTOBAND_TYPE.defaultSizing,
             label: 'Cytoband',
             zone: 'above-legacy',
-          }
+          })
         : null;
     const expectedTrackIds = [
       ...(cytobandTrack ? [cytobandTrack.id] : []),
@@ -257,24 +260,33 @@ export function useIndexedLaneContractTracks({
             })
           );
         }
-        instances.push({
-          id: dataset.trackId,
-          type: dataset.trackType,
-          order: 1 + i,
-          visible: true,
-          assemblyId: manifestChrom,
-          sizing: {
-            kind: 'fixed',
-            pixels: pileupGeometry?.trackHeightPx ?? dataset.trackPx,
-          },
-          label: dataset.label,
-          color: colorToCss(dataset.color),
-          rowHeightPx: pileupGeometry?.rowPitchPx ?? dataset.laneHeightPx,
-          maxRows: dataset.maxLanes,
-          quantitative: dataset.quantitativePresentation,
-          quantitativeSourceSummary: dataset.quantitativeSourceSummary,
-          zone: 'below-legacy',
-        });
+        const definition =
+          dataset.kind === 'pileup'
+            ? PILEUP_TYPE
+            : dataset.kind === 'variant'
+              ? VARIANT_TYPE
+              : (BUILTIN_TRACK_TYPE_DEFINITIONS.find(({ type }) => type === dataset.trackType) ??
+                GENERIC_INTERVAL_TYPE);
+        instances.push(
+          createTrackInstance(definition, {
+            id: dataset.trackId,
+            type: dataset.trackType,
+            order: 1 + i,
+            visible: true,
+            assemblyId: manifestChrom,
+            sizing: {
+              kind: 'fixed',
+              pixels: pileupGeometry?.trackHeightPx ?? dataset.trackPx,
+            },
+            label: dataset.label,
+            color: colorToCss(dataset.color),
+            rowHeightPx: pileupGeometry?.rowPitchPx ?? dataset.laneHeightPx,
+            maxRows: dataset.maxLanes,
+            quantitative: dataset.quantitativePresentation,
+            quantitativeSourceSummary: dataset.quantitativeSourceSummary,
+            zone: 'below-legacy',
+          })
+        );
       }
 
       for (const binding of mountBindings) {

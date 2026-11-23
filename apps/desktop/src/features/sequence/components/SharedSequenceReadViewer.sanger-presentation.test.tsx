@@ -306,6 +306,7 @@ function viewer(sequence: AnnotatedSequence) {
       plasmid={annotatedSequenceToParsedPlasmid(sequence)}
       selection={null}
       onSelectionChange={noChange}
+      onReadTrackLayoutChange={noChange}
       onViewportChange={noChange}
       zoomPercent={100}
     />

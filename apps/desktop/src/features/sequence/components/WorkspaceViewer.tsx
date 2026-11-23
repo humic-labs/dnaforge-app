@@ -2602,7 +2602,10 @@ function WorkspaceViewerInternal({
                     sharedReadViewerActive ? (
                       <SharedSequenceReadViewer
                         sangerGains={seqView.sangerGains}
-                        onSangerGainsChange={(sangerGains) => patchSeqView({ sangerGains })}
+                        readTrackLayout={seqView.readTrackLayout}
+                        onReadTrackLayoutChange={(readTrackLayout) =>
+                          patchSeqView({ readTrackLayout })
+                        }
                         viewProjection={sequenceViewProjection}
                         rawPeakPositions={getTraceData(sourceSequence)?.peakPositions}
                         sequence={sequenceWithExtensionPreview}

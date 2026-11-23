@@ -172,6 +172,21 @@ export const CHROMATOGRAM_TYPE = {
   canShareScaleGroup: false,
   interactions: { clickSelects: true, contextMenu: true },
   label: 'Chromatogram',
+  settings: {
+    version: 1,
+    controls: [
+      {
+        key: 'gain',
+        label: 'Trace gain',
+        min: 1,
+        max: 8,
+        defaultValue: 1,
+        scale: 'log2',
+        step: 0.125,
+        unit: '×',
+      },
+    ],
+  },
 } satisfies TrackTypeDefinition;
 
 export const PILEUP_TYPE: TrackTypeDefinition = {

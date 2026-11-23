@@ -1,3 +1,4 @@
+import { parseReadTrackLayout, type ReadTrackLayout } from './read-track-layout';
 import type { SequenceDataLayerViewSelection, TabViewState } from '../../canvas/public/types';
 import {
   sequenceDataLayerIdSchema,
@@ -91,6 +92,7 @@ export interface SequenceViewState {
   annotationColorMode: AnnotationColorMode;
   display: SequenceDisplayToggles;
   annotationCatalogLayout?: AnnotationTrackLayout;
+  readTrackLayout?: ReadTrackLayout;
   sangerGains?: Readonly<Record<string, number>>;
   dataLayerSelection?: SequenceDataLayerViewSelection;
 }
@@ -119,6 +121,7 @@ export interface SequenceViewStatePatch {
   annotationColorMode?: AnnotationColorMode;
   display?: Partial<SequenceDisplayToggles>;
   annotationCatalogLayout?: AnnotationTrackLayout | null;
+  readTrackLayout?: ReadTrackLayout;
   sangerGains?: Readonly<Record<string, number>>;
   dataLayerSelection?: SequenceDataLayerViewSelection | null;
 }
@@ -453,6 +456,8 @@ export function normalizeSequenceViewStatePatch(input: unknown): SequenceViewSta
   assignNormalizedDisplay(input, patch);
   assignParsedAnnotationCatalogLayout(input, patch);
   assignDataLayerSelection(input, patch);
+  const readTrackLayout = parseReadTrackLayout(input.readTrackLayout);
+  if (readTrackLayout) patch.readTrackLayout = readTrackLayout;
   if (isPlainObject(input.sangerGains)) {
     patch.sangerGains = Object.fromEntries(
       Object.entries(input.sangerGains).filter(
@@ -553,9 +558,11 @@ export function resolveSeededViewState(layers: {
   const mapPlacement = resolveSeededMapPlacement(tab, memory, layers.circular ?? false);
   const mapLayout = resolveSeededMapLayout(tab, memory, mapPlacement);
   const annotationCatalogLayout = pickPresentNullable(tab, memory, 'annotationCatalogLayout', null);
+  const readTrackLayout = tab.readTrackLayout ?? memory.readTrackLayout;
   const sangerGains = tab.sangerGains ?? memory.sangerGains;
   const dataLayerSelection = pickPresentNullable(tab, memory, 'dataLayerSelection', null);
   return {
+    ...(readTrackLayout && { readTrackLayout }),
     ...(sangerGains && { sangerGains }),
     rendererVisibility: pickDefined(
       tab,
@@ -672,6 +679,7 @@ const SEQUENCE_VIEW_PATCH_SCALAR_KEYS = [
   'minimapGeometryHeight',
   'annotationColorMode',
   'annotationCatalogLayout',
+  'readTrackLayout',
   'sangerGains',
   'dataLayerSelection',
   'sequenceRanges',
@@ -745,6 +753,7 @@ const TAB_TO_MODEL_SCALAR = [
   { tab: 'sequenceWebglMorph', model: 'webglMorph' },
   { tab: 'sequenceMinimapHeight', model: 'minimapHeight' },
   { tab: 'sequenceMinimapGeometryHeight', model: 'minimapGeometryHeight' },
+  { tab: 'sequenceReadTrackLayout', model: 'readTrackLayout' },
   { tab: 'sequenceSangerGains', model: 'sangerGains' },
   { tab: 'sequenceAnnotationColorMode', model: 'annotationColorMode' },
   { tab: 'sequenceAnnotationCatalogLayout', model: 'annotationCatalogLayout' },

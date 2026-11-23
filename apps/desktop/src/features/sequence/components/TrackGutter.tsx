@@ -41,11 +41,16 @@ export const GUTTER_STYLE = {
 const GUTTER_BG_CLASS = GUTTER_STYLE.bg;
 export const GUTTER_ADD_ROW_HEIGHT_PX = TRACK_STACK_END_CONTROL_HEIGHT_PX;
 
-interface TrackGutterProps {
+export interface TrackGutterProps {
   rows: ReadonlyArray<GutterRow>;
   onToggleVisible: (row: GutterRow) => void;
   onRemove: (row: GutterRow) => void;
   onMoveDataRow?: (trackId: string, targetTrackId: string, placement: TrackMovePlacement) => void;
+  onPreviewMoveDataRow?: (
+    trackId: string,
+    targetTrackId: string,
+    placement: TrackMovePlacement
+  ) => void;
   dataRowOrder?: ReadonlyArray<string>;
   onPreviewDataRowOrder?: (orderedTrackIds: ReadonlyArray<string>) => void;
   onPreviewDataRowDrag?: (preview: TrackPresentationDrag | null) => void;
@@ -527,7 +532,7 @@ function RowBody({
     </Tooltip>
   );
   const settingsControl =
-    row.kind === 'data' && renderDataControls && onToggleDataSettings ? (
+    (row.kind === 'data' || row.kind === 'group') && renderDataControls && onToggleDataSettings ? (
       <button
         type="button"
         ref={settingsButtonRef}
@@ -696,13 +701,18 @@ function TrackSettingsPopover({
 
   useEffect(() => {
     const panel = panelRef.current;
+    const openChildMenus = () =>
+      Array.from(panel?.querySelectorAll('[aria-expanded="true"][aria-controls]') ?? [])
+        .map((trigger) => document.getElementById(trigger.getAttribute('aria-controls')!))
+        .filter((menu) => menu !== null);
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target;
       if (!(target instanceof Node) || panel?.contains(target) || anchor.contains(target)) return;
+      if (openChildMenus().some((menu) => menu.contains(target))) return;
       onDismiss();
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
+      if (event.key !== 'Escape' || openChildMenus().length > 0) return;
       event.preventDefault();
       event.stopPropagation();
       onDismiss();
@@ -879,6 +889,7 @@ export function TrackGutter({
   onToggleVisible,
   onRemove,
   onMoveDataRow,
+  onPreviewMoveDataRow,
   dataRowOrder,
   onPreviewDataRowOrder,
   onPreviewDataRowDrag,
@@ -960,7 +971,9 @@ export function TrackGutter({
     rows
       .filter(
         (row): row is GutterRow & { trackId: string } =>
-          row.kind === 'data' && row.reorderable === true && typeof row.trackId === 'string'
+          (row.kind === 'data' || row.kind === 'group') &&
+          row.reorderable === true &&
+          typeof row.trackId === 'string'
       )
       .map((row) => [row.trackId, row] as const)
   );
@@ -1003,23 +1016,25 @@ export function TrackGutter({
   const positioned = basePositioned.map((entry) => ({
     ...entry,
     top:
-      !onPreviewDataRowDrag && entry.row.trackId
+      !onPreviewMoveDataRow && !onPreviewDataRowDrag && entry.row.trackId
         ? (previewPositions.get(entry.row.trackId) ?? entry.top)
         : entry.top,
   }));
   const dragHandleFor = (row: GutterRow): ReactNode => {
     if (
       (!onMoveDataRow && !onCommitDataRowOrder) ||
-      row.kind !== 'data' ||
+      (row.kind !== 'data' && row.kind !== 'group') ||
       !row.reorderable ||
       !row.trackId
     ) {
       return null;
     }
     const trackId = row.trackId;
-    const index = movableRows.findIndex((candidate) => candidate.trackId === trackId);
-    const previous = index > 0 ? movableRows[index - 1] : null;
-    const next = index >= 0 && index < movableRows.length - 1 ? movableRows[index + 1] : null;
+    const candidates =
+      row.kind === 'group' ? movableRows.filter((peer) => !peer.groupId) : movableRows;
+    const index = candidates.findIndex((candidate) => candidate.trackId === trackId);
+    const previous = index > 0 ? candidates[index - 1] : null;
+    const next = index >= 0 && index < candidates.length - 1 ? candidates[index + 1] : null;
     return (
       <TrackDragHandle
         row={row}
@@ -1049,15 +1064,23 @@ export function TrackGutter({
           const elements = Array.from(
             gutter.querySelectorAll<HTMLElement>('[data-track-gutter-row]')
           );
-          const peers = movableRows.flatMap((candidate) => {
+          const peers = candidates.flatMap((candidate) => {
             if (candidate.trackId === trackId) return [];
             const element = elements.find(
               (entry) => entry.dataset.testid === `track-gutter-row-${candidate.id}`
             );
             if (!element || !candidate.visible) return [];
             const peerBounds = element.getBoundingClientRect();
-            return [{ trackId: candidate.trackId, center: peerBounds.top + peerBounds.height / 2 }];
+            return [
+              {
+                trackId: candidate.trackId,
+                top: peerBounds.top,
+                bottom: peerBounds.bottom,
+                center: peerBounds.top + peerBounds.height / 2,
+              },
+            ];
           });
+          let placement: { id: string; side: TrackMovePlacement } | null = null;
           let finished = false;
           setDraggingTrackId(trackId);
           previewTrackOrderRef.current = initialOrder;
@@ -1082,7 +1105,10 @@ export function TrackGutter({
             removeListeners();
             if (commit) {
               const order = previewTrackOrderRef.current ?? initialOrder;
-              if (onCommitDataRowOrder) onCommitDataRowOrder(order);
+              if (onPreviewMoveDataRow) {
+                if (placement) onMoveDataRow?.(trackId, placement.id, placement.side);
+                else onCancelDataRowOrder?.();
+              } else if (onCommitDataRowOrder) onCommitDataRowOrder(order);
               else if (!order.every((id, position) => id === initialOrder[position])) {
                 const position = order.indexOf(trackId);
                 const target = position > 0 ? order[position - 1] : order[position + 1];
@@ -1095,7 +1121,23 @@ export function TrackGutter({
             setPreviewTrackOrder(null);
           };
           const preview = (clientY: number) => {
-            const target = peers.find((peer) => clientY < peer.center) ?? peers.at(-1);
+            const hit = onPreviewMoveDataRow
+              ? peers.find((peer) => clientY >= peer.top && clientY < peer.bottom)
+              : undefined;
+            const target = hit ?? peers.find((peer) => clientY < peer.center) ?? peers.at(-1);
+            if (onPreviewMoveDataRow) {
+              if (!target || (clientY >= bounds.top && clientY < bounds.bottom)) {
+                if (placement) onCancelDataRowOrder?.();
+                placement = null;
+                return;
+              }
+              const side = clientY < target.center ? 'before' : 'after';
+              if (placement?.id !== target.trackId || placement.side !== side) {
+                placement = { id: target.trackId, side };
+                onPreviewMoveDataRow(trackId, target.trackId, side);
+              }
+              return;
+            }
             const order = target
               ? moveTrackOrder(
                   initialOrder,
@@ -1204,7 +1246,9 @@ export function TrackGutter({
   const expandedDataRow =
     expandedDataRowId === null
       ? null
-      : (rows.find((row) => row.kind === 'data' && row.id === expandedDataRowId) ?? null);
+      : (rows.find(
+          (row) => (row.kind === 'data' || row.kind === 'group') && row.id === expandedDataRowId
+        ) ?? null);
   const expandedSettingsAnchor = expandedDataRow
     ? (settingsButtonRefs.current.get(expandedDataRow.id) ?? null)
     : null;
@@ -1305,13 +1349,14 @@ export function TrackGutter({
         className={aligned ? 'relative h-full' : 'flex h-full min-h-0 flex-col overflow-y-auto'}
       >
         {scrollingRows.map(({ row, top, height }) => {
-          const settingsExpanded = row.kind === 'data' && expandedDataRowId === row.id;
+          const settingsExpanded = expandedDataRowId === row.id;
           const heightResizeHandle = heightResizeHandleFor(row);
           return (
             <div
               key={row.id}
               data-track-gutter-row
               data-track-row-kind={row.kind}
+              data-track-group={row.groupId}
               data-track-reorderable={row.reorderable === true ? 'true' : 'false'}
               data-testid={`track-gutter-row-${row.id}`}
               data-renderer-band={row.band ? 'true' : 'false'}
@@ -1333,6 +1378,8 @@ export function TrackGutter({
                 aligned
                   ? 'group flex items-start gap-1.5 overflow-hidden px-2'
                   : 'group relative flex items-center gap-1.5 overflow-visible px-2 py-1.5 wp-interactive',
+                row.groupId && 'pl-5',
+                row.kind === 'group' && 'bg-bg-muted font-semibold',
                 draggingTrackId === row.trackId && 'z-30 bg-bg shadow-lg ring-1 ring-fg-subtle/30'
               )}
             >
@@ -1345,7 +1392,7 @@ export function TrackGutter({
                   else settingsButtonRefs.current.delete(row.id);
                 }}
                 onToggleDataSettings={
-                  row.kind === 'data'
+                  row.kind === 'data' || row.kind === 'group'
                     ? () => setExpandedDataRowId((current) => (current === row.id ? null : row.id))
                     : undefined
                 }

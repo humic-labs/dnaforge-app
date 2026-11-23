@@ -21,7 +21,8 @@ function bandsKey(b: LaneScreenBands): string {
 }
 
 export function useLaneScreenBands(
-  webglRef: RefObject<IndexedGenomeTileNativeMapHandle | null>
+  webglRef: RefObject<IndexedGenomeTileNativeMapHandle | null>,
+  rendererEpoch = 0
 ): LaneScreenBands {
   const [bands, setBands] = useState<LaneScreenBands>(EMPTY);
   const lastKeyRef = useRef<string>('');
@@ -59,7 +60,7 @@ export function useLaneScreenBands(
       if (retryFrame !== null) cancelAnimationFrame(retryFrame);
       unsubscribe?.();
     };
-  }, [webglRef]);
+  }, [webglRef, rendererEpoch]);
 
   return bands;
 }
