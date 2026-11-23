@@ -1,3 +1,4 @@
+import { NATIVE_REPLY_UNAVAILABLE } from '../shared/chat-turn-ipc';
 import {
   type UserMessage,
   renderUserMessage,
@@ -3081,6 +3082,13 @@ function InitializedChatView({
                       >
                         {showAttribution && turn && <TurnAttribution turn={turn} />}
                         {renderedMessage}
+                        {msg.role === 'user' &&
+                          turn?.status === 'interrupted' &&
+                          turn.terminalReason === NATIVE_REPLY_UNAVAILABLE && (
+                            <p role="status" className="mt-2 text-sm text-fg-subtle">
+                              {NATIVE_REPLY_UNAVAILABLE}
+                            </p>
+                          )}
                         {(msg.role === 'user' || completedAnswerIds.has(msg.id)) && (
                           <div
                             data-testid="message-copy-actions"

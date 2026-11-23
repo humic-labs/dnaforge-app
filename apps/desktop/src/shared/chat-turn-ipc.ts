@@ -4,6 +4,9 @@ import type { AgentAttachmentManifest } from './agent-attachments';
 
 export type { ChatEntityReferenceIpcRow } from './entity-reference-types';
 
+export const NATIVE_REPLY_UNAVAILABLE =
+  'The assistant finished, but the full reply could not be recovered after restart.';
+
 export type ChatTurnIpcStatus =
   | 'running'
   | 'completed'
