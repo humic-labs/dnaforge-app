@@ -297,6 +297,44 @@ describe('runChatTurn CLI execution and trace lifecycle', () => {
     );
   });
 
+  it.each([
+    ['context-window', 'local:context_exceeded', 'assistant.nativeContextLimit'],
+    ['request-size', 'local:request_too_large', 'assistant.nativeRequestLimit'],
+  ] as const)(
+    'retains a %s refusal and seeds the edited retry with accepted history',
+    async (limit, reason, message) => {
+      const conversationId = crypto.randomUUID();
+      vi.mocked(useAISettingsStore.getState).mockReturnValue({
+        ...useAISettingsStore.getState(),
+        assistantRoute: { kind: 'cli', transport: 'codex-sdk', permissionMode: 'native-cli' },
+      });
+      const send = (content: string) =>
+        useChatStore.getState().sendMessage(content, null, conversationId);
+      await send('Earlier accepted context');
+      mockAgentSessionStart.mockResolvedValueOnce({
+        ok: false,
+        text: '',
+        error: 'Provider refusal',
+        providerInputLimit: limit,
+        stopState: 'failed',
+      });
+      await send('Refused request with extra context');
+      const failed = useChatStore.getState()._convStates.get(conversationId)!;
+      expect(
+        failed.messages.find((m) => m.content === 'Refused request with extra context')
+      ).toBeDefined();
+      expect(failed.error).toBe(userMessage(message));
+      expect(db.commitChatTurnTerminalState).toHaveBeenCalledWith(
+        expect.objectContaining({ terminal_reason: reason, error: userMessage(message) })
+      );
+      await send('Edited request');
+      const retry = mockAgentSessionStart.mock.lastCall![0].prompt;
+      expect(retry).toContain('Edited request');
+      expect(retry).toContain('Earlier accepted context');
+      expect(retry).not.toContain('Refused request with extra context');
+    }
+  );
+
   it('uses selected CLI transport without provider API key streaming', async () => {
     const getApiKey = vi.fn().mockResolvedValue(null);
     vi.mocked(useAISettingsStore.getState).mockReturnValue({
@@ -343,7 +381,7 @@ describe('runChatTurn CLI execution and trace lifecycle', () => {
         binaryPathOverride: '/opt/lab/bin/codex',
         authorityProfileId: 'codex-sdk:app-supervised',
         prompt: expect.stringContaining('<wp-conversation-'),
-        continuationPrompt: expect.stringContaining('<wp-conversation-delta-'),
+        continuationPrompt: expect.stringContaining('<wp-current-user-request-'),
         cwd: '/workspace',
         sessionId: expect.any(String),
         conversationId: expect.any(String),
@@ -363,12 +401,9 @@ describe('runChatTurn CLI execution and trace lifecycle', () => {
     ).toEqual([]);
     expect(mockAgentSessionStart.mock.calls[0][0].prompt).toContain('Use the CLI session');
     expect(mockAgentSessionStart.mock.calls[0][0].prompt).toContain('role="user"');
-    expect(
-      promptDataFenceRecords(
-        mockAgentSessionStart.mock.calls[0][0].continuationPrompt,
-        'wp-conversation-delta'
-      )[0].messages
-    ).toEqual([{ role: 'user', content: 'Use the CLI session' }]);
+    expect(mockAgentSessionStart.mock.calls[0][0].continuationPrompt).toContain(
+      'Use the CLI session'
+    );
     expect(mockAgentSessionStart.mock.calls[0][0].prompt).toContain(
       'restricted provider-native shell, web, and file-write access'
     );

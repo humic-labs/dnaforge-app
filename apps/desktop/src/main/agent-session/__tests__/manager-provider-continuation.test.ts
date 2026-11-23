@@ -122,8 +122,9 @@ describe('AgentSessionManager provider continuation', () => {
 
       const reopened = openFileTestDb(fixture.dbPath);
       ensureSchema(reopened, fixture.dbPath);
+      const delta = 'CURRENT_DELTA_頭' + 'x'.repeat(65_536) + '🧪';
       const queryProvider = vi.fn(async (prompt: string, options: QueryOptions) => {
-        expect(prompt).toBe('CURRENT_DELTA_ONLY');
+        expect(prompt).toBe(delta);
         expect(options.providerConversationId).toBe(providerThreadId);
         expect(options.turnId).toBe('session-current');
         return {
@@ -161,8 +162,8 @@ describe('AgentSessionManager provider continuation', () => {
           turnId: 'turn-current',
           provider,
           authorityProfileId,
-          prompt: 'FULL_TRANSCRIPT_SEED_MUST_NOT_BE_SENT',
-          continuationPrompt: 'CURRENT_DELTA_ONLY',
+          prompt: `Full transcript\n${delta}`,
+          continuationPrompt: delta,
           cwd: '/workspace',
           workspaceGrounding: 'not-required',
         })

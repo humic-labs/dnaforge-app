@@ -789,6 +789,10 @@ export const USER_MESSAGES = {
   'assistant.hostedRateLimited':
     'DNAForge AI is temporarily rate limited. Please retry in a moment.',
   'assistant.hostedAllowanceExhausted': 'This account has used its current DNAForge AI allowance.',
+  'assistant.nativeRequestLimit':
+    'The selected provider refused the size of this request. Shorten the request or start a new chat with less history.',
+  'assistant.nativeContextLimit':
+    'The selected model reached its context limit. Shorten the request or start a new chat with less history.',
   'assistant.hostedContextTooLarge':
     'This request contains more conversation or project context than DNAForge AI can process. Start a new chat or reduce the request.',
   'assistant.hostedRequestTooLarge':

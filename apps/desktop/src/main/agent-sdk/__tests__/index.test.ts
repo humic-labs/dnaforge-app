@@ -36,6 +36,8 @@ vi.mock('electron', () => ({
   },
 }));
 
+vi.mock('../../analytics', () => ({ trackEvent: vi.fn() }));
+
 vi.mock('../detect', () => ({
   detectAgentSdk: mockDetectAgentSdk,
   detectAgentSdkWithModels: mockDetectAgentSdkWithModels,
@@ -774,19 +776,19 @@ describe('agent-sdk IPC handlers', () => {
     expect(mockQueryClaudeCode).not.toHaveBeenCalled();
   });
 
-  it('rejects prompts over the IPC byte cap before dispatching to a transport', async () => {
-    const { registerAgentSdkHandlers } = await import('../index');
-    registerAgentSdkHandlers();
-
-    const tooLarge = 'x'.repeat(64 * 1024 + 1);
-
-    await expect(invoke('agentSdk:query', 'codex-sdk', tooLarge)).resolves.toMatchObject({
-      transport: 'codex-sdk',
-      ok: false,
-      error: 'agentSdk:query prompt exceeds 65536-byte cap.',
-    });
-    expect(mockQueryCodex).not.toHaveBeenCalled();
-  });
+  it.each(['claude-agent-sdk', 'codex-sdk'] as const)(
+    'dispatches the complete Unicode request to %s above the old IPC cap',
+    async (transport) => {
+      const { registerAgentSdkHandlers } = await import('../index');
+      registerAgentSdkHandlers();
+      const prompt = '頭' + 'x'.repeat(65_530) + '🧪';
+      await expect(invoke('agentSdk:query', transport, prompt)).resolves.toMatchObject({
+        ok: true,
+      });
+      const query = transport === 'claude-agent-sdk' ? mockQueryClaudeCode : mockQueryCodex;
+      expect(query).toHaveBeenCalledWith(prompt, expect.any(Object));
+    }
+  );
 
   it('rejects unknown transports before acquiring MCP authority or dispatching', async () => {
     const { registerAgentSdkHandlers, setAgentSdkCliMcpBridgeProvider } = await import('../index');

@@ -49,6 +49,8 @@ export interface AgentCliModelCatalogDiscoveryShape {
   observedModelCount: number;
   error: string | null;
 }
+export type AgentProviderInputLimit = 'context-window' | 'request-size';
+
 export type AgentQueryStopState = 'completed' | 'failed' | 'cancelled' | 'stop_requested';
 export type AgentAuthFlowStatus = 'completed' | 'failed' | 'not_installed' | 'timed_out';
 export type AgentAuthStream = 'stdout' | 'stderr' | 'system';
@@ -109,6 +111,7 @@ export interface AgentSdkDetectionShape {
 }
 
 export interface AgentQuerySuccessOrProviderFailureShape {
+  providerInputLimit?: AgentProviderInputLimit;
   transport: AgentTransport;
   ok: boolean;
   text: string;
@@ -118,6 +121,7 @@ export interface AgentQuerySuccessOrProviderFailureShape {
 }
 
 export interface AgentQueryBoundaryFailureShape {
+  providerInputLimit?: never;
   transport: string;
   ok: false;
   text: '';
@@ -283,6 +287,7 @@ export interface AgentSessionStartRequestShape {
 }
 
 export interface AgentSessionRunResultShape {
+  providerInputLimit?: AgentProviderInputLimit;
   sessionId: string;
   provider: AgentTransport;
   authorityProfileId: string;
