@@ -26,6 +26,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:fasta": "vitest run src/parsers/fasta.test.ts --coverage --coverage.include=src/parsers/fasta.ts --coverage.thresholds.statements=100 --coverage.thresholds.branches=100 --coverage.thresholds.functions=100 --coverage.thresholds.lines=100",
     "test:watch": "vitest"
   },
   "license": "GPL-3.0-only",
