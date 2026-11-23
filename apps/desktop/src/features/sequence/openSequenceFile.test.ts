@@ -234,7 +234,9 @@ describe('openSequenceFile  Layer A)', () => {
       reason: 'The source changed during conversion.',
     });
 
-    await expect(openSequenceFileResult({ filePath: source, label: 'Incoming' })).resolves.toMatchObject({
+    await expect(
+      openSequenceFileResult({ filePath: source, label: 'Incoming' })
+    ).resolves.toMatchObject({
       status: 'failed',
       message: expect.stringContaining('source changed'),
     });
@@ -252,7 +254,9 @@ describe('openSequenceFile  Layer A)', () => {
     ]);
     useWorkspaceStore.setState({ folders: [{ path: root, name: 'Migration', addedAt: 1 }] });
     mockInspectLoose.mockResolvedValue({ state: 'convertible', reason: null });
-    mockConvertLoose.mockRejectedValue(new Error('DIRTY_SEQUENCE_DRAFT: A retained draft protects this source.'));
+    mockConvertLoose.mockRejectedValue(
+      new Error('DIRTY_SEQUENCE_DRAFT: A retained draft protects this source.')
+    );
 
     const opened = await openSequenceFileResult({ filePath: source, label: 'Incoming' });
 
@@ -707,6 +711,62 @@ describe('openSequenceFile  Layer A)', () => {
     const tab = findTabByPath('/tmp/chr22.fasta');
     expect(tab?.loadStatus).toBe('indexed-pending');
     expect(tab?.indexedGenome?.chrom).toBe('chr22');
+  });
+
+  it.each(['fa.gz', 'fasta.gz', 'fna.gz', 'gff.gz', 'gff3.gz'])(
+    'opens a small %s source through the indexed reader',
+    async (extension) => {
+      setMockSize(256);
+      const filePath = `/project/sample.${extension}`;
+      const opened = await openSequenceFileResult({ filePath, label: 'sample' });
+      expect(opened).toMatchObject({ status: 'presented' });
+      expect(
+        Object.values(useCanvasStore.getState().panels)
+          .flatMap((panel) => panel.tabs)
+          .find((tab) => tab.indexedGenome?.sourcePath === filePath)
+      ).toMatchObject({ loadStatus: 'indexed-pending' });
+    }
+  );
+
+  it('keeps separate tabs for compressed FASTA files with the same displayed name', async () => {
+    setMockSize(256);
+    const entries = new Map<string, { id: string }>();
+    mockRegisterWorkspaceFile.mockImplementation(async ({ path }: { path: string }) => {
+      const entity = { id: `catalog-fixture-${entries.size + 1}` };
+      entries.set(path, entity);
+      return entity;
+    });
+    mockGetCatalogEntityForFilePath.mockImplementation(async (path: string) => entries.get(path));
+    const sources = ['fa.gz', 'fasta.gz', 'fna.gz'].map(
+      (extension) => `/project/sample.${extension}`
+    );
+    const options = sources.map((filePath) => ({ filePath, label: 'sample' }));
+    const results = await Promise.all(options.map(openSequenceFileResult));
+    const store = useCanvasStore.getState();
+    const tabs = Object.values(store.panels).flatMap((panel) => panel.tabs);
+    expect(tabs).toHaveLength(sources.length);
+    expect(new Set(tabs.map((tab) => tab.indexedGenome?.sourcePath))).toEqual(new Set(sources));
+    for (const [index, result] of results.entries()) {
+      if (result.status !== 'presented') throw new Error(`Open failed for ${sources[index]}`);
+      expect(result.disposition).toBe('created');
+      store.updateTab(result.panelId, result.tabId, { loadStatus: 'indexed' });
+      await expect(openSequenceFileResult(options[index])).resolves.toMatchObject({
+        status: 'presented',
+        disposition: 'reused',
+        tabId: result.tabId,
+      });
+    }
+  });
+
+  it('routes compressed GenBank to the ordinary sequence reader even above the native index threshold', async () => {
+    const filePath = '/project/sample.gbff.gz';
+    setMockSize(25 * 1024 * 1024);
+    const opened = await openSequenceFileResult({ filePath, label: 'sample' });
+    expect(opened).toMatchObject({ status: 'presented' });
+    expect(
+      Object.values(useCanvasStore.getState().panels).flatMap((panel) => panel.tabs)
+    ).toMatchObject([{ loadStatus: 'loaded' }]);
+    expect(mockInspectLoose).not.toHaveBeenCalled();
   });
 
   it('missing file → tab created with loadStatus=missing', async () => {

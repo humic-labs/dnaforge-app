@@ -5379,7 +5379,10 @@
                     "nextOpenInput": {
                       "type": "object",
                       "properties": {
-                        "type": { "type": "string", "enum": ["sequence", "structure"] },
+                        "type": {
+                          "type": "string",
+                          "enum": ["sequence", "structure", "file", "pdf", "scientific-document"]
+                        },
                         "entityId": { "type": "string" }
                       },
                       "required": ["type", "entityId"],
@@ -5415,18 +5418,74 @@
                           "type": "object",
                           "properties": {
                             "state": { "type": "string", "const": "ready" },
-                            "revision": { "type": "string" }
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "pdf",
+                                "image",
+                                "table",
+                                "html",
+                                "molecular-document",
+                                "structure",
+                                "sequence",
+                                "protein",
+                                "notebook",
+                                "design",
+                                "primer",
+                                "entity",
+                                "selection",
+                                "sequence-package",
+                                "table-package",
+                                "protocol",
+                                "protocol-run",
+                                "track-view"
+                              ]
+                            },
+                            "revision": { "type": "string" },
+                            "paths": { "type": "array", "items": { "type": "string" } },
+                            "sequencePackage": {
+                              "type": "object",
+                              "properties": {
+                                "documentId": { "type": "string" },
+                                "name": { "type": "string" },
+                                "productPath": { "type": "string" },
+                                "schemaName": { "type": "string" }
+                              },
+                              "required": ["documentId", "name", "productPath"],
+                              "additionalProperties": false
+                            }
                           },
-                          "required": ["state", "revision"],
+                          "required": ["state", "kind", "revision"],
                           "additionalProperties": false
                         },
                         {
                           "type": "object",
                           "properties": {
                             "state": { "type": "string", "const": "blocked" },
-                            "reason": { "type": "string" }
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "unknown",
+                                "malformed",
+                                "newer-format",
+                                "unsupported-format",
+                                "missing",
+                                "missing-asset",
+                                "permission",
+                                "project",
+                                "too-large",
+                                "changed",
+                                "password",
+                                "runtime",
+                                "coordinates",
+                                "scene"
+                              ]
+                            },
+                            "reason": { "type": "string" },
+                            "recognized": { "type": "boolean" },
+                            "paths": { "type": "array", "items": { "type": "string" } }
                           },
-                          "required": ["state", "reason"],
+                          "required": ["state", "code", "reason", "recognized"],
                           "additionalProperties": false
                         }
                       ]

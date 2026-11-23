@@ -16,9 +16,10 @@ import { resolveExplicitProjectRoot } from '../../../shared/project-root-selecti
 import type { EntityColorContext } from '../../../shared/entity-color-family';
 import { catalogIconContext } from '../../../shared/catalog-icon-context';
 import { sequenceDocumentModel } from '../../sequence/public/store';
+import { checkDocumentOpen } from '../../document-opening/public/availability';
+import { detectDocumentPackage } from '../../../shared/document-package';
 import {
   documentAvailabilitySchema,
-  isMolecularDocumentFile,
   isTypedDocumentCandidate,
   type DocumentAvailability,
   type DocumentAvailabilityRequest,
@@ -114,7 +115,7 @@ export interface FileListEntry {
   extension?: string;
   isBiologyFile: boolean;
   documentId?: string;
-  nextOpenInput?: { type: 'sequence' | 'structure'; entityId: string };
+  nextOpenInput?: { type: 'sequence' | 'structure' | 'file' | 'pdf' | 'scientific-document'; entityId: string };
   nextInspectionInput?: { documentId: string; operation: { kind: 'inspect' } };
   resourceUri?: string;
   importRequired?: boolean;
@@ -173,7 +174,7 @@ export const listFilesOutputSchema = z.object({
       extension: z.string().optional(),
       isBiologyFile: z.boolean(),
       documentId: z.string().optional(),
-      nextOpenInput: z.object({ type: z.enum(['sequence', 'structure']), entityId: z.string() }).optional(),
+      nextOpenInput: z.object({ type: z.enum(['sequence', 'structure', 'file', 'pdf', 'scientific-document']), entityId: z.string() }).optional(),
       nextInspectionInput: z
         .object({
           documentId: z.string(),
@@ -377,7 +378,12 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
       }> = [];
       const availabilityRequests = new Map<FileListEntry, DocumentAvailabilityRequest>();
 
-      const addEntry = (entry: FileListEntry, biologyContentPath?: string) => {
+      const hasDocumentCheck = Boolean(platform().workspace?.checkDocument);
+      const addEntry = (
+        entry: FileListEntry,
+        biologyContentPath?: string,
+        request?: DocumentAvailabilityRequest
+      ) => {
         const hints: Pick<FileListEntry, 'nextOpenInput' | 'nextInspectionInput'> = entry.documentId
           ? {
               nextOpenInput: { type: 'sequence', entityId: entry.documentId },
@@ -387,7 +393,9 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
               },
             }
           : {};
-        entries.push({ entry: { ...entry, ...hints }, biologyContentPath });
+        const listed = { ...entry, ...hints };
+        entries.push({ entry: listed, biologyContentPath });
+        if (request) availabilityRequests.set(listed, request);
       };
 
       async function listDirectory(dirPath: string, basePath: string, workspaceRoot: string): Promise<void> {
@@ -408,9 +416,30 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
           const absolutePath = `${dirPath}/${item.name}`;
 
           if (item.isDirectory) {
-            const managed = await managedSequenceRepository
-              .openPackage(absolutePath)
-              .catch(() => null);
+            const detected = hasDocumentCheck
+              ? await detectDocumentPackage(absolutePath, platform().fs).catch(() => undefined)
+              : undefined;
+            if (detected) {
+              const request = { workspaceRoot, path: absolutePath, package: true };
+              const isBiology = detected.kind === 'sequence';
+              const availability = isBiology && normalizedBiologyQuery
+                ? await checkDocumentOpen(request)
+                : undefined;
+              addEntry(
+                {
+                  name: item.name,
+                  path: relPath,
+                  type: 'file',
+                  isBiologyFile: isBiology,
+                },
+                availability?.state === 'ready' ? availability.sequencePackage?.productPath : undefined,
+                request
+              );
+              continue;
+            }
+            const managed = hasDocumentCheck
+              ? null
+              : await managedSequenceRepository.openPackage(absolutePath).catch(() => null);
             if (managed) {
               addEntry(
                 {
@@ -441,7 +470,9 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
             }
           } else {
             if (isBiologyFile(item.name)) {
-              const managed = await managedSequenceRepository.findByMemberPath(absolutePath);
+              const managed = hasDocumentCheck
+                ? null
+                : await managedSequenceRepository.findByMemberPath(absolutePath);
               const catalog = managed ? null : await getCatalogEntityForFilePath(absolutePath);
               const documentId = managed?.document.id ?? catalog?.id ?? null;
               addEntry(
@@ -466,7 +497,8 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
                       isBiologyFile: true,
                       importRequired: true,
                     },
-                managed?.productPath ?? absolutePath
+                managed?.productPath ?? absolutePath,
+                hasDocumentCheck ? { workspaceRoot, path: absolutePath } : undefined
               );
               continue;
             }
@@ -478,12 +510,9 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
               isBiologyFile: isBiologyFile(item.name),
               ...(iconContexts.has(absolutePath) ? { iconContext: iconContexts.get(absolutePath) } : {}),
             };
-            if (isTypedDocumentCandidate(absolutePath)) {
-              entries.push({ entry });
-              availabilityRequests.set(entry, { workspaceRoot, path: absolutePath });
-            } else {
-              addEntry(entry);
-            }
+            addEntry(entry, undefined, isTypedDocumentCandidate(absolutePath)
+              ? { workspaceRoot, path: absolutePath }
+              : undefined);
           }
         }
       }
@@ -551,18 +580,53 @@ export function createListFilesTool(folders: WorkspaceFolder[]) {
       const totalCount = matchingEntries.length;
       const truncated = totalCount > MAX_ENTRIES;
       const pageEntries = matchingEntries.slice(0, MAX_ENTRIES);
-      const workspace = platform().workspace;
-      for (const entry of pageEntries) {
+      async function attachReadiness(entry: FileListEntry) {
         const request = availabilityRequests.get(entry);
-        if (!request) continue;
-        const availability = await workspace?.checkDocument?.(request).catch(() => undefined);
-        entry.documentAvailability = availability ?? { state: 'unchecked' };
-        if (availability?.state !== 'ready') delete entry.iconContext;
-        else if (isMolecularDocumentFile(request.path))
-          entry.nextOpenInput = { type: 'structure', entityId: request.path };
+        if (!request) return;
+        const availability = await checkDocumentOpen(request);
+        if (availability.state === 'ready') {
+          const { paths: _paths, sequencePackage, ...receipt } = availability;
+          entry.documentAvailability = receipt;
+          if (sequencePackage) {
+            const { documentId, name, schemaName } = sequencePackage;
+            entry.name = name;
+            entry.type = 'sequence-document';
+            entry.documentId = documentId;
+            entry.resourceUri = sequenceResourceUri(documentId);
+            entry.iconContext = {
+              kind: schemaName ?? 'sequence',
+              packageKind: 'sequence',
+              molecule: sequenceDocumentModel.getState().sequences[documentId]?.molecule,
+            };
+            entry.nextOpenInput = { type: 'sequence', entityId: documentId };
+            entry.nextInspectionInput = { documentId, operation: { kind: 'inspect' } };
+          } else if (availability.kind !== 'sequence') {
+            const { kind } = availability;
+            const type =
+              kind === 'molecular-document' || kind === 'structure'
+                ? 'structure'
+                : kind === 'pdf'
+                  ? 'pdf'
+                  : kind === 'protocol' || kind === 'protocol-run'
+                    ? 'scientific-document'
+                    : 'file';
+            entry.nextOpenInput = { type, entityId: request.path };
+          }
+        } else {
+          const { paths: _paths, ...receipt } =
+            availability.state === 'blocked' ? availability : { ...availability, paths: undefined };
+          entry.documentAvailability = receipt;
+          if (availability.state === 'blocked' && !availability.recognized) delete entry.iconContext;
+          delete entry.nextOpenInput;
+          delete entry.nextInspectionInput;
+        }
+      }
+
+      for (let offset = 0; offset < pageEntries.length; offset += 3) {
+        await Promise.all(pageEntries.slice(offset, offset + 3).map(attachReadiness));
       }
       const bioCount = matchingEntries.filter((e) => e.isBiologyFile).length;
-      const recommendedBiologySource = matchingEntries[0];
+      const recommendedBiologySource = pageEntries.find((entry) => entry.nextInspectionInput);
       const biologySearchIncomplete =
         biologyFilesPartiallySearched > 0 || biologyFilesUnreadable > 0;
 

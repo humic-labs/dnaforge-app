@@ -5,6 +5,7 @@ import {
   type SequenceFormat,
 } from '@waypoint/sequence-utils';
 import { isBinarySequenceFilePath } from '@waypoint/sequence-utils/sequence-file-types';
+import { isCompressedGenBankPath } from './scientific-file-types';
 
 export function isBinarySequencePath(filePath: string): boolean {
   return isBinarySequenceFilePath(filePath);
@@ -17,6 +18,7 @@ export function parseSequenceFileAsDocument(
   return decodeSequenceDocument(content, {
     path: filePath,
     filename: filePath.split(/[\\/]/).pop() || filePath,
+    ...(isCompressedGenBankPath(filePath) ? { format: 'genbank' as const } : {}),
   });
 }
 

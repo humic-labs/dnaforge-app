@@ -1,4 +1,5 @@
 import { SEQUENCE_FILE_EXTENSIONS } from '@waypoint/sequence-utils/sequence-file-types';
+import { dispatchRouteFor, type ParserRoute } from '@waypoint/sequence-utils';
 
 export const SUPPORTED_SEQUENCE_EXTENSIONS = [...SEQUENCE_FILE_EXTENSIONS, 'gff', 'gff3'] as const;
 
@@ -42,6 +43,23 @@ export function isSupportedSequencePath(path: string): boolean {
   }
   const ext = extension(path);
   return ext !== null && SEQUENCE_EXTENSIONS.has(ext);
+}
+
+export function isCompressedGenBankPath(path: string): boolean {
+  return filename(path).toLowerCase().endsWith('.gbff.gz');
+}
+
+export function sequenceParserRouteForPath(path: string, sizeBytes: number): ParserRoute {
+  if (isCompressedGenBankPath(path)) return 'legacy';
+  const name = filename(path).toLowerCase();
+  if (name.endsWith('.gz')) {
+    const sourceName = name.slice(0, -3);
+    const sourceExtension = extension(sourceName);
+    if (sourceExtension && SEQUENCE_COMPOUND_GZ_EXTENSIONS.has(`${sourceExtension}.gz`))
+      return 'indexed';
+    return dispatchRouteFor({ sizeBytes, ext: sourceExtension ?? '' });
+  }
+  return dispatchRouteFor({ sizeBytes, ext: extension(name) ?? '' });
 }
 
 export function getStructureFileFormat(path: string): StructureFileFormat | null {

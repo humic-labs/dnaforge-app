@@ -224,7 +224,7 @@ async function readDirectoryEntries(
             packageRoot: fullPath,
           };
         } catch {
-          packageName = 'Sequence';
+          packageName = entry.name;
         }
       }
       if (!iconContext && !isDir && entry.name.toLowerCase().endsWith('.primer.json')) {

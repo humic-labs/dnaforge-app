@@ -24,7 +24,7 @@ import { isApplePlatform } from './menuShortcuts';
 import { pathRelativeToBoundary } from '../shared/path-boundary';
 import { isHostedBrowserRuntime } from '../utils/environment';
 import { isSupportedSequencePath } from '../shared/scientific-file-types';
-import { isTypedDocumentCandidate } from '../shared/document-availability';
+import { canOpenDocument, isTypedDocumentCandidate } from '../shared/document-availability';
 import { useDocumentAvailability } from '../features/document-opening/useDocumentAvailability';
 
 interface FileTreeItemProps {
@@ -258,8 +258,15 @@ function FilesystemTreeItem({
 }: Omit<FileTreeItemProps, 'entry'> & { entry: FileEntry }) {
   const typedCandidate =
     !entry.isDirectory && (Boolean(entry.packageKind) || isTypedDocumentCandidate(entry.path));
-  const availability = useDocumentAvailability(rootPath, typedCandidate ? entry.path : undefined);
-  const showNeutralIcon = availability?.state === 'checking' || availability?.state === 'blocked';
+  const availability = useDocumentAvailability(
+    rootPath,
+    typedCandidate ? entry.path : undefined,
+    Boolean(entry.packageKind)
+  );
+  const showNeutralIcon =
+    availability?.state === 'checking' ||
+    (availability?.state === 'blocked' && !availability.recognized);
+  const allowOpen = canOpenDocument(availability);
   const blockedReason = availability?.state === 'blocked' ? availability.reason : undefined;
   const [renameValue, setRenameValue] = useState(() => renameStem(entry));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -307,22 +314,22 @@ function FilesystemTreeItem({
       if (entry.isDirectory) {
         if (e.shiftKey || e.metaKey || e.ctrlKey) return;
         onToggle(entry.path);
-      } else if (!blockedReason && isHostedBrowserRuntime()) {
+      } else if (allowOpen && isHostedBrowserRuntime()) {
         onOpen(entry);
       }
     },
-    [entry, onToggle, onSelect, onOpen, isRenaming, blockedReason]
+    [entry, onToggle, onSelect, onOpen, isRenaming, allowOpen]
   );
 
   const handleDoubleClick = useCallback(
     (e: MouseEvent<HTMLDivElement>) => {
       if (isRenaming) return;
       if (entry.isPending) return;
-      if (entry.isDirectory || blockedReason) return;
+      if (entry.isDirectory || !allowOpen) return;
       e.preventDefault();
       onOpen(entry);
     },
-    [entry, onOpen, isRenaming, blockedReason]
+    [entry, onOpen, isRenaming, allowOpen]
   );
 
   const handleContextMenu = useCallback(

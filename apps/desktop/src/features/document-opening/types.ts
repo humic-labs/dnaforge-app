@@ -1,3 +1,4 @@
+import type { LiteralOpenSnapshot } from './literal-open-snapshot';
 import type { Tab, TabType, TabViewState } from '../canvas/public/types';
 import type { OpenStrategy } from '../canvas/public/document-presentation';
 import type { SequenceDocumentRef } from '../../shared/managed-sequence-document';
@@ -29,4 +30,5 @@ export interface OpenDocumentRequest {
 export interface OpenFileDocumentRequest extends Omit<OpenDocumentRequest, 'target' | 'label'> {
   target: Extract<DocumentTarget, { kind: 'file' }>;
   label: string;
+  initialLiteral?: LiteralOpenSnapshot;
 }

@@ -25,6 +25,8 @@ import {
 } from './open-document';
 import { inferCatalogFileKind } from '../../shared/catalog-file-kind';
 import { TRACK_VIEW_SUFFIX } from '../../shared/track-view';
+import { checkDocumentBeforeOpen } from './check-document-open';
+import { platform } from '../../platform';
 import {
   admitGenomeViewFileOpen,
   finishGenomeViewFileOpen,
@@ -54,6 +56,12 @@ export async function openSelectedDocument(
     }
     if (signal?.aborted) return cancelledDocumentOpen();
     if (acceptedTabType === 'sequence' && path.endsWith(TRACK_VIEW_SUFFIX)) {
+      if (platform().workspace?.checkDocument) {
+        const availability = await checkDocumentBeforeOpen(path);
+        if (signal?.aborted) return cancelledDocumentOpen();
+        if (availability.state === 'blocked')
+          return { status: 'blocked', message: availability.reason };
+      }
       const previousIds = new Set(
         Object.values(useCanvasStore.getState().panels).flatMap((panel) =>
           panel.tabs.map((tab) => tab.id)
@@ -110,6 +118,7 @@ export async function openSelectedDocument(
     return result;
   }
   if (sessionPath) closeElectronWorkspaceSessionFile(sessionPath);
+  if (result.status === 'blocked') return result;
   if ('message' in result) {
     console.error('[openSelectedDocument] Document opening failed:', {
       path,

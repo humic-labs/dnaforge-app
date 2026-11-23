@@ -13,9 +13,13 @@ import {
   type SaveMolecularDocumentRequest,
   type SavedMolecularDocument,
 } from '../shared/molecular-document';
-import { assertMolecularDocumentSize, MOLECULAR_DOCUMENT_MAX_BYTES } from '../shared/molecular-storage';
+import {
+  assertMolecularDocumentSize,
+  MOLECULAR_DOCUMENT_MAX_BYTES,
+} from '../shared/molecular-storage';
 import { supportsMolecularDocumentExtension } from '../shared/molecular-document-extensions';
 import { readMolecularDocumentContent } from '../shared/molecular-document-reader';
+import { DocumentReadError } from '../shared/document-read-failure';
 import { isMolecularDocumentFile } from '../shared/document-availability';
 import { inspectBoundedWorkspaceFile } from './benchling-migration/bounded-workspace-file';
 import {
@@ -94,7 +98,7 @@ export async function readMolecularDocumentFile(
     artifactNoun: 'molecular document',
   });
   const stat = await lstat(candidate);
-  if (!stat.isFile()) throw new Error('The molecular document is not a regular file.');
+  if (!stat.isFile()) throw new DocumentReadError('unsupported-format');
   assertMolecularDocumentSize(stat.size);
   return inspectBoundedWorkspaceFile(
     root,
@@ -103,11 +107,19 @@ export async function readMolecularDocumentFile(
       .join('/'),
     MOLECULAR_DOCUMENT_MAX_BYTES,
     async (bytes) => {
-      const document = await readMolecularDocumentContent(
-        new TextDecoder('utf-8', { fatal: true }).decode(bytes),
-        bytes.byteLength
-      );
-      return { ...location, document, revision: createHash('sha256').update(bytes).digest('hex') };
+      let text: string;
+      try {
+        text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      } catch (error) {
+        throw new DocumentReadError('malformed', false, { cause: error });
+      }
+      const document = await readMolecularDocumentContent(text, bytes.byteLength);
+      return {
+        ...location,
+        document,
+        revision: createHash('sha256').update(bytes).digest('hex'),
+        sizeBytes: bytes.byteLength,
+      };
     }
   );
 }
@@ -195,6 +207,7 @@ export class MolecularDocumentLibrary {
         ...destination,
         document: savedDocument,
         revision: result.contentHash,
+        sizeBytes: Buffer.byteLength(content, 'utf8'),
         ...(result.cleanupWarning ? { warning: result.cleanupWarning } : {}),
       };
     });

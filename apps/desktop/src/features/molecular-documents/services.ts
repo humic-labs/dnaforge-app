@@ -7,7 +7,10 @@ import {
   getEntityReferenceByLocator,
   type DBEntityReference,
 } from '../../db/entity-references';
-import { molecularDocumentAdapter } from '../../db/entity-substrate/molecular-document-adapter';
+import {
+  molecularDocumentAdapter,
+  rememberMolecularDocumentSource,
+} from '../../db/entity-substrate/molecular-document-adapter';
 import {
   findWorkspaceRootForPath,
   getCatalogFileForPath,
@@ -47,6 +50,7 @@ import {
 import { molecularDocumentOwner } from '../../shared/molecular-document-owner';
 import { molecularDocumentReadMessage } from '../../shared/molecular-document-read-failure';
 import { stripDisplayExtension } from '../../utils/fileTypes';
+import { projectPathIsReadOnly } from '../workspace-loader/public/project-edit-folders';
 
 export type ProjectedMolecularDocument = SavedMolecularDocument & {
   catalogEntityId: string;
@@ -56,7 +60,8 @@ type ProjectionContext = { workspaceRoot: string; workspaceScope: string | null 
 
 async function project(
   saved: SavedMolecularDocument,
-  knownContext?: ProjectionContext
+  knownContext?: ProjectionContext,
+  refreshRegistry = true
 ): Promise<ProjectedMolecularDocument> {
   const context = knownContext ?? {
     workspaceRoot: saved.workspaceRoot,
@@ -69,6 +74,9 @@ async function project(
     context.workspaceScope,
     saved.document
   );
+  const result = { ...saved, catalogEntityId: id, documentReference };
+  if (!refreshRegistry) return result;
+  rememberMolecularDocumentSource(saved);
   await molecularDocumentAdapter.writeProjection(
     saved.document,
     id,
@@ -78,7 +86,7 @@ async function project(
   );
   await molecularDocumentAdapter.reconcileRelationships?.(saved.document, id, saved.path, context);
   emitRegistryChanged();
-  return { ...saved, catalogEntityId: id, documentReference };
+  return result;
 }
 
 export async function readMolecularDocument(
@@ -96,6 +104,7 @@ export async function readMolecularDocument(
     .catch((error) => {
       throw new Error(molecularDocumentReadMessage(error), { cause: error });
     });
+  if (projectPathIsReadOnly(saved.path, folders)) return project(saved, undefined, false);
   let warning: string | undefined;
   try {
     for (const entry of saved.document.history)

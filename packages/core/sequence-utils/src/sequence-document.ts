@@ -2,10 +2,8 @@ import type { AnnotatedSequence, Annotation } from './types';
 import {
   detectFormat,
   parseSequenceFileSingle,
-  parseGenBankFull,
-  isDeclaredEmptyGenBankRecord,
+  parseGenBankRecords,
   parseSnapGene,
-  SequenceParseError,
 } from './parsers';
 import type { ParsedSequence, SequenceFormat } from './parsers';
 import { serializeGenBank } from './writers';
@@ -259,11 +257,7 @@ function decodeAnnotatedSequence(
       if (typeof content !== 'string') {
         throw new Error('GenBank files must be provided as text.');
       }
-      const parsed = parseGenBankFull(content);
-      if (!parsed.sequence && !isDeclaredEmptyGenBankRecord(content, parsed)) {
-        throw new SequenceParseError('No sequence found in GenBank file', 'genbank');
-      }
-      return parsed;
+      return parseGenBankRecords(content)[0];
     }
     case 'snapgene': {
       if (typeof content === 'string') {

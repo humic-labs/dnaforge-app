@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
+import { stageLiteralOpenSnapshot } from '../features/document-opening/literal-open-snapshot';
 
 const mocks = vi.hoisted(() => ({
   readTextFile: vi.fn(),
@@ -28,6 +30,22 @@ describe('HtmlViewerTab ', () => {
     const iframe = await screen.findByTestId('html-viewer-iframe');
     expect(iframe).toHaveAttribute('srcdoc', SAMPLE_HTML);
     expect(iframe.getAttribute('sandbox')).toBe('');
+  });
+
+  it('shows the admitted HTML through initial effect replay after the path is replaced', async () => {
+    const filePath = '/ws/admitted.html';
+    stageLiteralOpenSnapshot(filePath, { kind: 'html', text: SAMPLE_HTML });
+    mocks.readTextFile.mockResolvedValue('<h1>Replacement</h1>');
+
+    render(
+      <StrictMode>
+        <HtmlViewerTab filePath={filePath} />
+      </StrictMode>
+    );
+
+    const iframe = await screen.findByTestId('html-viewer-iframe');
+    expect(iframe).toHaveAttribute('srcdoc', SAMPLE_HTML);
+    expect(mocks.readTextFile).not.toHaveBeenCalled();
   });
 
   it('names each file and sandbox instance independently without exposing its path', async () => {

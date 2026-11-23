@@ -70,7 +70,9 @@ describe('workspace:listChildren', () => {
     const initial = await checkWorkspaceDocument(db, file);
     expect(initial).toEqual({
       state: 'ready',
+      kind: 'molecular-document',
       revision: createHash('sha256').update(original).digest('hex'),
+      paths: [path],
     });
     const corrupted = '{'.padEnd(original.length, ' ');
     writeFileSync(path, corrupted);
@@ -93,12 +95,50 @@ describe('workspace:listChildren', () => {
     expect(readFileSync(path, 'utf8')).toBe(original);
   });
 
-  it('keeps another native type unchecked when its reader has not admitted it', async () => {
+  it('does not let a broken primer use the normal document open path', async () => {
     const path = join(root, 'Oligo.primer.json');
     writeFileSync(path, '{');
-    expect(await checkWorkspaceDocument(db, { workspaceRoot: root, path })).toEqual({
-      state: 'unchecked',
+    expect(await checkWorkspaceDocument(db, { workspaceRoot: root, path })).toMatchObject({
+      state: 'blocked',
+      code: 'malformed',
+      recognized: false,
     });
+    expect(readFileSync(path, 'utf8')).toBe('{');
+  });
+
+  it('recognizes the actual native schema before reporting a newer format', async () => {
+    const path = join(root, 'Structure.dnaforge-molecular.json');
+    const request = { workspaceRoot: root, path };
+    writeFileSync(path, JSON.stringify({ ...molecularDocument, schema: 'dnaforge.molecular-document.v99' }));
+    expect(await checkWorkspaceDocument(db, request)).toMatchObject({
+      state: 'blocked',
+      code: 'newer-format',
+      recognized: true,
+    });
+    writeFileSync(path, JSON.stringify({ schema: 'another.format.v99' }));
+    expect(await checkWorkspaceDocument(db, request)).toMatchObject({
+      state: 'blocked',
+      code: 'unsupported-format',
+      recognized: false,
+    });
+  });
+
+  it('leaves plain files alone and distinguishes a missing typed file from broken bytes', async () => {
+    expect(await checkWorkspaceDocument(db, {
+      workspaceRoot: root,
+      path: join(root, 'Strains', 'notes.txt'),
+    })).toEqual({ state: 'unchecked' });
+    expect(await checkWorkspaceDocument(db, {
+      workspaceRoot: root,
+      path: join(root, 'No copy.dnaforge-molecular.json'),
+    })).toMatchObject({ state: 'blocked', code: 'missing', recognized: false });
+  });
+
+  it('refuses a typed request outside the admitted project before trying a reader', async () => {
+    expect(await checkWorkspaceDocument(db, {
+      workspaceRoot: root,
+      path: join(root, '..', 'outside.pdf'),
+    })).toMatchObject({ state: 'blocked', code: 'permission', recognized: false });
   });
 
   it('merges filesystem children with exact-parent catalog placements', async () => {

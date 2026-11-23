@@ -32,7 +32,10 @@ import {
   extBucket,
   sizeBucket,
 } from '../../shared/oversized-guard';
-import { dispatchRouteFor } from '@waypoint/sequence-utils';
+import {
+  isCompressedGenBankPath,
+  sequenceParserRouteForPath,
+} from '../../shared/scientific-file-types';
 import { useOversizedDialogStore } from './oversized-dialog-store';
 import { logOversizedDecision } from './oversized-telemetry';
 import { registerIndexedGenomeOpen } from './indexed-genome-lifecycle-telemetry';
@@ -88,7 +91,7 @@ export interface OpenSequenceFileOptions {
 export type SequenceOpenRoute = 'indexed' | 'block' | 'warn' | 'load';
 
 export function decideSequenceOpenRoute(filePath: string, sizeBytes: number): SequenceOpenRoute {
-  const parserRoute = dispatchRouteFor({ sizeBytes, ext: extensionForPath(filePath) });
+  const parserRoute = sequenceParserRouteForPath(filePath, sizeBytes);
   if (parserRoute === 'indexed') return 'indexed';
   if (sizeBytes > HARD_CAP_BYTES) return 'block';
   if (sizeBytes >= SOFT_WARN_BYTES) return 'warn';
@@ -213,6 +216,8 @@ async function openSequenceFileWithTelemetry(
     !opts.readOnly &&
     !opts.presentation &&
     !isDeveloperImportSourcePath(opts.filePath) &&
+    !isCompressedGenBankPath(opts.filePath) &&
+    sequenceParserRouteForPath(opts.filePath, 0) !== 'indexed' &&
     MANAGED_DNA_FILE_EXTENSIONS.includes(extensionForPath(opts.filePath))
   ) {
     const folders = mergeProjectEditFolders(
@@ -580,7 +585,7 @@ async function openResolvedSequenceFile(
               active.label,
               sizeBytes ?? 0,
               modifiedAt,
-              dispatchRouteFor({ sizeBytes: sizeBytes ?? 0, ext: extensionForPath(filePath) }),
+              sequenceParserRouteForPath(filePath, sizeBytes ?? 0),
               projectFolders()
             );
           }
@@ -944,7 +949,7 @@ async function registerSequenceFileInCatalog(
   label: string,
   sizeBytes: number,
   modifiedAt: number | null,
-  parserRoute: ReturnType<typeof dispatchRouteFor>,
+  parserRoute: ReturnType<typeof sequenceParserRouteForPath>,
   folders: ProjectEditFolder[]
 ): Promise<SequenceDocumentRef> {
   const fileKind = inferCatalogFileKind(filePath);

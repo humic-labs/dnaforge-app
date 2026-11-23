@@ -9,6 +9,10 @@ import { useSequenceStore } from '../features/sequence/store';
 import * as fileAvailability from '../features/document-opening/useDocumentAvailability';
 
 vi.mock('../hooks/useFileDrag', () => ({ startFileDrag: vi.fn() }));
+vi.mock('../platform', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../platform')>()),
+  platform: () => ({ workspace: {} }),
+}));
 
 const treeItemProps = {
   depth: 0,
@@ -99,6 +103,8 @@ describe('file opening feedback', () => {
     const reason = 'This file is damaged or incomplete. Try another copy.';
     const availability = vi.spyOn(fileAvailability, 'useDocumentAvailability').mockReturnValue({
       state: 'blocked',
+      code: 'malformed',
+      recognized: false,
       reason,
     });
     try {
@@ -116,6 +122,28 @@ describe('file opening feedback', () => {
       expect(row).not.toHaveTextContent(reason);
       fireEvent.doubleClick(row);
       expect(onOpen).not.toHaveBeenCalled();
+    } finally {
+      availability.mockRestore();
+    }
+  });
+
+  it('retains a recognizable notebook icon when the format needs a newer reader', () => {
+    const availability = vi.spyOn(fileAvailability, 'useDocumentAvailability').mockReturnValue({
+      state: 'blocked',
+      code: 'newer-format',
+      recognized: true,
+      reason: 'This file needs a newer or compatible version of DNAForge.',
+    });
+    try {
+      const control = renderItem(makeEntry('Control.wpnote.json', 'json'));
+      const icon = control.getByRole('treeitem').querySelector('svg')?.innerHTML;
+      control.unmount();
+      const { getByRole } = renderItem(makeEntry('Future.wpnote.json', 'json'));
+      const row = getByRole('treeitem');
+      expect(icon).toBeTruthy();
+      expect(row.querySelector('svg')?.innerHTML).toBe(icon);
+      expect(row).toHaveAccessibleDescription('This file needs a newer or compatible version of DNAForge.');
+      expect(row).toHaveTextContent('Future');
     } finally {
       availability.mockRestore();
     }

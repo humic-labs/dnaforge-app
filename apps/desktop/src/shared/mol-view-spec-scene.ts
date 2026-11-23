@@ -5,7 +5,8 @@ export class MolViewSpecSceneError extends Error {
   constructor(
     readonly code: string,
     message: string,
-    readonly stateChanged: boolean | 'unknown' = false
+    readonly stateChanged: boolean | 'unknown' = false,
+    readonly missingResource = false
   ) {
     super(message);
     this.name = 'MolViewSpecSceneError';
@@ -93,7 +94,9 @@ export function validateMolViewSpecScene(
       if (uri !== undefined && !allowedResources.has(String(uri))) {
         throw new MolViewSpecSceneError(
           'MVS_UNSUPPORTED_RESOURCE',
-          `Scene resource ${String(uri)} is not pinned to this view. Available resources: ${[...allowedResources].join(', ')}.`
+          `Scene resource ${String(uri)} is not pinned to this view. Available resources: ${[...allowedResources].join(', ')}.`,
+          false,
+          true
         );
       }
     }

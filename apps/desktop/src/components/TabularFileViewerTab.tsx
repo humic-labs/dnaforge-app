@@ -11,16 +11,22 @@ import { useCanvasStore } from '../features/canvas/store';
 import { TableGrid } from '../features/page/embeds/table/components/TableGrid';
 import { useTableData } from '../features/page/embeds/table/hooks/useTableData';
 import type { Cell, TableData } from '../shared/table-document-types';
-import { getExtension, getFilename } from '../utils/fileTypes';
+import type { FileDocumentSnapshot } from '../shared/file-document';
+import { getFilename } from '../utils/fileTypes';
 import { resolveFilePathWithFallback } from '../hooks/resolveFilePath';
 import { isMissingFileError } from '../features/canvas/oversize-scan';
 import {
   parseTabularPreview,
-  parseXlsxPreview,
   serializeDelimitedRows,
-  type TabularDelimiter,
   type TabularPreview,
 } from './tabularFileParser';
+import {
+  delimiterForPath,
+  MAX_PREVIEW_ROWS,
+  readDelimitedTablePreview,
+  readWorkbookPreview,
+} from '../features/document-opening/tabular-file-read';
+import { useInitialLiteralOpenSnapshot } from '../features/document-opening/literal-open-snapshot';
 import {
   beginReadableContentOwner,
   commitReadableContent,
@@ -31,7 +37,6 @@ import { fingerprintText, useUnsavedDraftRecovery } from '../shared/unsaved-draf
 import {
   FileDocumentDraft,
   saveCurrentFileEdits,
-  waitForFileDocumentSaves,
 } from '../features/workspace/public/file-document-draft';
 import {
   FileDocumentClient,
@@ -39,9 +44,6 @@ import {
 } from '../features/workspace/public/file-document-client';
 import { isBrowserOnly } from '../utils/environment';
 
-const MAX_TABULAR_FILE_BYTES = 20 * 1024 * 1024;
-const MAX_TABULAR_PREVIEW_BYTES = 5 * 1024 * 1024;
-const MAX_PREVIEW_ROWS = 1000;
 const EMPTY_TABLE_DATA: TableData = { cells: [] };
 const TABULAR_TOOLBAR_BUTTON_CLASS = `${INTERACTION_CLASS} h-6 px-2 rounded-[5px] border border-border/60 bg-bg text-[11px] font-medium text-fg-muted leading-none`;
 
@@ -54,6 +56,7 @@ type LoadState = (
       formatLabel: string;
       slicedPreview: boolean;
       previewBytesRead: number;
+      snapshotOnly?: boolean;
     }
   | { status: 'fallback'; reason: string; sizeBytes: number | null; formatLabel: string }
   | { status: 'error'; message: string }
@@ -72,7 +75,11 @@ export function TabularFileViewerTab({
   sourceFileName,
   readOnly = false,
 }: TabularFileViewerTabProps) {
+  const readInitialSnapshot = useInitialLiteralOpenSnapshot(filePath, 'table');
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const snapshotOnly = state.status === 'ready' && state.snapshotOnly === true;
+  const viewReadOnly = readOnly || snapshotOnly;
+  const ignoreNativeUpdates = useRef(false);
   const [copied, setCopied] = useState(false);
   const [tableData, setTableData] = useState<TableData>(EMPTY_TABLE_DATA);
   const [baselineText, setBaselineText] = useState('');
@@ -92,6 +99,7 @@ export function TabularFileViewerTab({
   useEffect(() => {
     if (!(document instanceof FileDocumentClient)) return;
     return document.subscribe(() => {
+      if (ignoreNativeUpdates.current) return;
       if (document.pendingChanges === 0 && document.snapshot?.tableData) {
         setTableData(document.snapshot.tableData);
         setFirstRowAsHeader(Boolean(document.snapshot.firstRowAsHeader));
@@ -148,7 +156,7 @@ export function TabularFileViewerTab({
   );
   const handleTableDataUpdate = useCallback(
     (attrs: Record<string, unknown>) => {
-      if (readOnly) return;
+      if (viewReadOnly) return;
       const next = { ...tableData, ...attrs };
       setTableData(next);
       if (document instanceof FileDocumentClient)
@@ -171,14 +179,14 @@ export function TabularFileViewerTab({
       setSaveState('idle');
       setSaveError(null);
     },
-    [document, tableData, firstRowAsHeader, headerRowValues, readOnly]
+    [document, tableData, firstRowAsHeader, headerRowValues, viewReadOnly]
   );
   const tableModel = useTableData({
     data: { ...tableData, columnLabels: firstRowAsHeader ? headerRowValues : undefined },
     onUpdateAttrs: handleTableDataUpdate,
     historyEpoch,
     externalHistory:
-      document instanceof FileDocumentClient
+      document instanceof FileDocumentClient && !snapshotOnly
         ? {
             canUndo: Boolean(document.snapshot?.canUndo),
             canRedo: Boolean(document.snapshot?.canRedo),
@@ -193,7 +201,7 @@ export function TabularFileViewerTab({
           }
         : undefined,
     onViewChange:
-      document instanceof FileDocumentClient
+      document instanceof FileDocumentClient && !snapshotOnly
         ? ({ sort, filters }) => {
             setTableData((previous) => ({ ...previous, sort: sort ?? undefined, filters }));
             document.changeTableView(sort, filters);
@@ -202,7 +210,13 @@ export function TabularFileViewerTab({
   });
 
   useLayoutEffect(() => {
-    if (state.status !== 'ready' || !delimiterInfo.delimiter || state.table.truncated) return;
+    if (
+      state.status !== 'ready' ||
+      !delimiterInfo.delimiter ||
+      state.table.truncated ||
+      snapshotOnly
+    )
+      return;
     document.change(
       serializeDelimitedRows(
         getPhysicalRows({ bodyCells: tableModel.cells, firstRowAsHeader, headerRowValues }),
@@ -218,6 +232,7 @@ export function TabularFileViewerTab({
     delimiterInfo.delimiter,
     firstRowAsHeader,
     headerRowValues,
+    snapshotOnly,
     tableModel.cells,
     baselineText,
   ]);
@@ -225,6 +240,7 @@ export function TabularFileViewerTab({
   useEffect(() => {
     let cancelled = false;
     const readableOwner = beginReadableContentOwner({ tabId: canvasTabId, contentKey: filePath });
+    ignoreNativeUpdates.current = false;
     setState({ status: 'loading' });
     setTableData(EMPTY_TABLE_DATA);
     setBaselineText('');
@@ -238,20 +254,21 @@ export function TabularFileViewerTab({
     (async () => {
       const formatLabel = delimiterInfo.label;
       try {
+        const opening = readInitialSnapshot();
         if (delimiterInfo.isXlsx) {
           const resolvedXlsx = resolveFilePathWithFallback(filePath);
-          const xlsxStat = await platform().fs.stat(resolvedXlsx);
-          if (cancelled) return;
-          const bytes = await platform().fs.readFile(resolvedXlsx);
-          if (cancelled) return;
-          const parsedXlsx = parseXlsxPreview(bytes, { maxRows: MAX_PREVIEW_ROWS });
+          const preview = await (opening?.format === 'workbook'
+            ? opening.preview
+            : readWorkbookPreview(resolvedXlsx, () => !cancelled));
+          if (!preview || cancelled) return;
+          const { parsed: parsedXlsx, size } = preview;
           if (!parsedXlsx.ok) {
             setTableData(EMPTY_TABLE_DATA);
             setState({
               status: 'fallback',
               readableOwner,
               reason: `${formatLabel} could not be read: ${parsedXlsx.error}`,
-              sizeBytes: xlsxStat.size,
+              sizeBytes: size,
               formatLabel,
             });
             return;
@@ -271,10 +288,10 @@ export function TabularFileViewerTab({
             status: 'ready',
             readableOwner,
             table: parsedXlsx,
-            sizeBytes: xlsxStat.size,
+            sizeBytes: size,
             formatLabel,
             slicedPreview: parsedXlsx.truncated,
-            previewBytesRead: xlsxStat.size,
+            previewBytesRead: size,
           });
           commitReadableContent(filePath);
           return;
@@ -292,22 +309,13 @@ export function TabularFileViewerTab({
         }
 
         const resolved = resolveFilePathWithFallback(filePath);
-        await waitForFileDocumentSaves(resolved);
-        if (cancelled) return;
-        const stat = await platform().fs.stat(resolved);
-        if (cancelled) return;
-
-        const slicedPreview = stat.size > MAX_TABULAR_FILE_BYTES;
-        const readResult = slicedPreview
-          ? await platform().fs.readTextFileSlice(resolved, MAX_TABULAR_PREVIEW_BYTES)
-          : { text: await platform().fs.readTextFile(resolved), bytesRead: stat.size };
-        if (cancelled) return;
-
-        const parsed = parseTabularPreview(readResult.text, {
-          delimiter: delimiterInfo.delimiter,
-          maxRows: MAX_PREVIEW_ROWS,
-          inputTruncated: slicedPreview,
-        });
+        const admitted =
+          opening?.format === 'delimited' && opening.delimiter === delimiterInfo.delimiter;
+        const preview = await (admitted
+          ? opening.preview
+          : readDelimitedTablePreview(resolved, delimiterInfo.delimiter, () => !cancelled));
+        if (!preview || cancelled) return;
+        const { parsed, size, slicedPreview, text, bytesRead } = preview;
 
         if (!parsed.ok) {
           setTableData(EMPTY_TABLE_DATA);
@@ -315,21 +323,37 @@ export function TabularFileViewerTab({
             status: 'fallback',
             readableOwner,
             reason: `${formatLabel} could not be parsed as a ${formatLabel} table: ${parsed.error}`,
-            sizeBytes: stat.size,
+            sizeBytes: size,
             formatLabel,
           });
           return;
         }
 
         const initialProjection = tabularPreviewToGridProjection(parsed, parsed.hasHeader);
-        if (document instanceof FileDocumentClient) await document.load();
-        else
+        let nativeSnapshot: FileDocumentSnapshot | null = null;
+        let isolatedPreview = false;
+        if (document instanceof FileDocumentClient) {
+          let nativeLoadSucceeded = false;
+          try {
+            await document.load();
+            nativeLoadSucceeded = true;
+          } catch (error) {
+            if (!admitted) throw error;
+          }
+          if (cancelled || currentDocument.current !== document) return;
+          const native = document.snapshot;
+          const hasDraft = document.dirty || native?.dirty || Boolean(native?.recoveryId);
+          // A native draft still owns its edits. A different clean source cannot own this preview.
+          isolatedPreview =
+            admitted && !hasDraft && (!nativeLoadSucceeded || document.diskContent !== text);
+          ignoreNativeUpdates.current = isolatedPreview;
+          if (!isolatedPreview) nativeSnapshot = native;
+        } else
           document.load(
-            serializeDelimitedRows(parsed.sourceRows, delimiterInfo.delimiter, readResult.text),
-            readResult.text
+            serializeDelimitedRows(parsed.sourceRows, delimiterInfo.delimiter, text),
+            text
           );
         if (cancelled || currentDocument.current !== document) return;
-        const nativeSnapshot = document instanceof FileDocumentClient ? document.snapshot : null;
         setTableData(
           nativeSnapshot?.tableData ?? {
             cells: rowsToGridCells(initialProjection.bodyRows),
@@ -340,16 +364,17 @@ export function TabularFileViewerTab({
         );
         setFirstRowAsHeader(nativeSnapshot?.firstRowAsHeader ?? parsed.hasHeader);
         setHeaderRowValues(nativeSnapshot?.headerRowValues ?? initialProjection.headerRowValues);
-        setBaselineText(document.diskContent ?? readResult.text);
-        setDirty(document.dirty);
+        setBaselineText(isolatedPreview ? text : (document.diskContent ?? text));
+        setDirty(!isolatedPreview && document.dirty);
         setState({
           status: 'ready',
           readableOwner,
           table: parsed,
-          sizeBytes: stat.size,
+          sizeBytes: size,
           formatLabel,
           slicedPreview,
-          previewBytesRead: readResult.bytesRead,
+          previewBytesRead: bytesRead,
+          snapshotOnly: isolatedPreview,
         });
         commitReadableContent(filePath);
       } catch (err) {
@@ -376,7 +401,15 @@ export function TabularFileViewerTab({
       cancelled = true;
       readableOwner?.release();
     };
-  }, [canvasTabId, delimiterInfo, document, filePath, filename, updateTabByEntityId]);
+  }, [
+    canvasTabId,
+    delimiterInfo,
+    document,
+    filePath,
+    filename,
+    readInitialSnapshot,
+    updateTabByEntityId,
+  ]);
 
   useEffect(() => {
     if (state.status === 'ready') state.readableOwner?.readable();
@@ -485,7 +518,7 @@ export function TabularFileViewerTab({
   );
 
   const saveChanges = useCallback(async (): Promise<boolean> => {
-    if (readOnly) return true;
+    if (viewReadOnly) return true;
     if (state.status !== 'ready' || !delimiterInfo.delimiter || state.table.truncated) return false;
 
     setSaveState('saving');
@@ -547,15 +580,15 @@ export function TabularFileViewerTab({
       setSaveError(toUserMessage(err, 'failure.failed-to-save-table-file'));
       return false;
     }
-  }, [canvasTabId, delimiterInfo, document, filePath, flushDraft, readOnly, state]);
+  }, [canvasTabId, delimiterInfo, document, filePath, flushDraft, viewReadOnly, state]);
 
   useDocumentLifecycle({
     target: { kind: 'file', filePath },
     tabId: canvasTabId,
     readRevision: () => document.revision,
-    isDirty: () => !readOnly && document.dirty,
+    isDirty: () => !viewReadOnly && document.dirty,
     save: () =>
-      readOnly
+      viewReadOnly
         ? Promise.resolve(true)
         : saveCurrentFileEdits(
             document,
@@ -563,6 +596,7 @@ export function TabularFileViewerTab({
             () => mounted.current && currentDocument.current === document
           ),
     discard: () => {
+      if (snapshotOnly) return;
       if (document instanceof FileDocumentClient) document.discard();
       else document.change(document.persistedContent);
     },
@@ -680,7 +714,7 @@ export function TabularFileViewerTab({
     tableModel.cols,
     headerRowValues.length
   );
-  const isEditable = Boolean(delimiterInfo.delimiter) && !table.truncated && !readOnly;
+  const isEditable = Boolean(delimiterInfo.delimiter) && !table.truncated && !viewReadOnly;
   const canToggleHeaderMode = firstRowAsHeader || tableModel.rows >= 2;
   const columnLabels = firstRowAsHeader ? headerRowValues : undefined;
   const previewDetail = state.slicedPreview
@@ -896,19 +930,6 @@ function columnLabel(index: number): string {
     n = Math.floor(n / 26) - 1;
   } while (n >= 0);
   return label;
-}
-
-function delimiterForPath(path: string): {
-  delimiter: TabularDelimiter | null;
-  label: string;
-  isXlsx?: boolean;
-} {
-  const ext = getExtension(path);
-  if (ext === 'csv') return { delimiter: ',', label: 'CSV' };
-  if (ext === 'tsv') return { delimiter: '\t', label: 'TSV' };
-
-  if (ext === 'xlsx' || ext === 'xls') return { delimiter: null, label: 'Excel', isXlsx: true };
-  return { delimiter: null, label: (ext ?? 'table').toUpperCase() };
 }
 
 function formatBytes(bytes: number): string {

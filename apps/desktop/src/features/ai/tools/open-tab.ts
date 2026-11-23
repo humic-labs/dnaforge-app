@@ -13,7 +13,9 @@ import { resolveMultiRootPath } from './path-utils';
 import type { WorkspaceFolder } from '../../../stores/workspaceStore';
 import { openTabSchema, type OpenTabInput } from './open-tab-schema';
 import { looksLikeWorkspacePath } from '../../../shared/resolve-entity-path';
-import { isMolecularDocumentFile } from '../../../shared/document-availability';
+import { isMolecularDocumentFile, isTypedDocumentCandidate } from '../../../shared/document-availability';
+import { checkDocumentOpen } from '../../document-opening/public/availability';
+import { findWorkspaceRootForPath } from '../../../db/workspace-catalog';
 import { userMessage } from '@waypoint/user-messages';
 
 export { openTabSchema, type OpenTabInput } from './open-tab-schema';
@@ -125,6 +127,15 @@ export async function openTabInCanvas(
     if (!resolved) {
       return { tabId: '', error: 'The sequence document is no longer available.' };
     }
+    if (resolved.ref.kind === 'managed-sequence') {
+      const path = resolved.ref.packageRoot;
+      const availability = await checkDocumentOpen({
+        workspaceRoot: findWorkspaceRootForPath(folders, path) ?? undefined,
+        path,
+        package: true,
+      });
+      if (availability.state === 'blocked') return { tabId: '', error: availability.reason };
+    }
 
                                                                                 
                                                                            
@@ -147,7 +158,9 @@ export async function openTabInCanvas(
   }
 
   const molecularFile = FILE_BASED_TYPES.includes(type) && isMolecularDocumentFile(entityId);
-  const existing = molecularFile ? undefined : store.findTab(type, entityId);
+  const fileTarget = FILE_BASED_TYPES.includes(type);
+  const reuseWithoutRead = !fileTarget || !isTypedDocumentCandidate(entityId);
+  const existing = reuseWithoutRead ? store.findTab(type, entityId) : undefined;
   if (existing) {
     store.setActiveTab(existing.panelId, existing.tabId);
     const working = Object.values(store.panels).find((panel) => panel.tabs.some((tab) => tab.type === 'chat'));

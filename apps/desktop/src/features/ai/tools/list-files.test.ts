@@ -8,13 +8,16 @@ import type { WorkspaceFolder } from '../../../stores/workspaceStore';
 import { createElement } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { ToolResultDisplay } from '../../../components/chat/ToolResultDisplay';
+import type { DocumentAvailabilityProbe } from '../../../shared/document-availability';
 
 const { mockPlatform } = vi.hoisted(() => ({
   mockPlatform: {
     fs: {
       readDir: vi.fn().mockResolvedValue([]),
       readTextFileSlice: vi.fn().mockResolvedValue({ text: '', bytesRead: 0 }),
+      exists: vi.fn().mockResolvedValue(false),
     },
+    workspace: {} as { checkDocument?: (request: { path: string }) => Promise<DocumentAvailabilityProbe> },
   },
 }));
 
@@ -51,6 +54,8 @@ const singleFolder: WorkspaceFolder[] = [{ name: 'lab', path: WORKSPACE, addedAt
 beforeEach(() => {
   vi.clearAllMocks();
   mockPlatform.fs.readDir.mockResolvedValue([]);
+  mockPlatform.fs.exists.mockResolvedValue(false);
+  delete mockPlatform.workspace.checkDocument;
   mockOpenPackage.mockResolvedValue(null);
   mockFindByMemberPath.mockResolvedValue(null);
   mockGetCatalogEntityForFilePath.mockResolvedValue(null);
@@ -59,6 +64,55 @@ beforeEach(() => {
 });
 
 describe('list_files tool (single folder)', () => {
+  it('advertises only verified opens and uses the read-only package result for a stable reference', async () => {
+    const packagePath = `${WORKSPACE}/Plasmid`;
+    const pdfPath = `${WORKSPACE}/Encrypted.pdf`;
+    const imagePath = `${WORKSPACE}/Panel.png`;
+    const productPath = `${packagePath}/product.gb`;
+    mockPlatform.fs.exists.mockImplementation(async (path) => path === `${packagePath}/.forge`);
+    mockPlatform.fs.readDir.mockImplementation(async (path) =>
+      path === WORKSPACE
+        ? [
+            { name: 'Encrypted.pdf', isDirectory: false, isFile: true },
+            { name: 'Panel.png', isDirectory: false, isFile: true },
+            { name: 'Plasmid', isDirectory: true, isFile: false },
+          ]
+        : [{ name: 'plasmid.json', isDirectory: false, isFile: true }]
+    );
+    const checked = vi.fn(async ({ path }): Promise<DocumentAvailabilityProbe> => {
+      if (path === pdfPath) return {
+        state: 'blocked', code: 'password', recognized: true,
+        reason: 'This file is password-protected.', paths: [pdfPath],
+      };
+      if (path === imagePath) return { state: 'ready', kind: 'image', revision: 'image', paths: [imagePath] };
+      expect(path).toBe(packagePath);
+      return {
+        state: 'ready', kind: 'sequence-package', revision: 'sequence',
+        paths: [productPath],
+        sequencePackage: { documentId: 'stable-doc', name: 'Plasmid', productPath },
+      };
+    });
+    mockPlatform.workspace.checkDocument = checked;
+    const result = await execTool<{ entries: Array<Record<string, unknown>> }>(createListFilesTool(singleFolder), {});
+    const entries = new Map(result.entries.map((entry) => [entry.name, entry]));
+    expect(entries.get('Encrypted.pdf')).toMatchObject({
+      documentAvailability: { state: 'blocked', code: 'password', recognized: true },
+    });
+    expect(entries.get('Encrypted.pdf')).not.toHaveProperty('nextOpenInput');
+    expect(entries.get('Panel.png')).toMatchObject({
+      nextOpenInput: { type: 'file', entityId: imagePath },
+      documentAvailability: { state: 'ready', kind: 'image' },
+    });
+    expect(entries.get('Plasmid')).toMatchObject({
+      type: 'sequence-document',
+      documentId: 'stable-doc',
+      nextOpenInput: { type: 'sequence', entityId: 'stable-doc' },
+    });
+    expect(JSON.stringify(result.entries)).not.toContain(productPath);
+    expect(mockOpenPackage).not.toHaveBeenCalled();
+    expect(mockFindByMemberPath).not.toHaveBeenCalled();
+  });
+
   it('preserves declared managed RNA identity through the expanded extensionless result', async () => {
     mockPlatform.fs.readDir.mockResolvedValueOnce([{ name: 'transcript', isDirectory: true }]);
     mockOpenPackage.mockResolvedValueOnce({

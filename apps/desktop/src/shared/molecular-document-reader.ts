@@ -12,11 +12,14 @@ import {
   validateMolViewSpecScene,
 } from './mol-view-spec-scene';
 import {
-  MOLECULAR_DOCUMENT_MAX_BYTES,
-  parseMolecularDocument,
+  isMolecularDocumentSchema,
+  unpackMolecularDocument,
   validateMolecularDocumentCoordinates,
   type MolecularDocument,
 } from './molecular-document';
+import { assertMolecularDocumentSize } from './molecular-storage';
+import { DocumentReadError } from './document-read-failure';
+import { ZodError } from 'zod';
 import type { MolecularView } from './molecular-view';
 
 type Coordinates = MolecularView['coordinates'];
@@ -59,9 +62,26 @@ export async function readMolecularDocumentContent(
   bytes: string,
   byteLength = new TextEncoder().encode(bytes).byteLength
 ): Promise<MolecularDocument> {
-  if (byteLength > MOLECULAR_DOCUMENT_MAX_BYTES)
-    throw new Error('The molecular document exceeds the file size limit.');
-  const document = parseMolecularDocument(bytes);
+  assertMolecularDocumentSize(byteLength);
+  let value: unknown;
+  try {
+    value = JSON.parse(bytes);
+  } catch (error) {
+    throw new DocumentReadError('malformed', false, { cause: error });
+  }
+  let document: MolecularDocument;
+  try {
+    document = unpackMolecularDocument(value);
+  } catch (error) {
+    if (!(error instanceof ZodError)) throw error;
+    const recognized = Boolean(
+      value && typeof value === 'object' && 'schema' in value && isMolecularDocumentSchema(value.schema)
+    );
+    throw new DocumentReadError(recognized ? 'malformed' : 'unsupported-format', recognized, {
+      cause: error,
+      detail: error.message,
+    });
+  }
   await validateMolecularDocumentForOpen(document);
   return document;
 }

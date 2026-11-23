@@ -1007,7 +1007,7 @@ export interface PlatformBridge {
     listChildren(request: WorkspaceListChildrenRequest): Promise<WorkspaceListChildrenResult>;
     checkDocument?(
       request: import('../shared/document-availability').DocumentAvailabilityRequest
-    ): Promise<import('../shared/document-availability').DocumentAvailability>;
+    ): Promise<import('../shared/document-availability').DocumentAvailabilityProbe>;
     reconcileNativeRecords(request: NativeCatalogRecordReconcileRequest): Promise<number>;
     setDocumentCommandRoots(request: NativeDocumentWorkspaceRootsRequest): Promise<boolean>;
     resolveRegisteredProject?(

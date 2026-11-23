@@ -24,10 +24,10 @@ import { ensureSchema } from './schema';
 let retained: ReturnType<typeof createFileTestDb>;
 beforeEach(() => {
   retained = createFileTestDb('document-source');
-  ensureSchema(retained.db,retained.dbPath);
+  ensureSchema(retained.db, retained.dbPath);
 });
 afterEach(() => retained.cleanup());
-const store = {db:() => retained.db};
+const store = { db: () => retained.db };
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -134,7 +134,10 @@ describe('native molecular document file authority', () => {
     const workspace = savedFileWorkspace(retained.db, target.workspaceRoot)!;
     await restoreSavedFileSource(retained.db, {
       workspaceId: workspace.id,
-      entityId: scopedProjectionId(workspaceScopeKey(workspace.repo_uuid, workspace.id), fixture.id),
+      entityId: scopedProjectionId(
+        workspaceScopeKey(workspace.repo_uuid, workspace.id),
+        fixture.id
+      ),
       destination: target.path,
     });
     expect((await library.read(target)).revision).toBe(second.revision);

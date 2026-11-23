@@ -8,7 +8,7 @@ import { scientificPackageMetaPath } from '../shared/scientific-package';
 import { useToastStore } from '../stores/toast-store';
 import { getTabTypeForFile } from '../utils/fileTypes';
 import { tablePackagePaths } from '../shared/table-package';
-import type { DocumentAvailability } from '../shared/document-availability';
+import { canOpenDocument, type DocumentAvailability } from '../shared/document-availability';
 
 export async function openFileBrowserFile(
   entry: {
@@ -20,7 +20,7 @@ export async function openFileBrowserFile(
   },
   present: (path: string, tabType: TabType) => void
 ): Promise<void> {
-  if (entry.documentAvailability?.state === 'blocked') return;
+  if (!canOpenDocument(entry.documentAvailability)) return;
   try {
     const ref = entry.sequenceDocument;
     if (
