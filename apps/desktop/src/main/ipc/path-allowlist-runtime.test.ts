@@ -1,3 +1,4 @@
+import { realpath as lookupPath } from 'fs/promises';
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,13 +8,18 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DNAFORGE_REFERENCE_ASSET_ROOT_ENV } from '../reference-assets/reference-asset-cache-root';
 import { ReferenceAssetRuntimeMutationError } from '../reference-assets/reference-asset-runtime-boundary';
 import { beginQuickLookPromotionWrite } from '../workspace-git';
-import { assertSafeWritablePath } from './path-allowlist';
+import { assertSafeWritablePath, resolveCanonicalPath } from './path-allowlist';
 
 const electronPaths = vi.hoisted(() => ({
   appData: '',
   home: '',
   userData: '',
 }));
+
+vi.mock('fs/promises', async (importOriginal) => {
+  const fs = await importOriginal<typeof import('fs/promises')>();
+  return { ...fs, realpath: vi.fn(fs.realpath) };
+});
 
 vi.mock('electron', () => ({
   app: {
@@ -60,6 +66,17 @@ describe('writable IPC path canonicalization', () => {
     await writeFile(existingPath, 'existing', 'utf8');
 
     await expect(assertSafeWritablePath(existingPath)).resolves.toBe(await realpath(existingPath));
+  });
+
+  it('resolves a folder created between the first lookup and the existence check', async () => {
+    const folder = join(homeRoot, 'new-folder');
+    vi.mocked(lookupPath).mockImplementationOnce(() =>
+      realpath(folder).finally(() => mkdir(folder))
+    );
+
+    await expect(resolveCanonicalPath(folder)).resolves.toBe(
+      join(await realpath(homeRoot), 'new-folder')
+    );
   });
 
   it('canonicalizes a new child from its nearest existing symlinked parent', async () => {
