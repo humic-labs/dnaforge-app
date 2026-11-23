@@ -65,7 +65,7 @@
   },
   "license": "GPL-3.0-only",
   "dependencies": {
-    "@agentclientprotocol/sdk": "^1.4.0",
+    "@agentclientprotocol/sdk": "^2.7.0",
     "@ai-sdk/anthropic": "^3.0.31",
     "@ai-sdk/deepseek": "^2.0.15",
     "@ai-sdk/google": "^3.0.18",
