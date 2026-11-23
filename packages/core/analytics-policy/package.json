@@ -39,7 +39,7 @@
   },
   "license": "GPL-3.0-only",
   "dependencies": {
-    "@noble/hashes": "1.8.0"
+    "@noble/hashes": "2.4.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
