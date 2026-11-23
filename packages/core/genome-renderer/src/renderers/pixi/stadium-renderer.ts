@@ -34,9 +34,11 @@ import { OverlayRegistry } from './overlays/overlay-registry';
 import { SequenceAnnotationOverlay } from './overlays/sequence-annotation-overlay';
 import { PrimerOverlay } from './overlays/primer-overlay';
 import type { PrimerOverlayRenderStats } from './overlays/primer-overlay';
+import { LARGE_GENOME_STABILITY_LENGTH_BP } from './shared/sequence-sizing';
 import {
   capMaxZoomForStabilityMode,
   computeUnifiedLayout,
+  MAX_SEQUENCE_PIXELS_PER_BP,
   maxZoomForSequencePixelsPerBp,
   type UnifiedLayout,
 } from './shared/track-layout';
@@ -761,9 +763,14 @@ export class PixiStadiumRenderer {
   }
 
   private resolveStadiumRenderFrame(state: RenderState): StadiumFrame {
-    const maxZoom = this.getMaxZoom(state);
-    if (state.zoom > maxZoom) state.zoom = maxZoom;
     let frame = this.computeFrameForState(state);
+    if (this.liveCameraBreaksReadableCap(state, frame)) {
+      const maxZoom = this.getMaxZoom(state);
+      if (state.zoom > maxZoom) {
+        state.zoom = maxZoom;
+        frame = this.computeFrameForState(state);
+      }
+    }
     if (!hasValidCapGeometry(frame, state.zoom)) {
       const safeZoom = this.getMinZoom(state);
       if (safeZoom > state.zoom) {
@@ -772,6 +779,16 @@ export class PixiStadiumRenderer {
       }
     }
     return frame;
+  }
+
+  private liveCameraBreaksReadableCap(state: RenderState, frame: StadiumFrame): boolean {
+    if (
+      state.performanceMode === 'stability' &&
+      this.genome.length >= LARGE_GENOME_STABILITY_LENGTH_BP
+    ) {
+      return true;
+    }
+    return frame.pixelsPerBp > MAX_SEQUENCE_PIXELS_PER_BP + 0.01;
   }
 
   private computeFrameForState(state: RenderState, zoom = state.zoom): StadiumFrame {
