@@ -3712,6 +3712,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       const expected = records.length;
       const advanceAssignment = PersistentRowLayout.prototype.advanceAssignmentWithinBudget;
       let clock = 0;
+      const preparationClock = vi.spyOn(performance, 'now').mockReturnValue(0);
       const assignmentClock = vi
         .spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget')
         .mockImplementation(function (this: PersistentRowLayout, job, maxRecords, budgetMs) {
@@ -3766,6 +3767,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         expect(frames).toBeGreaterThanOrEqual(Math.ceil(N / CAP));
       } finally {
         assignmentClock.mockRestore();
+        preparationClock.mockRestore();
         r.unmount(c);
       }
     });

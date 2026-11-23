@@ -2536,4 +2536,49 @@ describe('renderer analytics', () => {
     expect(analytics.isAnalyticsCaptureReady()).toBe(false);
     expect(analytics.getAnalyticsCaptureGeneration()).toBeGreaterThan(afterOptIn);
   });
+
+  it('captures registered Sanger read lifecycle metadata without losing original correlation or clocks', async () => {
+    installBridge();
+    const { trackRendererEvent } = await initializeAndEnable();
+    mockPosthog.capture.mockClear();
+    const properties = {
+      feature_area: 'file',
+      operation_id: '660e8400-e29b-41d4-a716-446655440001',
+      sanger_read_revision_id: '660e8400-e29b-41d4-a716-446655440002',
+      sanger_view_id: '660e8400-e29b-41d4-a716-446655440003',
+      viewport_operation_id: '660e8400-e29b-41d4-a716-446655440004',
+      sanger_stage: 'viewport_failed',
+      sanger_origin: 'initial_read',
+      sanger_classification: 'decoded_ab1',
+      sanger_reason: 'renderer',
+      sanger_viewport_kind: 'zoom',
+      sanger_started_at_ms: 1_784_985_600_000,
+      sanger_parse_started_at_ms: 1_784_985_600_010,
+      sanger_view_started_at_ms: 1_784_985_600_020,
+      viewport_started_at_ms: 1_784_985_600_030,
+      occurred_at_ms: 1_784_985_600_040,
+      sanger_trace_available: true,
+      sanger_quality_available: true,
+      sanger_trace_visible: false,
+      sanger_quality_visible: false,
+      sanger_bases_visible: false,
+    } as const;
+    expect(
+      trackRendererEvent('sanger_read_stage', properties),
+      'SANGER_READ_STAGE_RENDERER_INGRESS_REJECTED'
+    ).toBe(true);
+    const captured = mockPosthog.capture.mock.calls.filter(
+      ([event]) => event === 'sanger_read_stage'
+    );
+    expect(captured, 'SANGER_READ_STAGE_PERMITTED_CAPTURE_REQUIRED').toHaveLength(1);
+    for (const [key, value] of Object.entries(properties)) {
+      expect(captured[0]?.[1], `SANGER_DECLARED_PROPERTY_MUST_REMAIN_EXACT:${key}`).toHaveProperty(
+        key,
+        value
+      );
+    }
+    expect(
+      mockPosthog.capture.mock.calls.filter(([event]) => event === 'telemetry_payload_rejected')
+    ).toEqual([]);
+  });
 });
