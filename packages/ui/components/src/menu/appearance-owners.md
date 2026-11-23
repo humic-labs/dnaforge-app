@@ -1,5 +1,8 @@
 # Appearance ownership
 
+For ordinary buttons and toolbar actions, start with the
+[desktop styling guide](../../../../../docs/UI_STYLING.md).
+
 The menu module owns popup chrome, field and toolbar trigger geometry, row
 slots, carets, checkmarks, captions, density and neutral interaction colors.
 Feature content supplies labels, scientific data, option IDs and actions. It
