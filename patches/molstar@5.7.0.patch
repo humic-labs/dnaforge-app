@@ -838,3 +838,37 @@ diff --git a/lib/commonjs/mol-canvas3d/controls/trackball.js b/lib/commonjs/mol-
              moveSub.unsubscribe();
              lockSub.unsubscribe();
              leaveSub.unsubscribe();
+diff --git a/lib/mol-gl/renderable/mesh.js b/lib/mol-gl/renderable/mesh.js
+--- a/lib/mol-gl/renderable/mesh.js
++++ b/lib/mol-gl/renderable/mesh.js
+@@ -36,7 +36,12 @@
+         dLightCount: ValueCell.create(globals.dLightCount),
+         dColorMarker: ValueCell.create(globals.dColorMarker),
+     };
+-    const shaderCode = MeshShaderCode;
++    const material = values.meta.ref.value.dnaforgeMeshMaterial;
++    if (material) {
++        Object.assign(schema, material.schema);
++        Object.assign(renderValues, material.values);
++    }
++    const shaderCode = material?.shaderCode ?? MeshShaderCode;
+     const renderItem = createGraphicsRenderItem(ctx, 'triangles', shaderCode, schema, renderValues, materialId, transparency);
+     return createRenderable(renderItem, renderValues, state);
+ }
+diff --git a/lib/commonjs/mol-gl/renderable/mesh.js b/lib/commonjs/mol-gl/renderable/mesh.js
+--- a/lib/commonjs/mol-gl/renderable/mesh.js
++++ b/lib/commonjs/mol-gl/renderable/mesh.js
+@@ -40,7 +40,12 @@
+         dLightCount: mol_util_1.ValueCell.create(globals.dLightCount),
+         dColorMarker: mol_util_1.ValueCell.create(globals.dColorMarker),
+     };
+-    const shaderCode = shader_code_1.MeshShaderCode;
++    const material = values.meta.ref.value.dnaforgeMeshMaterial;
++    if (material) {
++        Object.assign(schema, material.schema);
++        Object.assign(renderValues, material.values);
++    }
++    const shaderCode = material?.shaderCode ?? shader_code_1.MeshShaderCode;
+     const renderItem = (0, render_item_1.createGraphicsRenderItem)(ctx, 'triangles', shaderCode, schema, renderValues, materialId, transparency);
+     return (0, renderable_1.createRenderable)(renderItem, renderValues, state);
+ }

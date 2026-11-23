@@ -69,6 +69,7 @@ export function splitPanelTabClass(selected: boolean): string {
 }
 export const UI_APPBAR_ACTION_CLASS = `${INTERACTION_CLASS} appbar-action`;
 export const UI_SECONDARY_BUTTON_CLASS = `${INTERACTION_CLASS} rounded-md border border-transparent bg-black/[0.04] px-3 py-2 text-xs font-medium text-fg dark:bg-white/[0.055]`;
+export const UI_COMPACT_SECONDARY_BUTTON_CLASS = `${UI_SECONDARY_BUTTON_CLASS} h-7 shrink-0 !border-0 !px-2 !py-0`;
 export const UI_ICON_BUTTON_CLASS = `${INTERACTION_CLASS} inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-transparent bg-black/[0.04] p-0 text-xs font-medium text-fg dark:bg-white/[0.055]`;
 export const UI_PRIMARY_BUTTON_CLASS =
   'rounded-md bg-accent px-3 py-2 text-xs font-medium text-accent-fg transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50';

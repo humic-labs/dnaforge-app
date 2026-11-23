@@ -1,0 +1,7 @@
+{
+  "name": "dnaforge-molart-klimt-example",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "node build.mjs" },
+  "devDependencies": { "esbuild": "0.27.3" }
+}
