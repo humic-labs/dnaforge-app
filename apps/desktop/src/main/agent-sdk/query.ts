@@ -716,7 +716,7 @@ export async function queryClaudeCode(
       ...(providerConversationId ? { providerConversationId } : {}),
     };
   } catch (err) {
-    if (options.abortController?.signal.aborted || isAbortLikeError(err)) {
+    if (options.abortController?.signal.aborted) {
       return stoppedResult(
         'claude-agent-sdk',
         start,
@@ -1177,7 +1177,7 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
       ...(providerConversationId ? { providerConversationId } : {}),
     };
   } catch (err) {
-    if (options.abortController?.signal.aborted || isAbortLikeError(err)) {
+    if (options.abortController?.signal.aborted) {
       return stoppedResult('codex-sdk', start, providerConversationId);
     }
     return {
