@@ -119,14 +119,18 @@ export function assertNativeCatalogRecordPublicationsSettled(
 
 export async function recoverNativeCatalogRecordsWithDatabaseFence(
   db: Database.Database,
-  workspacePath: string
+  workspacePath: string,
+  assertCurrent?: () => void
 ): Promise<void> {
   const release = await acquireWorkspaceSyncDatabaseFence(db);
   try {
     await recoverNativeCatalogRecordPublications({
       db,
       workspacePath,
-      runDatabase: (operation) => operation(),
+      runDatabase: (operation) => {
+        assertCurrent?.();
+        return operation();
+      },
     });
   } finally {
     release();

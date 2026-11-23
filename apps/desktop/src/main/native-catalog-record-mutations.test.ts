@@ -922,6 +922,20 @@ describe('portable catalog record edits', () => {
     expect(() => assertNativeCatalogRecordPublicationsSettled(db, workspacePath)).not.toThrow();
   });
 
+  it('rechecks the caller after waiting for a database fence and releases it on cancellation', async () => {
+    const release = await acquireWorkspaceSyncDatabaseFence(db);
+    let current = true;
+    const recovery = recoverNativeCatalogRecordsWithDatabaseFence(db, workspacePath, () => {
+      if (!current) throw new Error('Renderer reloaded');
+    });
+    current = false;
+    release();
+    await expect(recovery).rejects.toThrow('Renderer reloaded');
+    await expect(
+      recoverNativeCatalogRecordsWithDatabaseFence(db, workspacePath)
+    ).resolves.toBeUndefined();
+  });
+
   it("does not recover through another owner's database fence", async () => {
     vi.spyOn(publication, 'publishNativeCatalogBytes').mockRejectedValueOnce(
       new Error('Interrupted edit')

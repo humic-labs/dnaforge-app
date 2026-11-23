@@ -55,7 +55,10 @@ import {
   assertTextFileAtomicWriteInput,
   type TextFileAtomicWriteInput,
 } from '../../shared/text-file-atomic';
-import { recoverNativeCatalogRecordPublications } from '../native-catalog-record-mutations';
+import {
+  recoverNativeCatalogRecordPublications,
+  recoverNativeCatalogRecordsWithDatabaseFence,
+} from '../native-catalog-record-mutations';
 import {
   assertCommittedDatabaseReadAllowed,
   withRendererDatabaseStatement,
@@ -825,14 +828,19 @@ export function registerFilesystemHandlers(): void {
       try {
         assertRendererCurrent();
         await assertWorkspaceMigrationActionsSettled(knownRoot);
-        await recoverNativeCatalogRecordPublications({
-          db: getDb(),
-          workspacePath: knownRoot,
-          runDatabase: (operation) => {
-            assertRendererCurrent();
-            return withRendererDatabaseStatement(getDb(), event.sender, operation);
-          },
-        });
+        const db = getDb();
+        if (waitForAvailability && !db.inTransaction) {
+          await recoverNativeCatalogRecordsWithDatabaseFence(db, knownRoot, assertRendererCurrent);
+        } else {
+          await recoverNativeCatalogRecordPublications({
+            db,
+            workspacePath: knownRoot,
+            runDatabase: (operation) => {
+              assertRendererCurrent();
+              return withRendererDatabaseStatement(db, event.sender, operation);
+            },
+          });
+        }
         assertRendererCurrent();
         return workspaceMutationCapabilities.issue(event.sender.id, rootIdentity, releaseMutation);
       } catch (error) {
