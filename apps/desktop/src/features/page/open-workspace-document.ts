@@ -1,9 +1,11 @@
 import type { JSONContent } from '@tiptap/core';
-import { findWorkspaceRootForPath, getCatalogEntityForFilePath } from '../../db/workspace-catalog';
+import { findWorkspaceRootForPath } from '../../db/workspace-catalog';
 import { notebookPackageRootForMetaPath } from '../../db/notebook-package';
 import { withWorkspaceArtifactOpen } from '../../services/workspace-artifact-open';
 import { isWorkspaceMutationBusyError } from '../../services/workspace-mutation-transaction';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
+import { documentReadError, documentReadReason } from '../../shared/document-read-failure';
+import { typedDocumentKindForPath } from '../../shared/document-availability';
 import { usePageStore } from './store';
 import { openDesignDocument } from '../design/public/open-design-document';
 import { presentDocument } from '../canvas/public/present-document';
@@ -23,28 +25,13 @@ export async function openWorkspaceDocument(
   request: OpenFileDocumentRequest
 ): Promise<DocumentOpenResult> {
   const {
-    target: { path },
+    target: { path, tabType },
     label,
     signal,
     placement,
   } = request;
   const workspaceRoot = findWorkspaceRootForPath(useWorkspaceStore.getState().folders, path);
-  const present = (
-    type: 'page' | 'design' | 'text',
-    entityId: string,
-    title: string,
-    recovery = false
-  ): DocumentOpenResult => {
-    if (signal?.aborted) return cancelledDocumentOpen();
-    const result = presentDocument(
-      { type, entityId, label: title },
-      placement,
-      recovery ? 'loading' : 'ready'
-    );
-    if (result.status === 'presented')
-      registerPendingReadableContent({ contentKey: entityId, tabId: result.tabId });
-    return result;
-  };
+  const expected = tabType === 'page' ? 'notebook' : typedDocumentKindForPath(path);
   if (signal?.aborted) return cancelledDocumentOpen();
   const tableReopen = beginTableNotebookReopen();
   const notebookReopen = beginNotebookReopen();
@@ -54,7 +41,7 @@ export async function openWorkspaceDocument(
       workspaceRoot,
       consume: async (resolved, mutationToken) => {
         if (signal?.aborted) return cancelledDocumentOpen();
-        if (resolved.artifact.kind === 'notebook') {
+        if (resolved.artifact.kind === 'notebook' && expected === 'notebook') {
           const sourcePreserved = await usePageStore.getState().upsertPageFromArtifact({
             id: resolved.entity.id,
             title: resolved.artifact.title,
@@ -63,7 +50,14 @@ export async function openWorkspaceDocument(
             mutationToken,
             authorityFingerprint: resolved.authorityFingerprint,
           });
-          const result = present('page', resolved.entity.id, resolved.artifact.title || label);
+          if (signal?.aborted) return cancelledDocumentOpen();
+          const result = presentDocument(
+            { type: 'page', entityId: resolved.entity.id, label: resolved.artifact.title || label },
+            placement,
+            'ready'
+          );
+          if (result.status === 'presented')
+            registerPendingReadableContent({ contentKey: resolved.entity.id, tabId: result.tabId });
           confirmNotebookReopen(notebookReopen, {
             pageId: resolved.entity.id,
             workspaceRoot,
@@ -89,7 +83,7 @@ export async function openWorkspaceDocument(
           });
           return result;
         }
-        if (resolved.artifact.kind === 'assembly-design') {
+        if (resolved.artifact.kind === 'assembly-design' && expected === 'design') {
           return openDesignDocument({
             artifact: resolved.artifact,
             entityId: resolved.entity.id,
@@ -98,7 +92,7 @@ export async function openWorkspaceDocument(
             signal,
           });
         }
-        return present('text', path, label, true);
+        return { status: 'blocked', message: documentReadReason('unsupported-format') };
       },
     });
   } catch (error) {
@@ -107,10 +101,7 @@ export async function openWorkspaceDocument(
       return { status: 'blocked', message: error instanceof Error ? error.message : String(error) };
 
     console.warn('[openWorkspaceDocument] Failed to resolve workspace artifact file:', error);
-    const entity = await getCatalogEntityForFilePath(notebookPackageRootForMetaPath(path) ?? path);
-    if (entity?.type === 'notebook') return present('page', entity.id, entity.name || label, true);
-    if (entity?.type === 'design') return present('design', entity.id, entity.name || label, true);
-    return present('text', path, label, true);
+    return { status: 'blocked', message: documentReadReason(documentReadError(error).code) };
   } finally {
     tableReopen?.dispose();
   }

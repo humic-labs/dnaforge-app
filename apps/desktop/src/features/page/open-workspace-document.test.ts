@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { documentReadReason } from '../../shared/document-read-failure';
 import { useCanvasStore } from '../canvas/store';
 import { openWorkspaceDocument } from './open-workspace-document';
 
@@ -80,25 +81,33 @@ describe('workspace document opening', () => {
     expect(useCanvasStore.getState().panels.main.tabs).toEqual([]);
   });
 
-  it('retains the explicit catalog recovery and literal-text fallback', async () => {
-    mocks.open.mockRejectedValue(new Error('Malformed notebook'));
-    mocks.catalog.mockResolvedValueOnce({
-      type: 'notebook',
-      id: 'workspace::saved',
-      name: 'Saved',
+  it.each(['page', 'design'] as const)(
+    'does not present a %s tab from a catalog hint after the normal reader fails',
+    async (tabType) => {
+      const path = tabType === 'page' ? request.target.path : '/workspace/Sketch.wpdesign.json';
+      mocks.open.mockRejectedValue(new Error('Unclassified reader failure'));
+      mocks.catalog.mockResolvedValue({
+        type: tabType === 'page' ? 'notebook' : 'design',
+        id: 'workspace::saved',
+        name: 'Saved',
+      });
+      await expect(
+        openWorkspaceDocument({ ...request, target: { ...request.target, path, tabType } })
+      ).resolves.toEqual({ status: 'blocked', message: documentReadReason('unknown') });
+      expect(useCanvasStore.getState().panels.main.tabs).toEqual([]);
+      expect(mocks.confirmNotebookReopen).not.toHaveBeenCalled();
+    }
+  );
+
+  it('does not hand a replaced notebook file to a different viewer', async () => {
+    mocks.open.mockImplementation(({ consume }) =>
+      consume({ ...resolved, artifact: { kind: 'assembly-design', id: 'new-design' } }, 'lease')
+    );
+    await expect(openWorkspaceDocument(request)).resolves.toEqual({
+      status: 'blocked',
+      message: documentReadReason('unsupported-format'),
     });
-    expect(await openWorkspaceDocument(request)).toMatchObject({
-      status: 'presented',
-      tabType: 'page',
-      content: 'loading',
-    });
-    mocks.catalog.mockResolvedValueOnce(null);
-    expect(await openWorkspaceDocument(request)).toMatchObject({
-      status: 'presented',
-      tabType: 'text',
-      content: 'loading',
-    });
-    expect(mocks.confirmNotebookReopen).not.toHaveBeenCalled();
+    expect(useCanvasStore.getState().panels.main.tabs).toEqual([]);
   });
 
   it('forwards the authority fingerprint and distinguishes a created page from existing-tab focus', async () => {

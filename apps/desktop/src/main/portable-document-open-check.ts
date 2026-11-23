@@ -3,7 +3,7 @@ import { lstat, readdir } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import type { ScientificDocumentSnapshot } from '@waypoint/domain-services';
 import { parseScientificDocumentIdentity, parseWorkspaceIdentity } from '@waypoint/domain-services';
-import { parseSavedResidueSelectionDocument } from '@waypoint/workspace-editor';
+import { parseSavedResidueSelectionDocument } from '@waypoint/workspace-editor/saved-residue-selection';
 import {
   isNotebookPackageMetaPath,
   NOTEBOOK_PACKAGE_SCHEMA,
@@ -279,25 +279,24 @@ async function inspectNotebook(source: DocumentOpenSource) {
     content = notebook.content;
   }
   decode(recognized, () => notebookDocumentModelSchema().nodeFromJSON(content).check());
-  if (packageRoot) {
-    const status = () => {
-      try {
-        // The normal package opener calls rename recovery and migration before it can present a notebook.
-        assertWorkspaceWriteAllowed(source.db, [packageRoot]);
-        return 'writable';
-      } catch (error) {
-        if (!(error instanceof WorkspaceWriteAdmissionError)) throw error;
-        return error.code;
-      }
-    };
-    await source.observeRevision('notebook-package-access', status);
-    const access = status();
-    if (access !== 'writable')
-      throw new DocumentReadError(
-        access === 'WORKSPACE_READ_ONLY' ? 'permission' : 'project',
-        true
-      );
-  }
+  await requireArtifactOpenWriteAccess(source);
+}
+
+async function requireArtifactOpenWriteAccess(source: DocumentOpenSource) {
+  const status = () => {
+    try {
+      // Ordinary workspace artifact Open reconciles the file binding before presenting the document.
+      assertWorkspaceWriteAllowed(source.db, [source.path]);
+      return 'writable';
+    } catch (error) {
+      if (!(error instanceof WorkspaceWriteAdmissionError)) throw error;
+      return error.code;
+    }
+  };
+  await source.observeRevision('workspace-artifact-open-access', status);
+  const access = status();
+  if (access !== 'writable')
+    throw new DocumentReadError(access === 'WORKSPACE_READ_ONLY' ? 'permission' : 'project', true);
 }
 
 async function inspectDesign(source: DocumentOpenSource): Promise<void | RendererDesignRecovery> {
@@ -328,11 +327,12 @@ async function inspectDesign(source: DocumentOpenSource): Promise<void | Rendere
     const attached = binding();
     if (attached && attached.entity_id !== artifact.id)
       throw new DocumentReadError('project', true);
+    await requireArtifactOpenWriteAccess(source);
     return { kind: 'design-draft', designId: artifact.id };
   }
-  if (typeof design.id !== 'string' || !design.id.trim())
-    throw new DocumentReadError('malformed', true);
+  if (design.id !== artifact.id) throw new DocumentReadError('malformed', true);
   decode(true, () => normalizeAssemblySlots(design));
+  await requireArtifactOpenWriteAccess(source);
 }
 
 function catalogBindings(source: DocumentOpenSource, field: 'path' | 'entity_id', key: string) {

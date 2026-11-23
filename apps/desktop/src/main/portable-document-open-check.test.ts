@@ -132,6 +132,17 @@ describe.each(flatDocuments)('$path', ({ kind, path: relativePath, fixture, brok
 });
 
 describe('required package files', () => {
+  it('rejects a design when its embedded content belongs to a different ID', async () => {
+    const design = flatDocuments.find(({ kind }) => kind === 'design');
+    if (!design) throw new Error('Missing design fixture.');
+    const path = join(root, design.path);
+    await writeJson(path, { ...(await design.fixture(root, path)), id: 'different-id' });
+    await expect(inspect('design', path)).rejects.toMatchObject({
+      code: 'malformed',
+      recognized: true,
+    });
+  });
+
   it('requires the notebook Markdown and exact referenced blocks', async () => {
     const { paths, payloadPath, payload } = await writeNotebookDocumentFixture(root);
     const first = await inspect('notebook', paths.metaPath);
@@ -158,23 +169,47 @@ describe('required package files', () => {
     });
   });
 
-  it('keeps readable notebook markers unavailable when ordinary opening requires a denied package write', async () => {
+  it('blocks both notebook layouts when the normal opener cannot update the page projection', async () => {
     const { paths } = await writeNotebookDocumentFixture(root);
-    const capture = captures(paths.metaPath);
-    await inspectPortableDocument('notebook', capture.forPath(paths.metaPath));
+    const notebook = flatDocuments.find(({ kind }) => kind === 'notebook');
+    if (!notebook) throw new Error('Missing flat notebook fixture.');
+    const flatPath = join(root, notebook.path);
+    await writeJson(flatPath, await notebook.fixture(root, flatPath));
+    const packageCapture = captures(paths.metaPath);
+    const flatCapture = captures(flatPath);
+    await inspectPortableDocument('notebook', packageCapture.forPath(paths.metaPath));
+    await inspectPortableDocument('notebook', flatCapture.forPath(flatPath));
+    db.prepare("UPDATE workspaces SET access_mode='reference' WHERE id=?").run(workspaceId);
+    await expect(packageCapture.verifyCurrent()).rejects.toMatchObject({ code: 'changed' });
+    await expect(flatCapture.verifyCurrent()).rejects.toMatchObject({ code: 'changed' });
+    for (const path of [paths.metaPath, flatPath]) {
+      await expect(inspect('notebook', path)).rejects.toMatchObject({
+        code: 'permission',
+        recognized: true,
+      });
+    }
+  });
+
+  it('blocks a complete design whose file binding cannot be reconciled in a reference project', async () => {
+    const design = flatDocuments.find(({ kind }) => kind === 'design');
+    if (!design) throw new Error('Missing design fixture.');
+    const path = join(root, design.path);
+    await writeJson(path, await design.fixture(root, path));
+    const capture = captures(path);
+    await inspectPortableDocument('design', capture.forPath(path));
     db.prepare("UPDATE workspaces SET access_mode='reference' WHERE id=?").run(workspaceId);
     await expect(capture.verifyCurrent()).rejects.toMatchObject({ code: 'changed' });
-    await expect(inspect('notebook', paths.metaPath)).rejects.toMatchObject({
+    await expect(inspect('design', path)).rejects.toMatchObject({
       code: 'permission',
       recognized: true,
     });
-    for (const name of ['Example.wpnote.json', 'Sketch.wpdesign.json']) {
-      const entry = flatDocuments.find(({ path }) => path === name);
-      if (!entry) throw new Error('Missing flat document fixture.');
-      const path = join(root, name);
-      await writeJson(path, await entry.fixture(root, path));
-      await expect(inspect(entry.kind, path)).resolves.toMatchObject({ paths: [path] });
-    }
+    db.prepare("UPDATE workspaces SET access_mode='writable',archived_at=1 WHERE id=?").run(
+      workspaceId
+    );
+    await expect(inspect('design', path)).rejects.toMatchObject({
+      code: 'project',
+      recognized: true,
+    });
   });
 
   it('requires readable GenBank and records the effective product file', async () => {

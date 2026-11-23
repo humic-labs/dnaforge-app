@@ -1,4 +1,3 @@
-import type { TabType } from '../features/canvas/types';
 import { TABULAR_DATA_EXTENSIONS } from '../shared/tabular-file-types';
 import {
   TRACK_VIEW_FILE_SUFFIX,
@@ -150,7 +149,7 @@ export function getFilename(path: string): string {
   return path.split(/[\\/]/u).pop() ?? path;
 }
 
-export function getTabTypeForFile(path: string): TabType {
+export function getTabTypeForFile(path: string) {
   if (isForgePackageMetaPath(path, 'table.json')) return 'table';
   const ext = getExtension(path);
   const filename = getFilename(path);
