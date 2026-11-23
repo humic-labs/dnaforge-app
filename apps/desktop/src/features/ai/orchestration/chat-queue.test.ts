@@ -40,7 +40,8 @@ const { mockRunChatTurn, mockAISettingsState } = vi.hoisted(() => ({
 }));
 
 vi.mock('./run-chat-turn', () => ({ runChatTurn: mockRunChatTurn }));
-vi.mock('../settings', () => ({
+vi.mock('../settings', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../settings')>()),
   useAISettingsStore: { getState: vi.fn(() => mockAISettingsState) },
 }));
 
