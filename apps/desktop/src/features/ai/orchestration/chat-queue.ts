@@ -1,3 +1,4 @@
+import { captureCliModelSettings } from './cli-turn-model';
 import {
   toUserMessage,
   userMessage,
@@ -155,6 +156,7 @@ async function drainConversationQueue(
             },
             routeSelection: next.routeSelection,
             routeSnapshot: next.routeSnapshot,
+            cliModelSettings: next.cliModelSettings,
             capabilitySelection: next.capabilitySelection,
             attachments: next.attachments,
           }
@@ -223,6 +225,7 @@ export function submitChatMessage(
 ): Promise<'accepted' | 'rejected'> {
   let routeSelection: AssistantRouteSelection;
   let routeSnapshot: AssistantTurnRouteSnapshot;
+  let cliModelSettings: QueuedChatMessage['cliModelSettings'];
   let routeResolution: AssistantSendRouteResolution;
   try {
     const settings = useAISettingsStore.getState();
@@ -266,6 +269,7 @@ export function submitChatMessage(
     }
     routeSelection = routeResolution.route;
     routeSnapshot = buildAssistantTurnRouteSnapshot(routeSelection);
+    cliModelSettings = captureCliModelSettings(routeSelection, settings.cliModelSettings);
   } catch (error) {
     const message = toUserMessage(error, 'assistant.failed');
     if (options?.onNotStarted) {
@@ -305,6 +309,7 @@ export function submitChatMessage(
       : {}),
     routeSelection,
     routeSnapshot,
+    cliModelSettings,
     ...(options?.capabilitySelection
       ? { capabilitySelection: { ...options.capabilitySelection } }
       : {}),

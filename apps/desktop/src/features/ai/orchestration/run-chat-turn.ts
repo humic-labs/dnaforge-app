@@ -1,3 +1,4 @@
+import { captureCliModelSettings } from './cli-turn-model';
 import { conversationExecution } from './conversation-execution';
 import { buildAgentExecutionInstructions } from './agent-execution-instructions';
 import { readAgentPresentationPreferences } from '../agent-presentation-preferences';
@@ -41,7 +42,7 @@ import {
   type AssistantSendRouteResolution,
 } from '../assistant-send-route';
 import { announceAssistantRouteFallback } from './assistant-route-fallback-notice';
-import { useAISettingsStore } from '../settings';
+import { useAISettingsStore, type CliModelSettings } from '../settings';
 import { readPermissionCatalog } from '../permission-catalog';
 import { getCustomCliHarnessDefinition } from '../custom-cli-harnesses';
 import {
@@ -100,6 +101,7 @@ type RunChatTurnOptions = ChatSendOptions & {
   readonly onUserMessageAccepted?: () => void;
   readonly routeSelection?: AssistantRouteSelection;
   readonly routeSnapshot?: AssistantTurnRouteSnapshot;
+  readonly cliModelSettings?: CliModelSettings;
 };
 
 function providerResponseMessage(responseBody: unknown): string | null {
@@ -284,20 +286,22 @@ export async function runChatTurn(
     releasePrestartClaim();
     return 'not_started';
   }
+  const cliModelSettings =
+    options?.cliModelSettings ?? captureCliModelSettings(routeForTurn, settings.cliModelSettings);
+  const turnModel = cliModelSettings?.model ?? turnRouteSnapshot.model;
   if (
     routeForTurn.kind === 'cli' &&
     routeForTurn.transport === 'codex-sdk' &&
     !routeForTurn.customHarnessId
   ) {
     const detected = settings.agentDetection?.codex;
-    const selection = settings.cliModelSettings?.['codex-sdk'];
     if (detected?.modelCatalog) {
       const models = detected.models ?? [];
       const error: UserMessage | null =
         detected.modelCatalog.status !== 'complete' ||
         detected.modelCatalog.observedModelCount !== models.length
           ? userMessage('assistant.modelsUnavailable')
-          : validateModelSelection(models, selection?.model, null, null);
+          : validateModelSelection(models, cliModelSettings?.model, null, null);
       if (error) {
         setNotStartedError(error);
         releasePrestartClaim();
@@ -595,7 +599,6 @@ export async function runChatTurn(
         routeForTurn.kind === 'cli' && routeForTurn.customHarnessId
           ? getCustomCliHarnessDefinition(routeForTurn.customHarnessId)
           : null;
-      const cliModelSettings = customHarness ?? settings.cliModelSettings?.[agentTransport];
       generateTitle = () =>
         generateCliConversationTitle({
           session: {
@@ -645,7 +648,7 @@ export async function runChatTurn(
         route_kind: turnRouteSnapshot.routeKind,
         host_id: turnRouteSnapshot.hostId,
         provider: turnRouteSnapshot.provider,
-        model: turnRouteSnapshot.model,
+        model: turnModel,
         transport: turnRouteSnapshot.transport,
         authority_profile_id: turnRouteSnapshot.authorityProfileId,
         permission_mode: turnRouteSnapshot.permissionMode,
@@ -768,7 +771,7 @@ export async function runChatTurn(
       routeKind: turnRouteSnapshot.routeKind,
       hostId: turnRouteSnapshot.hostId,
       provider: turnRouteSnapshot.provider,
-      model: turnRouteSnapshot.model,
+      model: turnModel,
       transport: turnRouteSnapshot.transport,
       authorityProfileId: turnRouteSnapshot.authorityProfileId,
       permissionMode: turnRouteSnapshot.permissionMode,
@@ -874,14 +877,6 @@ export async function runChatTurn(
           : null;
       const binaryPathOverride =
         customHarness?.executablePath ?? settings.cliExecutablePathOverrides?.[agentTransport];
-      const cliModelSettings = customHarness
-        ? {
-            model: customHarness.model,
-            reasoningEffort: customHarness.reasoningEffort,
-            serviceTier: customHarness.serviceTier,
-            personality: customHarness.personality,
-          }
-        : settings.cliModelSettings?.[agentTransport];
       await executeCliTurn({
         set,
         conversationId: convId,

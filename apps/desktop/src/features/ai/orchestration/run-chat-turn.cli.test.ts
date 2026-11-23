@@ -143,27 +143,50 @@ describe('runChatTurn CLI execution and trace lifecycle', () => {
       const previous = useAISettingsStore.getState();
       const settings = {
         ...previous,
-        assistantRoute: { kind: 'cli' as const, transport, permissionMode: 'app-supervised' as const },
+        assistantRoute: {
+          kind: 'cli' as const,
+          transport,
+          permissionMode: 'app-supervised' as const,
+        },
         agentTransport: transport,
         agentDetection: {
+          grok: {
+            cli: 'missing' as const,
+            path: null,
+            auth: 'unauthenticated' as const,
+            defaultModel: null,
+          },
           codex: {
-            cli: 'installed' as const, path: '/fixture/codex', auth: 'authenticated' as const,
-            authMode: 'chatgpt' as const, authFilePresent: true, defaultModel: 'original',
+            cli: 'installed' as const,
+            path: '/fixture/codex',
+            auth: 'authenticated' as const,
+            authMode: 'chatgpt' as const,
+            authFilePresent: true,
+            defaultModel: 'original',
           },
           claudeCode: {
-            cli: 'installed' as const, path: '/fixture/claude', auth: 'authenticated' as const,
-            defaultModel: 'original', keychainEntryPresent: false, credentialsFilePresent: true,
+            cli: 'installed' as const,
+            path: '/fixture/claude',
+            auth: 'authenticated' as const,
+            defaultModel: 'original',
+            keychainEntryPresent: false,
+            credentialsFilePresent: true,
           },
         },
       };
       const selectModel = (model: string) =>
         vi.mocked(useAISettingsStore.getState).mockReturnValue({
           ...settings,
-          cliModelSettings: { ...previous.cliModelSettings, [transport]: { model, reasoningEffort: null } },
+          cliModelSettings: {
+            ...previous.cliModelSettings,
+            [transport]: { model, reasoningEffort: null },
+          },
         });
       selectModel('original');
       let releaseFirst = () => {};
-      const gate = new Promise<void>((resolve) => { releaseFirst = resolve; });
+      const gate = new Promise<void>((resolve) => {
+        releaseFirst = resolve;
+      });
       mockAgentSessionStart.mockImplementationOnce(async () => {
         await gate;
         return { transport, ok: true, text: 'First reply', durationMs: 1 };
@@ -180,9 +203,17 @@ describe('runChatTurn CLI execution and trace lifecycle', () => {
       }
       await first;
       await vi.waitFor(() => expect(mockAgentSessionStart).toHaveBeenCalledTimes(2));
-      expect(mockAgentSessionStart.mock.calls.map(([request]) => [request.provider, request.model])).toEqual([
-        [transport, 'original'], [transport, 'original'],
+      expect(
+        mockAgentSessionStart.mock.calls.map(([request]) => [request.provider, request.model])
+      ).toEqual([
+        [transport, 'original'],
+        [transport, 'original'],
       ]);
+      expect(
+        vi
+          .mocked(db.createChatTurnWithUserMessage)
+          .mock.calls.map(([request]) => request.turn.model)
+      ).toEqual(['original', 'original']);
     }
   );
 
