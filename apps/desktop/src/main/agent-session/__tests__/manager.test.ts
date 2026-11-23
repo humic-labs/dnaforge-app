@@ -345,6 +345,63 @@ describe('AgentSessionManager', () => {
     expect(queryCodex).toHaveBeenCalledOnce();
   });
 
+  it.each([
+    ['codex-sdk', 'missing', 'executable_unavailable'],
+    ['claude-agent-sdk', 'unauthenticated', 'authentication_required'],
+  ] as const)(
+    'preserves the %s admission failure across duplicate starts and restart',
+    async (provider, auth, reason) => {
+      const db = createTestDb();
+      ensureSchema(db, ':memory:');
+      const execute = vi.fn();
+      const manager = new AgentSessionManager({
+        db,
+        describeCapabilities: async () => ({ ...capability(provider), auth }),
+        logFailure: vi.fn(),
+        queryCodex: execute,
+        queryClaudeCode: execute,
+      });
+      const turnId = '11111111-1111-4111-8111-111111111111';
+      insertRunningTurn(db, turnId, provider);
+      const request = {
+        turnId,
+        provider,
+        authorityProfileId: provider + ':app-supervised',
+        prompt: 'fixture-private-prompt',
+        cwd: '/private/fixture-workspace',
+        workspaceGrounding: 'not-required' as const,
+      };
+      const result = await manager.startSession(request);
+      expect(result).toMatchObject({ ok: false, failure: { reason, stage: 'admission' } });
+      const terminalReason = 'native:admission:' + reason;
+      expect(manager.getSession(result.sessionId)?.terminalReason).toBe(terminalReason);
+      await expect(manager.startSession(request)).rejects.toThrow('already has');
+      expect(execute).not.toHaveBeenCalled();
+      manager.recoverInterruptedSessions();
+      manager.recoverInterruptedSessions();
+      expect(
+        db.prepare('SELECT status, terminal_reason, error FROM chat_turns WHERE id = ?').get(turnId)
+      ).toEqual({
+        status: 'failed',
+        terminal_reason: terminalReason,
+        error: result.error,
+      });
+      const events = db
+        .prepare(
+          "SELECT properties_json FROM analytics_event_outbox WHERE event_name = 'ai_turn_finished'"
+        )
+        .all() as Array<{ properties_json: string }>;
+      expect(events).toHaveLength(1);
+      expect(JSON.parse(events[0]!.properties_json)).toMatchObject({
+        action_id: turnId,
+        reason_code: reason,
+        stage: 'admission',
+      });
+      expect(events[0]!.properties_json).not.toMatch(/fixture-private-prompt|fixture-workspace/);
+      db.close();
+    }
+  );
+
   it('rejects a turn that does not belong to the supplied conversation before provider launch', async () => {
     const db = createTestDb();
     ensureSchema(db, ':memory:');
@@ -959,7 +1016,8 @@ describe('AgentSessionManager', () => {
       ok: false,
       text: 'Done.',
       stopState: 'failed',
-      error: expect.stringContaining('required tool did not complete'),
+      error: userMessage('assistant.nativeToolFailed'),
+      failure: { reason: 'tool_failed', stage: 'tool_execution' },
     });
   });
 
@@ -1196,7 +1254,8 @@ describe('AgentSessionManager', () => {
         completedWorkspaceTools: [],
       },
     });
-    expect(result.error).toContain('provider failed after streaming');
+    expect(result.error).toBe(userMessage('assistant.failed'));
+    expect(result.failure).toEqual({ reason: 'unknown', stage: 'provider_stream' });
   });
 
   it('consumes a workspace receipt once so a reused turn id cannot inherit grounding', async () => {
@@ -1397,7 +1456,7 @@ describe('AgentSessionManager', () => {
     });
     expect(manager.getSession('session_stop')).toMatchObject({
       status: 'stop_unconfirmed',
-      terminalReason: 'Stop requested.',
+      terminalReason: 'native:provider_stream:stop_unconfirmed',
     });
   });
 
@@ -1457,7 +1516,7 @@ describe('AgentSessionManager', () => {
     expect(queryCodex).not.toHaveBeenCalled();
     expect(manager.getSession('session_prestart_stop')).toMatchObject({
       status: 'stop_unconfirmed',
-      terminalReason: 'Stop requested.',
+      terminalReason: 'native:provider_start:stop_unconfirmed',
     });
   });
 
@@ -1570,14 +1629,17 @@ describe('AgentSessionManager', () => {
   it('recovers stale Stop intent as interrupted/stop_unconfirmed exactly once', () => {
     const db = createTestDb();
     ensureSchema(db, ':memory:');
+    const turnId = '00000000-0000-4000-8000-000000000001';
+    insertRunningTurn(db, turnId, 'claude-agent-sdk');
     db.prepare(
       `INSERT INTO agent_sessions (
-        id, provider, authority_profile_id, authority_class, release_mode,
+        id, turn_id, provider, authority_profile_id, authority_class, release_mode,
         permission_mode_label, status, cwd, provider_versions_json, authority_json,
         telemetry_had_workspace_context, telemetry_continuation, started_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       'session_stop_stale',
+      turnId,
       'claude-agent-sdk',
       'claude-agent-sdk:app-supervised',
       'app-supervised',
@@ -1602,11 +1664,18 @@ describe('AgentSessionManager', () => {
           WHERE reference_kind = 'ai_turn_terminal' AND reference_id = ?`
       )
       .all('session_stop_stale') as Array<{ properties_json: string }>;
+    expect(
+      db.prepare('SELECT status, terminal_reason FROM chat_turns WHERE id = ?').get(turnId)
+    ).toEqual({
+      status: 'stopped',
+      terminal_reason: 'native:recovery:stop_unconfirmed',
+    });
     expect(rows).toHaveLength(1);
     expect(JSON.parse(rows[0]!.properties_json)).toMatchObject({
       route: 'local_claude',
       outcome: 'interrupted',
       initiated_by: 'user',
+      action_id: turnId,
       reason_code: 'stop_unconfirmed',
       had_workspace_context: true,
       continuation: true,

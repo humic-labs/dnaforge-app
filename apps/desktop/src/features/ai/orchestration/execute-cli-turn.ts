@@ -1,4 +1,10 @@
 import { chatInterruptionReason } from './chat-runtime';
+import {
+  nativeFailureMessage,
+  nativeFailureStatus,
+  nativeTerminalReason,
+  type NativeTurnFailure,
+} from '../../../shared/native-turn-failure';
 import { UserMessageError } from '@waypoint/user-messages';
 import type {
   AgentCliModelPersonality,
@@ -89,7 +95,7 @@ export interface ExecuteCliTurnOptions {
   finishTurn: FinishChatTurn;
 }
 
-export type CliTurnDisposition = 'completed' | 'stopped';
+export type CliTurnDisposition = 'completed' | 'failed' | 'cancelled' | 'stopped';
 
 const CLI_TRACE_COMPLETION_TIMEOUT_MS = 15_000;
 
@@ -223,13 +229,16 @@ export async function executeCliTurn({
     transcript.clear();
     return messages;
   };
-  const stopWithActivity = async (): Promise<CliTurnDisposition> => {
+  const stopWithActivity = async (failure?: NativeTurnFailure): Promise<CliTurnDisposition> => {
     const activityMessages = await materializeActivity(true);
     const stoppedMessage: ChatMessage = {
       id: crypto.randomUUID(),
       turnId,
       role: 'assistant',
-      content: '*[Stopped. Send a follow-up to resume.]*',
+      content:
+        failure && failure.reason !== 'user_stop_acknowledged'
+          ? nativeFailureMessage(failure)
+          : '*[Stopped. Send a follow-up to resume.]*',
       createdAt: createdAtAfter(activityMessages),
     };
     chatProviderPhase(set, conversationId, controller, 'settling');
@@ -239,8 +248,12 @@ export async function executeCliTurn({
     }));
     activityMessages.forEach((message) => queueTerminalMessage(message, message.referenceIds));
     queueTerminalMessage(stoppedMessage);
-    await finishTurn('stopped', chatInterruptionReason(controller.signal));
-    return 'stopped';
+    const status = failure ? nativeFailureStatus(failure) : 'stopped';
+    await finishTurn(
+      status,
+      failure ? nativeTerminalReason(failure) : chatInterruptionReason(controller.signal)
+    );
+    return status;
   };
 
   if (controller.signal.aborted) return stopWithActivity();
@@ -425,7 +438,11 @@ export async function executeCliTurn({
       ...(capabilitySelection ? { capabilitySelection } : {}),
       ...(attachments?.length ? { attachments } : {}),
     });
-    await waitForTraceCompletion(result.lastTraceSequence);
+    try {
+      await waitForTraceCompletion(result.lastTraceSequence);
+    } catch (error) {
+      if (!result.failure) throw error;
+    }
   } finally {
     clearHydrogenRequest();
     unsubscribeTrace();
@@ -447,13 +464,17 @@ export async function executeCliTurn({
   }
 
   if (!result.ok) {
+    const failure = result.failure;
     if (
-      controller.signal.aborted ||
-      result.stopState === 'stop_requested' ||
-      result.error === 'Stop requested.' ||
-      result.error === 'Generation stopped.'
+      failure
+        ? nativeFailureStatus(failure) !== 'failed'
+        : controller.signal.aborted ||
+          result.stopState === 'stop_requested' ||
+          result.stopState === 'cancelled' ||
+          result.error === 'Stop requested.' ||
+          result.error === 'Generation stopped.'
     ) {
-      return stopWithActivity();
+      return stopWithActivity(failure);
     }
     const activityMessages = await materializeActivity(true);
     if (activityMessages.length > 0) {
@@ -463,6 +484,12 @@ export async function executeCliTurn({
         streamingBlocks: [],
       }));
       activityMessages.forEach((message) => queueTerminalMessage(message, message.referenceIds));
+    }
+    if (failure) {
+      const error = nativeFailureMessage(failure);
+      await finishTurn('failed', nativeTerminalReason(failure), error);
+      setConversationState(set, conversationId, () => ({ error }));
+      return 'failed';
     }
     await finishTurn('failed', result.error || `${transport} failed`, result.error);
     throw new Error(result.error || `${transport} returned no response`);

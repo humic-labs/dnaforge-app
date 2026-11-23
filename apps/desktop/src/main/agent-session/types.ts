@@ -282,6 +282,7 @@ export interface AgentSessionStartRequest {
 }
 
 export interface AgentSessionRunResult {
+  failure?: import('../../shared/native-turn-failure').NativeTurnFailure;
   sessionId: string;
   provider: AgentProvider;
   authorityProfileId: string;

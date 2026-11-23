@@ -1,3 +1,5 @@
+import type { NativeTurnFailure } from '../../shared/native-turn-failure';
+import { codexCompletedTool, codexTurnError } from './native-provider-error';
 import { execFile, spawn as defaultSpawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
@@ -272,6 +274,8 @@ export interface LocalCodexAppServerTurnResult {
   threadId: string;
   turnId: string | null;
   error?: string;
+  failure?: NativeTurnFailure;
+  completedTool?: true;
 }
 
 export const FRESH_MOLECULAR_AUTHOR_CONFIG = {
@@ -353,6 +357,7 @@ export async function freshMolecularAuthorConfig(
 
 interface TerminalResult {
   ok: boolean;
+  failure?: NativeTurnFailure;
   error?: string;
 }
 
@@ -384,15 +389,13 @@ function record(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function turnFailureMessage(params: unknown): string {
-  const turn = record(record(params)?.turn);
-  const error = record(turn?.error);
-  return typeof error?.message === 'string' ? error.message : 'The Codex turn failed.';
-}
-
-function errorNotificationMessage(params: unknown): string {
-  const error = record(record(params)?.error);
-  return typeof error?.message === 'string' ? error.message : 'The Codex App Server failed.';
+function failedTurn(error: unknown): TerminalResult {
+  const message = record(error)?.message;
+  return {
+    ok: false,
+    error: typeof message === 'string' ? message : 'The Codex turn failed.',
+    failure: codexTurnError(error),
+  };
 }
 
 function itemAgentText(params: unknown): string | null {
@@ -628,6 +631,7 @@ export async function runLocalCodexAppServerTurn(options: {
   let turnId: string | null = null;
   let deltaText = '';
   let completedText: string | null = null;
+  let completedTool = false;
   let settle: ((result: TerminalResult) => void) | null = null;
   const terminal = new Promise<TerminalResult>((resolve) => {
     settle = resolve;
@@ -658,18 +662,24 @@ export async function runLocalCodexAppServerTurn(options: {
       return;
     }
     if (notification.method === 'item/completed') {
+      completedTool ||= codexCompletedTool(sdkItem(params?.item));
       completedText = itemAgentText(notification.params) ?? completedText;
       return;
     }
     if (notification.method === 'error' && params?.willRetry !== true) {
-      finish({ ok: false, error: errorNotificationMessage(notification.params) });
+      finish(failedTurn(params?.error));
       return;
     }
     if (notification.method !== 'turn/completed') return;
     const turn = record(params?.turn);
     if (turn?.status === 'completed') finish({ ok: true });
-    else if (turn?.status === 'interrupted') finish({ ok: false, error: 'Stop requested.' });
-    else finish({ ok: false, error: turnFailureMessage(notification.params) });
+    else if (turn?.status === 'interrupted')
+      finish({
+        ok: false,
+        error: 'Stop requested.',
+        failure: { reason: 'provider_cancelled', stage: 'provider_stream' },
+      });
+    else finish(failedTurn(turn?.error));
   });
 
   options.transport.onServerRequest((request) => {
@@ -731,7 +741,19 @@ export async function runLocalCodexAppServerTurn(options: {
     pendingRequests.add(work);
     void work.finally(() => pendingRequests.delete(work));
   });
-  options.transport.onExit((reason) => finish({ ok: false, error: appServerExitMessage(reason) }));
+  options.transport.onExit((reason) => {
+    const stage = turnId ? 'provider_stream' : 'provider_start';
+    const failure: NativeTurnFailure = {
+      reason:
+        reason === 'child_exit'
+          ? 'process_exit'
+          : reason === 'request_timeout'
+            ? 'provider_timeout'
+            : 'unknown',
+      stage,
+    };
+    finish({ ok: false, error: appServerExitMessage(reason), failure });
+  });
 
   const abort = (): void => options.transport.interrupt();
   if (options.signal.aborted) abort();
@@ -823,6 +845,8 @@ export async function runLocalCodexAppServerTurn(options: {
       threadId,
       turnId,
       ...(outcome.error ? { error: outcome.error } : {}),
+      ...(outcome.failure ? { failure: outcome.failure } : {}),
+      ...(completedTool ? { completedTool: true } : {}),
     };
   } finally {
     options.signal.removeEventListener('abort', abort);

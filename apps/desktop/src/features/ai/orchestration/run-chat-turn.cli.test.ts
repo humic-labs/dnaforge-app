@@ -297,6 +297,38 @@ describe('runChatTurn CLI execution and trace lifecycle', () => {
     );
   });
 
+  it.each(['codex-sdk', 'claude-agent-sdk'] as const)(
+    'saves the same capacity failure it shows for %s',
+    async (transport) => {
+      vi.mocked(useAISettingsStore.getState).mockReturnValue({
+        ...useAISettingsStore.getState(),
+        assistantRoute: { kind: 'cli', transport, permissionMode: 'native-cli' },
+      });
+      mockAgentSessionStart.mockResolvedValue({
+        ok: false,
+        text: '',
+        error: 'Synthetic provider detail',
+        stopState: 'failed',
+        failure: { reason: 'provider_capacity', stage: 'provider_stream' },
+      });
+      await act(async () => {
+        await useChatStore.getState().sendMessage('Test this turn', null);
+      });
+      const request = mockAgentSessionStart.mock.calls[0][0];
+      const message = userMessage('assistant.nativeCapacity');
+      expect(db.commitChatTurnTerminalState).toHaveBeenCalledTimes(1);
+      expect(db.commitChatTurnTerminalState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          turn_id: request.turnId,
+          status: 'failed',
+          terminal_reason: 'native:provider_stream:provider_capacity',
+          error: message,
+        })
+      );
+      expect(useChatStore.getState().error).toBe(message);
+    }
+  );
+
   it('uses selected CLI transport without provider API key streaming', async () => {
     const getApiKey = vi.fn().mockResolvedValue(null);
     vi.mocked(useAISettingsStore.getState).mockReturnValue({

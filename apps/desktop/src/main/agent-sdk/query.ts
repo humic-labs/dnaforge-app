@@ -11,6 +11,14 @@ import {
   prepareManagedAgentProcessConfinement,
   type AgentProcessConfinement,
 } from './agent-process-confinement';
+import type { NativeTurnFailure } from '../../shared/native-turn-failure';
+import {
+  claudeTurnError,
+  codexCompletedTool,
+  codexProviderError,
+  codexTurnError,
+  nativeProviderError,
+} from './native-provider-error';
 import { spawn } from 'node:child_process';
 import { proteinExperimentRendererForTurn } from '../protein-experiment-workers';
 import {
@@ -96,6 +104,7 @@ export interface QueryResult {
   text: string;
   error?: string;
   failureReason?: 'admission_rejected';
+  failure?: NativeTurnFailure;
   durationMs: number;
   stopState?: 'completed' | 'failed' | 'cancelled' | 'stop_requested';
   providerConversationId?: string;
@@ -145,8 +154,8 @@ function isAbortLikeError(err: unknown): boolean {
   if (err instanceof Error) {
     return (
       err.name === 'AbortError' ||
-      err.message.toLowerCase().includes('abort') ||
-      err.message.toLowerCase().includes('operation was aborted')
+      err.message === 'The operation was aborted' ||
+      err.message === 'The operation was aborted.'
     );
   }
   return false;
@@ -165,6 +174,23 @@ function stoppedResult(
     durationMs: Date.now() - startedAt,
     stopState: 'stop_requested',
     ...(providerConversationId ? { providerConversationId } : {}),
+  };
+}
+
+function noResponseResult(
+  transport: QueryResult['transport'],
+  startedAt: number,
+  providerConversationId?: string
+): QueryResult {
+  return {
+    transport,
+    ok: false,
+    text: '',
+    error: 'The provider returned no response.',
+    failure: { reason: 'no_response', stage: 'provider_stream' },
+    durationMs: Date.now() - startedAt,
+    stopState: 'failed',
+    providerConversationId,
   };
 }
 
@@ -423,12 +449,17 @@ export async function queryClaudeCode(
       transport: 'claude-agent-sdk',
       ok: false,
       text: '',
+      failure: { reason: 'executable_unavailable', stage: 'provider_start' },
       error:
         'Claude Code CLI not found on PATH. Install it from https://claude.com/code, then recheck Settings.',
       durationMs: Date.now() - start,
     };
   }
 
+  let stage: NativeTurnFailure['stage'] = 'provider_start';
+  let assistantError: string | undefined;
+  let terminalFailure: { failure: NativeTurnFailure; error: string } | undefined;
+  let completedTool = false;
   const { query } = await import('@anthropic-ai/claude-agent-sdk');
   let confinement: AgentProcessConfinement | null = null;
   try {
@@ -660,7 +691,12 @@ export async function queryClaudeCode(
           options.traceSink
         );
       }
+      stage = 'provider_stream';
       const m = message as {
+        subtype?: string;
+        error?: string;
+        is_error?: boolean;
+        errors?: unknown;
         type?: string;
         message?: { content?: unknown };
         result?: string;
@@ -668,6 +704,24 @@ export async function queryClaudeCode(
       };
       if (typeof m.session_id === 'string' && m.session_id.trim().length > 0) {
         providerConversationId = m.session_id.trim();
+      }
+      if (m.type === 'assistant') assistantError = m.error;
+      if (m.type === 'user' && Array.isArray(m.message?.content)) {
+        completedTool ||= m.message.content.some(
+          (block) => block?.type === 'tool_result' && !block.is_error
+        );
+      }
+      if (m.type === 'result') {
+        if (m.is_error || m.subtype?.startsWith('error_')) {
+          const detail = Array.isArray(m.errors)
+            ? m.errors.filter((e) => typeof e === 'string').join('\n')
+            : '';
+          const error = detail.trim() || m.result?.trim() || 'The Claude turn failed.';
+          terminalFailure = { failure: claudeTurnError(assistantError, error), error };
+        } else {
+          assistantError = undefined;
+          terminalFailure = undefined;
+        }
       }
       if (m.type === 'assistant' && m.message?.content) {
         const content = m.message.content as Array<{ type?: string; text?: string }>;
@@ -689,6 +743,23 @@ export async function queryClaudeCode(
         providerConversationId ?? options.providerConversationId
       );
     }
+    if (!terminalFailure && assistantError) {
+      terminalFailure = {
+        failure: claudeTurnError(assistantError, ''),
+        error: 'The Claude turn failed.',
+      };
+    }
+    if (terminalFailure) {
+      return {
+        transport: 'claude-agent-sdk',
+        ok: false,
+        text: '',
+        ...terminalFailure,
+        durationMs: Date.now() - start,
+        stopState: 'failed',
+        providerConversationId,
+      };
+    }
     const failed = failedTraceEvent(traceEvents);
     if (failed) {
       return {
@@ -696,6 +767,7 @@ export async function queryClaudeCode(
         ok: false,
         text: '',
         error: failed.display.text ?? failed.display.title,
+        failure: claudeTurnError(assistantError, failed.diagnostic ?? ''),
         durationMs: Date.now() - start,
         stopState: 'failed',
         ...(providerConversationId ? { providerConversationId } : {}),
@@ -707,6 +779,8 @@ export async function queryClaudeCode(
         : resultText.length > 0
           ? resultText.join('\n')
           : assistantText.join('\n');
+    if (isChat && !text.trim() && !completedTool)
+      return noResponseResult('claude-agent-sdk', start, providerConversationId);
     return {
       transport: 'claude-agent-sdk',
       ok: true,
@@ -727,7 +801,12 @@ export async function queryClaudeCode(
       transport: 'claude-agent-sdk',
       ok: false,
       text: '',
-      error: err instanceof Error ? err.message : String(err),
+      error: terminalFailure?.error ?? (err instanceof Error ? err.message : String(err)),
+      failure:
+        terminalFailure?.failure ??
+        (assistantError
+          ? claudeTurnError(assistantError, err instanceof Error ? err.message : '')
+          : nativeProviderError(err, stage)),
       durationMs: Date.now() - start,
       stopState: 'failed',
       ...(providerConversationId ? { providerConversationId } : {}),
@@ -771,6 +850,7 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
       transport: 'codex-sdk',
       ok: false,
       text: '',
+      failure: { reason: 'executable_unavailable', stage: 'provider_start' },
       error:
         'Codex CLI not found on PATH. Install with `npm i -g @openai/codex` or `brew install --cask codex`, then recheck Settings.',
       durationMs: Date.now() - start,
@@ -781,12 +861,16 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
       transport: 'codex-sdk',
       ok: false,
       text: '',
+      failure: { reason: 'authentication_required', stage: 'admission' },
       error:
         'Codex is installed but not signed in. Sign in from Settings or run `codex login` in a terminal. Note: an OPENAI_API_KEY in your shell is not used for Codex — auth comes from your codex sign-in (or a key stored in the app).',
       durationMs: Date.now() - start,
     };
   }
 
+  let stage: NativeTurnFailure['stage'] = 'provider_start';
+  let streamedFailure: { failure: NativeTurnFailure; error: string } | undefined;
+  let completedTool = false;
   let codexPermissionBridge: CodexPermissionHookBridge | null = null;
   let confinement: AgentProcessConfinement | null = null;
   try {
@@ -838,6 +922,7 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
         error: `The selected Codex model "${ignoredModelOverride}" is not available with ChatGPT-account authentication. Choose an available model or the provider default, then try again.`,
         durationMs: Date.now() - start,
         failureReason: 'admission_rejected',
+        failure: { reason: 'admission_rejected', stage: 'admission' },
       };
     }
     const { effort: effortOverride, normalizedFrom } = resolveCodexReasoningEffort(
@@ -904,6 +989,7 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
             durationMs: Date.now() - start,
             stopState: 'failed',
             failureReason: 'admission_rejected',
+            failure: { reason: 'admission_rejected', stage: 'admission' },
           };
         }
         mcpLaunch?.assertCurrent?.();
@@ -921,6 +1007,7 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
             text: '',
             error: selectionError,
             failureReason: 'admission_rejected',
+            failure: { reason: 'admission_rejected', stage: 'admission' },
             durationMs: Date.now() - start,
             stopState: 'failed',
           };
@@ -1011,6 +1098,21 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
             : {}),
         });
         providerConversationId = result.threadId;
+        if (
+          result.failure?.reason === 'provider_cancelled' &&
+          !options.abortController?.signal.aborted
+        ) {
+          return {
+            transport: 'codex-sdk',
+            ok: false,
+            text: '',
+            error: result.error,
+            failure: result.failure,
+            durationMs: Date.now() - start,
+            stopState: 'cancelled',
+            providerConversationId,
+          };
+        }
         if (options.abortController?.signal.aborted || result.error === 'Stop requested.') {
           return stoppedResult('codex-sdk', start, providerConversationId);
         }
@@ -1020,11 +1122,14 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
             ok: false,
             text: '',
             error: result.error ?? 'The Codex turn failed.',
+            failure: result.failure ?? codexProviderError(result.error, 'provider_stream'),
             durationMs: Date.now() - start,
             stopState: 'failed',
             providerConversationId,
           };
         }
+        if (!result.text.trim() && !result.completedTool)
+          return noResponseResult('codex-sdk', start, providerConversationId);
         return {
           transport: 'codex-sdk',
           ok: true,
@@ -1133,6 +1238,13 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
       let traceSequence = 0;
       const streamed = await thread.runStreamed(prompt, turnOptions);
       for await (const event of streamed.events) {
+        stage = 'provider_stream';
+        if (event.type === 'turn.failed') {
+          streamedFailure = { failure: codexTurnError(event.error), error: event.error.message };
+        } else if (event.type === 'turn.completed') {
+          streamedFailure = undefined;
+        }
+        if (event.type === 'item.completed') completedTool ||= codexCompletedTool(event.item);
         traceSequence = emitTraceEvent(
           traceAdapter,
           event,
@@ -1148,7 +1260,8 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
           transport: 'codex-sdk',
           ok: false,
           text: '',
-          error: failed.display.text ?? failed.display.title,
+          error: streamedFailure?.error ?? failed.display.text ?? failed.display.title,
+          failure: streamedFailure?.failure ?? codexProviderError(failed.diagnostic, stage),
           durationMs: Date.now() - start,
           stopState: 'failed',
           ...(providerConversationId ? { providerConversationId } : {}),
@@ -1156,7 +1269,9 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
       }
       result = { finalResponse: traceAdapter.extractFinalText(traceEvents) };
     } else {
-      result = await thread.run(prompt, turnOptions);
+      const turn = await thread.run(prompt, turnOptions);
+      completedTool = turn.items?.some(codexCompletedTool) ?? false;
+      result = turn;
       providerConversationId = thread.id ?? providerConversationId;
     }
     if (options.abortController?.signal.aborted) {
@@ -1168,6 +1283,8 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
         : typeof (result as { finalResponse?: unknown }).finalResponse === 'string'
           ? (result as { finalResponse: string }).finalResponse
           : JSON.stringify(result);
+    if (isChat && !text.trim() && !completedTool)
+      return noResponseResult('codex-sdk', start, providerConversationId);
     return {
       transport: 'codex-sdk',
       ok: true,
@@ -1184,7 +1301,8 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
       transport: 'codex-sdk',
       ok: false,
       text: '',
-      error: err instanceof Error ? err.message : String(err),
+      error: streamedFailure?.error ?? (err instanceof Error ? err.message : String(err)),
+      failure: streamedFailure?.failure ?? codexProviderError(err, stage),
       durationMs: Date.now() - start,
       stopState: 'failed',
       ...(providerConversationId ? { providerConversationId } : {}),

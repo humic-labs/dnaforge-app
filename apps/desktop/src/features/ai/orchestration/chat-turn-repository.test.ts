@@ -40,6 +40,21 @@ describe('chat turn repository', () => {
     ]);
   });
 
+  it('restores the recorded native failure when the renderer closed during settlement', async () => {
+    const running = {
+      ...turn('abandoned-renderer', 'running'),
+      route_kind: 'cli',
+      terminal_reason: 'native:provider_stream:provider_capacity',
+    };
+    const [recovered] = await recoverInterruptedChatTurns('conv-1', [running], () => 99);
+    expect(recovered).toMatchObject({
+      status: 'failed',
+      terminal_reason: running.terminal_reason,
+      error: expect.stringContaining('capacity'),
+    });
+    expect(commitChatTurnTerminalState).toHaveBeenCalledTimes(1);
+  });
+
   it('does not invent an interrupted projection when another terminal commit already won', async () => {
     vi.mocked(commitChatTurnTerminalState).mockResolvedValue({ committed: false });
     const running = turn('turn-running', 'running');

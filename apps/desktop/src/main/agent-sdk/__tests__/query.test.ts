@@ -1,5 +1,6 @@
+import { queryClaudeCode, queryCodex } from '../query';
 import { userMessage } from '@waypoint/user-messages';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BUILT_IN_AGENT_PERMISSIONS } from '../../../shared/agent-permissions';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -228,10 +229,6 @@ function expectScrubbedClaudeEnv(env: Record<string, unknown> | undefined): void
 }
 
 describe('agent-sdk query transports', () => {
-  beforeAll(async () => {
-    await import('../query');
-  }, 30_000);
-
   beforeEach(() => {
     vi.clearAllMocks();
     nativeProcesses.spawn.mockReset().mockImplementation(nativeProcesses.originalSpawn!);
@@ -447,6 +444,115 @@ describe('agent-sdk query transports', () => {
     await Promise.resolve();
     expect(processProtection.dispose).toHaveBeenCalledOnce();
   });
+
+  it.each([
+    ['authentication_failed', 'Sign in', 'authentication_required'],
+    ['rate_limit', 'Try again later', 'provider_capacity'],
+    ['invalid_request', 'Invalid request', 'provider_rejected'],
+    ['server_error', 'Internal server error', 'provider_error'],
+    ['server_error', 'Provider DNS error (ENOTFOUND)', 'dns_resolution_failed'],
+    ['unknown', 'getaddrinfo ENOTFOUND fixture.invalid', 'dns_resolution_failed'],
+    ['unknown', 'Unclassified condition', 'unknown'],
+  ])(
+    'retains a Claude %s failure through a trailing process exit',
+    async (code, detail, reason) => {
+      mockClaudeQuery.mockReturnValue(
+        (async function* () {
+          yield {
+            type: 'assistant',
+            error: code,
+            message: { content: [{ type: 'text', text: detail }] },
+          };
+          yield {
+            type: 'result',
+            subtype: 'error_during_execution',
+            is_error: true,
+            errors: [detail],
+          };
+          throw new Error('Claude Code process exited with code 1');
+        })()
+      );
+      expect(
+        await queryClaudeCode('fixture', { purpose: 'chat', toolExposure: 'none', emitTrace: true })
+      ).toMatchObject({
+        ok: false,
+        error: detail,
+        failure: { reason, stage: 'provider_stream' },
+      });
+    }
+  );
+
+  it.each(['throw', 'recover'] as const)(
+    'handles a Claude assistant error before %s',
+    async (outcome) => {
+      mockClaudeQuery.mockReturnValue(
+        (async function* () {
+          yield { type: 'assistant', error: 'rate_limit', message: { content: [] } };
+          if (outcome === 'throw') throw new Error('Claude Code process exited with code 1');
+          yield { type: 'result', subtype: 'success', result: 'Recovered' };
+        })()
+      );
+      const value = await queryClaudeCode('fixture', {
+        purpose: 'chat',
+        toolExposure: 'none',
+        emitTrace: true,
+      });
+      if (outcome === 'throw')
+        expect(value).toMatchObject({
+          ok: false,
+          failure: { reason: 'provider_capacity', stage: 'provider_stream' },
+        });
+      else {
+        expect(value).toMatchObject({ ok: true, text: 'Recovered' });
+        expect(value.failure).toBeUndefined();
+      }
+    }
+  );
+
+  it('identifies a Codex account model rejection from the terminal SDK diagnostic', async () => {
+    const message = 'This model is not supported with a ChatGPT account.';
+    mockCodexRunStreamed.mockResolvedValue({
+      events: (async function* () {
+        yield { type: 'turn.failed', error: { message } };
+        throw new Error('Codex Exec exited with code 1: local diagnostic');
+      })(),
+    });
+    expect(
+      await queryCodex('fixture', { purpose: 'chat', toolExposure: 'none', emitTrace: true })
+    ).toMatchObject({
+      ok: false,
+      error: message,
+      failure: { reason: 'provider_rejected', stage: 'provider_stream' },
+    });
+  });
+
+  it.each([true, false])(
+    'classifies blank chat output with completed tool = %s for both providers',
+    async (completed) => {
+      mockClaudeQuery.mockReturnValue(
+        claudeMessages([
+          ...(completed
+            ? [{ type: 'user', message: { content: [{ type: 'tool_result', is_error: false }] } }]
+            : []),
+          { type: 'result', subtype: 'success', result: '' },
+        ])
+      );
+      mockCodexRunStreamed.mockResolvedValue({
+        events: claudeMessages([
+          ...(completed
+            ? [{ type: 'item.completed', item: { type: 'command_execution', status: 'completed' } }]
+            : []),
+          { type: 'turn.completed' },
+        ]),
+      });
+      const options = { purpose: 'chat', toolExposure: 'none', emitTrace: true } as const;
+      const expected = completed
+        ? { ok: true }
+        : { ok: false, failure: { reason: 'no_response', stage: 'provider_stream' } };
+      for (const query of [queryClaudeCode, queryCodex])
+        expect(await query('fixture', options)).toMatchObject(expected);
+    }
+  );
 
   it('does not duplicate Claude assistant text with the final result message', async () => {
     mockClaudeQuery.mockReturnValue(

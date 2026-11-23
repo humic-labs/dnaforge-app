@@ -196,6 +196,28 @@ describe('workflow telemetry observers', () => {
     }
   );
 
+  it.each(['provider_capacity', 'unknown'])(
+    'uses the persisted native reason %s once',
+    (reason) => {
+      const operation = workflowOperation();
+      telemetry.beginWorkflowAction.mockReturnValue(operation);
+      const uninstall = installWorkflowTelemetryObservers();
+      const route = { routeKind: 'cli', transport: 'codex-sdk' } as const;
+      chatStore.publish([turn({ ...route, status: 'running' })]);
+      const failed = turn({
+        ...route,
+        status: 'failed',
+        terminalReason: `native:provider_stream:${reason}`,
+        error: 'misleading display text: network',
+      });
+      chatStore.publish([failed]);
+      chatStore.publish([failed]);
+      expect(operation.fail).toHaveBeenCalledTimes(1);
+      expect(operation.fail).toHaveBeenCalledWith(`local:${reason}`, { status: 'failed' });
+      uninstall();
+    }
+  );
+
   it.each([
     ['Could not read /Users/ada/secret-pUC19.gb', 'local:turn_failed'],
     ['spawn codex ENOENT', 'local:cli_unavailable'],

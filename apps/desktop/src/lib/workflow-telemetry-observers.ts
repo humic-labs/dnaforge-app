@@ -11,6 +11,7 @@ import {
   type ScientificWorkflow,
   type WorkflowOperation,
 } from './workflow-telemetry';
+import { parseNativeTerminalReason } from '../shared/native-turn-failure';
 import { hasQualifyingAssistantContent } from '../shared/ai-turn-telemetry';
 import type { HostedCodexTurnResult } from '../shared/hosted-codex-ipc';
 
@@ -94,6 +95,8 @@ const LOCAL_FAILURE_PATTERNS: readonly (readonly [RegExp, string])[] = [
 ];
 
 function localFailureClass(turn: ChatTurnSummary): string {
+  const failure = parseNativeTerminalReason(turn.terminalReason);
+  if (failure) return `local:${failure.reason}`;
   const text = `${turn.error ?? ''} ${turn.terminalReason ?? ''}`.toLowerCase();
   return LOCAL_FAILURE_PATTERNS.find(([pattern]) => pattern.test(text))?.[1] ?? 'local:turn_failed';
 }
@@ -133,7 +136,10 @@ export function installWorkflowTelemetryObservers(): () => void {
         } else if (turn.status === 'stopped' || turn.status === 'cancelled') {
           operation?.cancel({
             status: turn.status === 'stopped' ? 'stopped' : 'cancelled',
-            valueDelivered: turn.status === 'stopped' && valueDelivered,
+            valueDelivered:
+              turn.status === 'stopped' &&
+              parseNativeTerminalReason(turn.terminalReason)?.reason !== 'stop_unconfirmed' &&
+              valueDelivered,
           });
         } else {
           operation?.fail(
