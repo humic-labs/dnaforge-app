@@ -1,4 +1,3 @@
-import type { AssistantSendRouteResolution } from '../assistant-send-route';
 import type { ChatSendOptions } from './chat-store-types';
 
 export type ChatCancellationReason =
@@ -7,9 +6,7 @@ export type ChatCancellationReason =
   | 'conversation_deleted'
   | 'unknown';
 
-export type SubmissionEffects = Pick<ChatSendOptions, 'onStarted' | 'onNotStarted'> & {
-  routeFallback?: Extract<AssistantSendRouteResolution, { status: 'fallback' }>;
-};
+export type SubmissionEffects = Pick<ChatSendOptions, 'onStarted' | 'onNotStarted'>;
 
 type ExecutionPhase =
   | 'claimed'

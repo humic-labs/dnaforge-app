@@ -120,7 +120,7 @@ async function drainConversationQueue(
       const onAccepted = (): void => {
         if (!initialHeadSettled) onInitialMessageSaved?.();
         const effects = takeSubmissionEffects(conversationId, next.id);
-        if (effects?.routeFallback) announceAssistantRouteFallback(effects.routeFallback);
+        if (next.routeFallback) announceAssistantRouteFallback(next.routeFallback);
         const onStarted = effects?.onStarted;
         if (onStarted) {
           try {
@@ -313,6 +313,7 @@ export async function submitChatMessage(
     ...(options?.attachments
       ? { attachments: options.attachments.map((item) => ({ ...item })) }
       : {}),
+    ...(routeResolution.status === 'fallback' ? { routeFallback: routeResolution } : {}),
     routeSelection,
     routeSnapshot,
     cliModelSettings,
@@ -340,7 +341,6 @@ export async function submitChatMessage(
   conversationExecution(resolvedConversationId).submitted(item.id, {
     onStarted: options?.onStarted,
     onNotStarted: options?.onNotStarted,
-    ...(routeResolution.status === 'fallback' ? { routeFallback: routeResolution } : {}),
   });
 
   setConversationState(set, resolvedConversationId, (state) => ({

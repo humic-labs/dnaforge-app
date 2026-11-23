@@ -1,3 +1,4 @@
+import type { AssistantSendRouteResolution } from '../assistant-send-route';
 import type { UserMessage } from '@waypoint/user-messages';
 import type { HistoryObservation } from '../../../shared/chat-history-telemetry';
 import type { DBChatTurnStatus } from '../../../db';
@@ -72,6 +73,7 @@ export interface AskAiInlineChat {
 }
 
 export interface QueuedChatMessage {
+  routeFallback?: Extract<AssistantSendRouteResolution, { status: 'fallback' }>;
   id: string;
   content: string;
   workspacePath: string | null;

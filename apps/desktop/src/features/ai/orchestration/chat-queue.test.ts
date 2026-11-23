@@ -251,6 +251,44 @@ describe('provider-neutral chat queue coordination', () => {
     expect(mockAISettingsState.assistantRoute).toEqual(storedRoute);
   });
 
+  it('announces a captured route change once when a restored message is explicitly advanced', async () => {
+    useToastStore.getState().clearToasts();
+    const original = createHarness();
+    setConversationState(original.set, 'conv-1', () => ({ isLoading: true }));
+    mockAISettingsState.assistantRoute = {
+      kind: 'cli',
+      transport: 'claude-agent-sdk',
+      permissionMode: 'native-cli',
+    };
+    mockAISettingsState.providerStatuses.anthropic.isConfigured = false;
+    mockAISettingsState.providerStatuses.openai.isConfigured = false;
+    mockAISettingsState.agentDetection = {
+      ...detectionWithCodex('authenticated'),
+      claudeCode: {
+        cli: 'installed',
+        path: '/opt/claude',
+        auth: 'unauthenticated',
+        defaultModel: null,
+      },
+    };
+    await expect(submitChatMessage(original.set, original.get, 'one color', null)).resolves.toBe(
+      'accepted'
+    );
+    const saved = JSON.stringify(original.get()._convStates.get('conv-1')!.queuedMessages);
+    resetDeletedChatConversationsForTests();
+    const reopened = createHarness();
+    const rows: QueuedChatMessage[] = JSON.parse(saved);
+    setConversationState(reopened.set, 'conv-1', () => ({ queuedMessages: rows }));
+    expect(useToastStore.getState().toasts).toHaveLength(0);
+    expect(mockRunChatTurn).not.toHaveBeenCalled();
+    advanceChatQueueThrough(reopened.set, reopened.get, rows[0].id, 'conv-1');
+    advanceChatQueueThrough(reopened.set, reopened.get, rows[0].id, 'conv-1');
+    await vi.waitFor(() => expect(mockRunChatTurn).toHaveBeenCalledTimes(1));
+    expect(useToastStore.getState().toasts.map((toast) => toast.message)).toEqual([
+      'Claude Code is signed out — sent with Codex CLI (OpenAI)',
+    ]);
+  });
+
   it('reports the exact Hosted readiness reason when send admission is blocked', async () => {
     const { get, set } = createHarness('conv-1');
     mockAISettingsState.assistantRoute = { kind: 'hosted', tier: 'auto' };
