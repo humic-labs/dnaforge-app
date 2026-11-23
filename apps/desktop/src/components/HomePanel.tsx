@@ -161,7 +161,7 @@ export function HomePanel({
         }
       };
 
-      const sendPromise = chat.sendMessage(trimmed, workspacePath, conversationId, referenceIds, {
+      const sendPromise = chat.sendMessage(askAiText, workspacePath, conversationId, referenceIds, {
         activateConversation: true,
         onStarted,
         onNotStarted: (error) => {

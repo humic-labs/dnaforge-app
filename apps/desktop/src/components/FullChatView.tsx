@@ -1,3 +1,4 @@
+import { latestRefusedUserMessage } from '../features/ai/orchestration/refused-provider-input';
 import {
   type UserMessage,
   renderUserMessage,
@@ -1587,10 +1588,18 @@ function InitializedChatView({
       });
   }, [allRefIds, entityReferenceLoadFailures, referenceMap, referenceResolution]);
 
+  const refusedMessage = useMemo(
+    () => latestRefusedUserMessage(messages, turns),
+    [messages, turns]
+  );
   const [composeReferences, setComposeReferences] = useState<DBEntityReference[]>([]);
   liveComposerRef.current = { input, attachedFiles, composeReferences, stagedCapability };
   useConversationComposerDraft({
     conversationId: viewConversationId,
+    refusedMessage,
+    refusedReferenceIds: refusedMessage ? messageReferenceIds.get(refusedMessage.id) : undefined,
+    referenceMap,
+    composerBusy: Boolean(stagedCapability || queuedMessages.length || isLoading),
     text: input,
     attachments: attachedFiles,
     references: composeReferences,
@@ -2345,7 +2354,8 @@ function InitializedChatView({
   );
 
   const handleSend = useCallback(async () => {
-    const hasContent = input.trim() || attachedFiles.length > 0 || composeReferences.length > 0;
+    const hasText = input.trim().length > 0;
+    const hasContent = hasText || attachedFiles.length > 0 || composeReferences.length > 0;
     if (!hasContent) return;
 
     if (activeRouteSendBlocked) return;
@@ -2358,9 +2368,9 @@ function InitializedChatView({
       );
       return;
     }
-    const message =
-      input.trim() ||
-      `Please analyze the attached ${attachedFiles.length === 1 ? 'file' : 'files'}.`;
+    const message = hasText
+      ? input
+      : `Please analyze the attached ${attachedFiles.length === 1 ? 'file' : 'files'}.`;
 
     const referenceIds = composeReferences.map((r) => r.id);
 

@@ -1,3 +1,4 @@
+import { isRefusedProviderInput } from './refused-provider-input';
 import { conversationExecution } from './conversation-execution';
 import { buildAgentExecutionInstructions } from './agent-execution-instructions';
 import { readAgentPresentationPreferences } from '../agent-presentation-preferences';
@@ -832,9 +833,13 @@ export async function runChatTurn(
       );
     }
 
+    const conversation = getConv();
+    const acceptedContext = conversation.messages.filter(
+      (message) => !message.turnId || !isRefusedProviderInput(conversation.turns[message.turnId])
+    );
     const { expandedMessages, modelMessages, exposedReferenceIds } =
       await assembleTurnModelMessages({
-        messages: getConv().messages,
+        messages: acceptedContext,
         currentUserMessageId: userMsg.id,
         stagedReferenceIds,
         workspacePath: turnWorkspacePath,

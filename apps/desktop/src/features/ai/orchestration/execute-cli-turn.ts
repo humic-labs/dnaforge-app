@@ -1,4 +1,5 @@
 import { chatInterruptionReason } from './chat-runtime';
+import { PROVIDER_INPUT_REFUSALS } from './refused-provider-input';
 import { UserMessageError } from '@waypoint/user-messages';
 import type {
   AgentCliModelPersonality,
@@ -463,6 +464,12 @@ export async function executeCliTurn({
         streamingBlocks: [],
       }));
       activityMessages.forEach((message) => queueTerminalMessage(message, message.referenceIds));
+    }
+    if (result.providerInputLimit) {
+      const refusal = PROVIDER_INPUT_REFUSALS[result.providerInputLimit];
+      const error = new UserMessageError(refusal.message);
+      await finishTurn('failed', refusal.reason, error.message);
+      throw error;
     }
     await finishTurn('failed', result.error || `${transport} failed`, result.error);
     throw new Error(result.error || `${transport} returned no response`);

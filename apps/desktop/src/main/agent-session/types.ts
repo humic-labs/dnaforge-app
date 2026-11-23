@@ -1,6 +1,7 @@
 import type { AgentSdkDetection } from '../agent-sdk/detect';
 import type { ProviderProbeVersions } from '../agent-sdk/probe';
 import type {
+  AgentProviderInputLimit,
   AgentShellSupervision,
   AgentToolExposure,
   AgentTraceEventShape,
@@ -282,6 +283,7 @@ export interface AgentSessionStartRequest {
 }
 
 export interface AgentSessionRunResult {
+  providerInputLimit?: AgentProviderInputLimit;
   sessionId: string;
   provider: AgentProvider;
   authorityProfileId: string;

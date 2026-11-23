@@ -25,6 +25,7 @@ import { getDb } from '../ipc/database';
 import type { DestructiveFileConfirmRequest } from '../../shared/agent-confirm-types';
 import type { RequestAgentUserInput } from '../agent-sdk/agent-user-input-adapters';
 import type {
+  AgentProviderInputLimit,
   AgentScheduleCancelResultShape,
   AgentScheduleRecordShape,
   AgentSessionCancelResultShape,
@@ -106,8 +107,6 @@ import type {
   RuntimeReleaseChannel,
 } from './types';
 
-export const AGENT_SESSION_PROMPT_BYTE_CAP = 64 * 1024;
-
 type QueryExecutor = (
   prompt: string,
   options: QueryOptions
@@ -116,6 +115,7 @@ type QueryExecutor = (
   text: string;
   error?: string;
   failureReason?: 'admission_rejected';
+  providerInputLimit?: AgentProviderInputLimit;
   durationMs: number;
   stopState?: ProviderTerminalState;
   providerConversationId?: string;
@@ -489,19 +489,6 @@ export class AgentSessionManager {
     }
     if (typeof request.prompt !== 'string' || request.prompt.length === 0) {
       throw new Error('agentSession:start requires a non-empty prompt.');
-    }
-    if (Buffer.byteLength(request.prompt, 'utf8') > AGENT_SESSION_PROMPT_BYTE_CAP) {
-      throw new Error(
-        `agentSession:start prompt exceeds ${AGENT_SESSION_PROMPT_BYTE_CAP}-byte cap.`
-      );
-    }
-    if (
-      request.continuationPrompt &&
-      Buffer.byteLength(request.continuationPrompt, 'utf8') > AGENT_SESSION_PROMPT_BYTE_CAP
-    ) {
-      throw new Error(
-        `agentSession:start continuationPrompt exceeds ${AGENT_SESSION_PROMPT_BYTE_CAP}-byte cap.`
-      );
     }
     if (
       request.workspaceGrounding !== 'required' &&
@@ -957,6 +944,9 @@ export class AgentSessionManager {
         ok,
         text: result.text,
         error: userError,
+        ...(isGenuineFailure && result.providerInputLimit
+          ? { providerInputLimit: result.providerInputLimit }
+          : {}),
         durationMs: result.durationMs,
         stopState: terminal,
         lastTraceSequence,

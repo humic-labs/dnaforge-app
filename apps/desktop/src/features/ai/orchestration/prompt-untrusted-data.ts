@@ -17,7 +17,7 @@ export function nextPromptFenceNonce(): string {
 }
 
 export function serializePromptDataFence(
-  prefix: 'wp-sel' | 'wp-conversation' | 'wp-conversation-delta',
+  prefix: 'wp-sel' | 'wp-conversation',
   payload: unknown,
   nonce = nextPromptFenceNonce()
 ): string {

@@ -422,6 +422,7 @@ describe('runLocalCodexAppServerTurn', () => {
         threadId: 'thread-exit',
         turnId: 'turn-exit',
       });
+      expect(outcome.providerInputLimit).toBeUndefined();
       expect(supervisor.terminationReason).toBe(reason);
       if (reason === 'oversized_frame') {
         expect(outcome.error).toContain('message-size limit');
@@ -706,6 +707,46 @@ describe('runLocalCodexAppServerTurn', () => {
     ]);
   });
 
+  it.each(['error', 'turn/completed'])(
+    'preserves the provider context reason on %s',
+    async (method) => {
+      let notify: (value: { method: string; params: unknown }) => void;
+      const error = { message: 'Input rejected.', codexErrorInfo: 'contextWindowExceeded' };
+      const result = await runLocalCodexAppServerTurn({
+        transport: {
+          request: async (name) => {
+            if (name === 'thread/start') return { thread: { id: 'thread-1' } };
+            queueMicrotask(() =>
+              notify({
+                method,
+                params: method === 'error' ? { error } : { turn: { status: 'failed', error } },
+              })
+            );
+            return { turn: { id: 'turn-1' } };
+          },
+          onNotification(listener) {
+            notify = listener;
+          },
+          onServerRequest: vi.fn(),
+          onExit: vi.fn(),
+          interrupt: vi.fn(),
+        },
+        message: 'fixed request',
+        cwd: '/workspace',
+        config: {},
+        conversationId: null,
+        developerInstructions: '',
+        requestUserInput: vi.fn(),
+        signal: new AbortController().signal,
+      });
+      expect(result).toMatchObject({
+        ok: false,
+        error: 'Input rejected.',
+        providerInputLimit: 'context-window',
+      });
+    }
+  );
+
   it('resumes an existing native thread and interrupts the exact active turn on abort', async () => {
     let notification: ((value: { method: string; params: unknown }) => void) | null = null;
     const controller = new AbortController();
@@ -755,7 +796,11 @@ describe('runLocalCodexAppServerTurn', () => {
     ).resolves.toMatchObject({ ok: false, threadId: 'thread-existing', turnId: 'turn-2' });
     expect(transport.request).toHaveBeenCalledWith(
       'thread/resume',
-      expect.objectContaining({ threadId: 'thread-existing', cwd: '/workspace' })
+      expect.objectContaining({
+        threadId: 'thread-existing',
+        cwd: '/workspace',
+        excludeTurns: true,
+      })
     );
     expect(interrupt).toHaveBeenCalledOnce();
   });

@@ -6,12 +6,19 @@ import { useChatStore } from '../../features/ai/hooks/useChat';
 import type { AttachedFile } from './FilePill';
 import { useConversationComposerDraft } from './useConversationComposerDraft';
 
-function DraftHarness({ conversationId }: { conversationId: string }) {
+function DraftHarness({
+  conversationId,
+  ...refusal
+}: Pick<
+  Parameters<typeof useConversationComposerDraft>[0],
+  'refusedMessage' | 'refusedReferenceIds' | 'referenceMap'
+> & { conversationId: string }) {
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<AttachedFile[]>([]);
   const [references, setReferences] = useState<DBEntityReference[]>([]);
   useConversationComposerDraft({
     conversationId,
+    ...refusal,
     text,
     attachments,
     references,
@@ -37,6 +44,56 @@ describe('useConversationComposerDraft', () => {
 
   afterEach(() => {
     useChatStore.setState(useChatStore.getInitialState(), true);
+  });
+
+  it('recovers refused input with its reference and attachment after hydration and yields to edits', () => {
+    const refused = {
+      id: 'refused-user',
+      role: 'user' as const,
+      createdAt: 1,
+      content: '  雪' + 'Δ'.repeat(33_000) + ' fin  ',
+      attachments: [
+        { id: 'file-1', name: 'note.txt', path: '/test/note.txt', size: 2, content: 'hi' },
+      ],
+    };
+    const ref = {
+      id: 'ref-1',
+      entity_type: 'sequence',
+      display_label: 'My selection',
+      locator: 'test',
+      data: null,
+      deep_link_params: null,
+      source: 'test',
+      status: 'created',
+      workspace_scope: null,
+      created_at: 1,
+      updated_at: 1,
+    } satisfies DBEntityReference;
+    const normal = <DraftHarness conversationId="one" />;
+    const recovered = (
+      <DraftHarness
+        conversationId="one"
+        refusedMessage={refused}
+        refusedReferenceIds={[ref.id]}
+        referenceMap={new Map([[ref.id, ref]])}
+      />
+    );
+    const first = render(normal);
+    first.rerender(recovered);
+    expect(screen.getByTestId('draft-input')).toHaveValue(refused.content);
+    expect(screen.getByTestId('reference-labels')).toHaveTextContent(ref.display_label);
+    expect(screen.getByTestId('attachment-names')).toHaveTextContent('note.txt');
+    first.unmount();
+    useChatStore.setState(useChatStore.getInitialState(), true);
+    const restarted = render(<StrictMode>{recovered}</StrictMode>);
+    expect(screen.getByTestId('draft-input')).toHaveValue(refused.content);
+    restarted.unmount();
+    useChatStore.setState(useChatStore.getInitialState(), true);
+    const withNewerInput = render(normal);
+    fireEvent.change(screen.getByTestId('draft-input'), { target: { value: 'a newer draft' } });
+    withNewerInput.rerender(recovered);
+    expect(screen.getByTestId('draft-input')).toHaveValue('a newer draft');
+    expect(screen.getByTestId('reference-labels')).toBeEmptyDOMElement();
   });
 
   it('restores drafts without a Strict Mode cleanup erasing them', async () => {

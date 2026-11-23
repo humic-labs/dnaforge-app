@@ -43,7 +43,10 @@ import type { DestructiveFileConfirmRequest } from '../../shared/agent-confirm-t
 import type { PermissionMode } from '@anthropic-ai/claude-agent-sdk';
 import type { RequestAgentUserInput } from './agent-user-input-adapters';
 import { answerClaudeAskUserQuestion, answerClaudePlanDecision } from './agent-user-input-adapters';
-import type { AgentShellSupervision } from '../../shared/agent-runtime-ipc';
+import type {
+  AgentProviderInputLimit,
+  AgentShellSupervision,
+} from '../../shared/agent-runtime-ipc';
 import {
   claudeSessionPermissionMode,
   codexProfile,
@@ -67,6 +70,8 @@ import {
 } from './local-codex-app-server';
 import { collectCodexModelCatalog, validateModelSelection } from './model-catalog';
 import { createGrokSessionTraceProjector, openGrokAcpClient, runGrokAcpTurn } from './grok-acp';
+import { AppServerSupervisorError } from '../hosted-codex/app-server-supervisor';
+import { isProviderContextError } from './provider-input-limit';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -96,6 +101,7 @@ export interface QueryResult {
   text: string;
   error?: string;
   failureReason?: 'admission_rejected';
+  providerInputLimit?: AgentProviderInputLimit;
   durationMs: number;
   stopState?: 'completed' | 'failed' | 'cancelled' | 'stop_requested';
   providerConversationId?: string;
@@ -446,6 +452,7 @@ export async function queryClaudeCode(
     options = { ...options, cwd: confinement.cwd, scratchRoot: confinement.scratchRoot };
     const assistantText: string[] = [];
     const resultText: string[] = [];
+    let contextExceeded = false;
     const traceEvents: ProviderTraceEvent[] = [];
     const traceAdapter = new ClaudeTraceAdapter({ sdkVersion: null, cliVersion: null });
     let traceSequence = 0;
@@ -677,6 +684,14 @@ export async function queryClaudeCode(
           }
         }
       }
+      if (message.type === 'result') {
+        contextExceeded =
+          message.terminal_reason === 'prompt_too_long' ||
+          (message.is_error &&
+            (message.subtype === 'success' ? [message.result] : (message.errors ?? [])).some(
+              isProviderContextError
+            ));
+      }
       if (m.type === 'result' && typeof m.result === 'string' && m.result.trim().length > 0) {
         resultText.push(m.result);
       }
@@ -690,12 +705,16 @@ export async function queryClaudeCode(
       );
     }
     const failed = failedTraceEvent(traceEvents);
-    if (failed) {
+    const failureMessage = contextExceeded
+      ? 'The request exceeds the Claude model context window.'
+      : (failed?.display.text ?? failed?.display.title);
+    if (failureMessage) {
       return {
         transport: 'claude-agent-sdk',
+        ...(contextExceeded ? { providerInputLimit: 'context-window' as const } : {}),
         ok: false,
         text: '',
-        error: failed.display.text ?? failed.display.title,
+        error: failureMessage,
         durationMs: Date.now() - start,
         stopState: 'failed',
         ...(providerConversationId ? { providerConversationId } : {}),
@@ -1020,6 +1039,7 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
             ok: false,
             text: '',
             error: result.error ?? 'The Codex turn failed.',
+            ...(result.providerInputLimit ? { providerInputLimit: result.providerInputLimit } : {}),
             durationMs: Date.now() - start,
             stopState: 'failed',
             providerConversationId,
@@ -1149,6 +1169,9 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
           ok: false,
           text: '',
           error: failed.display.text ?? failed.display.title,
+          ...(isProviderContextError(failed.diagnostic)
+            ? { providerInputLimit: 'context-window' as const }
+            : {}),
           durationMs: Date.now() - start,
           stopState: 'failed',
           ...(providerConversationId ? { providerConversationId } : {}),
@@ -1186,6 +1209,11 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
       text: '',
       error: err instanceof Error ? err.message : String(err),
       durationMs: Date.now() - start,
+      ...(err instanceof AppServerSupervisorError && err.inputTooLarge
+        ? { providerInputLimit: 'request-size' as const }
+        : isProviderContextError(err instanceof Error ? err.message : null)
+          ? { providerInputLimit: 'context-window' as const }
+          : {}),
       stopState: 'failed',
       ...(providerConversationId ? { providerConversationId } : {}),
     };

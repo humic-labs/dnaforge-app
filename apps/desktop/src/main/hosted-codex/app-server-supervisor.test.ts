@@ -405,6 +405,23 @@ describe('AppServerSupervisor', () => {
     expect(s.isTerminated).toBe(false);
   });
 
+  it('retains the provider turn input limit separately from a local frame error', async () => {
+    const f = fixtureChild();
+    const supervisor = new AppServerSupervisor({ child: f.child });
+    const result = supervisor.request('turn/start');
+    f.send({
+      jsonrpc: '2.0',
+      id: f.sentRequests()[0]?.id,
+      error: {
+        code: -32602,
+        message: 'Input rejected.',
+        data: { input_error_code: 'input_too_large' },
+      },
+    });
+    await expect(result).rejects.toMatchObject({ code: 'child_error', inputTooLarge: true });
+    expect(supervisor.isTerminated).toBe(false);
+  });
+
   it('rejects with the child’s error message when it answers with one', async () => {
     const f = fixtureChild();
     const s = new AppServerSupervisor({ child: f.child });

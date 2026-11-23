@@ -321,8 +321,6 @@ export function registerAgentSdkHandlers(): void {
     }
   });
 
-  const MAX_PROMPT_BYTES = 64 * 1024;
-
   mainIpc.handle(
     'agentSdk:query',
     async (event, transport: unknown, prompt: unknown, options: unknown) => {
@@ -332,15 +330,6 @@ export function registerAgentSdkHandlers(): void {
           ok: false,
           text: '',
           error: 'agentSdk:query requires a non-empty prompt.',
-          durationMs: 0,
-        };
-      }
-      if (Buffer.byteLength(prompt, 'utf8') > MAX_PROMPT_BYTES) {
-        return {
-          transport: String(transport),
-          ok: false,
-          text: '',
-          error: `agentSdk:query prompt exceeds ${MAX_PROMPT_BYTES}-byte cap.`,
           durationMs: 0,
         };
       }

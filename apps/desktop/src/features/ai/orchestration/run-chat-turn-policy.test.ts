@@ -193,16 +193,13 @@ function selectionFenceRecords(text: string): Array<Record<string, unknown>> {
 function cliConversationMessages(prompt: string): Array<{ role: string; content: string }> {
   const record = promptDataFenceRecords(prompt, 'wp-conversation')[0];
   expect(record).toBeDefined();
-  const delta = promptDataFenceRecords(prompt, 'wp-conversation-delta')[0];
   const current = prompt.match(
     /<wp-current-user-request-([A-Za-z0-9]+) role="user">([\s\S]*?)<\/wp-current-user-request-\1>/
   );
   const activeRequest = current ? JSON.parse(decodePromptXml(current[2])) : null;
   return [
     ...(record.messages as Array<{ role: string; content: string }>),
-    ...(activeRequest
-      ? [activeRequest]
-      : ((delta?.messages ?? []) as Array<{ role: string; content: string }>)),
+    ...(activeRequest ? [activeRequest] : []),
   ];
 }
 

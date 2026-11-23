@@ -22,11 +22,7 @@ export {
   collectProviderDescriptorContract,
   getProviderDescriptorContractFailures,
 } from './parity-harness';
-export {
-  AGENT_SESSION_PROMPT_BYTE_CAP,
-  AgentSessionManager,
-  type AgentSessionManagerDependencies,
-} from './manager';
+export { AgentSessionManager, type AgentSessionManagerDependencies } from './manager';
 export {
   registerAgentSessionHandlers,
   setAgentSessionCliMcpBridgeProvider,

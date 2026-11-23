@@ -37,7 +37,8 @@ export class AppServerSupervisorError extends Error {
       | 'child_error'
       | 'child_exit_timeout'
       | 'write_failed',
-    message: string
+    message: string,
+    readonly inputTooLarge = false
   ) {
     super(message);
     this.name = 'AppServerSupervisorError';
@@ -404,7 +405,10 @@ export class AppServerSupervisor {
         typeof (frame.error as { message?: unknown } | null)?.message === 'string'
           ? String((frame.error as { message: string }).message)
           : 'the App Server child returned an error';
-      pending.reject(new AppServerSupervisorError('child_error', message));
+      const errorData = (frame.error as { data?: { input_error_code?: unknown } } | null)?.data;
+      const inputTooLarge =
+        pending.method === 'turn/start' && errorData?.input_error_code === 'input_too_large';
+      pending.reject(new AppServerSupervisorError('child_error', message, inputTooLarge));
       return true;
     }
     pending.resolve(frame.result);

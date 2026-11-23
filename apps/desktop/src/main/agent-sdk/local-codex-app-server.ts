@@ -26,6 +26,8 @@ import { DNAFORGE_MCP_SERVER_NAME } from './cli-mcp';
 import { CODEX_APP_MCP_FEATURES } from './codex-mcp-session-config';
 import { codexProfile, type ResolvedAgentPermissions } from '../../shared/agent-permissions';
 import type { ApprovalMemory } from './approval-memory';
+import type { AgentProviderInputLimit } from '../../shared/agent-runtime-ipc';
+import { isProviderContextError } from './provider-input-limit';
 import type { ApprovalRoot } from './approval-rules';
 
 export const LOCAL_CODEX_MAX_FRAME_BYTES = 16 * 1024 * 1024;
@@ -266,12 +268,10 @@ export interface LocalCodexAppServerTransport {
   interrupt(): void;
 }
 
-export interface LocalCodexAppServerTurnResult {
-  ok: boolean;
+export interface LocalCodexAppServerTurnResult extends TerminalResult {
   text: string;
   threadId: string;
   turnId: string | null;
-  error?: string;
 }
 
 export const FRESH_MOLECULAR_AUTHOR_CONFIG = {
@@ -352,6 +352,7 @@ export async function freshMolecularAuthorConfig(
 }
 
 interface TerminalResult {
+  providerInputLimit?: AgentProviderInputLimit;
   ok: boolean;
   error?: string;
 }
@@ -384,15 +385,16 @@ function record(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function turnFailureMessage(params: unknown): string {
-  const turn = record(record(params)?.turn);
-  const error = record(turn?.error);
-  return typeof error?.message === 'string' ? error.message : 'The Codex turn failed.';
-}
-
-function errorNotificationMessage(params: unknown): string {
-  const error = record(record(params)?.error);
-  return typeof error?.message === 'string' ? error.message : 'The Codex App Server failed.';
+function codexFailure(value: unknown, fallback: string): TerminalResult {
+  const error = record(value);
+  const message = typeof error?.message === 'string' ? error.message : fallback;
+  return {
+    ok: false,
+    error: message,
+    ...(error?.codexErrorInfo === 'contextWindowExceeded' || isProviderContextError(message)
+      ? { providerInputLimit: 'context-window' as const }
+      : {}),
+  };
 }
 
 function itemAgentText(params: unknown): string | null {
@@ -662,14 +664,14 @@ export async function runLocalCodexAppServerTurn(options: {
       return;
     }
     if (notification.method === 'error' && params?.willRetry !== true) {
-      finish({ ok: false, error: errorNotificationMessage(notification.params) });
+      finish(codexFailure(params?.error, 'The Codex App Server failed.'));
       return;
     }
     if (notification.method !== 'turn/completed') return;
     const turn = record(params?.turn);
     if (turn?.status === 'completed') finish({ ok: true });
     else if (turn?.status === 'interrupted') finish({ ok: false, error: 'Stop requested.' });
-    else finish({ ok: false, error: turnFailureMessage(notification.params) });
+    else finish(codexFailure(turn?.error, 'The Codex turn failed.'));
   });
 
   options.transport.onServerRequest((request) => {
@@ -752,6 +754,7 @@ export async function runLocalCodexAppServerTurn(options: {
     if (threadId) {
       const resumed = await options.transport.request('thread/resume', {
         threadId,
+        excludeTurns: true,
         ...threadParams,
       } satisfies CodexAppServerProtocol.v2.ThreadResumeParams);
       threadId = nestedId(resumed, 'thread') ?? threadId;
@@ -818,11 +821,10 @@ export async function runLocalCodexAppServerTurn(options: {
     const outcome = await terminal;
     await Promise.allSettled([...pendingRequests]);
     return {
-      ok: outcome.ok,
+      ...outcome,
       text: (completedText ?? deltaText).trim(),
       threadId,
       turnId,
-      ...(outcome.error ? { error: outcome.error } : {}),
     };
   } finally {
     options.signal.removeEventListener('abort', abort);
