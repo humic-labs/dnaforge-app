@@ -1,10 +1,17 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StrictMode, useState } from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DBEntityReference } from '../../db/entity-references';
 import { useChatStore } from '../../features/ai/hooks/useChat';
 import type { AttachedFile } from './FilePill';
 import { useConversationComposerDraft } from './useConversationComposerDraft';
+
+const { readChatComposerDraft, writeChatComposerDraft } = vi.hoisted(() => ({
+  readChatComposerDraft: vi.fn(),
+  writeChatComposerDraft: vi.fn(),
+}));
+
+vi.mock('../../db/chat-composer-draft', () => ({ readChatComposerDraft, writeChatComposerDraft }));
 
 function DraftHarness({ conversationId }: { conversationId: string }) {
   const [text, setText] = useState('');
@@ -32,11 +39,42 @@ function DraftHarness({ conversationId }: { conversationId: string }) {
 
 describe('useConversationComposerDraft', () => {
   beforeEach(() => {
+    readChatComposerDraft.mockReset().mockResolvedValue(null);
+    writeChatComposerDraft.mockReset().mockResolvedValue(undefined);
     useChatStore.setState(useChatStore.getInitialState(), true);
   });
 
   afterEach(() => {
     useChatStore.setState(useChatStore.getInitialState(), true);
+  });
+
+  it('recovers a persisted draft and clears it when the user empties the composer', async () => {
+    const draft = { text: 'Previously typed 雪', references: [], attachments: [] };
+    readChatComposerDraft.mockResolvedValue(draft);
+    render(<DraftHarness conversationId="saved-conv" />);
+    const input = screen.getByTestId('draft-input');
+    await waitFor(() => expect(input).toHaveValue(draft.text));
+    fireEvent.change(input, { target: { value: '' } });
+    await waitFor(() =>
+      expect(writeChatComposerDraft).toHaveBeenLastCalledWith('saved-conv', null)
+    );
+  });
+
+  it('leaves newer typing intact when the original draft read finishes late', async () => {
+    let resolveRead!: (value: unknown) => void;
+    readChatComposerDraft.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRead = resolve;
+        })
+    );
+    render(<DraftHarness conversationId="slow-conv" />);
+    const input = screen.getByTestId('draft-input');
+    fireEvent.change(input, { target: { value: 'Newer typing' } });
+    await act(async () => {
+      resolveRead({ text: 'Old', references: [], attachments: [] });
+    });
+    expect(input).toHaveValue('Newer typing');
   });
 
   it('restores drafts without a Strict Mode cleanup erasing them', async () => {

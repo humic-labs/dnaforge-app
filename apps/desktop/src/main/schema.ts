@@ -578,6 +578,24 @@ function repairCurrentSchema(db: Database.Database): void {
   createAdministrationTables(db);
   createCatalogNameSearchIndex(db);
   ensureConversationTitleLock(db);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_message_queue (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+      payload TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS chat_message_queue_conversation ON chat_message_queue(conversation_id);
+    CREATE TRIGGER IF NOT EXISTS consume_accepted_chat_message AFTER INSERT ON messages
+    BEGIN
+      DELETE FROM chat_message_queue WHERE id = NEW.id AND conversation_id = NEW.conversation_id;
+    END;
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_composer_drafts (
+      conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+      draft_json TEXT NOT NULL
+    )
+  `);
   createHostedContributionLocalDeclineTable(db);
   createRemoteEndpointProfilesTable(db);
   createAgentStateCapsuleTable(db);
