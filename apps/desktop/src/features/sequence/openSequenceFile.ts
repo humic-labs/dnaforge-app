@@ -291,10 +291,11 @@ async function automaticallyPackageSequence(
     }
     const { reconcileWorkspaceAfterFilesChanged } =
       await import('../../services/workspace-operations');
+    // Conversion has already committed the package. Its own reader checks the
+    // saved files before presentation. Workspace reconciliation reports other issues separately.
     await reconcileWorkspaceAfterFilesChanged({
       workspaceRoot,
       revealPath: conversion.packageRoots[0],
-      strict: true,
       healManagedHead: false,
     });
     return conversion.packageRoots[0];

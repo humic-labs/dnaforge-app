@@ -171,7 +171,7 @@ describe('openSequenceFile  Layer A)', () => {
     });
   });
 
-  it('automatically packages a convertible writable project source before presenting its sequence', async () => {
+  it('opens a successfully converted sequence when another project file cannot reconcile', async () => {
     const root = '/projects/migration';
     const source = `${root}/incoming.gb`;
     const packageRoot = `${root}/incoming`;
@@ -193,6 +193,9 @@ describe('openSequenceFile  Layer A)', () => {
       productPath: `${packageRoot}/incoming.gb`,
       document: { id: ref.packageId, name: 'Incoming' },
     });
+    mockReconcileAfterFilesChanged.mockImplementation(async ({ strict }) => {
+      if (strict) throw new Error('Workspace reconciliation failed for Broken notebook.');
+    });
 
     const opened = await openSequenceFileResult({ filePath: source, label: 'Incoming' });
 
@@ -204,7 +207,7 @@ describe('openSequenceFile  Layer A)', () => {
     });
     expect(opened.status).toBe('presented');
     expect(mockReconcileAfterFilesChanged).toHaveBeenCalledWith(
-      expect.objectContaining({ workspaceRoot: root, strict: true, healManagedHead: false })
+      expect.objectContaining({ workspaceRoot: root, healManagedHead: false })
     );
     expect(mockReconcileAfterFilesChanged.mock.invocationCallOrder[0]).toBeLessThan(
       mockOpenPackage.mock.invocationCallOrder[0]
