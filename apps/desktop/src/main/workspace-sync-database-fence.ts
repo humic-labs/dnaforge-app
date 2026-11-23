@@ -20,6 +20,7 @@ interface FenceState {
   requested: boolean;
   fenced: boolean;
   transactionSettledWaiters: Array<() => void>;
+  rendererWorkspaceMutations: Set<Promise<void>>;
   rendererTransactionOwnerId: number | null;
 }
 
@@ -27,6 +28,24 @@ const states = new WeakMap<Database.Database, FenceState>();
 const heldFences = new WeakMap<Release, Database.Database>();
 const rendererTransactionCleanupSenders = new Set<number>();
 const heldFenceScope = new AsyncLocalStorage<Release>();
+
+export function trackRendererWorkspaceMutation(db: Database.Database): Release {
+  const active = stateFor(db).rendererWorkspaceMutations;
+  let finish!: () => void;
+  const settled = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  active.add(settled);
+  return () => {
+    active.delete(settled);
+    finish();
+  };
+}
+
+export async function waitForRendererWorkspaceMutations(db: Database.Database): Promise<void> {
+  const active = stateFor(db).rendererWorkspaceMutations;
+  while (active.size) await Promise.all(active);
+}
 
 export function assertWorkspaceSyncDatabaseFence(db: Database.Database, release: Release): void {
   if (heldFences.get(release) !== db) throw new Error('WORKSPACE_DATABASE_FENCE_INVALID');
@@ -201,6 +220,7 @@ function stateFor(db: Database.Database): FenceState {
     requested: false,
     fenced: false,
     transactionSettledWaiters: [],
+    rendererWorkspaceMutations: new Set(),
     rendererTransactionOwnerId: null,
   };
   states.set(db, created);

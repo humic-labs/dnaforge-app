@@ -61,6 +61,7 @@ import {
 } from '../native-catalog-record-mutations';
 import {
   assertCommittedDatabaseReadAllowed,
+  trackRendererWorkspaceMutation,
   withRendererDatabaseStatement,
 } from '../workspace-sync-database-fence';
 import { FileWatchConsumers } from './file-watch-consumers';
@@ -785,8 +786,9 @@ export function registerFilesystemHandlers(): void {
       const { assertInsideKnownWorkspace } = await import('../workspace-git/known-workspace-scope');
       const { getDb } = await import('./database');
       const { managedRootDir } = await import('./workspace-git');
+      const db = getDb();
       const knownRoot = await assertInsideKnownWorkspace(workspaceRoot, {
-        db: getDb(),
+        db,
         managedRootDir: managedRootDir(),
       });
       assertRendererCurrent();
@@ -825,10 +827,14 @@ export function registerFilesystemHandlers(): void {
       } else {
         releaseMutation = await acquireWorkspaceMutationShared(rootIdentity);
       }
+      const finishForeground = trackRendererWorkspaceMutation(db);
+      const release = () => {
+        releaseMutation();
+        finishForeground();
+      };
       try {
         assertRendererCurrent();
         await assertWorkspaceMigrationActionsSettled(knownRoot);
-        const db = getDb();
         if (waitForAvailability && !db.inTransaction) {
           await recoverNativeCatalogRecordsWithDatabaseFence(db, knownRoot, assertRendererCurrent);
         } else {
@@ -842,9 +848,9 @@ export function registerFilesystemHandlers(): void {
           });
         }
         assertRendererCurrent();
-        return workspaceMutationCapabilities.issue(event.sender.id, rootIdentity, releaseMutation);
+        return workspaceMutationCapabilities.issue(event.sender.id, rootIdentity, release);
       } catch (error) {
-        releaseMutation();
+        release();
         throw error;
       }
     },
