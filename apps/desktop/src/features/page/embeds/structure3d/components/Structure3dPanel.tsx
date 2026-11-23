@@ -124,6 +124,8 @@ import { useWorkspaceStore } from '../../../../../stores/workspaceStore';
 import { MeasurementLegend } from './MeasurementLegend';
 import { MolecularDataControls } from './MolecularDataControls';
 import { MolViewSpecColorControls } from './MolViewSpecColorControls';
+import { ViewRecipeDropdown } from './ViewRecipeDropdown';
+import { useProteinExtensionView } from '../hooks/useProteinExtensionView';
 import { MolecularPresentationControls } from './MolecularPresentationControls';
 import { commitCurrentMolViewSpecCamera } from '../molstar/molViewSpec';
 import { MolecularViewWorkspace } from './MolecularViewWorkspace';
@@ -1043,6 +1045,15 @@ export function Structure3dPanel({
     () => (structure?.data ? structureSourceIdentityKey(structure.data) : ''),
     [structure?.data]
   );
+  const proteinExtensions = useProteinExtensionView(
+    isLoaded ? plugin : null,
+    JSON.stringify([
+      workspaceRoot,
+      registrationId,
+      currentData?.structureArtifactRef?.coordinateDigestSha256,
+      viewerSourceKey,
+    ])
+  );
   const previousViewerSourceKeyRef = useRef<string | null>(null);
 
   useLayoutEffect(() => {
@@ -1249,7 +1260,8 @@ export function Structure3dPanel({
                 structureId={registrationId}
                 attrs={data}
                 plugin={plugin}
-                ready={isLoaded}
+                ready={isLoaded && !proteinExtensions.active && !proteinExtensions.pending}
+                extensionActive={Boolean(proteinExtensions.active || proteinExtensions.pending)}
                 onSelect={(index) => {
                   handleClearSelection();
                   updateAttrs({ molViewSpecSnapshotIndex: index, cameraSnapshot: undefined });
@@ -1303,16 +1315,29 @@ export function Structure3dPanel({
                   ready={isLoaded}
                 />
                 {activeMolecularDataLayer ? null : data.molViewSpec ? (
-                  <MolViewSpecColorControls
-                    plugin={isLoaded ? plugin : null}
-                    scene={data.molViewSpec}
-                    index={data.molViewSpecSnapshotIndex ?? 0}
-                    source={currentData ?? source}
-                    getLatestAttrs={getLatestStructureAttrs}
-                    updateAttrs={updateAttrs}
-                  />
+                  <>
+                    {proteinExtensions.available && (
+                      <ViewRecipeDropdown
+                        activeRecipeId="native-scene"
+                        activeRecipeNameFallback="Scene"
+                        recipes={[]}
+                        onSelectRecipe={() => {}}
+                        layout="sidebar"
+                        extensions={proteinExtensions}
+                      />
+                    )}
+                    <MolViewSpecColorControls
+                      plugin={isLoaded ? plugin : null}
+                      scene={data.molViewSpec}
+                      index={data.molViewSpecSnapshotIndex ?? 0}
+                      source={currentData ?? source}
+                      getLatestAttrs={getLatestStructureAttrs}
+                      updateAttrs={updateAttrs}
+                    />
+                  </>
                 ) : (
                   <ViewerControls
+                    proteinExtensions={proteinExtensions.available ? proteinExtensions : undefined}
                     colorMode={colorMode}
                     showWater={showWater}
                     spin={spin}

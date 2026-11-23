@@ -150,6 +150,57 @@ describe('ViewerControls', () => {
     expect(onVisibleBackboneSideChainsChange).toHaveBeenCalledWith(true);
   });
 
+  it('installs and selects a protein extension through the normal view menu', () => {
+    const extensions = {
+      installed: [{ id: 'vendor.protein', label: 'Independent style' }],
+      active: null,
+      pending: false,
+      error: null,
+      select: vi.fn(),
+      install: vi.fn(),
+      uninstall: vi.fn(),
+      selectedId: 'vendor.protein',
+      available: true,
+    };
+    const onSelectRecipe = vi.fn();
+    render(
+      <ViewerControls
+        proteinExtensions={extensions}
+        colorMode="chain"
+        showWater={false}
+        spin={false}
+        source="pdb"
+        layout="sidebar"
+        activeRecipeId="cartoon"
+        viewRecipes={availableViewRecipesForStructure({ source: 'pdb', pdbId: '1TIM' })}
+        onColorModeChange={vi.fn()}
+        onShowWaterChange={vi.fn()}
+        onSpinChange={vi.fn()}
+        onSelectRecipe={onSelectRecipe}
+      />
+    );
+    const trigger = screen.getByTestId('structure-view-recipe-trigger');
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Independent style' }));
+    expect(extensions.select).toHaveBeenCalledWith('vendor.protein');
+    expect(onSelectRecipe).not.toHaveBeenCalled();
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Cartoon' }));
+    expect(extensions.select).toHaveBeenLastCalledWith(null);
+    expect(onSelectRecipe).toHaveBeenCalledWith(expect.objectContaining({ id: 'cartoon' }));
+    fireEvent.click(trigger);
+    const input = screen.getByTestId('install-protein-extension-file');
+    const openFile = vi.spyOn(input, 'click');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Install protein extension…' }));
+    expect(openFile).toHaveBeenCalledOnce();
+    const file = new File(['{}'], 'protein.dnaforge-extension.json');
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(extensions.install).toHaveBeenCalledWith(file);
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Uninstall Independent style' }));
+    expect(extensions.uninstall).toHaveBeenCalledWith('vendor.protein');
+  });
+
   it('renders the same non-legacy recipe menu for AlphaFold and PDB monomers', () => {
     const cases: Array<{ source: string; attrs: Structure3dAttrs }> = [
       {

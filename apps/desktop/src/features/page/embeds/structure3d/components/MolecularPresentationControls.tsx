@@ -1,3 +1,4 @@
+import { extensionCaptureReason } from '../molstar/extension-render-capture';
 import { MenuNativeSelect } from '@waypoint/ui-components';
 import {
   toUserMessage,
@@ -38,6 +39,7 @@ type Props = {
   attrs: Structure3dAttrs;
   plugin: MolstarPlugin | null;
   ready: boolean;
+  extensionActive?: boolean;
   onSelect: (index: number) => void;
   onRestore: (reference: DBEntityReference, view: MolecularView) => void;
 };
@@ -123,6 +125,7 @@ export function MolecularPresentationControls({
   attrs,
   plugin,
   ready,
+  extensionActive,
   onSelect,
   onRestore,
 }: Props) {
@@ -534,7 +537,7 @@ export function MolecularPresentationControls({
         type="button"
         className={button}
         disabled={!nativeReady || busy}
-        title="Record the current view in a notebook"
+        title={extensionActive ? extensionCaptureReason : 'Record the current view in a notebook'}
         onClick={openNotebook}
         data-testid="presentation-notebook"
       >
@@ -559,6 +562,7 @@ export function MolecularPresentationControls({
         className={button}
         disabled={!nativeReady || busy || !dirty || projectBaselinePending}
         onClick={() => void save()}
+        title={extensionActive ? extensionCaptureReason : undefined}
         data-testid="presentation-save"
       >
         Save
