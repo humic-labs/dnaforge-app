@@ -198,6 +198,193 @@ async function fixture(pausePublish?: () => Promise<void>) {
   };
 }
 describe('native notebook working copy', () => {
+  it('replays a completed Save receipt after a later notebook edit', async () => {
+    const f = await fixture();
+    const opened = await f.owner.execute({
+      documentId: 'book',
+      operation: { kind: 'inspect-copy' },
+    });
+    const edited = await f.owner.execute({
+      documentId: 'book',
+      expectedRevision: opened.revision,
+      operation: { kind: 'set-title', title: 'Captured title' },
+    });
+    const capture = await f.owner.execute({
+      documentId: 'book',
+      expectedRevision: edited.revision,
+      operation: { kind: 'capture-save' },
+    });
+    const captureId = capture.saveCaptureId;
+    if (!captureId) throw new Error('Expected a Save capture identity');
+    const awaitSave = () =>
+      f.owner.execute({
+        documentId: 'book',
+        operation: { kind: 'await-save', saveCaptureId: captureId },
+      });
+    const saved = await awaitSave();
+    const newer = await f.owner.execute({
+      documentId: 'book',
+      expectedRevision: saved.revision,
+      operation: { kind: 'set-title', title: 'Later title' },
+    });
+    try {
+      expect(newer.revision).not.toBe(saved.revision);
+      expect(await awaitSave()).toMatchObject({
+        revision: saved.revision,
+        persistedRevision: saved.persistedRevision,
+        canonicalFingerprint: saved.canonicalFingerprint,
+        copy: saved.copy,
+        title: saved.title,
+      });
+      expect((await f.load()).title).toBe('Captured title');
+      expect(
+        await f.owner.execute({
+          documentId: 'book',
+          operation: { kind: 'inspect-copy' },
+        })
+      ).toMatchObject({ revision: newer.revision, title: 'Later title', dirty: true });
+    } finally {
+      await f.owner.close();
+    }
+  });
+
+  it('isolates a completed Save receipt from caller mutations', async () => {
+    const f = await fixture();
+    const opened = await f.owner.execute({
+      documentId: 'book',
+      operation: { kind: 'inspect-copy' },
+    });
+    const capture = await f.owner.execute({
+      documentId: 'book',
+      expectedRevision: opened.revision,
+      operation: { kind: 'capture-save' },
+    });
+    const captureId = capture.saveCaptureId;
+    if (!captureId) throw new Error('Expected a Save capture identity');
+    const awaitSave = () =>
+      f.owner.execute({
+        documentId: 'book',
+        operation: { kind: 'await-save', saveCaptureId: captureId },
+      });
+    const first = await awaitSave();
+    const expected = structuredClone(first);
+    const blocks = first.copy.content.content;
+    if (!blocks) throw new Error('Expected notebook blocks');
+    blocks.splice(0, 1, {
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'Caller mutation' }],
+    });
+    try {
+      expect(await awaitSave()).toEqual(expected);
+      expect((await f.load()).content).toEqual(expected.copy.content);
+      expect(
+        (
+          await f.owner.execute({
+            documentId: 'book',
+            operation: { kind: 'inspect-copy' },
+          })
+        ).copy
+      ).toEqual(expected.copy);
+    } finally {
+      await f.owner.close();
+    }
+  });
+
+  it('replays a failed completed Save receipt after later edits', async () => {
+    const f = await fixture();
+    const failure = new Error('Captured publication failed');
+    vi.spyOn(f.options, 'publish').mockRejectedValueOnce(failure);
+    const opened = await f.owner.execute({
+      documentId: 'book',
+      operation: { kind: 'inspect-copy' },
+    });
+    const edited = await f.owner.execute({
+      documentId: 'book',
+      expectedRevision: opened.revision,
+      operation: { kind: 'set-title', title: 'Unsaved title' },
+    });
+    const capture = await f.owner.execute({
+      documentId: 'book',
+      expectedRevision: edited.revision,
+      operation: { kind: 'capture-save' },
+    });
+    const captureId = capture.saveCaptureId;
+    if (!captureId) throw new Error('Expected a Save capture identity');
+    const awaitSave = () =>
+      f.owner.execute({
+        documentId: 'book',
+        operation: { kind: 'await-save', saveCaptureId: captureId },
+      });
+    try {
+      const firstFailure: unknown = await awaitSave().then(
+        () => undefined,
+        (error) => error
+      );
+      if (!(firstFailure instanceof NativeDocumentCommandError)) {
+        throw new Error('Expected the native Save failure', { cause: firstFailure });
+      }
+      expect(firstFailure.code).toBe('NOTEBOOK_SAVE_FAILED');
+      expect(firstFailure.cause).toBe(failure);
+      const current = await f.owner.execute({
+        documentId: 'book',
+        operation: { kind: 'inspect-copy' },
+      });
+      await f.owner.execute({
+        documentId: 'book',
+        expectedRevision: current.revision,
+        operation: { kind: 'set-title', title: 'Later unsaved title' },
+      });
+      await expect(awaitSave()).rejects.toBe(firstFailure);
+      expect((await f.load()).title).toBe('Book');
+    } finally {
+      await f.owner.close();
+    }
+  });
+
+  it('bounds completed Save receipts and evicts the oldest settled capture', async () => {
+    const f = await fixture();
+    const opened = await f.owner.execute({
+      documentId: 'book',
+      operation: { kind: 'inspect-copy' },
+    });
+    const ids: string[] = [];
+    try {
+      for (let index = 0; index < 257; index++) {
+        const capture = await f.owner.execute({
+          documentId: 'book',
+          expectedRevision: opened.revision,
+          operation: { kind: 'capture-save' },
+        });
+        if (!capture.saveCaptureId) throw new Error('Expected a Save capture identity');
+        ids.push(capture.saveCaptureId);
+        await f.owner.execute({
+          documentId: 'book',
+          operation: { kind: 'await-save', saveCaptureId: capture.saveCaptureId },
+        });
+      }
+      const oldest = ids[0],
+        next = ids[1],
+        latest = ids[256];
+      if (!oldest || !next || !latest) throw new Error('Expected bounded Save capture identities');
+      await expect(
+        f.owner.execute({
+          documentId: 'book',
+          operation: { kind: 'await-save', saveCaptureId: oldest },
+        })
+      ).rejects.toMatchObject({ code: 'NOTEBOOK_SAVE_CAPTURE_UNAVAILABLE' });
+      for (const id of [next, latest]) {
+        expect(
+          await f.owner.execute({
+            documentId: 'book',
+            operation: { kind: 'await-save', saveCaptureId: id },
+          })
+        ).toMatchObject({ revision: opened.revision, dirty: false });
+      }
+      expect(f.publishes).toBe(0);
+    } finally {
+      await f.owner.close();
+    }
+  });
   it('keeps the last recoverable revision when a title edit cannot be recorded', async () => {
     const f = await fixture();
     const inspect = () =>

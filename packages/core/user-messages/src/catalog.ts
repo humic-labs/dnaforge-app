@@ -1,4 +1,6 @@
 export const USER_MESSAGES = {
+  'notice.file-change-saved-project-update-incomplete':
+    'The file change was saved, but the project update did not finish. Reopen the project to refresh it.',
   'project.relink.unbound-file-document':
     'This project has retained file recovery identities that cannot follow a folder move yet. The original project and recovery records have been kept.',
   'project.relink.scientific-document':

@@ -159,6 +159,11 @@ export interface NativeNotebookOptions {
     extra?: { context?: NotebookCreationContext; source: 'agent' | 'file-explorer-new-menu' }
   ): Promise<NotebookDocumentSnapshot>;
 }
+type NotebookSaveReceipt =
+  | { state: 'pending'; pending: Promise<NotebookDocumentSnapshot> }
+  | { state: 'saved'; snapshot: NotebookDocumentSnapshot }
+  | { state: 'failed'; failure: unknown };
+
 interface NotebookCopy {
   referenceHistory: NativeNotebookReferenceHistory;
   scope: NativeNotebookScope;
@@ -174,10 +179,7 @@ interface NotebookCopy {
   tableAliasConflict?: string;
   tableAliasBaseline?: { source: NativeNotebookSource; content: JSONContent };
   saves: Map<number, Promise<NotebookDocumentSnapshot>>;
-  saveReceipts: Map<
-    string,
-    { pending?: Promise<NotebookDocumentSnapshot>; failure?: unknown; settled: boolean }
-  >;
+  saveReceipts: Map<string, NotebookSaveReceipt>;
   warnings?: string[];
   requests: Map<
     string,
@@ -679,10 +681,13 @@ export class NativeNotebookWorkingCopyOwner {
           'NOTEBOOK_SAVE_CAPTURE_UNAVAILABLE',
           'Inspect the notebook before starting another save.'
         );
-      const snapshot = receipt.pending ? await receipt.pending : this.snapshot(copy);
+      if (receipt.state === 'failed') {
+        copy.scope.assertCurrent();
+        throw receipt.failure;
+      }
+      const snapshot = receipt.state === 'pending' ? await receipt.pending : receipt.snapshot;
       copy.scope.assertCurrent();
-      if (receipt.failure) throw receipt.failure;
-      return snapshot;
+      return structuredClone(snapshot);
     }
     const fingerprint = createHash('sha256').update(canonicalNotebookJson(request)).digest('hex');
     const cacheRequest =
@@ -849,7 +854,9 @@ export class NativeNotebookWorkingCopyOwner {
           if (operation.kind === 'save') return { save: this.save(copy) };
           if (operation.kind === 'capture-save') {
             if (copy.saveReceipts.size >= 256) {
-              const settled = [...copy.saveReceipts].find(([, receipt]) => receipt.settled);
+              const settled = [...copy.saveReceipts].find(
+                ([, receipt]) => receipt.state !== 'pending'
+              );
               if (!settled)
                 throw refused(
                   'NOTEBOOK_SAVE_CAPTURE_LIMIT',
@@ -858,25 +865,17 @@ export class NativeNotebookWorkingCopyOwner {
               copy.saveReceipts.delete(settled[0]);
             }
             const saveCaptureId = randomUUID(),
-              pending = this.save(copy),
-              receipt: {
-                pending?: Promise<NotebookDocumentSnapshot>;
-                failure?: unknown;
-                settled: boolean;
-              } = {
-                pending,
-                settled: false,
-              };
-            copy.saveReceipts.set(saveCaptureId, receipt);
+              pending = this.save(copy);
+            copy.saveReceipts.set(saveCaptureId, { state: 'pending', pending });
             void pending.then(
-              () => {
-                receipt.pending = undefined;
-                receipt.settled = true;
+              (snapshot) => {
+                copy.saveReceipts.set(saveCaptureId, {
+                  state: 'saved',
+                  snapshot: structuredClone(snapshot),
+                });
               },
-              (error) => {
-                receipt.pending = undefined;
-                receipt.failure = error;
-                receipt.settled = true;
+              (failure) => {
+                copy.saveReceipts.set(saveCaptureId, { state: 'failed', failure });
               }
             );
             return { ...this.snapshot(copy), saveCaptureId };

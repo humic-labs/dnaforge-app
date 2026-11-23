@@ -64,6 +64,24 @@ const config: Config = {
     },
   },
   plugins: [
+    plugin(({ addComponents }) =>
+      addComponents({
+        '.canvas-tab-strip-scroll': {
+          '&[data-sliding] > .tab-shell': {
+            transform: 'translateX(var(--tab-slide-x, 0px))',
+            transition: 'transform 140ms ease-out',
+            '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+          },
+          '&[data-sliding] > [data-grabbed]': {
+            zIndex: '20',
+            backgroundColor: 'hsl(var(--color-bg))',
+            borderRadius: 'var(--radius-md) var(--radius-md) 0 0',
+            transition: 'none',
+          },
+          '& > .tab-shell[data-grabbed] > .tab-inner': { opacity: '1' },
+        },
+      })
+    ),
     plugin(({ addUtilities }) => addUtilities({ '.wp-form-density': menuDensityVariables('form') })),
   ],
 };

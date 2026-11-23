@@ -51,6 +51,7 @@ import {
 import { WebGLMap } from '@waypoint/plasmid-viewer';
 import { useSequenceDataLayers } from '../data-layers/useSequenceDataLayers';
 import { SharedSequenceReadViewer } from './SharedSequenceReadViewer';
+import { bindSangerReadViewProjection } from '../sanger-read-lifecycle-telemetry';
 import type { SharedAlignmentLane } from './shared-sequence-read-model';
 import type { SequenceComparisonInput } from './sequence-comparison-input';
 import type { WebGLMapHandle, BackboneSegment } from '@waypoint/plasmid-viewer';
@@ -1836,6 +1837,7 @@ function WorkspaceViewerInternal({
         : { ...sequence, annotations: annotationsWithPreview as Annotation[] },
     [sequence, annotationsWithPreview]
   );
+  bindSangerReadViewProjection(sourceSequence, sequenceWithExtensionPreview);
   useEffect(() => {
     const store = crossSurfaceStores.cdsExtensionHoverStore;
     const drain = () => {

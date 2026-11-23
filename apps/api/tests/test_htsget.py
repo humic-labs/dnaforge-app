@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import base64
+import json
+import re
 import socket
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import parse_qs
 
 import httpx
@@ -12,6 +15,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from src.control_plane.store import ControlPlaneStore
+from src.external import htsget as htsget_module
 from src.external.credential_broker import CredentialBroker
 from src.external.htsget import HtsgetService, HtsgetSourceError
 from src.external.service import ExternalResourcesService
@@ -24,9 +28,7 @@ from src.services.dna_coverage_shellout import (
 )
 
 
-async def _public_resolver(
-    host: str, _port: int, *, type: socket.SocketKind
-) -> list[tuple]:
+async def _public_resolver(host: str, _port: int, *, type: socket.SocketKind) -> list[tuple]:
     assert type == socket.SOCK_STREAM
     address = "127.0.0.1" if host == "127.0.0.1" else "1.1.1.1"
     return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, 443))]
@@ -120,9 +122,7 @@ async def test_htsget_reads_keep_ticket_capabilities_ephemeral_and_fetch_regions
                                     "https://blocks.example.org/body.bam"
                                     "?X-Amz-Signature=short-lived-secret"
                                 ),
-                                "headers": {
-                                    "Authorization": "Bearer short-lived-secret"
-                                },
+                                "headers": {"Authorization": "Bearer short-lived-secret"},
                                 "class": "body",
                             }
                         ],
@@ -131,14 +131,10 @@ async def test_htsget_reads_keep_ticket_capabilities_ephemeral_and_fetch_regions
             )
         assert request.url.host == "blocks.example.org"
         assert request.headers["authorization"] == "Bearer short-lived-secret"
-        return httpx.Response(
-            200, content=bam, headers={"Content-Encoding": "identity"}
-        )
+        return httpx.Response(200, content=bam, headers={"Content-Encoding": "identity"})
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
-    service = HtsgetService(
-        client, resolver=_public_resolver, root=tmp_path / "runtime"
-    )
+    service = HtsgetService(client, resolver=_public_resolver, root=tmp_path / "runtime")
     try:
         prepared = await service.prepare(
             endpoint="https://htsget.example.org",
@@ -164,17 +160,14 @@ async def test_htsget_reads_keep_ticket_capabilities_ephemeral_and_fetch_regions
             with pysam.AlignmentFile(
                 str(snapshot.path), "rb", index_filename=str(snapshot.index_path)
             ) as alignment:
-                assert [
-                    read.query_name for read in alignment.fetch("chr1", 90, 140)
-                ] == ["read-1"]
+                assert [read.query_name for read in alignment.fetch("chr1", 90, 140)] == ["read-1"]
         finally:
             snapshot.cleanup()
 
         regional_ticket = next(
             request
             for request in requests
-            if request.url.host == "htsget.example.org"
-            and "referenceName" in request.url.params
+            if request.url.host == "htsget.example.org" and "referenceName" in request.url.params
         )
         assert regional_ticket.url.params["start"] == "90"
         assert regional_ticket.url.params["end"] == "140"
@@ -203,9 +196,7 @@ async def test_htsget_variants_page_without_persisting_ticket_urls(
                     "urls": [
                         {
                             "url": _data_uri(vcf, "application/vnd.ga4gh.vcf"),
-                            "class": (
-                                "header" if query.get("class") == ["header"] else "body"
-                            ),
+                            "class": ("header" if query.get("class") == ["header"] else "body"),
                         }
                     ],
                 }
@@ -213,9 +204,7 @@ async def test_htsget_variants_page_without_persisting_ticket_urls(
         )
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
-    service = HtsgetService(
-        client, resolver=_public_resolver, root=tmp_path / "runtime"
-    )
+    service = HtsgetService(client, resolver=_public_resolver, root=tmp_path / "runtime")
     try:
         prepared = await service.prepare(
             endpoint="https://htsget.example.org",
@@ -286,9 +275,7 @@ async def test_htsget_rejects_private_ticket_blocks_and_missing_auth_refs(
         )
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
-    service = HtsgetService(
-        client, resolver=_public_resolver, root=tmp_path / "runtime"
-    )
+    service = HtsgetService(client, resolver=_public_resolver, root=tmp_path / "runtime")
     try:
         with pytest.raises(HtsgetSourceError, match="not connected"):
             await service.prepare(
@@ -406,6 +393,18 @@ def test_htsget_routes_drive_alignment_tiles_and_variant_pages(
             },
         )
 
+    source_tokens = iter(
+        (
+            "test_URL_authorization_" + "A" * 20,
+            "test_URL_authorization_" + "B" * 20,
+        )
+    )
+    monkeypatch.setattr(
+        htsget_module,
+        "secrets",
+        SimpleNamespace(token_urlsafe=lambda _size: next(source_tokens)),
+    )
+
     token = "htsget-route-session"
     monkeypatch.setenv("DNAFORGE_MCP_SESSION_TOKEN", token)
     monkeypatch.setenv("DNAFORGE_MCP_GRANT_CAPABILITIES", "*")
@@ -446,8 +445,16 @@ def test_htsget_routes_drive_alignment_tiles_and_variant_pages(
                 "assembly_revision",
                 "expires_in_seconds",
             }
-            assert "url" not in reads.text.casefold()
-            assert "authorization" not in reads.text.casefold()
+            assert re.fullmatch(r"[A-Za-z0-9_-]+", prepared_reads["source_token"])
+            assert "://" not in reads.text
+            assert "data:" not in reads.text.casefold()
+            assert token not in reads.text
+            source_metadata = {
+                key: value for key, value in prepared_reads.items() if key != "source_token"
+            }
+            metadata_text = json.dumps(source_metadata).casefold()
+            assert "url" not in metadata_text
+            assert "authorization" not in metadata_text
 
             source_fields = {
                 "htsgetToken": prepared_reads["source_token"],
@@ -456,9 +463,7 @@ def test_htsget_routes_drive_alignment_tiles_and_variant_pages(
             }
             header = client.post("/tiles/alignment/header", json=source_fields)
             assert header.status_code == 200, header.text
-            assert header.json()["references"] == [
-                {"name": "chr1", "length": 1_000, "md5": None}
-            ]
+            assert header.json()["references"] == [{"name": "chr1", "length": 1_000, "md5": None}]
             assert header.json()["index"] == {"state": "present"}
 
             alignment = client.post(

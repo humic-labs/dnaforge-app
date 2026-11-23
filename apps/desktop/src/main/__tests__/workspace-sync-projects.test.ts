@@ -1347,13 +1347,13 @@ describe('workspace sync list/open projects', () => {
         );
         const onReplicaApplied = vi.fn(async () => undefined);
         let concurrentBytes: Buffer | undefined;
-        const copy = independentCopy.copyStableFileSync;
+        const copy = independentCopy.copyStableFile;
         const copySpy =
           scenario === 'concurrent write'
             ? vi
-                .spyOn(independentCopy, 'copyStableFileSync')
-                .mockImplementation((source, destination) => {
-                  copy(source, destination);
+                .spyOn(independentCopy, 'copyStableFile')
+                .mockImplementation(async (source, destination) => {
+                  await copy(source, destination);
                   if (source === join(realpathSync(repoPath), assetPath)) {
                     concurrentBytes = Buffer.alloc(originalBytes.length, 0x83);
                     writeFileSync(source, concurrentBytes);

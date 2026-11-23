@@ -1,9 +1,14 @@
 // @vitest-environment jsdom
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import type { PileupRecord, PileupTrackData } from '@waypoint/genome-data';
 
-import { startWebGLRenderLoop, type WebGLRenderLoop } from '../../../react/webgl-render-loop';
+import {
+  startWebGLRenderLoop,
+  type WebGLRenderLoop,
+  type WebGLFatalFrameError,
+} from '../../../react/webgl-render-loop';
+import type { PixiPresentedFrame } from '../../../react/types';
 import { webglThemeForMode, type WebGLRenderTheme } from '../shared/theme';
 import * as readVertices from './annotation-record-vertices';
 import { buildCoverageGpuAtlas } from './coverage-gpu-atlas';
@@ -3986,6 +3991,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       const expected = records.length;
       const advanceAssignment = PersistentRowLayout.prototype.advanceAssignmentWithinBudget;
       let clock = 0;
+      const preparationClock = vi.spyOn(performance, 'now').mockReturnValue(0);
       const assignmentClock = vi
         .spyOn(PersistentRowLayout.prototype, 'advanceAssignmentWithinBudget')
         .mockImplementation(function (this: PersistentRowLayout, job, maxRecords, budgetMs) {
@@ -4040,6 +4046,7 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         expect(frames).toBeGreaterThanOrEqual(Math.ceil(N / CAP));
       } finally {
         assignmentClock.mockRestore();
+        preparationClock.mockRestore();
         r.unmount(c);
       }
     });
@@ -7154,7 +7161,104 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
       readSource: { truncated: false, windowStartBp: 0, windowEndBp: 250_000 },
     };
 
-    r.paint(paintArgsZoom(c, data, 2.0 / 150, { start: 25_000, end: 225_000 }, 800, 120));
+    const firstPaintArgs = paintArgsZoom(
+      c,
+      data,
+      2.0 / 150,
+      { start: 25_000, end: 225_000 },
+      800,
+      120
+    );
+    const firstFrameListeners = new Set<(receipt: PixiPresentedFrame) => void>();
+    let firstFrontLoop: WebGLRenderLoop | null = null;
+    let firstFrontClosed = false;
+    let awaitingFirstFront = false;
+    const stopFirstFront = () => {
+      if (firstFrontClosed) return;
+      firstFrontClosed = true;
+      firstFrontLoop?.stop();
+      firstFrameListeners.clear();
+    };
+    try {
+      awaitingFirstFront = true;
+      await new Promise<void>((resolve, reject) => {
+        onTestFinished(() => {
+          try {
+            stopFirstFront();
+          } finally {
+            if (awaitingFirstFront) {
+              reject(new Error('Test ended before scheduled exact read-front readiness'));
+            }
+            r.unmount(c);
+          }
+        });
+        firstFrameListeners.add(() => {
+          if (firstFrontClosed) return;
+          try {
+            if (r.hasPendingPaintWork(c)) return;
+            if (r.getReadPresentationSnapshot(c)?.kind !== 'reads') {
+              reject(new Error('Scheduled exact read front did not become ready'));
+              return;
+            }
+            resolve();
+          } catch (error) {
+            reject(error instanceof Error ? error : new Error(String(error)));
+          }
+        });
+        firstFrontLoop = startWebGLRenderLoop({
+          instanceId: 'source-window-edge-first-front-readiness',
+          app: { render: () => undefined },
+          renderer: {
+            render: () => {
+              r.paint(firstPaintArgs);
+              return r.hasPendingPaintWork(c);
+            },
+          },
+          interaction: { flushInteraction: () => undefined },
+          stateRef: {
+            current: {
+              performanceMode: 'default',
+              morph: 0,
+              viewOffset: 0,
+              zoom: 2.0 / 150,
+              width: 800,
+              height: 120,
+              geometryHeight: 120,
+              themeMode: 'light',
+              selectedIds: new Set<number>(),
+              hoveredId: null,
+              viewportRange: null,
+              highlightRange: null,
+              digestFocusRange: null,
+              residueLinkRange: null,
+              cursorPosition: null,
+              hoverPosition: null,
+              hoveredCodon: null,
+              selectedCodons: [],
+              hoveredOrf: null,
+              selectedOrf: null,
+              hoveredCutSiteId: null,
+              perfPanelVisible: false,
+              showResidueNumbers: false,
+            },
+          },
+          renderRevisionRef: { current: 1 },
+          visibleRef: { current: true },
+          rafRef: { current: null },
+          frameCountRef: { current: 0 },
+          lastFrameTRef: { current: 0 },
+          presentedFrameListenersRef: { current: firstFrameListeners },
+          postPresentWorkRef: { current: new Set() },
+          isDestroyed: () => false,
+          onFatalFrameError: (failure: WebGLFatalFrameError) => {
+            reject(new Error(failure.name + ': ' + failure.message, { cause: failure }));
+          },
+        } as unknown as Parameters<typeof startWebGLRenderLoop>[0]);
+      });
+    } finally {
+      awaitingFirstFront = false;
+      stopFirstFront();
+    }
     const safelyInside = r.getDiagnostics(c)!;
     expect(safelyInside.rowsVertexCount).toBeGreaterThan(0);
     expect(safelyInside.morphRowsVertexCount).toBe(0);
