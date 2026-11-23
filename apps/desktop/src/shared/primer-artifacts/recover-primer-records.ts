@@ -17,7 +17,11 @@ import { PRIMER_MANAGED_SCHEMA_FIELD_KEYS } from './primer-schema-contract';
 import { parseIdtOligoNotation, type PrimerOligoCompositionV1 } from './oligo-modifications';
 import type { DbPrimerRow, PrimerApplication } from './types';
 import { PRIMER_ARTIFACT_SCHEMA } from '../primer-artifact-schema';
-import type { PrimerRecordRecoveryResult } from './primer-recovery-report';
+import {
+  PrimerRecoveryFileError,
+  primerRecoveryDiagnostic,
+  type PrimerRecordRecoveryResult,
+} from './primer-recovery-report';
 import type { PrimerRecoveryDependencies } from './primer-recovery-port';
 import { legacyPrimerRecoveryArtifactStem } from '../legacy-primer-library-recovery';
 interface LegacyBindingRow {
@@ -284,7 +288,8 @@ export function createPrimerRecordRecoveryOwner(dependencies: PrimerRecoveryDepe
           if (
             !(await Promise.all(files.map((file) => platform().fs.exists(file.path)))).some(Boolean)
           )
-            throw new Error(
+            throw new PrimerRecoveryFileError(
+              'primer.recoveryFileMissing',
               'The primer already had an authoritative document; restore that document before recovery.'
             );
           if (files.length !== 1)
@@ -484,17 +489,18 @@ export function createPrimerRecordRecoveryOwner(dependencies: PrimerRecoveryDepe
         );
       } catch (error) {
         options.signal?.throwIfAborted();
+        const diagnostic = primerRecoveryDiagnostic(error);
         result.errors.push({
           path: `registry:${row.id}`,
           primerName: row.name,
-          message: error instanceof Error ? error.message : String(error),
+          message: diagnostic.message,
         });
         result.records.push({
           id: row.id,
           name: row.name,
           source: 'registry',
           status: 'unresolved',
-          message: error instanceof Error ? error.message : String(error),
+          ...diagnostic,
         });
       }
     }
@@ -647,17 +653,18 @@ export function createPrimerRecordRecoveryOwner(dependencies: PrimerRecoveryDepe
         );
       } catch (error) {
         options.signal?.throwIfAborted();
+        const diagnostic = primerRecoveryDiagnostic(error);
         result.errors.push({
           path: `legacy-primer:${row.id}`,
           primerName: row.name,
-          message: error instanceof Error ? error.message : String(error),
+          message: diagnostic.message,
         });
         result.records.push({
           id: row.id,
           name: row.name,
           source: 'legacy',
           status: 'unresolved',
-          message: error instanceof Error ? error.message : String(error),
+          ...diagnostic,
         });
       }
     }

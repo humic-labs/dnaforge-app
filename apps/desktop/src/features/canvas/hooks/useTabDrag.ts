@@ -1,5 +1,5 @@
-import { useEffect, useCallback, useRef } from 'react';
-import { transferTerminalTab } from '../../terminal/public/tab-transfer';
+import { useLayoutEffect, useCallback, useRef } from 'react';
+import { startSlidingTabRow } from './sliding-tab-row';
 import { useDragStore } from '../dragStore';
 import { useCanvasStore } from '../store';
 import {
@@ -12,44 +12,18 @@ export type DropZone = 'center' | 'top' | 'bottom' | 'left' | 'right' | null;
 
 const EDGE_SIZE = 80;
 
-function terminalSidebarTarget(event: MouseEvent, tabType: string | null) {
-  return tabType === 'terminal' && event.target instanceof Element
-    ? event.target.closest<HTMLElement>('[data-terminal-sidebar]')
-    : null;
-}
-
 function calculateInsertIndex(
   mouseX: number,
   tabBarElement: HTMLElement,
   dragTabId: string
 ): number {
-  const tabs = tabBarElement.querySelectorAll('[role="tab"]');
-  if (tabs.length === 0) return 0;
-
-  const visibleTabs: { index: number; midpoint: number }[] = [];
-  let maxIndex = 0;
-
-  for (let i = 0; i < tabs.length; i++) {
-    const tab = tabs[i] as HTMLElement;
-    const tabIndex = parseInt(tab.getAttribute('data-tab-index') || '0', 10);
-    maxIndex = Math.max(maxIndex, tabIndex);
-
-    if (tab.getAttribute('data-tab-id') === dragTabId) continue;
-
+  const tabs = tabBarElement.querySelectorAll<HTMLElement>('[role="tab"]');
+  for (const [index, tab] of tabs.entries()) {
+    if (tab.dataset.tabId === dragTabId) continue;
     const rect = tab.getBoundingClientRect();
-    if (rect.width === 0) continue;
-
-    const midpoint = rect.left + rect.width / 2;
-    visibleTabs.push({ index: tabIndex, midpoint });
+    if (rect.width > 0 && mouseX < rect.left + rect.width / 2) return index;
   }
-
-  for (const { index, midpoint } of visibleTabs) {
-    if (mouseX < midpoint) {
-      return index;
-    }
-  }
-
-  return maxIndex + 1;
+  return tabs.length;
 }
 
 export function useTabDrag() {
@@ -58,6 +32,7 @@ export function useTabDrag() {
   const dragFromPanelId = useDragStore((s) => s.dragFromPanelId);
   const dragTabLabel = useDragStore((s) => s.dragTabLabel);
   const dragTabType = useDragStore((s) => s.dragTabType);
+  const grab = useDragStore((s) => s.grab);
   const setDropTarget = useDragStore((s) => s.setDropTarget);
   const endDrag = useDragStore((s) => s.endDrag);
 
@@ -67,24 +42,29 @@ export function useTabDrag() {
   const activeZoneRef = useRef<{ zone: DropZone; panelId: string } | null>(null);
   const zoneIndicatorRef = useRef<HTMLDivElement | null>(null);
   const tabPreviewRef = useRef<HTMLDivElement | null>(null);
+  const slidingRow = useRef<ReturnType<typeof startSlidingTabRow>>(null);
   const insertIndexRef = useRef<number | null>(null);
 
-  const calculateZone = useCallback((e: MouseEvent, rect: DOMRect): DropZone => {
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const w = rect.width;
-    const h = rect.height;
+  const calculateZone = useCallback(
+    (e: Pick<MouseEvent, 'clientX' | 'clientY'>, rect: DOMRect): DropZone => {
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const w = rect.width;
+      const h = rect.height;
 
-    if (y < EDGE_SIZE) return 'top';
-    if (y > h - EDGE_SIZE) return 'bottom';
-    if (x < EDGE_SIZE) return 'left';
-    if (x > w - EDGE_SIZE) return 'right';
-    return 'center';
-  }, []);
+      if (y < EDGE_SIZE) return 'top';
+      if (y > h - EDGE_SIZE) return 'bottom';
+      if (x < EDGE_SIZE) return 'left';
+      if (x > w - EDGE_SIZE) return 'right';
+      return 'center';
+    },
+    []
+  );
 
   const createTabPreview = useCallback((label: string, type: string) => {
     const preview = document.createElement('div');
 
+    preview.dataset.floatingTabPreview = '';
     preview.dataset.analyticsBlock = 'true';
     preview.classList.add('ph-no-capture');
     preview.style.position = 'fixed';
@@ -131,12 +111,17 @@ export function useTabDrag() {
     return preview;
   }, []);
 
-  const updateTabPreview = useCallback((e: MouseEvent) => {
-    if (tabPreviewRef.current) {
-      tabPreviewRef.current.style.left = `${e.clientX}px`;
-      tabPreviewRef.current.style.top = `${e.clientY}px`;
-    }
-  }, []);
+  const leaveSourceRow = useCallback(
+    (point: Pick<MouseEvent, 'clientX' | 'clientY'>) => {
+      slidingRow.current?.clear();
+      slidingRow.current = null;
+      if (!dragTabLabel || !dragTabType) return;
+      const preview = (tabPreviewRef.current ??= createTabPreview(dragTabLabel, dragTabType));
+      preview.style.left = `${point.clientX}px`;
+      preview.style.top = `${point.clientY}px`;
+    },
+    [createTabPreview, dragTabLabel, dragTabType]
+  );
 
   const updateOverlay = useCallback((panelElement: HTMLElement | null, zone: DropZone) => {
     if (zoneIndicatorRef.current) {
@@ -196,46 +181,11 @@ export function useTabDrag() {
     zoneIndicatorRef.current = indicator;
   }, []);
 
-  const _updateOverlayForTabBar = useCallback((tabBarElement: HTMLElement) => {
-    if (zoneIndicatorRef.current) {
-      zoneIndicatorRef.current.remove();
-      zoneIndicatorRef.current = null;
-    }
-
-    const rect = tabBarElement.getBoundingClientRect();
-
-    const indicator = document.createElement('div');
-    indicator.style.position = 'fixed';
-    indicator.style.pointerEvents = 'none';
-    indicator.style.zIndex = '9999';
-    indicator.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
-    indicator.style.border = '2px solid rgb(59, 130, 246)';
-    indicator.style.borderRadius = '4px';
-    indicator.style.left = `${rect.left}px`;
-    indicator.style.top = `${rect.top}px`;
-    indicator.style.width = `${rect.width}px`;
-    indicator.style.height = `${rect.height}px`;
-
-    document.body.appendChild(indicator);
-    zoneIndicatorRef.current = indicator;
-  }, []);
-
   const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
+    (e: Pick<MouseEvent, 'clientX' | 'clientY'>) => {
       if (!isDragging || !dragTabId || !dragFromPanelId) return;
 
-      updateTabPreview(e);
-
-      const sidebarTarget = terminalSidebarTarget(e, dragTabType);
-      if (sidebarTarget) {
-        activeZoneRef.current = null;
-        insertIndexRef.current = null;
-        setDropTarget(null, null);
-        updateOverlay(sidebarTarget, 'center');
-        return;
-      }
-
-      const tabBars = document.querySelectorAll('[data-tab-bar]');
+      const tabBars = document.querySelectorAll<HTMLElement>('[data-tab-bar]');
       for (const tabBar of tabBars) {
         const rect = tabBar.getBoundingClientRect();
         if (
@@ -246,7 +196,16 @@ export function useTabDrag() {
         ) {
           const targetPanelId = tabBar.getAttribute('data-tab-bar');
           if (targetPanelId) {
-            const insertIndex = calculateInsertIndex(e.clientX, tabBar as HTMLElement, dragTabId);
+            if (targetPanelId === dragFromPanelId && grab) {
+              slidingRow.current ??= startSlidingTabRow(tabBar, dragTabId, grab.offsetX);
+              tabPreviewRef.current?.remove();
+              tabPreviewRef.current = null;
+            } else {
+              leaveSourceRow(e);
+            }
+            const insertIndex =
+              slidingRow.current?.move(e.clientX) ??
+              calculateInsertIndex(e.clientX, tabBar, dragTabId);
 
             setDropTarget(targetPanelId, insertIndex);
 
@@ -259,6 +218,7 @@ export function useTabDrag() {
         }
       }
 
+      leaveSourceRow(e);
       setDropTarget(null, null);
       insertIndexRef.current = null;
 
@@ -305,21 +265,24 @@ export function useTabDrag() {
       isDragging,
       dragTabId,
       dragFromPanelId,
-      dragTabType,
       calculateZone,
       updateOverlay,
-      updateTabPreview,
+      grab,
+      leaveSourceRow,
       setDropTarget,
     ]
   );
 
   const handleMouseUp = useCallback(
-    (event: MouseEvent) => {
+    (e: MouseEvent) => {
       if (!isDragging || !dragTabId || !dragFromPanelId) {
         endDrag();
         return;
       }
 
+      handleMouseMove(e);
+      slidingRow.current?.clear();
+      slidingRow.current = null;
       const activeZone = activeZoneRef.current;
       const insertIndex = insertIndexRef.current;
 
@@ -332,12 +295,7 @@ export function useTabDrag() {
         tabPreviewRef.current = null;
       }
 
-      if (terminalSidebarTarget(event, dragTabType)) {
-        const source = useCanvasStore.getState().panels[dragFromPanelId];
-        const tab = source?.tabs.find((item) => item.id === dragTabId);
-        if (tab?.type === 'terminal')
-          transferTerminalTab({ target: 'sidebar', viewId: tab.entityId });
-      } else if (activeZone && activeZone.zone) {
+      if (activeZone && activeZone.zone) {
         const { zone, panelId: targetPanelId } = activeZone;
 
         console.log('[useTabDrag] Dropping:', {
@@ -349,7 +307,13 @@ export function useTabDrag() {
         });
 
         if (zone === 'center') {
-          moveTabAtIndex(dragFromPanelId, targetPanelId, dragTabId, insertIndex);
+          let destination = insertIndex;
+          if (dragFromPanelId === targetPanelId && destination !== null) {
+            const sourcePanel = useCanvasStore.getState().panels[dragFromPanelId];
+            const sourceIndex = sourcePanel?.tabs.findIndex((tab) => tab.id === dragTabId) ?? -1;
+            if (sourceIndex >= 0 && sourceIndex < destination) destination--;
+          }
+          moveTabAtIndex(dragFromPanelId, targetPanelId, dragTabId, destination);
         } else {
           const directionMap = {
             top: 'up',
@@ -365,15 +329,24 @@ export function useTabDrag() {
       insertIndexRef.current = null;
       endDrag();
     },
-    [isDragging, dragTabId, dragFromPanelId, dragTabType, endDrag, moveTabAtIndex, splitAndMoveTab]
+    [
+      isDragging,
+      dragTabId,
+      dragFromPanelId,
+      endDrag,
+      moveTabAtIndex,
+      splitAndMoveTab,
+      handleMouseMove,
+    ]
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isDragging && dragTabLabel && dragTabType) {
-      tabPreviewRef.current = createTabPreview(dragTabLabel, dragTabType);
+      if (grab) handleMouseMove(grab);
 
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('blur', endDrag);
 
       document.body.style.cursor = 'grabbing';
       document.body.style.userSelect = 'none';
@@ -382,6 +355,11 @@ export function useTabDrag() {
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
+        window.removeEventListener('blur', endDrag);
+        activeZoneRef.current = null;
+        insertIndexRef.current = null;
+        slidingRow.current?.clear();
+        slidingRow.current = null;
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
         document.body.classList.remove('dragging-tab');
@@ -396,7 +374,7 @@ export function useTabDrag() {
         }
       };
     }
-  }, [isDragging, dragTabLabel, dragTabType, handleMouseMove, handleMouseUp, createTabPreview]);
+  }, [isDragging, dragTabLabel, dragTabType, handleMouseMove, handleMouseUp, grab, endDrag]);
 
   return { isDragging };
 }

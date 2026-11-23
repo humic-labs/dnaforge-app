@@ -272,6 +272,8 @@ export class FileDocumentClient {
   }
 
   execute(operation: FileDocumentClientOperation): Promise<FileDocumentSnapshot> {
+    if (['undo', 'redo', 'discard', 'restore-recovery', 'reload'].includes(operation.kind))
+      this.epoch++;
     return this.enqueue(operation, true);
   }
 

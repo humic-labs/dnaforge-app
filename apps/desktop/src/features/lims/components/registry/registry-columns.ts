@@ -1,3 +1,7 @@
+import {
+  entityKindLabel,
+  schemaEntityTypeLabel,
+} from '@waypoint/scientific-artifacts/shared/entity-types';
 import type { EntitySchemaFieldSnapshot } from '../../../../shared/entity-schema';
 import {
   resolvedEntitySchemaFields,
@@ -15,8 +19,8 @@ export const REGISTRY_SORT_OPTIONS: Array<{ value: LimsRegistrySort; label: stri
   { value: 'updated_asc', label: 'Oldest updated' },
   { value: 'name_asc', label: 'Name A-Z' },
   { value: 'name_desc', label: 'Name Z-A' },
-  { value: 'kind_asc', label: 'Schema A-Z' },
-  { value: 'kind_desc', label: 'Schema Z-A' },
+  { value: 'kind_asc', label: 'Entity type A-Z' },
+  { value: 'kind_desc', label: 'Entity type Z-A' },
   { value: 'status_asc', label: 'Status A-Z' },
   { value: 'status_desc', label: 'Status Z-A' },
   { value: 'registry_id_asc', label: 'ID ascending' },
@@ -34,7 +38,7 @@ export interface RegistryColumnDef {
   width: number;
   align?: 'right';
   filter?: RegistryFilterType;
-  options?: readonly { value: string; label: string }[];
+  options?: readonly { value: string; label: string; count?: number }[];
   field?: EntitySchemaFieldSnapshot;
   property?: SequenceDerivedPropertyDefinition;
 }
@@ -56,7 +60,7 @@ export const REGISTRY_COLUMNS: RegistryColumnDef[] = [
   { key: 'registryId', label: 'ID', sort: 'registry_id', width: 96, filter: 'text' },
   {
     key: 'kind',
-    label: 'Schema',
+    label: 'Entity type',
     sort: 'kind',
     width: 140,
     filter: 'categorical',
@@ -72,9 +76,28 @@ export const REGISTRY_COLUMNS: RegistryColumnDef[] = [
   { key: 'actions', label: 'Actions', width: 64, align: 'right' },
 ];
 
+export function registryKindFilterChoices(
+  availableKinds: readonly { kind: string; count: number }[],
+  selected: readonly string[],
+  schemas: readonly LimsSchemaDefinitionView[]
+): { value: string; label: string; count: number }[] {
+  const counts = new Map(availableKinds.map(({ kind, count }) => [kind, count]));
+  for (const kind of selected) if (!counts.has(kind)) counts.set(kind, 0);
+  const labels = new Map(
+    schemas.map((schema) => [schema.entityKind, schemaEntityTypeLabel(schema)])
+  );
+  return [...counts]
+    .map(([value, count]) => ({
+      value,
+      label: labels.get(value) ?? entityKindLabel(value),
+      count,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label) || a.value.localeCompare(b.value));
+}
+
 export function registryColumnsForSchema(
   schema: LimsSchemaDefinitionView | null | undefined,
-  schemaOptions: readonly { value: string; label: string }[] = []
+  schemaOptions: readonly { value: string; label: string; count?: number }[] = []
 ): RegistryColumnDef[] {
   const system = REGISTRY_COLUMNS.map((column) =>
     column.key === 'kind' ? { ...column, options: schemaOptions } : column

@@ -101,12 +101,17 @@ describe('writable IPC path canonicalization', () => {
     for (const candidatePath of [
       quickLookStore,
       join(quickLookStore, '.promotions', 'forged.json'),
-      electronPaths.userData,
     ]) {
       await expect(assertSafeWritablePath(candidatePath)).rejects.toThrow(
         'Renderer mutation of the main-owned Quick Look store is denied'
       );
     }
+  });
+
+  it('rejects mutation of the profile that contains multiple protected stores', async () => {
+    await expect(assertSafeWritablePath(electronPaths.userData)).rejects.toThrow(
+      /saved entity source store is read-only|main-owned Quick Look store is denied/
+    );
   });
 
   it('blocks renderer mutation of an active promotion and its ancestors until every owner releases', async () => {

@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { actOnAcceptedScientificEntity } from '../scientific-resource-lifecycle';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -16,6 +17,7 @@ const harness = vi.hoisted(() => ({
   beforeFlush: null as (() => void) | null,
 }));
 vi.mock('electron', () => ({
+  shell: { trashItem: async (path: string) => rmSync(path, { recursive: true }) },
   app: { getPath: () => '/tmp', getVersion: () => '1.0.0', isPackaged: false },
   ipcMain: { handle: vi.fn(), on: vi.fn() },
   dialog: { showErrorBox: vi.fn() },
@@ -156,11 +158,13 @@ async function fixture() {
       },
     });
   }
-  await submit({
-    operationId: 'delete-local',
-    expectedHead: store.read().head,
-    source: { kind: 'delete', sourcePath: 'Deleted' },
-  });
+  expect(
+    await actOnAcceptedScientificEntity({
+      db: f.db,
+      action: 'archive',
+      input: { id: 'Deleted-sequence', operationId: 'delete-local' },
+    })
+  ).not.toBeNull();
   mkdirSync(join(root, 'Deleted'), { recursive: true });
   writeFileSync(join(root, 'Deleted/Deleted.gb'), genbank('Deleted'));
   writeFileSync(join(root, 'New.gb'), genbank('New'));

@@ -212,6 +212,7 @@ interface TableGridProps {
   showColumnLabels?: boolean;
 
   referenceWorkspaceRoot?: string;
+  referenceNotebookPageId?: string;
 
   onColumnLabelChange?: (column: number, label: string) => void;
 
@@ -266,6 +267,7 @@ export function TableGrid({
   showCoordinateHeaders = true,
   showColumnLabels,
   referenceWorkspaceRoot,
+  referenceNotebookPageId,
   onColumnLabelChange,
   onColumnResize,
   onRowResize,
@@ -1779,6 +1781,7 @@ export function TableGrid({
                             editingValue={isEditingThisCell ? editingState.value : ''}
                             editInputRef={isEditingThisCell ? editInputRef : undefined}
                             referenceWorkspaceRoot={referenceWorkspaceRoot}
+                            referenceNotebookPageId={referenceNotebookPageId}
                             cellRef={getCellRef(rowIndex, colIndex)}
                           />
                         </td>

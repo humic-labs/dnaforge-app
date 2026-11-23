@@ -1,3 +1,4 @@
+import type Database from 'better-sqlite3';
 import { constants } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { link, lstat, mkdir, open, readFile, rename } from 'node:fs/promises';
@@ -102,6 +103,7 @@ async function readSource(path: string): Promise<{ bytes: Buffer; device: string
 }
 
 export async function migrateFlatNotebookInMain(input: {
+  db?: Database.Database;
   workspaceRoot: string;
   sourcePath: string;
   documentId: string;
@@ -282,7 +284,8 @@ export async function migrateFlatNotebookInMain(input: {
         existingMetadataRaw: receipt.originalRaw,
         updatedAt: receipt.updatedAt,
       },
-      assertCurrent
+      assertCurrent,
+      input.db
     );
     if (await exists(heldPath)) {
       await assertSource(heldPath);

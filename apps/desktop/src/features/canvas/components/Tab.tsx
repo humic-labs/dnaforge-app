@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import type { TabType } from '../types';
 import type { TabStripPresentation } from '../tab-menu-presentation';
 import { stripDisplayExtension } from '../../../utils/fileTypes';
@@ -29,6 +29,7 @@ interface TabProps {
   panelId: string;
   index: number;
   isActive: boolean;
+  insertMarker?: 'before' | 'after';
   isBeforeActive?: boolean;
   isAfterActive?: boolean;
   isEditing?: boolean;
@@ -41,8 +42,6 @@ interface TabProps {
   onRename?: (tabId: string, newLabel: string) => void;
   onCancelRename?: () => void;
 }
-
-const INSERT_GAP_WIDTH = 80;
 
 export function getTabIcon(
   tabType: TabType,
@@ -125,6 +124,7 @@ export const Tab = React.memo(function Tab({
   panelId,
   index,
   isActive,
+  insertMarker,
   isBeforeActive = false,
   isAfterActive = false,
   isEditing,
@@ -139,9 +139,6 @@ export const Tab = React.memo(function Tab({
   const startDrag = useDragStore((s) => s.startDrag);
   const isDragging = useDragStore((s) => s.isDragging);
   const dragTabId = useDragStore((s) => s.dragTabId);
-  const dropTargetPanelId = useDragStore((s) => s.dropTargetPanelId);
-  const dropInsertIndex = useDragStore((s) => s.dropInsertIndex);
-
   const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
   const dragStartedRef = useRef(false);
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -189,13 +186,6 @@ export const Tab = React.memo(function Tab({
     [tab.type, tab.id, onStartRename]
   );
 
-  const showGapBefore = useMemo(() => {
-    if (!isDragging || dropTargetPanelId !== panelId || dropInsertIndex === null) {
-      return false;
-    }
-    return index === dropInsertIndex && dragTabId !== tab.id;
-  }, [isDragging, dropTargetPanelId, panelId, dropInsertIndex, index, dragTabId, tab.id]);
-
   useEffect(() => {
     return () => {
       cleanupRef.current?.();
@@ -208,6 +198,7 @@ export const Tab = React.memo(function Tab({
 
       if ((e.target as HTMLElement).closest('button')) return;
 
+      const offsetX = e.clientX - e.currentTarget.getBoundingClientRect().left;
       mouseDownRef.current = { x: e.clientX, y: e.clientY };
       dragStartedRef.current = false;
 
@@ -220,7 +211,11 @@ export const Tab = React.memo(function Tab({
 
         if (distance > DRAG_THRESHOLD) {
           dragStartedRef.current = true;
-          startDrag(tab.id, panelId, tab.label, tab.type);
+          startDrag(tab.id, panelId, tab.label, tab.type, {
+            offsetX,
+            clientX: moveEvent.clientX,
+            clientY: moveEvent.clientY,
+          });
         }
       };
 
@@ -267,24 +262,6 @@ export const Tab = React.memo(function Tab({
 
   const isBeingDragged = isDragging && dragTabId === tab.id;
 
-  if (isBeingDragged) {
-    return (
-      <div
-        data-analytics-block
-        role="tab"
-        data-tab-id={tab.id}
-        data-tab-index={index}
-        style={{
-          width: 0,
-          padding: 0,
-          overflow: 'hidden',
-          opacity: 0,
-          transition: 'width 150ms ease-out, opacity 150ms ease-out',
-        }}
-      />
-    );
-  }
-
   return (
     <div
       data-analytics-block
@@ -300,10 +277,6 @@ export const Tab = React.memo(function Tab({
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
-      style={{
-        marginLeft: showGapBefore ? `${INSERT_GAP_WIDTH}px` : undefined,
-        transition: 'margin-left 150ms ease-out',
-      }}
       className={`
         ph-no-capture tab-shell relative group flex items-center cursor-pointer text-sm
         select-none max-w-[240px] flex-1 basis-0 self-stretch
@@ -314,6 +287,14 @@ export const Tab = React.memo(function Tab({
         }
       `}
     >
+      {insertMarker && (
+        <span
+          aria-hidden
+          className={`pointer-events-none absolute inset-y-1 z-20 w-0.5 bg-accent ${
+            insertMarker === 'before' ? 'left-0' : 'right-0'
+          }`}
+        />
+      )}
       {!isActive && (
         <span
           aria-hidden
@@ -329,7 +310,11 @@ export const Tab = React.memo(function Tab({
           className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-border-hover transition-opacity duration-150"
         />
       )}
-      <div className="tab-inner relative z-[1] flex items-center gap-1.5 px-3 min-w-0 w-full">
+      <div
+        className={`tab-inner relative z-[1] flex items-center gap-1.5 px-3 min-w-0 w-full ${
+          isBeingDragged ? 'opacity-40' : ''
+        }`}
+      >
         {getTabIconForTab(tab, 'tab-icon w-3.5 h-3.5 flex-shrink-0')}
         {isEditing ? (
           <input

@@ -70,7 +70,10 @@ async function materializeCoordinatePackageWithJournal(
         await buildDefaultMolecularDocument({
           name: stem,
           format,
-          text: format === 'bcif' ? binaryCoordinateText(bytes) : bytes.toString('utf8'),
+          text:
+            format === 'bcif'
+              ? binaryCoordinateText(bytes)
+              : new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes),
           createdAt: (options.now ?? Date.now)(),
           documentId: randomUUID(),
           referenceId: randomUUID(),

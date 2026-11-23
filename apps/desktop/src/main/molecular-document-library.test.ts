@@ -1,7 +1,7 @@
 import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MolecularDocumentLibrary } from './molecular-document-library';
 import { molecularDocumentFixture } from '../test/fixtures/molecular-documents';
 import {
@@ -14,6 +14,20 @@ import {
   appendSavedResidueSelectionRevision,
   createSavedResidueSelectionDocument,
 } from '@waypoint/workspace-editor/saved-residue-selection';
+
+import { createFileTestDb } from './__tests__/test-db';
+import { scopedProjectionId, workspaceScopeKey } from '../shared/workspace-scoped-identity';
+import { savedFileWorkspace } from './saved-file-publication';
+import { restoreSavedFileSource } from './saved-file-sources';
+import { ensureSchema } from './schema';
+
+let retained: ReturnType<typeof createFileTestDb>;
+beforeEach(() => {
+  retained = createFileTestDb('document-source');
+  ensureSchema(retained.db,retained.dbPath);
+});
+afterEach(() => retained.cleanup());
+const store = {db:() => retained.db};
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -37,7 +51,7 @@ describe('native molecular document file authority', () => {
     snapshot.scene = JSON.stringify(scene);
     const bytes = serializeMolecularDocument(document);
     await writeFile(target.path, bytes);
-    const library = new MolecularDocumentLibrary();
+    const library = new MolecularDocumentLibrary(store);
 
     await expect(library.read(target)).rejects.toThrow(/supports MolViewSpec major version/);
     expect(await readFile(target.path, 'utf8')).toBe(bytes);
@@ -64,7 +78,7 @@ describe('native molecular document file authority', () => {
     };
     const bytes = serializeMolecularDocument(document);
     await writeFile(target.path, bytes);
-    const library = new MolecularDocumentLibrary();
+    const library = new MolecularDocumentLibrary(store);
 
     await expect(library.read(target)).rejects.toThrow(/coordinate|structure/i);
     expect(await readFile(target.path, 'utf8')).toBe(bytes);
@@ -80,13 +94,56 @@ describe('native molecular document file authority', () => {
     snapshot.scene = JSON.stringify(scene);
     await writeFile(target.path, serializeMolecularDocument(document));
 
-    await expect(new MolecularDocumentLibrary().read(target)).rejects.toThrow(/no structure/);
+    await expect(new MolecularDocumentLibrary(store).read(target)).rejects.toThrow(/no structure/);
+  });
+
+  it('appends revisions above the old coordinate limit and reopens an independent file copy', async () => {
+    const target = await destination();
+    const copy = await destination();
+    const fixture = await molecularDocumentFixture();
+    const original = fixture.history[0].snapshot.coordinates;
+    const text = `REMARK ${'x'.repeat(8_000_000)}\r\n${original.text}`;
+    const sha256 = await coordinateDigest(text);
+    const history = fixture.history.map(({ referenceId, snapshot }) => ({
+      referenceId,
+      snapshot: { ...snapshot, coordinates: { ...original, text, sha256 } },
+    }));
+    const library = new MolecularDocumentLibrary(store);
+    const first = await library.save({
+      document: { ...fixture, currentReferenceId: history[0].referenceId, history: [history[0]] },
+      destination: target,
+      expectedRevision: null,
+    });
+    const second = await library.save({
+      document: { ...fixture, history },
+      destination: target,
+      expectedRevision: first.revision,
+    });
+    await mkdir(join(copy.workspaceRoot, 'views'));
+    await cp(target.path, copy.path);
+    await rm(target.path);
+    const reopened = await library.read(copy);
+    expect(reopened.revision).toBe(second.revision);
+    expect(reopened.document.history).toHaveLength(2);
+    for (const { snapshot } of reopened.document.history) {
+      expect(snapshot.coordinates.sha256).toBe(sha256);
+      expect(await coordinateDigest(snapshot.coordinates.text)).toBe(sha256);
+    }
+    const stored = JSON.parse(await readFile(copy.path, 'utf8'));
+    expect(Object.keys(stored.coordinateAssets)).toEqual([sha256]);
+    const workspace = savedFileWorkspace(retained.db, target.workspaceRoot)!;
+    await restoreSavedFileSource(retained.db, {
+      workspaceId: workspace.id,
+      entityId: scopedProjectionId(workspaceScopeKey(workspace.repo_uuid, workspace.id), fixture.id),
+      destination: target.path,
+    });
+    expect((await library.read(target)).revision).toBe(second.revision);
   });
 
   it('leaves unsupported newer documents and essential extensions untouched on native open', async () => {
     const target = await destination();
     await mkdir(join(target.workspaceRoot, 'views'));
-    const library = new MolecularDocumentLibrary();
+    const library = new MolecularDocumentLibrary(store);
     for (const stored of [
       { ...legacyV1, schema: 'dnaforge.molecular-document.v99' },
       {
@@ -110,7 +167,7 @@ describe('native molecular document file authority', () => {
     await mkdir(join(target.workspaceRoot, 'views'));
     const bytes = JSON.stringify(legacyV1, null, 2) + '\n';
     await writeFile(target.path, bytes);
-    const library = new MolecularDocumentLibrary();
+    const library = new MolecularDocumentLibrary(store);
     const opened = await library.read(target);
     expect(opened.document.schema).toBe('dnaforge.molecular-document.v2');
     expect(await readFile(target.path, 'utf8')).toBe(bytes);
@@ -140,7 +197,7 @@ describe('native molecular document file authority', () => {
         'org.example.future-feature': { version: 7, data: { retained: [1, 'two', true] } },
       },
     };
-    const library = new MolecularDocumentLibrary();
+    const library = new MolecularDocumentLibrary(store);
     const saved = await library.save({ document, destination: target, expectedRevision: null });
     const renamed = await library.save({
       document: { ...saved.document, name: 'New name' },
@@ -162,7 +219,7 @@ describe('native molecular document file authority', () => {
   it('reopens a copied document with exact complete result history and pooled coordinates', async () => {
     const original = await destination();
     const document = await molecularDocumentFixture();
-    const saved = await new MolecularDocumentLibrary().save({
+    const saved = await new MolecularDocumentLibrary(store).save({
       document,
       destination: original,
       expectedRevision: null,
@@ -170,7 +227,7 @@ describe('native molecular document file authority', () => {
     const copied = await destination();
     await mkdir(join(copied.workspaceRoot, 'views'));
     await cp(original.path, copied.path);
-    const reopened = await new MolecularDocumentLibrary().read(copied);
+    const reopened = await new MolecularDocumentLibrary(store).read(copied);
     expect(reopened.document).toEqual(document);
     expect(reopened.revision).toBe(saved.revision);
     expect(
@@ -181,7 +238,7 @@ describe('native molecular document file authority', () => {
   it('checks the expected file revision and rejects history changes or another document identity', async () => {
     const target = await destination();
     const document = await molecularDocumentFixture();
-    const library = new MolecularDocumentLibrary();
+    const library = new MolecularDocumentLibrary(store);
     const saved = await library.save({ document, destination: target, expectedRevision: null });
     const updated = await library.save({
       document: { ...document, name: 'Renamed explanation' },
@@ -219,7 +276,7 @@ describe('native molecular document file authority', () => {
     await mkdir(join(target.workspaceRoot, 'views'));
     const document = await molecularDocumentFixture();
     await writeFile(target.path, 'original bytes');
-    const library = new MolecularDocumentLibrary();
+    const library = new MolecularDocumentLibrary(store);
     await expect(
       library.save({
         document,
@@ -248,7 +305,7 @@ describe('native molecular document file authority', () => {
     const target = await destination();
     const outside = await destination();
     const document = await molecularDocumentFixture();
-    const library = new MolecularDocumentLibrary();
+    const library = new MolecularDocumentLibrary(store);
     await library.save({ document, destination: outside, expectedRevision: null });
     await symlink(outside.workspaceRoot, join(target.workspaceRoot, 'shortcut'), 'dir');
     for (const path of [
@@ -306,7 +363,7 @@ describe('named selections stored in the view file ', () => {
     const target = await destination();
     const document = await molecularDocumentFixture();
     const selection = selectionFor(document.history[0].snapshot.coordinates.sha256);
-    const library = new MolecularDocumentLibrary();
+    const library = new MolecularDocumentLibrary(store);
     await library.save({
       document: { ...document, selections: [selection] },
       destination: target,
@@ -322,7 +379,7 @@ describe('named selections stored in the view file ', () => {
 
   it('writes no selections field for a view without selections', async () => {
     const target = await destination();
-    await new MolecularDocumentLibrary().save({
+    await new MolecularDocumentLibrary(store).save({
       document: await molecularDocumentFixture(),
       destination: target,
       expectedRevision: null,
@@ -335,7 +392,7 @@ describe('named selections stored in the view file ', () => {
     const target = await destination();
     const document = await molecularDocumentFixture();
     await expect(
-      new MolecularDocumentLibrary().save({
+      new MolecularDocumentLibrary(store).save({
         document: { ...document, selections: [selectionFor('f'.repeat(64))] },
         destination: target,
         expectedRevision: null,
@@ -351,7 +408,7 @@ describe('named selections stored in the view file ', () => {
       color: 'not a color',
     };
     await expect(
-      new MolecularDocumentLibrary().save({
+      new MolecularDocumentLibrary(store).save({
         document: { ...document, selections: [selection] },
         destination: target,
         expectedRevision: null,
@@ -363,7 +420,7 @@ describe('named selections stored in the view file ', () => {
     const target = await destination();
     const document = await molecularDocumentFixture();
     const selection = selectionFor(document.history[0].snapshot.coordinates.sha256);
-    const library = new MolecularDocumentLibrary();
+    const library = new MolecularDocumentLibrary(store);
     const first = await library.save({
       document: { ...document, selections: [selection] },
       destination: target,

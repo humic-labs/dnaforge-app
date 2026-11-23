@@ -34,11 +34,13 @@ export function useDocumentLifecycle(
     if (!initial) return;
     const registration = documentLifecycle.register({
       target: initial.target,
+      readRevision: () => (current.current ?? initial).readRevision(),
       reload: initial.reload
         ? () => current.current?.reload?.() ?? Promise.resolve(false)
         : undefined,
       tabId: initial.tabId,
       isDirty: () => current.current?.isDirty() ?? false,
+      hasAdditionalEdits: () => current.current?.hasAdditionalEdits?.() ?? false,
       save: (scope) => current.current?.save(scope) ?? Promise.resolve(false),
       discard: async () => {
         await current.current?.discard();

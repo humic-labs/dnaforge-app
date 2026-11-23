@@ -73,7 +73,7 @@ export async function readOrganizationSavedSequenceSnapshot(
         read(): Promise<Uint8Array>;
       };
       let files: SourceFile[];
-      if (version.representation === 'manifest_v1') {
+      if (version.representation !== 'bundle_v1') {
         const detail = await projects.downloadManifestVersion!(home, version.id);
         if (detail.version.contentSha256 !== version.contentSha256)
           throw new Error('The saved project manifest changed.');

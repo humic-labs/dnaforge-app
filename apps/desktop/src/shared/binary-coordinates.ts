@@ -1,14 +1,21 @@
-export const BINARY_COORDINATE_TEXT =
-  /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
-
-export function binaryCoordinateText(bytes: Uint8Array): string {
-  let binary = '';
-  for (let offset = 0; offset < bytes.length; offset += 0x8000)
-    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-  return btoa(binary);
+export function binaryCoordinateByteLength(text: string): number {
+  const padding = text.endsWith('==') ? 2 : text.endsWith('=') ? 1 : 0;
+  return (text.length / 4) * 3 - padding;
 }
 
-export function binaryCoordinateBytes(text: string): Uint8Array {
+export function isBinaryCoordinateText(text: string): boolean {
+  return text.length > 0 && text.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}(?![\s\S])/.test(text);
+}
+
+export function binaryCoordinateText(bytes: Uint8Array): string {
+  const chunks: string[] = [];
+  const chunkBytes = 24 * 1024;
+  for (let offset = 0; offset < bytes.length; offset += chunkBytes)
+    chunks.push(btoa(String.fromCharCode(...bytes.subarray(offset, offset + chunkBytes))));
+  return chunks.join('');
+}
+
+export function binaryCoordinateBytes(text: string): Uint8Array<ArrayBuffer> {
   const binary = atob(text);
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
@@ -18,7 +25,7 @@ export function binaryCoordinateBytes(text: string): Uint8Array {
 export function coordinateStructureData(coordinates: {
   format: string;
   text: string;
-}): string | Uint8Array {
+}): string | Uint8Array<ArrayBuffer> {
   return coordinates.format === 'bcif' ? binaryCoordinateBytes(coordinates.text) : coordinates.text;
 }
 

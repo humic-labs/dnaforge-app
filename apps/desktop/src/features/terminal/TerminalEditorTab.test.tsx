@@ -38,8 +38,8 @@ it('keeps a visible editor terminal mounted when another editor pane has keyboar
 
 it('preserves separate visible shells and their drafts when focus and app-tab ownership change', () => {
   const groups: TerminalGroup[] = [
-    { id: 'first', sessions: ['shell-a'], viewId: 'view-a', placement: 'editor' },
-    { id: 'second', sessions: ['shell-b'], viewId: 'view-b', placement: 'editor' },
+    { id: 'first', sessions: ['shell-a'], viewId: 'view-a' },
+    { id: 'second', sessions: ['shell-b'], viewId: 'view-b' },
   ];
   function Shells({ groups }: { groups: TerminalGroup[] }) {
     const targets = useTerminalEditorTargets((state) => state.targets);

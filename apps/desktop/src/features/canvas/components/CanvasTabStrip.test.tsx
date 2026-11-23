@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { TERMINAL_TAB_TRANSFER_EVENT } from '../../terminal/public/tab-transfer';
 import { CanvasTabStrip, RuntimeCanvasTab } from './CanvasTabStrip';
 
 describe('RuntimeCanvasTab', () => {
@@ -37,31 +36,4 @@ describe('RuntimeCanvasTab', () => {
     expect(onClose).toHaveBeenCalledWith('sequences/first.gb');
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
-});
-
-it('places a dragged shell in the panel that owns the drop strip', () => {
-  render(<CanvasTabStrip panelId="second-panel">{null}</CanvasTabStrip>);
-  const transfer = vi.fn();
-  window.addEventListener(TERMINAL_TAB_TRANSFER_EVENT, transfer);
-  try {
-    const strip = screen.getByTestId('tabbar-second-panel');
-    const type = 'application/x-dnaforge-terminal';
-    const dataTransfer = {
-      types: [type],
-      getData: (format: string) => (format === type ? 'live-shell' : ''),
-    };
-    expect(fireEvent.dragOver(strip, { dataTransfer })).toBe(false);
-    fireEvent.drop(strip, { dataTransfer });
-    expect(transfer).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({
-        detail: { target: 'editor', sessionId: 'live-shell', panelId: 'second-panel' },
-      })
-    );
-    const file = { types: ['Files'], getData: () => '' };
-    expect(fireEvent.dragOver(strip, { dataTransfer: file })).toBe(true);
-    fireEvent.drop(strip, { dataTransfer: file });
-    expect(transfer).toHaveBeenCalledTimes(1);
-  } finally {
-    window.removeEventListener(TERMINAL_TAB_TRANSFER_EVENT, transfer);
-  }
 });

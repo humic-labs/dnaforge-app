@@ -4,7 +4,10 @@ import {
   requireComputedMolecularInterfaceSurfaces,
 } from './molecularSurfaceOwnership';
 import { GlobalMetadata, MVSData, type MVSData_State } from 'molstar/lib/extensions/mvs/mvs-data';
-import { binaryCoordinateText } from '../../../../../shared/binary-coordinates';
+import {
+  binaryCoordinateText,
+  coordinateStructureData,
+} from '../../../../../shared/binary-coordinates';
 import type { Parse } from 'molstar/lib/extensions/mvs/tree/mvs/mvs-builder';
 import { BuiltinLoadingExtensions, loadMVS } from 'molstar/lib/extensions/mvs/load';
 import { MolecularInterfaceSurfaceExtension } from './molecularInterfaceSurface';
@@ -32,7 +35,11 @@ import {
   STRUCTURE_FIRST_PAINT_TIMEOUT_MESSAGE,
   waitForPluginInteractionReady,
 } from './viewerReadiness';
-import type { PinnedMolecularAsset } from '../../../../../shared/molecular-view';
+import {
+  PINNED_MOLECULAR_ASSET_NAME,
+  type PinnedMolecularAsset,
+} from '../../../../../shared/molecular-view';
+import type { MolecularCoordinateText } from '../../../../../shared/molecular-storage';
 import { canonicalJson } from '../../../../../shared/canonical-json';
 import { notifyStructureSceneReplaced } from './sceneReplacement';
 import {
@@ -134,6 +141,7 @@ type CoordinateResource = {
 };
 type SceneRuntime = {
   resource: CoordinateResource;
+  snapshotCoordinates?: MolecularCoordinateText;
   pinnedAssets?: readonly PinnedMolecularAsset[];
   pinnedResourceAssets?: Array<{
     descriptor: PinnedMolecularAsset;
@@ -477,15 +485,39 @@ export function captureMolViewSpecView(
           ? authoredCameraSnapshot
           : JSON.stringify(camera),
     initialSnapshotIndex: scene.kind === 'multiple' ? initialSnapshotIndex : undefined,
-    coordinates:
-      typeof runtime.resource.data === 'string'
-        ? {
-            text: runtime.resource.data,
-            format: runtime.resource.format === 'mmcif' ? ('cif' as const) : ('pdb' as const),
-          }
-        : { text: binaryCoordinateText(runtime.resource.data), format: 'bcif' as const },
-    pinnedAssets: runtime.pinnedAssets ?? [],
+    ...activeMolViewSpecCoordinateAssets(plugin),
   };
+}
+
+export function activeMolViewSpecCoordinateAssets(plugin: MolstarPlugin) {
+  const runtime = runtimeFor(plugin);
+  const { data, format } = runtime.resource;
+  const coordinates = (runtime.snapshotCoordinates ??=
+    typeof data === 'string'
+      ? { text: data, format: format === 'mmcif' ? 'cif' : 'pdb' }
+      : { text: binaryCoordinateText(data), format: 'bcif' });
+  return { coordinates, pinnedAssets: runtime.pinnedAssets ?? [] };
+}
+
+export function samePinnedMolViewSpecAssets(
+  captured: readonly PinnedMolecularAsset[],
+  current: readonly PinnedMolecularAsset[]
+): boolean {
+  return (
+    captured.length === current.length &&
+    captured.every((asset, index) => {
+      const next = current[index];
+      return (
+        asset === next ||
+        (asset.name === next.name &&
+          asset.format === next.format &&
+          asset.label === next.label &&
+          asset.sourceReferenceId === next.sourceReferenceId &&
+          asset.sha256 === next.sha256 &&
+          asset.text === next.text)
+      );
+    })
+  );
 }
 
 export function acceptSavedMolViewSpecView(
@@ -509,7 +541,7 @@ export function acceptSavedMolViewSpecView(
     latest.initialSnapshotIndex !== captured.initialSnapshotIndex ||
     latest.coordinates.text !== captured.coordinates.text ||
     latest.coordinates.format !== captured.coordinates.format ||
-    JSON.stringify(latest.pinnedAssets) !== JSON.stringify(captured.pinnedAssets)
+    !samePinnedMolViewSpecAssets(latest.pinnedAssets, captured.pinnedAssets)
   )
     return false;
   const camera = plugin.canvas3d?.camera.getSnapshot();
@@ -943,7 +975,7 @@ export function bindMolViewSpecPinnedAssets(
   }
   const names = new Set<string>([runtime.resource.name]);
   for (const [index, asset] of assets.entries()) {
-    if (!/^asset-[2-4]\.(?:pdb|cif)$/.test(asset.name) || names.has(asset.name))
+    if (!PINNED_MOLECULAR_ASSET_NAME.test(asset.name) || names.has(asset.name))
       throw new MolViewSpecSceneError('MVS_UNSUPPORTED_RESOURCE', 'Invalid pinned asset name.');
     if (!asset.name.endsWith(`.${asset.format}`))
       throw new MolViewSpecSceneError('MVS_UNSUPPORTED_RESOURCE', 'Pinned asset format mismatch.');
@@ -955,10 +987,14 @@ export function bindMolViewSpecPinnedAssets(
           asset: Asset.Url(new URL(asset.name, runtime.resource.sourceUrl).href),
         };
     if (!plugin.managers.asset.get(bound.asset))
-      plugin.managers.asset.set(bound.asset, new File([asset.text], asset.name), {
-        isStatic: true,
-        tag: 'dnaforge-mvs-pinned-asset',
-      });
+      plugin.managers.asset.set(
+        bound.asset,
+        new File([coordinateStructureData(asset)], asset.name),
+        {
+          isStatic: true,
+          tag: 'dnaforge-mvs-pinned-asset',
+        }
+      );
     if (!sameAssets) runtime.pinnedResourceAssets!.push(bound);
   }
   runtime.pinnedAssets = assets;
@@ -1519,7 +1555,7 @@ function prepareMolViewSpecSceneReadback(plugin: MolstarPlugin) {
       },
       ...(runtime.pinnedAssets ?? []).map((asset) => ({
         uri: asset.name,
-        format: asset.format === 'cif' ? 'mmcif' : 'pdb',
+        format: asset.format === 'cif' ? 'mmcif' : asset.format,
         boundTo: 'pinned-comparison-asset',
         label: asset.label,
         sha256: asset.sha256,

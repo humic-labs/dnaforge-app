@@ -258,3 +258,54 @@ describe('shared binary workspace write authority through actual IPC and atomic 
     ).toEqual({ access_role: 'viewer' });
   });
 });
+
+it('retains a standalone selection on its first native file write before any catalog projection exists', async () => {
+  host.db!.prepare("UPDATE workspace_sync_bindings SET access_role='editor'").run();
+  const { createSavedResidueSelectionDocument, serializeSavedResidueSelectionDocument } =
+    await import('@waypoint/workspace-editor/saved-residue-selection');
+  const { restoreSavedFileSource } = await import('../saved-file-sources');
+  const document = createSavedResidueSelectionDocument({
+    id: 'selection:stored',
+    name: 'Selection',
+    color: '#238854',
+    revisionId: 'selection:r1',
+    createdAt: '2026-01-01T00:00:00Z',
+    actor: { kind: 'user' },
+    members: [
+      {
+        id: 'member1',
+        scope: { kind: 'polymer' },
+        selection: {
+          target: {
+            moleculeId: 'protein:example',
+            moleculeKind: 'protein',
+            coordinateSystem: 'residue',
+            intervals: [{ start: 0, end: 1 }],
+          },
+        },
+        polymerRevision: {
+          moleculeId: 'protein:example',
+          moleculeKind: 'protein',
+          sequenceDigestSha256: 'example',
+        },
+      },
+    ],
+  });
+  const content = serializeSavedResidueSelectionDocument(document);
+  const handler = new Map(vi.mocked(ipcMain.handle).mock.calls).get(
+    'fs:writeWorkspaceTextFileAtomic'
+  )!;
+  const path = join(root, 'new.wpselection.json');
+  const saved = await handler(event(), { workspaceRoot: root, path, content, mode: 'create' });
+  expect(saved).toMatchObject({ ok: true });
+  expect(
+    host.db!.prepare('SELECT count(*) FROM catalog_entity_files WHERE path=?').pluck().get(path)
+  ).toBe(0);
+  await rm(path);
+  await restoreSavedFileSource(host.db!, {
+    workspaceId: 7,
+    entityId: document.id,
+    destination: path,
+  });
+  expect(await readFile(path, 'utf8')).toBe(content);
+});

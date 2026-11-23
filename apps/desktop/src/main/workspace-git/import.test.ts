@@ -1,3 +1,4 @@
+import { listSavedFileVersions, restoreSavedFileSource } from '../saved-file-sources';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
@@ -1040,6 +1041,7 @@ describe('importFileIntoWorkspaceRoot ', () => {
     const productPath = join(packageRoot, 'Curated.gb');
     const markerPath = join(packageRoot, '.forge', 'plasmid.json');
     const oldCsv = join(packageRoot, 'primers', 'Curated.primers.csv');
+    const secondCsv = join(packageRoot, 'contents', 'Curated.primers.csv');
     const oldFasta = join(packageRoot, 'primers', 'Curated.primers.fasta');
     const userAsset = join(packageRoot, 'assets', 'gel.txt');
     mkdirSync(join(packageRoot, '.forge'), { recursive: true });
@@ -1049,6 +1051,8 @@ describe('importFileIntoWorkspaceRoot ', () => {
       productPath,
       'LOCUS       old            4 bp    DNA\nORIGIN\n        1 aaaa\n//\n'
     );
+    mkdirSync(join(packageRoot, 'contents'));
+    writeFileSync(secondCsv, 'newer csv');
     writeFileSync(oldCsv, 'stale csv');
     writeFileSync(oldFasta, '>stale\nAAAA\n');
     writeFileSync(userAsset, 'IRREPLACEABLE GEL');
@@ -1099,7 +1103,26 @@ describe('importFileIntoWorkspaceRoot ', () => {
     expect(marker.assembly).toBeUndefined();
     expect(marker.product).toEqual({ file: 'Curated.gb' });
     expect(existsSync(oldCsv)).toBe(false);
+    expect(existsSync(secondCsv)).toBe(false);
     expect(existsSync(oldFasta)).toBe(false);
+    const owner = {
+      workspaceId: (
+        db.prepare('SELECT id FROM workspaces WHERE path=?').get(root) as { id: number }
+      ).id,
+      entityId: 'stable-package-id',
+    };
+    const { versions } = listSavedFileVersions(db, { ...owner, limit: 10, offset: 0 });
+    const destination = join(root, 'Restored');
+    await restoreSavedFileSource(db, { ...owner, revisionId: versions.at(-1)!.id, destination });
+    expect(await readFile(join(destination, 'contents', 'Curated.primers.csv'), 'utf8')).toBe(
+      'newer csv'
+    );
+    expect(await readFile(join(destination, 'primers', 'Curated.primers.csv'), 'utf8')).toBe(
+      'stale csv'
+    );
+    expect(await readFile(join(destination, 'primers', 'Curated.primers.fasta'), 'utf8')).toBe(
+      '>stale\nAAAA\n'
+    );
     expect(await readFile(userAsset, 'utf8')).toBe('IRREPLACEABLE GEL');
     expect(existsSync(join(root, 'Curated (1)'))).toBe(false);
   });

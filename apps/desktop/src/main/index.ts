@@ -1134,6 +1134,8 @@ async function init(): Promise<void> {
   workspaceSync.createRuntime(() => mainWindowRef);
 
   const replicaRecovery = await workspaceSync.recoverReplicaPullsBeforeRenderer();
+  const { scheduleSavedSourceMigration } = await import('./backfill-saved-file-sources');
+  scheduleSavedSourceMigration(getDb(),null);
   const { recoverNativeCatalogRecordsWithDatabaseFence } =
     await import('./native-catalog-record-mutations');
   const { withWorkspaceMutation } = await import('./workspace-sync-mutation-lease');

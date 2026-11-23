@@ -198,11 +198,11 @@ describe('SearchPanel query and open receipts', () => {
     render(<SearchPanel />);
     const input = screen.getByPlaceholderText('Search pages, sequences, primers...');
     fireEvent.change(input, { target: { value: 'old' } });
-    await screen.findByRole('button', { name: 'Open Old result (page)' });
+    await screen.findByRole('button', { name: 'Open Old result (Notebook)' });
     fireEvent.change(input, { target: { value: 'new' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(dispatchOpenExactCatalogEntity).not.toHaveBeenCalled();
-    expect(screen.queryByRole('button', { name: 'Open Old result (page)' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Open Old result (Notebook)' })).toBeNull();
   });
 
   it('clears old results immediately when the query becomes blank', async () => {
@@ -221,12 +221,12 @@ describe('SearchPanel query and open receipts', () => {
     render(<SearchPanel />);
     const input = screen.getByPlaceholderText('Search pages, sequences, primers...');
     fireEvent.change(input, { target: { value: 'old' } });
-    await screen.findByRole('button', { name: 'Open Old result (page)' });
+    await screen.findByRole('button', { name: 'Open Old result (Notebook)' });
     const count = vi.mocked(beginWorkflowAction).mock.calls.length;
     fireEvent.change(input, { target: { value: '   ' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(dispatchOpenExactCatalogEntity).not.toHaveBeenCalled();
-    expect(screen.queryByRole('button', { name: 'Open Old result (page)' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Open Old result (Notebook)' })).toBeNull();
     expect(beginWorkflowAction).toHaveBeenCalledTimes(count);
   });
 
@@ -294,7 +294,7 @@ describe('SearchPanel query and open receipts', () => {
     fireEvent.change(screen.getByPlaceholderText('Search pages, sequences, primers...'), {
       target: { value: 'selected' },
     });
-    fireEvent.click(await screen.findByRole('button', { name: 'Open Selected (page)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Selected (Notebook)' }));
     expect(beginWorkflowAction).toHaveBeenLastCalledWith(
       expect.objectContaining({
         workflow: 'search',
@@ -337,7 +337,7 @@ describe('SearchPanel query and open receipts', () => {
     fireEvent.change(input, { target: { value: 'old' } });
     await waitFor(() => expect(searchMountedCatalogEntityPage).toHaveBeenCalledTimes(1));
     fireEvent.change(input, { target: { value: 'new' } });
-    await screen.findByRole('button', { name: 'Open New result (page)' });
+    await screen.findByRole('button', { name: 'Open New result (Notebook)' });
     await act(async () =>
       finishOld?.({
         results: [
@@ -352,8 +352,8 @@ describe('SearchPanel query and open receipts', () => {
         nextPosition: null,
       })
     );
-    expect(screen.queryByRole('button', { name: 'Open Old result (page)' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Open New result (page)' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Open Old result (Notebook)' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open New result (Notebook)' })).toBeVisible();
     expect(complete).toHaveBeenLastCalledWith(
       expect.objectContaining({ searchActivityRole: 'superseded' })
     );
@@ -407,7 +407,7 @@ describe('SearchPanel query and open receipts', () => {
     fireEvent.change(screen.getByPlaceholderText('Search pages, sequences, primers...'), {
       target: { value: 'strain' },
     });
-    fireEvent.click(await screen.findByRole('button', { name: 'Open Strain (record)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Strain (Record)' }));
     expect(complete).toHaveBeenLastCalledWith({
       status: 'needs_action',
       outcomeKind: 'catalog_registry_requested',

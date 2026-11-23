@@ -127,4 +127,83 @@ describe('create_notebook retries with the same intent', () => {
     );
     expect(disk.writes).toBe(1);
   });
+
+  it('returns an identical historical document-table intent without rewriting its saved package', async () => {
+    const first = await createAuthoredNotebook(request);
+    const legacy = serializeNotebookMarkdown({
+      identity: { id: first.notebookId, title: request.title, formatVersion: 2 },
+      content: {
+        type: 'doc',
+        content: [
+          {
+            type: 'table',
+            content: [
+              {
+                type: 'tableRow',
+                content: ['Primer', 'Exact bases'].map((text) => ({
+                  type: 'tableHeader',
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text, marks: [] }] }],
+                })),
+              },
+              {
+                type: 'tableRow',
+                content: [
+                  {
+                    type: 'tableCell',
+                    content: [
+                      {
+                        type: 'paragraph',
+                        content: [
+                          {
+                            type: 'text',
+                            text: 'primer',
+                            marks: [
+                              {
+                                type: 'link',
+                                attrs: { href: `dnaforge-chat://reference/${referenceId}` },
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    type: 'tableCell',
+                    content: [
+                      {
+                        type: 'paragraph',
+                        content: [
+                          { type: 'text', text: 'CAGCTTTTGTTCCCTTTAGTGAGGGTTAATTG', marks: [] },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'paragraph',
+            content: [
+              { type: 'text', text: 'Saved through ', marks: [] },
+              { type: 'text', text: 'native', marks: [{ type: 'bold' }] },
+            ],
+          },
+        ],
+      },
+    });
+    disk.notebook = {
+      id: first.notebookId,
+      title: request.title,
+      markdown: legacy.markdown,
+      payloads: new Map(legacy.payloads.map((payload) => [payload.relativePath, payload.content])),
+    };
+    const original = structuredClone(disk.notebook);
+    const retry = await createAuthoredNotebook({ ...request, operationId: 'historical-retry' });
+    expect(retry.notebookId).toBe(first.notebookId);
+    expect(disk.writes).toBe(1);
+    expect(disk.notebook).toEqual(original);
+    expect(retry.content.content?.[0].type).toBe('table');
+  });
 });

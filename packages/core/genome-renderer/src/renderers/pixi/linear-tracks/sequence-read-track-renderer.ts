@@ -29,6 +29,13 @@ export type SequenceReadTrackData =
       readonly cycleLength?: number;
     };
 
+export interface SequenceReadPaintReceipt {
+  readonly paintCount: number;
+  readonly traceVisible: boolean;
+  readonly qualityVisible: boolean;
+  readonly basesVisible: boolean;
+}
+
 interface ReadTrackDiagnostics {
   readonly kind: 'alignment' | 'sanger' | null;
   readonly paintCount: number;
@@ -49,6 +56,16 @@ interface MountedState {
   readonly curves: Graphics;
   readonly texts: Text[];
   diagnostics: ReadTrackDiagnostics;
+  painted: {
+    readonly data: Extract<SequenceReadTrackData, { kind: 'sanger' }>;
+    readonly receipt: SequenceReadPaintReceipt;
+  } | null;
+}
+
+interface ReadPaintVisibility {
+  traceVisible: boolean;
+  qualityVisible: boolean;
+  basesVisible: boolean;
 }
 
 const CHANNELS = ['A', 'C', 'G', 'T'] as const;
@@ -124,7 +141,7 @@ function textAt(
   y: number,
   color: number,
   size: number
-): void {
+): Text {
   let label = state.texts[index];
   if (!label) {
     label = new Text({
@@ -139,6 +156,27 @@ function textAt(
   label.style.fill = color;
   label.position.set(x, y);
   label.visible = true;
+  return label;
+}
+
+function primitiveIntersectsViewport(
+  args: TrackPaintArgs,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+): boolean {
+  const top = Math.max(0, args.contentClipTopPx ?? 0, args.containerTopPx);
+  const bottom = Math.min(args.viewportHeightPx, args.containerTopPx + args.layoutEntry.height);
+  const absoluteY = args.containerTopPx + y;
+  return (
+    width > 0 &&
+    height > 0 &&
+    x < args.viewportWidthPx &&
+    x + width > 0 &&
+    absoluteY < bottom &&
+    absoluteY + height > top
+  );
 }
 
 export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<SequenceReadTrackData> {
@@ -157,6 +195,7 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
       marks,
       curves,
       texts: [],
+      painted: null,
       diagnostics: {
         kind: null,
         paintCount: 0,
@@ -176,6 +215,7 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
   paint(args: TrackPaintArgs<SequenceReadTrackData>): void {
     const state = this.states.get(args.container);
     if (!state) return;
+    state.painted = null;
     const { background, marks, curves } = state;
     background.clear();
     marks.clear();
@@ -205,10 +245,15 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
       mutationColumns: 0,
       deletionColumns: 0,
     };
+    const visibility: ReadPaintVisibility = {
+      traceVisible: false,
+      qualityVisible: false,
+      basesVisible: false,
+    };
     if (data.kind === 'alignment') {
       this.paintAlignment(args, state, data, bounds, ink, counts);
     } else {
-      this.paintSanger(args, state, data, bounds, ink, counts);
+      this.paintSanger(args, state, data, bounds, ink, counts, visibility);
     }
     state.diagnostics = {
       kind: data.kind,
@@ -217,6 +262,23 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
       visibleStart: bounds.start,
       visibleEnd: bounds.end,
     };
+    if (
+      data.kind === 'sanger' &&
+      args.container.visible &&
+      !args.layoutEntry.hidden &&
+      width > 0 &&
+      height > 0 &&
+      args.containerTopPx < args.viewportHeightPx &&
+      args.containerTopPx + height > 0
+    ) {
+      state.painted = {
+        data,
+        receipt: {
+          paintCount: state.diagnostics.paintCount,
+          ...visibility,
+        },
+      };
+    }
   }
 
   private paintAlignment(
@@ -271,7 +333,8 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
       baseGlyphs: number;
       mutationColumns: number;
       deletionColumns: number;
-    }
+    },
+    visibility: ReadPaintVisibility
   ): void {
     const pixelsPerBase = args.pathMapper.pixelsPerBp;
     const cycle = data.cycleLength;
@@ -311,8 +374,15 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
           )
           .fill({ color: quality < 20 ? 0xf59e0b : 0x22c55e, alpha: 0.25 });
         counts.qualityBars += 1;
+        visibility.qualityVisible ||= primitiveIntersectsViewport(
+          args,
+          x + 1,
+          30 - Math.min(24, quality * 0.55),
+          Math.max(1, pixelsPerBase - 2),
+          Math.min(24, quality * 0.55)
+        );
       }
-      textAt(
+      const glyph = textAt(
         state,
         textIndex++,
         data.sequence[peak] ?? '',
@@ -322,6 +392,13 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
         12
       );
       counts.baseGlyphs += 1;
+      visibility.basesVisible ||= primitiveIntersectsViewport(
+        args,
+        glyph.x,
+        glyph.y,
+        glyph.width,
+        glyph.height
+      );
     }
 
     if (pixelsPerBase < 1.5) {
@@ -346,6 +423,8 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
       if (values.length === 0) continue;
       let active = false;
       let hasStroke = false;
+      let previousX = 0;
+      let previousY = 0;
       for (let x = 0; x < args.viewportWidthPx; x += 2) {
         const position = origin + (x - originX) / pixelsPerBase;
         const canonical = Math.floor(position);
@@ -361,10 +440,19 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
         if (active) {
           state.curves.lineTo(x, y);
           counts.curveSegments += 1;
+          visibility.traceVisible ||= primitiveIntersectsViewport(
+            args,
+            previousX - 0.75,
+            Math.min(previousY, y) - 0.75,
+            x - previousX + 1.5,
+            Math.abs(y - previousY) + 1.5
+          );
         } else {
           state.curves.moveTo(x, y);
           active = true;
         }
+        previousX = x;
+        previousY = y;
         hasStroke = true;
       }
       if (hasStroke) {
@@ -391,6 +479,15 @@ export class PixiSequenceReadTrackRenderer implements PixiLinearTrackRenderer<Se
 
   getDiagnostics(container: Container): ReadTrackDiagnostics | null {
     return this.states.get(container)?.diagnostics ?? null;
+  }
+
+  getPaintReceipt(
+    container: Container,
+    expectedData: SequenceReadTrackData
+  ): SequenceReadPaintReceipt | null {
+    const painted = this.states.get(container)?.painted;
+    if (!container.visible || !painted || painted.data !== expectedData) return null;
+    return painted.receipt;
   }
 
   unmount(container: Container): void {

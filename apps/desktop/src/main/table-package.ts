@@ -1,3 +1,4 @@
+import type Database from 'better-sqlite3';
 import { createHash } from 'node:crypto';
 import { constants, lstatSync } from 'node:fs';
 import { lstat, mkdir, open, realpath } from 'node:fs/promises';
@@ -224,23 +225,28 @@ export async function readTableSnapshotInMain(input: ReadTableSnapshotInput): Pr
     );
   if (head.status !== 'active')
     invalid('A pending table promotion cannot provide a saved version.');
-  const path = tablePackageRevisionPath(owner.packageRoot, input.snapshotSha256);
+  return readVerifiedTableRevision(owner, input.documentId, input.snapshotSha256);
+}
+
+export async function readVerifiedTableRevision(
+  owner: TablePackageLocation,
+  documentId: string,
+  snapshotSha256: string
+) {
+  const path = tablePackageRevisionPath(owner.packageRoot, snapshotSha256);
   const snapshotText = await readText(owner.workspaceRoot, path);
   const snapshot = parseTableSnapshot(snapshotText);
-  if (snapshot.documentId !== input.documentId)
+  if (snapshot.documentId !== documentId)
     throw new TablePackageError(
       'TABLE_PACKAGE_IDENTITY_MISMATCH',
       'The saved snapshot has a different owner.'
     );
-  if (
-    serializeTableSnapshot(snapshot) !== snapshotText ||
-    hash(snapshotText) !== input.snapshotSha256
-  )
+  if (serializeTableSnapshot(snapshot) !== snapshotText || hash(snapshotText) !== snapshotSha256)
     throw new TablePackageError(
       'TABLE_PACKAGE_SNAPSHOT_MISMATCH',
       'The saved snapshot bytes do not match the requested version.'
     );
-  return { snapshot, snapshotText, snapshotSha256: input.snapshotSha256 };
+  return { snapshot, snapshotText, snapshotSha256 };
 }
 
 async function createDirectories(
@@ -311,7 +317,21 @@ async function settleDirectories(
 
 export async function publishTablePackageInMain(
   input: PublishTablePackageInput,
-  options: TablePackagePublicationOptions
+  options: TablePackagePublicationOptions & { db: Database.Database }
+): Promise<PublishTablePackageResult> {
+  if (!options.db) throw new Error('Publishing a saved table requires its library database.');
+  const { retainTablePublication } = await import('./retain-table-package');
+  return writeTablePackageFiles(input, {
+    ...options,
+    retain: retainTablePublication(options.db, options.assertCurrent),
+  });
+}
+
+export async function writeTablePackageFiles(
+  input: PublishTablePackageInput,
+  options: TablePackagePublicationOptions & {
+    retain?(result: ReadTablePackageResult): Promise<void>;
+  }
 ): Promise<PublishTablePackageResult> {
   const headText = serializeTablePackageHead(input.head);
   const snapshotText = serializeTableSnapshot(input.head.snapshot);
@@ -345,6 +365,7 @@ export async function publishTablePackageInMain(
         throw new WorkspaceFilePreconditionError(
           'The table changed during publication acknowledgement.'
         );
+      await options.retain?.(result);
       current(options);
       return { ...result, publication: 'already-committed' };
     }
@@ -355,6 +376,7 @@ export async function publishTablePackageInMain(
       (!previous || previous.headContentHash !== input.expectedContentHash)
     )
       throw new WorkspaceFilePreconditionError('The table changed since this save was captured.');
+    if (previous) await options.retain?.(previous);
     await createDirectories(owner, paths.revisionsDirectory, options);
     const writeAtomic = options.writeAtomic ?? writeWorkspaceTextFileAtomicInMain;
     const warnings: string[] = [];
@@ -456,6 +478,7 @@ export async function publishTablePackageInMain(
       throw new WorkspaceFilePreconditionError(
         'The table changed before publication was acknowledged.'
       );
+    await options.retain?.(result);
     current(options);
     return { ...result, publication: 'committed', ...(warnings.length ? { warnings } : {}) };
   });

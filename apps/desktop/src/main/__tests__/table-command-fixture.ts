@@ -102,7 +102,7 @@ export async function tableCommandFixture(fixtureOptions: { nativeIdentityPrefix
           mode: 'replace',
           expectedContentHash: input.expectedContentHash.replace(/^sha256:/, ''),
         },
-        { assertCurrent: admission.assertCurrent }
+        { db, assertCurrent: admission.assertCurrent }
       );
     },
     loadRecord: async (path) => records.get(path),

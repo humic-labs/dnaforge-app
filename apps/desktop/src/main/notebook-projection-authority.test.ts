@@ -13,7 +13,7 @@ vi.mock('electron', () => ({
 vi.mock('./analytics', () => ({ trackEvent: vi.fn() }));
 
 import { ensureSchema } from './schema';
-import { publishNotebookPackageV2InMain } from './notebook-package-authority';
+import { publishNotebookPackageV2InMain } from './__tests__/publish-notebook-fixture';
 import { withRendererEntitySql } from './renderer-entity-sql';
 import {
   buildNotebookPackageDocument,
@@ -313,8 +313,12 @@ describe('notebook native projection authority', () => {
     expect(() => mutateLegacyNotebookPageInDb(db, { operation: 'delete', id: pageId })).toThrow(
       'package authority'
     );
-    mutateLegacyNotebookPageInDb(db, { operation: 'delete', id: 'legacy-page' });
-    expect(db.prepare('SELECT * FROM pages WHERE id=?').get('legacy-page')).toBeUndefined();
+    const saved = db.prepare('SELECT * FROM pages WHERE id=?').get('legacy-page');
+    expect(() =>
+      mutateLegacyNotebookPageInDb(db, { operation: 'delete', id: 'legacy-page' })
+    ).toThrow(/only saved copy/);
+    expect(db.prepare('SELECT * FROM pages WHERE id=?').get('legacy-page')).toEqual(saved);
+    expect(mutateLegacyNotebookPageInDb(db, { operation: 'delete', id: 'absent' })).toBeNull();
   });
 
   it('deletes a notebook by retiring its package, projection and receipt together', async () => {

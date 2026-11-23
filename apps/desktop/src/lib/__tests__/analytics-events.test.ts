@@ -129,6 +129,7 @@ describe('analytics-events catalog', () => {
       'agent_auth_state_observed',
       'model_preference_observed',
       'indexed_genome_stage',
+      'sanger_read_stage',
     ]);
   });
 

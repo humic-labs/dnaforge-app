@@ -1,3 +1,4 @@
+import { withCatalogFileSource } from './catalog-file-source-retention';
 import type Database from 'better-sqlite3';
 import { realpath, stat } from 'node:fs/promises';
 import {
@@ -69,7 +70,13 @@ export function createNativeCatalogDatabase(
       const witness = catalogFileBindingAdmissionWitnessInDb(db, request);
       const fingerprint = await resolveBindingSequenceFingerprint(db, request);
       options.assertCurrent();
-      return bindCatalogEntityFileInDb(db, request, undefined, witness, fingerprint);
+      return withCatalogFileSource(
+        db,
+        request,
+        () => bindCatalogEntityFileInDb(db, request, undefined, witness, fingerprint),
+        (row) => row.entity_id,
+        options.assertCurrent
+      );
     }),
     ensureWorkspaceOwner: guarded((...args) => ensureWorkspaceOwnerInDb(db, ...args)),
     ensureSequenceIndex: guarded((input) => ensureSequenceIndexInDb(db, input)),
@@ -78,7 +85,13 @@ export function createNativeCatalogDatabase(
       const witness = catalogWorkspaceFileAdmissionWitnessInDb(db, input);
       const fingerprint = await resolveWorkspaceFileSequenceFingerprintInDb(db, input);
       options.assertCurrent();
-      return registerWorkspaceFileInDb(db, input, fingerprint, witness);
+      return withCatalogFileSource(
+        db,
+        input,
+        () => registerWorkspaceFileInDb(db, input, fingerprint, witness),
+        (row) => row.id,
+        options.assertCurrent
+      );
     }),
     setCatalogFileState: guarded((...args) => setCatalogFileStateInDb(db, ...args)),
     refreshCatalogFileFingerprints: guarded((input) =>

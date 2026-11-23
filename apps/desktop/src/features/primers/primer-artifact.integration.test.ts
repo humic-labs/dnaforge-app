@@ -48,6 +48,9 @@ vi.mock('../../platform', () => ({
 }));
 
 import type Database from 'better-sqlite3';
+import { removeOwnedLegacyPrimerBindingInDb } from '../../main/native-rich-paste-primer-bindings';
+import { primerBindingOwnershipEventId } from '../../shared/primer-artifacts/primer-binding-ownership';
+import { withRendererEntitySql } from '../../main/renderer-entity-sql';
 import { openFileTestDb } from '../../main/__tests__/test-db';
 import { createLimsBridgeForDb } from '../../main/__tests__/lims-bridge-for-db';
 import { saveSequenceDocumentWithLineage } from '../../main/sequence-document-save';
@@ -116,6 +119,7 @@ import {
   reconcilePrimerArtifact,
   reconcilePrimerArtifactsInWorkspace,
   savePrimerArtifact,
+  restoreSavedPrimerDocument,
   updatePrimerArtifactBinding,
 } from './primer-artifact-service';
 import { useSettingsStore } from '../junction-workbench/settings';
@@ -324,6 +328,171 @@ afterEach(() => {
   rmSync(workspaceRoot, { recursive: true, force: true });
 });
 
+it('keeps an existing local primer editable by ID through Files rename, folder move and rollback', async () => {
+  const { createWorkspaceFileRelocator } = await import('../../main/workspace-file-relocation');
+  const { registerAdmittedProjectRoot } = await import('../../main/admitted-project-roots');
+  const { resolveNotebookEntityTargets } =
+    await import('../../main/resolve-notebook-entity-targets');
+  const { readPrimerArtifactForPrimer } = await import('./primer-artifact-service');
+  const { createHash } = await import('node:crypto');
+  const { primer } = await reconcilePrimerArtifact(artifactPath, workspaceRoot);
+  const priorBytes = readFileSync(artifactPath, 'utf8');
+  const root = realpathSync(workspaceRoot);
+  registerAdmittedProjectRoot(root);
+  const files = createWorkspaceFileRelocator({
+    db: () => db,
+    fileDocuments: () => ({
+      assertClean: async () => {},
+      withCleanPaths: async (_paths, operation) => operation(),
+      relocate: async () => {},
+    }),
+  });
+  const renamed = join(workspaceRoot, 'primers', 'renamed.primer.json');
+  await files.relocateEntityFile({ workspaceRoot, oldPath: artifactPath, newPath: renamed }, 312);
+  const folder = join(workspaceRoot, 'Moved');
+  await files.relocateEntityFile(
+    { workspaceRoot, oldPath: join(workspaceRoot, 'primers'), newPath: folder },
+    312
+  );
+  const path = join(folder, 'renamed.primer.json');
+  const movedBytes = readFileSync(path, 'utf8');
+  const hash = createHash('sha256').update(movedBytes).digest('hex');
+  expect(
+    db
+      .prepare(
+        "SELECT file_kind, relative_path, content_hash FROM catalog_entity_files WHERE entity_id=? AND status='current'"
+      )
+      .get(primer.id)
+  ).toEqual({
+    file_kind: 'primer-artifact',
+    relative_path: 'Moved/renamed.primer.json',
+    content_hash: `sha256:${hash}`,
+  });
+  expect(
+    db
+      .prepare("SELECT json_extract(fields,'$.artifact.contentHash') FROM lims_entity WHERE id=?")
+      .pluck()
+      .get(primer.id)
+  ).toBe(hash);
+  expect(
+    db
+      .prepare("SELECT json_extract(origin_details,'$.artifactPath') FROM primers WHERE id=?")
+      .pluck()
+      .get(primer.id)
+  ).toBe('Moved/renamed.primer.json');
+  expect(
+    db
+      .prepare(
+        "SELECT json_extract(payload,'$.content') FROM catalog_entity_events WHERE entity_id=? AND event_type='primer_relocation_source' ORDER BY rowid LIMIT 1"
+      )
+      .pluck()
+      .get(primer.id)
+  ).toBe(priorBytes);
+  expect(
+    db
+      .prepare(
+        "SELECT json_extract(payload,'$.content') FROM catalog_entity_events WHERE entity_id=? AND event_type='primer_saved_source' AND json_extract(payload,'$.sha256')=?"
+      )
+      .pluck()
+      .get(primer.id, hash)
+  ).toBe(movedBytes);
+  db.exec(
+    "CREATE TEMP TRIGGER fail_primer_move BEFORE UPDATE OF path ON catalog_entity_files BEGIN SELECT RAISE(ABORT,'reject this test relocation'); END"
+  );
+  const refused = join(folder, 'rollback.primer.json');
+  await expect(
+    files.relocateEntityFile({ workspaceRoot, oldPath: path, newPath: refused }, 312)
+  ).rejects.toThrow('reject this test relocation');
+  expect(existsSync(refused)).toBe(false);
+  expect(readFileSync(path, 'utf8')).toBe(movedBytes);
+  db.exec('DROP TRIGGER fail_primer_move');
+  const edited = await updatePrimer({ id: primer.id, notes: 'Edited after moving' });
+  expect(edited?.id).toBe(primer.id);
+  const reopened = await readPrimerArtifactForPrimer(edited!, workspaceRoot);
+  expect(reopened?.artifact.metadata.notes).toBe('Edited after moving');
+  expect(reopened?.artifact.file.workspaceRelativePath).toBe('Moved/renamed.primer.json');
+  const link = await resolveNotebookEntityTargets(db, {
+    ids: [primer.id],
+    scope: { projectRoot: workspaceRoot },
+  });
+  expect(link.items[0].status).toBe('available');
+});
+
+it('recovers an interrupted primer folder move only from its recorded files and leaves unrelated changes intact', async () => {
+  const { renameSync, unlinkSync } = await import('node:fs');
+  const { preparePrimerFileMove, releasePrimerMove } =
+    await import('../../main/primer-file-move-intent');
+  const { recoverNativeCatalogRecordPublications } =
+    await import('../../main/native-catalog-record-mutations');
+  const { resolveNotebookEntityTargets } =
+    await import('../../main/resolve-notebook-entity-targets');
+  const { primer } = await reconcilePrimerArtifact(artifactPath, workspaceRoot);
+  const directory = join(workspaceRoot, 'primers');
+  const destination = join(workspaceRoot, 'moved');
+  const neighbor = 'neighbor.txt';
+  writeFileSync(join(directory, neighbor), 'a user document');
+  const prepare = () =>
+    preparePrimerFileMove(db, { workspaceRoot, oldPath: directory, newPath: destination });
+  const recover = () =>
+    recoverNativeCatalogRecordPublications({
+      db,
+      workspacePath: workspaceRoot,
+      runDatabase: (operation) => operation(),
+    });
+  const pending = () =>
+    db
+      .prepare(
+        "SELECT COUNT(*) FROM native_catalog_publication_outbox o JOIN catalog_entity_events e ON e.id=o.operation_id AND e.event_type='primer_file_move_prepared'"
+      )
+      .pluck()
+      .get();
+  const originalBytes = readFileSync(artifactPath, 'utf8');
+  const beforeRename = await prepare();
+  expect(beforeRename).toBeTruthy();
+  releasePrimerMove(beforeRename);
+  await recover();
+  expect(pending()).toBe(0);
+  expect(readFileSync(artifactPath, 'utf8')).toBe(originalBytes);
+  const interrupted = await prepare();
+  releasePrimerMove(interrupted);
+  renameSync(directory, destination);
+  mkdirSync(directory);
+  writeFileSync(join(directory, neighbor), 'a different occupant');
+  await expect(recover()).rejects.toThrow('interrupted primer move conflicts');
+  expect(readFileSync(join(directory, neighbor), 'utf8')).toBe('a different occupant');
+  expect(pending()).toBe(1);
+  unlinkSync(join(directory, neighbor));
+  rmSync(directory, { recursive: true });
+  writeFileSync(join(destination, neighbor), 'manually edited while closed');
+  await expect(recover()).rejects.toThrow('interrupted primer move conflicts');
+  expect(readFileSync(join(destination, neighbor), 'utf8')).toBe('manually edited while closed');
+  expect(pending()).toBe(1);
+  writeFileSync(join(destination, neighbor), 'a user document');
+  await recover();
+  expect(pending()).toBe(0);
+  const resolved = await resolveNotebookEntityTargets(db, {
+    ids: [primer.id],
+    scope: { projectRoot: workspaceRoot },
+  });
+  expect(resolved.items[0].status).toBe('available');
+  const savedPath = db
+    .prepare("SELECT path FROM catalog_entity_files WHERE entity_id=? AND status='current'")
+    .pluck()
+    .get(primer.id) as string;
+  expect(JSON.parse(readFileSync(savedPath, 'utf8')).file.workspaceRelativePath).toBe(
+    savedPath.slice(workspaceRoot.length + 1)
+  );
+  expect(readFileSync(join(destination, neighbor), 'utf8')).toBe('a user document');
+  const eventCount = () =>
+    db
+      .prepare('SELECT COUNT(*) FROM catalog_entity_events WHERE entity_id=?')
+      .pluck()
+      .get(primer.id);
+  const count = eventCount();
+  await recover();
+  expect(eventCount()).toBe(count);
+});
+
 async function recoverRelationshipFixture(foreignOwner = false) {
   db.prepare('UPDATE workspaces SET repo_uuid = ? WHERE id = 1').run('primer-owner-uuid');
   db.prepare(
@@ -360,6 +529,61 @@ async function recoverRelationshipFixture(foreignOwner = false) {
 }
 
 describe('primer artifact reconciliation against the real LIMS engine', () => {
+  it('rechecks saved file diagnostics against the restored primer without changing historical reports', async () => {
+    const fixture = await recoverRelationshipFixture();
+    const key = 'primer_recovery_project_v1:primer-owner-uuid';
+    const savedReport = () =>
+      db.prepare('SELECT value FROM settings WHERE key = ?').pluck().get(key) as string;
+    const entry = async () =>
+      (await refreshPrimerRecoveryInventory()).entries.find((row) => row.id === fixture.primer.id);
+    const parked = join(workspaceRoot, 'parked.json');
+    renameSync(fixture.path, parked);
+    await reconcilePrimerArtifactsInWorkspace(workspaceRoot);
+    const reported = savedReport();
+    const project = JSON.parse(reported);
+    const failed = project.records.find(
+      (record: { id: string }) => record.id === fixture.primer.id
+    );
+    expect(failed).toMatchObject({ status: 'unresolved', reason: 'primer.recoveryFileMissing' });
+    expect(await entry()).toMatchObject({
+      status: 'needs-review',
+      restore: { id: fixture.primer.id },
+    });
+
+    renameSync(parked, fixture.path);
+    expect(await entry()).toMatchObject({ status: 'document-backed' });
+    expect(savedReport()).toBe(reported);
+    const legacyMessage = 'The saved primer document is outside its recorded project.';
+    const legacy = { ...failed, message: legacyMessage };
+    delete legacy.reason;
+    const storeRecords = (...records: unknown[]) => {
+      const value = JSON.stringify({ ...project, records });
+      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(value, key);
+      return value;
+    };
+    const historical = storeRecords(legacy);
+    expect(await entry()).toMatchObject({ status: 'document-backed' });
+    expect(savedReport()).toBe(historical);
+    const otherPrimer = JSON.parse(readFileSync(artifactPath, 'utf8'));
+    otherPrimer.file.workspaceRelativePath = JSON.parse(fixture.bytes).file.workspaceRelativePath;
+    writeFileSync(fixture.path, JSON.stringify(otherPrimer));
+    expect(await entry()).toMatchObject({
+      status: 'needs-review',
+      message: expect.stringMatching(/different record/),
+    });
+    writeFileSync(fixture.path, fixture.bytes);
+    storeRecords(
+      { ...legacy, message: 'A current relationship conflicts with this document.' },
+      legacy
+    );
+    expect(await entry()).toMatchObject({
+      status: 'needs-review',
+      message: expect.stringMatching(/relationship conflicts/),
+    });
+    storeRecords({ ...legacy, reason: 'recovery-failed' });
+    expect(await entry()).toMatchObject({ status: 'needs-review', message: legacyMessage });
+  });
+
   it.each(['payload', 'identity'] as const)(
     'keeps a conflicting current relationship %s intact and reports retained evidence',
     async (conflict) => {
@@ -703,6 +927,110 @@ describe('primer artifact reconciliation against the real LIMS engine', () => {
       (await mocks.platformBridge.lims.queryEntities({ id: 'primer-entity-1' }))[0].fields.sequence
         .bases
     ).toBe(JSON.parse(before).sequence.bases);
+  });
+
+  it('recovers a database-only primer before detaching one site through guarded renderer access', async () => {
+    const primer = await legacyPastePrimer();
+    const insert = db.prepare(`INSERT INTO primer_bindings
+      (id,primer_id,sequence_id,binding_start,binding_end,strand,source,created_at,updated_at)
+      VALUES(?,?,?,?,?,1,'manual',1,1)`);
+    insert.run('detach-this', primer.id, targetSequenceId, 10, 30);
+    insert.run('retain-this', primer.id, targetSequenceId, 41, 61);
+    expect(db.prepare('SELECT id FROM lims_entity WHERE id=?').get(primer.id)).toBeUndefined();
+    mocks.platformBridge!.db.execute = async (sql, params = []) =>
+      withRendererEntitySql(db, sql, () => {
+        const result = db.prepare(sql).run(...params);
+        return { changes: result.changes, lastInsertRowid: Number(result.lastInsertRowid) };
+      });
+
+    await expect(
+      deleteBinding('detach-this', {
+        expectedOwner: { primerId: 'different', sequenceId: targetSequenceId },
+      })
+    ).rejects.toThrow(/belongs to another/);
+    await expect(
+      deleteBinding('detach-this', {
+        expectedOwner: { primerId: primer.id, sequenceId: targetSequenceId + 1 },
+      })
+    ).rejects.toThrow(/belongs to another/);
+    await deleteBinding('detach-this', {
+      expectedOwner: { primerId: primer.id, sequenceId: targetSequenceId },
+    });
+
+    const [registered] = await mocks.platformBridge!.lims.queryEntities({ id: primer.id });
+    const saved = parsePrimerArtifact(
+      readFileSync(join(workspaceRoot, registered.fields.artifact.relativePath), 'utf8')
+    );
+    expect(saved.id).toBe(primer.id);
+    expect(saved.artifactRevision).toBeGreaterThan(1);
+    expect(saved.bindings.map((binding) => binding.id)).toEqual(['retain-this']);
+    expect(db.prepare('SELECT id FROM primer_bindings WHERE primer_id=?').all(primer.id)).toEqual([
+      { id: 'retain-this' },
+    ]);
+    expect((await getPrimerById(primer.id))?.sequence).toBe(primer.sequence);
+    const events = db
+      .prepare('SELECT event_type FROM lims_audit WHERE subject_id=? ORDER BY event_seq')
+      .pluck()
+      .all(primer.id);
+    expect(events).toContain('entity_registered');
+    expect(events).toContain('entity_updated');
+  });
+
+  it('retires only the exact draft-owned legacy binding and keeps a durable copy of its coordinates', async () => {
+    const primer = await legacyPastePrimer();
+    const intent = {
+      primerId: primer.id,
+      sequenceId: targetSequenceId,
+      bindingId: 'pasted-detach',
+      documentId: targetDocumentId,
+      draftLineageId: 'saved-draft',
+      pendingId: 'paste-id',
+    };
+    const id = primerBindingOwnershipEventId(intent);
+    const insert =
+      db.prepare(`INSERT INTO primer_bindings(id,primer_id,sequence_id,binding_start,binding_end,strand,source,created_at,updated_at)
+      VALUES(?,?,?,10,30,1,'manual',1,1)`);
+    insert.run(intent.bindingId, primer.id, targetSequenceId);
+    recordCatalogEventInDb(db, {
+      id,
+      entityId: intent.documentId,
+      eventType: 'rich_paste_primer_binding_intent_v1',
+      actor: 'system',
+      payload: intent,
+    });
+    for (const changed of [
+      { bindingId: 'somebody-else' },
+      { primerId: 'somebody-else' },
+      { sequenceId: targetSequenceId + 1 },
+      { draftLineageId: 'different-draft' },
+    ]) {
+      expect(() => removeOwnedLegacyPrimerBindingInDb(db, { ...intent, ...changed })).toThrow(
+        /does not own/
+      );
+    }
+    const saved = db.prepare('SELECT * FROM primer_bindings WHERE id=?').get(intent.bindingId);
+    db.exec(`CREATE TRIGGER fail_detach_history BEFORE INSERT ON catalog_entity_events
+      WHEN NEW.event_type='rich_paste_primer_binding_removed' BEGIN SELECT RAISE(ABORT,'history unavailable'); END;`);
+    expect(() => removeOwnedLegacyPrimerBindingInDb(db, intent)).toThrow('history unavailable');
+    expect(db.prepare('SELECT * FROM primer_bindings WHERE id=?').get(intent.bindingId)).toEqual(
+      saved
+    );
+    db.exec('DROP TRIGGER fail_detach_history');
+    removeOwnedLegacyPrimerBindingInDb(db, intent);
+    removeOwnedLegacyPrimerBindingInDb(db, intent);
+    expect(
+      db.prepare('SELECT id FROM primer_bindings WHERE id=?').get(intent.bindingId)
+    ).toBeUndefined();
+    expect((await getPrimerById(primer.id))?.id).toBe(primer.id);
+    const events = db
+      .prepare(
+        "SELECT payload FROM catalog_entity_events WHERE entity_id=? AND event_type='rich_paste_primer_binding_removed'"
+      )
+      .pluck()
+      .all(intent.documentId) as string[];
+    expect(events.map((payload) => JSON.parse(payload))).toEqual([
+      { ownershipId: id, binding: saved },
+    ]);
   });
 
   it('keeps older attach and detach commands in the saved document with their original binding source', async () => {
@@ -1601,6 +1929,109 @@ describe('primer artifact reconciliation against the real LIMS engine', () => {
     );
   });
 
+  it('retains an ordinary first save and repairs a missing file from its exact checked source', async () => {
+    const path = join(workspaceRoot, 'primers', 'first-save.primer.json');
+    const input = {
+      name: 'First save',
+      sequence: 'ATGCGTACGTAGCTAGCTAG',
+      artifactPath: path,
+      workspaceRoot,
+      requireRegistry: true as const,
+    };
+    const saved = await savePrimerArtifact(input);
+    expect(saved.gitCommitted).toBe(false);
+    const id = saved.artifact.id;
+    const bytes = readFileSync(path);
+    const source = db
+      .prepare(
+        "SELECT payload FROM catalog_entity_events WHERE entity_id=? AND event_type='primer_saved_source'"
+      )
+      .pluck();
+    const receipt = JSON.parse(source.get(id) as string);
+    expect(receipt.content).toBe(bytes.toString('utf8'));
+    expect(receipt.sha256).toBe(saved.limsEntity.fields.artifact.contentHash);
+    await savePrimerArtifact({ ...input, artifactId: id });
+    expect(source.all(id)).toHaveLength(1);
+    rmSync(path);
+    const missing = (await refreshPrimerRecoveryInventory()).entries.find((row) => row.id === id);
+    expect(missing?.restore).toMatchObject({ id, sha256: receipt.sha256 });
+    expect(existsSync(path)).toBe(false);
+    const selection = missing!.restore!;
+    writeFileSync(path, 'replacement');
+    await expect(restoreSavedPrimerDocument(selection)).rejects.toThrow(/different file/);
+    expect(readFileSync(path, 'utf8')).toBe('replacement');
+    rmSync(path);
+    await expect(
+      restoreSavedPrimerDocument({ ...selection, sha256: '0'.repeat(64) })
+    ).rejects.toThrow(/changed before recovery/);
+    setCatalogFileStateInDb(db, path, 'missing', 'workspace-reconcile');
+    db.exec('SAVEPOINT invalid_source');
+    db.prepare(
+      "UPDATE catalog_entity_events SET payload=json_set(payload,'$.content','changed') WHERE entity_id=? AND event_type='primer_saved_source'"
+    ).run(id);
+    await expect(restoreSavedPrimerDocument(selection)).rejects.toThrow(/checksum/);
+    db.exec('ROLLBACK TO invalid_source');
+    setCatalogFileStateInDb(db, path, 'missing', 'moved-to-trash');
+    await expect(restoreSavedPrimerDocument(selection)).rejects.toThrow(/changed before recovery/);
+    db.exec('ROLLBACK TO invalid_source');
+    db.prepare('UPDATE workspaces SET archived_at=1 WHERE id=1').run();
+    await expect(restoreSavedPrimerDocument(selection)).rejects.toThrow();
+    db.exec('ROLLBACK TO invalid_source');
+    db.exec('RELEASE invalid_source');
+    expect(existsSync(path)).toBe(false);
+    const { reportPrimerRecoveryInventory } =
+      await import('../../services/workspace-reconcile-report');
+    const { useToastStore } = await import('../../stores/toast-store');
+    reportPrimerRecoveryInventory(await refreshPrimerRecoveryInventory());
+    const toast = useToastStore
+      .getState()
+      .toasts.find((row) => row.definition === 'primer-recovery-failed' && row.phase !== 'exiting');
+    const restore = toast?.actions?.find((action) => action.label === 'Restore saved copies');
+    expect(restore).toBeDefined();
+    await restore!.onClick();
+    expect(readFileSync(path)).toEqual(bytes);
+    expect((await refreshPrimerRecoveryInventory()).entries).toContainEqual(
+      expect.objectContaining({ id, status: 'document-backed' })
+    );
+    expect(db.prepare('SELECT count(*) FROM scientific_revision_blobs').pluck().get()).toBe(0);
+    expect(db.prepare('SELECT count(*) FROM org_registry_local_records').pluck().get()).toBe(0);
+  });
+
+  it('recovers an older matching committed primer when HEAD is missing without changing Git references', async () => {
+    const { default: git } = await import('isomorphic-git');
+    const fs = await import('node:fs');
+    const relativePath = 'primers/legacy-source.primer.json';
+    const path = join(workspaceRoot, relativePath);
+    const saved = await savePrimerArtifact({
+      name: 'Legacy saved primer',
+      sequence: 'ATGCGTACGTAGCTAGCTAG',
+      artifactPath: path,
+      workspaceRoot,
+      requireRegistry: true,
+    });
+    const id = saved.artifact.id,
+      bytes = readFileSync(path);
+    await git.init({ fs, dir: workspaceRoot, defaultBranch: 'main' });
+    await git.add({ fs, dir: workspaceRoot, filepath: relativePath });
+    await git.commit({
+      fs,
+      dir: workspaceRoot,
+      author: { name: 'Test', email: 'test@example.invalid' },
+      message: 'Add original',
+    });
+    const head = join(workspaceRoot, '.git', 'HEAD');
+    rmSync(head);
+    rmSync(path);
+    db.prepare(
+      "DELETE FROM catalog_entity_events WHERE entity_id=? AND event_type='primer_saved_source'"
+    ).run(id);
+    const missing = (await refreshPrimerRecoveryInventory()).entries.find((row) => row.id === id);
+    expect(missing?.restore?.sha256).toBe(saved.limsEntity.fields.artifact.contentHash);
+    await restoreSavedPrimerDocument(missing!.restore!);
+    expect(readFileSync(path)).toEqual(bytes);
+    expect(existsSync(head)).toBe(false);
+  });
+
   it('preserves supplied spreadsheet row identities across retry and equal-content rows', async () => {
     const input = {
       name: 'Same primer',
@@ -2236,7 +2667,8 @@ function nativePastePersistence(): RichPastePrimerPersistence {
     listLegacyBoundPrimers: listBoundPrimers,
     persistOwnedLegacyBinding: persistOwnedPrimerBinding,
     persistOwnedArtifactBindings: persistOwnedPrimerArtifactBindings,
-    deleteLegacyBinding: deleteBinding,
+    removeOwnedLegacyBinding: (intent) =>
+      deleteBinding(intent.bindingId, { expectedOwner: intent }),
     notifyBindingsChanged: () => undefined,
   };
 }

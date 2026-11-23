@@ -1,3 +1,4 @@
+export { sequenceMetadataSession } from '../editing-sessions';
 export {
   getEntityDetailsSession,
   findUnsettledEntityDetailsSession,

@@ -30,7 +30,7 @@ import {
 } from '../hosted-native-tool-request';
 import { assertSafePath, assertSafeWritablePath } from './path-allowlist';
 import { getDb } from './database';
-import { trashAcceptedScientificPath } from '../scientific-resource-lifecycle';
+import { assertSystemTrashAllowed } from '../saved-entity-file-retention';
 import type { AgentToolsBridgeServer } from '../agent-tools-bridge';
 import { AgentStateCapsuleStore } from '../hosted-codex/agent-state-capsule';
 import {
@@ -726,7 +726,8 @@ export function registerHostedAiGatewayHandlers(
     withSafeWritablePaths: (paths, operation) =>
       withHostedNativeWritablePaths(getDb(), paths, operation),
     trashPath: async (path) => {
-      if (!(await trashAcceptedScientificPath({ db: getDb(), path }))) await shell.trashItem(path);
+      await assertSystemTrashAllowed(getDb(), path);
+      await shell.trashItem(path);
     },
     fetchWeb: (url, signal) => nativeWebClient.fetch(url, signal),
     scratchBase: join(app.getPath('userData'), 'hosted-ai-scratch'),

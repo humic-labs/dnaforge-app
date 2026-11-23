@@ -87,6 +87,10 @@ export async function settleNativeDirtyDocuments(
         );
       if (request.action === 'save' && current.readOnly)
         throw new Error('The dirty document is read-only.');
+      if (request.action === 'save' && item.saveDestinationRequired)
+        throw new Error(
+          'SEQUENCE_SAVE_DESTINATION_REQUIRED: Choose a destination for the edited GenBank copy in the editing client.'
+        );
       if (!current.capabilities.includes(request.action))
         throw new Error(`The native ${current.type} owner does not support ${request.action}.`);
       const settled = await owner.execute({

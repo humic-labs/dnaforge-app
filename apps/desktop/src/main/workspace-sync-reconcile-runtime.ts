@@ -42,6 +42,7 @@ import {
   type ReconcileOutcome,
 } from './workspace-sync-reconcile';
 import { summarizeReconcileResource } from './workspace-sync-reconcile-comparison';
+import { assertReconciledEntitiesRetained } from './workspace-sync-retained-entities';
 import {
   assertWorkspaceSyncSnapshotMatchesCommit,
   buildWorkspaceSyncSnapshot,
@@ -202,6 +203,7 @@ export async function reconcileWorkspaceSyncConflict(
         latest,
         localHead,
         template: snapshot.bundle,
+        acceptedInputs: [baseBundle, latestBundle],
         files: outcome.files,
         commitMessage: `Merge shared changes from ${labels.remoteAuthorLabel ?? 'a collaborator'} (v${latest.version.versionNumber})`,
       });
@@ -446,6 +448,7 @@ export async function resolveWorkspaceSyncMergeConflict(
         latest,
         localHead,
         template: payload.local,
+        acceptedInputs: [payload.base, payload.remote, latestBundle],
         files: resolvedFiles,
         commitMessage: `Resolve shared changes from ${remoteLabel ?? 'a collaborator'} (v${latest.version.versionNumber})`,
       });
@@ -482,10 +485,12 @@ async function applyMergedTree(
     latest: DesktopSyncMaterializableVersion;
     localHead: string;
     template: WorkspaceSyncBundle;
+    acceptedInputs: (WorkspaceSyncBundle | null)[];
     files: WorkspaceSyncFile[];
     commitMessage: string;
   }
 ): Promise<void> {
+  await assertReconciledEntitiesRetained([input.template, ...input.acceptedInputs], input.files);
   const merged = bundleFrom(input.template, input.files, deps);
   const encoded = JSON.stringify(merged);
   const syntheticLatest: DesktopSyncLatestVersionResponse = {

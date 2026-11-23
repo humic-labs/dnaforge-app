@@ -48,6 +48,9 @@ import {
   type ScientificRecoveryDependencies,
 } from './scientific-recovery-checkpoint';
 
+import { captureSavedFileSource, restoreSavedFileSource } from './saved-file-sources';
+import { listSavedEntityRowVersions } from './saved-entity-row-recovery';
+
 const cleanups: Array<() => void> = [];
 beforeEach(() => {
   dirty.hasDirtyWork = false;
@@ -309,6 +312,68 @@ describe('scientific enrollment and isolated legacy recovery pressure', { timeou
       expect(Buffer.from(f.db.serialize())).toEqual(before);
     }
   );
+
+  it('qualifies the schema 51 enrollment and 41 copy without rewriting predecessor row bytes or file revisions', async () => {
+    const f = await fixture();
+    const sourcePath = join(f.root, 'contents', 'template.fasta');
+    const owner = { workspaceId: f.workspaceId, entityId: 'saved-template' };
+    const receipt = await captureSavedFileSource(f.db, { ...owner, path: sourcePath });
+    const [savedRow] = listSavedEntityRowVersions(f.db, {
+      source: 'workspaces',
+      identity: [String(f.workspaceId)],
+    });
+    expect(savedRow).toBeDefined();
+    await f.ensure();
+    const [checkpoint] = await checkpoints(f);
+    expect(checkpoint.schemaVersion).toBe(51);
+    accept(f);
+    const recovered = await recover(f);
+    const predecessor = openFileTestDb(
+      join(scientificRecoveryDirectory(f.db), checkpoint.id, 'database.db')
+    );
+    const legacy = openFileTestDb(join(recovered.profilePath, 'dnaforge.db'));
+    try {
+      expect(legacy.pragma('user_version', { simple: true })).toBe(41);
+      expect(legacy.pragma('foreign_key_check')).toEqual([]);
+      expect(
+        legacy
+          .prepare(
+            "SELECT name FROM sqlite_master WHERE name IN ('saved_entity_row_versions','retained_file_publication_witnesses','retained_file_source_revisions','notebook_saved_reference_retention','notebook_reference_occurrences','notebook_reference_projections','retain_workspaces_update','retain_saved_reference_for_notebook')"
+          )
+          .all()
+      ).toEqual([]);
+      for (const db of [predecessor, f.db]) {
+        expect(
+          listSavedEntityRowVersions(db, {
+            source: 'workspaces',
+            identity: [String(f.workspaceId)],
+          })
+        ).toContainEqual(savedRow);
+        expect(
+          db
+            .prepare('SELECT source_path FROM retained_file_source_revisions WHERE id=?')
+            .get(receipt.id)
+        ).toEqual({ source_path: sourcePath });
+      }
+      const restored = join(f.tmpDir, 'recovered-source.fasta');
+      await restoreSavedFileSource(f.db, {
+        ...owner,
+        revisionId: receipt.id,
+        destination: restored,
+      });
+      expect(await readFile(restored)).toEqual(await readFile(sourcePath));
+    } finally {
+      legacy.close();
+      predecessor.close();
+    }
+  });
+
+  it('refuses a partial schema 51 retention owner before enrollment', async () => {
+    const f = await fixture();
+    f.db.exec('DROP TABLE retained_file_publication_witnesses');
+    await expect(f.ensure()).rejects.toThrow('schema 51 is incomplete or inconsistent');
+    expect(f.store.read().head).toBeNull();
+  });
 
   it('retains qualified schema 47 recovery after the agent-stop schema migration', async () => {
     const f = await fixture();

@@ -1,7 +1,15 @@
 // @vitest-environment node
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -159,13 +167,25 @@ describe('automatic merge of a manifest-backed shared project ', () => {
   });
 
   it('merges a collaborator-added text note with a local text note instead of rejecting the manifest', async () => {
+    await reconcileScenario('merge notes');
+  }, 30_000);
+
+  it('keeps the accepted entity and does not enqueue an upload after a file disappears', async () => {
+    await reconcileScenario('missing entity');
+  }, 30_000);
+
+  it('allows a package to move with its original identity', async () => {
+    await reconcileScenario('moved entity');
+  }, 30_000);
+
+  async function reconcileScenario(scenario: 'merge notes' | 'missing entity' | 'moved entity') {
     git(repo, 'init', '-q');
     git(repo, 'config', 'user.email', 'test@example.com');
     git(repo, 'config', 'user.name', 'Test');
     writeJourneyProject(repo);
     db.prepare(
       `INSERT INTO workspaces (id, name, path, repo_uuid, created_at, last_opened_at)
-       VALUES (1, 'Shared', ?, 'workspace-a', 1, 1)`
+     VALUES (1, 'Shared', ?, 'workspace-a', 1, 1)`
     ).run(repo);
     const snapshot = async () =>
       (
@@ -181,7 +201,11 @@ describe('automatic merge of a manifest-backed shared project ', () => {
     const baseHead = git(repo, 'rev-parse', 'HEAD');
     const base = await snapshot();
     writeFileSync(join(repo, 'note-member-a.txt'), 'Added by member A\n');
+    if (scenario === 'missing entity') rmSync(join(repo, 'pUC19'), { recursive: true });
+    if (scenario === 'moved entity') renameSync(join(repo, 'pUC19'), join(repo, 'moved-pUC19'));
     const latest = await snapshot();
+    if (scenario === 'missing entity') git(repo, 'restore', 'pUC19');
+    if (scenario === 'moved entity') renameSync(join(repo, 'moved-pUC19'), join(repo, 'pUC19'));
     rmSync(join(repo, 'note-member-a.txt'));
     writeFileSync(join(repo, 'note-member-b.txt'), 'Added by member B\n');
     expect(latest.files.map((file) => [file.relativePath, file.kind])).toContainEqual([
@@ -191,10 +215,10 @@ describe('automatic merge of a manifest-backed shared project ', () => {
 
     db.prepare(
       `INSERT INTO workspace_sync_bindings (
-         workspace_id, workspace_uuid, owner_account_id, owner_org_id, remote_workspace_id,
-         enabled, remote_latest_version_id, remote_latest_version_number,
-         last_acked_local_head_sha, access_role, created_at, updated_at
-       ) VALUES (1, 'workspace-a', 'account-a', 'org-lab', ?, 1, ?, 1, ?, 'editor', 1, 1)`
+       workspace_id, workspace_uuid, owner_account_id, owner_org_id, remote_workspace_id,
+       enabled, remote_latest_version_id, remote_latest_version_number,
+       last_acked_local_head_sha, access_role, created_at, updated_at
+     ) VALUES (1, 'workspace-a', 'account-a', 'org-lab', ?, 1, ?, 1, ?, 'editor', 1, 1)`
     ).run(WORKSPACE, BASE_ID, baseHead);
     recordWorkspaceSyncReplicaFiles(db, {
       workspaceUuid: 'workspace-a',
@@ -282,7 +306,31 @@ describe('automatic merge of a manifest-backed shared project ', () => {
       },
     });
 
+    if (scenario === 'missing entity') {
+      expect(result.ok ? result.outcome : result.message).toMatch(/saved entity/i);
+      expect(git(repo, 'rev-parse', 'HEAD:pUC19/pUC19.gb')).toBe(
+        git(repo, 'rev-parse', `${baseHead}:pUC19/pUC19.gb`)
+      );
+      expect(
+        db
+          .prepare(
+            'SELECT remote_latest_version_id FROM workspace_sync_bindings WHERE workspace_id=1'
+          )
+          .get()
+      ).toEqual({ remote_latest_version_id: BASE_ID });
+      expect(readFileSync(join(repo, 'pUC19/pUC19.gb'))).toEqual(
+        readFileSync(join(__dirname, '../../../../../test-fixtures/sequences/circular/pUC19.gb'))
+      );
+      expect(
+        db.prepare("SELECT id FROM workspace_sync_queue WHERE id='merged-upload'").get()
+      ).toBeUndefined();
+      return;
+    }
     expect(result.ok ? result.outcome : result.message).toBe('merged');
+    if (scenario === 'moved entity') {
+      expect(git(repo, 'show', 'HEAD:moved-pUC19/pUC19.gb')).toContain('LOCUS');
+      expect(existsSync(join(repo, 'pUC19/pUC19.gb'))).toBe(false);
+    }
     expect(git(repo, 'show', 'HEAD:note-member-a.txt')).toBe('Added by member A');
     expect(git(repo, 'show', 'HEAD:note-member-b.txt')).toBe('Added by member B');
     expect(git(repo, 'status', '--porcelain')).toBe('');
@@ -290,9 +338,9 @@ describe('automatic merge of a manifest-backed shared project ', () => {
       db
         .prepare(
           `SELECT base_remote_version_id FROM workspace_sync_queue
-           WHERE id = 'merged-upload' AND operation = 'upload' AND status = 'pending'`
+         WHERE id = 'merged-upload' AND operation = 'upload' AND status = 'pending'`
         )
         .get()
     ).toEqual({ base_remote_version_id: LATEST_ID });
-  }, 30_000);
+  }
 });

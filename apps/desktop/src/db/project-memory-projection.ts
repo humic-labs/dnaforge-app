@@ -1,3 +1,6 @@
+import { platform } from '../platform';
+import { isDesktopRuntime } from '../utils/environment';
+import { withRendererWorkspaceMutation } from '../services/workspace-mutation-transaction';
 import {
   bindCatalogEntityToFile,
   clearCatalogProjectionForWorkspaceRoot,
@@ -98,15 +101,12 @@ function locatorForProjectMemoryEntity(input: {
   return `entity://${input.entity.kind}/${input.entity.id}`;
 }
 
-export async function rebuildWorkspaceCatalogProjection(
-  input: RebuildWorkspaceCatalogProjectionInput
-): Promise<RebuildWorkspaceCatalogProjectionResult> {
-  const clearExisting = input.clearExisting ?? true;
-  const snapshot = await readProjectMemory(input.workspaceRoot);
-  const cleared = clearExisting
-    ? await clearCatalogProjectionForWorkspaceRoot(input.workspaceRoot)
-    : { workspaceId: null, entities: 0, files: 0, links: 0, events: 0 };
-
+async function replayProjectMemoryIntoEmptyCatalog(
+  input: RebuildWorkspaceCatalogProjectionInput,
+  snapshot: ProjectMemorySnapshot,
+  mutationToken?: string
+) {
+  const cleared = await clearCatalogProjectionForWorkspaceRoot(input.workspaceRoot);
   for (const entity of snapshot.entities) {
     const currentFile = currentFileForEntity(snapshot, entity.id);
     await registerCatalogEntity({
@@ -136,6 +136,7 @@ export async function rebuildWorkspaceCatalogProjection(
       entityId: file.entityId,
       path: absoluteWorkspacePath(input.workspaceRoot, file.path),
       fileKind: catalogFileKindForProjectMemoryFile(file),
+      mutationToken,
       workspaceRoot: input.workspaceRoot,
       sizeBytes: file.sizeBytes ?? null,
       modifiedAt: file.modifiedAt ? Date.parse(file.modifiedAt) : null,
@@ -177,6 +178,31 @@ export async function rebuildWorkspaceCatalogProjection(
       },
     });
   }
+
+  return cleared;
+}
+
+export async function rebuildWorkspaceCatalogProjection(
+  input: RebuildWorkspaceCatalogProjectionInput
+): Promise<RebuildWorkspaceCatalogProjectionResult> {
+  const snapshot = await readProjectMemory(input.workspaceRoot);
+  const cleared = await withRendererWorkspaceMutation(
+    input.workspaceRoot,
+    async (mutationToken) => {
+      if (!isDesktopRuntime())
+        return replayProjectMemoryIntoEmptyCatalog(input, snapshot, mutationToken);
+      const db = platform().db;
+      await db.execute('BEGIN IMMEDIATE');
+      try {
+        const empty = await replayProjectMemoryIntoEmptyCatalog(input, snapshot, mutationToken);
+        await db.execute('COMMIT');
+        return empty;
+      } catch (error) {
+        await db.execute('ROLLBACK');
+        throw error;
+      }
+    }
+  );
 
   const filesystemScan = input.scanFilesystem
     ? await reconcileWorkspaceRoot(input.workspaceRoot)

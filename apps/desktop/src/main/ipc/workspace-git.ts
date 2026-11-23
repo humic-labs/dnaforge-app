@@ -1,3 +1,4 @@
+import { retainSequencePackage } from '../retain-sequence-package';
 import { listWorkspaceRootStatus, relinkWorkspaceRoot } from '../workspace-root-recovery';
 import { acquireWorkspaceSyncMutationLease } from '../workspace-sync-mutation-lease';
 import { assertWorkspaceMigrationActionsSettled } from '../workspace-migration-admission';
@@ -201,6 +202,8 @@ export function registerWorkspaceGitHandlers(): void {
                   packageIdForPath: (path) => catalogSequenceIdForPath(db, path),
                   withCleanPaths: createCleanMigrationPaths(),
                 });
+                for (const packageRoot of result.packageRoots)
+                  await retainSequencePackage(db, { workspaceRoot, packageRoot }, undefined, admission.assertCurrent);
                 if (request.automatic && result.converted && expectedHead) {
                   admission.assertCurrent();
                   const paths = result.mutatedGitFiles ?? [];

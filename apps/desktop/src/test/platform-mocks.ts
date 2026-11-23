@@ -32,6 +32,8 @@ import { inferCatalogFileKind } from '../shared/catalog-file-kind';
 import { isSequencePackageFileKind } from '../db/sequence-package';
 import {
   planCatalogEntityRegistration,
+  CATALOG_ROLLBACK_RETAINED_MESSAGE,
+  CATALOG_RESET_RETAINED_MESSAGE,
   type CatalogFileFingerprint,
   type CatalogWorkspaceFileRegistrationRequest,
   type CatalogFileRebindRequest,
@@ -802,42 +804,17 @@ class MockDatabase {
     const workspace = (mockStorage.get('workspaces') as Array<{ id: number; path: string }>).find(
       (row) => row.path === workspaceRoot
     );
-    if (!workspace) return { workspaceId: null, entities: 0, files: 0, links: 0, events: 0 };
-    const entities = mockStorage.get('catalog_entities') as CatalogEntityRow[];
-    const ids = new Set(
-      entities.filter((entity) => entity.workspace_id === workspace.id).map((entity) => entity.id)
-    );
-    const result = { workspaceId: workspace.id, entities: ids.size, files: 0, links: 0, events: 0 };
-    for (const [table, key, predicate] of [
-      [
-        'catalog_entity_files',
-        'files',
-        (row: Record<string, unknown>) => row.workspace_id === workspace.id,
-      ],
-      [
-        'catalog_entity_events',
-        'events',
-        (row: Record<string, unknown>) => ids.has(row.entity_id as string),
-      ],
-      [
-        'catalog_entity_links',
-        'links',
-        (row: Record<string, unknown>) =>
-          ids.has(row.source_entity_id as string) || ids.has(row.target_entity_id as string),
-      ],
-    ] as const) {
-      const rows = (mockStorage.get(table) ?? []) as Array<Record<string, unknown>>;
-      result[key] = rows.filter(predicate).length;
-      mockStorage.set(
-        table,
-        rows.filter((row) => !predicate(row))
-      );
-    }
-    mockStorage.set(
-      'catalog_entities',
-      entities.filter((entity) => !ids.has(entity.id))
-    );
-    return result;
+    const workspaceId = workspace?.id ?? null;
+    if (
+      workspaceId !== null &&
+      ['catalog_entities', 'catalog_entity_files'].some((table) =>
+        (mockStorage.get(table) as Array<{ workspace_id: number | null }>).some(
+          (row) => row.workspace_id === workspaceId
+        )
+      )
+    )
+      throw new Error(CATALOG_RESET_RETAINED_MESSAGE);
+    return { workspaceId, entities: 0, files: 0, links: 0, events: 0 };
   }
 
   async deleteCatalogEntityIfUnbound(entityId: string): Promise<boolean> {
@@ -848,11 +825,8 @@ class MockDatabase {
     )
       return false;
     const entities = mockStorage.get('catalog_entities') as CatalogEntityRow[];
-    mockStorage.set(
-      'catalog_entities',
-      entities.filter((entity) => entity.id !== entityId)
-    );
-    return entities.some((entity) => entity.id === entityId);
+    if (!entities.some((entity) => entity.id === entityId)) return false;
+    throw new Error(CATALOG_ROLLBACK_RETAINED_MESSAGE);
   }
 
   async deleteCatalogEntityWithExactBinding(input: CatalogEntityRollbackRequest): Promise<boolean> {
@@ -867,15 +841,7 @@ class MockDatabase {
       matches[0].workspace_id !== entity?.workspace_id
     )
       return false;
-    mockStorage.set(
-      'catalog_entity_files',
-      files.filter((file) => file.entity_id !== input.entityId)
-    );
-    mockStorage.set(
-      'catalog_entities',
-      entities.filter((entity) => entity.id !== input.entityId)
-    );
-    return true;
+    throw new Error(CATALOG_ROLLBACK_RETAINED_MESSAGE);
   }
 
   async registerCatalogEntity(input: CatalogEntityRegistrationRequest): Promise<CatalogEntityRow> {

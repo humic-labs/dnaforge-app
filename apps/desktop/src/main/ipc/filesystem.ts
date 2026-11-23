@@ -1,3 +1,5 @@
+import { retainSequencePackage } from '../retain-sequence-package';
+import { writeWithBoundFileRetention } from '../saved-file-publication';
 import { appendProjectMemoryEventInMain } from '../project-memory';
 import { sequencePackageFilesystemHandlers } from './sequence-package-filesystem-handlers';
 import { resolveRegisteredProjectPath } from '../project-path-identity';
@@ -11,23 +13,12 @@ import { app, BrowserWindow } from 'electron';
 import { assertKnownWorkspaceContentWritable } from '../workspace-content-write-access';
 import { createHash } from 'node:crypto';
 import { assertWorkspaceMigrationActionsSettled } from '../workspace-migration-admission';
-import {
-  open,
-  readFile,
-  writeFile,
-  readdir,
-  mkdir,
-  lstat,
-  stat,
-  access,
-  rename,
-  cp,
-  rm,
-} from 'fs/promises';
+import { open, readFile, writeFile, readdir, mkdir, lstat, stat, access } from 'fs/promises';
 import { createReadStream, watch, watchFile, unwatchFile, type FSWatcher } from 'fs';
 import { basename, isAbsolute, join } from 'path';
 import { HARD_CAP_BYTES, OversizedFileError } from '../../shared/oversized-guard';
 import { planMoveIntoDirectory } from '../move-path';
+import { movePathWithoutReplacement, renamePathWithoutReplacement } from '../move-path-exclusively';
 import { assertSafePath, withSafeWritablePath, withSafeWritablePaths } from './path-allowlist';
 import { createRegisteredSequencePackagePublicationContext } from '../sequence-package-registry-publication';
 import { acquireQuickLookRendererMutationLease } from '../workspace-git';
@@ -192,12 +183,23 @@ export function registerFilesystemHandlers(): void {
               assertWorkspaceContentPublicationWritable(db, event, workspaceRoot);
               return {
                 ok: true as const,
-                result: await writeWorkspaceBinaryFileAtomicInMain(
-                  { ...input, workspaceRoot, path },
+                result: await writeWithBoundFileRetention(
+                  db,
                   {
-                    beforePublish: () =>
-                      assertWorkspaceContentPublicationWritable(db, event, workspaceRoot),
-                  }
+                    path,
+                    content: input.content,
+                    workspaceRoot,
+                  },
+                  (mark) =>
+                    writeWorkspaceBinaryFileAtomicInMain(
+                      { ...input, workspaceRoot, path },
+                      {
+                        beforePublish: (staged) => {
+                          assertWorkspaceContentPublicationWritable(db, event, workspaceRoot);
+                          mark(staged);
+                        },
+                      }
+                    )
                 ),
               };
             },
@@ -230,16 +232,27 @@ export function registerFilesystemHandlers(): void {
             operation: async () => {
               assertCurrent();
               const write = () =>
-                writeWorkspaceTextFileAtomicInMain(
-                  { ...input, workspaceRoot, path },
+                writeWithBoundFileRetention(
+                  db,
                   {
-                    beforePublish: () => {
-                      assertCurrent();
-                      withRendererDatabaseStatement(db, event.sender, () =>
-                        assertEnrolledPrimerPathMutationAllowed(db, [path])
-                      );
-                    },
-                  }
+                    path,
+                    content: input.content,
+                    workspaceRoot,
+                    expectedSha256: input.expectedContentHash,
+                  },
+                  (mark) =>
+                    writeWorkspaceTextFileAtomicInMain(
+                      { ...input, workspaceRoot, path },
+                      {
+                        beforePublish: (staged) => {
+                          assertCurrent();
+                          withRendererDatabaseStatement(db, event.sender, () =>
+                            assertEnrolledPrimerPathMutationAllowed(db, [path])
+                          );
+                          mark(staged);
+                        },
+                      }
+                    )
                 );
               const sequencePackageRoot = packageRootForLockedSequenceMarkerReplace(
                 workspaceRoot,
@@ -287,8 +300,10 @@ export function registerFilesystemHandlers(): void {
           mutationToken: input.mutationToken,
           operation: async () => {
             assertWorkspaceContentPublicationWritable(db, event, workspaceRoot);
-            return publishNotebookPackageV2InMain({ ...input, workspaceRoot, packageRoot }, () =>
-              assertWorkspaceContentPublicationWritable(db, event, workspaceRoot)
+            return publishNotebookPackageV2InMain(
+              { ...input, workspaceRoot, packageRoot },
+              () => assertWorkspaceContentPublicationWritable(db, event, workspaceRoot),
+              getDb()
             );
           },
         })
@@ -312,7 +327,7 @@ export function registerFilesystemHandlers(): void {
             mutationPaths: [packageRoot],
             mutationToken: input.mutationToken,
             operation: () =>
-              migrateNotebookPackageAtPathInMain({ ...input, workspaceRoot, packageRoot }),
+              migrateNotebookPackageAtPathInMain({ ...input, workspaceRoot, packageRoot }, getDb()),
           }),
         { requireAbsolute: true }
       );
@@ -340,7 +355,8 @@ export function registerFilesystemHandlers(): void {
               assertWorkspaceContentPublicationWritable(db, event, workspaceRoot);
               return prepareNotebookPackageRenameInMain(
                 { ...input, workspaceRoot, packageRoot, nextPackageRoot },
-                () => assertWorkspaceContentPublicationWritable(db, event, workspaceRoot)
+                () => assertWorkspaceContentPublicationWritable(db, event, workspaceRoot),
+                getDb()
               );
             },
           })
@@ -364,11 +380,14 @@ export function registerFilesystemHandlers(): void {
             mutationPaths: [packageRoot],
             mutationToken: input.mutationToken,
             operation: () =>
-              recoverNotebookPackageRenameIfNeededInMain({
-                ...input,
-                workspaceRoot,
-                packageRoot,
-              }),
+              recoverNotebookPackageRenameIfNeededInMain(
+                {
+                  ...input,
+                  workspaceRoot,
+                  packageRoot,
+                },
+                getDb()
+              ),
           }),
         { requireAbsolute: true }
       );
@@ -415,24 +434,20 @@ export function registerFilesystemHandlers(): void {
             event.sender.id,
             [safeFilePath, ...(safeOverwritePackageRoot ? [safeOverwritePackageRoot] : [])]
           );
-          const sourceIdentity = options?.requireConverted
-            ? await stat(safeFilePath, { bigint: true })
-            : null;
+          if (safeOverwritePackageRoot)
+            await retainSequencePackage(workspaceScope.db, {
+              workspaceRoot: sourceWorkspaceRoot,
+              packageRoot: safeOverwritePackageRoot,
+            });
           const result = await materializeImportedSequencePackages(safeFilePath, undefined, {
             overwritePackageRoot: safeOverwritePackageRoot,
           });
+          for (const pkg of result.packages)
+            await retainSequencePackage(workspaceScope.db, {
+              workspaceRoot: sourceWorkspaceRoot,
+              packageRoot: pkg.packageRoot,
+            });
           if (options?.requireConverted && !result.converted) {
-            const currentIdentity = await stat(safeFilePath, { bigint: true }).catch(() => null);
-            const isSameSource =
-              currentIdentity !== null &&
-              sourceIdentity !== null &&
-              currentIdentity.dev === sourceIdentity.dev &&
-              currentIdentity.ino === sourceIdentity.ino &&
-              currentIdentity.size === sourceIdentity.size &&
-              currentIdentity.mtimeNs === sourceIdentity.mtimeNs;
-            if (isSameSource) {
-              await rm(safeFilePath);
-            }
             throw new Error(
               `SEQUENCE_PACKAGE_REQUIRED: ${
                 result.skippedReason ??
@@ -924,11 +939,24 @@ export function registerFilesystemHandlers(): void {
                 if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
               }
               assertCurrent();
-              if (options?.append) {
-                await writeFile(safePath, content, { encoding: 'utf-8', flag: 'a' });
-              } else {
-                await writeFile(safePath, content, 'utf-8');
-              }
+              const { getDb } = await import('./database');
+              await writeWithBoundFileRetention(
+                getDb(),
+                {
+                  path: safePath,
+                  content,
+                  append: options?.append,
+                  publishRetained: assertCurrent,
+                },
+                async () => {
+                  assertCurrent();
+                  if (options?.append) {
+                    await writeFile(safePath, content, { encoding: 'utf-8', flag: 'a' });
+                  } else {
+                    await writeFile(safePath, content, 'utf-8');
+                  }
+                }
+              );
               packageScratchCapabilities.recordGeneratedWrite(safePath, event.sender.id);
             },
             mutationToken
@@ -949,9 +977,20 @@ export function registerFilesystemHandlers(): void {
                 packageScratchCapabilities.validateGeneratedWrite(path, event.sender.id, {
                   content: input.content,
                 });
-                await writeTextFileAtomicInMain(
-                  { ...input, path },
-                  { beforePublish: assertCurrent }
+                const { getDb } = await import('./database');
+                await writeWithBoundFileRetention(
+                  getDb(),
+                  { path, content: input.content },
+                  (mark) =>
+                    writeTextFileAtomicInMain(
+                      { ...input, path },
+                      {
+                        beforePublish: (staged) => {
+                          assertCurrent();
+                          mark(staged);
+                        },
+                      }
+                    )
                 );
                 packageScratchCapabilities.recordGeneratedWrite(path, event.sender.id);
               }),
@@ -1050,10 +1089,15 @@ export function registerFilesystemHandlers(): void {
                     `[fs:rename] Refusing to rename through a symbolic link: ${safeOldPath}`
                   );
                 }
-                assertCurrent();
                 // workspace-entity-move: raw primitive; product callers use workspace:relocateEntityFile.
                 await nativeDocuments.fileDocuments.assertClean(safeOldPath);
-                await rename(safeOldPath, safeNewPath);
+                const { getDb } = await import('./database');
+                await assertUnversionedRendererFilesystemMutationAllowed(getDb(), event.sender.id, [
+                  safeOldPath,
+                  safeNewPath,
+                ]);
+                assertCurrent();
+                renamePathWithoutReplacement(safeOldPath, safeNewPath);
                 try {
                   await nativeDocuments.fileDocuments.relocate(safeOldPath, safeNewPath);
                 } catch (error) {
@@ -1101,45 +1145,14 @@ export function registerFilesystemHandlers(): void {
                     `[fs:move] Refusing to move through a symbolic link: ${safeSourcePath}`
                   );
                 }
-                let destExists = false;
-                try {
-                  await access(destPath);
-                  destExists = true;
-                } catch {
-                  destExists = false;
-                }
-                if (destExists) {
-                  throw new Error(
-                    `MOVE_EXISTS: an item named "${basename(destPath)}" already exists in that folder`
-                  );
-                }
-                assertCurrent();
-                try {
-                  // workspace-entity-move: raw primitive with no feature caller or reference-index update.
-                  await rename(safeSourcePath, destPath);
-                } catch (err) {
-                  if ((err as NodeJS.ErrnoException).code === 'EXDEV') {
-                    assertCurrent();
-                    await cp(safeSourcePath, destPath, {
-                      recursive: true,
-                      force: false,
-                      errorOnExist: true,
-                    });
-                    try {
-                      assertCurrent();
-                      await rm(safeSourcePath, { recursive: true, force: true });
-                    } catch (rmErr) {
-                      await rm(destPath, { recursive: true, force: true }).catch(() => {});
-                      throw new Error(
-                        `MOVE_FAILED: copied to the destination but could not remove the original (${
-                          (rmErr as Error).message
-                        })`
-                      );
-                    }
-                  } else {
-                    throw err;
-                  }
-                }
+                // workspace-entity-move: raw primitive with no feature caller or reference-index update.
+                const { getDb } = await import('./database');
+                await movePathWithoutReplacement(safeSourcePath, destPath, assertCurrent, () =>
+                  assertUnversionedRendererFilesystemMutationAllowed(getDb(), event.sender.id, [
+                    safeSourcePath,
+                    destPath,
+                  ])
+                );
                 try {
                   await nativeDocuments.fileDocuments.relocate(safeSourcePath, destPath);
                 } catch (error) {

@@ -1,7 +1,9 @@
+import { entityKindLabel } from '../entity-types';
+
 export type OligoOrderType = 'dna' | 'rna';
 
 export function oligoOrderTypeLabel(orderType: OligoOrderType): string {
-  return orderType === 'rna' ? 'RNA Oligo' : 'DNA Oligo';
+  return entityKindLabel(orderType === 'rna' ? 'rna_oligo' : 'oligo');
 }
 
 export function oligoOrderTypeFromOriginDetails(originDetails: unknown): OligoOrderType {

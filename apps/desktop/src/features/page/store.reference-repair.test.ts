@@ -71,7 +71,7 @@ const LEGACY_DOC = {
   ],
 };
 
-const REPAIRED_DOC = {
+const repairedDocument = (occurrenceId?: string) => ({
   type: 'doc',
   content: [
     {
@@ -86,12 +86,16 @@ const REPAIRED_DOC = {
             path: 'a/a.gb',
             objectUuid: 'uuid-1',
             contentHash: null,
+            ...(occurrenceId ? { occurrenceId } : {}),
           },
         },
       ],
     },
   ],
-};
+});
+
+const REPAIRED_DOC = repairedDocument();
+const STORED_REPAIRED_DOC = repairedDocument('legacy-4a3beb335fd49edb');
 
 function pageRow(id: string, content: unknown) {
   const row = {
@@ -156,8 +160,8 @@ describe('page store — legacy reference repair reachability', () => {
     const page = await store.getState().fetchPage('bbbb::nb-1');
 
     expect(repairMock).toHaveBeenCalledTimes(1);
-    expect(page?.content).toEqual(REPAIRED_DOC);
-    expect(store.getState().pages['bbbb::nb-1'].content).toEqual(REPAIRED_DOC);
+    expect(page?.content).toEqual(STORED_REPAIRED_DOC);
+    expect(store.getState().pages['bbbb::nb-1'].content).toEqual(STORED_REPAIRED_DOC);
   });
 
   it('runs at most once per page per session', async () => {
@@ -186,41 +190,44 @@ describe('page store — legacy reference repair reachability', () => {
           }
         ).content
       )
-    ).toEqual(REPAIRED_DOC);
+    ).toEqual(STORED_REPAIRED_DOC);
     expect(store.getState().dirtyIds.has('bbbb::nb-1')).toBe(false);
   });
 
-  it('retries an unacknowledged native commit before marking the repair complete', async () => {
-    selectMock.mockResolvedValue([pageRow('bbbb::nb-1', LEGACY_DOC)]);
-    repairMock.mockResolvedValue({
-      content: REPAIRED_DOC,
-      repaired: 1,
-      skipped: [],
-      changed: true,
-    });
-    legacyMutationMock.mockImplementationOnce(async (input) => {
-      mutateLegacyNotebookPageInDb(nativeDb, input);
-      return null;
-    });
-    const store = await freshStore();
-    await store.getState().initialize();
-    await store.getState().fetchPage('bbbb::nb-1');
-    expect(store.getState().dirtyIds.has('bbbb::nb-1')).toBe(true);
-    await store.getState().fetchPage('bbbb::nb-1');
-    await store.getState().fetchPage('bbbb::nb-1');
-    expect(repairMock).toHaveBeenCalledTimes(2);
-    expect(legacyMutationMock).toHaveBeenCalledTimes(2);
-    expect(store.getState().dirtyIds.has('bbbb::nb-1')).toBe(false);
-    expect(
-      JSON.parse(
-        (
-          nativeDb.prepare('SELECT content FROM pages WHERE id=?').get('bbbb::nb-1') as {
-            content: string;
-          }
-        ).content
-      )
-    ).toEqual(REPAIRED_DOC);
-  });
+  it.each([true, false])(
+    'retries an unacknowledged repair (first write committed: %s)',
+    async (committed) => {
+      selectMock.mockResolvedValue([pageRow('bbbb::nb-1', LEGACY_DOC)]);
+      repairMock.mockResolvedValue({
+        content: REPAIRED_DOC,
+        repaired: 1,
+        skipped: [],
+        changed: true,
+      });
+      legacyMutationMock.mockImplementationOnce(async (input) => {
+        if (committed) mutateLegacyNotebookPageInDb(nativeDb, input);
+        return null;
+      });
+      const store = await freshStore();
+      await store.getState().initialize();
+      await store.getState().fetchPage('bbbb::nb-1');
+      expect(store.getState().dirtyIds.has('bbbb::nb-1')).toBe(true);
+      await store.getState().fetchPage('bbbb::nb-1');
+      await store.getState().fetchPage('bbbb::nb-1');
+      expect(repairMock).toHaveBeenCalledTimes(2);
+      expect(legacyMutationMock).toHaveBeenCalledTimes(2);
+      expect(store.getState().dirtyIds.has('bbbb::nb-1')).toBe(false);
+      expect(
+        JSON.parse(
+          (
+            nativeDb.prepare('SELECT content FROM pages WHERE id=?').get('bbbb::nb-1') as {
+              content: string;
+            }
+          ).content
+        )
+      ).toEqual(STORED_REPAIRED_DOC);
+    }
+  );
 
   it('waits for the repaired authority revision and returns its exact fingerprint', async () => {
     selectMock.mockResolvedValue([pageRow('bbbb::nb-1', LEGACY_DOC)]);
@@ -310,6 +317,6 @@ describe('page store — legacy reference repair reachability', () => {
     const page = await store.getState().fetchPage('bbbb::nb-2');
 
     expect(repairMock).toHaveBeenCalledTimes(1);
-    expect(page?.content).toEqual(REPAIRED_DOC);
+    expect(page?.content).toEqual(repairedDocument('legacy-2652f7da9e6cf482'));
   });
 });

@@ -22,9 +22,12 @@ import { emitRegistryChanged } from '../../shared/registry-events';
 import {
   MOLECULAR_DOCUMENT_SCHEMA,
   MOLECULAR_DOCUMENT_SUFFIX,
+  molecularDocumentStorageStatus,
   type MolecularDocument,
   type SavedMolecularDocument,
 } from '../../shared/molecular-document';
+import type { MolecularCoordinateText } from '../../shared/molecular-storage';
+import { binaryCoordinateText } from '../../shared/binary-coordinates';
 import {
   coordinateDigest,
   molecularViewFromReferenceData,
@@ -230,9 +233,12 @@ async function absorbSourceCoordinates(
 ): Promise<boolean> {
   const source = attrs.coordinateFilePath;
   if (attrs.source !== 'file' || !source || !pathIsAtOrUnder(source, root)) return false;
-  const text = await platform()
-    .fs.readTextFile(source)
-    .catch(() => null);
+  const files = platform().fs;
+  const text = await (
+    snapshot.coordinates.format === 'bcif'
+      ? files.readFile(source).then(binaryCoordinateText)
+      : files.readTextFile(source)
+  ).catch(() => null);
   if (text === null || (await coordinateDigest(text)) !== snapshot.coordinates.sha256) return false;
   await platform().shell.trashItem(source);
   await markCatalogPathMissing(source, 'absorbed-into-view').catch(() => undefined);
@@ -288,7 +294,8 @@ async function resultLineage(reference: DBEntityReference): Promise<MolecularDoc
 export async function saveMolecularDocumentResult(
   reference: DBEntityReference,
   attrs: Structure3dAttrs,
-  destinationRoot?: string
+  destinationRoot?: string,
+  options: { previous?: SavedMolecularDocument; preserveSource?: boolean } = {}
 ): Promise<ProjectedMolecularDocument> {
   if (attrs.molecularDocumentHistoricalRevisionId)
     throw Error(
@@ -315,10 +322,12 @@ export async function saveMolecularDocumentResult(
   let path: string;
   let expectedRevision: string | null = null;
   if (hasBinding) {
-    const previous = await platform().molecularDocuments.read({
-      path: attrs.molecularDocumentPath!,
-      workspaceRoot: root,
-    });
+    const previous =
+      options.previous ??
+      (await platform().molecularDocuments.read({
+        path: attrs.molecularDocumentPath!,
+        workspaceRoot: root,
+      }));
     if (
       previous.document.id !== attrs.molecularDocumentId ||
       previous.revision !== attrs.molecularDocumentRevision
@@ -379,7 +388,7 @@ export async function saveMolecularDocumentResult(
         'The molecular document was saved, but its Registry entry could not be refreshed. Reopen the file to retry.',
     };
   }
-  if (!hasBinding) {
+  if (!hasBinding && !options.preserveSource) {
     try {
       await absorbSourceCoordinates(attrs, root, snapshot);
     } catch {
@@ -419,25 +428,25 @@ export async function saveMolecularDocumentSnapshot(
         molecularDocumentProjectId: undefined,
       }
     : attrs;
+  let previous: SavedMolecularDocument | undefined;
   let parent: MolecularDocument['history'][number] | null = null;
   if (current.molecularDocumentPath) {
     const root = await durableProjectRoot(current.molecularDocumentPath);
     if (!root)
       throw Error('The owning molecular document project is unavailable. Reopen its file.');
-    const saved = await platform().molecularDocuments.read({
+    previous = await platform().molecularDocuments.read({
       path: current.molecularDocumentPath,
       workspaceRoot: root,
     });
     if (
-      saved.document.id !== current.molecularDocumentId ||
-      saved.revision !== current.molecularDocumentRevision
+      previous.document.id !== current.molecularDocumentId ||
+      previous.revision !== current.molecularDocumentRevision
     )
       throw Error(
         'The molecular document changed elsewhere. Reopen its current version before saving.'
       );
-    parent = saved.document.history.find(
-      (entry) => entry.referenceId === saved.document.currentReferenceId
-    )!;
+    const document = previous.document;
+    parent = document.history.find((entry) => entry.referenceId === document.currentReferenceId)!;
   }
   const revisionReference = await prepareMolecularPresentationRevision(
     snapshot,
@@ -457,7 +466,8 @@ export async function saveMolecularDocumentSnapshot(
   const saved = await saveMolecularDocumentResult(
     revisionReference,
     current,
-    destinations[0]?.path
+    destinations[0]?.path,
+    { previous, preserveSource: options.copy }
   );
   let reference: DBEntityReference | null = null;
   let warning = saved.warning;
@@ -491,9 +501,19 @@ export async function saveMolecularDocumentSnapshot(
   return { ...saved, warning, revisionReference, reference };
 }
 
-export async function inspectMolecularDocumentBinding(attrs: Structure3dAttrs) {
+export async function inspectMolecularDocumentBinding(
+  attrs: Structure3dAttrs,
+  coordinateAssets?: readonly MolecularCoordinateText[]
+) {
   const documentOwner = molecularDocumentOwner(attrs);
-  if (documentOwner.kind === 'draft') return { documentOwner, documentReference: undefined };
+  if (documentOwner.kind === 'draft')
+    return {
+      documentOwner,
+      documentReference: undefined,
+      ...(coordinateAssets
+        ? { documentStorage: molecularDocumentStorageStatus(coordinateAssets) }
+        : {}),
+    };
   const root = attrs.molecularDocumentProjectId
     ? await getWorkspaceRootByScope(attrs.molecularDocumentProjectId)
     : await durableProjectRoot(documentOwner.path);
@@ -513,6 +533,9 @@ export async function inspectMolecularDocumentBinding(attrs: Structure3dAttrs) {
   if (!projectId) throw Error('The molecular document has no owning project identity.');
   return {
     documentOwner,
+    ...(coordinateAssets
+      ? { documentStorage: molecularDocumentStorageStatus(coordinateAssets, saved.document) }
+      : {}),
     documentReference: await molecularDocumentReferenceFor(
       projectId,
       saved.document,

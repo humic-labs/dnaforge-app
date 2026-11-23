@@ -12,7 +12,10 @@ import {
 import { useToastStore } from '../../stores/toast-store';
 import type { Tab } from '../canvas/public/types';
 import { useCanvasStore } from '../canvas/public/store';
-import { trackViewMatchesSavedConfiguration } from './track-view-configuration';
+import {
+  trackViewConfigurationKey,
+  trackViewMatchesSavedConfiguration,
+} from './track-view-configuration';
 import type { TrackViewControl, TrackViewSnapshot } from './track-view-control';
 import { saveTrackView } from './track-view-library';
 import { trackViewUserLayers } from './indexed-user-annotations';
@@ -48,6 +51,18 @@ export class TrackViewSession implements TrackViewControl {
   private readonly pendingSaves = new Set<(saved: boolean) => void>();
   private readonly registration: ReturnType<typeof documentLifecycle.register>;
 
+  private observedConfiguration: string | undefined;
+  private inputRevision = 0;
+  private readonly readRevision = (): number => {
+    const current =
+      this.ready || this.snapshot ? trackViewConfigurationKey(this.current()) : undefined;
+    if (current !== this.observedConfiguration) {
+      this.observedConfiguration = current;
+      this.inputRevision++;
+    }
+    return this.inputRevision;
+  };
+
   constructor(tab: Tab) {
     this.tab = tab;
     this.saved = tab.trackView;
@@ -55,6 +70,7 @@ export class TrackViewSession implements TrackViewControl {
     this.registration = documentLifecycle.register({
       target: { kind: 'tab', tabId: tab.id },
       tabId: tab.id,
+      readRevision: this.readRevision,
       isDirty: this.isDirty,
       save: this.requestSave,
       discard: () => this.cancelNaming(),
@@ -352,6 +368,8 @@ export class TrackViewSession implements TrackViewControl {
           this.ready = true;
         }
         this.projectSaved(result.saved, Boolean(renaming), unchanged, Boolean(previous));
+        if (unchanged && !renaming)
+          this.observedConfiguration = trackViewConfigurationKey(this.current());
       }
       if (this.closed()) return { ok: false, error: 'The Track view closed while saving.' };
       const dirty = mode !== 'copy' && (!unchanged || this.isDirty());

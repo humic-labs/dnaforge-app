@@ -76,6 +76,7 @@ import {
   commitPathsIfDirty,
   flushManagedCommitDurably,
   initManagedRepo,
+  readBlobContentIdentityAtCommit,
   restoreManagedHeadAndIndex,
   resolveHeadCommit,
 } from './workspace-git';
@@ -3476,6 +3477,22 @@ async function replaceBundleFilesInExistingManagedRepo(
     }
     for (const directoryPath of replicaDirectoriesChildFirst(stagedDirectories, stagingRoot)) {
       await durability.flushDirectory(directoryPath);
+    }
+    const installedHashes = new Set(stagedContents.values());
+    for (const [relativePath, hash] of expectedCurrentContents) {
+      if (relativePath === MANAGED_WORKSPACE_MARKER || installedHashes.has(hash)) continue;
+      const original = await readBlobContentIdentityAtCommit(
+        repoRootRealPath,
+        expectedLocalHeadSha,
+        relativePath,
+        Number.MAX_SAFE_INTEGER,
+        0
+      ).catch(() => null);
+      if (original?.contentSha256 !== hash) {
+        throw new WorkspaceSyncPullConflictError(
+          `The incoming project would replace local content that is missing from the saved version: ${relativePath}`
+        );
+      }
     }
 
     await assertExistingRepoMatchesPullBase(

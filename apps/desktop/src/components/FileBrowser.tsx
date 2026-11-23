@@ -989,6 +989,7 @@ export function FileBrowser({
         action: 'move',
         fileTypeCategory: fileTypeCategory(source),
       });
+      let fileChangeCommitted = false;
       try {
         const sourceRoot = findWorkspaceRootForPath(folders, source);
         const base = source.replace(/\/+$/, '').split('/').pop() ?? source;
@@ -1000,6 +1001,7 @@ export function FileBrowser({
             newPath,
             mutationToken,
           });
+          fileChangeCommitted = true;
           await recordWorkspaceArtifactFileRenameInProjectMemory({
             oldPath: source,
             newPath: relocated.newPath,
@@ -1009,26 +1011,39 @@ export function FileBrowser({
           return relocated.newPath;
         });
         const destRoot = findWorkspaceRootForPath(folders, destPath);
-        for (const root of new Set([sourceRoot, destRoot].filter(Boolean) as string[])) {
-          notifyGitStatusChanged(root);
-          void Promise.resolve(onWorkspaceChanged?.(root));
+        const refreshes = await Promise.allSettled(
+          [...new Set([sourceRoot, destRoot].filter(Boolean) as string[])].map(async (root) => {
+            notifyGitStatusChanged(root);
+            await onWorkspaceChanged?.(root);
+          })
+        );
+        for (const refresh of refreshes) {
+          if (refresh.status === 'rejected') throw refresh.reason;
         }
         setRefreshTrigger((prev) => prev + 1);
         telemetry.complete({ status: 'updated' });
       } catch (err) {
         telemetry.fail('move_failed');
         const raw = err instanceof Error ? err.message : '';
-        useToastStore.getState().addToast(
-          raw.replace(/^MOVE_[A-Z_]+:\s*/, '')
-            ? toUserMessage(raw.replace(/^MOVE_[A-Z_]+:\s*/, ''), 'operation.failed')
-            : userMessageWithValues('notice.couldn-t-move-value', {
-                value0: userMessageValue(source.split('/').pop() ?? source),
-              }),
-          {
-            definition: 'file-browser-move-item-into-dir',
-            variant: raw.startsWith('MOVE_NOOP') ? 'info' : 'error',
-          }
-        );
+        if (fileChangeCommitted) {
+          useToastStore
+            .getState()
+            .addToast(userMessage('notice.file-change-saved-project-update-incomplete'), {
+              definition: 'workspace-refresh-warning',
+            });
+        } else {
+          useToastStore.getState().addToast(
+            raw.replace(/^MOVE_[A-Z_]+:\s*/, '')
+              ? toUserMessage(raw.replace(/^MOVE_[A-Z_]+:\s*/, ''), 'operation.failed')
+              : userMessageWithValues('notice.couldn-t-move-value', {
+                  value0: userMessageValue(source.split('/').pop() ?? source),
+                }),
+            {
+              definition: 'file-browser-move-item-into-dir',
+              variant: raw.startsWith('MOVE_NOOP') ? 'info' : 'error',
+            }
+          );
+        }
         console.error('[FileBrowser] Failed to move:', err);
       }
     },
@@ -1430,6 +1445,7 @@ export function FileBrowser({
         action: 'rename',
         fileTypeCategory: fileTypeCategory(oldPath),
       });
+      let fileChangeCommitted = false;
       try {
         const parentDir = oldPath.substring(0, oldPath.lastIndexOf('/'));
         const newPath = `${parentDir}/${newName}`;
@@ -1443,6 +1459,7 @@ export function FileBrowser({
             .getState()
             .renamePageArtifact(binding.entity_id, newName);
           if (!renamed) throw new UserMessageError('document.saveFailed');
+          fileChangeCommitted = true;
         } else {
           await withRendererWorkspaceMutation(workspaceRoot, async (mutationToken) => {
             const relocated = await relocateRegistryFile({
@@ -1451,6 +1468,7 @@ export function FileBrowser({
               newPath,
               mutationToken,
             });
+            fileChangeCommitted = true;
             await recordWorkspaceArtifactFileRenameInProjectMemory({
               oldPath,
               newPath: relocated.newPath,
@@ -1461,12 +1479,19 @@ export function FileBrowser({
         }
         if (workspaceRoot) {
           notifyGitStatusChanged(workspaceRoot);
-          void Promise.resolve(onWorkspaceChanged?.(workspaceRoot));
+          await onWorkspaceChanged?.(workspaceRoot);
         }
         setRefreshTrigger((prev) => prev + 1);
         telemetry.complete({ status: 'updated' });
       } catch (err) {
         telemetry.fail('rename_failed');
+        if (fileChangeCommitted) {
+          useToastStore
+            .getState()
+            .addToast(userMessage('notice.file-change-saved-project-update-incomplete'), {
+              definition: 'workspace-refresh-warning',
+            });
+        }
         console.error('[FileBrowser] Failed to rename:', err);
       }
     },

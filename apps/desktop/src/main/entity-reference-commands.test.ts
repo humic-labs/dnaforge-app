@@ -17,7 +17,8 @@ vi.mock('electron', () => ({
     handle: (name: string, handler: (...args: unknown[]) => unknown) =>
       state.handlers.set(name, handler),
   },
-  dialog: { showErrorBox: vi.fn() },
+  BrowserWindow: { fromWebContents: (sender: unknown) => sender === state.sender ? {} : null },
+  dialog: { showErrorBox: vi.fn(), showOpenDialog: vi.fn(async () => ({canceled:true,filePaths:[]})) },
   app: { getPath: () => '/tmp', getVersion: () => '1.0.0', exit: vi.fn() },
 }));
 vi.mock('../db/index', () => ({
@@ -104,6 +105,19 @@ afterEach(() => {
 });
 
 describe('saved references through renderer delegates, native IPC and actual SQLite', () => {
+  it('lists persisted versions through the production bridge and respects a canceled recovery destination', async () => {
+    const saved = await createEntityReference({
+      entityType:'external',displayLabel:'Recover this result',locator:'https://example.org/result',
+      deepLinkParams:null,data:{value:1},source:'user',workspaceScope:null,workspaceRootPath:null,
+    });
+    const event = {sender:state.sender};
+    const versions = await state.handlers.get('db:listSavedEntityRowVersions')!(event,{source:'entity_references',identity:[saved.id]}) as {revisionId:string}[];
+    expect(versions).toMatchObject([{identity:[saved.id],source:'entity_references'}]);
+    expect(versions[0].revisionId).toMatch(/^[a-f0-9]{32}$/);
+    expect(await state.handlers.get('db:recoverSavedEntityRowVersion')!(event,{source:'entity_references',revisionId:versions[0].revisionId})).toBeNull();
+    expect(await getEntityReference(saved.id)).toEqual(saved);
+  });
+
   it('keeps a pinned molecular document reference in its real catalog project', async () => {
     const documentId = '40000000-0000-4000-8000-000000000009';
     const target = {

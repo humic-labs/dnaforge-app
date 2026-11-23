@@ -3,10 +3,7 @@ import { withDeclaredRendererWorkspaceMutation } from './workspace-mutation-auth
 import { withRendererDatabaseStatement } from '../workspace-sync-database-fence';
 import { reconcileMolecularDocumentSourceLinksInMain } from '../molecular-document-projection-authority';
 import { handleGroup } from '../../shared/ipc-contract';
-import type {
-  MolecularDocumentLocation,
-  SaveMolecularDocumentRequest,
-} from '../../shared/molecular-document';
+import { packMolecularDocument, unpackMolecularDocument } from '../../shared/molecular-document';
 import { MolecularDocumentLibrary } from '../molecular-document-library';
 import { molecularDocumentsContract } from '../../shared/ipc/molecular-documents.contract';
 import { userMessage } from '@waypoint/user-messages';
@@ -14,7 +11,7 @@ import { molecularDocumentReadFailure } from '../../shared/molecular-document-re
 import { readRegisteredMolecularDocument } from '../registered-molecular-document';
 
 export function registerMolecularDocumentIpcHandlers(): void {
-  const library = new MolecularDocumentLibrary();
+  const library = new MolecularDocumentLibrary({ db: getDb });
   handleGroup(molecularDocumentsContract, {
     reconcileSourceLinks: (event, request, mutationToken) => {
       const db = getDb();
@@ -30,13 +27,20 @@ export function registerMolecularDocumentIpcHandlers(): void {
           ),
       });
     },
-    read: async (_event, request: MolecularDocumentLocation) => {
+    read: async (_event, request) => {
       try {
-        return await readRegisteredMolecularDocument(getDb(), request);
+        const saved = await readRegisteredMolecularDocument(getDb(), request);
+        return { ...saved, document: packMolecularDocument(saved.document) };
       } catch (error) {
         throw new Error(userMessage(molecularDocumentReadFailure(error)), { cause: error });
       }
     },
-    save: (_event, request: SaveMolecularDocumentRequest) => library.save(request),
+    save: async (_event, request) => {
+      const saved = await library.save({
+        ...request,
+        document: unpackMolecularDocument(request.document),
+      });
+      return { ...saved, document: packMolecularDocument(saved.document) };
+    },
   });
 }
