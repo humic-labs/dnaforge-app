@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { lstat, readdir } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import type { ScientificDocumentSnapshot } from '@waypoint/domain-services';
@@ -191,6 +192,7 @@ async function readScientific(
   const result = await readScientificDocumentInMain(
     {
       workspaceRoot: source.workspaceRoot,
+      operationId: randomUUID(),
       workspace: parseWorkspaceIdentity(authority.workspace),
       document: parseScientificDocumentIdentity(
         relative(source.workspaceRoot, path).replaceAll('\\', '/')

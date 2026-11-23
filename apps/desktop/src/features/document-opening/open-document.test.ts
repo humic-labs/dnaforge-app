@@ -109,6 +109,29 @@ describe('common document opening', () => {
     expect(mocks.structure).not.toHaveBeenCalled();
   });
 
+  it('checks the real PDF reader even when a caller supplies a PDF hint for an extensionless file', async () => {
+    mocks.checkDocument.mockResolvedValue({
+      state: 'blocked', code: 'unsupported-format', recognized: false,
+      reason: 'This format cannot be opened in DNAForge.',
+    });
+    await expect(openDocument({ target: { kind: 'file', path: '/ws/blob', tabType: 'pdf' } }))
+      .resolves.toMatchObject({ status: 'blocked' });
+    expect(mocks.checkDocument).toHaveBeenCalledWith(expect.objectContaining({
+      path: '/ws/blob', literalKind: 'pdf',
+    }));
+    expect(useCanvasStore.getState().panels.main.tabs).toEqual([]);
+  });
+
+  it('keeps a proven missing file distinct when the filesystem bridge cannot preserve the error code', async () => {
+    mocks.stat.mockRejectedValue(new Error('The underlying bridge failed.'));
+    const message = 'The file could not be found.';
+    mocks.checkDocument.mockResolvedValue({
+      state: 'blocked', code: 'missing', recognized: false, reason: message,
+    });
+    await expect(openDocument({ target: { kind: 'file', path: '/ws/absent.pdf' } }))
+      .resolves.toEqual({ status: 'blocked', message });
+  });
+
   it('cancels during filesystem classification while another caller still opens', async () => {
     const metadata = Promise.withResolvers<{ isFile: boolean; isDirectory: boolean }>();
     mocks.stat.mockImplementationOnce(() => metadata.promise);
