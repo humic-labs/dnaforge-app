@@ -30,7 +30,7 @@ import { useTrackGutterLayoutStore } from './track-gutter-layout-store';
 interface UseIndexedLaneContractTracksOptions {
   enabled?: boolean;
   supplementalTracks?: readonly SupplementalLinearTrack[];
-  onTrackSelection?: (start: number, end: number, trackId: string) => void;
+  onTrackSelection?: (start: number, end: number, trackId?: string) => void;
   webglRef: { readonly current: IndexedGenomeTileNativeMapHandle | null };
   rendererReadyEpoch?: number;
   rendererAssembly: Assembly | null;
