@@ -55,6 +55,7 @@ it('opens an existing project without demanding historical identity when no reco
   renderHook(() =>
     useFirstProjectBootstrap({
       libraryLoaded: true,
+      waitForStartupProjectMounts: completedMounts,
       workspaceLoading: false,
       workspacePath: path,
       registeredProjectFolders: [
@@ -78,3 +79,5 @@ it('opens an existing project without demanding historical identity when no reco
   expect(mocks.getOriginalDefaultProject).not.toHaveBeenCalled();
   expect(mocks.createEmptyWorkspace).not.toHaveBeenCalled();
 });
+
+async function completedMounts(): Promise<void> {}

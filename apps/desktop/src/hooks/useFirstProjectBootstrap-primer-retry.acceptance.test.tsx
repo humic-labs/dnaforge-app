@@ -73,6 +73,7 @@ const busy: typeof complete = {
 };
 const options = {
   libraryLoaded: true,
+  waitForStartupProjectMounts: completedMounts,
   workspaceLoading: false,
   workspacePath: null,
   registeredProjectFolders: [],
@@ -157,6 +158,42 @@ function definitions() {
 }
 
 describe('automatic primer recovery retries through the actual renderer service', () => {
+  it('automatically recovers after the startup mount completes', async () => {
+    let finishMount!: () => void;
+    const mounting = new Promise<void>((resolve) => {
+      finishMount = resolve;
+    });
+    const waitForStartupProjectMounts = vi.fn(() => mounting);
+    renderHook(() => useFirstProjectBootstrap({ ...options, waitForStartupProjectMounts }));
+    await settle();
+    expect(waitForStartupProjectMounts).toHaveBeenCalledOnce();
+    expect(mocks.recover).not.toHaveBeenCalled();
+    finishMount();
+    await settle();
+    expect(mocks.recover).toHaveBeenCalledOnce();
+  });
+
+  it('leaves an abandoned startup to the remounted renderer', async () => {
+    let finishMount!: () => void;
+    const mounting = new Promise<void>((resolve) => {
+      finishMount = resolve;
+    });
+    const first = renderHook(() =>
+      useFirstProjectBootstrap({
+        ...options,
+        waitForStartupProjectMounts: () => mounting,
+      })
+    );
+    await settle();
+    first.unmount();
+    finishMount();
+    await settle();
+    expect(mocks.recover).not.toHaveBeenCalled();
+    renderHook(() => useFirstProjectBootstrap(options));
+    await settle();
+    expect(mocks.recover).toHaveBeenCalledOnce();
+  });
+
   it('retries transient inventory database contention without a rerender or user action', async () => {
     mocks.inventory.mockRejectedValueOnce(new Error(WORKSPACE_SYNC_DATABASE_BUSY_MESSAGE));
     renderHook(() => useFirstProjectBootstrap(options));
@@ -317,3 +354,5 @@ describe('automatic primer recovery retries through the actual renderer service'
     expect(mocks.createProject).not.toHaveBeenCalled();
   });
 });
+
+async function completedMounts(): Promise<void> {}

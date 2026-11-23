@@ -50,6 +50,7 @@ const complete = {
 };
 const options = {
   libraryLoaded: true,
+  waitForStartupProjectMounts: completedMounts,
   workspaceLoading: false,
   workspacePath: null,
   registeredProjectFolders: [],
@@ -145,3 +146,5 @@ describe('automatic legacy primer migration at application startup', () => {
     ).toBe(false);
   });
 });
+
+async function completedMounts(): Promise<void> {}

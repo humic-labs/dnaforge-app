@@ -190,6 +190,7 @@ import {
   reconcileWorkspaceAfterFilesChanged,
   reconcileWorkspaceOnMount,
 } from './services/workspace-operations';
+import { waitForWorkspaceReconcileIdle } from './services/workspace-reconcile-lifecycle';
 import {
   installWorkspaceFilesChangedAdapter,
   WORKSPACE_FILES_CHANGED_EVENT,
@@ -1473,6 +1474,11 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
           reconcileControllersRef.current.delete(path);
       });
   }, []);
+  const waitForStartupProjectMounts = useCallback(async () => {
+    const roots = useWorkspaceStore.getState().folders.map((folder) => folder.path);
+    for (const path of roots) startProjectIndex(path);
+    await Promise.all(roots.map(waitForWorkspaceReconcileIdle));
+  }, [startProjectIndex]);
   const handleRetryProjectIndex = useCallback(
     (path: string) => {
       if (
@@ -1606,6 +1612,7 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
     handleCreateAssembly,
     handleFindInFolder,
   } = useWorkspaceProjectActions({
+    waitForStartupProjectMounts,
     shellPrepared,
     workspaceLoading,
     workspacePath,

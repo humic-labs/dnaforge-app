@@ -24,6 +24,7 @@ import {
 interface FirstProjectBootstrapOptions {
   libraryLoaded: boolean;
   workspaceLoading: boolean;
+  waitForStartupProjectMounts(): Promise<void>;
   workspacePath: string | null;
   registeredProjectFolders: readonly ProjectEditFolder[];
   activeProjects: readonly { repoPath: string; name: string }[];
@@ -35,6 +36,7 @@ interface FirstProjectBootstrapOptions {
 export function useFirstProjectBootstrap({
   libraryLoaded,
   workspaceLoading,
+  waitForStartupProjectMounts,
   workspacePath,
   registeredProjectFolders,
   activeProjects,
@@ -92,6 +94,8 @@ export function useFirstProjectBootstrap({
           recoveryPending ||
           inventory.entries.some((entry) => entry.status === 'legacy-library')
         ) {
+          await waitForStartupProjectMounts();
+          if (!(await isCurrent())) return;
           const result = await saveLegacyPrimerLibraryAsFiles(
             reportPrimerRecoveryInventory,
             isCurrent
@@ -126,7 +130,7 @@ export function useFirstProjectBootstrap({
       if (timer !== undefined) clearTimeout(timer);
       if (!settled) primerRecoveryInventoryStarted.current = false;
     };
-  }, [libraryLoaded, workspaceLoading]);
+  }, [libraryLoaded, workspaceLoading, waitForStartupProjectMounts]);
 
   useEffect(() => {
     if (isBrowserOnly() || !libraryLoaded || workspaceLoading) return;
