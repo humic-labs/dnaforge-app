@@ -66,7 +66,10 @@ function deferred<T>() {
 
 const nextEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
 
-function beginTurn(lastTraceSequence: number) {
+function beginTurn(
+  lastTraceSequence: number,
+  transport: 'codex-sdk' | 'claude-agent-sdk' = 'codex-sdk'
+) {
   const started = deferred<void>();
   const response = deferred<Record<string, unknown>>();
   const controller = new AbortController();
@@ -82,7 +85,7 @@ function beginTurn(lastTraceSequence: number) {
     set: vi.fn(),
     conversationId: 'conversation-1',
     turnId: 'turn-1',
-    transport: 'codex-sdk',
+    transport,
     permissionMode: 'app-supervised',
     permissions: BUILT_IN_AGENT_PERMISSIONS,
     folders: [],
@@ -104,7 +107,7 @@ function beginTurn(lastTraceSequence: number) {
   const resolveResponse = () =>
     response.resolve({
       sessionId,
-      provider: 'codex-sdk',
+      provider: transport,
       authorityProfileId: 'profile-1',
       ok: true,
       text: 'I found two relevant skills for pUC19 primer design.',
@@ -218,6 +221,28 @@ describe('native CLI terminal trace fence', () => {
     expect(disposeTrace).toHaveBeenCalledTimes(1);
     expect(listeners.size).toBe(0);
   });
+
+  it.each(['claude-agent-sdk', 'codex-sdk'] as const)(
+    'honors Stop during %s setup before starting the provider',
+    async (transport) => {
+      const lookingUpPath = deferred<void>();
+      const appDataPath = deferred<string>();
+      bridge.path.appDataDir.mockImplementationOnce(() => {
+        lookingUpPath.resolve();
+        return appDataPath.promise;
+      });
+      const run = beginTurn(-1, transport);
+      await lookingUpPath.promise;
+      run.controller.abort();
+      appDataPath.resolve('/app-data');
+      run.resolveResponse();
+      await expect(run.execution).resolves.toBe('stopped');
+      expect(bridge.agentSession.start).not.toHaveBeenCalled();
+      expect(run.finishTurn).toHaveBeenCalledTimes(1);
+      expect(run.finishTurn).toHaveBeenCalledWith('stopped', 'Stop requested.');
+      expect(disposeTrace).toHaveBeenCalledTimes(1);
+    }
+  );
 
   it('lets Stop release an outstanding sequence zero fence without claiming completion', async () => {
     const run = beginTurn(0);
