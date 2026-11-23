@@ -13,6 +13,8 @@ import { useAttachedReadsStore } from './attached-reads-store';
 import { recordExtraLanes, recordSequence } from './trace-probe';
 import { useResidueLinkOverlays } from '../../structure-drawer/public/hooks/useResidueLinkOverlays';
 
+export { getTraceData };
+
 const GC_WINDOW = 100;
 
 export function useTracksExtraLanes(sequence: AnnotatedSequence): readonly SequenceExtraLane[] {
