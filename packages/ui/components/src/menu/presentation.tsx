@@ -184,6 +184,7 @@ export interface MenuNativeSelectProps extends Omit<
   'className' | 'style' | 'size'
 > {
   density?: MenuDensity;
+  wideCaretGap?: boolean;
 }
 
 export interface MenuSearchInputProps extends Omit<
@@ -209,7 +210,10 @@ export const MenuSearchInput = forwardRef<HTMLInputElement, MenuSearchInputProps
 );
 
 export const MenuNativeSelect = forwardRef<HTMLSelectElement, MenuNativeSelectProps>(
-  function MenuNativeSelect({ density = 'compact', disabled = false, ...props }, ref) {
+  function MenuNativeSelect(
+    { density = 'compact', disabled = false, wideCaretGap, ...props },
+    ref
+  ) {
     return (
       <span
         className="wp-menu-native-select"
@@ -222,6 +226,7 @@ export const MenuNativeSelect = forwardRef<HTMLSelectElement, MenuNativeSelectPr
           disabled={disabled}
           className="wp-menu-trigger wp-menu-native-select-control"
           data-menu-density={density}
+          data-wide-caret-gap={wideCaretGap}
           data-variant="field"
         />
         <span className="wp-menu-native-select-caret">

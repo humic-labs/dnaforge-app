@@ -201,6 +201,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.wp-menu-native-select-control[data-wide-caret-gap='true'] {
+  --menu-slot-gap: 8px;
+}
 .wp-menu-native-select-caret {
   position: absolute;
   inset-inline-end: var(--menu-padding-inline);

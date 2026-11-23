@@ -1588,6 +1588,7 @@ function SelectSetting<T extends string>({
   value,
   ariaLabel,
   testId,
+  wideCaretGap,
   options,
   onChange,
 }: {
@@ -1595,6 +1596,7 @@ function SelectSetting<T extends string>({
   value: T;
   ariaLabel: string;
   testId: string;
+  wideCaretGap?: boolean;
   options: ReadonlyArray<{ value: T; label: string; disabled?: boolean }>;
   onChange: (value: T) => void;
 }) {
@@ -1603,6 +1605,7 @@ function SelectSetting<T extends string>({
       <span className="font-medium">{label}</span>
       <span className="relative min-w-0">
         <MenuNativeSelect
+          wideCaretGap={wideCaretGap}
           value={value}
           onChange={(event) => onChange(event.target.value as T)}
           aria-label={ariaLabel}
@@ -1886,6 +1889,7 @@ function QuantitativeTrackSettings({
       ) : null}
       <SelectSetting
         label="Range"
+        wideCaretGap
         value={presentation.scale.mode}
         onChange={selectMode}
         ariaLabel={`Signal range for ${dataset.label}`}
