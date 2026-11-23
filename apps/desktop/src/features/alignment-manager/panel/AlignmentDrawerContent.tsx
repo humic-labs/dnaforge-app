@@ -11,15 +11,11 @@ import {
   useAlignmentManagerState,
   useAlignmentManagerActions,
 } from '../hooks/useAlignmentManagerState';
-import type {
-  MinimapViewMode,
-  SessionMode,
-  SessionViewPreferences,
-  Mutation,
-  VerificationTrack,
-} from '../types';
+import type { SessionMode, Mutation, VerificationTrack } from '../types';
 import { safeFocus } from '../../../shared/utils/safeFocus';
 import { debugLog } from '../../../utils/debug-log';
+import { SegmentedControl } from '../../../components/ui';
+import { resolveSessionViewPreferences } from '../utils/helpers';
 import { EyeIcon, EyeOffIcon } from './icons';
 import { PairwiseSessionOperationError } from '../pairwise-session-operation-client';
 import { TrackMutationsPanel } from './TrackMutationsPanel';
@@ -252,21 +248,12 @@ export function AlignmentDrawerContent({
     [activeSession, documentId, setSessionViewPreferences, clearFocusedPosition]
   );
 
-  const activeSessionPrefs = useMemo((): SessionViewPreferences | undefined => {
-    if (!activeSession) return undefined;
-    const key = `${documentId}::${activeSession.id}`;
-    const explicit = sessionViewPreferences[key];
-
-    const defaultViewMode: MinimapViewMode =
-      activeSession.mode === 'multi-per-clone' ? 'single' : 'stacked';
-
-    if (explicit && explicit.viewMode) return explicit;
-
-    return {
-      viewMode: explicit?.viewMode ?? defaultViewMode,
-      selectedTrackId: explicit?.selectedTrackId ?? null,
-    };
-  }, [activeSession, documentId, sessionViewPreferences]);
+  const activeSessionPrefs = activeSession
+    ? resolveSessionViewPreferences(
+        activeSession,
+        sessionViewPreferences[`${documentId}::${activeSession.id}`]
+      )
+    : undefined;
 
   const handleSetActive = useCallback(
     (sessionId: string) => {
@@ -382,6 +369,27 @@ export function AlignmentDrawerContent({
           </button>
         )}
       </div>
+
+      {activeSession && activeSession.tracks.length > 1 && activeSessionPrefs && (
+        <div
+          role="group"
+          aria-label="Reads shown in viewer"
+          className="flex items-center gap-2 px-4 py-2"
+        >
+          <SegmentedControl
+            value={activeSessionPrefs.viewMode}
+            options={[
+              { value: 'single', label: 'Selected read' },
+              { value: 'stacked', label: 'All reads' },
+            ]}
+            onChange={(value) =>
+              setSessionViewPreferences(documentId, activeSession.id, {
+                viewMode: value === 'stacked' ? 'stacked' : 'single',
+              })
+            }
+          />
+        </div>
+      )}
 
       {alignmentError && (
         <div

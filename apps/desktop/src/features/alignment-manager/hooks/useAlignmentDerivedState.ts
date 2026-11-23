@@ -33,13 +33,9 @@ export function useAlignmentDerivedState(documentId: string) {
   });
 
   const viewMode = useVerificationStore((s): MinimapViewMode => {
-    const refState = s.verificationState[documentId];
-    const sessionId = refState?.activeSessionId;
-    if (!sessionId) return 'single' as const;
-    const key = `${documentId}::${sessionId}`;
-    const explicit = s.sessionViewPreferences[key];
-    if (explicit?.viewMode) return explicit.viewMode;
-    return 'single' as const;
+    return activeSessionId
+      ? (s.getSessionViewPreferences(documentId, activeSessionId)?.viewMode ?? 'single')
+      : 'single';
   });
 
   const hiddenTrackIds = useVerificationStore((s) => {

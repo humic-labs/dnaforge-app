@@ -30,7 +30,7 @@ import {
 } from '../utils/alignment-history-persist';
 import { debugLog, debugWarn } from '../../../utils/debug-log';
 import { withAlignmentHistoryAccess } from '../utils/alignment-history-access';
-import { generateId, getDefaultViewMode, prefsKey } from '../utils/helpers';
+import { generateId, resolveSessionViewPreferences, prefsKey } from '../utils/helpers';
 import {
   computePairwiseQueryId,
   computePairwiseSessionSubjectId,
@@ -2063,14 +2063,16 @@ export const useVerificationStore = create<VerificationStore>()(
           const key = prefsKey(documentId, sessionId);
 
           set((state) => {
-            const existing = state.sessionViewPreferences[key];
+            const session = state.verificationState[documentId]?.sessions.find(
+              (entry) => entry.id === sessionId
+            );
             return {
               sessionViewPreferences: {
                 ...state.sessionViewPreferences,
-                [key]: {
-                  ...existing,
+                [key]: resolveSessionViewPreferences(session, {
+                  ...state.sessionViewPreferences[key],
                   ...prefs,
-                } as SessionViewPreferences,
+                }),
               },
             };
           });
@@ -2094,19 +2096,7 @@ export const useVerificationStore = create<VerificationStore>()(
           const session = refState.sessions.find((s) => s.id === sessionId);
           if (!session) return undefined;
 
-          const defaultPrefs: SessionViewPreferences = {
-            viewMode: getDefaultViewMode(session),
-            selectedTrackId: null,
-          };
-
-          if (explicit) {
-            return {
-              viewMode: explicit.viewMode ?? defaultPrefs.viewMode,
-              selectedTrackId: explicit.selectedTrackId ?? defaultPrefs.selectedTrackId,
-            };
-          }
-
-          return defaultPrefs;
+          return resolveSessionViewPreferences(session, explicit);
         },
 
         getAggregatedMutations: (documentId: string, sessionId: string): AggregatedMutation[] => {
@@ -2237,7 +2227,7 @@ export const useVerificationStore = create<VerificationStore>()(
         toggleAlignmentVisibility: (documentId: string, sessionId: string): void => {
           const key = prefsKey(documentId, sessionId);
           set((state) => {
-            const existing = state.sessionViewPreferences[key];
+            const existing = state.getSessionViewPreferences(documentId, sessionId);
             const current = existing?.alignmentVisible !== false;
             return {
               sessionViewPreferences: {
@@ -2256,7 +2246,7 @@ export const useVerificationStore = create<VerificationStore>()(
         toggleTrackVisibility: (documentId: string, sessionId: string, trackId: string): void => {
           const key = prefsKey(documentId, sessionId);
           set((state) => {
-            const existing = state.sessionViewPreferences[key];
+            const existing = state.getSessionViewPreferences(documentId, sessionId);
             const hiddenIds = existing?.hiddenTrackIds ?? [];
             const isHidden = hiddenIds.includes(trackId);
             return {
