@@ -436,6 +436,7 @@ export async function queryClaudeCode(
   }
 
   const { query } = await import('@anthropic-ai/claude-agent-sdk');
+  let contextExceeded = false;
   let confinement: AgentProcessConfinement | null = null;
   try {
     confinement = await prepareManagedAgentProcessConfinement({
@@ -452,7 +453,6 @@ export async function queryClaudeCode(
     options = { ...options, cwd: confinement.cwd, scratchRoot: confinement.scratchRoot };
     const assistantText: string[] = [];
     const resultText: string[] = [];
-    let contextExceeded = false;
     const traceEvents: ProviderTraceEvent[] = [];
     const traceAdapter = new ClaudeTraceAdapter({ sdkVersion: null, cliVersion: null });
     let traceSequence = 0;
@@ -685,7 +685,7 @@ export async function queryClaudeCode(
         }
       }
       if (message.type === 'result') {
-        contextExceeded =
+        contextExceeded ||=
           message.terminal_reason === 'prompt_too_long' ||
           (message.is_error &&
             (message.subtype === 'success' ? [message.result] : (message.errors ?? [])).some(
@@ -742,11 +742,15 @@ export async function queryClaudeCode(
         providerConversationId ?? options.providerConversationId
       );
     }
+    const error = err instanceof Error ? err.message : String(err);
     return {
       transport: 'claude-agent-sdk',
       ok: false,
       text: '',
-      error: err instanceof Error ? err.message : String(err),
+      error,
+      ...(contextExceeded || isProviderContextError(error)
+        ? { providerInputLimit: 'context-window' as const }
+        : {}),
       durationMs: Date.now() - start,
       stopState: 'failed',
       ...(providerConversationId ? { providerConversationId } : {}),

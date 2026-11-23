@@ -495,6 +495,40 @@ describe('agent-sdk query transports', () => {
     }
   );
 
+  it.each([
+    {
+      event: { result: 'Prompt is too long · the request is ~1050 tokens (limit 1000)' },
+      error: 'Claude Code returned an error result: Prompt is too long',
+    },
+    {
+      event: { result: '', terminal_reason: 'prompt_too_long' },
+      error: 'Claude Code process exited with code 1',
+    },
+  ])(
+    'preserves the Claude context refusal through a following SDK exception',
+    async ({ event, error }) => {
+      mockClaudeQuery.mockReturnValue(
+        (async function* () {
+          yield {
+            type: 'result',
+            subtype: 'success',
+            is_error: true,
+            session_id: 'thread-1',
+            ...event,
+          };
+          throw new Error(error);
+        })()
+      );
+      const { queryClaudeCode } = await import('../query');
+      await expect(queryClaudeCode('test', { emitTrace: true })).resolves.toMatchObject({
+        ok: false,
+        providerInputLimit: 'context-window',
+        providerConversationId: 'thread-1',
+        error,
+      });
+    }
+  );
+
   it('uses the Claude terminal result instead of a pre-tool assistant preamble', async () => {
     mockClaudeQuery.mockReturnValue(
       claudeMessages([
