@@ -216,141 +216,357 @@ async function activeLane(page, bamPath) {
   }, bamPath);
 }
 
-async function observation(page, lane, readLengthBp) {
-  const result = await page.evaluate(
-    ({ lane, readLengthBp }) => {
-      const renderer = window.__webglRenderer;
-      const mapper = renderer?.getCurrentPathMapper?.();
-      const diagnostic = renderer?.getTrackDiagnostics?.(lane.trackId);
-      const driver = window.__tileEngineDebug?.()?.[lane.trackId];
-      if (!mapper || !diagnostic || !driver) return null;
-      const composition = driver.readComposition;
-      const startBp = mapper.model.viewStartBp;
-      const endBp = mapper.model.viewEndBp;
-      const physicalReadPx = readLengthBp * mapper.pixelsPerBp;
-      const rowsAlpha = diagnostic.renderedReadRowsAlpha;
-      const densityAlpha = diagnostic.renderedReadDensityAlpha;
-      const lifecycle = driver.alignedReadLifecycle ?? null;
-      const gutter = document.querySelector(
-        `[data-testid=${JSON.stringify(`aligned-read-gutter-status-${lane.trackId}`)}]`
-      );
-      const gutterObservation = gutter
-        ? {
-            trackId: gutter.getAttribute('data-testid').slice('aligned-read-gutter-status-'.length),
-            phase: gutter.getAttribute('data-status-phase'),
-            visible: gutter.getClientRects().length > 0,
-            text: gutter.textContent,
+async function observation(page, lane, readLengthBp, receipt = {}) {
+  receipt.evaluation = {
+    startMs: performance.now(),
+    endMs: null,
+    outcome: null,
+  };
+  let result;
+  try {
+    result = await page.evaluate(
+      ({ lane, readLengthBp }) => {
+        const renderer = window.__webglRenderer;
+        const mapper = renderer?.getCurrentPathMapper?.();
+        const diagnostic = renderer?.getTrackDiagnostics?.(lane.trackId);
+        const driver = window.__tileEngineDebug?.()?.[lane.trackId];
+        if (!mapper || !diagnostic || !driver) return null;
+        const composition = driver.readComposition;
+        const startBp = mapper.model.viewStartBp;
+        const endBp = mapper.model.viewEndBp;
+        const physicalReadPx = readLengthBp * mapper.pixelsPerBp;
+        const rowsAlpha = diagnostic.renderedReadRowsAlpha;
+        const densityAlpha = diagnostic.renderedReadDensityAlpha;
+        const lifecycle = driver.alignedReadLifecycle ?? null;
+        const gutter = document.querySelector(
+          `[data-testid=${JSON.stringify(`aligned-read-gutter-status-${lane.trackId}`)}]`
+        );
+        const gutterObservation = gutter
+          ? {
+              trackId: gutter
+                .getAttribute('data-testid')
+                .slice('aligned-read-gutter-status-'.length),
+              phase: gutter.getAttribute('data-status-phase'),
+              visible: gutter.getClientRects().length > 0,
+              text: gutter.textContent,
+            }
+          : null;
+        const selectedTabId = document
+          .querySelector('[role="tab"][data-tab-id][aria-selected="true"]')
+          ?.getAttribute('data-tab-id');
+        const tab = Object.values(window.__test.getCanvasStore().panels)
+          .flatMap((panel) => panel.tabs)
+          .find((candidate) => candidate.id === selectedTabId);
+        const indexedGenome = tab?.indexedGenome;
+        const snapshot = (name) =>
+          typeof window[name] === 'function' ? window[name]() : (window[name] ?? null);
+        const annotation = {
+          admitted: {
+            readiness: document
+              .querySelector('[data-testid="indexed-genome-tab"]')
+              ?.getAttribute('data-session-assembly-annotation-products-readiness'),
+            datasetContract: indexedGenome?.assemblySearchSource?.datasetContract ?? null,
+            artifact: indexedGenome?.assemblySearchSource?.artifact ?? null,
+            assetGeneration: indexedGenome?.assemblyAssetGeneration ?? null,
+          },
+          viewer: {
+            visibleTypes: window.__indexedGenomeViewerDebug?.visibleTypes ?? null,
+            annotationAuthority: window.__indexedGenomeViewerDebug?.annotationAuthority ?? null,
+          },
+          policy: snapshot('__webglAnnotationPolicyReadinessSnapshot'),
+          body: snapshot('__webglAnnotationBodyPresentationAuthoritySnapshot'),
+          scene: snapshot('__webglPrepackedAnnotationSceneOwnerSnapshot'),
+          operations: snapshot('__webglRendererOperationSnapshot'),
+          activeRenderer: renderer.getColdGestureSnapshot?.(lane.trackId) ?? null,
+        };
+        const checks = {
+          sourceComplete: diagnostic.readSourceWindowCoversViewport === true,
+          meshComplete: diagnostic.rowsMeshViewportCoverageFraction >= 0.999,
+          currentGeneration:
+            Boolean(lane.generationKey) &&
+            String(diagnostic.rowsMeshGenerationKey).includes(lane.generationKey),
+          untruncated: diagnostic.readSourceTruncated === false,
+          tilesComplete:
+            composition?.readyCoversViewport === true &&
+            composition?.readCoversViewport === true &&
+            composition?.errorTileCount === 0,
+          visible:
+            diagnostic.rowsMeshVisible === true &&
+            diagnostic.rowsVertexCount > 0 &&
+            rowsAlpha > 0.02,
+          densityMatchesScale: physicalReadPx >= 3.6 ? densityAlpha <= 0.02 : densityAlpha > 0.02,
+          lifecycleReady: lifecycle?.status?.phase === 'ready' && lifecycle.status.kind === 'reads',
+          lifecycleCurrentSource:
+            typeof lifecycle?.sourceKey === 'string' &&
+            Boolean(lane.generationKey) &&
+            lifecycle.sourceKey.includes(lane.generationKey),
+          lifecycleCurrentRequest:
+            Number.isSafeInteger(lifecycle?.generation) &&
+            lifecycle.generation > 0 &&
+            Number.isSafeInteger(lifecycle?.requestSequence) &&
+            lifecycle.requestSequence > 0,
+          lifecycleCurrentPlan:
+            typeof lifecycle?.planKey === 'string' &&
+            lifecycle.planKey.length > 0 &&
+            lifecycle.planKey === lifecycle.currentPlanKey,
+          presentationCommitted: lifecycle?.pendingPresentation === null,
+          gutterReady: gutterObservation?.phase === 'ready' && gutterObservation.visible,
+        };
+        const unavailableFields = [];
+        const primitive = (field, value, type) => {
+          if (typeof value === type && (type !== 'number' || Number.isFinite(value))) {
+            if (type === 'string' && value.length === 0) {
+              unavailableFields.push({ field, reason: 'empty-string' });
+            }
+            return value;
           }
-        : null;
-      const selectedTabId = document
-        .querySelector('[role="tab"][data-tab-id][aria-selected="true"]')
-        ?.getAttribute('data-tab-id');
-      const tab = Object.values(window.__test.getCanvasStore().panels)
-        .flatMap((panel) => panel.tabs)
-        .find((candidate) => candidate.id === selectedTabId);
-      const indexedGenome = tab?.indexedGenome;
-      const snapshot = (name) =>
-        typeof window[name] === 'function' ? window[name]() : (window[name] ?? null);
-      const annotation = {
-        admitted: {
-          readiness: document
-            .querySelector('[data-testid="indexed-genome-tab"]')
-            ?.getAttribute('data-session-assembly-annotation-products-readiness'),
-          datasetContract: indexedGenome?.assemblySearchSource?.datasetContract ?? null,
-          artifact: indexedGenome?.assemblySearchSource?.artifact ?? null,
-          assetGeneration: indexedGenome?.assemblyAssetGeneration ?? null,
-        },
-        viewer: {
-          visibleTypes: window.__indexedGenomeViewerDebug?.visibleTypes ?? null,
-          annotationAuthority: window.__indexedGenomeViewerDebug?.annotationAuthority ?? null,
-        },
-        policy: snapshot('__webglAnnotationPolicyReadinessSnapshot'),
-        body: snapshot('__webglAnnotationBodyPresentationAuthoritySnapshot'),
-        scene: snapshot('__webglPrepackedAnnotationSceneOwnerSnapshot'),
-        operations: snapshot('__webglRendererOperationSnapshot'),
-        activeRenderer: renderer.getColdGestureSnapshot?.(lane.trackId) ?? null,
-      };
-      const checks = {
-        sourceComplete: diagnostic.readSourceWindowCoversViewport === true,
-        meshComplete: diagnostic.rowsMeshViewportCoverageFraction >= 0.999,
-        currentGeneration:
-          Boolean(lane.generationKey) &&
-          String(diagnostic.rowsMeshGenerationKey).includes(lane.generationKey),
-        untruncated: diagnostic.readSourceTruncated === false,
-        tilesComplete:
-          composition?.readyCoversViewport === true &&
-          composition?.readCoversViewport === true &&
-          composition?.errorTileCount === 0,
-        visible:
-          diagnostic.rowsMeshVisible === true && diagnostic.rowsVertexCount > 0 && rowsAlpha > 0.02,
-        densityMatchesScale: physicalReadPx >= 3.6 ? densityAlpha <= 0.02 : densityAlpha > 0.02,
-        lifecycleReady: lifecycle?.status?.phase === 'ready' && lifecycle.status.kind === 'reads',
-        lifecycleCurrentSource:
-          typeof lifecycle?.sourceKey === 'string' &&
-          Boolean(lane.generationKey) &&
-          lifecycle.sourceKey.includes(lane.generationKey),
-        lifecycleCurrentRequest:
-          Number.isSafeInteger(lifecycle?.generation) &&
-          lifecycle.generation > 0 &&
-          Number.isSafeInteger(lifecycle?.requestSequence) &&
-          lifecycle.requestSequence > 0,
-        lifecycleCurrentPlan:
-          typeof lifecycle?.planKey === 'string' &&
-          lifecycle.planKey.length > 0 &&
-          lifecycle.planKey === lifecycle.currentPlanKey,
-        presentationCommitted: lifecycle?.pendingPresentation === null,
-        gutterReady: gutterObservation?.phase === 'ready' && gutterObservation.visible,
-      };
-      return {
-        viewport: {
-          startBp,
-          endBp,
-          sourceGenerationKey: checks.currentGeneration
-            ? lane.generationKey
-            : diagnostic.rowsMeshGenerationKey,
-          sourceFraction: diagnostic.readSourceWindowCoverageFraction,
-          meshFraction: diagnostic.rowsMeshViewportCoverageFraction,
-          recordCount: diagnostic.rowsMeshRecordCount,
-          truncated: diagnostic.readSourceTruncated,
-          pendingTiles: composition?.pendingTileCount,
-          rowsAlpha,
-          densityAlpha,
-          physicalReadPx,
-          coverageStartBp: diagnostic.coverageSignalStartBp,
-          coverageEndBp: diagnostic.coverageSignalEndBp,
-        },
-        checks,
-        presentation: { trackId: lane.trackId, lifecycle, gutter: gutterObservation },
-        annotation,
-        preparation: {
-          rowsAssignmentBuilding: diagnostic.rowsAssignmentBuildInProgress,
-          rowsMeshBuilding: diagnostic.rowsMeshBuildInProgress,
-          rowsMeshRecordCursor: diagnostic.rowsMeshBuildRecordCursor,
-          rowsMeshTargetRecordCount: diagnostic.rowsMeshBuildRecordCount,
-          corridorFloorState: driver.coverageCorridorFloor?.state,
-          residentBandReady: composition?.stableBandReady,
-          residentReadyTileCount: composition?.readyBandTileCount,
-          residentExpectedTileCount: composition?.expectedBandTileCount,
-          lifecyclePhase: lifecycle?.status?.phase,
-          lifecycleRequestSequence: lifecycle?.requestSequence,
-          lifecyclePlanKey: lifecycle?.planKey,
-          lifecycleCurrentPlanKey: lifecycle?.currentPlanKey,
-          presentationPending: lifecycle?.pendingPresentation != null,
-          gutterPhase: gutterObservation?.phase,
-        },
-        sourceWindow: {
-          startBp: diagnostic.readSourceWindowStartBp,
-          endBp: diagnostic.readSourceWindowEndBp,
-        },
-        cache: { bytes: driver.cache?.byteSize, entries: driver.cache?.entries },
-        errors: [
-          ...(driver.cache?.errors ?? []).map((entry) => entry.reason ?? 'Alignment tile failed'),
-          ...(driver.aln?.error ? [`${driver.aln.error} failed alignment tiles`] : []),
-        ],
-      };
-    },
-    { lane: { trackId: lane.trackId, generationKey: lane.generationKey }, readLengthBp }
-  );
+          unavailableFields.push({
+            field,
+            reason:
+              value === undefined
+                ? 'not-exposed'
+                : value === null
+                  ? 'null'
+                  : typeof value === 'number' && !Number.isFinite(value)
+                    ? 'non-finite-number'
+                    : 'unexpected-type',
+          });
+          return null;
+        };
+        const recordsTiming = diagnostic.recordsCommitTiming;
+        let recordsCommitTiming = null;
+        if (recordsTiming && typeof recordsTiming === 'object' && !Array.isArray(recordsTiming)) {
+          recordsCommitTiming = {
+            recordCount: primitive(
+              'recordsCommitTiming.recordCount',
+              recordsTiming.recordCount,
+              'number'
+            ),
+            totalMs: primitive('recordsCommitTiming.totalMs', recordsTiming.totalMs, 'number'),
+            assignMs: primitive('recordsCommitTiming.assignMs', recordsTiming.assignMs, 'number'),
+            assignRecordsProcessed: primitive(
+              'recordsCommitTiming.assignRecordsProcessed',
+              recordsTiming.assignRecordsProcessed,
+              'number'
+            ),
+            assignmentPending: primitive(
+              'recordsCommitTiming.assignmentPending',
+              recordsTiming.assignmentPending,
+              'boolean'
+            ),
+            finishAssignmentMs: primitive(
+              'recordsCommitTiming.finishAssignmentMs',
+              recordsTiming.finishAssignmentMs,
+              'number'
+            ),
+            beginRetainMs: primitive(
+              'recordsCommitTiming.beginRetainMs',
+              recordsTiming.beginRetainMs,
+              'number'
+            ),
+            extentMs: primitive('recordsCommitTiming.extentMs', recordsTiming.extentMs, 'number'),
+            occupancyMs: primitive(
+              'recordsCommitTiming.occupancyMs',
+              recordsTiming.occupancyMs,
+              'number'
+            ),
+            rowHeightFieldMs: primitive(
+              'recordsCommitTiming.rowHeightFieldMs',
+              recordsTiming.rowHeightFieldMs,
+              'number'
+            ),
+            collapsedFieldMs: primitive(
+              'recordsCommitTiming.collapsedFieldMs',
+              recordsTiming.collapsedFieldMs,
+              'number'
+            ),
+            rowAssignmentMapMs: primitive(
+              'recordsCommitTiming.rowAssignmentMapMs',
+              recordsTiming.rowAssignmentMapMs,
+              'number'
+            ),
+            retainScheduled: primitive(
+              'recordsCommitTiming.retainScheduled',
+              recordsTiming.retainScheduled,
+              'boolean'
+            ),
+            exactDerivedBuilt: primitive(
+              'recordsCommitTiming.exactDerivedBuilt',
+              recordsTiming.exactDerivedBuilt,
+              'boolean'
+            ),
+            metadataOnly: primitive(
+              'recordsCommitTiming.metadataOnly',
+              recordsTiming.metadataOnly,
+              'boolean'
+            ),
+          };
+        } else {
+          unavailableFields.push({
+            field: 'recordsCommitTiming',
+            reason: recordsTiming === null ? 'not-yet-observed' : 'not-exposed-as-object',
+          });
+        }
+        const paintedTiming = diagnostic.paintTiming;
+        let paintTiming = null;
+        if (paintedTiming && typeof paintedTiming === 'object' && !Array.isArray(paintedTiming)) {
+          paintTiming = {
+            totalMs: primitive('paintTiming.totalMs', paintedTiming.totalMs, 'number'),
+            coverageMs: primitive('paintTiming.coverageMs', paintedTiming.coverageMs, 'number'),
+            recordsMs: primitive('paintTiming.recordsMs', paintedTiming.recordsMs, 'number'),
+            retainMs: primitive('paintTiming.retainMs', paintedTiming.retainMs, 'number'),
+            readRowsMeshMs: primitive(
+              'paintTiming.readRowsMeshMs',
+              paintedTiming.readRowsMeshMs,
+              'number'
+            ),
+            densityMs: primitive('paintTiming.densityMs', paintedTiming.densityMs, 'number'),
+            overflowMs: primitive('paintTiming.overflowMs', paintedTiming.overflowMs, 'number'),
+          };
+        } else {
+          unavailableFields.push({
+            field: 'paintTiming',
+            reason: paintedTiming === null ? 'not-yet-observed' : 'not-exposed-as-object',
+          });
+        }
+        const retainedPreparation = {
+          recordsCommitTiming,
+          paintTiming,
+          diagnosticCounters: {
+            rowsAssignmentBuildRecordsLastFrame: primitive(
+              'diagnosticCounters.rowsAssignmentBuildRecordsLastFrame',
+              diagnostic.rowsAssignmentBuildRecordsLastFrame,
+              'number'
+            ),
+            rowsAssignmentBuildChunkCount: primitive(
+              'diagnosticCounters.rowsAssignmentBuildChunkCount',
+              diagnostic.rowsAssignmentBuildChunkCount,
+              'number'
+            ),
+            rowsMeshBuildRecordsLastFrame: primitive(
+              'diagnosticCounters.rowsMeshBuildRecordsLastFrame',
+              diagnostic.rowsMeshBuildRecordsLastFrame,
+              'number'
+            ),
+            rowsMeshBuildChunkCount: primitive(
+              'diagnosticCounters.rowsMeshBuildChunkCount',
+              diagnostic.rowsMeshBuildChunkCount,
+              'number'
+            ),
+            rowsMeshBuildRecordCursor: primitive(
+              'diagnosticCounters.rowsMeshBuildRecordCursor',
+              diagnostic.rowsMeshBuildRecordCursor,
+              'number'
+            ),
+            rowsMeshBuildRecordCount: primitive(
+              'diagnosticCounters.rowsMeshBuildRecordCount',
+              diagnostic.rowsMeshBuildRecordCount,
+              'number'
+            ),
+            rowsMeshBuildTargetMatchesRecordsKey: primitive(
+              'diagnosticCounters.rowsMeshBuildTargetMatchesRecordsKey',
+              diagnostic.rowsMeshBuildTargetMatchesRecordsKey,
+              'boolean'
+            ),
+          },
+          identity: {
+            expectedLaneTrackId: primitive('identity.expectedLaneTrackId', lane.trackId, 'string'),
+            expectedGenerationKey: primitive(
+              'identity.expectedGenerationKey',
+              lane.generationKey,
+              'string'
+            ),
+            rowsMeshGenerationKey: primitive(
+              'identity.rowsMeshGenerationKey',
+              diagnostic.rowsMeshGenerationKey,
+              'string'
+            ),
+            sourceKey: primitive('identity.sourceKey', lifecycle?.sourceKey, 'string'),
+            generation: primitive('identity.generation', lifecycle?.generation, 'number'),
+            requestSequence: primitive(
+              'identity.requestSequence',
+              lifecycle?.requestSequence,
+              'number'
+            ),
+            planKey: primitive('identity.planKey', lifecycle?.planKey, 'string'),
+            currentPlanKey: primitive(
+              'identity.currentPlanKey',
+              lifecycle?.currentPlanKey,
+              'string'
+            ),
+            sourceGenerationKey: null,
+            presentationOwnerKey: null,
+          },
+          unavailableFields,
+        };
+        unavailableFields.push(
+          {
+            field: 'identity.sourceGenerationKey',
+            reason: 'not-exposed-through-existing-observation',
+          },
+          {
+            field: 'identity.presentationOwnerKey',
+            reason: 'not-exposed-through-existing-observation',
+          }
+        );
+        return {
+          viewport: {
+            startBp,
+            endBp,
+            sourceGenerationKey: checks.currentGeneration
+              ? lane.generationKey
+              : diagnostic.rowsMeshGenerationKey,
+            sourceFraction: diagnostic.readSourceWindowCoverageFraction,
+            meshFraction: diagnostic.rowsMeshViewportCoverageFraction,
+            recordCount: diagnostic.rowsMeshRecordCount,
+            truncated: diagnostic.readSourceTruncated,
+            pendingTiles: composition?.pendingTileCount,
+            rowsAlpha,
+            densityAlpha,
+            physicalReadPx,
+            coverageStartBp: diagnostic.coverageSignalStartBp,
+            coverageEndBp: diagnostic.coverageSignalEndBp,
+          },
+          checks,
+          presentation: { trackId: lane.trackId, lifecycle, gutter: gutterObservation },
+          annotation,
+          preparation: {
+            rowsAssignmentBuilding: diagnostic.rowsAssignmentBuildInProgress,
+            rowsMeshBuilding: diagnostic.rowsMeshBuildInProgress,
+            rowsMeshRecordCursor: diagnostic.rowsMeshBuildRecordCursor,
+            rowsMeshTargetRecordCount: diagnostic.rowsMeshBuildRecordCount,
+            corridorFloorState: driver.coverageCorridorFloor?.state,
+            residentBandReady: composition?.stableBandReady,
+            residentReadyTileCount: composition?.readyBandTileCount,
+            residentExpectedTileCount: composition?.expectedBandTileCount,
+            lifecyclePhase: lifecycle?.status?.phase,
+            lifecycleRequestSequence: lifecycle?.requestSequence,
+            lifecyclePlanKey: lifecycle?.planKey,
+            lifecycleCurrentPlanKey: lifecycle?.currentPlanKey,
+            presentationPending: lifecycle?.pendingPresentation != null,
+            gutterPhase: gutterObservation?.phase,
+          },
+          sourceWindow: {
+            startBp: diagnostic.readSourceWindowStartBp,
+            endBp: diagnostic.readSourceWindowEndBp,
+          },
+          cache: { bytes: driver.cache?.byteSize, entries: driver.cache?.entries },
+          errors: [
+            ...(driver.cache?.errors ?? []).map((entry) => entry.reason ?? 'Alignment tile failed'),
+            ...(driver.aln?.error ? [`${driver.aln.error} failed alignment tiles`] : []),
+          ],
+          retainedPreparation,
+        };
+      },
+      { lane: { trackId: lane.trackId, generationKey: lane.generationKey }, readLengthBp }
+    );
+    receipt.evaluation.outcome = 'fulfilled';
+  } catch (error) {
+    receipt.evaluation.outcome = 'rejected';
+    throw error;
+  } finally {
+    receipt.evaluation.endMs = performance.now();
+  }
   if (!result) return null;
   result.checks.densityCoversViewport =
     result.viewport.densityAlpha <= 0.02 || pileupCoverageCoversViewport(result.viewport);
@@ -397,13 +613,50 @@ async function visibleFlanks(page, lane, viewport) {
   );
 }
 
-async function complete(page, lane, readLengthBp, started, failures, target = {}) {
+async function complete(page, lane, readLengthBp, started, failures, target = {}, collector = {}) {
   let latest = null;
   let previous = null;
   const settlement = [];
   const deadline = performance.now() + 10_000;
+  Object.assign(collector, {
+    clock: 'nodeMonotonicMs',
+    polls: [],
+    attempts: 0,
+    completed: 0,
+    absent: 0,
+    rejected: 0,
+    unchanged: 0,
+    signatureChanges: 0,
+    distinctSignatures: 0,
+  });
+  const signatures = new Set();
   do {
-    latest = await observation(page, lane, readLengthBp);
+    const poll = {
+      index: collector.attempts + 1,
+      startMs: performance.now(),
+      endMs: null,
+      outcome: null,
+      evaluation: null,
+      signatureChanged: null,
+      retainedPreparation: null,
+    };
+    collector.polls.push(poll);
+    collector.attempts += 1;
+    try {
+      latest = await observation(page, lane, readLengthBp, poll);
+      poll.outcome = latest ? 'observed' : 'absent';
+    } catch (error) {
+      poll.outcome = 'rejected';
+      collector.rejected += 1;
+      throw error;
+    } finally {
+      poll.endMs = performance.now();
+    }
+    collector.completed += 1;
+    if (!latest) collector.absent += 1;
+    poll.retainedPreparation = latest?.retainedPreparation
+      ? structuredClone(latest.retainedPreparation)
+      : null;
     if (latest) {
       latest.checks.cameraAtTarget =
         (!Number.isFinite(target.startBp) ||
@@ -419,18 +672,34 @@ async function complete(page, lane, readLengthBp, started, failures, target = {}
         recordCount: latest.viewport.recordCount,
       };
       const signature = JSON.stringify(state);
+      poll.signatureChanged = signature !== previous;
+      signatures.add(signature);
+      collector.distinctSignatures = signatures.size;
       if (signature !== previous) {
+        collector.signatureChanges += 1;
         settlement.push({ elapsedMs: performance.now() - started, ...state });
         previous = signature;
+      } else {
+        collector.unchanged += 1;
       }
     }
     if (latest && Object.values(latest.checks).every(Boolean) && latest.errors.length === 0) {
-      return { ...latest, elapsedMs: performance.now() - started, settlement };
+      return {
+        ...latest,
+        elapsedMs: performance.now() - started,
+        settlement,
+        observationRetention: collector,
+      };
     }
     await delay(50);
   } while (performance.now() < deadline);
   failures.push(`Viewport did not settle: ${JSON.stringify(latest?.checks ?? null)}`);
-  return { ...(latest ?? { viewport: {} }), elapsedMs: performance.now() - started, settlement };
+  return {
+    ...(latest ?? { viewport: {} }),
+    elapsedMs: performance.now() - started,
+    settlement,
+    observationRetention: collector,
+  };
 }
 
 async function saveView(page, fixture, name) {
@@ -735,7 +1004,13 @@ async function stopCadence(page, expectedDeltaY) {
   }, expectedDeltaY);
 }
 
-async function wheelGesture(page, cdp, { deltaY, modifiers = 0 }) {
+async function wheelGesture(page, cdp, { deltaY, modifiers = 0 }, collector = {}) {
+  Object.assign(collector, {
+    clock: 'nodeMonotonicMs',
+    lastDispatchMs: null,
+    acknowledgment: null,
+    cadenceStop: null,
+  });
   const box = await viewer(page).locator('canvas').first().boundingBox();
   assert.ok(box, 'The indexed canvas has no visible bounds.');
   const x = box.x + box.width * 0.5;
@@ -760,14 +1035,35 @@ async function wheelGesture(page, cdp, { deltaY, modifiers = 0 }) {
       })
     );
   }
-  await Promise.all(requests);
-  const cadence = await stopCadence(page, deltaY * 120);
+  collector.lastDispatchMs = finalInput;
+  collector.acknowledgment = { startMs: performance.now(), endMs: null, outcome: null };
+  try {
+    await Promise.all(requests);
+    collector.acknowledgment.outcome = 'fulfilled';
+  } catch (error) {
+    collector.acknowledgment.outcome = 'rejected';
+    throw error;
+  } finally {
+    collector.acknowledgment.endMs = performance.now();
+  }
+  collector.cadenceStop = { startMs: performance.now(), endMs: null, outcome: null };
+  let cadence;
+  try {
+    cadence = await stopCadence(page, deltaY * 120);
+    collector.cadenceStop.outcome = 'fulfilled';
+  } catch (error) {
+    collector.cadenceStop.outcome = 'rejected';
+    throw error;
+  } finally {
+    collector.cadenceStop.endMs = performance.now();
+  }
   return {
     finalInput,
     inputStartEpochMs,
     inputEndEpochMs: cadence.endedAtEpochMs,
     cadence,
     requestedWheel: { eventCount: 120, deltaY: deltaY * 120, modifiers },
+    inputRetention: collector,
   };
 }
 
@@ -796,7 +1092,14 @@ export async function runPileupPerformanceJourney({
     source: {},
     phases: [],
     resourceSamples: [],
-    diagnostics: { consoleMessages: [], httpFailures: [], requestFailures: [], openings: [] },
+    diagnostics: {
+      consoleMessages: [],
+      httpFailures: [],
+      requestFailures: [],
+      openings: [],
+      inputs: [],
+      observations: [],
+    },
   };
   const errors = [];
   let preparing = !fixture?.savedViewPath;
@@ -925,7 +1228,9 @@ export async function runPileupPerformanceJourney({
       if (nativeTrace) {
         activeTrace = { label, token: await nativeTrace.start({ label, page, cdp }) };
       }
-      return wheelGesture(page, cdp, options);
+      const inputRetention = { label };
+      report.diagnostics.inputs.push(inputRetention);
+      return wheelGesture(page, cdp, options, inputRetention);
     };
     const finishInput = async (input) => {
       if (!activeTrace) return input;
@@ -939,7 +1244,24 @@ export async function runPileupPerformanceJourney({
       const row = await savedFileRow(page, fixture, savedViewPath);
       const firstError = errors.length;
       const started = performance.now();
-      const opening = { label, kind, startedAtEpochMs: Date.now(), stages: [] };
+      const opening = {
+        label,
+        kind,
+        startedAtEpochMs: Date.now(),
+        stages: [],
+        retention: {
+          filesPanel: {
+            clock: 'nodeMonotonicMs',
+            branch: 'unresolved',
+            isVisible: null,
+            click: null,
+            hidden: null,
+            clickDisposition: 'not-reached',
+            hiddenDisposition: 'not-reached',
+          },
+          observation: {},
+        },
+      };
       report.diagnostics.openings.push(opening);
       const mark = (stage) =>
         opening.stages.push({
@@ -953,9 +1275,52 @@ export async function runPileupPerformanceJourney({
       await waitForViewer(page);
       mark('viewer-visible');
       const files = page.getByRole('tree', { name: 'Project files' });
-      if (await files.isVisible()) {
-        await page.getByTestId('files-button').click();
-        await files.waitFor({ state: 'hidden' });
+      const filesPanel = opening.retention.filesPanel;
+      filesPanel.isVisible = {
+        startMs: performance.now(),
+        endMs: null,
+        outcome: null,
+        value: null,
+      };
+      let filesVisible;
+      try {
+        filesVisible = await files.isVisible();
+        filesPanel.isVisible.value = filesVisible;
+        filesPanel.isVisible.outcome = 'fulfilled';
+      } catch (error) {
+        filesPanel.isVisible.outcome = 'rejected';
+        throw error;
+      } finally {
+        filesPanel.isVisible.endMs = performance.now();
+      }
+      if (filesVisible) {
+        filesPanel.branch = 'hide';
+        filesPanel.clickDisposition = 'executed';
+        filesPanel.click = { startMs: performance.now(), endMs: null, outcome: null };
+        try {
+          await page.getByTestId('files-button').click();
+          filesPanel.click.outcome = 'fulfilled';
+        } catch (error) {
+          filesPanel.click.outcome = 'rejected';
+          throw error;
+        } finally {
+          filesPanel.click.endMs = performance.now();
+        }
+        filesPanel.hiddenDisposition = 'executed';
+        filesPanel.hidden = { startMs: performance.now(), endMs: null, outcome: null };
+        try {
+          await files.waitFor({ state: 'hidden' });
+          filesPanel.hidden.outcome = 'fulfilled';
+        } catch (error) {
+          filesPanel.hidden.outcome = 'rejected';
+          throw error;
+        } finally {
+          filesPanel.hidden.endMs = performance.now();
+        }
+      } else {
+        filesPanel.branch = 'already-hidden';
+        filesPanel.clickDisposition = 'not-taken';
+        filesPanel.hiddenDisposition = 'not-taken';
       }
       mark('files-hidden');
       lane = await poll(
@@ -967,10 +1332,18 @@ export async function runPileupPerformanceJourney({
       lane.annotationExpectation = fixture.annotationExpectation;
       mark('lane-ready');
       const failures = [];
-      const state = await complete(page, lane, fixture.readLengthBp, started, failures, {
-        startBp: fixture.locusStart,
-        spanBp: kind === 'cold-open' ? 4000 : 26612,
-      });
+      const state = await complete(
+        page,
+        lane,
+        fixture.readLengthBp,
+        started,
+        failures,
+        {
+          startBp: fixture.locusStart,
+          spanBp: kind === 'cold-open' ? 4000 : 26612,
+        },
+        opening.retention.observation
+      );
       mark(failures.length === 0 ? 'first-complete' : 'completion-timeout');
       const bam = await stat(fixture.bamPath);
       assert.equal(
@@ -1005,10 +1378,20 @@ export async function runPileupPerformanceJourney({
       let input = await beginInput(label, { deltaY: direction * 25 });
       const failures = [];
       const span = before.viewport.endBp - before.viewport.startBp;
-      const state = await complete(page, lane, fixture.readLengthBp, input.finalInput, failures, {
-        startBp: before.viewport.startBp + direction * span * 3,
-        spanBp: span,
-      });
+      const observationRetention = {};
+      report.diagnostics.observations.push({ label, observationRetention });
+      const state = await complete(
+        page,
+        lane,
+        fixture.readLengthBp,
+        input.finalInput,
+        failures,
+        {
+          startBp: before.viewport.startBp + direction * span * 3,
+          spanBp: span,
+        },
+        observationRetention
+      );
       input = await finishInput(input);
       const movement = Math.abs(state.viewport.startBp - before.viewport.startBp);
       if (movement < span * 2)
@@ -1040,9 +1423,19 @@ export async function runPileupPerformanceJourney({
         modifiers: 2,
       });
       const failures = [];
-      const state = await complete(page, lane, fixture.readLengthBp, input.finalInput, failures, {
-        spanBp: span,
-      });
+      const observationRetention = {};
+      report.diagnostics.observations.push({ label: `zoom-${span}bp`, observationRetention });
+      const state = await complete(
+        page,
+        lane,
+        fixture.readLengthBp,
+        input.finalInput,
+        failures,
+        {
+          spanBp: span,
+        },
+        observationRetention
+      );
       input = await finishInput(input);
       if (Math.abs(state.viewport.endBp - state.viewport.startBp - span) > 2) {
         failures.push(`The native wheel zoom did not reach ${span} bp.`);
@@ -1051,7 +1444,20 @@ export async function runPileupPerformanceJourney({
       await record({ label: `zoom-${span}bp`, kind: 'gesture', ...state, ...timing, failures });
       await frame(page, fixture.locusStart, span, lane);
       const preconditionFailures = [];
-      await complete(page, lane, fixture.readLengthBp, performance.now(), preconditionFailures);
+      const preconditionRetention = {};
+      report.diagnostics.observations.push({
+        label: `pan-${span}bp-precondition`,
+        observationRetention: preconditionRetention,
+      });
+      await complete(
+        page,
+        lane,
+        fixture.readLengthBp,
+        performance.now(),
+        preconditionFailures,
+        undefined,
+        preconditionRetention
+      );
       assert.equal(preconditionFailures.length, 0, preconditionFailures.join('\n'));
       await gesture(`pan-${span}bp-away`, 1);
       await gesture(`pan-${span}bp-return`, -1);
@@ -1101,6 +1507,12 @@ export async function runPileupPerformanceJourney({
           lane
         );
         const failures = [];
+        const observationRetention = {};
+        report.diagnostics.observations.push({
+          label: phase.label,
+          stage: 'evidence',
+          observationRetention,
+        });
         const state = await complete(
           page,
           lane,
@@ -1110,7 +1522,8 @@ export async function runPileupPerformanceJourney({
           {
             startBp: phase.viewport.startBp,
             spanBp: phase.viewport.endBp - phase.viewport.startBp,
-          }
+          },
+          observationRetention
         );
         phase.failures.push(...failures);
         phase.evidence = {

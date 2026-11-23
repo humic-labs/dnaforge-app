@@ -1,3 +1,4 @@
+import { withRetainedSequencePackage, retainSequencePackage } from './retain-sequence-package';
 import { AsyncLocalStorage } from 'node:async_hooks';
 interface PublicationChecks {
   beforePublish?(): void;
@@ -1381,6 +1382,7 @@ export async function recoverSequencePackageRevisionPublicationInMain(
     { ...(suppliedContext && !('db' in suppliedContext) ? suppliedContext : {}), ...checks },
     () =>
       withPackagePublicationLock(packageRoot, async () => {
+        const needsRecovery = await exists(journalPath(packageRoot));
         if (
           (await recoverRevisionPublicationLocked(workspaceRoot, packageRoot, context)) ===
           'review_pending'
@@ -1394,6 +1396,10 @@ export async function recoverSequencePackageRevisionPublicationInMain(
             sequencePackagePaths(packageRoot).metaPath
           ),
         });
+        if (needsRecovery)
+          await retainSequencePackage(context.db, { workspaceRoot, packageRoot }, undefined, () =>
+            context.runDatabase(() => undefined)
+          );
       })
   );
 }
@@ -1416,84 +1422,91 @@ export async function withPublishedSequenceEvidenceMutationInMain<T>(
       packageRoot,
       markerContent: await readContained(workspaceRoot, markerPath),
     });
-    return work(async (before, next) => {
-      beforePublish?.();
-      const currentRegistration = await assertRegisteredSequencePackageCurrent(context, {
-        workspaceRoot,
-        packageRoot,
-        markerContent: before,
-      });
-      if (Boolean(registered) !== Boolean(currentRegistration))
-        throw new Error(
-          'Sequence registration changed while preparing its saved evidence. Retry the operation.'
-        );
-      if (!registered) {
-        if (hasSequencePackagePublicationOwner()) {
+    return withRetainedSequencePackage(
+      context.db,
+      workspaceRoot,
+      packageRoot,
+      () =>
+        work(async (before, next) => {
+          beforePublish?.();
+          const currentRegistration = await assertRegisteredSequencePackageCurrent(context, {
+            workspaceRoot,
+            packageRoot,
+            markerContent: before,
+          });
+          if (Boolean(registered) !== Boolean(currentRegistration))
+            throw new Error(
+              'Sequence registration changed while preparing its saved evidence. Retry the operation.'
+            );
+          if (!registered) {
+            if (hasSequencePackagePublicationOwner()) {
+              const current = parseSequencePackageDocument(before);
+              const productContent = await readContained(
+                workspaceRoot,
+                sequencePackagePaths(packageRoot, { productFile: current.product.file }).productPath
+              );
+              const markerContent = serializeSequencePackageDocument(next);
+              const accepted = await publishAcceptedSequencePackage({
+                workspaceRoot,
+                packageRoot,
+                packageId: current.id,
+                operationId: `evidence-update:${sha256(stableJson({ before, markerContent, productContent })).slice('sha256:'.length)}`,
+                beforeMarkerContent: before,
+                productContent,
+                markerContent,
+                beforePublish,
+              });
+              if (!accepted) throw new Error('The accepted evidence publication owner changed.');
+              return;
+            }
+            await writeWorkspaceTextFileAtomicInMain(
+              {
+                workspaceRoot,
+                path: markerPath,
+                mode: 'replace',
+                expectedContentHash: sha256(before).slice('sha256:'.length),
+                content: serializeSequencePackageDocument(next),
+                artifactNoun: 'sequence evidence',
+              },
+              { durable: true, beforePublish }
+            );
+            return;
+          }
           const current = parseSequencePackageDocument(before);
           const productContent = await readContained(
             workspaceRoot,
-            sequencePackagePaths(packageRoot, { productFile: current.product.file }).productPath
+            sequencePackagePaths(packageRoot, {
+              productFile: current.product.file,
+            }).productPath
           );
-          const markerContent = serializeSequencePackageDocument(next);
-          const accepted = await publishAcceptedSequencePackage({
-            workspaceRoot,
-            packageRoot,
-            packageId: current.id,
-            operationId: `evidence-update:${sha256(stableJson({ before, markerContent, productContent })).slice('sha256:'.length)}`,
-            beforeMarkerContent: before,
-            productContent,
-            markerContent,
-            beforePublish,
-          });
-          if (!accepted) throw new Error('The accepted evidence publication owner changed.');
-          return;
-        }
-        await writeWorkspaceTextFileAtomicInMain(
-          {
-            workspaceRoot,
-            path: markerPath,
-            mode: 'replace',
-            expectedContentHash: sha256(before).slice('sha256:'.length),
-            content: serializeSequencePackageDocument(next),
-            artifactNoun: 'sequence evidence',
-          },
-          { durable: true, beforePublish }
-        );
-        return;
-      }
-      const current = parseSequencePackageDocument(before);
-      const productContent = await readContained(
-        workspaceRoot,
-        sequencePackagePaths(packageRoot, {
-          productFile: current.product.file,
-        }).productPath
-      );
-      const requestFingerprint = sha256(
-        stableJson({
-          beforeMarkerSha256: sha256(before),
-          nextMarkerSha256: sha256(serializeSequencePackageDocument(next)),
-          productSha256: sha256(productContent),
-        })
-      );
-      const operationId = `evidence-update:${requestFingerprint.slice('sha256:'.length)}`;
-      beforePublish?.();
-      await publishRevisionLocked(
-        {
-          workspaceRoot,
-          packageRoot,
-          packageId: current.id,
-          nextDocument: next,
-          nextProductContent: productContent,
-          kind: 'metadata-update',
-          operationId,
-          revisionId: operationId,
-          expectedMarkerSha256: sha256(before),
-          expectedProductSha256: sha256(productContent),
-          requestFingerprint,
-        },
-        context
-      );
-    });
+          const requestFingerprint = sha256(
+            stableJson({
+              beforeMarkerSha256: sha256(before),
+              nextMarkerSha256: sha256(serializeSequencePackageDocument(next)),
+              productSha256: sha256(productContent),
+            })
+          );
+          const operationId = `evidence-update:${requestFingerprint.slice('sha256:'.length)}`;
+          beforePublish?.();
+          await publishRevisionLocked(
+            {
+              workspaceRoot,
+              packageRoot,
+              packageId: current.id,
+              nextDocument: next,
+              nextProductContent: productContent,
+              kind: 'metadata-update',
+              operationId,
+              revisionId: operationId,
+              expectedMarkerSha256: sha256(before),
+              expectedProductSha256: sha256(productContent),
+              requestFingerprint,
+            },
+            context
+          );
+        }),
+      () => context.runDatabase(() => undefined)
+    );
   });
 }
 
@@ -1517,7 +1530,14 @@ export async function withRecoveredSequencePackageMutationInMain<T>(
           failure.name = 'SequencePackagePublicationRecoveryError';
           throw failure;
         }
-        return work();
+        return withRetainedSequencePackage(
+          context.db,
+          workspaceRoot,
+          packageRoot,
+          work,
+          () => context.runDatabase(() => undefined),
+          true
+        );
       })
   );
 }
@@ -1544,7 +1564,9 @@ async function withRegisteredSequenceRevisionMutation<T>(
       failure.name = 'SequencePackagePublicationRecoveryError';
       throw failure;
     }
-    return work();
+    return withRetainedSequencePackage(context.db, workspaceRoot, packageRoot, work, () =>
+      context.runDatabase(() => undefined)
+    );
   });
 }
 
@@ -2020,12 +2042,22 @@ export async function publishSequenceKeepSavedPublicationInMain(
 ): Promise<void> {
   const first = await readRetainedSequenceKeepSavedPublication(context, resolution);
   if (!first) throw new Error('The reviewed sequence publication is unavailable.');
-  if (first.result) return;
+
   const scoped = { ...context, organizationResolution: resolution };
   await withPackagePublicationLock(first.plan.packageRoot, async () => {
     const retained = await readRetainedSequenceKeepSavedPublication(scoped, resolution);
     if (!retained) throw new Error('The reviewed sequence publication changed.');
-    if (retained.result) return;
+    const retainSettled = () =>
+      retainSequencePackage(
+        scoped.db,
+        { workspaceRoot: retained.plan.workspaceRoot, packageRoot: retained.plan.packageRoot },
+        resolution.entityId,
+        () => scoped.runDatabase(() => undefined)
+      );
+    if (retained.result) {
+      await retainSettled();
+      return;
+    }
     const { plan } = retained;
     const path = journalPath(plan.packageRoot);
     if (await exists(path)) {
@@ -2037,6 +2069,7 @@ export async function publishSequenceKeepSavedPublicationInMain(
         )
           throw new Error('The sequence journal belongs to a different approved choice.');
         await recoverRevisionPublicationLocked(plan.workspaceRoot, plan.packageRoot, scoped);
+        await retainSettled();
         return;
       }
       if (
@@ -2071,6 +2104,7 @@ export async function publishSequenceKeepSavedPublicationInMain(
       sha256(snapshot) !== beforeProductSha256
     )
       throw new Error('The approved sequence bytes changed; the original resolution was retained.');
+    await retainSettled();
     if (plan.organizationSnapshot)
       await stageOrganizationSavedSequenceMembers({ ...plan, snapshot: plan.organizationSnapshot });
     await assertRegisteredSequencePublicationAccess(scoped, { ...plan, intent: plan.intent });
@@ -2091,5 +2125,6 @@ export async function publishSequenceKeepSavedPublicationInMain(
     };
     await writeJournal(plan.workspaceRoot, plan.packageRoot, journal);
     await recoverRevisionPublicationLocked(plan.workspaceRoot, plan.packageRoot, scoped);
+    await retainSettled();
   });
 }

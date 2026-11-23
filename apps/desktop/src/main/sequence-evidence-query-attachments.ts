@@ -1,9 +1,11 @@
+import { assertKnownWorkspaceContentWritable } from './workspace-content-write-access';
 import { createHash } from 'node:crypto';
 import { stat } from 'node:fs/promises';
 import type Database from 'better-sqlite3';
 import { defineBlob, type BlobHash } from '@waypoint/workspace-revisions';
 import type { NativeFileDocumentOwner } from './file-document-owner';
-import { trashAcceptedScientificPath } from './scientific-resource-lifecycle';
+import { workspaceEntityOwnsPath } from './saved-entity-file-retention';
+import { isSavedEntityMember } from '../shared/catalog-file-kind';
 import { runWorkspaceFileTrash } from './workspace-file-trash';
 import { setCatalogFileStateInDb } from './catalog-projection-commands';
 import { workspaceMutationRootIdentity } from './workspace-sync-mutation-lease';
@@ -152,15 +154,6 @@ export async function retireSequenceEvidenceQuerySources(
     string,
     { source: string; destination: string; hash: BlobHash; revision: string }
   >();
-  const acceptedTrash = (path: string, expectedContentHash: BlobHash) =>
-    trashAcceptedScientificPath({
-      db: context.db,
-      path,
-      renderer: context.renderer,
-      mutationLease: context.mutationLease,
-      assertCurrent: context.assertCurrent,
-      expectedContentHash,
-    });
   for (const query of input.queries) {
     const destination = prepared.attachedQueryPaths?.[query.id];
     if (
@@ -198,8 +191,18 @@ export async function retireSequenceEvidenceQuerySources(
     const hash = defineBlob(await readBytes(destination)).hash;
     if (!expected || hash !== expected)
       throw new Error('The attached alignment query changed before its source could be retired.');
+    if (
+      isSavedEntityMember(source) ||
+      context.runDatabase(() => workspaceEntityOwnsPath(context.db, input.workspaceRoot, source))
+    ) {
+      context.runDatabase(() =>
+        assertKnownWorkspaceContentWritable(context.db, input.workspaceRoot)
+      );
+      if (defineBlob(await readBytes(source)).hash !== hash)
+        throw new Error('The saved alignment query differs from the attached source.');
+      continue;
+    }
     if (!(await exists(source))) {
-      await acceptedTrash(source, hash);
       context.assertCurrent();
       context.runDatabase(() => {
         const binding = context.db
@@ -237,7 +240,6 @@ export async function retireSequenceEvidenceQuerySources(
         await context.documents.assertClean(retirement.destination);
         if (defineBlob(await readBytes(retirement.destination)).hash !== retirement.hash)
           throw new Error('The attached alignment query changed before source retirement.');
-        if (await acceptedTrash(retirement.source, retirement.hash)) continue;
         const result = await runWorkspaceFileTrash(
           {
             kind: 'trash',
@@ -247,7 +249,8 @@ export async function retireSequenceEvidenceQuerySources(
           },
           context.assertCurrent,
           undefined,
-          context.assertMutationAllowed
+          context.assertMutationAllowed,
+          (path) => workspaceEntityOwnsPath(context.db, input.workspaceRoot, path)
         );
         if (result.kind !== 'trash')
           throw new Error(

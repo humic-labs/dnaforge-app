@@ -1,6 +1,7 @@
 import type { MutableRefObject } from 'react';
 import type { AnnotatedSequence } from '@waypoint/sequence-utils';
 import { normalizePlainDnaClipboardText } from '@waypoint/sequence-utils';
+import { cleanSequenceFromEditorState } from '../editor-state-model';
 import type { EditorAction, EditorPasteFragment, EditorState, Selection } from '../types';
 
 export type SequenceKeyboardHost = {
@@ -312,18 +313,41 @@ export function tryHandleCopy(e: KeyboardEvent, host: SequenceKeyboardHost): boo
   }
   if (nativeSelectionHasText(window.getSelection())) return true;
   e.preventDefault();
-  const selectedText = sliceSelectedText(currentSequence, copySelection);
-  const start = Math.min(copySelection.start, copySelection.end);
-  const end = Math.max(copySelection.start, copySelection.end);
+  const draft = cleanSequenceFromEditorState(host.editorState);
+  const cleanOffset = (position: number) =>
+    position -
+    host.editorState.deletedRanges.reduce(
+      (removed, range) => removed + Math.max(0, Math.min(position, range.end) - range.start),
+      0
+    );
+  let start = cleanOffset(
+    copySelection.wraps ? copySelection.start : Math.min(copySelection.start, copySelection.end)
+  );
+  let end = cleanOffset(
+    (copySelection.wraps ? copySelection.end : Math.max(copySelection.start, copySelection.end)) + 1
+  );
+  let wraps = copySelection.wraps;
+  if (wraps && start === draft.sequence.length) {
+    start = 0;
+    wraps = undefined;
+  }
+  if (wraps && end === 0) {
+    end = draft.sequence.length;
+    wraps = undefined;
+  }
+  const selectedText = wraps
+    ? draft.sequence.slice(start) + draft.sequence.slice(0, end)
+    : draft.sequence.slice(start, end);
+  if (!selectedText) return true;
   const richCopy = host.onCopyDraftSelection;
   if (richCopy) {
     void richCopy({
       start,
-      end: end + 1,
-      wraps: copySelection.wraps,
+      end,
+      wraps,
       sequence: selectedText,
-      sourceSequence: host.editorState.sequence,
-      sourceAnnotations: host.editorState.annotations,
+      sourceSequence: draft.sequence,
+      sourceAnnotations: draft.annotations,
     });
   } else {
     void navigator.clipboard.writeText(selectedText).then(() => {

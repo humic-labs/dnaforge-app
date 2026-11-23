@@ -13,6 +13,7 @@ import {
   PixiTranscriptTrackRenderer,
   PixiVariantTrackRenderer,
   type Assembly,
+  type Chromosome,
   type PixiLinearRenderer,
   type Track,
   type SupplementalLinearTrack,
@@ -27,22 +28,24 @@ import type { IndexedGenomeTileNativeMapHandle } from './IndexedGenomeTileNative
 import { useTrackGutterLayoutStore } from './track-gutter-layout-store';
 
 interface UseIndexedLaneContractTracksOptions {
+  enabled?: boolean;
   supplementalTracks?: readonly SupplementalLinearTrack[];
-  onTrackSelection?: (start: number, end: number) => void;
+  onTrackSelection?: (start: number, end: number, trackId: string) => void;
   webglRef: { readonly current: IndexedGenomeTileNativeMapHandle | null };
   rendererReadyEpoch?: number;
   rendererAssembly: Assembly | null;
   manifestChrom: string;
   manifestChromLength?: number;
-  activeStressDatasets: ReadonlyArray<ActiveStressDataset>;
-  pileupStreaming: Pick<IndexedPileupStreamingController, 'streamPileupViaTileEngine'> &
+  sequenceChromosome?: Chromosome;
+  activeStressDatasets?: ReadonlyArray<ActiveStressDataset>;
+  pileupStreaming?: Pick<IndexedPileupStreamingController, 'streamPileupViaTileEngine'> &
     Partial<Pick<IndexedPileupStreamingController, 'noteLaneContractWired'>>;
   ucscStreaming?: Pick<IndexedUcscStreamingController, 'noteLaneContractWired'>;
   experimentalHybridStreaming?: Pick<
     IndexedExperimentalHybridPileupController,
     'noteLaneContractWired'
   >;
-  recordEvent: (event: string, detail?: Record<string, unknown>) => void;
+  recordEvent?: (event: string, detail?: Record<string, unknown>) => void;
 }
 
 const PILEUP_ROW_GAP_PX = 1;
@@ -50,6 +53,7 @@ const PILEUP_READ_BODY_SCALE = 1.2;
 const DEFAULT_PILEUP_ROW_PITCH_PX = 3;
 const DEFAULT_PILEUP_MAX_ROWS = 60;
 const MAX_IMPORTED_INTERVAL_LABELS = 96;
+const EMPTY_DATASETS: readonly ActiveStressDataset[] = [];
 const EMPTY_SUPPLEMENTAL_TRACKS: readonly SupplementalLinearTrack[] = [];
 
 function pileupPresentationGeometry(dataset: ActiveStressDataset): {
@@ -71,6 +75,7 @@ function roundLayoutPx(value: number): number {
 }
 
 export function useIndexedLaneContractTracks({
+  enabled = true,
   supplementalTracks = EMPTY_SUPPLEMENTAL_TRACKS,
   onTrackSelection,
   webglRef,
@@ -78,7 +83,8 @@ export function useIndexedLaneContractTracks({
   rendererAssembly,
   manifestChrom,
   manifestChromLength,
-  activeStressDatasets,
+  sequenceChromosome,
+  activeStressDatasets = EMPTY_DATASETS,
   pileupStreaming,
   ucscStreaming,
   experimentalHybridStreaming,
@@ -106,15 +112,32 @@ export function useIndexedLaneContractTracks({
   }
   const mountDatasets = mountDatasetsRef.current;
 
+  const liveBindings = useRef(supplementalTracks);
+  liveBindings.current = supplementalTracks;
+  const mountBindingsRef = useRef(supplementalTracks);
+  if (
+    supplementalTracks.length !== mountBindingsRef.current.length ||
+    supplementalTracks.some(
+      (binding, i) =>
+        binding.track !== mountBindingsRef.current[i].track ||
+        binding.renderer !== mountBindingsRef.current[i].renderer
+    )
+  )
+    mountBindingsRef.current = supplementalTracks;
+  const mountBindings = mountBindingsRef.current;
+  const appliedBindings = useRef<readonly SupplementalLinearTrack[]>([]);
+
   const cytobandVisible = useTrackGutterLayoutStore((state) => state.cytobandVisible);
 
   useLayoutEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     let rafId = 0;
     let intervalId: number | null = null;
     let wiredRenderer: PixiLinearRenderer | null = null;
     let observedLaneContractRevision = -1;
     const chromosome =
+      sequenceChromosome ??
       chromosomeForChrom(manifestChrom) ??
       (manifestChromLength && manifestChromLength > 0
         ? {
@@ -132,7 +155,9 @@ export function useIndexedLaneContractTracks({
       (dataset) => !sourceBackedPileupWithoutAssembly.includes(dataset)
     );
     const ideogramId = rendererAssembly ? rendererAssembly.id : manifestChrom;
-    const hasIdeogram = rendererAssembly != null || chromosomeForChrom(manifestChrom) != null;
+    const hasIdeogram =
+      !sequenceChromosome &&
+      (rendererAssembly != null || chromosomeForChrom(manifestChrom) != null);
     const cytobandTrack: Track | null =
       hasIdeogram && cytobandVisible
         ? {
@@ -149,13 +174,13 @@ export function useIndexedLaneContractTracks({
     const expectedTrackIds = [
       ...(cytobandTrack ? [cytobandTrack.id] : []),
       ...mountableDatasets.map((dataset) => dataset.trackId),
-      ...supplementalTracks.map((binding) => binding.track.id),
+      ...mountBindings.map((binding) => binding.track.id),
     ];
 
     const wire = (renderer: PixiLinearRenderer, reason: string) => {
       const rendererChanged = renderer !== wiredRenderer;
       for (const dataset of sourceBackedPileupWithoutAssembly) {
-        recordEvent('pileup-source-rejected-without-renderer-assembly', {
+        recordEvent?.('pileup-source-rejected-without-renderer-assembly', {
           trackId: dataset.trackId,
           trackType: dataset.trackType,
           manifestChrom,
@@ -174,7 +199,7 @@ export function useIndexedLaneContractTracks({
           webglRef.current?.setViewport({ start: result.startBp, end: result.endBp });
         } else if (result.kind === 'select-bp-range') {
           webglRef.current?.setSelection?.(result.startBp, result.endBp - 1);
-          trackSelectionRef.current?.(result.startBp, result.endBp - 1);
+          trackSelectionRef.current?.(result.startBp, result.endBp - 1, result.trackId);
         }
       });
 
@@ -252,13 +277,14 @@ export function useIndexedLaneContractTracks({
         });
       }
 
-      for (const binding of supplementalTracks) {
+      for (const binding of mountBindings) {
         registerTrackIdempotently(renderer, binding.renderer);
         instances.push({ ...binding.track, assemblyId: manifestChrom });
       }
       renderer.setTrackInstances(instances);
-      for (const binding of supplementalTracks)
+      for (const binding of liveBindings.current)
         renderer.setTrackData(binding.track.id, binding.data);
+      appliedBindings.current = liveBindings.current;
       syncTrackColors(renderer, liveDatasetsRef.current);
       const previousWiring = lastWiredDatasetsRef.current;
       const previousDatasets =
@@ -319,7 +345,7 @@ export function useIndexedLaneContractTracks({
 
       const initialRange = webglRef.current?.getViewportRange?.() ?? null;
       if (rendererAssembly) {
-        pileupStreamingRef.current.noteLaneContractWired?.(
+        pileupStreamingRef.current?.noteLaneContractWired?.(
           renderer,
           initialRange,
           expectedTrackIds
@@ -327,14 +353,14 @@ export function useIndexedLaneContractTracks({
       }
       experimentalHybridStreamingRef.current?.noteLaneContractWired();
       if (rendererAssembly) {
-        pileupStreamingRef.current.streamPileupViaTileEngine(initialRange);
+        pileupStreamingRef.current?.streamPileupViaTileEngine(initialRange);
       }
 
       webglRef.current?.requestRender?.();
 
       wiredRenderer = renderer;
       observedLaneContractRevision = renderer.getLaneContractRevision();
-      recordEvent('lane-contract-wire', {
+      recordEvent?.('lane-contract-wire', {
         reason,
         rendererChanged,
         trackIds: expectedTrackIds,
@@ -381,6 +407,7 @@ export function useIndexedLaneContractTracks({
     };
   }, [
     cytobandVisible,
+    enabled,
     manifestChrom,
     manifestChromLength,
     mountDatasets,
@@ -388,10 +415,25 @@ export function useIndexedLaneContractTracks({
     rendererAssembly,
     rendererReadyEpoch,
     webglRef,
-    supplementalTracks,
+    mountBindings,
+    sequenceChromosome,
   ]);
 
+  useLayoutEffect(() => {
+    const renderer = webglRef.current?.getLinearRenderer?.();
+    if (!renderer || appliedBindings.current === supplementalTracks) return;
+    let changed = false;
+    for (const [i, binding] of supplementalTracks.entries()) {
+      if (binding.data === appliedBindings.current[i]?.data) continue;
+      renderer.setTrackData(binding.track.id, binding.data);
+      changed = true;
+    }
+    appliedBindings.current = supplementalTracks;
+    if (changed) webglRef.current?.requestRender();
+  }, [supplementalTracks, webglRef]);
+
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     let rafId = 0;
     const apply = () => {
@@ -410,7 +452,7 @@ export function useIndexedLaneContractTracks({
       cancelled = true;
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [activeStressDatasets, webglRef]);
+  }, [activeStressDatasets, enabled, webglRef]);
 }
 
 function sameTrackDataDataset(left: ActiveStressDataset, right: ActiveStressDataset): boolean {

@@ -1,3 +1,4 @@
+import { entityKindLabel } from '@waypoint/scientific-artifacts/shared/entity-types';
 import { toUserMessage } from '@waypoint/user-messages';
 import { useEffect, useLayoutEffect, useId, useRef, useState, type RefObject } from 'react';
 import {
@@ -16,6 +17,7 @@ export interface EntityLinkChoice {
   id: string;
   name: string;
   kind: string;
+  schemaDisplayName?: string;
   registryId?: string | null;
 }
 
@@ -204,6 +206,9 @@ function EntityLinkFieldControl({
         {current ? (
           <EntityReferenceChip
             entityType="record"
+            typeLookup={
+              current.destinationEntityId ? { entityId: current.destinationEntityId } : undefined
+            }
             label={current.label}
             preserveExtension
             unavailable={current.destinationEntityId === null}
@@ -343,7 +348,7 @@ function EntityLinkFieldControl({
                 selected={current?.destinationEntityId === choice.id}
                 tabIndex={-1}
                 disabled={busy}
-                description={`${choice.registryId ? `${choice.registryId} · ` : ''}${choice.kind.replace(/_/g, ' ')}`}
+                description={`${choice.registryId ? `${choice.registryId} · ` : ''}${choice.schemaDisplayName ?? entityKindLabel(choice.kind)}`}
                 onMouseDown={(event) => event.preventDefault()}
                 onPointerMove={() => menu.point(choice.id)}
                 onClick={() => menu.activate(choice.id)}

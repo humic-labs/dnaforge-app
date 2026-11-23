@@ -4,6 +4,11 @@ import { createHash } from 'node:crypto';
 import type { WorkspaceSyncBundle, WorkspaceSyncFile } from '@waypoint/share-bundle';
 import { describe, expect, it } from 'vitest';
 import { buildSequencePackageDocument, type SequencePackageMember } from '../db/sequence-package';
+import {
+  NATIVE_WORKSPACE_MANIFEST_PATH,
+  NATIVE_WORKSPACE_MANIFEST_SCHEMA,
+} from '../shared/native-workspace-manifest';
+import { assertReconciledEntitiesRetained } from './workspace-sync-retained-entities';
 
 import {
   groupBundleResources,
@@ -74,6 +79,75 @@ function pkg(overrides: Record<string, string> = {}, root = PKG): Record<string,
   for (const [path, text] of Object.entries(overrides)) files[`${root}/${path}`] = text;
   return files;
 }
+
+describe('saved entities in a proposed merge', () => {
+  const path = 'primers/old.primer.json';
+  const primer = JSON.stringify({ id: 'primer-id', name: 'Saved primer' });
+  const original = bundle({ [path]: primer });
+
+  it('checks a saved document by identity through an edit, move or reversible archive', async () => {
+    const edited = JSON.stringify({
+      id: 'primer-id',
+      name: 'Updated',
+      entity: { state: { archived: true } },
+    });
+    await expect(
+      assertReconciledEntitiesRetained(
+        [original],
+        bundle({ 'moved/renamed.primer.json': edited }).files
+      )
+    ).resolves.toBeUndefined();
+    await expect(
+      assertReconciledEntitiesRetained(
+        [original],
+        bundle({ [path]: JSON.stringify({ id: 'replacement' }) }).files
+      )
+    ).rejects.toThrow(/saved entity "primer-id"/);
+    await expect(assertReconciledEntitiesRetained([original], [])).rejects.toThrow(
+      /saved entity "primer-id"/
+    );
+  });
+
+  it('checks native catalog identities and their admitted backing files while allowing ordinary member removal', async () => {
+    const catalog = (
+      entries: { id: string; type: string; name: string; path: string; fileKind: string }[]
+    ) => JSON.stringify({ schema: NATIVE_WORKSPACE_MANIFEST_SCHEMA, entities: entries, links: [] });
+    const record = {
+      id: 'catalog-id',
+      type: 'file',
+      name: 'Registered data',
+      path: 'sample.txt',
+      fileKind: 'txt',
+    };
+    const before = bundle({
+      [NATIVE_WORKSPACE_MANIFEST_PATH]: catalog([record]),
+      'sample.txt': 'original',
+    });
+    await expect(
+      assertReconciledEntitiesRetained(
+        [before],
+        bundle({ [NATIVE_WORKSPACE_MANIFEST_PATH]: catalog([]), 'sample.txt': 'original' }).files
+      )
+    ).rejects.toThrow(/catalog-id/);
+    await expect(
+      assertReconciledEntitiesRetained(
+        [before],
+        bundle({ [NATIVE_WORKSPACE_MANIFEST_PATH]: catalog([record]) }).files
+      )
+    ).rejects.toThrow(/catalog-id/);
+    const moved = { ...record, path: 'moved/sample.txt' };
+    await expect(
+      assertReconciledEntitiesRetained(
+        [before],
+        bundle({ [NATIVE_WORKSPACE_MANIFEST_PATH]: catalog([moved]), [moved.path]: 'edited' }).files
+      )
+    ).resolves.toBeUndefined();
+    const old = bundle({ ...pkg(), [`${PKG}/assets/example.primer.json`]: primer });
+    await expect(
+      assertReconciledEntitiesRetained([old], bundle(pkg()).files)
+    ).resolves.toBeUndefined();
+  });
+});
 
 describe('groupBundleResources', () => {
   it('treats a sequence package as one resource keyed by its marker id', () => {

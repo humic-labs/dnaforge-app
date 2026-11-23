@@ -21,8 +21,12 @@ import { PortalMenu } from '../PortalMenu';
 import {
   UI_DANGER_BUTTON_CLASS,
   UI_APPBAR_ACTION_CLASS,
+  UI_ENTITY_REFERENCE_CHIP_CLASS,
   UI_ICON_BUTTON_CLASS,
   UI_LINK_BUTTON_CLASS,
+  UI_LIST_ACTION_CLASS,
+  UI_TOOLBAR_SELECT_TRIGGER_CLASS,
+  toolbarToggleClass,
   UI_PRIMARY_BUTTON_CLASS,
   UI_PROSE_WRAP_CLASS,
   UI_READONLY_FIELD_CLASS,
@@ -45,6 +49,25 @@ function withoutAppearance<Props>(props: Props) {
   return nativeProps;
 }
 
+export const ReferenceChipSurface = forwardRef<
+  HTMLSpanElement,
+  Omit<ComponentPropsWithoutRef<'span'>, 'className' | 'style'> & {
+    unavailable?: boolean;
+    attachmentPhase?: 'draft' | 'sent';
+  }
+>(function ReferenceChipSurface({ unavailable = false, attachmentPhase, ...props }, ref) {
+  return (
+    <span
+      {...withoutAppearance(props)}
+      ref={ref}
+      data-ui-control="reference-chip"
+      className={`${UI_ENTITY_REFERENCE_CHIP_CLASS} entity-reference-chip${unavailable ? ' entity-reference-chip--unavailable' : ''}${
+        attachmentPhase ? ` entity-reference-chip--${attachmentPhase}` : ''
+      }`}
+    />
+  );
+});
+
 export function ColumnResizeHandle({
   onMouseDown,
   testId,
@@ -64,15 +87,22 @@ export function ColumnResizeHandle({
 
 export const TextField = forwardRef<
   HTMLInputElement,
-  Omit<ComponentPropsWithoutRef<'input'>, 'className' | 'style'> & { monospace?: boolean }
->(function TextField({ monospace = false, ...props }, ref) {
+  Omit<ComponentPropsWithoutRef<'input'>, 'className' | 'style'> & {
+    monospace?: boolean;
+    variant?: 'field' | 'inline-reference';
+  }
+>(function TextField({ monospace = false, variant = 'field', ...props }, ref) {
   return (
     <input
       {...withoutAppearance(props)}
       ref={ref}
       data-ui-control="input"
       data-settings-control="input"
-      className={`${props.readOnly ? UI_READONLY_FIELD_CLASS : 'wp-form-density wp-menu-trigger wp-menu-search-input'}${monospace ? ' !font-mono' : ''}`}
+      className={
+        variant === 'inline-reference'
+          ? 'notebook-reference-input'
+          : `${props.readOnly ? UI_READONLY_FIELD_CLASS : 'wp-form-density wp-menu-trigger wp-menu-search-input'}${monospace ? ' !font-mono' : ''}`
+      }
     />
   );
 });
@@ -111,10 +141,25 @@ export function VerticalRangeField(
 export const Button = forwardRef<
   HTMLButtonElement,
   Omit<ComponentPropsWithoutRef<'button'>, 'className' | 'style'> & {
-    variant?: 'primary' | 'secondary' | 'danger' | 'icon' | 'link' | 'appbar';
+    variant?:
+      | 'primary'
+      | 'secondary'
+      | 'danger'
+      | 'icon'
+      | 'link'
+      | 'appbar'
+      | 'list-action'
+      | 'toolbar'
+      | 'toolbar-toggle'
+      | 'toolbar-color';
   }
 >(function Button({ variant = 'secondary', type = 'button', ...props }, ref) {
+  const pressed = props['aria-pressed'] === true || props['aria-pressed'] === 'true';
   const styles = {
+    'list-action': UI_LIST_ACTION_CLASS,
+    toolbar: `${UI_TOOLBAR_SELECT_TRIGGER_CLASS} shrink-0 aria-pressed:bg-accent-subtle aria-pressed:text-accent`,
+    'toolbar-toggle': toolbarToggleClass(pressed, false),
+    'toolbar-color': toolbarToggleClass(pressed, true),
     primary: UI_PRIMARY_BUTTON_CLASS,
     secondary: UI_SECONDARY_BUTTON_CLASS,
     danger: UI_DANGER_BUTTON_CLASS,
@@ -202,6 +247,7 @@ export function Select({
   menuAttributes,
   onSelect,
   privateContent = false,
+  variant = 'field',
 }: {
   value: string;
   options: readonly SelectOption[];
@@ -221,6 +267,7 @@ export function Select({
   menuAttributes?: Record<`data-${string}`, string | undefined>;
   onSelect?: (value: string) => void;
   privateContent?: boolean;
+  variant?: 'field' | 'toolbar';
 }) {
   const [search, setSearch] = useState('');
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -289,7 +336,7 @@ export function Select({
     <div className={`relative min-w-0 ${containerClassName}`.trim()}>
       <MenuTrigger
         ref={triggerRef}
-        density="form"
+        density={variant === 'toolbar' ? 'compact' : 'form'}
         open={open}
         id={id}
         type="button"
@@ -308,6 +355,7 @@ export function Select({
         data-value={value}
         onClick={() => (open ? menu.close('trigger') : openFromTrigger())}
         onKeyDown={handleKeyDown}
+        variant={variant}
       >
         <span className="min-w-0 truncate">
           {selected?.selectedLabel ?? selected?.label ?? value}

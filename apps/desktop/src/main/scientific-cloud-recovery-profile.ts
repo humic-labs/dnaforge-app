@@ -92,6 +92,7 @@ export async function restoreScientificCloudRecoveryInIsolatedProfile(input: {
       try {
         db.pragma('foreign_keys = ON');
         db.pragma('journal_mode = WAL');
+        db.pragma('synchronous = FULL');
         ensureSchema(db, databasePath);
         const key = 'scientific-cloud-recovery-target';
         const previous = db.prepare('SELECT value FROM settings WHERE key=?').get(key) as

@@ -70,6 +70,9 @@ const state = vi.hoisted(() => ({
   view: vi.fn(),
   fetchPage: vi.fn(),
   projectRoot: vi.fn(),
+  catalogEntity: vi.fn(),
+  catalogRoot: vi.fn(),
+  catalogFile: vi.fn(),
 }));
 
 vi.mock('../../../lib/analytics', () => ({
@@ -115,6 +118,9 @@ vi.mock('../store', () => ({
 vi.mock('../../../db', () => ({ getSequenceWithPath: state.sequence }));
 vi.mock('../../../db/workspace-catalog', () => ({
   resolveWorkspaceScope: async (root: string) => (root.endsWith('BETA') ? 'beta' : 'alpha'),
+  getCatalogEntity: state.catalogEntity,
+  getWorkspaceRootById: state.catalogRoot,
+  getCurrentCatalogFileForEntity: state.catalogFile,
 }));
 vi.mock('../../../db/resolve-by-object-uuid', () => ({ resolveFileByObjectUuid: state.byUuid }));
 vi.mock('../../../db/resolve-by-content-hash', () => ({ resolveFileByContentHash: state.byHash }));
@@ -233,6 +239,9 @@ beforeEach(() => {
   state.byUuid.mockResolvedValue(null);
   state.byHash.mockResolvedValue(null);
   state.projectRoot.mockResolvedValue(null);
+  state.catalogEntity.mockReset().mockResolvedValue(null);
+  state.catalogRoot.mockReset().mockResolvedValue(null);
+  state.catalogFile.mockReset().mockResolvedValue(null);
   state.native.mockResolvedValue(null);
   state.exact.mockResolvedValue(null);
   state.sequence.mockResolvedValue(null);
@@ -294,6 +303,39 @@ afterEach(() => {
 });
 
 describe('joined notebook reference dispositions', () => {
+  it('opens an exact native notebook from its catalog owner when its project is closed', async () => {
+    state.catalogEntity.mockResolvedValue({
+      id: 'beta::PRIVATE_NATIVE',
+      type: 'notebook',
+      storage_type: 'database',
+      workspace_id: 7,
+    });
+    state.catalogFile.mockResolvedValue({ path: '/PRIVATE_BETA/Native notebook' });
+    state.catalogRoot.mockResolvedValue('/PRIVATE_BETA');
+    state.exact.mockResolvedValue({
+      ...nativeTarget({
+        kind: 'workspace_path',
+        absolutePath: '/PRIVATE_BETA/Native notebook',
+        relativePath: 'Native notebook',
+        tabType: 'page',
+      }),
+      entityType: 'notebook',
+    });
+    emit({ entityType: 'page', entityId: 'beta::PRIVATE_NATIVE', label: 'PRIVATE_LABEL' });
+    await waitFor(() =>
+      expect(state.selected).toHaveBeenCalledWith(
+        '/PRIVATE_BETA/Native notebook',
+        'page',
+        expect.any(String),
+        expect.any(AbortSignal)
+      )
+    );
+    expect(state.exact).toHaveBeenCalledWith({
+      workspaceRoot: '/PRIVATE_BETA',
+      entityId: 'beta::PRIVATE_NATIVE',
+    });
+  });
+
   it('opens the intended sibling page in the second root and reports its accepted destination', async () => {
     state.pages = { 'alpha::PRIVATE_NOTE': {}, 'beta::PRIVATE_NOTE': {} };
     emit({
@@ -315,6 +357,56 @@ describe('joined notebook reference dispositions', () => {
     await waitFor(() => expect(state.open).toHaveBeenCalledOnce());
     expect(useCanvasStore.getState().panels.main.tabs).toHaveLength(1);
     expectJoined('reference_page_focused');
+  });
+
+  it('opens a renamed extensionless notebook through its exact owning catalog identity', async () => {
+    const entityId = 'beta::PRIVATE_NOTE';
+    const path = '/PRIVATE_BETA/Notebook after move';
+    state.projectRoot.mockResolvedValue('/PRIVATE_BETA');
+    state.byUuid.mockResolvedValue({ absolutePath: path, entityId });
+    state.exact.mockResolvedValue({
+      ...nativeTarget({
+        kind: 'workspace_path',
+        absolutePath: path,
+        relativePath: 'Notebook after move',
+        tabType: 'page',
+      }),
+      entityId,
+      entityType: 'notebook',
+    });
+    emit({
+      entityType: 'page',
+      entityId,
+      projectId: 'beta',
+      owningRoot: '/PRIVATE_ALPHA',
+      objectUuid: 'PRIVATE_UUID',
+    });
+    await waitFor(() => expect(state.selected).toHaveBeenCalledOnce());
+    expect(state.byUuid).toHaveBeenCalledWith('PRIVATE_UUID', '/PRIVATE_BETA');
+    expect(state.exact).toHaveBeenCalledWith({ entityId, workspaceRoot: '/PRIVATE_BETA' });
+    expect(state.selected).toHaveBeenCalledWith(
+      path,
+      'page',
+      expect.any(String),
+      expect.any(AbortSignal)
+    );
+  });
+
+  it('refuses a notebook UUID bound to a different project identity with the same local ID', async () => {
+    state.byUuid.mockResolvedValue({
+      absolutePath: '/PRIVATE_BETA/Wrong notebook',
+      entityId: 'beta::NOTE',
+    });
+    emit({
+      entityType: 'page',
+      entityId: 'alpha::NOTE',
+      owningRoot: '/PRIVATE_BETA',
+      objectUuid: 'PRIVATE_UUID',
+    });
+    await waitFor(() => expect(actions()).toHaveLength(2));
+    expectJoined('reference_target_mismatch');
+    expect(state.selected).not.toHaveBeenCalled();
+    expect(state.open).not.toHaveBeenCalled();
   });
 
   it('retains the owning root when a durable identity resolves to a moved sequence', async () => {

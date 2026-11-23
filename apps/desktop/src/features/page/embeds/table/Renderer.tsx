@@ -398,6 +398,7 @@ function ConfiguredTable({
             showCoordinateHeaders={!isDocumentPresentation || hasWriter}
             showFormulaBar={!isDocumentPresentation}
             referenceWorkspaceRoot={referenceWorkspaceRoot}
+            referenceNotebookPageId={sourcePageId}
             onColumnResize={hasWriter ? setColumnWidth : undefined}
             onRowResize={hasWriter ? setRowHeight : undefined}
             onColumnLabelChange={hasWriter ? setColumnLabel : undefined}

@@ -17,7 +17,14 @@ import {
   useSelectedCodons,
   type HoveredCodonKey,
 } from '@waypoint/workspace-editor';
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import type { ComponentProps, PointerEvent as ReactPointerEvent } from 'react';
 import type { ResolvedDataColor } from '@waypoint/platform';
 import type { CoordinateSpace, AnnotationStateIdentity } from '@waypoint/workspace-editor';
@@ -31,7 +38,8 @@ import { convertPlasmid } from '@waypoint/plasmid-viewer';
 import {
   PixiSequenceReadTrackRenderer,
   SEQUENCE_READ_TRACK_TYPE,
-  type Track,
+  CHROMATOGRAM_TYPE,
+  type SupplementalLinearTrack,
   type AnnotationChangeDecoration,
   type LinearSequencePresentation,
 } from '@waypoint/genome-renderer';
@@ -62,6 +70,7 @@ import {
 import { alignmentColumnChanges, annotationDnaData } from './alignment-annotation-data';
 import { annotationDnaColors, comparisonChangeColor } from './sequence-comparison-colors';
 import { ComparisonColorControls } from './ComparisonColorControls';
+import { useIndexedLaneContractTracks } from './useIndexedLaneContractTracks';
 import { SangerGainGutter, sangerGainKey } from './SangerGainGutter';
 import { SequenceComparisonKey } from './SequenceComparisonKey';
 import type { SequenceComparisonInput } from './sequence-comparison-input';
@@ -72,6 +81,13 @@ import {
   primaryBiologicalSelectionForColumns,
   primaryColumnSelectionForBiological,
 } from './shared-sequence-read-selection';
+import {
+  beginSangerReadView,
+  getSangerReadBinding,
+  subscribeToSangerReadBinding,
+  type SangerReadPaintReceipt,
+} from '../sanger-read-lifecycle-telemetry';
+import type { SangerReadViewportKind } from '../../../shared/sanger-read-telemetry-vocab';
 
 interface SharedSequenceReadViewerProps {
   readonly sequence: AnnotatedSequence;
@@ -717,6 +733,44 @@ export function SharedSequenceReadViewer({
     () => scene?.lanes.filter((lane) => lane.kind === 'sanger') ?? [],
     [scene]
   );
+  const sangerReadBinding = useSyncExternalStore(
+    useCallback(
+      (listener: () => void) => subscribeToSangerReadBinding(sequence, listener),
+      [sequence]
+    ),
+    useCallback(() => getSangerReadBinding(sequence), [sequence])
+  );
+  const sangerViewRef = useRef<ReturnType<typeof beginSangerReadView>>(undefined);
+  const sangerPaintRef = useRef<(() => SangerReadPaintReceipt | null) | null>(null);
+  const positioningViewRef = useRef(false);
+  const observeViewport = useCallback((kind: SangerReadViewportKind) => {
+    sangerViewRef.current?.acceptViewport(kind, sangerPaintRef.current?.()?.paintCount ?? 0);
+  }, []);
+  const setObservedViewCenter = useCallback(
+    (center: number) => {
+      const map = mapRef.current;
+      if (!map) return;
+      observeViewport('pan');
+      positioningViewRef.current = true;
+      try {
+        map.setViewCenter(center);
+      } finally {
+        positioningViewRef.current = false;
+      }
+    },
+    [observeViewport]
+  );
+  useLayoutEffect(() => {
+    const view = beginSangerReadView(sequence);
+    sangerViewRef.current = view;
+    return () => {
+      view?.close();
+      if (sangerViewRef.current === view) sangerViewRef.current = undefined;
+    };
+  }, [sequence, sangerReadBinding]);
+  useLayoutEffect(() => {
+    if (error) sangerViewRef.current?.fail();
+  }, [error, sequence, sangerReadBinding]);
   const [size, setSize] = useState({ width: 1, height: 1 });
   const [rendererEpoch, setRendererEpoch] = useState(0);
   const [genomeEpoch, setGenomeEpoch] = useState(0);
@@ -759,65 +813,95 @@ export function SharedSequenceReadViewer({
   }, []);
 
   const nativeQueryRow = Boolean(sequencePresentation?.alignedQuery);
-  useLayoutEffect(() => {
-    const renderer = mapRef.current?.getLinearRenderer();
-    if (!scene || !renderer) return;
-    renderer.setTrackHitHandler((hit) => {
-      if (hit.kind !== 'select-bp-range') return;
-      mapRef.current?.setSelection(hit.startBp, hit.endBp - 1);
-      const lane = scene.lanes.find((candidate) => candidate.id === hit.trackId);
-      commitColumns({ start: hit.startBp, end: hit.endBp - 1 }, lane);
-    });
-    return () => renderer.setTrackHitHandler(null);
-  }, [scene, rendererEpoch, genomeEpoch, commitColumns]);
-
-  useLayoutEffect(() => {
-    if (!scene) return;
-    const map = mapRef.current;
-    const renderer = map?.getLinearRenderer();
-    if (!renderer || !map) return;
-    renderer.setChromosome({
-      id: sequence.id,
-      displayName: scene.genome.name,
-      length: scene.axis.length,
-      cytobands: [],
-    });
-    try {
-      renderer.registerTrack(new PixiSequenceReadTrackRenderer());
-    } catch (error) {
-      if (!String(error).includes('already registered')) throw error;
-    }
-    const lanes = scene.lanes.filter((lane) => !(lane.kind === 'alignment' && nativeQueryRow));
-    const instances: Track[] = lanes.map((lane, order) => ({
-      id: lane.id,
-      type: SEQUENCE_READ_TRACK_TYPE,
-      order,
-      visible: true,
-      assemblyId: sequence.id,
-      label: lane.label,
-      zone: 'below-legacy',
-      sizing: { kind: 'fixed', pixels: lane.kind === 'sanger' ? 138 : 42 },
-    }));
-    renderer.setTrackInstances(instances);
-    for (const lane of lanes) renderer.setTrackData(lane.id, lane);
-    map.requestRender();
-  }, [scene, sequence.id, rendererEpoch, genomeEpoch, nativeQueryRow]);
-
-  useLayoutEffect(() => {
-    const map = mapRef.current;
-    const renderer = map?.getLinearRenderer();
-    if (!renderer || !map) return;
-    let changed = false;
-    for (const lane of sangerLanes) {
-      const gain = sangerGains?.[sangerGainKey(lane.id)] ?? 1;
-      const updated = renderer.updateTrackData<typeof lane & { gain?: number }>(
-        lane.id,
-        (current) => ((current.gain ?? 1) === gain ? current : { ...current, gain })
+  const sequenceChromosome = useMemo(
+    () =>
+      scene && {
+        id: sequence.id,
+        displayName: scene.genome.name,
+        length: scene.axis.length,
+        cytobands: [],
+      },
+    [sequence.id, scene?.genome.name, scene?.axis.length]
+  );
+  const readTracks = useMemo(() => {
+    const chromatogram = new PixiSequenceReadTrackRenderer(CHROMATOGRAM_TYPE.type);
+    const alignment = new PixiSequenceReadTrackRenderer();
+    return (scene?.lanes ?? [])
+      .filter((lane) => !(lane.kind === 'alignment' && nativeQueryRow))
+      .map(
+        (lane, order) =>
+          ({
+            track: {
+              id: lane.id,
+              type: lane.kind === 'sanger' ? CHROMATOGRAM_TYPE.type : SEQUENCE_READ_TRACK_TYPE,
+              order,
+              visible: true,
+              assemblyId: sequence.id,
+              label: lane.label,
+              zone: 'below-legacy' as const,
+              sizing:
+                lane.kind === 'sanger'
+                  ? CHROMATOGRAM_TYPE.defaultSizing
+                  : { kind: 'fixed' as const, pixels: 42 },
+            },
+            renderer: lane.kind === 'sanger' ? chromatogram : alignment,
+            data: lane,
+          }) satisfies SupplementalLinearTrack
       );
-      changed ||= updated;
-    }
-    if (changed) map.requestRender();
-  }, [sangerLanes, sangerGains, sequence.id, rendererEpoch, genomeEpoch, nativeQueryRow, scene]);
+  }, [scene, nativeQueryRow, sequence.id]);
+  const readBindings = useMemo(
+    () =>
+      readTracks.map((binding) => {
+        const gain = sangerGains?.[sangerGainKey(binding.track.id)] ?? 1;
+        return binding.data.kind === 'sanger' && gain !== 1
+          ? { ...binding, data: { ...binding.data, gain } }
+          : binding;
+      }),
+    [readTracks, sangerGains]
+  );
+  useIndexedLaneContractTracks({
+    enabled: !!scene,
+    webglRef: mapRef,
+    rendererReadyEpoch: rendererEpoch + genomeEpoch,
+    rendererAssembly: null,
+    manifestChrom: sequence.id,
+    sequenceChromosome: sequenceChromosome ?? undefined,
+    supplementalTracks: readBindings,
+    onTrackSelection: (start, end, trackId) =>
+      commitColumns(
+        { start, end },
+        scene?.lanes.find((lane) => lane.id === trackId)
+      ),
+  });
+
+  const direct = readBindings.find(
+    (binding) => binding.track.id === `sanger-direct-${sequence.id}`
+  )?.data;
+  useLayoutEffect(() => {
+    const map = mapRef.current;
+    const renderer = map?.getLinearRenderer();
+    if (!renderer || !map) return;
+    const paint =
+      direct?.kind === 'sanger'
+        ? () => renderer.getSequenceReadPaintReceipt(direct.id, direct)
+        : null;
+    sangerPaintRef.current = paint;
+    const sangerView = sangerViewRef.current;
+    if (direct?.kind === 'sanger')
+      sangerView?.admit(
+        direct.trace.peakPositions.length > 0,
+        direct.quality !== undefined,
+        paint?.()?.paintCount ?? 0
+      );
+    const unsubscribe = sangerView
+      ? map.subscribeToCurrentGenomeFrames(() => sangerView.presented(paint?.() ?? null))
+      : undefined;
+    map.requestRender();
+    return () => {
+      unsubscribe?.();
+      if (sangerPaintRef.current === paint) sangerPaintRef.current = null;
+    };
+  }, [direct, rendererEpoch, genomeEpoch, sequence, sangerReadBinding]);
 
   useLayoutEffect(() => {
     if (!scene || genomeEpoch === 0 || size.width <= 1 || size.height <= 1) return;
@@ -861,6 +945,8 @@ export function SharedSequenceReadViewer({
       1,
       size.width / (DEFAULT_EDITOR_CONFIG.charWidth * Math.max(0.002, zoomPercent / 100))
     );
+    if (previous?.documentId === sequence.id && previous.zoomPercent !== zoomPercent)
+      observeViewport('zoom');
     applyingZoomRef.current = true;
     try {
       map.setViewport({ start: center - span / 2, end: center + span / 2 });
@@ -874,7 +960,7 @@ export function SharedSequenceReadViewer({
       width: size.width,
       genomeEpoch,
     };
-  }, [scene, sequence.id, genomeEpoch, size.width, zoomPercent]);
+  }, [scene, sequence.id, genomeEpoch, size.width, zoomPercent, observeViewport]);
 
   useLayoutEffect(() => {
     if (scrollToPosition == null) {
@@ -899,7 +985,7 @@ export function SharedSequenceReadViewer({
     }
     const column = scene.axis.bioToColumn(Math.round(scrollToPosition) - 1);
     if (column == null) return;
-    map.setViewCenter(column);
+    setObservedViewCenter(column);
     appliedScrollCommandRef.current = {
       documentId: sequence.id,
       position: scrollToPosition,
@@ -917,6 +1003,7 @@ export function SharedSequenceReadViewer({
     scrollCommandId,
     scrollCommandRequestId,
     columnNavigation,
+    setObservedViewCenter,
   ]);
 
   const exactColumnSelection =
@@ -955,14 +1042,14 @@ export function SharedSequenceReadViewer({
       requestId: columnNavigation.requestId,
       genomeEpoch,
     };
-    mapRef.current?.setViewCenter(columnNavigation.column);
+    setObservedViewCenter(columnNavigation.column);
     if (columnNavigation.selection) {
       mapRef.current?.setSelection(
         columnNavigation.selection.start,
         columnNavigation.selection.end
       );
     }
-  }, [columnNavigation, genomeEpoch, sequence.id]);
+  }, [columnNavigation, genomeEpoch, sequence.id, setObservedViewCenter]);
 
   const sourceForPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
     const top = event.currentTarget.getBoundingClientRect().top;
@@ -1070,6 +1157,8 @@ export function SharedSequenceReadViewer({
       viewportRange: Readonly<{ start: number; end: number }>
     ) => {
       if (!scene) return;
+      if (!applyingZoomRef.current && !positioningViewRef.current)
+        observeViewport(reason === 'scroll' ? 'pan' : 'zoom');
       if (
         reason === 'zoom' &&
         !applyingZoomRef.current &&
@@ -1103,7 +1192,16 @@ export function SharedSequenceReadViewer({
       );
       if (biologicalViewport) onViewportChange(biologicalViewport);
     },
-    [scene, sequence.id, genomeEpoch, onViewportChange, onZoomChange, size.width, zoomPercent]
+    [
+      scene,
+      sequence.id,
+      genomeEpoch,
+      onViewportChange,
+      onZoomChange,
+      size.width,
+      zoomPercent,
+      observeViewport,
+    ]
   );
 
   return (
@@ -1178,7 +1276,7 @@ export function SharedSequenceReadViewer({
                   mapRef.current?.setSelection(null, null);
                   const length = scene!.axis.length;
                   const span = (feature.end - feature.start + length) % length || length;
-                  mapRef.current?.setViewCenter((feature.start + span / 2) % length);
+                  setObservedViewCenter((feature.start + span / 2) % length);
                 }
                 event.currentTarget.value = '';
               }}

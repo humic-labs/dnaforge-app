@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 
+interface TabGrab {
+  offsetX: number;
+  clientX: number;
+  clientY: number;
+}
+
 interface DragState {
+  grab: TabGrab | null;
   isDragging: boolean;
   dragTabId: string | null;
   dragFromPanelId: string | null;
@@ -11,12 +18,13 @@ interface DragState {
 }
 
 interface DragActions {
-  startDrag: (tabId: string, panelId: string, label: string, type: string) => void;
+  startDrag: (tabId: string, panelId: string, label: string, type: string, grab?: TabGrab) => void;
   setDropTarget: (panelId: string | null, insertIndex: number | null) => void;
   endDrag: () => void;
 }
 
 export const useDragStore = create<DragState & DragActions>()((set) => ({
+  grab: null,
   isDragging: false,
   dragTabId: null,
   dragFromPanelId: null,
@@ -25,8 +33,9 @@ export const useDragStore = create<DragState & DragActions>()((set) => ({
   dropTargetPanelId: null,
   dropInsertIndex: null,
 
-  startDrag: (tabId, panelId, label, type) => {
+  startDrag: (tabId, panelId, label, type, grab) => {
     set({
+      grab: grab ?? null,
       isDragging: true,
       dragTabId: tabId,
       dragFromPanelId: panelId,
@@ -46,6 +55,7 @@ export const useDragStore = create<DragState & DragActions>()((set) => ({
 
   endDrag: () => {
     set({
+      grab: null,
       isDragging: false,
       dragTabId: null,
       dragFromPanelId: null,

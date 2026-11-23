@@ -1,3 +1,7 @@
+import {
+  entityTypeIconKind,
+  type EntityTypeIconKind,
+} from '@waypoint/scientific-artifacts/shared/entity-types';
 import { createElement, type ReactNode } from 'react';
 
 import {
@@ -21,29 +25,14 @@ import {
   WebFileIcon,
 } from './glyphs';
 import { AlignmentIcon, AnnotationsIcon } from './stateful';
-import { getTabTypeForFile } from '../../utils/fileTypes';
+import { getFileIconCategory, getTabTypeForFile } from '../../utils/fileTypes';
 import type { InlineReferenceTargetType } from '../../shared/inline-reference-ipc';
 import type { CatalogRecordPresentationKind } from '../../shared/catalog-entity';
 import { entityColorFamily, type EntityColorContext } from '../../shared/entity-color-family';
 import type { IconProps } from './types';
 
 export type EntityIconKind =
-  | 'molecular-document'
-  | 'notebook'
-  | 'sequence'
-  | 'annotation'
-  | 'alignment'
-  | 'primer'
-  | 'design'
-  | 'protein'
-  | 'strain'
-  | 'record'
-  | 'structure'
-  | 'genome'
-  | 'chat'
-  | 'folder'
-  | 'text'
-  | 'table'
+  | EntityTypeIconKind
   | 'image'
   | 'pdf'
   | 'archive'
@@ -51,76 +40,36 @@ export type EntityIconKind =
   | 'web'
   | 'generic';
 
-const ALIASES: Readonly<Record<string, EntityIconKind>> = {
-  'molecular-document': 'molecular-document',
-  page: 'notebook',
-  'page-link': 'notebook',
-  notebook: 'notebook',
-  sequence: 'sequence',
+const VISUAL_ALIASES: Readonly<Record<string, EntityIconKind>> = {
   biology: 'sequence',
-  dna_sequence: 'sequence',
-  rna_sequence: 'sequence',
-  guide_rna: 'sequence',
   rna: 'sequence',
   dna: 'sequence',
-  plasmid: 'sequence',
-  sequence_region: 'annotation',
-  annotation: 'annotation',
-  alignment: 'alignment',
-  oligo: 'primer',
-  rna_oligo: 'primer',
-  primer: 'primer',
   primers: 'primer',
   'dna-oligos': 'primer',
   'rna-oligos': 'primer',
-  design: 'design',
   assembly: 'design',
   'assembly-panel': 'design',
   'assembly-browser': 'design',
   'adjacency-graph': 'design',
-  construct: 'design',
-  protein: 'protein',
   proteins: 'protein',
   protein_sequence: 'protein',
-  strain: 'strain',
-  record: 'record',
   strains: 'strain',
-  organism: 'strain',
-  allele: 'sequence',
-  locus: 'sequence',
-  part: 'sequence',
-  fragment: 'sequence',
-  marker: 'sequence',
   'dna-sequences': 'sequence',
-  structure: 'structure',
   structure3d: 'structure',
-  genome: 'genome',
-  chromosome: 'genome',
-  'track-view': 'genome',
-  chat: 'chat',
-  protocol: 'notebook',
-  protocol_run: 'notebook',
   'protocol-run': 'notebook',
   'scientific-document': 'notebook',
-  folder: 'folder',
   workspace: 'folder',
-  text: 'text',
-  file: 'text',
-  directory: 'folder',
-  table: 'table',
   spreadsheet: 'table',
-  image: 'image',
-  pdf: 'pdf',
-  archive: 'archive',
-  code: 'code',
   config: 'code',
-  web: 'web',
   html: 'web',
-  generic: 'generic',
 };
 
 export function canonicalEntityIconKind(raw: string): EntityIconKind | null {
-  return Object.hasOwn(ALIASES, raw) ? ALIASES[raw] : null;
+  return (
+    entityTypeIconKind(raw) ??
+    (Object.hasOwn(GLYPHS, raw) ? (raw as EntityIconKind) : null) ??
+    (Object.hasOwn(VISUAL_ALIASES, raw) ? VISUAL_ALIASES[raw] : null)
+  );
 }
 
 export function entityIconKindForCatalogPresentation(
@@ -162,6 +111,37 @@ const GLYPHS: Readonly<Record<EntityIconKind, GlyphComponent>> = {
   web: WebFileIcon as GlyphComponent,
   generic: GenericFileIcon as GlyphComponent,
 };
+
+export function referenceIconPresentation(entity: {
+  type: string;
+  iconKind: string;
+  namedTypeKey?: string;
+  registryKind?: string | null;
+  path?: string | null;
+  iconContext?: EntityColorContext;
+}): { kind: string; context: EntityColorContext } {
+  const namedKind = entity.namedTypeKey?.startsWith('type:')
+    ? entity.namedTypeKey.slice(5)
+    : undefined;
+  const path = entity.iconContext?.path ?? entity.path ?? undefined;
+  const genericFile =
+    namedKind === 'file' ||
+    (!entity.namedTypeKey && entity.type === 'file' && entity.iconKind === 'text');
+  const fileCategory = genericFile && path ? getFileIconCategory(path) : undefined;
+  const visualFileCategory =
+    fileCategory &&
+    ['image', 'pdf', 'archive', 'code', 'web', 'spreadsheet', 'generic', 'text'].includes(
+      fileCategory
+    );
+  return {
+    kind: visualFileCategory ? fileCategory : entity.iconKind,
+    context: {
+      path,
+      ...entity.iconContext,
+      kind: entity.iconContext?.kind ?? entity.registryKind ?? namedKind ?? entity.type,
+    },
+  };
+}
 
 export function iconForEntityKind(
   rawKind: string,

@@ -1,3 +1,9 @@
+import { withCatalogFileSource } from '../catalog-file-source-retention';
+import {
+  listSavedEntityRowVersions,
+  recoverSavedEntityRowVersion,
+  savedRowRecoveryGenerations,
+} from '../saved-entity-row-recovery';
 import { registerAdmittedProjectRoot } from '../admitted-project-roots';
 import { toUserMessage } from '@waypoint/user-messages';
 import { createUserDialogs } from '../user-dialogs';
@@ -29,7 +35,7 @@ import {
   ensureSequenceIndexInDb,
 } from '../sequence-index-command';
 import { handleGroup, mainIpc } from '../../shared/ipc-contract';
-import { app, dialog } from 'electron';
+import { app, BrowserWindow, dialog } from 'electron';
 import Database from 'better-sqlite3';
 import { join } from 'path';
 import { execFileSync } from 'child_process';
@@ -142,6 +148,7 @@ export function getDb(options: { interactive?: boolean } = {}): Database.Databas
     try {
       opened = new Database(dbPath);
       opened.pragma('journal_mode = WAL');
+      opened.pragma('synchronous = FULL');
       opened.pragma('foreign_keys = ON');
       db = opened;
       console.log('[DB] Database opened successfully');
@@ -498,6 +505,28 @@ export function registerDatabaseHandlers(resolveDatabase: () => Database.Databas
     });
   });
   handleGroup(dbContract, {
+    savedRowRecoveryGenerations: (event) =>
+      withRendererDatabaseRead(resolveDatabase(), event.sender, () =>
+        savedRowRecoveryGenerations(resolveDatabase())
+      ),
+    listSavedEntityRowVersions: (event, query) =>
+      withRendererDatabaseRead(resolveDatabase(), event.sender, () =>
+        listSavedEntityRowVersions(resolveDatabase(), query)
+      ),
+    recoverSavedEntityRowVersion: async (event, request) => {
+      const window = BrowserWindow.fromWebContents(event.sender);
+      if (!window) throw new Error('Saved record recovery requires an open desktop window.');
+      const chosen = await dialog.showOpenDialog(window, {
+        title: 'Choose a folder for the recovered SQLite record',
+        buttonLabel: 'Recover a copy here',
+        properties: ['openDirectory', 'createDirectory'],
+      });
+      if (chosen.canceled || chosen.filePaths.length !== 1) return null;
+      const database = resolveDatabase();
+      return withRendererDatabaseRead(database, event.sender, () =>
+        recoverSavedEntityRowVersion(database, request, chosen.filePaths[0])
+      );
+    },
     health: (event) => withRendererDatabaseStatement(getDb(), event.sender, getDatabaseHealth),
     createEntityReference: (event, row) =>
       withRendererDatabaseStatement(resolveDatabase(), event.sender, () =>
@@ -652,8 +681,14 @@ export function registerDatabaseHandlers(resolveDatabase: () => Database.Databas
           database,
           input
         );
-        return withRendererDatabaseStatement(database, event.sender, () =>
-          registerWorkspaceFileInDb(database, input, sequenceFingerprint, admissionWitness)
+        return withCatalogFileSource(
+          database,
+          input,
+          () =>
+            withRendererDatabaseStatement(database, event.sender, () =>
+              registerWorkspaceFileInDb(database, input, sequenceFingerprint, admissionWitness)
+            ),
+          (row) => row.id,()=>withRendererDatabaseStatement(database,event.sender,()=>{})
         );
       };
       if (!input.workspaceRoot) {
@@ -770,17 +805,23 @@ export function registerDatabaseHandlers(resolveDatabase: () => Database.Databas
         const sequenceFingerprint = declaredRoot
           ? await resolveBindingSequenceFingerprint(database, input)
           : undefined;
-        return withRendererDatabaseStatement(database, event.sender, () => {
-          assertEnrolledPrimerPhysicalMutationAllowed(database, [input.entityId]);
-          assertEnrolledPrimerPathMutationAllowed(database, affectedPaths);
-          return bindCatalogEntityFileInDb(
-            database,
-            input,
-            roots,
-            admissionWitness,
-            sequenceFingerprint
-          );
-        });
+        return withCatalogFileSource(
+          database,
+          input,
+          () =>
+            withRendererDatabaseStatement(database, event.sender, () => {
+              assertEnrolledPrimerPhysicalMutationAllowed(database, [input.entityId]);
+              assertEnrolledPrimerPathMutationAllowed(database, affectedPaths);
+              return bindCatalogEntityFileInDb(
+                database,
+                input,
+                roots,
+                admissionWitness,
+                sequenceFingerprint
+              );
+            }),
+          (row) => row.entity_id,()=>withRendererDatabaseStatement(database,event.sender,()=>{})
+        );
       };
       if (!declaredRoot && mutationToken) throw new Error('WORKSPACE_MUTATION_TOKEN_INVALID');
       if (!leaseRoot) return operation();

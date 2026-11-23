@@ -18,6 +18,7 @@ export type RegistryDateFieldReader = (
 export interface RegistryEntityPage {
   entities: LimsEntity[];
   totalCount: number;
+  availableKinds: { kind: string; count: number }[];
   limit: number;
   offset: number;
 }
@@ -108,7 +109,7 @@ export function createRegistryQuery(
     throw new Error('Scientific date definitions are unavailable.');
 
   return (candidates) => {
-    const filtered = candidates.filter((entity) => {
+    const matching = candidates.filter((entity) => {
       if (!input.includeArchived && entity.tombstone) return false;
       if (
         projectFilter &&
@@ -117,8 +118,6 @@ export function createRegistryQuery(
         return false;
       }
       if (idFilter && !idFilter.has(entity.id)) return false;
-      if (input.kind && entity.kind !== input.kind) return false;
-      if (kinds && !kinds.has(entity.kind)) return false;
 
       if (speciesTaxids) {
         const taxon = entitySpeciesTaxon(entity);
@@ -187,6 +186,14 @@ export function createRegistryQuery(
       }
       return true;
     });
+    const counts = new Map<string, number>();
+    for (const entity of matching) counts.set(entity.kind, (counts.get(entity.kind) ?? 0) + 1);
+    const availableKinds = [...counts]
+      .map(([kind, count]) => ({ kind, count }))
+      .sort((a, b) => a.kind.localeCompare(b.kind));
+    const filtered = matching.filter(
+      (entity) => (!input.kind || entity.kind === input.kind) && (!kinds || kinds.has(entity.kind))
+    );
     filtered.sort((a, b) => {
       if (input.dateSort) {
         const { schemaId, fieldKey, direction } = input.dateSort;
@@ -206,6 +213,7 @@ export function createRegistryQuery(
     return {
       entities: filtered.slice(offset, offset + limit),
       totalCount: filtered.length,
+      availableKinds,
       limit,
       offset,
     };

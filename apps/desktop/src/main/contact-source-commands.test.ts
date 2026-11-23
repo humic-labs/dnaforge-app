@@ -12,6 +12,20 @@ import {
 } from '../shared/contact-source';
 import { ContactSourceCommands } from './contact-source-commands';
 
+import { createFileTestDb } from './__tests__/test-db';
+import { ensureSchema } from './schema';
+import { TrackViewLibrary } from './track-view-library';
+import { trackViewFixture } from '../shared/track-view-fixture';
+import { parseTrackViewDocument } from '../shared/track-view';
+import { savedFileWorkspace } from './saved-file-publication';
+import { listSavedFileVersions, restoreSavedFileSource } from './saved-file-sources';
+import { readFile } from 'node:fs/promises';
+vi.mock('electron', () => ({
+  app: { getPath: () => '/tmp', getVersion: () => 'test' },
+  dialog: { showErrorBox: vi.fn() },
+}));
+vi.mock('./analytics', () => ({ trackEvent: vi.fn() }));
+
 const folders: string[] = [];
 afterEach(async () => {
   await Promise.all(folders.splice(0).map((path) => rm(path, { recursive: true, force: true })));
@@ -60,6 +74,46 @@ async function fixture() {
   const commands = new ContactSourceCommands({ resolveProject, captureReadable });
   return { root, path, document, content, request, commands, assertCurrent, captureReadable };
 }
+
+it('restores the exact admitted contact matrix after publication of its Track view and working source loss', async () => {
+  const f = await fixture();
+  const db = createFileTestDb('retained-contact-view');
+  try {
+    ensureSchema(db.db, db.dbPath);
+    const lib = new TrackViewLibrary(join(db.tmpDir, 'library'), {
+      db: () => db.db,
+      contacts: f.commands,
+    });
+    const original = parseTrackViewDocument(JSON.stringify(trackViewFixture()));
+    const axis = f.request.source.xReference;
+    const document = {
+      ...original,
+      reference: {
+        ...original.reference,
+        chromosomes: [{ chrom: axis.chrom, length: axis.length }],
+      },
+      viewport: { start0: 0, end0: axis.length },
+      contactProjection: {
+        kind: 'contact-matrix' as const,
+        project: f.root,
+        source: f.request.source,
+      },
+    };
+    await lib.save({ document, expectedRevision: null });
+    const owner = {
+      workspaceId: savedFileWorkspace(db.db, f.root)!.id,
+      entityId: 'contact:' + f.request.source.sha256,
+    };
+    const [revision] = listSavedFileVersions(db.db, { ...owner, offset: 0, limit: 1 }).versions;
+    expect(revision).toBeDefined();
+    await rm(f.path);
+    await restoreSavedFileSource(db.db, { ...owner, revisionId: revision.id, destination: f.path });
+    expect(await readFile(f.path, 'utf8')).toBe(f.content);
+    expect((await f.commands.read(f.request)).revision).toBe(f.request.source.sha256);
+  } finally {
+    db.cleanup();
+  }
+});
 
 describe('native contact sources', () => {
   it('returns only a projection from the admitted immutable file and its verified revision', async () => {

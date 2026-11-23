@@ -125,6 +125,14 @@ export async function assertSafeWritablePath(
     referenceAssetCacheRoot,
     candidatePath,
   });
+  const retainedRoot = await resolveCanonicalPath(
+    join(app.getPath('userData'), 'retained-file-blobs')
+  );
+  if (
+    isPathInsideAnyBoundary(candidatePath, [retainedRoot]) ||
+    isPathInsideAnyBoundary(retainedRoot, [candidatePath])
+  )
+    throw new Error('The saved entity source store is read-only.');
   const quickLookStoreRoot = await resolveCanonicalPath(
     join(app.getPath('userData'), QUICK_LOOK_PACKAGE_STORE_DIRECTORY)
   );

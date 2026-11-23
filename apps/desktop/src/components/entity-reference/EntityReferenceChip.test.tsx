@@ -43,17 +43,24 @@ describe('EntityReferenceChip', () => {
     expect(chip).not.toHaveAttribute('data-entity-reference-style');
     expect(screen.queryAllByRole('menuitem')).toHaveLength(0);
     expect(
-      [...chip.children].map((child) => `${child.tagName}.${[...child.classList].join('.')}`)
-    ).toEqual(['SPAN.entity-reference-chip__label', 'SPAN.entity-reference-chip__icon']);
+      [...chip.children].map(
+        (child) =>
+          `${child.tagName}.${[...child.classList]
+            .filter((name) => name.startsWith('entity-reference-chip__'))
+            .join('.')}`
+      )
+    ).toEqual(['SPAN.entity-reference-chip__icon', 'SPAN.entity-reference-chip__label']);
   });
-  it('uses an extension-free label followed by the registered SVG icon', () => {
+  it('uses a registered SVG icon before the extension-free label', () => {
     render(<EntityReferenceChip entityType="sequence" label="pUC19.gb" detail="pUC19/pUC19.gb" />);
 
     const chip = screen.getByTestId('entity-reference-chip');
     expect(screen.getByTestId('entity-reference-chip-label')).toHaveTextContent('pUC19');
     expect(chip.querySelector('svg')).not.toBeNull();
+    expect(chip.textContent).toBe('pUC19');
+    expect(chip).toHaveAccessibleName('pUC19, Sequence');
     expect(chip.textContent).not.toContain('🧬');
-    expect(chip.lastElementChild?.classList.contains('entity-reference-chip__icon')).toBe(true);
+    expect(chip.firstElementChild?.classList.contains('entity-reference-chip__icon')).toBe(true);
   });
 
   it('shows the extension-free name followed by the entity type for a package product', () => {
@@ -88,7 +95,7 @@ describe('EntityReferenceChip', () => {
 
     fireEvent.mouseEnter(screen.getByTestId('entity-reference-chip'));
     const detail = screen.getByTestId('entity-reference-chip-detail');
-    expect(detail).toHaveTextContent('1FS0 · Structure');
+    expect(detail).toHaveTextContent('1FS0 · File');
     expect(detail).not.toHaveTextContent('structure:');
   });
 
@@ -211,7 +218,7 @@ describe('EntityReferenceChip', () => {
     );
   });
 
-  it('renders an unknown entity kind as label-only instead of inventing an icon', () => {
+  it('renders an unknown entity kind without inventing an icon', () => {
     render(<EntityReferenceChip entityType="future-kind" label="Object" detail="Object" />);
     expect(screen.getByTestId('entity-reference-chip').querySelector('svg')).toBeNull();
     expect(screen.getByTestId('entity-reference-chip')).toHaveTextContent('Object');

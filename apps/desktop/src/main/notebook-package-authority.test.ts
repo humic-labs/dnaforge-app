@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { notebookPackagePaths } from '../db/notebook-package';
-import { publishNotebookPackageV2InMain } from './notebook-package-authority';
+import { publishNotebookPackageV2InMain } from './__tests__/publish-notebook-fixture';
 
 const roots: string[] = [];
 

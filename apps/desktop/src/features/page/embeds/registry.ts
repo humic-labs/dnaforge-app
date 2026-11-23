@@ -166,12 +166,16 @@ class EmbedRegistry {
         .insertContentAt(pos, {
           type: 'mention',
           attrs: {
+            id: result.entityId,
+            occurrenceId: crypto.randomUUID(),
             entityType: result.entityType,
             entityId: result.entityId,
             label: result.label,
             path: result.path ?? null,
             contentHash: result.contentHash ?? null,
             objectUuid: result.objectUuid ?? null,
+            projectId: result.projectId ?? null,
+            registryKind: result.registryKind ?? null,
           },
         })
         .run();

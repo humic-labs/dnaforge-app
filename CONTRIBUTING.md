@@ -46,15 +46,19 @@ for a maintainer to permit execution. A waiting workflow does not stop you from
 opening or updating a pull request. You can run the documented checks locally or
 enable GitHub Actions in your own fork.
 
-Required checks must pass before a maintainer merges the change. Local test
+Required checks must pass before a maintainer adds the change to the merge
+queue. The queue runs them again on your change combined with current `main` and
+squash-merges it, keeping each commit message and its sign-off. Local test
 results help assess a contribution; they do not replace those checks. Workflow
 permission is separate from an approving pull-request review.
 
 For another contribution, fetch `upstream` again and start a new branch from
 `upstream/main`. Keep unrelated changes in separate pull requests.
 
-When a maintainer asks you to bring an existing contribution up to date, run
-these commands from that contribution's branch:
+You do not need to keep a contribution up to date with `main`; the merge queue
+tests it against current `main`. When your branch conflicts with `main`, or a
+maintainer asks you to update it, run these commands from that contribution's
+branch:
 
 ```bash
 git fetch upstream

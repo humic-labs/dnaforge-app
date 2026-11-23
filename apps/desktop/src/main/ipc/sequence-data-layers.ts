@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { handleGroup } from '../../shared/ipc-contract';
 import { sequenceDataLayersContract } from '../../shared/ipc/sequence-data-layers.contract';
-import { resolveExplicitProjectRoot } from '../../shared/project-root-selection';
+import { resolveAdmittedProjectRoot } from '../admitted-scientific-project';
 import { sequenceDataLayerTargetFromBytes } from '../sequence-data-layer-target';
 import { indexedSequenceDataLayerTarget } from '../indexed-sequence-data-layer-target';
 import { withLocalTrackViewReference } from '../features/reference-assets';
@@ -21,15 +21,11 @@ export function registerSequenceDataLayerIpcHandlers(): void {
     workspaceRoots: () => nativeDocuments.workspaces.readableRoots(),
   });
   const commands = new SequenceDataLayerCommands({
+    database: getDb,
     resolveProject: async (project) => {
-      const roots = new Set(nativeDocuments.workspaces.readableRoots());
-      const rows = getDb()
-        .prepare(
-          'SELECT name,path FROM workspaces WHERE path IS NOT NULL AND archived_at IS NULL AND trashed_at IS NULL'
-        )
-        .all() as Array<{ name: string; path: string }>;
-      const selected = resolveExplicitProjectRoot(
-        rows.filter((row) => roots.has(row.path)),
+      const selected = resolveAdmittedProjectRoot(
+        getDb(),
+        [...nativeDocuments.workspaces.readableRoots()],
         project
       );
       if (!selected) throw new Error('Choose an exact admitted project for this data layer.');

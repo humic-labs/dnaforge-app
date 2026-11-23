@@ -1,6 +1,7 @@
 import { isElectron } from '../../utils/environment';
 import { create } from 'zustand';
 import type { JSONContent } from '@tiptap/core';
+import { normalizeNotebookReferenceOccurrences } from '../../shared/notebook-reference-occurrences';
 import { normalizeNotebookReferences } from '../../shared/notebook-reference-normalization';
 import type { Page, PageListItem } from './types';
 import { platform } from '../../platform';
@@ -432,7 +433,9 @@ export const usePageStore = create<PageStore>()(
     },
 
     savePage: async (pageId, content, options) => {
-      content = normalizeNotebookReferences(content);
+      content = normalizeNotebookReferenceOccurrences(normalizeNotebookReferences(content), {
+        documentId: pageId,
+      });
       const tableObservation = captureTableNotebookSave(pageId, content);
       const notebookObservation = captureNotebookSave(pageId, content);
       return withNotebookAuthorityOperation(pageId, async () => {
@@ -983,10 +986,9 @@ async function repairIfNeeded(
     console.warn('[PageStore] could not persist reference repair', err);
     repairCheckedPages.delete(pageId);
     set((state) => ({
-      pages: { ...state.pages, [pageId]: repaired },
       dirtyIds: new Set([...state.dirtyIds, pageId]),
     }));
-    return { page: repaired };
+    return { page };
   }
 }
 

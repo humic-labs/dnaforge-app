@@ -18,11 +18,13 @@ import { getTabTypeForFile } from '../../../utils/fileTypes';
 import type { WorkspaceFolderRef } from '../../../shared/resolve-entity-path';
 import { resolveFileByObjectUuid } from '../../../db/resolve-by-object-uuid';
 import { resolveFileByContentHash } from '../../../db/resolve-by-content-hash';
+import { stripWorkspaceScope } from '../../../shared/workspace-scoped-identity';
 import { resolveProjectRoot } from '../../../db/project-roots';
 import { resolveSequencePackageRootForProductPath } from '../../sequence/public/sequence-package-product';
 import { planReferenceResolution } from './plan-reference-resolution';
 import {
   entityReferenceRoute,
+  openBoundNotebook,
   openSequenceReference,
   type ContainedReference,
   type ReferenceOpenDetail,
@@ -181,6 +183,23 @@ export function installEntityReferenceHandler({
       intent.finish({ kind: 'reveal_requested' });
       return;
     }
+    if (route.containedOpen === 'notebook') {
+      if (!input.boundEntityId) {
+        refuse(intent, 'target_missing', userMessage('reference.notebookUnavailable'));
+        return;
+      }
+      await openBoundNotebook(
+        {
+          detail: input,
+          intent,
+          entityId: input.boundEntityId,
+          owningRoot: input.workspaceRoot,
+          action: input.action,
+        },
+        routeContext
+      );
+      return;
+    }
     if (route.containedOpen === 'file') {
       await openSelected(
         intent,
@@ -246,8 +265,18 @@ export function installEntityReferenceHandler({
       }
       if (!current(intent)) return;
       if (found) {
+        if (
+          route.containedOpen === 'notebook' &&
+          entityId &&
+          entityId !== found.entityId &&
+          entityId !== stripWorkspaceScope(found.entityId)
+        ) {
+          refuse(intent, 'target_mismatch', userMessage('reference.recordWrongTarget'));
+          return;
+        }
         await openContained(
           {
+            boundEntityId: found.entityId,
             absolutePath: found.absolutePath,
             workspaceRoot: owningRoot,
             entityType: detail.entityType,

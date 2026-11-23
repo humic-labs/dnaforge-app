@@ -23,13 +23,3 @@ export const useTerminalEditorTargets = create<{
       });
   },
 }));
-
-export const TERMINAL_EDITOR_ACTION_EVENT = 'dnaforge:terminal-editor-action';
-export function terminalEditorAction(
-  groupId: string,
-  action: 'panel' | 'split' | 'relaunch' | 'close' | 'find'
-) {
-  window.dispatchEvent(
-    new CustomEvent(TERMINAL_EDITOR_ACTION_EVENT, { detail: { groupId, action } })
-  );
-}

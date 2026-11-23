@@ -1,3 +1,6 @@
+import { parseScientificCloudHistory } from '@waypoint/scientific-objects';
+import { defineBlob } from '@waypoint/workspace-revisions';
+import { workspaceSyncScientificContentSha256 } from '../workspace-sync-scientific-history';
 import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { workspaceSyncManifestHashInput } from '@waypoint/share-bundle';
@@ -38,7 +41,7 @@ const SCHEMA = '50000000-0000-4000-8000-000000000002';
 const PATH = 'primers/saved.primer.json';
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 
-async function historyFixture() {
+async function historyFixture(scientific = false) {
   const wanted = await buildPrimerArtifact({
     id: ENTITY,
     catalogNumber: 'P001',
@@ -128,12 +131,22 @@ async function historyFixture() {
         },
       ],
     };
+    const fileManifestSha256 = hash(workspaceSyncManifestHashInput(manifest));
+    const scientificHistory = parseScientificCloudHistory({
+      formatVersion: 1,
+      logicalWorkspaceId: HOME,
+      acceptedHead: null,
+      archive: defineBlob(new TextEncoder().encode('fixture archive')),
+    });
     const version = {
       id,
       versionNumber: number,
-      representation: 'manifest_v1' as const,
+      representation: scientific ? ('scientific_manifest_v1' as const) : ('manifest_v1' as const),
+      ...(scientific ? { fileManifestSha256 } : {}),
       manifestSchemaVersion: 1,
-      contentSha256: hash(workspaceSyncManifestHashInput(manifest)),
+      contentSha256: scientific
+        ? workspaceSyncScientificContentSha256(fileManifestSha256, scientificHistory)
+        : fileManifestSha256,
       sizeBytes: Buffer.byteLength(text),
       fileCount: 1,
       createdAt: '2026-10-01T00:00:00.000Z',
@@ -145,6 +158,9 @@ async function historyFixture() {
       version,
       manifest,
       workspaceId: HOME,
+      ...(scientific
+        ? { scientificHistory, fileManifestSha256, scientificBlobRefs: [scientificHistory.archive] }
+        : {}),
       resourceIdentities: [{ path: PATH, resourceId: ENTITY }],
     };
   };
@@ -190,6 +206,13 @@ async function historyFixture() {
 }
 
 describe('exact organization primer from authenticated home history', () => {
+  it('recovers the matching saved version from scientific manifest history', async () => {
+    const f = await historyFixture(true);
+    const snapshot = await readOrganizationSavedPrimerSnapshot(f.review, f.client);
+    expect(snapshot.projectVersionId).toBe(f.older.version.id);
+    expect(snapshot.projectVersionSha256).toBe(f.older.version.contentSha256);
+  });
+
   it('finds the complete approved artifact in an older immutable version and pins every request to its account', async () => {
     const f = await historyFixture();
     const result = await readOrganizationSavedPrimerSnapshot(f.review, f.client);

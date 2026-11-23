@@ -1,3 +1,7 @@
+import {
+  PRIMER_SAVED_SOURCE_EVENT,
+  PRIMER_RELOCATION_SOURCE_EVENT,
+} from '../shared/primer-artifacts/primer-source-history';
 import { SEQUENCE_SAVE_PRIMER_PUBLICATION_EVENT_TYPE } from '../shared/sequence-edit-lineage';
 import { FASTA_KIND_DECLARATION_EVENT } from '../shared/fasta-kind';
 import type Database from 'better-sqlite3';
@@ -118,6 +122,11 @@ export function recordCatalogEventInDb(
   input: CatalogEventInput
 ): CatalogEventRow {
   if (!input || typeof input !== 'object') throw new Error('Catalog event is invalid.');
+  if (
+    input.eventType === PRIMER_SAVED_SOURCE_EVENT ||
+    input.eventType === PRIMER_RELOCATION_SOURCE_EVENT
+  )
+    throw new Error('Native primer source history requires the saved primer owner.');
   if (input.eventType === SEQUENCE_SAVE_PRIMER_PUBLICATION_EVENT_TYPE)
     throw new Error(
       'SEQUENCE_SAVE_HISTORY_PROTECTED: Native publication receipts require the Save owner.'

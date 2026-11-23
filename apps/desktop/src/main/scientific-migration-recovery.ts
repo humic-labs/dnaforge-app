@@ -1,3 +1,4 @@
+import { SAVED_ENTITY_ROW_SOURCES } from '../shared/saved-entity-row-version';
 import { scientificWorkTables } from './scientific-object-schema';
 import type Database from 'better-sqlite3';
 import { verifyLimsAuditHashChainInDb } from './lims-projection-rebuild';
@@ -38,7 +39,33 @@ const SCIENTIFIC_TABLES = [
   'scientific_revision_blobs',
 ] as const;
 const UUID = /^[0-9a-f-]{36}$/u;
-const LEGACY_RECOVERY_SCHEMAS = new Set([42, 43, 47, 48]);
+const LEGACY_RECOVERY_SCHEMAS = new Set([42, 43, 47, 48, 51]);
+const SCHEMA_51_COPY_TABLES = {
+  retained_file_publication_witnesses: ['revision_id', 'device', 'inode', 'birth_ns'],
+  retained_file_source_revisions: [
+    'id',
+    'workspace_id',
+    'entity_id',
+    'manifest_json',
+    'source_path',
+    'status',
+  ],
+  saved_entity_row_versions: [
+    'revision_id',
+    'source_table',
+    'identity',
+    'payload',
+    'binary_payload',
+  ],
+  notebook_reference_occurrences: [
+    'document_id',
+    'occurrence_id',
+    'target_kind',
+    'source_fingerprint',
+  ],
+  notebook_reference_projections: ['document_id', 'source_fingerprint', 'coverage_status'],
+  notebook_saved_reference_retention: ['reference_id', 'reason'],
+} as const;
 
 interface LegacyRecoveryReceipt {
   format: 'dnaforge.legacy-recovery-copy';
@@ -316,7 +343,7 @@ export function assertScientificLegacyDatabaseCanRelocate(input: {
   const version = db.pragma('user_version', { simple: true });
   if (!LEGACY_RECOVERY_SCHEMAS.has(Number(version)))
     throw new Error(
-      'Legacy recovery supports only the qualified scientific schema 42 or 43 to 41 conversion, or the qualified schema 47 or 48 to 41 conversion.'
+      'Legacy recovery supports only the qualified scientific schema 42 or 43 to 41 conversion, or the qualified schema 47, 48 or 51 to 41 conversion.'
     );
   const identities = Boolean(
     db
@@ -333,7 +360,15 @@ export function assertScientificLegacyDatabaseCanRelocate(input: {
       ))
   )
     throw new Error('Legacy recovery scientific identity schema is incomplete or inconsistent.');
-  if (version === 47 || version === 48) {
+  if (version === 51) {
+    const fields = db.prepare('SELECT name FROM pragma_table_info(?)').pluck();
+    for (const [table, expected] of Object.entries(SCHEMA_51_COPY_TABLES)) {
+      const actual = new Set(fields.all(table));
+      if (expected.some((name) => !actual.has(name)))
+        throw new Error('Legacy recovery schema 51 is incomplete or inconsistent.');
+    }
+  }
+  if (version === 47 || version === 48 || version === 51) {
     const queueColumns = new Set(
       (db.pragma('table_info(workspace_sync_queue)') as { name: string }[]).map(
         (column) => column.name
@@ -431,6 +466,13 @@ export function prepareScientificLegacyDatabase(input: {
   try {
     db.transaction(() => {
       // global navigation state can operate on the original profile's behalf.
+      for (const source of SAVED_ENTITY_ROW_SOURCES) {
+        db.exec('DROP TRIGGER IF EXISTS ' + quoteIdentifier('retain_' + source + '_insert'));
+        db.exec('DROP TRIGGER IF EXISTS ' + quoteIdentifier('retain_' + source + '_update'));
+      }
+      db.exec('DROP TRIGGER IF EXISTS retain_saved_reference_for_notebook');
+      for (const table of Object.keys(SCHEMA_51_COPY_TABLES))
+        db.exec('DROP TABLE IF EXISTS ' + quoteIdentifier(table));
       const tables = (
         db
           .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")

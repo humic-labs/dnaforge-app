@@ -2,9 +2,33 @@ import { readNotebookElementAttribute } from './notebook-element-attributes';
 import { Mention } from '@tiptap/extension-mention';
 import { mergeAttributes } from '@tiptap/core';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
+import { notebookReferenceClipboardPlugin } from './notebook-reference-clipboard';
 export const NotebookMentionNode = Mention.extend({
+  addProseMirrorPlugins() {
+    return [...(this.parent?.() ?? []), notebookReferenceClipboardPlugin()];
+  },
   addAttributes() {
     return {
+      occurrenceId: {
+        default: null,
+        parseHTML: (element) => readNotebookElementAttribute(element, 'data-occurrence-id'),
+        renderHTML: (attributes) =>
+          attributes.occurrenceId ? { 'data-occurrence-id': attributes.occurrenceId } : {},
+      },
+      representationId: {
+        default: null,
+        parseHTML: (element) => readNotebookElementAttribute(element, 'data-representation-id'),
+        renderHTML: (attributes) =>
+          attributes.representationId
+            ? { 'data-representation-id': attributes.representationId }
+            : {},
+      },
+      versionId: {
+        default: null,
+        parseHTML: (element) => readNotebookElementAttribute(element, 'data-version-id'),
+        renderHTML: (attributes) =>
+          attributes.versionId ? { 'data-version-id': attributes.versionId } : {},
+      },
       resourceReference: {
         default: null,
         parseHTML: (element) => {

@@ -7,7 +7,11 @@ import * as core from './persist-primer-bindings-core';
 export * from './persist-primer-bindings-core';
 export const persistRichPastePrimerBindings = (
   input: core.PersistRichPastePrimerBindingsInput,
-  persistence: core.RichPastePrimerPersistence = primerServices.persistence,
+  persistence: core.RichPastePrimerPersistence = {
+    ...primerServices.persistence,
+    removeOwnedLegacyBinding: (intent) =>
+      primerServices.persistence.deleteLegacyBinding(intent.bindingId, { expectedOwner: intent }),
+  },
   ownership: PrimerBindingOwnershipStore = primerBindingOwnership
 ) => core.persistRichPastePrimerBindings(input, persistence, ownership);
 export async function hasRichPastePrimerBindingOwnership(

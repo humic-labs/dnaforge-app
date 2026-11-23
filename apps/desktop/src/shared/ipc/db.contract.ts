@@ -16,6 +16,9 @@ export interface DatabaseHealth {
 
 export const dbContract = defineGroup('db', {
   health: invoke<[], DatabaseHealth>(),
+  savedRowRecoveryGenerations: invoke<[],string[]>(),
+  listSavedEntityRowVersions: invoke<[query: import('../saved-entity-row-version').SavedEntityRowVersionQuery], import('../saved-entity-row-version').SavedEntityRowVersion[]>(),
+  recoverSavedEntityRowVersion: invoke<[request: import('../saved-entity-row-version').SavedRowRecoveryRequest], {path:string} | null>(),
   assertCanonicalSequenceSource: invoke<
     [input: import('../sequence-index-command').SequenceIndexRequest],
     void

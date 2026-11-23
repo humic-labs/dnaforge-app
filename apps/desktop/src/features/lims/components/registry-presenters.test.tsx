@@ -52,11 +52,11 @@ describe('iconForLimsKind', () => {
 });
 
 describe('singularKindLabel', () => {
-  it('labels every LIMS entity kind, mapping genome to "assembly"', () => {
+  it('uses the domain nouns for built-in entity kinds', () => {
     expect(singularKindLabel('oligo')).toBe('DNA oligo');
     expect(singularKindLabel('rna_oligo')).toBe('RNA oligo');
     expect(singularKindLabel('plasmid')).toBe('plasmid');
-    expect(singularKindLabel('genome')).toBe('assembly');
+    expect(singularKindLabel('genome')).toBe('genome');
     expect(singularKindLabel('chromosome')).toBe('chromosome');
     expect(singularKindLabel('strain')).toBe('strain');
     expect(singularKindLabel('organism')).toBe('organism');
@@ -64,7 +64,7 @@ describe('singularKindLabel', () => {
     expect(singularKindLabel('dna_sequence')).toBe('DNA sequence');
     expect(singularKindLabel('rna_sequence')).toBe('RNA sequence');
     expect(singularKindLabel('track-view')).toBe('track view');
-    expect(registryTypeLabel('track-view')).toBe('track view');
+    expect(registryTypeLabel('track-view')).toBe('Track view');
   });
 
   it('labels the  Phase 4 promoted kinds', () => {

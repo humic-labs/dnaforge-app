@@ -27,7 +27,7 @@ export const TURN_TRANSPORT_LABELS: Record<string, string> = {
 };
 
 export const CHAT_COMPOSER_SURFACE_CLASS =
-  'rounded-2xl border border-border-hover/70 bg-bg-muted/70 shadow-sm transition-all dark:border-border-hover/80 dark:bg-bg-muted';
+  'chat-composer-surface rounded-2xl border border-border-hover/70 bg-bg-muted/70 shadow-sm transition-all dark:border-border-hover/80 dark:bg-bg-muted';
 
 export interface ChatComposerPickerOption {
   value: string;

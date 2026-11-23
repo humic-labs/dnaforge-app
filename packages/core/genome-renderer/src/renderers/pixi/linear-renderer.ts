@@ -8,6 +8,11 @@ import {
   type ComparisonHit,
 } from '../../comparison-projection';
 import { ComparisonProjectionPainter } from './comparison-projection-painter';
+import {
+  PixiSequenceReadTrackRenderer,
+  type SequenceReadPaintReceipt,
+  type SequenceReadTrackData,
+} from './linear-tracks/sequence-read-track-renderer';
 import { cdsZoomBandCenterOffset, dataColor } from '@waypoint/platform';
 import {
   contactCellRect,
@@ -905,6 +910,20 @@ export class PixiLinearRenderer {
     const renderer = this.trackRenderers.get(track.type);
     if (!container || !renderer?.getReadPresentationSnapshot) return null;
     return renderer.getReadPresentationSnapshot(container);
+  }
+
+  getSequenceReadPaintReceipt(
+    trackId: string,
+    expectedData: SequenceReadTrackData
+  ): SequenceReadPaintReceipt | null {
+    const track = this.trackInstancesById.get(trackId);
+    if (!track?.visible || this.trackDataStore.get(trackId) !== expectedData) return null;
+    const container = this.trackContainers.get(trackId);
+    const renderer = this.trackRenderers.get(track.type);
+    if (!container || container.destroyed || !(renderer instanceof PixiSequenceReadTrackRenderer)) {
+      return null;
+    }
+    return renderer.getPaintReceipt(container, expectedData);
   }
 
   getColdGestureSnapshot(trackId: string): PixiLinearRendererColdGestureSnapshot {
@@ -2576,6 +2595,7 @@ export class PixiLinearRenderer {
           viewportBpRange,
           viewportWidthPx: state.width,
           viewportHeightPx: state.height,
+          contentClipTopPx: track.zone === 'above-legacy' ? 0 : this.scrollingBounds.y,
           layoutEntry: entry,
           containerTopPx,
           data: this.trackDataStore.get(track.id),

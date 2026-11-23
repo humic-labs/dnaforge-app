@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { TextDecoder } from 'node:util';
 import { decodeBundleFileContent, type WorkspaceSyncFile } from '@waypoint/share-bundle';
 import { syncDirectory } from './fs-durability';
-import { copyStableFileSync } from './workspace-git/copy-independent-file';
+import { copyStableFile, copyStableFileSync } from './workspace-git/copy-independent-file';
 import { claimRegularFileNoClobber } from './workspace-git/exclusive-file-claim';
 
 export interface WorkspaceSyncBlobIdentity {
@@ -17,6 +17,8 @@ interface CacheOptions {
   signal?: AbortSignal;
 }
 const CHUNK_BYTES = 256 * 1024;
+
+export class SourceDigestChangedError extends Error {}
 
 export async function workspaceSyncBlobCacheRoot(): Promise<string> {
   const { app } = await import('electron');
@@ -103,6 +105,7 @@ async function publishCacheFile(
   }
   await syncDirectory(dirname(path));
   await syncDirectory(dirname(dirname(path)));
+  await syncDirectory(dirname(dirname(dirname(path))));
 }
 
 const REPLACE_REFUSED_CODES = new Set(['EPERM', 'EACCES', 'EEXIST', 'EBUSY']);
@@ -125,6 +128,7 @@ export async function captureWorkspaceSyncBlob(
     maxBytes: number;
     utf8?: boolean;
     expectedIdentity?: Pick<Stats, 'dev' | 'ino' | 'size' | 'mtimeMs' | 'ctimeMs'>;
+    expectedSha256?: string;
   }
 ): Promise<WorkspaceSyncBlobIdentity> {
   const root = options.cacheRoot ?? (await workspaceSyncBlobCacheRoot());
@@ -144,7 +148,7 @@ export async function captureWorkspaceSyncBlob(
     if (!sameFile(await lstat(source), before)) {
       throw new Error('Workspace sync source changed before capture.');
     }
-    copyStableFileSync(source, temp);
+    await copyStableFile(source, temp);
     output = await open(temp, constants.O_RDWR | (constants.O_NOFOLLOW ?? 0));
     const copied = await output.stat();
     if (
@@ -174,6 +178,10 @@ export async function captureWorkspaceSyncBlob(
       throw new Error('Workspace sync file changed during capture.');
     }
     const identity = { sha256: hash.digest('hex'), sizeBytes };
+    if (options.expectedSha256 && identity.sha256 !== options.expectedSha256)
+      throw new SourceDigestChangedError(
+        'The saved file changed since it was verified. Reload it before saving.'
+      );
     await output.sync();
     await output.close();
     output = undefined;
@@ -242,6 +250,36 @@ export async function verifyWorkspaceSyncBlob(
   } finally {
     await handle.close();
   }
+}
+
+export async function readVerifiedWorkspaceSyncFile(file: WorkspaceSyncFile): Promise<Uint8Array> {
+  let bytes: Uint8Array;
+  if (file.encoding === 'blob') {
+    const handle = await openRegular(await workspaceSyncBlobPath(file.sha256));
+    try {
+      const before = await handle.stat();
+      if (before.size !== file.sizeBytes) throw new Error('Workspace sync blob size differs.');
+      bytes = Buffer.alloc(file.sizeBytes);
+      let offset = 0;
+      while (offset < bytes.byteLength) {
+        const { bytesRead } = await handle.read(bytes, offset, bytes.byteLength - offset, offset);
+        if (!bytesRead) throw new Error('Workspace sync blob ended early.');
+        offset += bytesRead;
+      }
+      if (!sameFile(await handle.stat(), before)) throw new Error('Workspace sync blob changed.');
+    } finally {
+      await handle.close();
+    }
+  } else {
+    bytes = decodeBundleFileContent(file);
+  }
+  if (
+    bytes.byteLength !== file.sizeBytes ||
+    createHash('sha256').update(bytes).digest('hex') !== file.sha256
+  ) {
+    throw new Error('Workspace sync bytes differ from frozen content.');
+  }
+  return bytes;
 }
 
 export async function hashWorkspaceSyncFileOnDisk(

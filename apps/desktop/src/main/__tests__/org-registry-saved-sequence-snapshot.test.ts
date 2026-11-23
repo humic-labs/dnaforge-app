@@ -1,3 +1,6 @@
+import { parseScientificCloudHistory } from '@waypoint/scientific-objects';
+import { defineBlob } from '@waypoint/workspace-revisions';
+import { workspaceSyncScientificContentSha256 } from '../workspace-sync-scientific-history';
 import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { workspaceSyncManifestHashInput } from '@waypoint/share-bundle';
@@ -38,7 +41,9 @@ const ORG = '40000000-0000-4000-8000-000000000001';
 const MARKER = 'saved-package/.forge/plasmid.json';
 const hash = (value: string | Uint8Array) => createHash('sha256').update(value).digest('hex');
 
-async function fixture(options: { acceptedExports?: 'current' | 'history_only' } = {}) {
+async function fixture(
+  options: { acceptedExports?: 'current' | 'history_only'; scientific?: boolean } = {}
+) {
   const product = serializeSequenceForInPlaceSave(
     {
       id: ENTITY,
@@ -164,14 +169,26 @@ async function fixture(options: { acceptedExports?: 'current' | 'history_only' }
           sizeBytes: bytes.byteLength,
           contentType: 'application/octet-stream',
         }))
-        .sort((a, b) => a.path.localeCompare(b.path)),
+        .sort((a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path))),
     };
+    const fileManifestSha256 = hash(workspaceSyncManifestHashInput(manifest));
+    const scientificHistory = parseScientificCloudHistory({
+      formatVersion: 1,
+      logicalWorkspaceId: HOME,
+      acceptedHead: null,
+      archive: defineBlob(new TextEncoder().encode('fixture archive')),
+    });
     const version = {
       id,
       versionNumber: number,
-      representation: 'manifest_v1' as const,
+      representation: options.scientific
+        ? ('scientific_manifest_v1' as const)
+        : ('manifest_v1' as const),
+      ...(options.scientific ? { fileManifestSha256 } : {}),
       manifestSchemaVersion: 1,
-      contentSha256: hash(workspaceSyncManifestHashInput(manifest)),
+      contentSha256: options.scientific
+        ? workspaceSyncScientificContentSha256(fileManifestSha256, scientificHistory)
+        : fileManifestSha256,
       sizeBytes: manifest.files.reduce((n, file) => n + file.sizeBytes, 0),
       fileCount: manifest.files.length,
       createdAt: '2026-10-01T00:00:00.000Z',
@@ -183,6 +200,9 @@ async function fixture(options: { acceptedExports?: 'current' | 'history_only' }
       workspaceId: HOME,
       version,
       manifest,
+      ...(options.scientific
+        ? { scientificHistory, fileManifestSha256, scientificBlobRefs: [scientificHistory.archive] }
+        : {}),
       resourceIdentities: manifest.files.map((file, index) => ({
         path: file.path,
         resourceId: `70000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
@@ -248,6 +268,13 @@ async function fixture(options: { acceptedExports?: 'current' | 'history_only' }
 }
 
 describe('complete organization sequence from authenticated home history', () => {
+  it('recovers the matching saved version from scientific manifest history', async () => {
+    const f = await fixture({ scientific: true });
+    const snapshot = await readOrganizationSavedSequenceSnapshot(f.review, f.client);
+    expect(snapshot.projectVersionId).toBe(f.older.version.id);
+    expect(snapshot.projectVersionSha256).toBe(f.older.version.contentSha256);
+  });
+
   it.each(['current', 'history_only'] as const)(
     'reads immutable primer exports retained by %s accepted assembly records',
     async (acceptedExports) => {

@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { Panel } from './Panel';
+import { registerTerminalTabCloser } from '../../terminal/terminal-opening';
 
 import { documentLifecycle } from '../../../shared/document-lifecycle';
 import {
@@ -289,6 +290,28 @@ describe('Panel', () => {
 
     expect(mockFocusPanel).toHaveBeenCalledWith(panel.id);
   });
+
+  it.each([true, false])(
+    'respects the terminal session owner when closing a tab (%s)',
+    async (allowed) => {
+      const tab = createTab({ type: 'terminal', entityId: 'terminal-view', label: 'Shell' });
+      const panel = createPanel({ tabs: [tab] });
+      const approve = vi.fn(
+        async (_viewId: string, stillOwned: () => boolean) => allowed && stillOwned()
+      );
+      const unregister = registerTerminalTabCloser(approve);
+      try {
+        renderPanel(panel, true);
+        await act(async () => {
+          fireEvent.click(screen.getByTestId('tab-close-tab-1'));
+        });
+        expect(approve).toHaveBeenCalledWith(tab.entityId, expect.any(Function));
+        expect(mockCloseTab).toHaveBeenCalledTimes(allowed ? 1 : 0);
+      } finally {
+        unregister();
+      }
+    }
+  );
 
   describe('close confirmation for dirty tabs', () => {
     it('reopens an unsettled metadata session instead of allowing a tab discard to bypass it', () => {

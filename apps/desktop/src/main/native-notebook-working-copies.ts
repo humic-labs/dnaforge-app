@@ -4,6 +4,7 @@ import { createNotebookTableAliases } from './notebook-table-aliases';
 import type { NativeTableDocumentCommands } from './table-document-commands';
 import { createNotebookConflictRecovery } from './notebook-conflict-recovery';
 import { createNotebookResourceReferences } from './notebook-resource-references';
+import { searchEntitiesInDb } from './entity-discovery';
 import type { RegisteredProjectAuthority } from './registered-project-authority';
 import { prepareNotebookReferenceInsertion } from './notebook-reference-insertion';
 import { resolvePortablePrimerReferencePath } from '../shared/primer-reference-path';
@@ -647,7 +648,8 @@ export function createNativeNotebookWorkingCopies(options: {
   };
   const prepareLegacyNotebook = async (
     scope: NativeNotebookScope,
-    record?: NativeNotebookRecord
+    record?: NativeNotebookRecord,
+    assertScanningProject?: () => void
   ): Promise<{ scope: NativeNotebookScope; migrated: boolean }> => {
     if (scope.readOnly) return { scope, migrated: false };
     const legacyFlat = scope.path.toLowerCase().endsWith('.wpnote.json');
@@ -662,8 +664,33 @@ export function createNativeNotebookWorkingCopies(options: {
     }
     if (record?.dirty && !resuming) return { scope, migrated: false };
     const state = await currentLegacyMigration();
-    if (!resuming && (!state || state.pendingIds.includes(scope.documentId)))
-      return { scope, migrated: false };
+    const ready = resuming || Boolean(state && !state.pendingIds.includes(scope.documentId));
+    if (!ready && !assertScanningProject) return { scope, migrated: false };
+
+    const change = async (publish: () => Promise<boolean>) => {
+      const source = scope;
+      const mutate = () =>
+        withKnownWorkspacePathMutation(options.db(), [source.path], async () => {
+          scope = await resolveDocument(source.documentId, true);
+          if (
+            workspaceMutationRootIdentity(source.path) !==
+              workspaceMutationRootIdentity(scope.path) ||
+            workspaceMutationRootIdentity(source.workspaceRoot) !==
+              workspaceMutationRootIdentity(scope.workspaceRoot)
+          )
+            throw new Error('The notebook migration source moved before publication.');
+          return publish();
+        });
+      if (!assertScanningProject) return mutate();
+      return owner.withCleanPaths([source.path], async () => {
+        assertScanningProject();
+        if (!ready) return false;
+        const migrated = await mutate();
+        if (migrated) await owner.refreshAfterMigration(source.documentId, scope);
+        return migrated;
+      });
+    };
+
     if (!legacyFlat) {
       const metadata = JSON.parse(
         await readFile(notebookPackagePaths(scope.path).metaPath, 'utf8')
@@ -723,8 +750,7 @@ export function createNativeNotebookWorkingCopies(options: {
               captured = true;
           }
           if (captured) continue;
-          await withKnownWorkspacePathMutation(options.db(), [scope.path], async () => {
-            scope = await resolveDocument(scope.documentId, true);
+          await change(async () => {
             const current = await readCanonicalNotebookPackage(
               {
                 exists: async (path) => {
@@ -771,21 +797,21 @@ export function createNativeNotebookWorkingCopies(options: {
               },
               [path]
             );
+            return false;
           });
         }
         return { scope, migrated: false };
       }
     }
-    return withKnownWorkspacePathMutation(options.db(), [scope.path], async () => {
-      scope = await resolveDocument(scope.documentId, true);
-      if ((await readRetainedRecord(scope.documentId))?.dirty && !resuming)
-        return { scope, migrated: false };
+    const migrated = await change(async () => {
+      if ((await readRetainedRecord(scope.documentId))?.dirty && !resuming) return false;
       scope.assertCurrent();
       let result: PublishNotebookPackageResult;
       let retained: string[] = [];
       if (legacyFlat) {
         const oldPath = scope.path;
         const migrated = await migrateFlatNotebookInMain({
+          db: options.db(),
           workspaceRoot: scope.workspaceRoot,
           sourcePath: oldPath,
           documentId: scope.documentId,
@@ -839,14 +865,16 @@ export function createNativeNotebookWorkingCopies(options: {
             preservedPreamble: preamble,
             updatedAt: legacy.updatedAt,
           },
-          scope.assertCurrent
+          scope.assertCurrent,
+          options.db()
         );
         retained = [plan];
       }
       if (!legacyFlat) await captureMigration(scope, result, retained);
       await publishProjection(scope, result.parsed);
-      return { scope, migrated: true };
+      return true;
     });
+    return { scope, migrated };
   };
   const owner: NativeNotebookWorkingCopyOwner = new NativeNotebookWorkingCopyOwner({
     async resolveTableSource(reference, context) {
@@ -998,15 +1026,15 @@ export function createNativeNotebookWorkingCopies(options: {
         (row) => findKnownWorkspaceRoot(options.db(), row.path) === root
       )) {
         try {
-          await owner.withCleanPaths([row.path], async () => {
-            assertCurrent();
-            const scope = await resolveDocument(row.id, false);
-            const prepared = await prepareLegacyNotebook(scope, await readRetainedRecord(row.id));
-            if (prepared.migrated) {
-              result.migrated++;
-              await owner.refreshAfterMigration(row.id, prepared.scope);
-            }
-          });
+          assertCurrent();
+          const scope = await resolveDocument(row.id, false);
+          if (
+            workspaceMutationRootIdentity(scope.workspaceRoot) !== root ||
+            workspaceMutationRootIdentity(scope.path) !== workspaceMutationRootIdentity(row.path)
+          )
+            throw new Error('The notebook migration source moved during the project scan.');
+          const prepared = await prepareLegacyNotebook(scope, undefined, assertCurrent);
+          if (prepared.migrated) result.migrated++;
         } catch (error) {
           result.issues.push({
             path: row.path,
@@ -1132,6 +1160,7 @@ export function createNativeNotebookWorkingCopies(options: {
         if (current.sourceShape === 'legacy-wpnote') {
           const originalPath = scope.path;
           const migrated = await migrateFlatNotebookInMain({
+            db: options.db(),
             workspaceRoot: scope.workspaceRoot,
             sourcePath: scope.path,
             documentId: scope.documentId,
@@ -1178,7 +1207,8 @@ export function createNativeNotebookWorkingCopies(options: {
               expectedCanonicalFingerprint:
                 current.sourceShape === 'v2-package' ? source.fingerprint : undefined,
             },
-            scope.assertCurrent
+            scope.assertCurrent,
+            options.db()
           );
           trace('canonical-files-published');
           if (current.sourceShape === 'v1-package')
@@ -1284,7 +1314,8 @@ export function createNativeNotebookWorkingCopies(options: {
           workspaceRoot: scope.workspaceRoot,
           expectedCanonicalFingerprint: before.fingerprint,
         },
-        scope.assertCurrent
+        scope.assertCurrent,
+        options.db()
       );
       let moved = false;
       try {
@@ -1307,10 +1338,13 @@ export function createNativeNotebookWorkingCopies(options: {
           }
         }
         const nextScope = await resolveDocument(scope.documentId, true);
-        const recovered = await recoverNotebookPackageRenameIfNeededInMain({
-          workspaceRoot: scope.workspaceRoot,
-          packageRoot: nextPath,
-        });
+        const recovered = await recoverNotebookPackageRenameIfNeededInMain(
+          {
+            workspaceRoot: scope.workspaceRoot,
+            packageRoot: nextPath,
+          },
+          options.db()
+        );
         nextScope.assertCurrent();
         if (!recovered)
           throw new Error('The prepared notebook rename did not publish its canonical result.');
@@ -1383,31 +1417,13 @@ export function createNativeNotebookWorkingCopies(options: {
       ).filter((row) => roots.includes(workspaceMutationRootIdentity(row.workspaceRoot)));
     },
     async search(root, query, type, limit) {
-      const pattern = '%' + query.replace(/[\\%_]/g, '\\$&') + '%';
-      const rows = options
-        .db()
-        .prepare(
-          "SELECT e.id AS entityId,e.name,e.type FROM catalog_entities e JOIN workspaces w ON w.id=e.workspace_id WHERE w.path=? AND e.status='active' AND e.type IN ('sequence','notebook','page') AND e.name LIKE ? ESCAPE '\\' ORDER BY e.updated_at DESC LIMIT ?"
-        )
-        .all(root, pattern, limit) as Array<{ entityId: string; name: string; type: string }>;
-      const items = rows.map((row) => ({
-        ...row,
-        type: row.type === 'notebook' ? 'page' : row.type,
-      }));
-      if (!type || type === 'primer') {
-        const primers = options
-          .db()
-          .prepare(
-            "SELECT id AS entityId,name,'primer' AS type FROM primers WHERE name LIKE ? ESCAPE '\\' OR sequence LIKE ? ESCAPE '\\' OR catalog_number LIKE ? ESCAPE '\\' ORDER BY created_at DESC LIMIT ?"
-          )
-          .all(pattern, pattern, pattern, limit) as Array<{
-          entityId: string;
-          name: string;
-          type: string;
-        }>;
-        items.push(...primers);
-      }
-      return items.filter((item) => !type || item.type === type).slice(0, limit);
+      const page = searchEntitiesInDb(options.db(), {
+        query,
+        scope: { projectRoot: root },
+        filter: { entityTypes: type ? [type] : ['sequence', 'page', 'primer'] },
+        limit,
+      });
+      return page.items.map((entity) => ({ ...entity, entityId: entity.id }));
     },
     async prepareReferenceInsertion(scope, operation) {
       if (operation.tableReference) {
@@ -1830,7 +1846,8 @@ export function createNativeNotebookWorkingCopies(options: {
                 content: { type: 'doc', content: [{ type: 'paragraph' }] },
                 sourceShape: 'new-package',
               },
-              assertCurrent
+              assertCurrent,
+              options.db()
             );
             published = true;
             assertCurrent();

@@ -1,3 +1,4 @@
+import { savedFileSourceAgentRequest } from '../shared/saved-file-source-command';
 import { timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { z } from 'zod';
@@ -101,6 +102,14 @@ const commandSchema = z.discriminatedUnion('command', [
     .object({
       ownerInstanceId: identity,
       projectScope: agentProjectScopeSchema,
+      command: z.literal('saved-file-source.execute'),
+      request: savedFileSourceAgentRequest,
+    })
+    .strict(),
+  z
+    .object({
+      ownerInstanceId: identity,
+      projectScope: agentProjectScopeSchema,
       command: z.literal('import-review.execute'),
       request: importReviewSchema,
       agent: agentAuthoritySchema,
@@ -170,7 +179,8 @@ export async function startNativeDocumentCommandServer(options: {
   notebookOwner?: Pick<NativeNotebookWorkingCopyOwner, 'executePublic'>;
   tableOwner?: Pick<NativeTableDocumentCommands, 'execute'>;
   flushFileClients?(): Promise<void>;
-  workspaceCommands?: Pick<ReturnType<typeof createNativeWorkspaceCommands>, 'search' | 'history'>;
+  workspaceCommands?: Pick<ReturnType<typeof createNativeWorkspaceCommands>, 'search' | 'history'> &
+    Partial<Pick<ReturnType<typeof createNativeWorkspaceCommands>, 'savedFileSource'>>;
   importReviews?: Pick<NativeImportReviews, 'executeAgent'>;
   administration?: Pick<AdministrationOwner, 'execute'>;
   getAuthority(): NativeCommandAuthority | null;
@@ -259,6 +269,7 @@ export async function startNativeDocumentCommandServer(options: {
         }
         if (
           body.command === 'workspace.search' ||
+          body.command === 'saved-file-source.execute' ||
           body.command === 'project-history.execute' ||
           body.command === 'import-review.execute' ||
           body.command === 'administration.execute'
@@ -268,6 +279,14 @@ export async function startNativeDocumentCommandServer(options: {
               const receiver = options.workspaceCommands,
                 request = body.request;
               return () => receiver.search(request);
+            }
+            if (
+              body.command === 'saved-file-source.execute' &&
+              options.workspaceCommands?.savedFileSource
+            ) {
+              const run = options.workspaceCommands.savedFileSource,
+                request = body.request;
+              return () => run(request);
             }
             if (body.command === 'project-history.execute' && options.workspaceCommands) {
               const receiver = options.workspaceCommands,

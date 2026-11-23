@@ -22,6 +22,7 @@ export type TrackDrawPolicy =
   | 'transcript-stack'
   | 'peak-stack'
   | 'repeat-stack'
+  | 'chromatogram'
   | 'histogram'
   | 'read-pileup'
   | 'variant-marker'
@@ -35,6 +36,7 @@ export type TrackDataShape =
   | 'peaks'
   | 'repeats'
   | 'reads'
+  | 'chromatogram'
   | 'quantitative-bins'
   | 'variants'
   | 'interactions';

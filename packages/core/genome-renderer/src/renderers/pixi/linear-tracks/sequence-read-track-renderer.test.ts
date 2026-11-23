@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeAll, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 import type { Graphics, Text } from 'pixi.js';
 import type { SequenceReadTrackData } from './sequence-read-track-renderer';
 import type { TrackPaintArgs } from './types';
@@ -7,8 +7,23 @@ import { webglThemeForMode } from '../shared/theme';
 
 let ReadRenderer: typeof import('./sequence-read-track-renderer').PixiSequenceReadTrackRenderer;
 beforeAll(async () => {
-  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+  vi.stubGlobal('CanvasRenderingContext2D', class {});
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type) =>
+    type === '2d'
+      ? ({
+          measureText: (text: string) => ({ width: text.length * 6 }),
+          scale() {},
+          fillText() {},
+          clearRect() {},
+        } as unknown as CanvasRenderingContext2D)
+      : null
+  );
   ReadRenderer = (await import('./sequence-read-track-renderer')).PixiSequenceReadTrackRenderer;
+});
+
+afterAll(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 const chromosome = { id: 'ref', displayName: 'ref', cytobands: [], length: 10 };
@@ -31,7 +46,7 @@ const read: Extract<SequenceReadTrackData, { kind: 'sanger' }> = {
 };
 
 function draw(data: typeof read, scale: number, offset = 0) {
-  const renderer = new ReadRenderer();
+  const renderer = new ReadRenderer('chromatogram');
   const container = renderer.mount({ theme, chromosome });
   const marks = container.children[1] as Graphics;
   const markRect = vi.spyOn(marks, 'rect');

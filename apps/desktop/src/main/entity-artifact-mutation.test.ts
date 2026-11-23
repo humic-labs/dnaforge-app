@@ -72,6 +72,49 @@ describe('file-authoritative Registry commands', () => {
     await rm(root, { recursive: true, force: true });
   });
 
+  it.each([false, true])(
+    'recovers pre-edit and published Registry files after removal with pre-retention history=%s',
+    async (legacy) => {
+      const { runSavedFileSourceCommand } = await import('./saved-file-source-command');
+      const path = join(root, 'record.entity.json');
+      const before = await readFile(path);
+      await edit('retained');
+      const after = await readFile(path);
+      await rm(path);
+      if (legacy) {
+        bridge.db.exec(
+          'DROP TABLE retained_file_publication_witnesses; DROP TABLE retained_file_source_revisions'
+        );
+        const { createSavedFileSourceTables } = await import('./saved-file-sources-schema');
+        createSavedFileSourceTables(bridge.db);
+      }
+      const scope = { workspaceId: 7, root, assertCurrent: () => {} };
+      const versions = await runSavedFileSourceCommand(
+        bridge.db,
+        { workspaceRoot: root, operation: { kind: 'versions', entityId: 'record' } },
+        scope
+      );
+      if (!('versions' in versions)) throw new Error('Missing retained Registry file history.');
+      expect(versions.versions).toHaveLength(2);
+      for (const [index, expected] of [after, before].entries()) {
+        const destination = 'restored-' + index + '.entity.json';
+        await runSavedFileSourceCommand(
+          bridge.db,
+          {
+            workspaceRoot: root,
+            operation: {
+              kind: 'restore',
+              entityId: 'record',
+              revisionId: versions.versions[index].id,
+              destination,
+            },
+          },
+          scope
+        );
+        expect(await readFile(join(root, destination))).toEqual(expected);
+      }
+    }
+  );
   it('persists edits, archive/restore and undo using the same native event history', async () => {
     await edit('edit');
     expect(parseEntityArtifact(await readFile(join(root, 'record.entity.json'), 'utf8')).name).toBe(
@@ -344,9 +387,9 @@ describe('file-authoritative Registry commands', () => {
       (input, options) =>
         originalWrite(input, {
           ...options,
-          beforePublish: () => {
+          beforePublish: (stagedPath) => {
             writeFileSync(parentPath, serializeEntityArtifact({ ...parent, id: 'replacement' }));
-            options?.beforePublish?.();
+            options?.beforePublish?.(stagedPath);
           },
         })
     );

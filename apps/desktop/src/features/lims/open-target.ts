@@ -1,10 +1,4 @@
-import type {
-  DnaSequenceRef,
-  FileDnaSequenceRef,
-  InlineDnaSequenceRef,
-  LimsEntity,
-  LimsRegistryOpenTarget,
-} from '../../shared/lims';
+import type { LimsEntity, LimsRegistryOpenTarget } from '../../shared/lims';
 import { queryLimsEntities } from './operations';
 import { registryRepresentationForEntity } from '../../shared/registry-entity-opening';
 
@@ -39,21 +33,12 @@ export function resolveLimsEntityOpenTargetFromEntity(entity: LimsEntity): LimsO
 }
 
 export function hasOpenableFileRepresentation(entity: LimsEntity): boolean {
-  return dnaSequenceRefForEntity(entity)?.mode === 'file';
-}
-
-function dnaSequenceRefForEntity(entity: LimsEntity): DnaSequenceRef | null {
-  const value = entity.fields.sequence;
-  if (!value || typeof value !== 'object') return null;
-  const sequence = value as Partial<DnaSequenceRef>;
-  if (sequence.mode === 'file' && typeof sequence.relPath === 'string') {
-    return sequence as FileDnaSequenceRef;
-  }
-  if (sequence.mode === 'inline' && typeof sequence.length === 'number') {
-    return sequence as InlineDnaSequenceRef;
-  }
-  if (sequence.mode === 'unresolved') {
-    return { mode: 'unresolved' };
-  }
-  return null;
+  const sequence = entity.fields.sequence;
+  return Boolean(
+    sequence &&
+    typeof sequence === 'object' &&
+    'mode' in sequence &&
+    sequence.mode === 'file' &&
+    registryRepresentationForEntity(entity).canOpen
+  );
 }

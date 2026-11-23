@@ -2088,6 +2088,129 @@ describe('FileBrowser', () => {
       }
     });
 
+    for (const action of ['move', 'rename'] as const) {
+      it(`waits for every project refresh before completing ${action}`, async () => {
+        const releaseRefresh = vi.fn<() => void>();
+        const refresh = new Promise<void>((resolve) => {
+          releaseRefresh.mockImplementation(() => resolve());
+        });
+        const refreshRoot = action === 'move' ? '/mock/destination' : '/mock/test/workspace';
+        const onWorkspaceChanged = vi.fn(async (root: string) => {
+          if (root === refreshRoot) await refresh;
+        });
+        setMockWorkspaceState({
+          folders: [
+            { path: '/mock/test/workspace', name: 'workspace', addedAt: 1 },
+            ...(action === 'move'
+              ? [{ path: '/mock/destination', name: 'destination', addedAt: 2 }]
+              : []),
+          ],
+        });
+        render(
+          <FileBrowser
+            onFileSelect={vi.fn()}
+            onAddFolder={vi.fn()}
+            onWorkspaceChanged={onWorkspaceChanged}
+          />
+        );
+        try {
+          if (action === 'move') {
+            window.dispatchEvent(
+              new CustomEvent('waypoint-file-move', {
+                detail: {
+                  sourcePath: '/mock/test/workspace/plasmid.gb',
+                  destDir: '/mock/destination/notes',
+                },
+              })
+            );
+          } else {
+            await screen.findByText('plasmid');
+            fireEvent.contextMenu(screen.getByText('plasmid'));
+            fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }));
+            const input = screen.getByDisplayValue('plasmid');
+            fireEvent.change(input, { target: { value: 'renamed.gb' } });
+            fireEvent.keyDown(input, { key: 'Enter' });
+          }
+          await waitFor(() => expect(onWorkspaceChanged).toHaveBeenCalledWith(refreshRoot));
+          expect(platformMocks.relocateEntityFile).toHaveBeenCalledTimes(1);
+          expect(
+            artifactMocks.recordWorkspaceArtifactFileRenameInProjectMemory
+          ).toHaveBeenCalledTimes(1);
+          expect(telemetryMocks.operations.at(-1)?.complete).not.toHaveBeenCalled();
+          expect(telemetryMocks.operations.at(-1)?.fail).not.toHaveBeenCalled();
+        } finally {
+          await act(async () => {
+            releaseRefresh();
+            await refresh;
+          });
+        }
+        await waitFor(() =>
+          expect(telemetryMocks.operations.at(-1)?.complete).toHaveBeenCalledWith({
+            status: 'updated',
+          })
+        );
+        expect(telemetryMocks.operations.at(-1)?.fail).not.toHaveBeenCalled();
+      });
+
+      it(`reports committed ${action} when project refresh fails without qualifying completion`, async () => {
+        const rejectRefresh = vi.fn<() => void>();
+        const refresh = new Promise<void>((_resolve, reject) => {
+          rejectRefresh.mockImplementation(() => reject(new Error('project refresh unavailable')));
+        });
+        void refresh.catch(() => {});
+        const onWorkspaceChanged = vi.fn(() => refresh);
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+        render(
+          <FileBrowser
+            onFileSelect={vi.fn()}
+            onAddFolder={vi.fn()}
+            onWorkspaceChanged={onWorkspaceChanged}
+          />
+        );
+        try {
+          if (action === 'move') {
+            window.dispatchEvent(
+              new CustomEvent('waypoint-file-move', {
+                detail: {
+                  sourcePath: '/mock/test/workspace/plasmid.gb',
+                  destDir: '/mock/test/workspace/notes',
+                },
+              })
+            );
+          } else {
+            await screen.findByText('plasmid');
+            fireEvent.contextMenu(screen.getByText('plasmid'));
+            fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }));
+            const input = screen.getByDisplayValue('plasmid');
+            fireEvent.change(input, { target: { value: 'renamed.gb' } });
+            fireEvent.keyDown(input, { key: 'Enter' });
+          }
+          await waitFor(() =>
+            expect(onWorkspaceChanged).toHaveBeenCalledWith('/mock/test/workspace')
+          );
+          await act(async () => {
+            rejectRefresh();
+            await refresh.catch(() => {});
+          });
+          expect(platformMocks.relocateEntityFile).toHaveBeenCalledTimes(1);
+          expect(
+            artifactMocks.recordWorkspaceArtifactFileRenameInProjectMemory
+          ).toHaveBeenCalledTimes(1);
+          expect(telemetryMocks.operations.at(-1)?.complete).not.toHaveBeenCalled();
+          expect(telemetryMocks.operations.at(-1)?.fail).toHaveBeenCalledWith(`${action}_failed`);
+          expect(useToastStore.getState().toasts).toContainEqual(
+            expect.objectContaining({
+              message:
+                'The file change was saved, but the project update did not finish. Reopen the project to refresh it.',
+              type: 'warning',
+            })
+          );
+        } finally {
+          consoleError.mockRestore();
+        }
+      });
+    }
+
     it('holds one workspace mutation across drag relocation and Project Memory', async () => {
       setMockWorkspaceState({
         folders: [{ path: '/mock/test/workspace', name: 'workspace', addedAt: Date.now() }],

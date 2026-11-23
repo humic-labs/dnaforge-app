@@ -16,7 +16,9 @@ import {
 } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
+import { isSavedEntityMember } from '../shared/catalog-file-kind';
 import {
+  retainedEntityMessage,
   workspaceFileTrashRequestSchema,
   type FileTrashEntry,
   type WorkspaceFileTrashRequest,
@@ -31,7 +33,7 @@ import { writeTextFileAtomicInMain } from './text-file-atomic';
 const exclusive = createKeyedMutex();
 const reserved = new Set(['.git', '.forge', '.dnaforge', '.waypoint']);
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
-const recordSchema = z
+const legacyRecordSchema = z
   .object({
     schema: z.literal('dnaforge.file-trash.v1'),
     id: z.string().uuid(),
@@ -43,6 +45,16 @@ const recordSchema = z
   })
   .strict();
 
+const recordSchema = z.discriminatedUnion('schema', [
+  legacyRecordSchema,
+  legacyRecordSchema
+    .extend({
+      schema: z.literal('dnaforge.file-trash.v2'),
+      purgeEligible: z.boolean(),
+    })
+    .strict(),
+]);
+
 async function exists(path: string) {
   try {
     await lstat(path);
@@ -53,12 +65,26 @@ async function exists(path: string) {
   }
 }
 
-async function snapshot(path: string, hashContent: boolean) {
+export async function workspaceMoveTreeDigest(
+  path: string,
+  normalizeHash?: (relative: string, sha: string) => string
+): Promise<string> {
+  return (await snapshot(path, true, undefined, normalizeHash)).contentDigest;
+}
+
+async function snapshot(
+  path: string,
+  hashContent: boolean,
+  originalPath?: string,
+  normalizeHash?: (relative: string, sha: string) => string
+) {
+  let containsSavedEntity = false;
   const content: unknown[] = [],
     stats: unknown[] = [];
   let size = 0;
   let contentHash: string | null = null;
   const walk = async (candidate: string, name: string): Promise<void> => {
+    if (originalPath && isSavedEntityMember(join(originalPath, name))) containsSavedEntity = true;
     const before = await lstat(candidate, { bigint: true });
     if (before.isSymbolicLink() || (!before.isFile() && !before.isDirectory()))
       throw new Error(
@@ -88,7 +114,7 @@ async function snapshot(path: string, hashContent: boolean) {
         const hash = createHash('sha256');
         for await (const chunk of createReadStream(candidate)) hash.update(chunk);
         const hashed = hash.digest('hex');
-        content.push([name, type, before.mode.toString(), hashed]);
+        content.push([name, type, before.mode.toString(), normalizeHash?.(name, hashed) ?? hashed]);
         if (!name) contentHash = `sha256:${hashed}`;
       }
     }
@@ -104,6 +130,7 @@ async function snapshot(path: string, hashContent: boolean) {
   };
   await walk(path, '');
   return {
+    containsSavedEntity,
     contentDigest: digest(content),
     contentHash,
     statDigest: digest(stats),
@@ -149,6 +176,21 @@ async function storeRoot(root: string, create: boolean) {
   if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('INVALID_TRASH_STORE');
   await assertPhysicalPackageMember(root, store);
   return store;
+}
+
+export async function hasWorkspaceFileTrashPayloads(root: string): Promise<boolean> {
+  if (!(await exists(join(root, '.git', 'dnaforge-file-trash')))) return false;
+  const store = await storeRoot(root, false);
+  if (!store) return false;
+  for (const entry of await readdir(store, { withFileTypes: true })) {
+    if (
+      !entry.isDirectory() ||
+      !z.string().uuid().safeParse(entry.name).success ||
+      (await exists(join(store, entry.name, 'payload')))
+    )
+      return true;
+  }
+  return false;
 }
 
 async function inspectEntry(root: string, store: string, id: string) {
@@ -236,7 +278,8 @@ export async function runWorkspaceFileTrash(
   assertMutationAllowed: (
     paths: readonly string[],
     contentPaths?: readonly string[]
-  ) => void | Promise<void> = () => {}
+  ) => void | Promise<void> = () => {},
+  entityOwnsPath?: (originalPath: string) => boolean
 ): Promise<WorkspaceFileTrashResult> {
   const request = workspaceFileTrashRequestSchema.parse(input);
   if (!isAbsolute(request.workspaceRoot)) throw new Error('Project root must be absolute.');
@@ -247,7 +290,7 @@ export async function runWorkspaceFileTrash(
     exclusive<WorkspaceFileTrashResult>(root, async () => {
       if (request.kind === 'inspect' || request.kind === 'trash') {
         const source = await sourcePath(request.workspaceRoot, request.path);
-        const state = await snapshot(source.path, true);
+        const state = await snapshot(source.path, true, source.member);
         const revision = `file-trash-source-v1:${digest({ root, path: source.member, stat: state.statDigest, digest: state.contentDigest })}`;
         if (request.kind === 'inspect')
           return {
@@ -267,6 +310,12 @@ export async function runWorkspaceFileTrash(
         await documents?.assertClean(source.path);
         await assertMutationAllowed([source.path]);
         assertCurrent();
+        if (state.containsSavedEntity || entityOwnsPath?.(source.path))
+          throw new Error(retainedEntityMessage);
+        if (!entityOwnsPath)
+          throw new Error(
+            'RETENTION_UNVERIFIED: The saved entity owner is required before moving a file to Trash.'
+          );
         const store = (await storeRoot(root, true))!;
         const id = randomUUID(),
           directory = join(store, id);
@@ -274,7 +323,8 @@ export async function runWorkspaceFileTrash(
         await mkdir(directory, { mode: 0o700 });
         await syncDirectory(store);
         const record = {
-          schema: 'dnaforge.file-trash.v1',
+          schema: 'dnaforge.file-trash.v2',
+          purgeEligible: true,
           id,
           workspaceRoot: root,
           originalPath: source.member,
@@ -282,18 +332,39 @@ export async function runWorkspaceFileTrash(
           type: state.type,
           contentDigest: state.contentDigest,
         };
-        await writeJournal(join(directory, 'record.json'), JSON.stringify(record));
-        await assertMutationAllowed([source.path]);
-        assertCurrent();
-        mutationStarted = true;
-        await rename(source.path, join(directory, 'payload'));
+        try {
+          await writeJournal(join(directory, 'record.json'), JSON.stringify(record));
+          await assertMutationAllowed([source.path]);
+          const rechecked = await snapshot(source.path, false, source.member);
+          if (rechecked.containsSavedEntity || entityOwnsPath(source.path))
+            throw new Error(retainedEntityMessage);
+          if (rechecked.statDigest !== state.statDigest)
+            throw new Error('STALE_FILE: The source changed before moving to Trash.');
+          assertCurrent();
+          await rename(source.path, join(directory, 'payload'));
+          mutationStarted = true;
+        } catch (error) {
+          if (await exists(join(directory, 'payload'))) mutationStarted = true;
+          else {
+            if (await exists(join(directory, 'record.json')))
+              await unlink(join(directory, 'record.json'));
+            await rmdir(directory);
+            await syncDirectory(store);
+            preparedEntryId = undefined;
+          }
+          throw error;
+        }
         const warnings: string[] = [];
         try {
           const moved = await snapshot(join(directory, 'payload'), true);
           if (moved.contentDigest !== record.contentDigest) {
             await writeTextFileAtomicInMain({
               path: join(directory, 'record.json'),
-              content: JSON.stringify({ ...record, contentDigest: moved.contentDigest }),
+              content: JSON.stringify({
+                ...record,
+                purgeEligible: false,
+                contentDigest: moved.contentDigest,
+              }),
             });
             warnings.push(
               'The source changed while moving. Its newer bytes are retained in this Trash entry.'
@@ -414,12 +485,28 @@ export async function runWorkspaceFileTrash(
         };
       }
       await assertMutationAllowed(mutationPaths, contentPaths);
+      const payloadState = await snapshot(current.payload, true, current.record.originalPath);
+      if (payloadState.containsSavedEntity || entityOwnsPath?.(contentPaths[0]))
+        throw new Error(retainedEntityMessage);
+      if (
+        !entityOwnsPath ||
+        current.record.schema !== 'dnaforge.file-trash.v2' ||
+        !current.record.purgeEligible
+      )
+        throw new Error(
+          'RETENTION_UNVERIFIED: This Trash entry has no verified deletion eligibility. Keep its contents or restore it.'
+        );
+      if (payloadState.contentDigest !== current.record.contentDigest)
+        throw new Error(
+          'RETENTION_UNVERIFIED: The contents of this Trash entry have changed. Keep the recovery entry.'
+        );
       assertCurrent();
       mutationStarted = true;
       try {
         if (!current.entry.deletionStarted)
           await writeJournal(join(current.directory, 'purging'), new Date().toISOString());
         await assertMutationAllowed(mutationPaths, contentPaths);
+        if (entityOwnsPath(contentPaths[0])) throw new Error(retainedEntityMessage);
         assertCurrent();
         await rm(current.payload, { recursive: true });
         await syncDirectory(current.directory);

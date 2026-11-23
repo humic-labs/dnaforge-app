@@ -637,6 +637,22 @@ describe('LIMS panel workflows', () => {
     mocks.reviewProfileDirectory = null;
   });
 
+  it('drops the selected preview when the current query excludes its entity', async () => {
+    const entity = await mocks.bridge!.registerEntity({ kind: 'strain', name: 'Excluded preview target', fields: {} });
+    render(<LimsPanel />);
+    await screen.findByTestId(`lims-registry-compact-row-${entity.id}`);
+    fireEvent.click(screen.getByRole('button', { name: `Show details for ${entity.name}` }));
+    expect(await screen.findByTestId('lims-registry-preview')).toHaveAttribute('data-entity-id', entity.id);
+    const observed: LimsQueryRegistrySummariesInput[] = [];
+    mocks.queryRegistryOverride = async (input = {}) => {
+      observed.push(input);
+      return mocks.bridge!.queryRegistrySummaries(input);
+    };
+    fireEvent.change(screen.getByTestId('lims-registry-search'), { target: { value: 'does-not-match-any-record' } });
+    await waitFor(() => expect(observed.some((input) => input.search === 'does-not-match-any-record')).toBe(true));
+    await waitFor(() => expect(screen.queryByTestId('lims-registry-preview')).toBeNull());
+  });
+
   it('joins a notebook reference disposition only after the intended Registry preview renders', async () => {
     const entity = await mocks.bridge!.registerEntity({
       kind: 'strain',
@@ -922,7 +938,7 @@ describe('LIMS panel workflows', () => {
       expect(screen.queryByTestId(`lims-registry-compact-row-${third.id}`)).toBeNull()
     );
     expect(screen.getByTestId(`lims-registry-compact-row-${second.id}`)).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Schema', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Entity type', exact: true }));
     fireEvent.click(screen.getByRole('checkbox', { name: 'DNA Oligo', exact: true }));
     await waitFor(() =>
       expect(screen.queryByTestId(`lims-registry-compact-row-${second.id}`)).toBeNull()
@@ -948,7 +964,7 @@ describe('LIMS panel workflows', () => {
     expect(screen.getByTestId(`lims-registry-row-${first.id}`)).toBeVisible();
     expect(screen.queryByTestId(`lims-registry-row-${second.id}`)).toBeNull();
     expect(screen.queryByTestId(`lims-registry-row-${third.id}`)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Remove Schema: DNA Oligo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Entity type: DNA Oligo' }));
     await screen.findByTestId(`lims-registry-row-${second.id}`);
     expect(screen.queryByTestId(`lims-registry-row-${third.id}`)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
@@ -2132,7 +2148,25 @@ describe('LIMS panel workflows', () => {
       .find((row) => row.getAttribute('data-entry-path') === destinationDir);
     if (!destinationRow) throw new Error('nested destination row did not render');
     fireEvent.click(destinationRow);
-    fireEvent.click(await screen.findByTestId('lims-import-apply'));
+    let finishImport: () => void = () => {};
+    const importFinished = new Promise<void>((resolve) => {
+      finishImport = resolve;
+    });
+    const unsubscribe = mocks.importReview!.onChanged((event) => {
+      if (
+        event.workspaceRoot === workspaceRoot &&
+        (event.phase === 'applied' || event.phase === 'partial' || event.phase === 'failed')
+      )
+        finishImport();
+    });
+    try {
+      fireEvent.click(await screen.findByTestId('lims-import-apply'));
+      await act(async () => {
+        await importFinished;
+      });
+    } finally {
+      unsubscribe();
+    }
 
     await waitFor(() => expect(mocks.recordImportedPrimers).toHaveBeenCalledTimes(1));
     const [plan, destination] = mocks.recordImportedPrimers.mock.calls[0];
@@ -3218,7 +3252,7 @@ describe('LIMS panel workflows', () => {
     await expandRegistry();
 
     expect(screen.getByTestId('lims-registry-sort-registryId')).toBeInTheDocument();
-    expect(screen.getByTestId('lims-registry-sort-kind')).toHaveTextContent('Schema');
+    expect(screen.getByTestId('lims-registry-sort-kind')).toHaveTextContent('Entity type');
 
     const registryIdCell = screen.getByTestId(
       'lims-registry-registry-id-demo-dna509-plasmid-puc19'

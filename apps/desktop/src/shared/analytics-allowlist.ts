@@ -5,6 +5,13 @@ import {
   INDEXED_GENOME_STAGES,
 } from './indexed-genome-telemetry-vocab';
 import {
+  SANGER_READ_STAGES,
+  SANGER_READ_ORIGINS,
+  SANGER_READ_CLASSIFICATIONS,
+  SANGER_READ_REASONS,
+  SANGER_READ_VIEWPORT_KINDS,
+} from './sanger-read-telemetry-vocab';
+import {
   NOTEBOOK_OPERATION_KINDS,
   NOTEBOOK_ERROR_CODES,
   NOTEBOOK_RELOAD_STAGES,
@@ -680,6 +687,11 @@ function nonnegativeNumber(value: unknown): unknown {
   return isFiniteNonnegativeNumber(value) ? value : undefined;
 }
 
+function literalEnumOf(values: readonly string[]): PropertySanitizer {
+  const allowed = new Set(values);
+  return (value) => (typeof value === 'string' && allowed.has(value) ? value : undefined);
+}
+
 const PROPERTY_SANITIZERS: Record<string, PropertySanitizer> = {
   translation_copy_strand: enumOf(new Set(TRANSLATION_COPY_STRANDS)),
   translation_copy_frame: enumOf(new Set(TRANSLATION_COPY_FRAMES)),
@@ -954,6 +966,21 @@ const PROPERTY_SANITIZERS: Record<string, PropertySanitizer> = {
   genome_reason: enumOf(new Set(INDEXED_GENOME_REASONS)),
   genome_started_at_ms: nonnegativeNumber,
   viewport_started_at_ms: nonnegativeNumber,
+  sanger_read_revision_id: uuidString,
+  sanger_view_id: uuidString,
+  sanger_stage: literalEnumOf(SANGER_READ_STAGES),
+  sanger_origin: literalEnumOf(SANGER_READ_ORIGINS),
+  sanger_classification: literalEnumOf(SANGER_READ_CLASSIFICATIONS),
+  sanger_reason: literalEnumOf(SANGER_READ_REASONS),
+  sanger_started_at_ms: nonnegativeNumber,
+  sanger_parse_started_at_ms: nonnegativeNumber,
+  sanger_view_started_at_ms: nonnegativeNumber,
+  sanger_viewport_kind: literalEnumOf(SANGER_READ_VIEWPORT_KINDS),
+  sanger_trace_available: boolValue,
+  sanger_quality_available: boolValue,
+  sanger_trace_visible: boolValue,
+  sanger_quality_visible: boolValue,
+  sanger_bases_visible: boolValue,
   pdf_generation_id: uuidString,
   pdf_citation_id: uuidString,
   pdf_stage: enumOf(

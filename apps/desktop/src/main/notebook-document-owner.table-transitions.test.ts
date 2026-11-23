@@ -2,8 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
-import { access, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { access, mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, sep } from 'node:path';
 import type { JSONContent } from '@tiptap/core';
 import {
@@ -13,6 +12,8 @@ import {
   type NativeNotebookSource,
 } from './notebook-document-owner';
 import type { NativeNotebookTableTransitionSource } from './table-document-commands';
+import { createFileTestDb } from './__tests__/test-db';
+import { ensureSchema } from './schema';
 import { publishNotebookPackageV2InMain } from './notebook-package-authority';
 import { readCanonicalNotebookPackage } from '../db/notebook-package-migration';
 import { notebookPackagePaths } from '../db/notebook-package';
@@ -35,14 +36,12 @@ const destinationReference = richTableReference(
   'ea8214db-4c80-47e1-9f29-2be2ddf386ba',
   'c0331488-a3fd-4091-bda9-4bc79517228a'
 );
-const directories: string[] = [];
+const cleanupDatabases: Array<() => void> = [];
 const owners: NativeNotebookWorkingCopyOwner[] = [];
 
 afterEach(async () => {
   await Promise.all(owners.splice(0).map((owner) => owner.close()));
-  await Promise.all(
-    directories.splice(0).map((path) => rm(path, { recursive: true, force: true }))
-  );
+  for (const cleanup of cleanupDatabases.splice(0)) cleanup();
 });
 
 function inlineTable(id = blockId): JSONContent {
@@ -80,8 +79,12 @@ function selectedBlocks(content: JSONContent): JSONContent[] {
 }
 
 async function fixture(blocks: JSONContent[] = [inlineTable()]) {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'native-table-transition-')));
-  directories.push(root);
+  const { db, dbPath, tmpDir, cleanup } = createFileTestDb('native-table-transition');
+  cleanupDatabases.push(cleanup);
+  ensureSchema(db, dbPath);
+  const root = join(await realpath(tmpDir), 'Project');
+  await mkdir(root);
+  db.prepare("INSERT INTO workspaces(id,name,path,created_at) VALUES(7,'Project',?,1)").run(root);
   const path = join(root, 'Book');
   const recordPath = join(root, 'recovery.json');
   const content: JSONContent = {
@@ -96,14 +99,18 @@ async function fixture(blocks: JSONContent[] = [inlineTable()]) {
       { type: 'paragraph', content: [{ type: 'text', text: 'Keep after' }] },
     ],
   };
-  await publishNotebookPackageV2InMain({
-    workspaceRoot: root,
-    packageRoot: path,
-    id: notebookId,
-    title: 'Book',
-    content,
-    sourceShape: 'new-package',
-  });
+  await publishNotebookPackageV2InMain(
+    {
+      workspaceRoot: root,
+      packageRoot: path,
+      id: notebookId,
+      title: 'Book',
+      content,
+      sourceShape: 'new-package',
+    },
+    undefined,
+    db
+  );
   let enrolled = true;
   let writable = true;
   let publishes = 0;
@@ -190,7 +197,8 @@ async function fixture(blocks: JSONContent[] = [inlineTable()]) {
           preservedPreamble: fresh.preservedPreamble,
           preservedTitleProjection: fresh.preservedTitleProjection,
         },
-        current.assertCurrent
+        current.assertCurrent,
+        db
       );
       if (publishFailure?.when === 'after') throw publishFailure.error;
       return { source: await load() };
