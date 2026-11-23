@@ -234,6 +234,16 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
 
   const visibleRef = useRef(true);
   const renderLoopRef = useRef<WebGLRenderLoop | null>(null);
+  const postCommitRenderLoopRef = useRef<WebGLRenderLoop | null>(null);
+  const renderAfterReactCommit = useCallback(() => {
+    const loop = renderLoopRef.current;
+    if (!loop || postCommitRenderLoopRef.current === loop) return;
+    postCommitRenderLoopRef.current = loop;
+    queueMicrotask(() => {
+      if (postCommitRenderLoopRef.current === loop) postCommitRenderLoopRef.current = null;
+      if (renderLoopRef.current === loop) loop.renderNow();
+    });
+  }, []);
   const renderRevisionRef = useRef(0);
 
   const presentedFrameListenersRef = useRef(new Set<(receipt: PixiPresentedFrame) => void>());
@@ -462,11 +472,12 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
     });
     invalidateRender();
 
-    if (backingChanged) renderLoopRef.current?.renderNow();
+    if (backingChanged) renderAfterReactCommit();
   }, [
     frameCircuitIsOpen,
     invalidateRender,
     mutateDisplayGeometryPreservingCenter,
+    renderAfterReactCommit,
     options.width,
     options.height,
     options.geometryHeight,
@@ -1069,7 +1080,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
       hiddenMapRetention.release(instanceId);
 
       if (app && initLifecycle === 'ready') {
-        renderLoopRef.current?.renderNow();
+        renderAfterReactCommit();
         renderLoopRef.current?.resume();
       } else {
         requestInit();
@@ -1503,6 +1514,7 @@ function usePixiMapImpl(options: PixiMapImplOptions): {
   }, [
     !!options.genome,
     mutateDisplayGeometryPreservingCenter,
+    renderAfterReactCommit,
     options.circular,
     options.hiddenMapIdlePolicy,
     options.performanceMode,

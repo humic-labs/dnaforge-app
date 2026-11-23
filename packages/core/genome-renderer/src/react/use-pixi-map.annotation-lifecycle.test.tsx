@@ -1087,7 +1087,7 @@ describe('usePixiMap annotation/source lifecycle', () => {
     expect(lifecycle.events.filter((event) => event === 'camera-center:250000')).toHaveLength(2);
   });
 
-  it('repaints synchronously when display props reallocate the canvas backing', async () => {
+  it('repaints display-prop backing changes after the React commit', async () => {
     const source = genome('A');
     const view = render(<Harness genome={source} width={800} height={500} />);
 
@@ -1100,6 +1100,10 @@ describe('usePixiMap annotation/source lifecycle', () => {
       width: 1_200,
       height: 600,
       reason: 'display-props',
+    });
+    expect(lifecycle.renderNowCount).toBe(renderNowCountBeforeResize);
+    await act(async () => {
+      await Promise.resolve();
     });
     expect(lifecycle.renderNowCount).toBe(renderNowCountBeforeResize + 1);
   });

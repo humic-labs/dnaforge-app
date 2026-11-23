@@ -1,4 +1,5 @@
-import { useMemo, useSyncExternalStore, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import { flushSync } from 'react-dom';
 
 import type { IndexedGenomeTileNativeMapHandle } from './IndexedGenomeTileNativeMap';
 import { normalizeLaneScreenBands, type LaneScreenBands } from './lane-screen-bands';
@@ -22,47 +23,43 @@ function bandsKey(b: LaneScreenBands): string {
 export function useLaneScreenBands(
   webglRef: RefObject<IndexedGenomeTileNativeMapHandle | null>
 ): LaneScreenBands {
-  const store = useMemo(() => {
-    let bands: LaneScreenBands = EMPTY;
-    let lastKey = '';
-    return {
-      getSnapshot: () => bands,
-      subscribe: (notify: () => void) => {
-        let unsubscribe: (() => void) | undefined;
-        let retryFrame: number | null = null;
-        let disposed = false;
-        const read = () => {
-          if (disposed) return;
-          const renderer = webglRef.current?.getLinearRenderer?.();
-          const snap = renderer?.getLaneScreenSnapshot?.();
-          const next = snap ? normalizeLaneScreenBands(snap) : EMPTY;
-          const key = bandsKey(next);
-          if (key !== lastKey) {
-            lastKey = key;
-            bands = next;
-            notify();
-          }
-        };
-        const attach = () => {
-          if (disposed) return;
-          const map = webglRef.current;
-          if (!map) {
-            retryFrame = requestAnimationFrame(attach);
-            return;
-          }
-          read();
-          unsubscribe = map.subscribeToPresentedFrames(read);
-          map.requestRender();
-        };
-        attach();
-        return () => {
-          disposed = true;
-          if (retryFrame !== null) cancelAnimationFrame(retryFrame);
-          unsubscribe?.();
-        };
-      },
+  const [bands, setBands] = useState<LaneScreenBands>(EMPTY);
+  const lastKeyRef = useRef<string>('');
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    let retryFrame: number | null = null;
+    let disposed = false;
+    const read = (presented = false) => {
+      if (disposed) return;
+      const renderer = webglRef.current?.getLinearRenderer?.();
+      const snap = renderer?.getLaneScreenSnapshot?.();
+      const next = snap ? normalizeLaneScreenBands(snap) : EMPTY;
+      const key = bandsKey(next);
+      if (key !== lastKeyRef.current) {
+        lastKeyRef.current = key;
+        if (presented) flushSync(() => setBands(next));
+        else setBands(next);
+      }
+    };
+    const attach = () => {
+      if (disposed) return;
+      const map = webglRef.current;
+      if (!map) {
+        retryFrame = requestAnimationFrame(attach);
+        return;
+      }
+      read();
+      unsubscribe = map.subscribeToPresentedFrames(() => read(true));
+      map.requestRender();
+    };
+    attach();
+    return () => {
+      disposed = true;
+      if (retryFrame !== null) cancelAnimationFrame(retryFrame);
+      unsubscribe?.();
     };
   }, [webglRef]);
 
-  return useSyncExternalStore(store.subscribe, store.getSnapshot);
+  return bands;
 }
