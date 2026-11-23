@@ -1174,6 +1174,19 @@ describe('agent-sdk query transports', () => {
     expect(mockRunLocalCodexAppServerTurn).not.toHaveBeenCalled();
   });
 
+  it('observes a missing configured executable before launching either native provider', async () => {
+    const binaryPathOverride = join(fakeCompanionDir, 'moved-provider');
+    for (const query of [queryClaudeCode, queryCodex]) {
+      expect(
+        await query('fixture', { purpose: 'chat', toolExposure: 'none', binaryPathOverride })
+      ).toMatchObject({
+        ok: false,
+        failure: { reason: 'executable_unavailable', stage: 'provider_start' },
+      });
+    }
+    expect(processProtection.prepare).not.toHaveBeenCalled();
+  });
+
   it('uses a custom Codex-compatible executable without requiring the built-in detection result', async () => {
     mockDetectCodex.mockResolvedValue({
       cli: 'missing',
@@ -1188,18 +1201,18 @@ describe('agent-sdk query transports', () => {
     await expect(
       queryCodex('custom harness probe', {
         purpose: 'probe',
-        binaryPathOverride: '/opt/lab/bin/codex',
+        binaryPathOverride: fakeCompanionScript,
       })
     ).resolves.toMatchObject({ ok: true, text: 'CODEX_OK' });
     expect(mockCodexConstructor).toHaveBeenCalledWith(
       expect.objectContaining({ codexPathOverride: '/protected/runtime-wrapper' })
     );
     expect(processProtection.executable).toHaveBeenCalledWith(
-      '/opt/lab/bin/codex',
+      fakeCompanionScript,
       expect.any(Object)
     );
     expect(processProtection.prepare).toHaveBeenCalledWith(
-      expect.objectContaining({ provider: 'codex', runtimeExecutable: '/opt/lab/bin/codex' })
+      expect.objectContaining({ provider: 'codex', runtimeExecutable: fakeCompanionScript })
     );
   });
 

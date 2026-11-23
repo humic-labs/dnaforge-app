@@ -20,6 +20,7 @@ import {
   nativeProviderError,
 } from './native-provider-error';
 import { spawn } from 'node:child_process';
+import { pathExists } from './cli-presence';
 import { proteinExperimentRendererForTurn } from '../protein-experiment-workers';
 import {
   buildClaudeMcpServers,
@@ -444,7 +445,7 @@ export async function queryClaudeCode(
   }
   const detection = await detectClaudeCode();
   const binaryPath = options.binaryPathOverride ?? detection.path;
-  if (!binaryPath) {
+  if (!binaryPath || (options.binaryPathOverride && !(await pathExists(binaryPath)))) {
     return {
       transport: 'claude-agent-sdk',
       ok: false,
@@ -845,7 +846,7 @@ export async function queryCodex(prompt: string, options: QueryOptions = {}): Pr
   }
   const detection = await detectCodex();
   const binaryPath = options.binaryPathOverride ?? detection.path;
-  if (!binaryPath) {
+  if (!binaryPath || (options.binaryPathOverride && !(await pathExists(binaryPath)))) {
     return {
       transport: 'codex-sdk',
       ok: false,
