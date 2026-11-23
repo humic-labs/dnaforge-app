@@ -2132,6 +2132,27 @@ describe('agent-sdk query transports', () => {
     );
   });
 
+  it.each(['Claude', 'Codex'])(
+    'keeps %s connection aborts distinct from a requested stop',
+    async (provider) => {
+      const error = new Error('Upstream connection aborted');
+      mockClaudeQuery.mockImplementation(() => {
+        throw error;
+      });
+      mockLaunchLocalCodexAppServer.mockRejectedValue(error);
+      const { queryClaudeCode, queryCodex } = await import('../query');
+      const query = provider === 'Claude' ? queryClaudeCode : queryCodex;
+      await expect(
+        query('Reply OK.', {
+          purpose: 'chat',
+          toolExposure: 'none',
+          requestUserInput: vi.fn(),
+          abortController: new AbortController(),
+        })
+      ).resolves.toMatchObject({ ok: false, stopState: 'failed', error: error.message });
+    }
+  );
+
   it('returns a stopped result when Codex aborts the underlying child process', async () => {
     const abortController = new AbortController();
     mockCodexRun.mockImplementation(async () => {
