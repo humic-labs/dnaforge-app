@@ -7165,7 +7165,8 @@ describe('PixiPileupTrackRenderer.getDiagnostics', () => {
         await import('./pileup-track-renderer');
       const r = new PixiPileupTrackRenderer({ type: 'pileup-test', maxRows: 8 });
       const c = r.mount(mountArgs);
-      r.paint(
+      paintCommittedReadFront(
+        r,
         paintArgsZoom(
           c,
           {
