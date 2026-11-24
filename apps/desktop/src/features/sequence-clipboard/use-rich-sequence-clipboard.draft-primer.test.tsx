@@ -11,7 +11,7 @@ import {
   type SequenceKeyboardHost,
 } from '../../../../../packages/core/workspace-editor/src/hooks/keyboard-navigation-handlers';
 import type { BoundPrimer } from '../primers/public/types';
-import { sequenceEditorSession, useSequenceStore } from '../sequence/store';
+import { sequenceEditorSession, useSequenceStore } from '../sequence/public/store';
 import { useRichSequenceClipboardStore } from './store';
 import {
   useRichSequenceClipboard,
