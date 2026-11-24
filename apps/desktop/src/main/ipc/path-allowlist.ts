@@ -59,7 +59,7 @@ export async function resolveCanonicalPath(filePath: string): Promise<string> {
         }
         throw lstatError;
       }
-      throw error;
+      return resolve(await realpath(ancestor), ...missingSegments);
     }
   }
 }
