@@ -1,3 +1,6 @@
+import { isDesktopRuntime } from '../../../utils/environment';
+import { persistQueuedMessage } from '../../../db/chat-message-queue';
+import { captureCliModelSettings } from './cli-turn-model';
 import {
   toUserMessage,
   userMessage,
@@ -81,7 +84,8 @@ async function drainConversationQueue(
   get: ChatStoreGet,
   conversationId: string,
   preserveInitialHeadOnPreconditionFailure: boolean,
-  onInitialHeadSettled?: (accepted: boolean) => void
+  onInitialHeadSettled?: (accepted: boolean) => void,
+  onInitialMessageSaved?: () => void
 ): Promise<void> {
   const releaseDrain = conversationExecution(conversationId).beginDrain();
   if (!releaseDrain) return;
@@ -112,8 +116,9 @@ async function drainConversationQueue(
         (message) => message.role === 'user'
       ).length;
       const onAccepted = (): void => {
+        if (!initialHeadSettled) onInitialMessageSaved?.();
         const effects = takeSubmissionEffects(conversationId, next.id);
-        if (effects?.routeFallback) announceAssistantRouteFallback(effects.routeFallback);
+        if (next.routeFallback) announceAssistantRouteFallback(next.routeFallback);
         const onStarted = effects?.onStarted;
         if (onStarted) {
           try {
@@ -155,6 +160,7 @@ async function drainConversationQueue(
             },
             routeSelection: next.routeSelection,
             routeSnapshot: next.routeSnapshot,
+            cliModelSettings: next.cliModelSettings,
             capabilitySelection: next.capabilitySelection,
             attachments: next.attachments,
           }
@@ -212,7 +218,7 @@ async function drainConversationQueue(
   }
 }
 
-export function submitChatMessage(
+export async function submitChatMessage(
   set: ChatStoreSet,
   get: ChatStoreGet,
   content: string,
@@ -223,6 +229,7 @@ export function submitChatMessage(
 ): Promise<'accepted' | 'rejected'> {
   let routeSelection: AssistantRouteSelection;
   let routeSnapshot: AssistantTurnRouteSnapshot;
+  let cliModelSettings: QueuedChatMessage['cliModelSettings'];
   let routeResolution: AssistantSendRouteResolution;
   try {
     const settings = useAISettingsStore.getState();
@@ -266,6 +273,7 @@ export function submitChatMessage(
     }
     routeSelection = routeResolution.route;
     routeSnapshot = buildAssistantTurnRouteSnapshot(routeSelection);
+    cliModelSettings = captureCliModelSettings(routeSelection, settings.cliModelSettings);
   } catch (error) {
     const message = toUserMessage(error, 'assistant.failed');
     if (options?.onNotStarted) {
@@ -289,8 +297,9 @@ export function submitChatMessage(
     ...EMPTY_CONV_STATE,
     ...(get()._convStates.get(resolvedConversationId) ?? {}),
   };
+  const owner = conversationExecution(resolvedConversationId);
   const wasAlreadyQueuedOrRunning =
-    conversationExecution(resolvedConversationId).isDraining ||
+    owner.isDraining ||
     isChatSendClaimed(resolvedConversationId) ||
     previous.isLoading ||
     previous.queuedMessages.length > 0;
@@ -303,17 +312,34 @@ export function submitChatMessage(
     ...(options?.attachments
       ? { attachments: options.attachments.map((item) => ({ ...item })) }
       : {}),
+    ...(routeResolution.status === 'fallback' ? { routeFallback: routeResolution } : {}),
     routeSelection,
     routeSnapshot,
+    cliModelSettings,
     ...(options?.capabilitySelection
       ? { capabilitySelection: { ...options.capabilitySelection } }
       : {}),
     createdAt: Date.now(),
   };
-  conversationExecution(resolvedConversationId).submitted(item.id, {
+  if (wasAlreadyQueuedOrRunning && isDesktopRuntime()) {
+    try {
+      const firstMessage = owner.pendingFirstMessage;
+      if (firstMessage && !get().conversations.some((row) => row.id === resolvedConversationId)) {
+        if (!(await firstMessage)) throw new Error('The conversation could not be saved.');
+      }
+      if (isChatConversationDeleted(resolvedConversationId)) return 'rejected';
+      await persistQueuedMessage(resolvedConversationId, item);
+    } catch (cause) {
+      const error = toUserMessage(cause, 'assistant.failed');
+      if (options?.onNotStarted) options.onNotStarted(error);
+      else setConversationState(set, resolvedConversationId, () => ({ error }));
+      return 'rejected';
+    }
+    if (isChatConversationDeleted(resolvedConversationId)) return 'rejected';
+  }
+  owner.submitted(item.id, {
     onStarted: options?.onStarted,
     onNotStarted: options?.onNotStarted,
-    ...(routeResolution.status === 'fallback' ? { routeFallback: routeResolution } : {}),
   });
 
   setConversationState(set, resolvedConversationId, (state) => ({
@@ -321,25 +347,30 @@ export function submitChatMessage(
   }));
 
   if (
-    conversationExecution(resolvedConversationId).isDraining ||
+    owner.isDraining ||
     isChatSendClaimed(resolvedConversationId) ||
-    previous.isLoading
+    get()._convStates.get(resolvedConversationId)?.isLoading
   ) {
     return Promise.resolve('accepted');
   }
 
-  if (previous.queuedMessages.length > 0) {
+  if (wasAlreadyQueuedOrRunning) {
     void drainConversationQueue(set, get, resolvedConversationId, true);
     return Promise.resolve('accepted');
   }
 
+  const releaseFirst = owner.beginFirstMessage();
   return new Promise<'accepted' | 'rejected'>((resolve) => {
     void drainConversationQueue(
       set,
       get,
       resolvedConversationId,
-      wasAlreadyQueuedOrRunning,
-      (accepted) => resolve(accepted ? 'accepted' : 'rejected')
+      false,
+      (accepted) => {
+        releaseFirst(accepted);
+        resolve(accepted ? 'accepted' : 'rejected');
+      },
+      () => releaseFirst(true)
     );
   });
 }

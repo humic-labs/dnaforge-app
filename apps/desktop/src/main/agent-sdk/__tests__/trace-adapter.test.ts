@@ -279,6 +279,22 @@ describe('provider trace adapters', () => {
     expect(adapter.extractFinalText(events)).toBe('ok');
   });
 
+  it('marks an error returned in a Claude success envelope as failed', () => {
+    const adapter = new ClaudeTraceAdapter(versions);
+    const result = adapter.adapt({
+      type: 'result',
+      subtype: 'success',
+      is_error: true,
+      api_error_status: 429,
+      terminal_reason: 'api_error',
+      result: 'Request rejected (429)',
+    });
+
+    expect(result.terminal).toBe('failed');
+    expect(result.display.title).toBe(userMessage('assistant.trace.failed'));
+    expect(adapter.extractFinalText([result])).toBe('');
+  });
+
   it('prefers Claude terminal result text over a pre-tool assistant preamble', () => {
     const adapter = new ClaudeTraceAdapter({
       sdkVersion: '0.3.150',

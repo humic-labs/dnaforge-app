@@ -1,3 +1,5 @@
+import { loadQueuedMessages } from '../../../db/chat-message-queue';
+import { writeChatComposerDraft } from '../../../db/chat-composer-draft';
 import { toOptionalUserMessage, type UserMessage } from '@waypoint/user-messages';
 import { beginHistoryObservation } from '../../../lib/chat-history-telemetry';
 import type { HistoryDetails, HistoryObservation } from '../../../shared/chat-history-telemetry';
@@ -105,9 +107,10 @@ function loadPersistedConversationState(id: string): Promise<ConversationState> 
 
   const operation = (async (): Promise<ConversationState> => {
     const persistedMessages = await getMessages(id);
-    const [attachmentMap, structuredOutputs] = await Promise.all([
+    const [attachmentMap, structuredOutputs, queuedMessages] = await Promise.all([
       getMessageAttachmentsForMessages(persistedMessages.map((message) => message.id)),
       getStructuredOutputsForConversation(id),
+      loadQueuedMessages(id),
     ]);
     const messages = await repairHistoricalArtifactDelivery(
       attachPersistedChatMetadata(
@@ -134,7 +137,7 @@ function loadPersistedConversationState(id: string): Promise<ConversationState> 
         latestTurn?.status === 'failed'
           ? toOptionalUserMessage(latestTurn.error, 'assistant.failed')
           : null,
-      queuedMessages: [],
+      queuedMessages,
     };
   })().finally(() => {
     if (conversationHydrationOperations.get(id) === operation) {
@@ -186,6 +189,8 @@ function materializePlaceholderDraft(
         _convStates: convStates,
       };
     });
+    const draft = get().composerDrafts.get(preserved.id);
+    if (draft) await writeChatComposerDraft(preserved.id, draft);
     return preserved.id;
   })().finally(() => {
     if (placeholderMaterializations.get(sourceConversationId) === operation) {
@@ -752,19 +757,20 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
 
   setPendingDraft: (draft: PendingChatDraft | null) => set({ pendingDraft: draft }),
 
-  setComposerDraft: (conversationId, draft) =>
+  setComposerDraft: (conversationId, draft) => {
+    const saved =
+      draft && (draft.text || draft.attachments.length || draft.references.length) ? draft : null;
+    if (!saved && !get().composerDrafts.has(conversationId)) return;
     set((state) => {
       const composerDrafts = new Map(state.composerDrafts);
-      if (
-        !draft ||
-        (draft.text.length === 0 && draft.attachments.length === 0 && draft.references.length === 0)
-      ) {
-        composerDrafts.delete(conversationId);
-      } else {
-        composerDrafts.set(conversationId, draft);
-      }
+      if (saved) composerDrafts.set(conversationId, saved);
+      else composerDrafts.delete(conversationId);
       return { composerDrafts };
-    }),
+    });
+    void writeChatComposerDraft(conversationId, saved).catch((error) =>
+      console.warn('[Chat] Could not save the composer draft:', error)
+    );
+  },
 
   setPendingAskAiPicker: (picker: PendingAskAiPicker | null) => set({ pendingAskAiPicker: picker }),
 

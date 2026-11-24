@@ -471,6 +471,24 @@ describe('agent-sdk query transports', () => {
     });
   });
 
+  it.each([true, false])(
+    'fails a Claude stream that closes before its result (trace %s)',
+    async (emitTrace) => {
+      mockClaudeQuery.mockReturnValue(
+        claudeMessages([
+          { type: 'system', subtype: 'init', session_id: 'fixture-session' },
+          { type: 'assistant', message: { content: [{ type: 'text', text: 'Partial answer' }] } },
+        ])
+      );
+      const { queryClaudeCode } = await import('../query');
+      await expect(queryClaudeCode('Reply OK.', { emitTrace })).resolves.toMatchObject({
+        ok: false,
+        stopState: 'failed',
+        providerConversationId: 'fixture-session',
+      });
+    }
+  );
+
   it('uses the Claude terminal result instead of a pre-tool assistant preamble', async () => {
     mockClaudeQuery.mockReturnValue(
       claudeMessages([
@@ -2131,6 +2149,27 @@ describe('agent-sdk query transports', () => {
       expect.objectContaining({ config: expect.anything() })
     );
   });
+
+  it.each(['Claude', 'Codex'])(
+    'keeps %s connection aborts distinct from a requested stop',
+    async (provider) => {
+      const error = new Error('Upstream connection aborted');
+      mockClaudeQuery.mockImplementation(() => {
+        throw error;
+      });
+      mockLaunchLocalCodexAppServer.mockRejectedValue(error);
+      const { queryClaudeCode, queryCodex } = await import('../query');
+      const query = provider === 'Claude' ? queryClaudeCode : queryCodex;
+      await expect(
+        query('Reply OK.', {
+          purpose: 'chat',
+          toolExposure: 'none',
+          requestUserInput: vi.fn(),
+          abortController: new AbortController(),
+        })
+      ).resolves.toMatchObject({ ok: false, stopState: 'failed', error: error.message });
+    }
+  );
 
   it('returns a stopped result when Codex aborts the underlying child process', async () => {
     const abortController = new AbortController();

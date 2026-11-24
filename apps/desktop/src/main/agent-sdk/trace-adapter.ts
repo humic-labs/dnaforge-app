@@ -762,18 +762,19 @@ export class ClaudeTraceAdapter extends BaseTraceAdapter {
     }
 
     if (type === 'result' && isRecord(raw)) {
+      const completed = subtype === 'success' && raw.is_error !== true;
       return this.event(
         raw,
         {
           kind: 'result',
-          title: subtype === 'success' ? 'Turn completed' : 'Turn failed',
+          title: userMessage(completed ? 'assistant.trace.completed' : 'assistant.trace.failed'),
           status: asString(raw.terminal_reason) ?? asString(raw.stop_reason),
           text: asString(raw.result),
           visibility: 'diagnostic',
         },
         sequence,
         providerEventType,
-        { terminal: subtype === 'success' ? 'completed' : 'failed' }
+        { terminal: completed ? 'completed' : 'failed' }
       );
     }
 

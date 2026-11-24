@@ -1,3 +1,4 @@
+import type { AssistantSendRouteResolution } from '../assistant-send-route';
 import type { UserMessage } from '@waypoint/user-messages';
 import type { HistoryObservation } from '../../../shared/chat-history-telemetry';
 import type { DBChatTurnStatus } from '../../../db';
@@ -5,6 +6,7 @@ import type { DBEntityReference } from '../../../db/entity-references';
 import type { AgentCapabilitySelection } from '../../../shared/agent-capability-controls';
 import type { AgentAttachmentManifest } from '../../../shared/agent-attachments';
 import type { AssistantRouteSelection, AssistantTurnRouteSnapshot } from '../assistant-routes';
+import type { CliModelSettings } from '../settings';
 import type { ChatMessage, ContentBlock } from './chat-types';
 export interface ConversationSummary {
   id: string;
@@ -71,6 +73,7 @@ export interface AskAiInlineChat {
 }
 
 export interface QueuedChatMessage {
+  routeFallback?: Extract<AssistantSendRouteResolution, { status: 'fallback' }>;
   id: string;
   content: string;
   workspacePath: string | null;
@@ -79,6 +82,7 @@ export interface QueuedChatMessage {
   attachments?: AgentAttachmentManifest[];
   routeSelection: AssistantRouteSelection;
   routeSnapshot: AssistantTurnRouteSnapshot;
+  cliModelSettings?: CliModelSettings;
   capabilitySelection?: AgentCapabilitySelection;
   createdAt: number;
 }

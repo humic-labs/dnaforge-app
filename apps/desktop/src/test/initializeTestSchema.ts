@@ -55,6 +55,9 @@ export async function initializeTestSchema(): Promise<void> {
     `CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY, title TEXT NOT NULL, title_locked INTEGER NOT NULL DEFAULT 0, workspace_path TEXT, pinned INTEGER NOT NULL DEFAULT 0, provider TEXT, model TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`
   );
   await sqlite.execute(
+    `CREATE TABLE IF NOT EXISTS chat_composer_drafts (conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE, draft_json TEXT NOT NULL)`
+  );
+  await sqlite.execute(
     `CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, role TEXT NOT NULL, content TEXT NOT NULL, tool_name TEXT, tool_call_id TEXT, created_at INTEGER NOT NULL)`
   );
   await sqlite.execute(

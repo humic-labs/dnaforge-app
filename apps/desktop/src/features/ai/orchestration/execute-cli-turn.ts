@@ -399,6 +399,7 @@ export async function executeCliTurn({
       if (controller.signal.aborted) return stopWithActivity();
     }
     registerAgentChatFilesRoot(agentChatFilesRoot(await platform().path.appDataDir()));
+    if (controller.signal.aborted) return stopWithActivity();
     result = await platform().agentSession.start({
       sessionId: cliQueryId,
       conversationId,

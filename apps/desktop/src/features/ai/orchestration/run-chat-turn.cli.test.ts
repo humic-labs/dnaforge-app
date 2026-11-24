@@ -1,6 +1,8 @@
 import { userMessage } from '@waypoint/user-messages';
 import { act } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import { createTestDb } from '../../../main/__tests__/test-db';
+import { ensureSchema } from '../../../main/schema';
 import type { AgentSdkDetectionShape } from '../../../platform';
 import {
   createMolecularPromptTrial,
@@ -28,6 +30,7 @@ import {
 } from '../../../test/ai/useChat-harness';
 
 const {
+  mockDatabaseExecute,
   mockAgentSessionOnEvent,
   mockAgentSessionStart,
   mockAgentCapabilitiesResolve,
@@ -100,7 +103,6 @@ describe('runChatTurn CLI execution and trace lifecycle', () => {
         },
       });
       writeMolecularPromptTrial(trial);
-      const previousElectronApi = window.electronAPI;
       vi.stubGlobal('electronAPI', { proteinExperimentWorkers: { bind: vi.fn() } });
       try {
         await act(async () => {
@@ -132,8 +134,112 @@ describe('runChatTurn CLI execution and trace lifecycle', () => {
         );
         expect(sharedModelSettings.reasoningEffort).toBe('high');
       } finally {
-        vi.stubGlobal('electronAPI', previousElectronApi);
+        vi.unstubAllGlobals();
       }
+    }
+  );
+
+  it.each(['claude-agent-sdk', 'codex-sdk'] as const)(
+    'uses the %s model selected when a follow-up was queued',
+    async (transport) => {
+      const sqlite = createTestDb();
+      onTestFinished(() => {
+        sqlite.close();
+        mockDatabaseExecute.mockReset();
+        vi.unstubAllGlobals();
+      });
+      vi.stubGlobal('electronAPI', {});
+      ensureSchema(sqlite, ':memory:');
+      const conversationId = 'model-capture-conversation';
+      sqlite
+        .prepare(
+          'INSERT INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, 0, 0)'
+        )
+        .run(conversationId, 'Model selection');
+      mockDatabaseExecute.mockImplementation(async (sql, params) =>
+        sqlite.prepare(sql).run(...params)
+      );
+      const previous = useAISettingsStore.getState();
+      const settings = {
+        ...previous,
+        assistantRoute: {
+          kind: 'cli' as const,
+          transport,
+          permissionMode: 'app-supervised' as const,
+        },
+        agentTransport: transport,
+        agentDetection: {
+          grok: {
+            cli: 'missing' as const,
+            path: null,
+            auth: 'unauthenticated' as const,
+            defaultModel: null,
+          },
+          codex: {
+            cli: 'installed' as const,
+            path: '/fixture/codex',
+            auth: 'authenticated' as const,
+            authMode: 'chatgpt' as const,
+            authFilePresent: true,
+            defaultModel: 'original',
+          },
+          claudeCode: {
+            cli: 'installed' as const,
+            path: '/fixture/claude',
+            auth: 'authenticated' as const,
+            defaultModel: 'original',
+            keychainEntryPresent: false,
+            credentialsFilePresent: true,
+          },
+        },
+      };
+      const selectModel = (model: string) =>
+        vi.mocked(useAISettingsStore.getState).mockReturnValue({
+          ...settings,
+          cliModelSettings: {
+            ...previous.cliModelSettings,
+            [transport]: { model, reasoningEffort: null },
+          },
+        });
+      selectModel('original');
+      let releaseFirst = () => {};
+      const gate = new Promise<void>((resolve) => {
+        releaseFirst = resolve;
+      });
+      mockAgentSessionStart.mockImplementationOnce(async () => {
+        await gate;
+        return { transport, ok: true, text: 'First reply', durationMs: 1 };
+      });
+      const send = (text: string) =>
+        useChatStore.getState().sendMessage(text, null, conversationId);
+      const first = send('First');
+      try {
+        await vi.waitFor(() => expect(mockAgentSessionStart).toHaveBeenCalledTimes(1));
+        expect(await send('Queued follow-up')).toBe('accepted');
+        expect(
+          sqlite
+            .prepare(
+              "SELECT json_extract(payload, '$.cliModelSettings.model') AS model FROM chat_message_queue WHERE conversation_id = ?"
+            )
+            .all(conversationId)
+        ).toEqual([{ model: 'original' }]);
+        selectModel('changed');
+      } finally {
+        releaseFirst();
+      }
+      await first;
+      await vi.waitFor(() => expect(mockAgentSessionStart).toHaveBeenCalledTimes(2));
+      expect(
+        mockAgentSessionStart.mock.calls.map(([request]) => [request.provider, request.model])
+      ).toEqual([
+        [transport, 'original'],
+        [transport, 'original'],
+      ]);
+      expect(
+        vi
+          .mocked(db.createChatTurnWithUserMessage)
+          .mock.calls.map(([request]) => request.turn.model)
+      ).toEqual(['original', 'original']);
     }
   );
 

@@ -48,6 +48,26 @@ describe('getConversationHistory app-wide discovery', () => {
     mockSelect.mockClear();
   });
 
+  it('lists a native conversation with an unsent draft and hides a completely blank one', async () => {
+    const { DatabaseSync } = await import('node:sqlite');
+    const db = new DatabaseSync(':memory:');
+    vi.stubGlobal('window', { electronAPI: {} });
+    try {
+      db.exec(`
+        CREATE TABLE conversations (id TEXT PRIMARY KEY, pinned INTEGER, updated_at INTEGER);
+        CREATE TABLE messages (conversation_id TEXT);
+        CREATE TABLE chat_composer_drafts (conversation_id TEXT PRIMARY KEY);
+        INSERT INTO conversations VALUES ('draft', 0, 2), ('blank', 0, 1);
+        INSERT INTO chat_composer_drafts VALUES ('draft');
+      `);
+      mockSelect.mockImplementationOnce((sql: string) => db.prepare(sql).all());
+      expect((await getConversationHistory()).map((row) => row.id)).toEqual(['draft']);
+    } finally {
+      vi.unstubAllGlobals();
+      db.close();
+    }
+  });
+
   it('discovers populated conversations across workspaces and excludes empty placeholder rows', async () => {
     await getConversationHistory();
     const [sql, params] = mockSelect.mock.calls[0] as [string, unknown[] | undefined];

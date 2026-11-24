@@ -1,4 +1,5 @@
 import { platform } from '../platform';
+import { isDesktopRuntime } from '../utils/environment';
 import type {
   ChatTurnIpcStatus,
   CommitChatTurnTerminalStateRequest,
@@ -100,6 +101,9 @@ export async function getConversations(workspacePath: string | null): Promise<DB
 
 export async function getConversationHistory(): Promise<DBConversation[]> {
   const sqlite = platform().db;
+  const savedDrafts = isDesktopRuntime()
+    ? 'OR EXISTS (SELECT 1 FROM chat_composer_drafts d WHERE d.conversation_id = c.id)'
+    : '';
 
   return sqlite.select<DBConversation[]>(
     `SELECT c.*
@@ -108,7 +112,7 @@ export async function getConversationHistory(): Promise<DBConversation[]> {
         SELECT 1
           FROM messages m
          WHERE m.conversation_id = c.id
-      )
+      ) ${savedDrafts}
       ORDER BY c.pinned DESC, c.updated_at DESC`
   );
 }
