@@ -1635,23 +1635,41 @@ describe('AgentSessionManager', () => {
                 appServer: {
                   method: 'turn/completed',
                   params: {
-                    turn: {
-                      status: 'completed',
-                      items: [
-                        {
-                          type: 'agentMessage',
-                          phase: complete ? 'final_answer' : 'commentary',
-                          text: answer,
-                        },
-                      ],
-                    },
+                    threadId: 'provider-thread',
+                    turn: { id: 'provider-turn', status: 'completed', error: null, items: [] },
                   },
                 },
               };
         const query = vi.fn(async (_prompt: string, options: QueryOptions) => {
+          if (provider === 'codex-sdk') {
+            const item = { type: 'agentMessage', phase: 'final_answer', text: answer };
+            options.traceSink?.({
+              transport: provider,
+              sequence: 0,
+              receivedAt: new Date().toISOString(),
+              providerEventType: 'item.completed',
+              raw: {
+                type: 'item.completed',
+                appServer: {
+                  method: 'item/completed',
+                  params: {
+                    threadId: 'provider-thread',
+                    turnId: complete ? 'provider-turn' : 'another-turn',
+                    item,
+                  },
+                },
+              },
+              display: publicAgentTraceDisplay({
+                kind: 'assistant_text',
+                title: 'Assistant',
+                text: answer,
+              }),
+              versions: { sdkVersion: null, cliVersion: null },
+            });
+          }
           options.traceSink?.({
             transport: provider,
-            sequence: 0,
+            sequence: 1,
             receivedAt: new Date().toISOString(),
             providerEventType:
               provider === 'claude-agent-sdk' ? 'result.success' : 'turn.completed',

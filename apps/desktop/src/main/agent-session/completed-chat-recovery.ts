@@ -15,10 +15,43 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
-function finalReply(provider: NativeProvider, snapshot: string): string | null {
+function completedCodexItem(
+  db: Database.Database,
+  sessionId: string,
+  sequence: number,
+  threadId: unknown,
+  turnId: unknown
+): unknown {
+  if (typeof threadId !== 'string' || !threadId || typeof turnId !== 'string' || !turnId)
+    return null;
+  const items = db
+    .prepare(
+      `
+    SELECT json_extract(render_snapshot_json, '$.raw.appServer.params.item.text')
+      FROM agent_trace_events
+     WHERE session_id = ? AND provider = 'codex-sdk' AND sequence < ? AND event_type = 'item.completed'
+       AND json_valid(render_snapshot_json)
+       AND json_extract(render_snapshot_json, '$.raw.appServer.method') = 'item/completed'
+       AND json_extract(render_snapshot_json, '$.raw.appServer.params.threadId') = ?
+       AND json_extract(render_snapshot_json, '$.raw.appServer.params.turnId') = ?
+       AND json_extract(render_snapshot_json, '$.raw.appServer.params.item.type') = 'agentMessage'
+       AND json_extract(render_snapshot_json, '$.raw.appServer.params.item.phase') = 'final_answer'
+     LIMIT 2`
+    )
+    .pluck()
+    .all(sessionId, sequence, threadId, turnId);
+  return items.length === 1 ? items[0] : null;
+}
+
+function finalReply(
+  db: Database.Database,
+  provider: NativeProvider,
+  sessionId: string,
+  terminal: { render_snapshot_json: string; sequence: number }
+): string | null {
   let event: unknown;
   try {
-    event = JSON.parse(snapshot);
+    event = JSON.parse(terminal.render_snapshot_json);
   } catch {
     return null;
   }
@@ -39,7 +72,8 @@ function finalReply(provider: NativeProvider, snapshot: string): string | null {
     text = raw.result;
   } else {
     const notification = record(raw?.appServer);
-    const turn = record(record(notification?.params)?.turn);
+    const params = record(notification?.params);
+    const turn = record(params?.turn);
     if (
       notification?.method !== 'turn/completed' ||
       turn?.status !== 'completed' ||
@@ -50,8 +84,11 @@ function finalReply(provider: NativeProvider, snapshot: string): string | null {
     const answers = turn.items
       .map(record)
       .filter((item) => item?.type === 'agentMessage' && item.phase === 'final_answer');
-    if (answers.length !== 1) return null;
-    text = answers[0]?.text;
+    if (turn.items.length === 0) {
+      text = completedCodexItem(db, sessionId, terminal.sequence, params?.threadId, turn.id);
+    } else if (answers.length === 1) {
+      text = answers[0]?.text;
+    }
   }
   if (
     typeof text !== 'string' ||
@@ -90,13 +127,14 @@ export function recoverCompletedNativeChatTurns(db: Database.Database, now: numb
   for (const turn of turns) {
     const terminal = db
       .prepare(
-        `SELECT render_snapshot_json FROM agent_trace_events
+        `SELECT render_snapshot_json, sequence FROM agent_trace_events
       WHERE session_id = ? AND provider = ? AND terminal IS NOT NULL
       ORDER BY sequence DESC LIMIT 1`
       )
-      .pluck()
-      .get(turn.session_id, turn.provider);
-    const content = typeof terminal === 'string' ? finalReply(turn.provider, terminal) : null;
+      .get(turn.session_id, turn.provider) as
+      | { render_snapshot_json: string; sequence: number }
+      | undefined;
+    const content = terminal ? finalReply(db, turn.provider, turn.session_id, terminal) : null;
     commitChatTurnTerminalStateInDb(
       db,
       {
