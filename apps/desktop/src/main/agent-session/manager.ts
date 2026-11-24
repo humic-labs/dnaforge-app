@@ -1,3 +1,5 @@
+import { deferNativeChatMetrics } from './chat-completion-telemetry';
+import { recoverCompletedNativeChatTurns } from './completed-chat-recovery';
 import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import {
@@ -411,6 +413,7 @@ export class AgentSessionManager {
 
   recoverInterruptedSessions(): number {
     const now = this.now();
+    recoverCompletedNativeChatTurns(this.db, now);
     this.db
       .prepare(
         `
@@ -1197,6 +1200,7 @@ export class AgentSessionManager {
       if (result.changes !== 1) {
         throw new Error(`Agent session ${sessionId} was already terminal or did not exist.`);
       }
+      if (deferNativeChatMetrics(this.db, { ...telemetry, status, sessionId }, now)) return;
       putAnalyticsOutboxEvent(this.db, {
         eventId,
         eventName: 'ai_turn_finished',

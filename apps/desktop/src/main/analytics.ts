@@ -1,3 +1,4 @@
+import { PENDING_NATIVE_CHAT_METRICS } from './agent-session/chat-completion-telemetry';
 import {
   publishWorkspaceSyncRestoreTelemetry,
   purgeWorkspaceSyncRestoreTelemetry,
@@ -401,6 +402,9 @@ export function persistAnalyticsConsent(
       database
         .prepare('DELETE FROM settings WHERE substr(key, 1, ?) = ?')
         .run(TABLE_NOTEBOOK_RECEIPT_PREFIX.length, TABLE_NOTEBOOK_RECEIPT_PREFIX);
+      database
+        .prepare('DELETE FROM settings WHERE substr(key, 1, ?) = ?')
+        .run(PENDING_NATIVE_CHAT_METRICS.length, PENDING_NATIVE_CHAT_METRICS);
       const cloudReceiptPrefix = '_cloud_backup_telemetry_receipt_v1:';
       purgeWorkspaceSyncUploadTelemetry(database);
       purgeWorkspaceSyncRecoveryTelemetry(database);

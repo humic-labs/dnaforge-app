@@ -1,3 +1,4 @@
+import { settleNativeChatMetrics } from '../agent-session/chat-completion-telemetry';
 import { withCatalogFileSource } from '../catalog-file-source-retention';
 import {
   listSavedEntityRowVersions,
@@ -419,6 +420,7 @@ export function commitChatTurnTerminalStateInDb(
       database
         .prepare('UPDATE conversations SET updated_at = ? WHERE id = ?')
         .run(now(), request.conversation_id);
+      settleNativeChatMetrics(database, request);
       return { committed: true };
     }
   );
