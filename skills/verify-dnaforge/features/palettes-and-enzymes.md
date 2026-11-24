@@ -18,11 +18,14 @@ Reload the saved view.
 ## Driving it with Playwright
 
 Use the parent skill's helper. It creates a native project with the public pUC19
-fixture and a synthetic two-chromosome reference plus ten measured signal bins.
+sample package and imports a synthetic two-chromosome reference from outside
+the project. The signal track contains ten measured bins.
 Require one SacI cut before selection, the selected site in the real renderer,
 the same site after reload and no sites after removal. Require twelve swatches,
 the unchanged reset blue, the saved custom color after reload and nonzero
-rendered signal bars. Keep the receipt and all original captures.
+rendered signal bars. For each reload, verify that the recorded load ID changed
+and that both the page and the shell reported ready. Keep the receipt and all
+original captures.
 
 ## Gotchas
 

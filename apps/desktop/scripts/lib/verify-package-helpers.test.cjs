@@ -562,6 +562,45 @@ require('node:child_process').execFileSync = (command, args, options) => {
     );
   });
 
+  for (const fail of [false, true]) {
+    it(`releases only its temporary compiler output after ${fail ? 'failure' : 'installation'}`, () => {
+      const { root, scripts, env } = fixture();
+      fs.mkdirSync(env.CARGO_TARGET_DIR);
+      const sentinel = path.join(env.CARGO_TARGET_DIR, 'existing');
+      fs.writeFileSync(sentinel, 'keep');
+      const record = path.join(root, 'observed-target');
+      const compiler = path.join(root, 'compiler.cjs');
+      fs.writeFileSync(compiler, `
+        const fs = require('node:fs');
+        const path = require('node:path');
+        require('node:child_process').execFileSync = (command, args, {env}) => {
+          if (command !== 'cargo') throw new Error(command);
+          const target = env.CARGO_TARGET_DIR;
+          fs.writeFileSync(process.env.BUILD_RECORD, target);
+          const dir = path.join(target, 'release');
+          fs.mkdirSync(dir, {recursive:true});
+          if (process.env.FAIL_BUILD === '1') throw new Error('compile failed');
+          fs.writeFileSync(path.join(dir, 'dna-process-guardian' + (process.platform === 'win32' ? '.exe' : '')), 'built helper');
+        };
+      `);
+      const result = spawnSync(process.execPath, [
+        '--require', compiler, path.join(scripts, 'build-helpers.cjs'), 'dna-process-guardian',
+      ], {
+        cwd: root, encoding: 'utf8', timeout: 5000,
+        env: { ...env, DNAFORGE_TEMPORARY_HELPER_BUILD: '1', BUILD_RECORD: record, FAIL_BUILD: fail ? '1' : '0' },
+      });
+      assert.equal(result.status, fail ? 1 : 0, result.stderr);
+      const observed = fs.readFileSync(record, 'utf8');
+      assert.notEqual(observed, env.CARGO_TARGET_DIR);
+      assert.equal(fs.existsSync(observed), false);
+      assert.equal(fs.readFileSync(sentinel, 'utf8'), 'keep');
+      const installed = path.join(root, 'apps', 'desktop', 'resources', 'helpers',
+        helperExecutableName('dna-process-guardian', process.platform, process.arch));
+      if (fail) assert.equal(fs.existsSync(installed), false);
+      else assert.equal(fs.readFileSync(installed, 'utf8'), 'built helper');
+    });
+  }
+
   it('still refuses JavaScript verification when the parser dependency is absent', () => {
     const { root, scripts, env } = fixture();
     const helperPath = path.join(scripts, 'lib', 'verify-package-helpers.cjs');

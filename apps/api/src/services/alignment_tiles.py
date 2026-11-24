@@ -451,6 +451,14 @@ def _alternate_columns(
     if span == 0:
         return []
 
+    for _, events in reads_with_events:
+        if check_cancelled is not None:
+            check_cancelled()
+        if events:
+            break
+    else:
+        return []
+
     depth_diff = [0.0] * (span + 1)
     count_diff = [0] * (span + 1)
     support: dict[

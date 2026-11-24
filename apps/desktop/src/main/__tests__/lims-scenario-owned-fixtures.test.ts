@@ -31,8 +31,7 @@ beforeEach(() => {
   host.userData = mkdtempSync(join(tmpdir(), 'dnaforge-scenario-copy-contract-'));
   prepareDisposableScenarioProfile({
     requested: true,
-    argv: [`--user-data-dir=${host.userData}`],
-    defaultUserData: host.userData,
+    explicitUserDataPath: host.userData,
   });
   db = createTestDb();
   ensureSchema(db, ':memory:');

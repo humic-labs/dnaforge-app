@@ -92,6 +92,7 @@ export class TileCoordinator {
         source,
         view,
         sourceLevel,
+        L,
         this.maxLevel,
         panDeltaBp
       )) {
@@ -101,8 +102,13 @@ export class TileCoordinator {
           const key: TileKey = { sourceId: source.id, level, index: t.index };
           const ks = tileKeyString(key);
           visibleKeys.add(ks);
+          const predictedCore =
+            purpose === 'current' &&
+            fetchView !== view &&
+            t.core &&
+            (t.globalEnd <= view.globalStart || t.globalStart >= view.globalEnd);
           const priority: TileTransportPriority = {
-            purpose,
+            purpose: predictedCore ? 'pan-lead' : purpose,
             epoch: this.currentEpoch,
             core: t.core && (purpose === 'current' || plan.promoteCore),
             marginDistanceTiles: t.marginDistanceTiles,
@@ -266,6 +272,7 @@ function fetchPlansForSource(
   source: TileSource,
   view: Viewport,
   currentLevel: number,
+  viewportLevel: number,
   maxLevel: number,
   panDeltaBp = 0
 ): FetchPlan[] {
@@ -410,8 +417,9 @@ function fetchPlansForSource(
     add(currentLevel - 1, view, PREFETCH_MARGIN_TILES, 'adjacent-finer');
   }
 
-  if (shouldPrefetchCoarser(view, currentLevel)) {
-    add(currentLevel + 1, view, PREFETCH_MARGIN_TILES, 'coarser');
+  const coarserLevel = currentLevel + 1;
+  if (coarserLevel >= viewportLevel && shouldPrefetchCoarser(view, currentLevel)) {
+    add(coarserLevel, view, PREFETCH_MARGIN_TILES, 'coarser');
   }
   return out;
 }

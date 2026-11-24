@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, render, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
@@ -827,30 +828,54 @@ describe('usePixiMap annotation/source lifecycle', () => {
     expect(lifecycle.appDestroyCount).toBe(1);
   });
 
-  it('reuses one empty-stage Pixi application while rebuilding scientific renderer state', async () => {
-    const first = render(<Harness genome={genome('A')} hiddenMapIdlePolicy="bounded-lru" />);
+  it('only acquires a graphics context for the surviving indexed map mount', async () => {
+    const view = render(
+      <StrictMode>
+        <Harness genome={genome('A')} indexed hiddenMapIdlePolicy="short-timeout" />
+      </StrictMode>
+    );
     await waitFor(() => expect(latestHandle?.getLinearRenderer()).not.toBeNull());
-    const application = lifecycle.applications[0];
-    const firstRenderer = lifecycle.instances[0];
+    expect(lifecycle.applications).toHaveLength(1);
+    expect(lifecycle.instances).toHaveLength(1);
 
-    first.unmount();
-
-    expect(firstRenderer?.destroyed).toBe(true);
+    view.unmount();
     expect(lifecycle.appDestroyCount).toBe(0);
-    expect(lifecycle.measurementCacheClearCount).toBe(1);
-
-    const second = render(<Harness genome={genome('B')} hiddenMapIdlePolicy="bounded-lru" />);
-    await waitFor(() => expect(lifecycle.instances).toHaveLength(2));
-    await waitFor(() => expect(latestHandle?.getLinearRenderer()).not.toBeNull());
-
-    expect(lifecycle.applications).toEqual([application]);
-    expect(lifecycle.instances[1]).not.toBe(firstRenderer);
-    expect(lifecycle.instances[1]?.loadedGenome?.sourceIdentity).toBe('B');
-    expect(lifecycle.appDestroyCount).toBe(0);
-
-    second.unmount();
-    expect(lifecycle.measurementCacheClearCount).toBe(2);
   });
+
+  it.each([
+    { indexed: false, policy: 'bounded-lru' as const },
+    { indexed: true, policy: 'short-timeout' as const },
+  ])(
+    'reuses an empty application and rebuilds the view with $policy (indexed $indexed)',
+    async ({ indexed, policy }) => {
+      const first = render(
+        <Harness genome={genome('A')} indexed={indexed} hiddenMapIdlePolicy={policy} />
+      );
+      await waitFor(() => expect(latestHandle?.getLinearRenderer()).not.toBeNull());
+      const application = lifecycle.applications[0];
+      const firstRenderer = lifecycle.instances[0];
+
+      first.unmount();
+
+      expect(firstRenderer?.destroyed).toBe(true);
+      expect(lifecycle.appDestroyCount).toBe(0);
+      expect(lifecycle.measurementCacheClearCount).toBe(1);
+
+      const second = render(
+        <Harness genome={genome('B')} indexed={indexed} hiddenMapIdlePolicy={policy} />
+      );
+      await waitFor(() => expect(lifecycle.instances).toHaveLength(2));
+      await waitFor(() => expect(latestHandle?.getLinearRenderer()).not.toBeNull());
+
+      expect(lifecycle.applications).toEqual([application]);
+      expect(lifecycle.instances[1]).not.toBe(firstRenderer);
+      expect(lifecycle.instances[1]?.loadedGenome?.sourceIdentity).toBe('B');
+      expect(lifecycle.appDestroyCount).toBe(0);
+
+      second.unmount();
+      expect(lifecycle.measurementCacheClearCount).toBe(2);
+    }
+  );
 
   it('clears each canvas to the theme background before attaching it ', async () => {
     const first = render(<Harness genome={genome('A')} hiddenMapIdlePolicy="bounded-lru" />);

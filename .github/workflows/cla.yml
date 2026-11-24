@@ -3,9 +3,11 @@ name: Contributor License Agreement
 on:
   pull_request:
   merge_group:
+    types: [checks_requested]
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   sign-off:
@@ -15,45 +17,28 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          ref: ${{ github.event.merge_group.head_sha || github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Fetch the pull request's commits as data
-        env:
-          PR: ${{ github.event.pull_request.number }}
-          QUEUE_REF: ${{ github.event.merge_group.head_ref }}
-          TOKEN: ${{ github.token }}
-        run: |
-          if [ -z "$PR" ]; then
-            PR=$(printf '%s' "$QUEUE_REF" | sed -nE 's#^refs/heads/gh-readonly-queue/[^/]+/pr-([0-9]+)-[0-9a-f]+$#\1#p')
-          fi
-          [[ "$PR" =~ ^[0-9]+$ ]]
-          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
-          git -c "http.https://github.com/.extraheader=$AUTH" fetch --no-tags origin "+refs/pull/${PR}/head:refs/remotes/pull/head"
-
-      - name: Require the queued change to be exactly these commits
-        if: github.event_name == 'merge_group'
-        env:
-          BASE: ${{ github.event.merge_group.base_sha }}
-          QUEUED: ${{ github.event.merge_group.head_sha }}
-          TOKEN: ${{ github.token }}
-        run: |
-          [[ "$QUEUED" =~ ^[0-9a-f]{40}$ ]]
-          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
-          git -c "http.https://github.com/.extraheader=$AUTH" fetch --no-tags origin "$QUEUED"
-          expected=$(git merge-tree --write-tree "$BASE" refs/remotes/pull/head)
-          if [ "$expected" != "$(git rev-parse "$QUEUED^{tree}")" ]; then
-            echo "The queued change is not the pull request's current commits merged onto the queue base."
-            exit 1
-          fi
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha }}
+          path: .ci-control
+          persist-credentials: false
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version-file: '.nvmrc'
 
-      - name: Check Signed-off-by lines with the base branch's checker
+      - name: Check contributor identities with the trusted workflow checker
         env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: node .github/scripts/check-cla-sign-off.mjs "$BASE" "${HEAD_SHA:-$(git rev-parse refs/remotes/pull/head)}"
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.merge_group.head_sha || github.event.pull_request.head.sha }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = merge_group ]; then
+            node .ci-control/.github/scripts/check-queue-cla.mjs "$BASE" "$HEAD"
+          else
+            node .ci-control/.github/scripts/check-cla-sign-off.mjs "$BASE" "$HEAD"
+          fi

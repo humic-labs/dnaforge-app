@@ -2,7 +2,7 @@
 
 Read `README.md`, `CONTRIBUTING.md` and `MAINTAINING.md` before changing code.
 This repository is the source of truth for product development. Use a feature
-branch and open a pull request against `main`.
+branch and open a pull request against `dev`.
 
 Before proposing, mocking up or changing a desktop control, read the
 [desktop styling guide for buttons and toolbar actions](docs/UI_STYLING.md).
@@ -18,3 +18,17 @@ snapshot.
 
 Keep required checks. Do not add rules requiring approving or code-owner
 reviews. Verify the actual merged result before reporting delivery.
+
+Use [the public merge policy](docs/ci/merge-policy.md) for the merge route,
+complete-feature readiness and qualification. Keep incomplete or held work in a
+draft PR. Maintainers deliver completed pull requests to `dev` with
+`node scripts/ci/deliver.mjs --deliver`. The command readies the complete
+change, waits for current checks, enters the queue and verifies its merge. Use
+`inspect --pr NUMBER` for a read-only decision. A source promotion to staging or
+production does not publish a release.
+
+Before changing a delivery or application workflow, reuse or extend its
+verification skill and feature map. The delivery surface is documented in
+`skills/verify-public-delivery/SKILL.md`. Preserve real source-bound evidence
+outside the checkout; do not substitute a skill file or a passing unit test for
+executed workflow acceptance.

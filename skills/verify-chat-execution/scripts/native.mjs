@@ -1,15 +1,19 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { chromium } from 'playwright';
 import { expect } from '@playwright/test';
+import { finalizeJourneyRecording } from '../../../apps/desktop/scripts/lib/native-journey-recording.mjs';
+import { reloadNativePage } from '../../../apps/desktop/scripts/lib/native-journey-readiness.mjs';
 const { values } = parseArgs({ options: { out: { type: 'string' } } });
 assert.ok(values.out, 'Provide --out /absolute/external/evidence');
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const root = resolve(
+  process.env.DNAFORGE_VERIFY_ROOT ?? resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+);
 const out = resolve(values.out);
 assert.ok(!out.startsWith(root + '/'));
 mkdirSync(out, { recursive: false });
@@ -45,7 +49,8 @@ try {
   for(const [key,value] of [['ai_provider','anthropic'],['ai_model','claude-sonnet-4-6'],['ai_assistant_route',JSON.stringify({kind:'provider',provider:'anthropic',model:'claude-sonnet-4-6'})]])
    await window.electronAPI.db.execute('INSERT OR REPLACE INTO settings (key,value,updated_at) VALUES (?,?,?)',[key,value,Date.now()]);
  });
- await page.reload();
+ receipt.startupObservations = [];
+ await reloadNativePage(page, { observe: observation => receipt.startupObservations.push(observation) });
  page.on('pageerror',error=>receipt.errors.push(error.message));
  cdp=await page.context().newCDPSession(page);
  cdp.on('Page.screencastFrame',frame=>{
@@ -87,13 +92,12 @@ try {
 } catch(error) {receipt.failure=String(error.stack??error);process.exitCode=1;} finally {
  await cdp?.send('Page.stopScreencast').catch(()=>{});
  for(const route of held) await route.abort().catch(()=>{});
- await browser?.close();
- writeFileSync(join(out,'receipt.json'),JSON.stringify(receipt,null,2));
- if(receipt.frames.length>1){
-  const lines=receipt.frames.flatMap((f,i)=>[`file '${resolve(out,f.file)}'`,`duration ${Math.max(.01,(receipt.frames[i+1]?.timestamp??f.timestamp+.1)-f.timestamp)}`]);
-  writeFileSync(join(out,'frames.txt'),lines.join('\n')+'\n');
-  const video=spawnSync('ffmpeg',['-hide_banner','-loglevel','error','-f','concat','-safe','0','-i',join(out,'frames.txt'),'-vf','pad=ceil(iw/2)*2:ceil(ih/2)*2','-pix_fmt','yuv420p',join(out,'journey.mp4')]);
-  assert.equal(video.status,0,video.stderr?.toString());
+ try {
+  finalizeJourneyRecording(out,receipt,{video:'journey.mp4'});
+  if(receipt.status!=='passed') process.exitCode=1;
+  if(receipt.mediaError) console.error(receipt.mediaError);
+ } finally {
+  await browser?.close();
  }
  console.log(JSON.stringify({out,passed:receipt.passed,failure:receipt.failure}));
 }

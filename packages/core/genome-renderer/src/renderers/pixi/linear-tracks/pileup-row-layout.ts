@@ -5,17 +5,26 @@ export interface PileupRowAssignment {
   rowCount: number;
   hiddenReadCount: number;
   readHitIndex: PileupReadHitIndex;
+  recordStats: Readonly<PileupReadRecordStats>;
 }
 
 interface PileupReadRecordStats {
   startBp: number;
   endBp: number;
+  earliestEndBp: number;
+  latestStartBp: number;
   forwardReadCount: number;
   reverseReadCount: number;
   pairedReadCount: number;
 }
 
+interface OccupiedRowPrefix {
+  nextRow: number;
+  earliestEnd: number;
+}
+
 export interface PileupRowAssignmentJob {
+  occupiedPrefix: OccupiedRowPrefix | null;
   records: ReadonlyArray<PileupRecord>;
   maxRows: number;
   rows: Int32Array;
@@ -28,7 +37,7 @@ export interface PileupRowAssignmentJob {
   hiddenReadCount: number;
   recordStats: PileupReadRecordStats;
   readHitRecordIndicesByRow: number[][];
-  readHitRecordIndexByIdentity: Map<string, number>;
+  visibleRecordIndices: number[];
   complete: boolean;
 }
 
@@ -66,36 +75,34 @@ export function pileupReadPlacementKey(record: PileupRecord): string {
   return key;
 }
 
-export function pileupReadInteractionKey(
-  record: Pick<PileupRecord, 'readId' | 'chrom' | 'start' | 'flag' | 'pair'>
-): string {
-  return [
-    record.readId,
-    record.chrom,
-    record.start,
-    record.flag ?? '',
-    record.pair?.readNumber ?? '',
-  ].join('\x00');
+function lastRecordAtOrBefore(
+  records: ReadonlyArray<PileupRecord>,
+  indices: ReadonlyArray<number>,
+  bp: number
+): number {
+  let lo = 0;
+  let hi = indices.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    const record = records[indices[mid]];
+    if (record && record.start <= bp) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo - 1;
 }
 
 export class PileupReadHitIndex {
   constructor(
     private readonly recordIndicesByRow: ReadonlyArray<ReadonlyArray<number>>,
-    private readonly recordIndexByIdentity: ReadonlyMap<string, number>
+    private readonly records: ReadonlyArray<PileupRecord>,
+    private readonly visibleRecordIndices: ReadonlyArray<number>
   ) {}
 
   hitRecordIndex(records: ReadonlyArray<PileupRecord>, row: number, bp: number): number | null {
     const indices = this.recordIndicesByRow[row];
     if (!indices || indices.length === 0) return null;
-    let lo = 0;
-    let hi = indices.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      const record = records[indices[mid]];
-      if (record && record.start <= bp) lo = mid + 1;
-      else hi = mid;
-    }
-    const recordIndex = indices[lo - 1];
+    const last = lastRecordAtOrBefore(records, indices, bp);
+    const recordIndex = indices[last];
     if (recordIndex === undefined) return null;
     const record = records[recordIndex];
     return record && bp >= record.start && bp < record.end ? recordIndex : null;
@@ -104,7 +111,22 @@ export class PileupReadHitIndex {
   recordIndexFor(
     read: Pick<PileupRecord, 'readId' | 'chrom' | 'start' | 'flag' | 'pair'>
   ): number | null {
-    return this.recordIndexByIdentity.get(pileupReadInteractionKey(read)) ?? null;
+    const visible = this.visibleRecordIndices;
+    const last = lastRecordAtOrBefore(this.records, visible, read.start);
+    for (let i = last; i >= 0; --i) {
+      const index = visible[i];
+      const candidate = this.records[index];
+      if (candidate.start !== read.start) break;
+      if (
+        candidate.readId === read.readId &&
+        candidate.chrom === read.chrom &&
+        (candidate.flag ?? null) === (read.flag ?? null) &&
+        (candidate.pair?.readNumber ?? null) === (read.pair?.readNumber ?? null)
+      ) {
+        return index;
+      }
+    }
+    return null;
   }
 }
 
@@ -138,15 +160,32 @@ export class PersistentRowLayout implements PileupRowLayout {
     e: number,
     maxRows: number,
     cursors: number[],
-    baselineCursors: number[]
+    baselineCursors: number[],
+    occupiedPrefix: OccupiedRowPrefix | null
   ): number {
     const existing = this.placed.get(key);
     if (existing != null) return existing[4];
     const inherited = this.baseline?.placed.get(key);
     let r = inherited && inherited[4] < maxRows ? inherited[4] : 0;
     if (!inherited || inherited[4] >= maxRows) {
-      const rowCount = Math.max(this.rows.length, this.baseline?.rows.length ?? 0);
+      if (occupiedPrefix) {
+        if (s >= occupiedPrefix.earliestEnd) {
+          occupiedPrefix.nextRow = 0;
+          occupiedPrefix.earliestEnd = Infinity;
+        }
+        r = occupiedPrefix.nextRow;
+      }
+      const rowCount = Math.min(
+        maxRows,
+        Math.max(this.rows.length, this.baseline?.rows.length ?? 0)
+      );
       for (; r < rowCount; r++) {
+        const end = this.rows[r]?.maxEnd;
+        if (occupiedPrefix && r === occupiedPrefix.nextRow && end !== undefined && s < end) {
+          occupiedPrefix.nextRow++;
+          occupiedPrefix.earliestEnd = Math.min(occupiedPrefix.earliestEnd, end);
+          continue;
+        }
         if (
           this.rowClear(r, s, e, cursors) &&
           (!this.baseline || this.baseline.rowClear(r, s, e, baselineCursors))
@@ -216,6 +255,8 @@ export class PersistentRowLayout implements PileupRowLayout {
       rows,
       rowCursors: [],
       baselineRowCursors: [],
+      occupiedPrefix:
+        coordinateOrdered && this.rows.length === 0 ? { nextRow: 0, earliestEnd: Infinity } : null,
       order,
       totalCount: n,
       processedCount: 0,
@@ -224,12 +265,14 @@ export class PersistentRowLayout implements PileupRowLayout {
       recordStats: {
         startBp: Infinity,
         endBp: -Infinity,
+        earliestEndBp: Infinity,
+        latestStartBp: -Infinity,
         forwardReadCount: 0,
         reverseReadCount: 0,
         pairedReadCount: 0,
       },
       readHitRecordIndicesByRow: Array.from({ length: maxRows }, () => []),
-      readHitRecordIndexByIdentity: new Map(),
+      visibleRecordIndices: [],
       complete: n === 0,
     };
   }
@@ -243,6 +286,8 @@ export class PersistentRowLayout implements PileupRowLayout {
       const rec = job.records[idx];
       if (rec.start < job.recordStats.startBp) job.recordStats.startBp = rec.start;
       if (rec.end > job.recordStats.endBp) job.recordStats.endBp = rec.end;
+      job.recordStats.earliestEndBp = Math.min(job.recordStats.earliestEndBp, rec.end);
+      job.recordStats.latestStartBp = Math.max(job.recordStats.latestStartBp, rec.start);
       if (rec.strand === '-') job.recordStats.reverseReadCount++;
       else job.recordStats.forwardReadCount++;
       if (rec.pair?.paired === true) job.recordStats.pairedReadCount++;
@@ -253,13 +298,14 @@ export class PersistentRowLayout implements PileupRowLayout {
         rec.end,
         job.maxRows,
         job.rowCursors,
-        job.baselineRowCursors
+        job.baselineRowCursors,
+        job.occupiedPrefix
       );
       job.rows[idx] = row;
       if (row < 0) job.hiddenReadCount++;
       else {
         job.readHitRecordIndicesByRow[row].push(idx);
-        job.readHitRecordIndexByIdentity.set(pileupReadInteractionKey(rec), idx);
+        job.visibleRecordIndices.push(idx);
         if (row + 1 > job.rowCount) job.rowCount = row + 1;
       }
     }
@@ -298,11 +344,13 @@ export class PersistentRowLayout implements PileupRowLayout {
     this.baseline = null;
     return {
       rows: job.rows,
+      recordStats: job.recordStats,
       rowCount: job.rowCount,
       hiddenReadCount: job.hiddenReadCount,
       readHitIndex: new PileupReadHitIndex(
         job.readHitRecordIndicesByRow,
-        job.readHitRecordIndexByIdentity
+        job.records,
+        job.visibleRecordIndices
       ),
     };
   }

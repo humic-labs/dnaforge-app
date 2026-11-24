@@ -2513,6 +2513,44 @@ describe('usePersistedBamTracks', () => {
     expect(persisted[0]?.source.generation).toEqual(previousGeneration);
   });
 
+  it('keeps an admitted local lane live when its file watcher reports the same generation', async () => {
+    let persisted: readonly IndexedGenomeBamTrackState[] = [TRACKS[0]];
+    const { result } = renderHook(() =>
+      usePersistedBamTracks({
+        laneOwnerId: 'tab',
+        assemblyId: 'grch38',
+        assemblyDisplayName: 'GRCh38',
+        references: REFERENCES,
+        persistedTracks: persisted,
+        onChange: (update) => {
+          persisted = update(persisted);
+        },
+      })
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    const liveSource = () =>
+      useLaneContractStore.getState().lanesForOwner('tab')[0]?.dataset.source;
+    const original = liveSource();
+    expect(original?.generation).toBeDefined();
+    const blocked: string[] = [];
+    const unsubscribe = useLaneContractStore.subscribe(() => {
+      const message = liveSource()?.admissionError;
+      if (message) blocked.push(message);
+    });
+    try {
+      mockStat.mockClear();
+      await act(async () => {
+        for (const listener of fileChangedListeners) listener('/data/tumor.bam');
+      });
+      await waitFor(() => expect(mockStat).toHaveBeenCalledWith('/data/tumor.bam.bai'));
+      expect(blocked).toEqual([]);
+      expect(liveSource()?.generation).toEqual(original?.generation);
+      expect(readAlignmentHeader).toHaveBeenCalledTimes(1);
+    } finally {
+      unsubscribe();
+    }
+  });
+
   it('revalidates a watched same-path replacement and swaps to one new generation', async () => {
     let generationVersion = 1;
     mockStat.mockImplementation(async (path: string) => ({
@@ -2540,6 +2578,13 @@ describe('usePersistedBamTracks', () => {
         .size
     ).toBe(1);
 
+    const readChangedHeader = vi.mocked(readAlignmentHeader).getMockImplementation()!;
+    vi.mocked(readAlignmentHeader).mockImplementationOnce((input) => {
+      expect(
+        useLaneContractStore.getState().lanesForOwner('tab')[0]?.dataset.source?.admissionError
+      ).toContain('changed on disk');
+      return readChangedHeader(input);
+    });
     generationVersion = 2;
     act(() => {
       for (const listener of fileChangedListeners) listener('/data/tumor.bam');
