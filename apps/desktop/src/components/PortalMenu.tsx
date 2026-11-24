@@ -1,3 +1,4 @@
+import { AI_ONLY_INPUT, isConversationInput } from '../lib/ai-only-input';
 import {
   MenuSurface,
   menuShouldRestoreFocus,
@@ -541,6 +542,11 @@ function BoundPortalMenu({
   return createPortal(
     <PresentationScopeContext.Provider value={presentation.scope}>
       <MenuSurface
+        data-ai-input-region={
+          AI_ONLY_INPUT && isConversationInput(anchorRef?.current ?? returnAnchorRef.current)
+            ? 'conversation'
+            : undefined
+        }
         {...dataAttributes}
         id={id}
         ref={presentation.bindRef(assignMenuRef, `menu:${menuId}`)}

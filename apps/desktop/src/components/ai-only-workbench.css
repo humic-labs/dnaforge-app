@@ -1,0 +1,4 @@
+.ai-only-output
+  :is(button, input, textarea, select, [role='button'], [role='menu'], [role='toolbar']) {
+  display: none !important;
+}

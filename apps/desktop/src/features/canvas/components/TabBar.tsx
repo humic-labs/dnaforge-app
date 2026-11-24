@@ -1,3 +1,5 @@
+import { AI_ONLY_INPUT } from '../../../lib/ai-only-input';
+import { Button } from '../../../components/ui';
 import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { Tab } from './Tab';
 import { TabContextMenu } from './TabContextMenu';
@@ -179,6 +181,27 @@ export const TabBar = React.memo(function TabBar({
 
   if (tabs.length === 0) {
     return null;
+  }
+
+  if (AI_ONLY_INPUT) {
+    return (
+      <nav
+        className="flex flex-shrink-0 gap-1 overflow-x-auto bg-bg-muted p-1"
+        aria-label="Output tabs"
+        data-ai-input-region="navigation"
+      >
+        {tabs.map((tab) => (
+          <Button
+            key={tab.id}
+            variant="appbar"
+            aria-current={tab.id === activeTabId ? 'page' : undefined}
+            onClick={() => onSelectTab(tab.id)}
+          >
+            {tab.label}
+          </Button>
+        ))}
+      </nav>
+    );
   }
 
   const boundary =

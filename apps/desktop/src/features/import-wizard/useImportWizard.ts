@@ -1,3 +1,4 @@
+import { AI_ONLY_INPUT } from '../../lib/ai-only-input';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { useCallback, useEffect } from 'react';
 import { platform } from '../../platform';
@@ -326,6 +327,7 @@ export function useImportWizard(): ImportWizardController {
 
   useEffect(() => {
     const p = platform();
+    if (AI_ONLY_INPUT) return;
     const offFiles = p.on('menu:import-files', () => {
       void (async () => {
         const picked = await p.dialog.open({

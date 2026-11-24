@@ -1,3 +1,4 @@
+import { AI_ONLY_INPUT, installAiOnlyHumanInputGuard } from './lib/ai-only-input';
 import { toUserMessage } from '@waypoint/user-messages';
 import { initDevConsole } from './shared/utils/devConsoleInit';
 initDevConsole();
@@ -89,6 +90,7 @@ import type { ResidueLocation, Structure3dAttrs } from './features/page/embeds/s
 
 let rendererAgentBridgeDisposer: (() => void) | null = null;
 const startupDisposers: Array<() => void> = [];
+if (AI_ONLY_INPUT) startupDisposers.push(installAiOnlyHumanInputGuard(document));
 function disposeRendererStartup(): void {
   for (const dispose of startupDisposers.splice(0).reverse()) dispose();
 }

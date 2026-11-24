@@ -1,3 +1,5 @@
+import { AI_ONLY_INPUT } from './lib/ai-only-input';
+import { AiOnlyWorkbench } from './components/AiOnlyWorkbench';
 import { WorkTaskDialogHost } from './features/work/public/work';
 import {
   toUserMessage,
@@ -1779,6 +1781,18 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
         stage={!workspaceRestored ? 'workspace' : 'shell'}
         error={shellError ?? (!workspaceRestored ? (workspace.error ?? libraryLoadError) : null)}
       />
+    );
+  }
+
+  if (AI_ONLY_INPUT) {
+    return (
+      <>
+        <AiOnlyWorkbench onOpenChat={openAIChat} onNewChat={openNewAIChat}>
+          {explorerContent}
+        </AiOnlyWorkbench>
+        <AgentConfirmController />
+        <ToastContainer />
+      </>
     );
   }
 

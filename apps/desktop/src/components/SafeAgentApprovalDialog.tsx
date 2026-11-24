@@ -1,3 +1,4 @@
+import { AI_ONLY_INPUT } from '../lib/ai-only-input';
 import {
   usePresentationOverlay,
   PresentationScopeContext,
@@ -70,6 +71,7 @@ export function SafeAgentApprovalDialog({
   return (
     <PresentationScopeContext.Provider value={presentationOverlay.scope}>
       <dialog
+        data-ai-input-region={AI_ONLY_INPUT ? 'conversation' : undefined}
         ref={presentationOverlay.bindRef(modalRef, '0')}
         className="fixed inset-0 m-0 h-full w-full max-h-none max-w-none border-0 p-0 items-center justify-center bg-black/50 backdrop:bg-transparent open:flex"
         role="alertdialog"

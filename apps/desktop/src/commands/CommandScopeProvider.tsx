@@ -1,3 +1,4 @@
+import { AI_ONLY_INPUT, aiOnlyCommandAllowed } from '../lib/ai-only-input';
 import {
   createContext,
   useCallback,
@@ -145,6 +146,11 @@ export function CommandScopeProvider({ children }: CommandScopeProviderProps) {
       context: Partial<CommandContext<Payload>> = {}
     ): CommandDispatchResult => {
       const source = context.source ?? 'ui';
+      if (AI_ONLY_INPUT && !aiOnlyCommandAllowed(command, source)) {
+        const result = createCommandResult(command, null, false, true);
+        lastCommandRef.current = result;
+        return result;
+      }
       const event = source === 'keyboard' ? context.event : undefined;
       const activeScopes = getActiveScopes(event);
       const registrations = Array.from(handlersRef.current.values()).filter((registration) =>

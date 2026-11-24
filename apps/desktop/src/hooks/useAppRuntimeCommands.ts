@@ -1,3 +1,4 @@
+import { AI_ONLY_INPUT } from '../lib/ai-only-input';
 import { useDocumentSaveCommand } from '../shared/use-document-lifecycle';
 import { userMessageWithValues, userMessageValue, userMessage } from '@waypoint/user-messages';
 import { useEffect, type Dispatch, type SetStateAction } from 'react';
@@ -168,36 +169,47 @@ export function useAppRuntimeCommands({
     return true;
   });
 
-  useKeyboard([
-    { key: '7', cmd: true, shift: true, handler: handleWebGLTraceToggle, allowInInput: true },
-    { key: '8', cmd: true, shift: true, handler: handleChatSnapshot, allowInInput: true },
-    { key: '9', cmd: true, shift: true, handler: captureSnapshot, allowInInput: true },
-    {
-      key: '0',
-      cmd: true,
-      shift: true,
-      handler: handleCpuProfileToggle,
-      allowInInput: true,
-    },
-    { key: 'r', cmd: true, handler: () => window.location.reload(), allowInInput: true },
-    ...(adjacencyGraphAvailable
-      ? [
+  useKeyboard(
+    AI_ONLY_INPUT
+      ? []
+      : [
+          { key: '7', cmd: true, shift: true, handler: handleWebGLTraceToggle, allowInInput: true },
+          { key: '8', cmd: true, shift: true, handler: handleChatSnapshot, allowInInput: true },
+          { key: '9', cmd: true, shift: true, handler: captureSnapshot, allowInInput: true },
           {
-            key: 'g',
+            key: '0',
             cmd: true,
             shift: true,
-            handler: () => {
-              useCanvasStore
-                .getState()
-                .openInFocusedPanel('adjacency-graph', 'adjacency-graph', 'Adjacency Graph');
-            },
+            handler: handleCpuProfileToggle,
+            allowInInput: true,
           },
+          { key: 'r', cmd: true, handler: () => window.location.reload(), allowInInput: true },
+          ...(adjacencyGraphAvailable
+            ? [
+                {
+                  key: 'g',
+                  cmd: true,
+                  shift: true,
+                  handler: () => {
+                    useCanvasStore
+                      .getState()
+                      .openInFocusedPanel('adjacency-graph', 'adjacency-graph', 'Adjacency Graph');
+                  },
+                },
+              ]
+            : []),
+          ...(devShortcutsEnabled
+            ? [
+                {
+                  key: '.',
+                  cmd: true,
+                  shift: true,
+                  handler: () => setIsDevPanelOpen((prev) => !prev),
+                },
+              ]
+            : []),
         ]
-      : []),
-    ...(devShortcutsEnabled
-      ? [{ key: '.', cmd: true, shift: true, handler: () => setIsDevPanelOpen((prev) => !prev) }]
-      : []),
-  ]);
+  );
 
   useEffect(() => {
     if (!isDesktopRuntime()) return;
@@ -209,6 +221,7 @@ export function useAppRuntimeCommands({
         bypassBlockingScopes: [COMMAND_SCOPES.inputEditor],
       });
     });
+    if (AI_ONLY_INPUT) return unsub0;
     const unsub1 = p.on('menu:settings', handleOpenSettings);
     const unsubOrganizations = p.on('menu:organizations', openOrganizationsSettings);
     const unsub2 = p.on('menu:explorer', () => handleViewChange('files'));
