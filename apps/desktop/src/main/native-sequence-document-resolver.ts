@@ -215,7 +215,9 @@ export function createNativeSequenceDocumentResolver(options: {
       }
       const document = parseSequencePackageDocument(bytes);
       if (document.id !== target.targetDocumentId) {
-        throw new Error('The package on disk does not match the target document identity.');
+        throw new Error(
+          'SEQUENCE_DOCUMENT_BINDING_CHANGED: The package on disk does not match the target document identity.'
+        );
       }
       const entries = await readdir(packageRoot, { withFileTypes: true });
       const product = resolveSequenceProductFile(
