@@ -33,6 +33,7 @@ import {
   terminalHistoryShortcut,
   terminalLinkShortcut,
   terminalHostPlatform,
+  terminalNavigateGroupDirection,
   terminalSplitShortcut,
   terminalResizeDirection,
   type TerminalResizeDirection,
@@ -781,10 +782,12 @@ export function TerminalPane({
         callbacks.current.onHistory(id, history);
         return false;
       }
-      if (event.code === 'Tab' && event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (event.code === 'Tab' && event.ctrlKey && !event.metaKey && !event.altKey) return false;
+      const direction = terminalNavigateGroupDirection(terminalHostPlatform(), event);
+      if (direction !== null) {
         event.preventDefault();
         event.stopPropagation();
-        callbacks.current.onNavigateGroup(id, event.shiftKey ? -1 : 1);
+        callbacks.current.onNavigateGroup(id, direction);
         return false;
       }
       if (terminalSplitShortcut(terminalHostPlatform(), event)) {
@@ -802,19 +805,6 @@ export function TerminalPane({
       ) {
         event.preventDefault();
         void pane.toggleContentWidth().catch(report);
-        return false;
-      }
-      if (
-        isMac
-          ? event.metaKey &&
-            event.shiftKey &&
-            (event.code === 'BracketLeft' || event.code === 'BracketRight')
-          : event.ctrlKey && (key === 'pageup' || key === 'pagedown')
-      ) {
-        callbacks.current.onNavigateGroup(
-          id,
-          event.code === 'BracketLeft' || key === 'pageup' ? -1 : 1
-        );
         return false;
       }
       if (

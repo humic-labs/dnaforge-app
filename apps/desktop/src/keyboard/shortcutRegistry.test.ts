@@ -43,6 +43,22 @@ function bindingIdentity(binding: {
 }
 
 describe('shortcut registry', () => {
+  it('documents terminal subtab cycling separately from workspace tabs and terminal creation', () => {
+    const previous = APP_SHORTCUTS.find((shortcut) => shortcut.id === 'terminal.previous-tab');
+    const next = APP_SHORTCUTS.find((shortcut) => shortcut.id === 'terminal.next-tab');
+    expect(previous?.availability).toBe('active');
+    expect(next?.availability).toBe('active');
+    expect(previous && keysOn(previous, true)).toEqual(['shift+cmd+[']);
+    expect(next && keysOn(next, true)).toEqual(['shift+cmd+]']);
+    expect(previous && keysOn(previous, false)).toEqual(['ctrl+pageup']);
+    expect(next && keysOn(next, false)).toEqual(['ctrl+pagedown']);
+    for (const reserved of ['tabs.next', 'tabs.previous', 'terminal.toggle', 'terminal.new']) {
+      const shortcut = APP_SHORTCUTS.find((candidate) => candidate.id === reserved)!;
+      expect(previous && overlaps(previous, shortcut)).toBe(false);
+      expect(next && overlaps(next, shortcut)).toBe(false);
+    }
+  });
+
   it('keeps ids unique and every row inside a known area', () => {
     const ids = APP_SHORTCUTS.map((shortcut) => shortcut.id);
     expect(new Set(ids).size).toBe(ids.length);

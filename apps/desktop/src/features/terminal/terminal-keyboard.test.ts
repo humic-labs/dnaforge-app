@@ -6,7 +6,47 @@ import {
   terminalLinkShortcut,
   terminalSplitShortcut,
   terminalResizeDirection,
+  terminalNavigateGroupDirection,
 } from './terminal-keyboard';
+
+it('navigates terminal subtabs with distinct platform chords and preserves workspace and shell keys', () => {
+  const plain = { code: 'Tab', ctrlKey: false, metaKey: false, shiftKey: false, altKey: false };
+  for (const platform of ['darwin', 'win32', 'linux'] as const) {
+    const previous =
+      platform === 'darwin'
+        ? { ...plain, code: 'BracketLeft', metaKey: true, shiftKey: true }
+        : { ...plain, code: 'PageUp', ctrlKey: true };
+    const next = { ...previous, code: platform === 'darwin' ? 'BracketRight' : 'PageDown' };
+    expect(terminalNavigateGroupDirection(platform, previous)).toBe(-1);
+    expect(terminalNavigateGroupDirection(platform, next)).toBe(1);
+    expect(terminalNavigateGroupDirection(platform, { ...next, altKey: true })).toBe(null);
+    expect(terminalNavigateGroupDirection(platform, { ...next, shiftKey: !next.shiftKey })).toBe(
+      null
+    );
+    expect(terminalNavigateGroupDirection(platform, { ...next, metaKey: !next.metaKey })).toBe(
+      null
+    );
+    expect(terminalNavigateGroupDirection(platform, { ...next, ctrlKey: !next.ctrlKey })).toBe(
+      null
+    );
+    for (const shiftKey of [false, true]) {
+      expect(terminalNavigateGroupDirection(platform, { ...plain, ctrlKey: true, shiftKey })).toBe(
+        null
+      );
+      expect(
+        terminalNavigateGroupDirection(platform, {
+          ...plain,
+          code: 'Backquote',
+          ctrlKey: true,
+          shiftKey,
+        })
+      ).toBe(null);
+    }
+    expect(
+      terminalNavigateGroupDirection(platform, { ...plain, code: 'ArrowLeft', altKey: true })
+    ).toBe(null);
+  }
+});
 
 it('uses upstream resize chords without capturing unbound Windows shell keys', () => {
   const mac = { code: 'ArrowLeft', ctrlKey: true, metaKey: true, shiftKey: false, altKey: false };
