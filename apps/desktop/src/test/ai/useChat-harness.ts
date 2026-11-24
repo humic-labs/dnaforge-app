@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 
 const {
+  mockDatabaseExecute,
   mockAgentSessionStart,
   mockAgentSessionCancel,
   mockAgentSessionOnEvent,
@@ -11,6 +12,7 @@ const {
   mockResolveRegisteredProject,
   mockListRegisteredProjects,
 } = vi.hoisted(() => ({
+  mockDatabaseExecute: vi.fn(),
   mockAgentSessionStart: vi.fn(),
   mockAgentSessionCancel: vi.fn(),
   mockAgentSessionOnEvent: vi.fn(),
@@ -23,6 +25,7 @@ const {
 }));
 
 const useChatConversationHarness = {
+  mockDatabaseExecute,
   mockAgentSessionStart,
   mockAgentSessionCancel,
   mockAgentSessionOnEvent,
@@ -162,6 +165,7 @@ vi.mock('../../features/ai/settings', () => ({
 
 vi.mock('../../platform', () => ({
   platform: vi.fn(() => ({
+    db: { execute: mockDatabaseExecute },
     workspace: {
       resolveRegisteredProject: mockResolveRegisteredProject,
       listRegisteredProjects: mockListRegisteredProjects,
