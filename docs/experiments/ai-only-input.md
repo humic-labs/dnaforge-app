@@ -22,9 +22,11 @@ Hosted and production renderers ignore it. Stop the app and restart without the
 variable to restore the ordinary interface. The mode does not change project
 permissions or saved document formats.
 
-The existing in-app agent route is retained. Configure a provider or a supported
-local CLI through the chat connection controls. Existing provider permissions
-and approval requests still apply. This experiment adds no new agent transport.
+The existing in-app agent route is retained. The experimental shell initializes
+auth state even though its account button is absent, so automatic route
+selection can finish. Configure a provider or a supported local CLI through the
+chat connection controls. Existing provider permissions and approval requests
+still apply. This experiment adds no new agent transport.
 
 ## What changed
 

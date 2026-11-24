@@ -1,3 +1,4 @@
+import { useAuthStore } from '../stores/auth-store';
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { Button } from './ui';
 import './ai-only-workbench.css';
@@ -34,6 +35,9 @@ export function AiOnlyWorkbench({
   onNewChat: () => void;
 }) {
   const opened = useRef(false);
+  useEffect(() => {
+    useAuthStore.getState().init();
+  }, []);
   useEffect(() => {
     if (opened.current) return;
     opened.current = true;

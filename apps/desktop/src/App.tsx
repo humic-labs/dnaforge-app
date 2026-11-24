@@ -1791,6 +1791,11 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
           {explorerContent}
         </AiOnlyWorkbench>
         <AgentConfirmController />
+        <div className="contents" data-ai-input-region="conversation">
+          <TelemetryBlockedSurface className="contents">
+            <AuthFlowHost />
+          </TelemetryBlockedSurface>
+        </div>
         <ToastContainer />
       </>
     );
