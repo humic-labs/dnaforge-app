@@ -906,6 +906,28 @@ export const USER_MESSAGES = {
   'failure.could-not-open-protein-run-comparison': 'Could not open protein run comparison.',
   'failure.copy-accepted':
     'We couldn’t finish copying the file. Check the destination before trying again.',
+  'assistant.nativeExecutableUnavailable':
+    'The assistant executable is unavailable. Check its installation and path in Settings.',
+  'assistant.nativeDnsFailure':
+    'The assistant could not resolve the provider’s hostname. Check your network connection and try again.',
+  'assistant.nativeRequestRejected':
+    'The provider rejected this request. Check the selected model and request, then try again.',
+  'assistant.nativeAdmissionRejected':
+    'The assistant could not start this request. Check the selected model or choose the provider default.',
+  'assistant.nativeCapacity':
+    'The provider is at capacity or rate-limiting requests. Wait a moment and try again.',
+  'assistant.nativeProviderError': 'The provider reported an error. Try again shortly.',
+  'assistant.nativeTimeout': 'The provider timed out. Try the request again.',
+  'assistant.nativeProcessExit':
+    'The assistant process exited before the turn finished. Try the request again.',
+  'assistant.nativeNoResponse': 'The assistant returned no response. Try the request again.',
+  'assistant.nativeCancelled': 'The provider cancelled this turn.',
+  'assistant.nativeStopped': 'The assistant stopped at your request.',
+  'assistant.nativeStopUnconfirmed': 'Stop was requested. The assistant did not confirm it.',
+  'assistant.nativeConnectionLost':
+    'The assistant lost its connection to the provider. Check your connection and try again.',
+  'assistant.nativeToolFailed':
+    'A required assistant tool did not complete. Try the request again.',
   'assistant.failed': 'The assistant could not complete that action. Try again.',
   'failure.could-not-target-this-reference': 'Could not target this reference.',
   'failure.could-not-open-this-reference': 'Could not open this reference.',

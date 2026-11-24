@@ -215,31 +215,35 @@ describe('agent session stop-state acceptance', () => {
     expect(outbox(fixture.db, 'stop_active')).toHaveLength(1);
   });
 
-  it('preserves provider-confirmed cancellation as a distinct terminal outcome', async () => {
-    const fixture = database('confirmed-stop');
-    const entered = deferred<void>();
-    const provider = deferred<ProviderQueryResult>();
-    const owner = manager(fixture.db, {
-      queryCodex: async () => {
-        entered.resolve();
-        return provider.promise;
-      },
-    });
-    const run = owner.startSession(request('stop_confirmed'));
-    await entered.promise;
-    owner.requestStop('stop_confirmed');
-    provider.resolve({ ok: false, text: '', durationMs: 2, stopState: 'cancelled' });
-    expect((await run).stopState).toBe('cancelled');
-    expect(owner.getSession('stop_confirmed')).toMatchObject({
-      status: 'cancelled',
-      completedAt: 100,
-    });
-    expect(outbox(fixture.db, 'stop_confirmed')).toHaveLength(1);
-    expect(outbox(fixture.db, 'stop_confirmed')[0]).toMatchObject({
-      outcome: 'cancelled',
-      reason_code: 'provider_cancelled',
-    });
-  });
+  it.each([true, false])(
+    'preserves who requested the confirmed cancellation (user stop: %s)',
+    async (userStopped) => {
+      const fixture = database('confirmed-stop');
+      const entered = deferred<void>();
+      const provider = deferred<ProviderQueryResult>();
+      const owner = manager(fixture.db, {
+        queryCodex: async () => {
+          entered.resolve();
+          return provider.promise;
+        },
+      });
+      const run = owner.startSession(request('stop_confirmed'));
+      await entered.promise;
+      if (userStopped) owner.requestStop('stop_confirmed');
+      provider.resolve({ ok: false, text: '', durationMs: 2, stopState: 'cancelled' });
+      expect((await run).stopState).toBe('cancelled');
+      expect(owner.getSession('stop_confirmed')).toMatchObject({
+        status: 'cancelled',
+        completedAt: 100,
+      });
+      expect(outbox(fixture.db, 'stop_confirmed')).toHaveLength(1);
+      expect(outbox(fixture.db, 'stop_confirmed')[0]).toMatchObject({
+        outcome: userStopped ? 'stopped' : 'cancelled',
+        initiated_by: userStopped ? 'user' : 'provider',
+        reason_code: userStopped ? 'user_stop_acknowledged' : 'provider_cancelled',
+      });
+    }
+  );
 
   it('does not rewrite a committed outcome when late renderer work receives Stop', async () => {
     const fixture = database('late-renderer-stop');

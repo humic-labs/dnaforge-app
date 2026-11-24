@@ -1,3 +1,4 @@
+import type { NativeTurnFailure, NativeTurnReason } from '../../shared/native-turn-failure';
 import { createHash } from 'node:crypto';
 import type { AgentProvider, AgentSessionTerminalStatus } from './types';
 import {
@@ -29,15 +30,7 @@ export interface LocalAiTurnTerminalInput {
   completedWorkspaceToolCount: number | 'unknown';
   hadWorkspaceContext: boolean;
   continuation: boolean;
-  reasonHint?:
-    | 'admission_rejected'
-    | 'workspace_grounding_failed'
-    | 'authentication_required'
-    | 'policy_denied'
-    | 'provider_timeout'
-    | 'transport_lost'
-    | 'tool_failed'
-    | 'unknown';
+  failure?: NativeTurnFailure;
   recovered?: boolean;
 }
 
@@ -47,30 +40,24 @@ function routeForProvider(provider: AgentProvider): 'local_codex' | 'local_claud
   return 'local_claude';
 }
 
-function failureDimensions(hint: LocalAiTurnTerminalInput['reasonHint']): {
-  reason: AiTurnReasonCode;
-  failureClass: AiTurnFailureClass;
-  stage: AiTurnStage;
-} {
-  switch (hint) {
-    case 'admission_rejected':
-      return { reason: hint, failureClass: 'admission', stage: 'admission' };
-    case 'workspace_grounding_failed':
-      return { reason: hint, failureClass: 'policy', stage: 'projection' };
-    case 'authentication_required':
-      return { reason: hint, failureClass: 'authentication', stage: 'admission' };
-    case 'policy_denied':
-      return { reason: hint, failureClass: 'policy', stage: 'approval' };
-    case 'provider_timeout':
-      return { reason: hint, failureClass: 'timeout', stage: 'provider_stream' };
-    case 'transport_lost':
-      return { reason: hint, failureClass: 'transport', stage: 'provider_stream' };
-    case 'tool_failed':
-      return { reason: hint, failureClass: 'tool', stage: 'tool_execution' };
-    default:
-      return { reason: 'provider_error', failureClass: 'provider', stage: 'provider_stream' };
-  }
-}
+const failureClasses = {
+  executable_unavailable: 'admission',
+  authentication_required: 'authentication',
+  admission_rejected: 'admission',
+  dns_resolution_failed: 'transport',
+  transport_lost: 'transport',
+  provider_capacity: 'provider',
+  provider_rejected: 'provider',
+  provider_error: 'provider',
+  provider_timeout: 'timeout',
+  process_exit: 'interruption',
+  no_response: 'provider',
+  provider_cancelled: 'none',
+  user_stop_acknowledged: 'none',
+  stop_unconfirmed: 'interruption',
+  tool_failed: 'tool',
+  unknown: 'unknown',
+} as const satisfies Record<NativeTurnReason, AiTurnFailureClass>;
 
 function terminalDimensions(input: LocalAiTurnTerminalInput): {
   outcome: AiTurnFinishedProperties['outcome'];
@@ -94,16 +81,17 @@ function terminalDimensions(input: LocalAiTurnTerminalInput): {
       initiatedBy: 'user',
       reason: 'stop_unconfirmed',
       failureClass: 'interruption',
-      stage: input.recovered ? 'recovery' : 'provider_stream',
+      stage: input.failure?.stage ?? (input.recovered ? 'recovery' : 'provider_stream'),
     };
   }
   if (input.status === 'cancelled') {
+    const userStopped = input.failure?.reason === 'user_stop_acknowledged';
     return {
-      outcome: 'cancelled',
-      initiatedBy: 'provider',
-      reason: 'provider_cancelled',
+      outcome: userStopped ? 'stopped' : 'cancelled',
+      initiatedBy: userStopped ? 'user' : 'provider',
+      reason: userStopped ? 'user_stop_acknowledged' : 'provider_cancelled',
       failureClass: 'none',
-      stage: 'provider_stream',
+      stage: input.failure?.stage ?? 'provider_stream',
     };
   }
   if (input.status === 'interrupted') {
@@ -115,17 +103,23 @@ function terminalDimensions(input: LocalAiTurnTerminalInput): {
       stage: 'recovery',
     };
   }
-  const failure = failureDimensions(input.reasonHint);
+  const failure = input.failure ?? {
+    reason: input.provider === 'grok-acp' ? 'provider_error' : 'unknown',
+    stage: 'provider_stream',
+  };
+  const failureClass = failureClasses[failure.reason];
   return {
     outcome: 'failed',
     initiatedBy:
-      failure.failureClass === 'timeout'
+      failureClass === 'timeout'
         ? 'timeout'
-        : failure.failureClass === 'admission'
+        : failureClass === 'admission'
           ? 'desktop'
-          : 'provider',
+          : failureClass === 'unknown'
+            ? 'unknown'
+            : 'provider',
     reason: failure.reason,
-    failureClass: failure.failureClass,
+    failureClass,
     stage: failure.stage,
   };
 }

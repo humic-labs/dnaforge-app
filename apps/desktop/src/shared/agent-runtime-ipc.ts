@@ -283,6 +283,7 @@ export interface AgentSessionStartRequestShape {
 }
 
 export interface AgentSessionRunResultShape {
+  failure?: import('./native-turn-failure').NativeTurnFailure;
   sessionId: string;
   provider: AgentTransport;
   authorityProfileId: string;

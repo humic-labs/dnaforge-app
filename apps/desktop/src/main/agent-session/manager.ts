@@ -1,3 +1,10 @@
+import {
+  nativeFailureMessage,
+  nativeFailureStatus,
+  nativeTerminalReason,
+  parseNativeTerminalReason,
+  type NativeTurnFailure,
+} from '../../shared/native-turn-failure';
 import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import {
@@ -115,7 +122,7 @@ type QueryExecutor = (
   ok: boolean;
   text: string;
   error?: string;
-  failureReason?: 'admission_rejected';
+  failure?: NativeTurnFailure;
   durationMs: number;
   stopState?: ProviderTerminalState;
   providerConversationId?: string;
@@ -250,6 +257,23 @@ function statusForTerminal(terminal: ProviderTerminalState): AgentSessionTermina
   if (terminal === 'cancelled') return 'cancelled';
   if (terminal === 'stop_requested') return 'stop_unconfirmed';
   return 'failed';
+}
+
+function nativeSessionFailure(
+  terminal: ProviderTerminalState,
+  failure: NativeTurnFailure | undefined,
+  userStopped: boolean,
+  requiredToolMissing: boolean
+): NativeTurnFailure {
+  const stage = failure?.stage ?? 'provider_stream';
+  if (terminal === 'cancelled')
+    return {
+      reason: userStopped ? 'user_stop_acknowledged' : 'provider_cancelled',
+      stage,
+    };
+  if (terminal === 'stop_requested') return { reason: 'stop_unconfirmed', stage };
+  if (requiredToolMissing) return { reason: 'tool_failed', stage: 'tool_execution' };
+  return failure ?? { reason: 'unknown', stage };
 }
 
 function traceEventType(value: unknown): string {
@@ -411,20 +435,9 @@ export class AgentSessionManager {
 
   recoverInterruptedSessions(): number {
     const now = this.now();
-    this.db
-      .prepare(
-        `
-          UPDATE chat_turns
-          SET status = 'interrupted',
-              terminal_reason = 'App restarted before the turn completed.',
-              completed_at = COALESCE(completed_at, ?)
-          WHERE status = 'running'
-        `
-      )
-      .run(now);
     const staleSessions = this.db
       .prepare(
-        `SELECT id, provider, status, provider_conversation_id, started_at,
+        `SELECT id, turn_id, provider, status, provider_conversation_id, started_at,
                 telemetry_had_workspace_context, telemetry_continuation
            FROM agent_sessions
           WHERE status IN ('starting', 'running', 'stopping')
@@ -433,6 +446,7 @@ export class AgentSessionManager {
       )
       .all() as Array<{
       id: string;
+      turn_id: string | null;
       provider: AgentProvider;
       status: AgentSessionActiveStatus;
       provider_conversation_id: string | null;
@@ -450,16 +464,48 @@ export class AgentSessionManager {
         stale.provider_conversation_id,
         {
           provider: stale.provider,
+          actionId: stale.turn_id,
           durationMs: Math.max(0, now - stale.started_at),
           visibleAssistantText: '',
           toolCallCount: this.countRecoveredToolCalls(stale.id),
           completedWorkspaceToolCount: 'unknown',
           hadWorkspaceContext: stale.telemetry_had_workspace_context === 1,
           continuation: stale.telemetry_continuation === 1,
+          ...(stale.status === 'stopping' && stale.provider !== 'grok-acp'
+            ? { failure: { reason: 'stop_unconfirmed' as const, stage: 'recovery' as const } }
+            : {}),
           recovered: true,
         }
       );
     }
+    const recorded = this.db
+      .prepare(
+        `SELECT id, terminal_reason FROM chat_turns
+       WHERE status = 'running' AND terminal_reason LIKE 'native:%'`
+      )
+      .all() as Array<{ id: string; terminal_reason: string }>;
+    for (const row of recorded) {
+      const failure = parseNativeTerminalReason(row.terminal_reason);
+      if (!failure) continue;
+      const status = nativeFailureStatus(failure);
+      this.db
+        .prepare(
+          `UPDATE chat_turns SET status = ?, completed_at = COALESCE(completed_at, ?)
+         WHERE id = ? AND status = 'running'`
+        )
+        .run(status, now, row.id);
+    }
+    this.db
+      .prepare(
+        `
+          UPDATE chat_turns
+          SET status = 'interrupted',
+              terminal_reason = 'App restarted before the turn completed.',
+              completed_at = COALESCE(completed_at, ?)
+          WHERE status = 'running'
+        `
+      )
+      .run(now);
     return staleSessions.length;
   }
 
@@ -557,6 +603,7 @@ export class AgentSessionManager {
     eventSink?: (envelope: AgentSessionTraceEnvelope) => void
   ): Promise<AgentSessionRunResult> {
     const sessionId = this.assertValidAgentSessionStart(request);
+    const recordsNativeFailure = request.provider !== 'grok-acp';
     const provenanceTurnId = sessionId;
     const privateRenderer = proteinExperimentRendererForTurn(provenanceTurnId);
     const molecularTrialAuthor = privateRenderer !== undefined;
@@ -610,6 +657,7 @@ export class AgentSessionManager {
           : null;
         const capabilities = await this.describeProviderCapabilities(request.provider);
         if (
+          !recordsNativeFailure &&
           !request.binaryPathOverride &&
           (capabilities.auth === 'missing' || capabilities.auth === 'unauthenticated')
         ) {
@@ -684,6 +732,16 @@ export class AgentSessionManager {
     const abortController = new AbortController();
     try {
       this.db.transaction(() => {
+        if (recordsNativeFailure && request.turnId) {
+          const conflicting = this.db
+            .prepare(
+              `SELECT 1 FROM agent_sessions WHERE turn_id = ?
+             AND (completed_at IS NULL OR terminal_reason LIKE 'native:%') LIMIT 1`
+            )
+            .get(request.turnId);
+          if (conflicting)
+            throw new Error('This turn already has an active or terminal provider attempt.');
+        }
         this.insertSession({
           id: sessionId,
           conversationId: request.conversationId ?? null,
@@ -867,9 +925,22 @@ export class AgentSessionManager {
       return pickUserFacingCliError(rawError, lastFailureMessage);
     };
 
+    let failureStage: NativeTurnFailure['stage'] = 'provider_start';
+    let observedFailure: NativeTurnFailure | undefined;
     openWorkspaceProvenanceForTurn(provenanceTurnId);
     try {
       abortController.signal.throwIfAborted();
+      if (
+        !request.binaryPathOverride &&
+        (capabilities.auth === 'missing' || capabilities.auth === 'unauthenticated')
+      ) {
+        observedFailure = {
+          reason:
+            capabilities.auth === 'missing' ? 'executable_unavailable' : 'authentication_required',
+          stage: 'admission',
+        };
+        throw new Error(nativeFailureMessage(observedFailure));
+      }
       queryOptions.cliMcpBridge =
         queryOptions.toolExposure === 'none'
           ? null
@@ -888,7 +959,9 @@ export class AgentSessionManager {
       const queryPrompt = attachmentText
         ? `${baseQueryPrompt}\n\n${attachmentText}`
         : baseQueryPrompt;
+      failureStage = 'provider_stream';
       const result = await executor(queryPrompt, queryOptions);
+      failureStage = 'finalization';
       const active = this.activeSessions.get(sessionId);
       const providerTerminal = providerDescriptor(request.provider).classifyTerminalState({
         abortRequested: abortController.signal.aborted,
@@ -911,6 +984,15 @@ export class AgentSessionManager {
           ? 'The required tool did not complete during this turn.'
           : result.error,
       });
+      const failure =
+        !ok && recordsNativeFailure
+          ? nativeSessionFailure(
+              terminal,
+              result.failure,
+              abortController.signal.aborted,
+              requiredToolMissing
+            )
+          : undefined;
       const completedProviderConversationId =
         normalizeProviderConversationId(result.providerConversationId) ?? providerConversationId;
       const structuredOutput =
@@ -937,7 +1019,7 @@ export class AgentSessionManager {
           provider: request.provider,
           durationMs: result.durationMs,
           actionId: request.turnId,
-          reasonHint: result.failureReason,
+          failure,
           visibleAssistantText: result.text,
           toolCallCount: observedToolCallIds.size,
           completedWorkspaceToolCount: new Set(workspaceProvenance.completedWorkspaceTools).size,
@@ -956,7 +1038,8 @@ export class AgentSessionManager {
         authorityProfileId: profile.id,
         ok,
         text: result.text,
-        error: userError,
+        error: failure && isGenuineFailure ? nativeFailureMessage(failure) : userError,
+        ...(failure ? { failure } : {}),
         durationMs: result.durationMs,
         stopState: terminal,
         lastTraceSequence,
@@ -976,6 +1059,11 @@ export class AgentSessionManager {
           : err instanceof Error
             ? err.message
             : String(err);
+      const failure: NativeTurnFailure | undefined = !recordsNativeFailure
+        ? undefined
+        : terminal === 'stop_requested'
+          ? { reason: 'stop_unconfirmed', stage: failureStage }
+          : (observedFailure ?? { reason: 'unknown', stage: failureStage });
       const durationMs = this.now() - startedAt;
       const workspaceProvenance = {
         policy: request.workspaceGrounding,
@@ -990,6 +1078,7 @@ export class AgentSessionManager {
           provider: request.provider,
           durationMs,
           actionId: request.turnId,
+          failure,
           visibleAssistantText: '',
           toolCallCount: observedToolCallIds.size,
           completedWorkspaceToolCount: new Set(workspaceProvenance.completedWorkspaceTools).size,
@@ -1005,7 +1094,8 @@ export class AgentSessionManager {
         authorityProfileId: profile.id,
         ok: false,
         text: '',
-        error: userError,
+        ...(failure ? { failure } : {}),
+        error: failure && terminal !== 'stop_requested' ? nativeFailureMessage(failure) : userError,
         durationMs,
         stopState: terminal,
         lastTraceSequence,
@@ -1193,9 +1283,28 @@ export class AgentSessionManager {
               AND status IN ('starting', 'running', 'stopping')
           `
         )
-        .run(status, terminalReason, providerConversationId, now, now, sessionId);
+        .run(
+          status,
+          telemetry.failure ? nativeTerminalReason(telemetry.failure) : terminalReason,
+          providerConversationId,
+          now,
+          now,
+          sessionId
+        );
       if (result.changes !== 1) {
         throw new Error(`Agent session ${sessionId} was already terminal or did not exist.`);
+      }
+      if (telemetry.failure && telemetry.actionId) {
+        this.db
+          .prepare(
+            `UPDATE chat_turns SET terminal_reason = ?, error = ?
+           WHERE id = ? AND status = 'running'`
+          )
+          .run(
+            nativeTerminalReason(telemetry.failure),
+            status === 'failed' ? nativeFailureMessage(telemetry.failure) : null,
+            telemetry.actionId
+          );
       }
       putAnalyticsOutboxEvent(this.db, {
         eventId,

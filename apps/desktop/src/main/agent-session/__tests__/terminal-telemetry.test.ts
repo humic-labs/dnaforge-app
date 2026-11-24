@@ -108,8 +108,9 @@ describe('local AI terminal telemetry', () => {
     const event = buildLocalAiTurnFinished({ ...base, status: 'failed' });
     expect(event).toMatchObject({
       outcome: 'failed',
-      reason_code: 'provider_error',
-      failure_class: 'provider',
+      reason_code: 'unknown',
+      failure_class: 'unknown',
+      initiated_by: 'unknown',
     });
     expect(event).not.toHaveProperty('error');
     expect(event).not.toHaveProperty('prompt');

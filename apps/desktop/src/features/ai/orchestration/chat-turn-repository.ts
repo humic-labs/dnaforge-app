@@ -1,4 +1,10 @@
-import { commitChatTurnTerminalState, type DBChatTurn } from '../../../db';
+import { commitChatTurnTerminalState, type DBChatTurn, type DBChatTurnStatus } from '../../../db';
+import {
+  nativeFailureMessage,
+  nativeFailureStatus,
+  nativeTerminalReason,
+  parseNativeTerminalReason,
+} from '../../../shared/native-turn-failure';
 
 export const ABANDONED_TURN_REASON = 'App exited before the turn completed.';
 
@@ -13,26 +19,24 @@ export async function recoverInterruptedChatTurns(
       recovered.push(turn);
       continue;
     }
-    const completedAt = now();
+    const failure =
+      turn.route_kind === 'cli' ? parseNativeTerminalReason(turn.terminal_reason) : null;
+    const status: Exclude<DBChatTurnStatus, 'running'> = failure
+      ? nativeFailureStatus(failure)
+      : 'interrupted';
+    const terminal = {
+      status,
+      terminal_reason: failure ? nativeTerminalReason(failure) : ABANDONED_TURN_REASON,
+      error: failure && status === 'failed' ? nativeFailureMessage(failure) : null,
+      completed_at: now(),
+    };
     const result = await commitChatTurnTerminalState({
+      ...terminal,
       turn_id: turn.id,
       conversation_id: conversationId,
-      status: 'interrupted',
-      terminal_reason: ABANDONED_TURN_REASON,
-      error: null,
-      completed_at: completedAt,
       messages: [],
     });
-    recovered.push(
-      result.committed
-        ? {
-            ...turn,
-            status: 'interrupted',
-            terminal_reason: ABANDONED_TURN_REASON,
-            completed_at: completedAt,
-          }
-        : turn
-    );
+    recovered.push(result.committed ? { ...turn, ...terminal } : turn);
   }
   return recovered;
 }

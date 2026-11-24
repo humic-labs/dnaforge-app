@@ -45,6 +45,64 @@ describe('appServerNotificationAsCodexSdkEvent', () => {
 });
 
 describe('runLocalCodexAppServerTurn', () => {
+  it.each([
+    ['serverOverloaded', 'provider_capacity'],
+    ['unauthorized', 'authentication_required'],
+    ['badRequest', 'provider_rejected'],
+    ['internalServerError', 'provider_error'],
+    ['other', 'unknown'],
+  ])('keeps final %s after a retryable error and before process exit', async (code, reason) => {
+    let notify!: Parameters<LocalCodexAppServerTransport['onNotification']>[0];
+    let exit!: Parameters<LocalCodexAppServerTransport['onExit']>[0];
+    const result = await runLocalCodexAppServerTurn({
+      transport: {
+        request: async (method) => {
+          if (method === 'thread/start') return { thread: { id: 'thread' } };
+          if (method !== 'turn/start') throw new Error('Unexpected method ' + method);
+          notify({
+            method: 'error',
+            params: {
+              willRetry: true,
+              error: { message: 'Transient', codexErrorInfo: 'unauthorized' },
+            },
+          });
+          notify({
+            method: 'turn/completed',
+            params: {
+              turn: {
+                id: 'turn',
+                status: 'failed',
+                error: { message: 'Terminal', codexErrorInfo: code },
+              },
+            },
+          });
+          exit('child_exit');
+          return { turn: { id: 'turn' } };
+        },
+        onNotification(listener) {
+          notify = listener;
+        },
+        onExit(listener) {
+          exit = listener;
+        },
+        onServerRequest: vi.fn(),
+        interrupt: vi.fn(),
+      },
+      message: 'Fixture',
+      cwd: '/workspace',
+      conversationId: null,
+      config: {},
+      developerInstructions: '',
+      requestUserInput: vi.fn(),
+      signal: new AbortController().signal,
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      error: 'Terminal',
+      failure: { reason, stage: 'provider_stream' },
+    });
+  });
+
   it('rejects an owned startup failure even if inventory contains cached tools', async () => {
     let notification: ((value: { method: string; params: unknown }) => void) | null = null;
     const transport: LocalCodexAppServerTransport = {
