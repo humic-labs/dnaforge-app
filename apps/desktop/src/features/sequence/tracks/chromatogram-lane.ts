@@ -28,8 +28,11 @@ const AMBIGUOUS_BASE_RE = /^[NRYSWKMBDHV]$/;
 export interface ChromatogramLaneOptions {
   trace: TraceData;
   sequence?: string;
+  sourcePeakPositions?: ReadonlyArray<number>;
+  sourceBaseIndices?: ReadonlyArray<number>;
   quality?: ReadonlyArray<number>;
   baseToColumn?: ReadonlyArray<number>;
+  insertionPeaks?: ReadonlyArray<{ peak: number; boundary: number; index: number }>;
   totalColumns?: number;
   mutationColumns?: ReadonlyArray<number>;
   deletionColumns?: ReadonlyArray<number>;

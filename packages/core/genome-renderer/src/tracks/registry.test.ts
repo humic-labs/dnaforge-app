@@ -11,6 +11,7 @@ import {
   PEAK_TYPE,
   PILEUP_TYPE,
   PRIMER_TYPE,
+  CHROMATOGRAM_TYPE,
   QUANTITATIVE_TYPE,
   REPEAT_TYPE,
   SEQUENCE_COMPOSITE_TYPE,
@@ -32,6 +33,7 @@ describe('builtins  /  Phase 2)', () => {
       peak: 'peak',
       repeat: 'repeat',
       quantitative: 'quantitative',
+      chromatogram: 'chromatogram',
       pileup: 'pileup',
       variant: 'variant',
     });
@@ -49,6 +51,7 @@ describe('builtins  /  Phase 2)', () => {
       'peak',
       'repeat',
       'quantitative',
+      'chromatogram',
       'pileup',
       'variant',
     ]);
@@ -79,6 +82,11 @@ describe('builtins  /  Phase 2)', () => {
       family: 'quantitative',
       draw: 'histogram',
       dataShape: 'quantitative-bins',
+    });
+    expect(CHROMATOGRAM_TYPE).toMatchObject({
+      family: 'quantitative',
+      draw: 'chromatogram',
+      dataShape: 'chromatogram',
     });
     expect(PILEUP_TYPE).toMatchObject({
       family: 'pileup',
@@ -172,6 +180,7 @@ describe('defaultBuiltinRegistry', () => {
       'peak',
       'repeat',
       'quantitative',
+      'chromatogram',
       'pileup',
       'variant',
     ]);

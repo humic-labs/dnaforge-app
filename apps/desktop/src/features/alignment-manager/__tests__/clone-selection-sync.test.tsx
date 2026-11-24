@@ -68,6 +68,25 @@ const markerA = { column: 1, type: 'substitution', refBase: 'T', queryBase: 'C',
 const markerB = { column: 2, type: 'substitution', refBase: 'G', queryBase: 'A', refPosition: 3 };
 
 describe('clone selection through the production viewer hook', () => {
+  it('keeps the session default when choosing or hiding a read before setting a display mode', () => {
+    const store = useVerificationStore.getState();
+    const id = store.createSession(documentId, {
+      name: 'Pair',
+      mode: 'one-per-clone',
+      queryPaths: [],
+    });
+    store.addTrackToSession(documentId, id, track('a', null));
+    store.addTrackToSession(documentId, id, track('b', null));
+    const { result } = renderHook(() => useAlignmentDerivedState(documentId));
+    expect(result.current.viewMode).toBe('stacked');
+    act(() => store.setSessionViewPreferences(documentId, id, { selectedTrackId: 'b' }));
+    act(() => store.toggleTrackVisibility(documentId, id, 'a'));
+    expect(result.current.viewMode).toBe('stacked');
+    expect(result.current.hiddenTrackIds).toEqual(['a']);
+    act(() => store.setSessionViewPreferences(documentId, id, { viewMode: 'single' }));
+    expect(result.current.viewMode).toBe('single');
+  });
+
   it('reacts to selection changes and returns the selected clone’s actual gapped markers', () => {
     const id = session();
     const { result } = renderHook(() => useAlignmentDerivedState(documentId));

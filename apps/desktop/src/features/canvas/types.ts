@@ -1,3 +1,4 @@
+import type { ReadTrackLayout } from '../sequence/view-state/read-track-layout';
 import type { TableDocumentReference } from '../../shared/table-document-reference';
 import type {
   IndexedGenomeInitialAnnotationMapperPolicy,
@@ -92,6 +93,8 @@ export interface TabViewState {
   sequenceShowPrimers?: boolean;
   sequenceShowResidueNumbers?: boolean;
 
+  sequenceReadTrackLayout?: ReadTrackLayout;
+  sequenceSangerGains?: Readonly<Record<string, number>>;
   sequenceAnnotationColorMode?: string;
 
   sequenceDataLayerSelection?: SequenceDataLayerViewSelection | null;

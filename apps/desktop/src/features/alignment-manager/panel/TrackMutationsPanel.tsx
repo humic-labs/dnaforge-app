@@ -123,7 +123,8 @@ export function TrackMutationsPanel({
     () =>
       getAlignmentEvidence(
         track.alignment?.alignedReference ?? '',
-        track.alignment?.alignedQuery ?? ''
+        track.alignment?.alignedQuery ?? '',
+        track.alignment?.referenceLength
       ),
     [track.alignment]
   );

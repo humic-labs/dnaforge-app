@@ -1,6 +1,8 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  CHROMATOGRAM_TYPE,
+  PixiSequenceReadTrackRenderer,
   PixiAnnotationTrackRenderer,
   PENDING_INTERVAL_BAND_HEIGHT_PX,
   PixiPileupTrackRenderer,
@@ -163,6 +165,50 @@ describe('useIndexedLaneContractTracks pileup ownership', () => {
       expect.objectContaining({ id: 'user-annotations' }),
     ]);
     unmount();
+  });
+
+  it('mounts a chromatogram alongside a signal track and updates gain without replacing either track', () => {
+    const renderer = fakeRenderer();
+    const webglRef = { current: { getLinearRenderer: () => renderer, requestRender: vi.fn() } };
+    const signal = quantitativeDataset('signal');
+    const track = {
+      id: 'read-A',
+      assemblyId: 'read',
+      type: CHROMATOGRAM_TYPE.type,
+      order: 2,
+      visible: true,
+    };
+    const trackRenderer = new PixiSequenceReadTrackRenderer(CHROMATOGRAM_TYPE.type);
+    const onTrackSelection = vi.fn();
+    const chromosome = { id: 'read', displayName: 'Clean AB1', length: 894, cytobands: [] };
+    const { rerender } = renderHook(
+      ({ gain }) =>
+        useIndexedLaneContractTracks({
+          webglRef,
+          rendererAssembly: null,
+          manifestChrom: chromosome.id,
+          sequenceChromosome: chromosome,
+          activeStressDatasets: [signal],
+          supplementalTracks: [{ track, renderer: trackRenderer, data: { gain } }],
+          onTrackSelection,
+        }),
+      { initialProps: { gain: 1 } }
+    );
+    expect(renderer.setTrackInstances.mock.calls[0][0]).toMatchObject([
+      { id: 'signal', type: 'quantitative' },
+      { id: 'read-A', type: 'chromatogram' },
+    ]);
+    rerender({ gain: 8 });
+    expect(renderer.setTrackData).toHaveBeenLastCalledWith('read-A', { gain: 8 });
+    expect(renderer.setTrackInstances).toHaveBeenCalledTimes(1);
+    expect(renderer.setChromosome).toHaveBeenCalledTimes(1);
+    renderer.setTrackHitHandler.mock.calls[0][0]({
+      kind: 'select-bp-range',
+      startBp: 10,
+      endBp: 12,
+      trackId: track.id,
+    });
+    expect(onTrackSelection).toHaveBeenCalledWith(10, 11, track.id);
   });
 
   it('makes read bodies 20% taller while preserving the one-pixel row gap', () => {

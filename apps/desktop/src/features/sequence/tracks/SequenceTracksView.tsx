@@ -5,7 +5,7 @@ import {
   type SequenceExtraLane,
   type SequenceViewer1DProps,
 } from '@waypoint/workspace-editor';
-import type { TraceData } from '../../trace/public';
+import { getTraceData } from '../../trace/public';
 import { computeGcContent } from './gc-content';
 import { gcContentLane } from './lane-plugins';
 import { chromatogramLane } from './chromatogram-lane';
@@ -13,17 +13,9 @@ import { useAttachedReadsStore } from './attached-reads-store';
 import { recordExtraLanes, recordSequence } from './trace-probe';
 import { useResidueLinkOverlays } from '../../structure-drawer/public/hooks/useResidueLinkOverlays';
 
-const GC_WINDOW = 100;
+export { getTraceData };
 
-export function getTraceData(sequence: AnnotatedSequence): TraceData | null {
-  const meta = sequence.metadata as Record<string, unknown> | undefined;
-  if (!meta) return null;
-  const trace = meta.trace;
-  if (!trace || typeof trace !== 'object') return null;
-  const t = trace as Partial<TraceData>;
-  if (!t.channels || !t.peakPositions || typeof t.maxValue !== 'number') return null;
-  return trace as TraceData;
-}
+const GC_WINDOW = 100;
 
 export function useTracksExtraLanes(sequence: AnnotatedSequence): readonly SequenceExtraLane[] {
   const trace = getTraceData(sequence);

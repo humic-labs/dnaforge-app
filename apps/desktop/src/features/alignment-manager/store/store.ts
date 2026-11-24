@@ -30,7 +30,7 @@ import {
 } from '../utils/alignment-history-persist';
 import { debugLog, debugWarn } from '../../../utils/debug-log';
 import { withAlignmentHistoryAccess } from '../utils/alignment-history-access';
-import { generateId, getDefaultViewMode, prefsKey } from '../utils/helpers';
+import { generateId, resolveSessionViewPreferences, prefsKey } from '../utils/helpers';
 import {
   computePairwiseQueryId,
   computePairwiseSessionSubjectId,
@@ -325,12 +325,13 @@ async function readCurrentSessionAlignmentMaterialization(
   };
 }
 
-async function retainedEvidencePaths(
+export async function retainedEvidencePaths(
   sourcePath: string,
   runId: string
 ): Promise<{
   packageRoot: string;
   referenceReadPath: string;
+  queryHashes: ReadonlyMap<string, string>;
   queryPaths: ReadonlyMap<string, string>;
 }> {
   const packageRoot = await findSequencePackageRootForReference(sourcePath);
@@ -343,6 +344,7 @@ async function retainedEvidencePaths(
   return {
     packageRoot,
     referenceReadPath: fromPackageRelative(run.reference.artifact.path, packageRoot),
+    queryHashes: new Map(run.queries.map((query) => [query.id, query.artifact.sha256])),
     queryPaths: new Map(
       run.queries.map((query) => [query.id, fromPackageRelative(query.artifact.path, packageRoot)])
     ),
@@ -1320,12 +1322,15 @@ export const useVerificationStore = create<VerificationStore>()(
               const querySequence = queryInReferenceCoordinates(
                 alignmentResult.aligned_reference,
                 alignmentResult.aligned_query,
-                referenceSequence
+                referenceSequence,
+                alignmentResult.circular_offset
               );
               const apiMutations = alignmentResult.mutations ?? [];
               const coverage = calculateCoverage(
                 alignmentResult.aligned_reference,
-                alignmentResult.aligned_query
+                alignmentResult.aligned_query,
+                alignmentResult.circular_offset,
+                referenceSequence.length
               );
               const structuralAnalysis = alignmentResult.analysis
                 ? convertStructuralAnalysis(alignmentResult.analysis)
@@ -1349,6 +1354,8 @@ export const useVerificationStore = create<VerificationStore>()(
                 ...(query.queryFingerprint ? { queryFingerprint: query.queryFingerprint } : {}),
                 alignment: {
                   alignedReference: alignmentResult.aligned_reference,
+                  referenceOffset: alignmentResult.circular_offset,
+                  referenceLength: referenceSequence.length,
                   alignedQuery: alignmentResult.aligned_query,
                   identity: alignmentResult.identity,
                   coverageStart: coverage.start,
@@ -1363,7 +1370,8 @@ export const useVerificationStore = create<VerificationStore>()(
                   structuralAnalysis?.overallAssessment,
                   getAlignmentEvidence(
                     alignmentResult.aligned_reference,
-                    alignmentResult.aligned_query
+                    alignmentResult.aligned_query,
+                    referenceSequence.length
                   ).complete
                 ),
                 alignedAt,
@@ -1730,7 +1738,8 @@ export const useVerificationStore = create<VerificationStore>()(
               const querySeq = queryInReferenceCoordinates(
                 track.alignment.alignedReference,
                 track.alignment.alignedQuery,
-                referenceBases
+                referenceBases,
+                track.alignment.referenceOffset
               );
 
               const enrichedMutations = track.mutations.map((mutation) => {
@@ -2054,14 +2063,16 @@ export const useVerificationStore = create<VerificationStore>()(
           const key = prefsKey(documentId, sessionId);
 
           set((state) => {
-            const existing = state.sessionViewPreferences[key];
+            const session = state.verificationState[documentId]?.sessions.find(
+              (entry) => entry.id === sessionId
+            );
             return {
               sessionViewPreferences: {
                 ...state.sessionViewPreferences,
-                [key]: {
-                  ...existing,
+                [key]: resolveSessionViewPreferences(session, {
+                  ...state.sessionViewPreferences[key],
                   ...prefs,
-                } as SessionViewPreferences,
+                }),
               },
             };
           });
@@ -2085,19 +2096,7 @@ export const useVerificationStore = create<VerificationStore>()(
           const session = refState.sessions.find((s) => s.id === sessionId);
           if (!session) return undefined;
 
-          const defaultPrefs: SessionViewPreferences = {
-            viewMode: getDefaultViewMode(session),
-            selectedTrackId: null,
-          };
-
-          if (explicit) {
-            return {
-              viewMode: explicit.viewMode ?? defaultPrefs.viewMode,
-              selectedTrackId: explicit.selectedTrackId ?? defaultPrefs.selectedTrackId,
-            };
-          }
-
-          return defaultPrefs;
+          return resolveSessionViewPreferences(session, explicit);
         },
 
         getAggregatedMutations: (documentId: string, sessionId: string): AggregatedMutation[] => {
@@ -2228,7 +2227,7 @@ export const useVerificationStore = create<VerificationStore>()(
         toggleAlignmentVisibility: (documentId: string, sessionId: string): void => {
           const key = prefsKey(documentId, sessionId);
           set((state) => {
-            const existing = state.sessionViewPreferences[key];
+            const existing = state.getSessionViewPreferences(documentId, sessionId);
             const current = existing?.alignmentVisible !== false;
             return {
               sessionViewPreferences: {
@@ -2247,7 +2246,7 @@ export const useVerificationStore = create<VerificationStore>()(
         toggleTrackVisibility: (documentId: string, sessionId: string, trackId: string): void => {
           const key = prefsKey(documentId, sessionId);
           set((state) => {
-            const existing = state.sessionViewPreferences[key];
+            const existing = state.getSessionViewPreferences(documentId, sessionId);
             const hiddenIds = existing?.hiddenTrackIds ?? [];
             const isHidden = hiddenIds.includes(trackId);
             return {

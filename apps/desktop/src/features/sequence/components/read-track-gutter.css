@@ -1,0 +1,18 @@
+.read-track-gutter {
+  max-width: 40%;
+  container: read-track-gutter / inline-size;
+}
+
+@container read-track-gutter (max-width: 9rem) {
+  .read-track-parameter-label {
+    display: none;
+  }
+
+  [data-track-gutter-row] {
+    padding-inline: 0.25rem;
+  }
+
+  [data-track-group] {
+    padding-inline-start: 0.5rem;
+  }
+}

@@ -22,6 +22,7 @@ export type TrackDrawPolicy =
   | 'transcript-stack'
   | 'peak-stack'
   | 'repeat-stack'
+  | 'chromatogram'
   | 'histogram'
   | 'read-pileup'
   | 'variant-marker'
@@ -35,6 +36,7 @@ export type TrackDataShape =
   | 'peaks'
   | 'repeats'
   | 'reads'
+  | 'chromatogram'
   | 'quantitative-bins'
   | 'variants'
   | 'interactions';
@@ -96,7 +98,27 @@ export interface TrackPresentationControls {
   colorOverride?: boolean;
 }
 
+export interface TrackRangeControl {
+  readonly key: string;
+  readonly label: string;
+  readonly min: number;
+  readonly max: number;
+  readonly defaultValue: number;
+  readonly scale: 'linear' | 'log2';
+  readonly step: number;
+  readonly unit: string;
+}
+
+export interface TrackSettingsDefinition {
+  readonly version: number;
+  readonly controls: readonly TrackRangeControl[];
+  readonly migrations?: Readonly<
+    Record<number, (values: Readonly<Record<string, unknown>>) => Readonly<Record<string, unknown>>>
+  >;
+}
+
 export interface TrackTypeDefinition {
+  settings?: TrackSettingsDefinition;
   type: TrackType;
   family: TrackFamily;
   draw: TrackDrawPolicy;

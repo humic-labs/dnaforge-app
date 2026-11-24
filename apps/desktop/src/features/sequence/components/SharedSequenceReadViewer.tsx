@@ -28,7 +28,7 @@ import {
 import type { ComponentProps, PointerEvent as ReactPointerEvent } from 'react';
 import type { ResolvedDataColor } from '@waypoint/platform';
 import type { CoordinateSpace, AnnotationStateIdentity } from '@waypoint/workspace-editor';
-import type { AnnotatedSequence, Annotation } from '@waypoint/sequence-utils';
+import type { AnnotatedSequence, Annotation, SearchMatch } from '@waypoint/sequence-utils';
 import {
   CDS_MUTATION_MARKUP,
   sequenceEditMarkupStyle,
@@ -36,18 +36,18 @@ import {
 import type { ParsedPlasmid } from '@waypoint/plasmid-viewer';
 import { convertPlasmid } from '@waypoint/plasmid-viewer';
 import {
-  PixiSequenceReadTrackRenderer,
-  SEQUENCE_READ_TRACK_TYPE,
-  type Track,
   type AnnotationChangeDecoration,
   type LinearSequencePresentation,
 } from '@waypoint/genome-renderer';
+import { Button } from '../../../components/ui';
 import { useDarkMode } from '../../../shared/context/DarkModeContext';
 import { useAttachedReadsStore } from '../tracks/attached-reads-store';
-import { getTraceData } from '../tracks/SequenceTracksView';
+import { getTraceData } from '../../trace/public';
+import type { SequenceViewProjection } from '../view-state/sequence-view-projection';
 import {
   buildSharedSequenceReadScene,
   type SharedAlignmentLane,
+  type SharedSequenceReadLane,
   type SharedSequenceReadScene,
 } from './shared-sequence-read-model';
 import {
@@ -66,9 +66,23 @@ import {
 import { alignmentColumnChanges, annotationDnaData } from './alignment-annotation-data';
 import { annotationDnaColors, comparisonChangeColor } from './sequence-comparison-colors';
 import { ComparisonColorControls } from './ComparisonColorControls';
+import { useIndexedLaneContractTracks } from './useIndexedLaneContractTracks';
+import { ReadTrackGutter } from './ReadTrackGutter';
+import { deriveAnnotationTrackRegistry } from '../annotation-track-registry';
+import { createGroupHeaderBindings } from './track-group-bands';
+import {
+  createReadTrackBindingFactory,
+  editReadTrackLayout,
+  resolveReadTrackLayout,
+  type ReadTrackLayout,
+  type ReadTrackCommand,
+} from './read-track-presentation';
 import { SequenceComparisonKey } from './SequenceComparisonKey';
 import type { SequenceComparisonInput } from './sequence-comparison-input';
 import {
+  biologicalViewportForColumns,
+  readSelectionForColumns,
+  searchColumnRanges,
   primaryBiologicalSelectionForColumns,
   primaryColumnSelectionForBiological,
 } from './shared-sequence-read-selection';
@@ -83,10 +97,16 @@ import type { SangerReadViewportKind } from '../../../shared/sanger-read-telemet
 interface SharedSequenceReadViewerProps {
   readonly sequence: AnnotatedSequence;
   readonly plasmid: ParsedPlasmid;
+  readonly viewProjection?: SequenceViewProjection;
+  readonly rawPeakPositions?: readonly number[];
   readonly coordinateSpace?: CoordinateSpace;
   readonly alignmentLanes?: ReadonlyArray<SharedAlignmentLane>;
   readonly comparison?: SequenceComparisonInput;
+  readonly searchMatches?: readonly SearchMatch[];
   readonly comparisonDataColors?: readonly ResolvedDataColor<SequenceComparisonColorTarget>[];
+  readonly sangerGains?: Readonly<Record<string, number>>;
+  readonly readTrackLayout?: ReadTrackLayout;
+  readonly onReadTrackLayoutChange: (layout: ReadTrackLayout) => void;
   readonly trackOwnerId?: string;
   readonly changedAnnotationNames?: ReadonlySet<string>;
   readonly hideReverseComplement?: boolean;
@@ -129,6 +149,8 @@ function sceneFor(
   plasmid: ParsedPlasmid,
   coordinateSpace: CoordinateSpace | undefined,
   alignmentLanes: ReadonlyArray<SharedAlignmentLane> | undefined,
+  viewProjection: SequenceViewProjection | undefined,
+  rawPeakPositions: readonly number[] | undefined,
   attachedReads: ReturnType<typeof useAttachedReadsStore.getState>['attachedBySequenceId'][string]
 ): { scene: SharedSequenceReadScene; error: null } | { scene: null; error: string } {
   try {
@@ -136,11 +158,22 @@ function sceneFor(
     return {
       scene: buildSharedSequenceReadScene({
         genome: convertPlasmid(plasmid),
+        viewProjection,
         documentId: sequence.id,
         coordinateSpace,
         alignmentLanes,
         directRead: directTrace
-          ? { trace: directTrace, sequence: sequence.sequence, quality: sequence.quality }
+          ? {
+              trace: directTrace,
+              sequence: sequence.sequence,
+              quality: sequence.quality,
+              sourcePeakPositions:
+                rawPeakPositions && viewProjection && !viewProjection.isIdentity
+                  ? directTrace.peakPositions.map(
+                      (_, i) => rawPeakPositions[viewProjection.viewIndexToSource(i)]
+                    )
+                  : rawPeakPositions,
+            }
           : undefined,
         attachedReads,
       }),
@@ -154,10 +187,15 @@ function sceneFor(
 export function SharedSequenceReadViewer({
   sequence,
   plasmid,
+  rawPeakPositions,
+  viewProjection,
   coordinateSpace,
   alignmentLanes,
   comparison,
   comparisonDataColors,
+  sangerGains,
+  readTrackLayout,
+  onReadTrackLayoutChange,
   changedAnnotationNames,
   hideReverseComplement,
   selectedAnnotation,
@@ -167,7 +205,8 @@ export function SharedSequenceReadViewer({
   onSelectionSourceChange,
   onComparisonContextMenu,
   onSequenceContextMenu,
-  columnNavigation,
+  columnNavigation: inputNavigation,
+  searchMatches,
   selection,
   onSelectionChange,
   onViewportChange,
@@ -200,24 +239,22 @@ export function SharedSequenceReadViewer({
   } = useMemo(() => {
     if (!comparison) {
       return {
-        ...sceneFor(sequence, plasmid, coordinateSpace, alignmentLanes, attachedReads),
+        ...sceneFor(
+          sequence,
+          plasmid,
+          coordinateSpace,
+          alignmentLanes,
+          viewProjection,
+          rawPeakPositions,
+          attachedReads
+        ),
         nativeComparison: null,
       };
     }
     try {
       const nativeComparison = buildNativeSequenceComparisonScene(comparison);
-      const sourceAxis = nativeComparison.beforeAxis;
       return {
-        scene: {
-          ...nativeComparison.scene,
-          genome: {
-            ...nativeComparison.scene.genome,
-            formatRulerLabel: (column: number) => {
-              const base = sourceAxis.columnToBio(column);
-              return base === null ? null : String(comparison.referenceOrigin + base + 1);
-            },
-          },
-        },
+        scene: nativeComparison.scene,
         nativeComparison,
         error: null,
       };
@@ -228,7 +265,16 @@ export function SharedSequenceReadViewer({
         error: toUserMessage(error, 'sequence.failed'),
       };
     }
-  }, [sequence, plasmid, coordinateSpace, alignmentLanes, attachedReads, comparison]);
+  }, [
+    sequence,
+    plasmid,
+    coordinateSpace,
+    alignmentLanes,
+    viewProjection,
+    rawPeakPositions,
+    attachedReads,
+    comparison,
+  ]);
   const nativeComparison = useMemo(() => {
     if (!baseComparison) return null;
     const defaults = remapNativeSequenceComparisonColors(baseComparison, comparisonColors);
@@ -248,7 +294,7 @@ export function SharedSequenceReadViewer({
     )
       return null;
     const reference = sourceScene.genome.sequence!;
-    const query = coordinateSpace.alignedQuery!;
+    const query = (sourceScene.coordinateSpace ?? coordinateSpace).alignedQuery!;
     const records = (sourceScene.genome.features ?? []).map((feature) => ({
       featureId: feature.id,
       ...annotationDnaData(feature, reference, query),
@@ -301,7 +347,11 @@ export function SharedSequenceReadViewer({
       return { ...inherited, genome: { ...comparison.after, features: inherited.genome.features } };
     }
     if (!comparison && coordinateSpace?.mode === 'gapped') {
-      return buildAlignmentCodingProjection(biologicalGenome, coordinateSpace, sourceScene.axis);
+      return buildAlignmentCodingProjection(
+        biologicalGenome,
+        sourceScene.coordinateSpace ?? coordinateSpace,
+        sourceScene.axis
+      );
     }
     return { genome: biologicalGenome, axis: sourceScene.axis };
   }, [sourceScene, comparison, baseComparison, coordinateSpace, biologicalGenome]);
@@ -328,17 +378,78 @@ export function SharedSequenceReadViewer({
     [sourceScene, cdsModel, cdsLayout]
   );
   const scene = cdsPresentation?.scene ?? sourceScene;
+  const hiddenAnnotationTypes = readTrackLayout?.reference?.hiddenAnnotationTypes ?? EMPTY_READS;
+  const annotationTrackRegistry = useMemo(
+    () =>
+      deriveAnnotationTrackRegistry(
+        (scene?.genome.features ?? []).map((feature) => feature.annotationTrackId ?? feature.type)
+      ),
+    [scene?.genome.features]
+  );
+  const visibleAnnotationTypes = useMemo(
+    () =>
+      new Set(
+        annotationTrackRegistry
+          .map((track) => track.trackId)
+          .filter((type) => !hiddenAnnotationTypes.includes(type))
+      ),
+    [annotationTrackRegistry, hiddenAnnotationTypes]
+  );
+  const rendererGenome = useMemo(() => {
+    if (!scene) return null;
+    const axis =
+      baseComparison?.beforeAxis ?? (scene.coordinateSpace?.mode === 'gapped' ? scene.axis : null);
+    const genome =
+      hiddenAnnotationTypes.length && scene.genome.features?.length
+        ? {
+            ...scene.genome,
+            features: scene.genome.features.filter((f) =>
+              visibleAnnotationTypes.has(f.annotationTrackId ?? f.type)
+            ),
+          }
+        : scene.genome;
+    if (!axis) return genome;
+    const origin = comparison?.referenceOrigin ?? 0;
+    return {
+      ...genome,
+      formatRulerLabel: (column: number) => {
+        const base = axis.columnToBio(column);
+        return base === null ? null : String(origin + base + 1);
+      },
+    };
+  }, [
+    scene,
+    baseComparison,
+    comparison?.referenceOrigin,
+    hiddenAnnotationTypes,
+    visibleAnnotationTypes,
+  ]);
+  const columnNavigation = useMemo(() => {
+    const project = sourceScene?.inputColumnToDisplayColumn;
+    if (!inputNavigation || !project) return inputNavigation;
+    const range = inputNavigation.selection;
+    return {
+      ...inputNavigation,
+      column: project(inputNavigation.column),
+      selection: range ? { start: project(range.start), end: project(range.end) } : undefined,
+    };
+  }, [sourceScene, inputNavigation]);
+  const projectedSearch = useMemo(() => {
+    const axis = baseComparison?.afterAxis ?? sourceScene?.axis;
+    return axis && searchMatches?.length ? searchColumnRanges(axis, searchMatches) : undefined;
+  }, [baseComparison, sourceScene, searchMatches]);
   const sequencePresentation = useMemo((): LinearSequencePresentation | undefined => {
     if (!scene || !codingProjection) return undefined;
     const alignedQuery =
       comparison?.oldGapped ??
       (coordinateSpace?.mode === 'gapped' && (alignmentLanes?.length ?? 1) <= 1
-        ? coordinateSpace.alignedQuery
+        ? (sourceScene?.coordinateSpace ?? coordinateSpace).alignedQuery
         : undefined);
     return {
       minSequencePixelsPerBp: (DEFAULT_EDITOR_CONFIG.charWidth * MIN_ZOOM) / 100,
       maxSequencePixelsPerBp: (DEFAULT_EDITOR_CONFIG.charWidth * MAX_ZOOM) / 100,
       cdsSizing: 'canvas',
+      searchRanges: projectedSearch,
       aminoAcidColorScheme: aaColorScheme ?? 'rasmol',
       showTranslation,
       cdsComparisonLayout: cdsPresentation ? cdsLayout : undefined,
@@ -371,6 +482,8 @@ export function SharedSequenceReadViewer({
     };
   }, [
     scene,
+    sourceScene,
+    projectedSearch,
     comparison,
     nativeComparison,
     baseComparison,
@@ -603,17 +716,62 @@ export function SharedSequenceReadViewer({
     ]
   );
 
+  const [pickedRead, setPickedRead] = useState<{
+    scene: SharedSequenceReadScene;
+    lane: SharedSequenceReadLane;
+    columns: { start: number; end: number };
+    navigationId: number | undefined;
+    reference: { start: number; end: number } | null;
+    call: NonNullable<ReturnType<typeof readSelectionForColumns>>;
+  } | null>(null);
+  const [copyError, setCopyError] = useState(false);
+  const queryRowRef = useRef<SharedAlignmentLane | undefined>(undefined);
+  const activePick =
+    pickedRead &&
+    pickedRead.scene === scene &&
+    pickedRead.navigationId === columnNavigation?.requestId &&
+    pickedRead.reference?.start === selection?.start &&
+    pickedRead.reference?.end === selection?.end
+      ? pickedRead
+      : null;
+
+  function copyPickedBases() {
+    if (!activePick) return;
+    void navigator.clipboard.writeText(activePick.call.bases).then(
+      () => setCopyError(false),
+      () => setCopyError(true)
+    );
+  }
   const commitColumns = useCallback(
-    (range: { start: number; end: number } | null) => {
+    (range: { start: number; end: number } | null, lane?: SharedSequenceReadLane) => {
       const axis = nativeComparison
         ? nativeComparison[selectionSourceRef.current === 'before' ? 'beforeAxis' : 'afterAxis']
         : scene?.axis;
-      onSelectionChange(range && axis ? primaryBiologicalSelectionForColumns(axis, range) : null);
+      const reference = range && axis ? primaryBiologicalSelectionForColumns(axis, range) : null;
+      const call = lane && range ? readSelectionForColumns(lane, range) : null;
+      setCopyError(false);
+      setPickedRead(
+        scene && lane && range && call
+          ? {
+              scene,
+              lane,
+              columns: range,
+              reference,
+              navigationId: columnNavigation?.requestId,
+              call,
+            }
+          : null
+      );
+      onSelectionChange(reference);
     },
-    [nativeComparison, scene, onSelectionChange]
+    [nativeComparison, scene, onSelectionChange, columnNavigation?.requestId]
   );
   const wrapperRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<IndexedGenomeTileNativeMapHandle>(null);
+  const sangerLanes = useMemo(
+    () => scene?.lanes.filter((lane) => lane.kind === 'sanger') ?? [],
+    [scene]
+  );
   const sangerReadBinding = useSyncExternalStore(
     useCallback(
       (listener: () => void) => subscribeToSangerReadBinding(sequence, listener),
@@ -693,45 +851,89 @@ export function SharedSequenceReadViewer({
     return () => observer.disconnect();
   }, []);
 
+  const nativeQueryRow = Boolean(sequencePresentation?.alignedQuery);
+  const sequenceChromosome = useMemo(
+    () =>
+      scene && {
+        id: sequence.id,
+        displayName: scene.genome.name,
+        length: scene.axis.length,
+        cytobands: [],
+      },
+    [sequence.id, scene?.genome.name, scene?.axis.length]
+  );
+  const trackLanes = useMemo(
+    () =>
+      (scene?.lanes ?? EMPTY_READS).filter(
+        (lane) => lane.kind !== 'alignment' || (!nativeQueryRow && !lane.sanger)
+      ),
+    [scene, nativeQueryRow]
+  );
+  const storedLayout = useMemo(
+    () => resolveReadTrackLayout(trackLanes, readTrackLayout, sangerGains),
+    [trackLanes, readTrackLayout, sangerGains]
+  );
+  const [preview, setPreview] = useState<{
+    base: ReadTrackLayout;
+    command: ReadTrackCommand;
+  } | null>(null);
+  const layout = useMemo(
+    () =>
+      preview?.base === storedLayout
+        ? editReadTrackLayout(storedLayout, preview.command)
+        : storedLayout,
+    [storedLayout, preview]
+  );
+  const bindReadTracks = useMemo(createReadTrackBindingFactory, []);
+  const readBindings = useMemo(
+    () => bindReadTracks(trackLanes, sequence.id, layout),
+    [bindReadTracks, trackLanes, sequence.id, layout]
+  );
+  const bindGroupHeaders = useMemo(createGroupHeaderBindings, []);
+  const headerBindings = useMemo(
+    () => bindGroupHeaders(layout.rows, sequence.id),
+    [bindGroupHeaders, layout.rows, sequence.id]
+  );
+  const trackBindings = useMemo(
+    () => [...headerBindings, ...readBindings],
+    [headerBindings, readBindings]
+  );
+  const commitTrackCommand = (command: ReadTrackCommand) => {
+    setPreview(null);
+    const next = editReadTrackLayout(storedLayout, command);
+    if (next !== storedLayout) onReadTrackLayoutChange(next);
+  };
+  const setVisibleAnnotationTypes = (types: ReadonlySet<string>) => {
+    const hiddenAnnotationTypes = annotationTrackRegistry
+      .map((track) => track.trackId)
+      .filter((type) => !types.has(type));
+    onReadTrackLayoutChange({
+      ...storedLayout,
+      reference: { ...storedLayout.reference, hiddenAnnotationTypes },
+    });
+  };
+  useIndexedLaneContractTracks({
+    enabled: !!scene,
+    webglRef: mapRef,
+    rendererReadyEpoch: rendererEpoch + genomeEpoch,
+    rendererAssembly: null,
+    manifestChrom: sequence.id,
+    sequenceChromosome: sequenceChromosome ?? undefined,
+    supplementalTracks: trackBindings,
+    onTrackSelection: (start, end, trackId) =>
+      commitColumns(
+        { start, end },
+        scene?.lanes.find((lane) => lane.id === trackId)
+      ),
+  });
+
+  const direct = readBindings.find(
+    (binding) => binding.track.id === `sanger-direct-${sequence.id}`
+  )?.data;
   useLayoutEffect(() => {
-    if (!scene) return;
     const map = mapRef.current;
     const renderer = map?.getLinearRenderer();
     if (!renderer || !map) return;
-    renderer.setChromosome({
-      id: sequence.id,
-      displayName: scene.genome.name,
-      length: scene.axis.length,
-      cytobands: [],
-    });
-    try {
-      renderer.registerTrack(new PixiSequenceReadTrackRenderer());
-    } catch (error) {
-      if (!String(error).includes('already registered')) throw error;
-    }
-    renderer.setTrackHitHandler((hit) => {
-      if (hit.kind !== 'select-bp-range') return;
-      mapRef.current?.setSelection(hit.startBp, hit.endBp - 1);
-      commitColumns({ start: hit.startBp, end: hit.endBp - 1 });
-    });
-    const lanes = scene.lanes.filter(
-      (lane) => !(lane.kind === 'alignment' && sequencePresentation?.alignedQuery)
-    );
-    const instances: Track[] = lanes.map((lane, order) => ({
-      id: lane.id,
-      type: SEQUENCE_READ_TRACK_TYPE,
-      order,
-      visible: true,
-      assemblyId: sequence.id,
-      label: lane.label,
-      zone: 'below-legacy',
-      sizing: { kind: 'fixed', pixels: lane.kind === 'sanger' ? 138 : 42 },
-    }));
-    renderer.setTrackInstances(instances);
-    for (const lane of lanes) renderer.setTrackData(lane.id, lane);
-    const direct = lanes.find(
-      (lane) => lane.kind === 'sanger' && lane.id === `sanger-direct-${sequence.id}`
-    );
     const paint =
       direct?.kind === 'sanger'
         ? () => renderer.getSequenceReadPaintReceipt(direct.id, direct)
@@ -752,16 +954,7 @@ export function SharedSequenceReadViewer({
       unsubscribe?.();
       if (sangerPaintRef.current === paint) sangerPaintRef.current = null;
     };
-  }, [
-    scene,
-    sequence.id,
-    rendererEpoch,
-    genomeEpoch,
-    commitColumns,
-    sequencePresentation,
-    sequence,
-    sangerReadBinding,
-  ]);
+  }, [direct, rendererEpoch, genomeEpoch, sequence, sangerReadBinding]);
 
   useLayoutEffect(() => {
     if (!scene || genomeEpoch === 0 || size.width <= 1 || size.height <= 1) return;
@@ -875,10 +1068,18 @@ export function SharedSequenceReadViewer({
       : undefined;
   useLayoutEffect(() => {
     const columns =
+      activePick?.columns ??
       exactColumnSelection ??
       (selectionAxis ? primaryColumnSelectionForBiological(selectionAxis, selection) : null);
     mapRef.current?.setSelection(columns?.start ?? null, columns?.end ?? null);
-  }, [selectionAxis, selection?.start, selection?.end, exactColumnSelection, genomeEpoch]);
+  }, [
+    selectionAxis,
+    selection?.start,
+    selection?.end,
+    activePick,
+    exactColumnSelection,
+    genomeEpoch,
+  ]);
 
   useLayoutEffect(() => {
     if (!columnNavigation) return;
@@ -920,7 +1121,32 @@ export function SharedSequenceReadViewer({
           ? undefined
           : scene.genome.features?.find((feature) => feature.id === featureId);
       const top = wrapperRef.current?.getBoundingClientRect().top ?? 0;
-      const row = mapRef.current?.getLinearRenderer()?.getSequenceRowAt(event.clientY - top);
+      const y = event.clientY - top;
+      const renderer = mapRef.current?.getLinearRenderer();
+      const row = renderer?.getSequenceRowAt(y);
+      if (!nativeComparison && !feature && context.position != null) {
+        const bounds = renderer?.getLaneScreenSnapshot().trackScreenBounds;
+        const lane =
+          scene.lanes.find((candidate) => {
+            const area = bounds?.[candidate.id];
+            return area && y >= area.topPx && y < area.bottomPx;
+          }) ??
+          (row === 'secondary' && sequencePresentation?.alignedQuery
+            ? scene.lanes.find((candidate) => candidate.kind === 'alignment')
+            : undefined);
+        if (lane) {
+          event.preventDefault();
+          const range =
+            activePick?.lane.id === lane.id &&
+            activePick.columns.start <= context.position &&
+            activePick.columns.end >= context.position
+              ? activePick.columns
+              : { start: context.position, end: context.position };
+          mapRef.current?.setSelection(range.start, range.end);
+          commitColumns(range, lane);
+          return;
+        }
+      }
       const source =
         (feature && nativeComparison?.annotationData.get(feature.id)?.source) ??
         (row === 'secondary' && nativeComparison ? 'before' : 'after');
@@ -964,6 +1190,9 @@ export function SharedSequenceReadViewer({
     },
     [
       scene,
+      activePick,
+      sequencePresentation,
+      commitColumns,
       nativeComparison,
       comparison,
       onComparisonContextMenu,
@@ -1006,11 +1235,15 @@ export function SharedSequenceReadViewer({
           onZoomChange(actualPercent);
         }
       }
-      onViewportChange({
-        start: Math.max(0, Math.floor(viewportRange.start)),
-        end: Math.min(scene.axis.length - 1, Math.max(0, Math.ceil(viewportRange.end) - 1)),
-        centerColumn: Math.max(0, Math.min(scene.axis.length - 1, Math.round(centerBp))),
-      });
+      const biologicalViewport = biologicalViewportForColumns(
+        scene.axis,
+        {
+          start: Math.max(0, Math.floor(viewportRange.start)),
+          end: Math.min(scene.axis.length - 1, Math.max(0, Math.ceil(viewportRange.end) - 1)),
+        },
+        centerBp
+      );
+      if (biologicalViewport) onViewportChange(biologicalViewport);
     },
     [
       scene,
@@ -1033,7 +1266,23 @@ export function SharedSequenceReadViewer({
       data-comparison-native={comparison ? 'true' : undefined}
       data-comparison-source={selectionSource}
       data-native-annotation-change-count={annotationChangeDecorations.size}
-      onKeyDownCapture={dismissColumnSelection}
+      onKeyDownCapture={(event) => {
+        if (
+          activePick &&
+          (event.metaKey || event.ctrlKey) &&
+          event.key.toLowerCase() === 'c' &&
+          wrapperRef.current?.contains(event.target as Node)
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          copyPickedBases();
+          return;
+        }
+        if (
+          !(event.target instanceof Element && event.target.closest('[data-testid="track-gutter"]'))
+        )
+          dismissColumnSelection();
+      }}
       className="flex h-full w-full flex-col overflow-hidden"
     >
       {cdsPresentation && (
@@ -1097,58 +1346,119 @@ export function SharedSequenceReadViewer({
           </span>
         </div>
       )}
-      <div
-        ref={wrapperRef}
-        onPointerDownCapture={(event) => {
-          dismissColumnSelection();
-          if (!comparison) return;
-          const source = sourceForPointer(event);
-          const changedSource = source !== selectionSourceRef.current;
-          const columns = mapRef.current?.getSelection();
-          selectionSourceRef.current = source;
-          onSelectionSourceChange?.(source);
-          if (changedSource && event.button === 0) {
-            mapRef.current?.setSelection(null, null);
-            clearNativeSelection();
-          } else if (changedSource && columns) {
-            commitColumns({ start: columns[0], end: columns[1] });
-          }
-        }}
-        className="relative min-h-0 w-full flex-1 overflow-hidden"
-      >
-        {scene ? (
-          <IndexedGenomeTileNativeMap
-            ref={mapRef}
-            genome={scene.genome}
-            annotationChangeDecorations={annotationChangeDecorations}
-            sequencePresentation={sequencePresentation}
-            showResidueNumbers={showResidueNumbers}
-            hoveredCodon={externalHoveredCodon}
-            selectedCodons={externalSelectedCodons}
-            onCodonHover={handleCodonHover}
-            themeMode={darkMode ? 'dark' : 'light'}
-            width={size.width}
-            height={size.height}
-            selectedAnnotation={nativeSelectedAnnotation}
-            onSelectedAnnotationChange={commitNativeAnnotation}
-            onSelectionClear={clearNativeSelection}
-            onContextMenu={handleNativeContextMenu}
-            onSelectionChange={(start, end) => commitColumns({ start, end })}
-            onCameraChange={handleCameraChange}
-            onRendererReady={setRendererEpoch}
-            onRendererGenomeCommit={setGenomeEpoch}
-            style={{ width: '100%', height: '100%' }}
+      <div className="flex min-h-0 flex-1">
+        {scene && !comparison && (
+          <ReadTrackGutter
+            mapRef={mapRef}
+            rendererEpoch={rendererEpoch + genomeEpoch}
+            referenceLabel={scene.genome.name}
+            bindings={readBindings}
+            layout={layout}
+            onCommand={commitTrackCommand}
+            onPreviewCommand={(command) =>
+              setPreview(command ? { base: storedLayout, command } : null)
+            }
+            annotationTrackRegistry={annotationTrackRegistry}
+            visibleTypes={visibleAnnotationTypes}
+            onSetVisibleTypes={setVisibleAnnotationTypes}
+            onToggleVisibleType={(type) => {
+              const next = new Set(visibleAnnotationTypes);
+              if (next.has(type)) next.delete(type);
+              else next.add(type);
+              setVisibleAnnotationTypes(next);
+            }}
           />
-        ) : (
-          <div
-            role="alert"
-            data-testid="shared-sequence-read-error"
-            className="p-3 text-sm text-danger"
-          >
-            {toUserMessage(error, 'sequence.failed')}
-          </div>
         )}
+        <div
+          ref={wrapperRef}
+          tabIndex={-1}
+          onPointerDownCapture={(event) => {
+            dismissColumnSelection();
+            const source = sourceForPointer(event);
+            if (!comparison) {
+              queryRowRef.current =
+                source === 'before' && sequencePresentation?.alignedQuery
+                  ? scene?.lanes.find(
+                      (lane): lane is SharedAlignmentLane => lane.kind === 'alignment'
+                    )
+                  : undefined;
+              if (event.button === 0) {
+                setPickedRead(null);
+                event.currentTarget.focus({ preventScroll: true });
+              }
+              return;
+            }
+            const changedSource = source !== selectionSourceRef.current;
+            const columns = mapRef.current?.getSelection();
+            selectionSourceRef.current = source;
+            onSelectionSourceChange?.(source);
+            if (changedSource && event.button === 0) {
+              mapRef.current?.setSelection(null, null);
+              clearNativeSelection();
+            } else if (changedSource && columns) {
+              commitColumns({ start: columns[0], end: columns[1] });
+            }
+          }}
+          className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
+        >
+          {rendererGenome ? (
+            <IndexedGenomeTileNativeMap
+              ref={mapRef}
+              genome={rendererGenome}
+              hasQuantitativeTracks={sangerLanes.length > 0}
+              annotationChangeDecorations={annotationChangeDecorations}
+              sequencePresentation={sequencePresentation}
+              showResidueNumbers={showResidueNumbers}
+              hoveredCodon={externalHoveredCodon}
+              selectedCodons={externalSelectedCodons}
+              onCodonHover={handleCodonHover}
+              themeMode={darkMode ? 'dark' : 'light'}
+              width={size.width}
+              height={size.height}
+              selectedAnnotation={nativeSelectedAnnotation}
+              onSelectedAnnotationChange={commitNativeAnnotation}
+              onSelectionClear={() => {
+                setPickedRead(null);
+                clearNativeSelection();
+              }}
+              onContextMenu={handleNativeContextMenu}
+              onSelectionChange={(start, end) => commitColumns({ start, end }, queryRowRef.current)}
+              onCameraChange={handleCameraChange}
+              onRendererReady={setRendererEpoch}
+              onRendererGenomeCommit={setGenomeEpoch}
+              style={{ width: '100%', height: '100%' }}
+            />
+          ) : (
+            <div
+              role="alert"
+              data-testid="shared-sequence-read-error"
+              className="p-3 text-sm text-danger"
+            >
+              {toUserMessage(error, 'sequence.failed')}
+            </div>
+          )}
+        </div>
       </div>
+      {activePick && (
+        <div
+          className="flex shrink-0 items-center gap-3 border-t border-border px-2 py-1 text-xs"
+          aria-live="polite"
+          data-testid="sequence-read-inspection"
+        >
+          <span>
+            {activePick.lane.label} ·{' '}
+            {activePick.call.first === activePick.call.last
+              ? `Base ${activePick.call.first}: ${activePick.call.bases}`
+              : `Bases ${activePick.call.first}–${activePick.call.last}`}
+            {activePick.call.quality == null ? '' : ` · Q${activePick.call.quality}`}
+            {activePick.call.sample == null ? '' : ` · Peak sample ${activePick.call.sample}`}
+          </span>
+          <Button variant="link" onClick={copyPickedBases}>
+            Copy read bases
+          </Button>
+          {copyError && <span role="alert">Could not copy read bases.</span>}
+        </div>
+      )}
       {comparison && nativeComparison && (
         <SequenceComparisonKey
           colorControls={

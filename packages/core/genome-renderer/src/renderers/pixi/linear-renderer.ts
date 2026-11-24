@@ -2879,6 +2879,24 @@ export class PixiLinearRenderer {
 
     this.drawHoveredCodonBackground(state, layout, viewStartBp, bpPerPixel);
 
+    const hits = state.sequencePresentation?.searchRanges;
+    if (hits?.length) {
+      const endBp = viewStartBp + state.width * bpPerPixel;
+      let low = 0;
+      let high = hits.length;
+      while (low < high) {
+        const mid = (low + high) >>> 1;
+        if (hits[mid].end <= viewStartBp) low = mid + 1;
+        else high = mid;
+      }
+      for (let i = low; i < hits.length && hits[i].start < endBp; i++) {
+        const left = Math.max(0, (hits[i].start - viewStartBp) / bpPerPixel);
+        const right = Math.min(state.width, (hits[i].end - viewStartBp) / bpPerPixel);
+        this.selectionGraphics.rect(left, hlTop, Math.max(1, right - left), hlBot - hlTop);
+        this.selectionGraphics.fill({ color: theme.selectionStroke, alpha: 0.18 });
+      }
+    }
+
     if (state.digestFocusRange) {
       for (const segment of digestFocusMaskSegments(state.digestFocusRange, this.genome.length)) {
         const x1 = (segment.start - viewStartBp) / bpPerPixel;

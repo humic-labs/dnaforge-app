@@ -2,7 +2,8 @@ import type { LaneBand, LaneScreenBands } from './lane-screen-bands';
 
 export interface GutterRow {
   id: string;
-  kind: 'cytoband' | 'reference' | 'data';
+  kind: 'cytoband' | 'reference' | 'data' | 'group';
+  groupId?: string;
   label: string;
   visible: boolean;
   removable: boolean;

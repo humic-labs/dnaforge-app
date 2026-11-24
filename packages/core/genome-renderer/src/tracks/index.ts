@@ -13,6 +13,8 @@ export type {
   TrackSizingProfile,
   TrackSource,
   TrackType,
+  TrackRangeControl,
+  TrackSettingsDefinition,
   TrackTypeDefinition,
   TrackTypeRegistry,
 } from './types';
@@ -43,6 +45,7 @@ export {
   PEAK_TYPE,
   PILEUP_TYPE,
   PRIMER_TYPE,
+  CHROMATOGRAM_TYPE,
   QUANTITATIVE_TYPE,
   REPEAT_TYPE,
   SEQUENCE_COMPOSITE_TYPE,
@@ -50,3 +53,5 @@ export {
 } from './builtins';
 
 export { createTrackTypeRegistry, defaultBuiltinRegistry } from './registry';
+
+export { createTrackInstance, resolveTrackSettings, migrateTrackSettings } from './track-instance';

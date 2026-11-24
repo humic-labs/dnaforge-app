@@ -122,6 +122,23 @@ export function TextArea({
   );
 }
 
+export function VerticalRangeField(
+  props: Omit<
+    ComponentPropsWithoutRef<'input'>,
+    'type' | 'style' | 'className' | 'aria-orientation'
+  >
+) {
+  return (
+    <input
+      {...withoutAppearance(props)}
+      type="range"
+      data-ui-control="range"
+      aria-orientation="vertical"
+      className="h-16 w-4 cursor-pointer [direction:rtl] [writing-mode:vertical-lr]"
+    />
+  );
+}
+
 export const Button = forwardRef<
   HTMLButtonElement,
   Omit<ComponentPropsWithoutRef<'button'>, 'className' | 'style'> & {

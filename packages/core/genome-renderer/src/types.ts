@@ -14,6 +14,7 @@ export interface AnnotationChangeDecoration {
 }
 
 export interface LinearSequencePresentation {
+  readonly searchRanges?: readonly { readonly start: number; readonly end: number }[];
   readonly minSequencePixelsPerBp?: number;
   readonly maxSequencePixelsPerBp?: number;
   readonly cdsSizing?: 'canvas' | 'indexed' | 'cohesive';

@@ -16,6 +16,7 @@ export const BUILTIN_TRACK_TYPES = {
   peak: 'peak',
   repeat: 'repeat',
   quantitative: 'quantitative',
+  chromatogram: 'chromatogram',
   pileup: 'pileup',
   variant: 'variant',
 } as const;
@@ -161,6 +162,33 @@ export const QUANTITATIVE_TYPE: TrackTypeDefinition = {
   label: 'Signal',
 };
 
+export const CHROMATOGRAM_TYPE = {
+  type: BUILTIN_TRACK_TYPES.chromatogram,
+  family: 'quantitative',
+  draw: 'chromatogram',
+  dataShape: 'chromatogram',
+  defaultSizing: { kind: 'fixed', pixels: 138 },
+  defaultVisible: true,
+  canShareScaleGroup: false,
+  interactions: { clickSelects: true, contextMenu: true },
+  label: 'Chromatogram',
+  settings: {
+    version: 1,
+    controls: [
+      {
+        key: 'gain',
+        label: 'Trace gain',
+        min: 1,
+        max: 8,
+        defaultValue: 1,
+        scale: 'log2',
+        step: 0.125,
+        unit: '×',
+      },
+    ],
+  },
+} satisfies TrackTypeDefinition;
+
 export const PILEUP_TYPE: TrackTypeDefinition = {
   type: BUILTIN_TRACK_TYPES.pileup,
   family: 'pileup',
@@ -201,6 +229,7 @@ export const BUILTIN_TRACK_TYPE_DEFINITIONS: readonly TrackTypeDefinition[] = [
   PEAK_TYPE,
   REPEAT_TYPE,
   QUANTITATIVE_TYPE,
+  CHROMATOGRAM_TYPE,
   PILEUP_TYPE,
   VARIANT_TYPE,
 ];

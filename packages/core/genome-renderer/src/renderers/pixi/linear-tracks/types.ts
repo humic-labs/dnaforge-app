@@ -80,6 +80,7 @@ export type TrackHitResult =
     }
   | {
       kind: 'select-bp-range';
+      trackId?: string;
       startBp: number;
       endBp: number;
       chromosomeId: string;
