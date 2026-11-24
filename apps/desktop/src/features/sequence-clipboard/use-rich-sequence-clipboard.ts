@@ -10,7 +10,7 @@ import {
   type AnnotatedSequence,
 } from '@waypoint/sequence-utils';
 import type { BoundPrimer } from '../primers/public/types';
-import { useSequenceStore } from '../sequence/store';
+import { useSequenceStore } from '../sequence/public/store';
 import { useToastStore } from '../../stores/toast-store';
 import {
   buildRichSequenceFragmentFromSelection,

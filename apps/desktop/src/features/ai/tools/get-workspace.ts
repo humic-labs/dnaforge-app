@@ -7,7 +7,7 @@ import { useWorkspaceStore, workspaceScopeFromState } from '../../../stores/work
 import type { WorkspaceFolder } from '../../../stores/workspaceStore';
 import type { AgentProjectScope } from '../../../shared/agent-project-scope';
 import { normalizePathForBoundary } from '../../../shared/path-boundary';
-import { projectTabStripTab } from '../../canvas/tab-menu-presentation';
+import { projectTabStripTab } from '../../canvas/public/tab-menu-presentation';
 
 export const GET_WORKSPACE_DESCRIPTION =
   'Read authorized registered authoring projects, reference folders, displayed folders, tabs and current caller capabilities. Choose notebook and design destinations from projects; pinned referenceFolders are sources, not authoring destinations. Displayed folders and the current selection do not define project access. ' +
