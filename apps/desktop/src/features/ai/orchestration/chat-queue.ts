@@ -44,8 +44,6 @@ import { runChatTurn } from './run-chat-turn';
 
 import { conversationExecution } from './conversation-execution';
 
-const pendingFirstMessages = new Map<string, Promise<boolean>>();
-
 function takeSubmissionEffects(conversationId: string, messageId: string) {
   return conversationExecution(conversationId).takeSubmission(messageId);
 }
@@ -299,8 +297,9 @@ export async function submitChatMessage(
     ...EMPTY_CONV_STATE,
     ...(get()._convStates.get(resolvedConversationId) ?? {}),
   };
+  const owner = conversationExecution(resolvedConversationId);
   const wasAlreadyQueuedOrRunning =
-    conversationExecution(resolvedConversationId).isDraining ||
+    owner.isDraining ||
     isChatSendClaimed(resolvedConversationId) ||
     previous.isLoading ||
     previous.queuedMessages.length > 0;
@@ -324,7 +323,7 @@ export async function submitChatMessage(
   };
   if (wasAlreadyQueuedOrRunning && isDesktopRuntime()) {
     try {
-      const firstMessage = pendingFirstMessages.get(resolvedConversationId);
+      const firstMessage = owner.pendingFirstMessage;
       if (firstMessage && !get().conversations.some((row) => row.id === resolvedConversationId)) {
         if (!(await firstMessage)) throw new Error('The conversation could not be saved.');
       }
@@ -338,7 +337,7 @@ export async function submitChatMessage(
     }
     if (isChatConversationDeleted(resolvedConversationId)) return 'rejected';
   }
-  conversationExecution(resolvedConversationId).submitted(item.id, {
+  owner.submitted(item.id, {
     onStarted: options?.onStarted,
     onNotStarted: options?.onNotStarted,
   });
@@ -348,7 +347,7 @@ export async function submitChatMessage(
   }));
 
   if (
-    conversationExecution(resolvedConversationId).isDraining ||
+    owner.isDraining ||
     isChatSendClaimed(resolvedConversationId) ||
     get()._convStates.get(resolvedConversationId)?.isLoading
   ) {
@@ -360,17 +359,7 @@ export async function submitChatMessage(
     return Promise.resolve('accepted');
   }
 
-  let settleFirst!: (accepted: boolean) => void;
-  const firstMessage = new Promise<boolean>((resolve) => {
-    settleFirst = resolve;
-  });
-  pendingFirstMessages.set(resolvedConversationId, firstMessage);
-  const releaseFirst = (accepted: boolean) => {
-    if (pendingFirstMessages.get(resolvedConversationId) === firstMessage) {
-      pendingFirstMessages.delete(resolvedConversationId);
-    }
-    settleFirst(accepted);
-  };
+  const releaseFirst = owner.beginFirstMessage();
   return new Promise<'accepted' | 'rejected'>((resolve) => {
     void drainConversationQueue(
       set,

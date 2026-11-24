@@ -28,6 +28,8 @@ export class ConversationExecution {
   private drain: symbol | null = null;
   private advanceTarget: string | null = null;
   private submissions = new Map<string, SubmissionEffects>();
+  private firstMessage: { saved: Promise<boolean>; settle: (accepted: boolean) => void } | null =
+    null;
   private deleted = false;
 
   get isDeleted(): boolean {
@@ -132,6 +134,23 @@ export class ConversationExecution {
     };
   }
 
+  get pendingFirstMessage(): Promise<boolean> | undefined {
+    return this.firstMessage?.saved;
+  }
+
+  beginFirstMessage(): (accepted: boolean) => void {
+    let settle!: (accepted: boolean) => void;
+    const saved = new Promise<boolean>((resolve) => {
+      settle = resolve;
+    });
+    const first = { saved, settle };
+    this.firstMessage = first;
+    return (accepted) => {
+      if (this.firstMessage === first) this.firstMessage = null;
+      settle(accepted);
+    };
+  }
+
   requestAdvance(messageId: string): void {
     this.advanceTarget = messageId;
   }
@@ -150,6 +169,8 @@ export class ConversationExecution {
   }
 
   disposeQueue(): void {
+    this.firstMessage?.settle(false);
+    this.firstMessage = null;
     this.submissions.clear();
     this.advanceTarget = null;
   }

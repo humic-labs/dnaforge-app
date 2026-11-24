@@ -77,6 +77,33 @@ describe('conversation execution authority', () => {
     expect(first.isDraining).toBe(true);
   });
 
+  it('settles first-message waiters only for their own conversation and submission', async () => {
+    const owner = new ConversationExecution();
+    const other = new ConversationExecution();
+    const accepted = owner.beginFirstMessage();
+    const first = owner.pendingFirstMessage;
+    accepted(true);
+    await expect(first).resolves.toBe(true);
+    expect(owner.pendingFirstMessage).toBeUndefined();
+
+    const rejected = owner.beginFirstMessage();
+    const second = owner.pendingFirstMessage;
+    const otherAccepted = other.beginFirstMessage();
+    const otherWaiter = other.pendingFirstMessage;
+    accepted(true);
+    expect(owner.pendingFirstMessage).toBe(second);
+    owner.markDeleted();
+    owner.restoreAfterRejectedDelete();
+    expect(owner.pendingFirstMessage).toBe(second);
+    owner.disposeQueue();
+    rejected(true);
+    await expect(second).resolves.toBe(false);
+    expect(owner.pendingFirstMessage).toBeUndefined();
+    expect(other.pendingFirstMessage).toBe(otherWaiter);
+    otherAccepted(true);
+    await expect(otherWaiter).resolves.toBe(true);
+  });
+
   it('derives active flags even when a caller submits an inconsistent projection', () => {
     const owner = conversationExecution('conversation');
     const claim = owner.claim()!;
