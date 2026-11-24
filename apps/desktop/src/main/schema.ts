@@ -574,10 +574,8 @@ function formatBackupDate(backupPath: string): string {
   }
 }
 
-function repairCurrentSchema(db: Database.Database): void {
-  createAdministrationTables(db);
-  createCatalogNameSearchIndex(db);
-  ensureConversationTitleLock(db);
+function createChatComposerTables(db: Database.Database): void {
+  if (!tableExists(db, 'conversations') || !tableExists(db, 'messages')) return;
   db.exec(`
     CREATE TABLE IF NOT EXISTS chat_message_queue (
       id TEXT PRIMARY KEY,
@@ -589,13 +587,18 @@ function repairCurrentSchema(db: Database.Database): void {
     BEGIN
       DELETE FROM chat_message_queue WHERE id = NEW.id AND conversation_id = NEW.conversation_id;
     END;
-  `);
-  db.exec(`
     CREATE TABLE IF NOT EXISTS chat_composer_drafts (
       conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
       draft_json TEXT NOT NULL
     )
   `);
+}
+
+function repairCurrentSchema(db: Database.Database): void {
+  createAdministrationTables(db);
+  createCatalogNameSearchIndex(db);
+  ensureConversationTitleLock(db);
+  createChatComposerTables(db);
   createHostedContributionLocalDeclineTable(db);
   createRemoteEndpointProfilesTable(db);
   createAgentStateCapsuleTable(db);
