@@ -557,14 +557,30 @@ describe('AI Settings Store', () => {
       'ai_custom_providers_v1',
       expect.stringContaining('https://models.example.test/v1')
     );
+    const provider = providerId as `custom:${string}`;
+    const account = getProviderMeta(provider).credential.keyringAccount;
+    expect(account).toMatch(/^custom_provider_[A-Za-z0-9_-]+_api_key$/);
     expect(mockPlatform.keyring.setPassword).toHaveBeenCalledWith(
       KEYRING_SERVICE,
-      `${providerId}_api_key`,
+      account,
       'lab-api-key'
     );
     expect(
       useAISettingsStore.getState().providerStatuses[providerId as `custom:${string}`]
     ).toEqual({ isConfigured: true, keySource: 'keyring' });
+
+    await act(async () => {
+      await useAISettingsStore.getState().getApiKey(provider);
+      await useAISettingsStore.getState().setApiKey(provider, 'replacement-key');
+      await useAISettingsStore.getState().removeCustomProvider(provider);
+    });
+    expect(mockPlatform.keyring.getPassword).toHaveBeenCalledWith(KEYRING_SERVICE, account);
+    expect(mockPlatform.keyring.setPassword).toHaveBeenCalledWith(
+      KEYRING_SERVICE,
+      account,
+      'replacement-key'
+    );
+    expect(mockPlatform.keyring.deletePassword).toHaveBeenCalledWith(KEYRING_SERVICE, account);
   });
 
   it('rejects empty API key', async () => {
