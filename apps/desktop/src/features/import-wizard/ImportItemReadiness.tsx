@@ -88,15 +88,19 @@ export function ImportItemExplanation({ item }: { item: ImportItem }) {
               })
             : toUserMessage(
                 item.block.message,
-                item.block.reasonCode ? BLOCK_COPY[item.block.reasonCode] : 'import.readFailed'
+                item.block.kind === 'sequence-preview-failed' && item.block.reasonCode
+                  ? BLOCK_COPY[item.block.reasonCode]
+                  : 'import.readFailed'
               )}
         </p>
         <p data-testid="import-recovery-guidance" className="mt-1 text-fg-muted">
           {item.block.kind === 'multi-record-fasta'
             ? 'For multiple DNA records, use Add → DNA sequences → Import. For other sequences, select a single-record file.'
-            : item.block.reasonCode
-              ? RECOVERY_GUIDANCE[item.block.reasonCode]
-              : 'Check this file in the original application, then select a supported DNA source. The reason above must be resolved before it can be imported.'}
+            : item.block.kind === 'unreadable-source'
+              ? 'Check that the source is accessible, then select it again.'
+              : item.block.reasonCode
+                ? RECOVERY_GUIDANCE[item.block.reasonCode]
+                : 'Check this file in the original application, then select a supported DNA source. The reason above must be resolved before it can be imported.'}
         </p>
       </div>
     );

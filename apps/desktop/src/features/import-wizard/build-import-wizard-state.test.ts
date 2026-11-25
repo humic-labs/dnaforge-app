@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { buildImportWizardState, type BuildWizardStateCtx } from './build-import-wizard-state';
 import type { WorkspaceFolder } from '../../stores/workspaceStore';
+import { canConfirmImport } from '../workspace-loader/public/import-wizard-state';
 
 function folder(path: string): WorkspaceFolder {
   return { path, name: path.split('/').pop() ?? path, addedAt: 0 };
@@ -42,6 +43,26 @@ describe('buildImportWizardState ', () => {
     expect(state.destination).toEqual({ kind: 'existing-root', rootPath: '/ws' });
     expect(state.destinationChosen).toBe(true);
   });
+
+  it.each([undefined, { entityType: 'dna-sequences' } as const])(
+    'prevents writes when the selected source cannot be inspected (%s)',
+    async (importIntent) => {
+      const dependencies = ctx({
+        importIntent,
+        stat: vi.fn().mockRejectedValue(new Error('Path access denied')),
+      });
+
+      const state = await buildImportWizardState(['/outside/Unopened source'], dependencies);
+
+      expect(state.items).toMatchObject([
+        { path: '/outside/Unopened source', block: { kind: 'unreadable-source' } },
+      ]);
+      expect(canConfirmImport(state)).toEqual({ canConfirm: false, reason: 'all-blocked' });
+      expect(dependencies.readText).not.toHaveBeenCalled();
+      expect(dependencies.previewDedup).not.toHaveBeenCalled();
+      expect(dependencies.previewSequenceImport).not.toHaveBeenCalled();
+    }
+  );
 
   it('pre-places a type-first launch in the folder that opened the picker', async () => {
     const state = await buildImportWizardState(
