@@ -1,4 +1,4 @@
-import { AI_ONLY_INPUT, aiOnlyCommandAllowed } from '../lib/ai-only-input';
+import { CHAT_FIRST_INPUT, chatFirstCommandAllowed, isManualInput } from '../lib/chat-first-input';
 import {
   createContext,
   useCallback,
@@ -146,7 +146,14 @@ export function CommandScopeProvider({ children }: CommandScopeProviderProps) {
       context: Partial<CommandContext<Payload>> = {}
     ): CommandDispatchResult => {
       const source = context.source ?? 'ui';
-      if (AI_ONLY_INPUT && !aiOnlyCommandAllowed(command, source)) {
+      if (
+        CHAT_FIRST_INPUT &&
+        !chatFirstCommandAllowed(
+          command,
+          source,
+          isManualInput(context.event?.target ?? document.activeElement)
+        )
+      ) {
         const result = createCommandResult(command, null, false, true);
         lastCommandRef.current = result;
         return result;

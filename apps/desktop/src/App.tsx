@@ -1,5 +1,6 @@
-import { AI_ONLY_INPUT } from './lib/ai-only-input';
-import { AiOnlyWorkbench } from './components/AiOnlyWorkbench';
+import { promptDialog } from './components/confirm-dialog-store';
+import { CHAT_FIRST_INPUT } from './lib/chat-first-input';
+import { ChatFirstWorkbench } from './components/ChatFirstWorkbench';
 import { WorkTaskDialogHost } from './features/work/public/work';
 import {
   toUserMessage,
@@ -1784,13 +1785,91 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
     );
   }
 
-  if (AI_ONLY_INPUT) {
+  const creationDestinationDialog = createDestinationRequest ? (
+    <RegistryCreateDestinationDialog
+      request={createDestinationRequest}
+      folders={folders}
+      onCancel={() => setCreateDestinationRequest(null)}
+      onConfirm={(request) => {
+        setCreateDestinationRequest(null);
+        if (request.entityType === 'assemblies') {
+          handleCreateAssembly(request);
+        } else {
+          void handleCreateEntityFromUi(request);
+        }
+      }}
+    />
+  ) : null;
+
+  if (CHAT_FIRST_INPUT) {
     return (
       <>
-        <AiOnlyWorkbench onOpenChat={openAIChat} onNewChat={openNewAIChat}>
+        <ChatFirstWorkbench
+          onOpenChat={openAIChat}
+          onNewChat={openNewAIChat}
+          actions={[
+            {
+              id: 'project',
+              label: 'New project…',
+              onSelect: () => {
+                void (async () => {
+                  const name = await promptDialog({
+                    title: userMessage('dialog.create-project'),
+                    message: userMessage('project.createPrompt'),
+                    confirmLabel: userMessage('dialog.continue'),
+                    input: {
+                      defaultValue: 'Untitled project',
+                      label: userMessage('dialog.project-name'),
+                    },
+                  });
+                  if (name?.trim()) await handleCreateEmptyWorkspace(name.trim());
+                })();
+              },
+            },
+            {
+              id: 'open-project',
+              label: 'Open project…',
+              onSelect: () => {
+                void handleAddFolder();
+              },
+            },
+            {
+              id: 'notebook',
+              label: 'New notebook…',
+              onSelect: () => {
+                void handleCreateEntityFromUi({ entityType: 'notebook', destinationPath: null });
+              },
+            },
+            {
+              id: 'sequence',
+              label: 'New DNA sequence…',
+              onSelect: () => {
+                void handleCreateEntityFromUi({
+                  entityType: 'dna-sequences',
+                  destinationPath: null,
+                });
+              },
+            },
+            {
+              id: 'import',
+              label: 'Import file…',
+              onSelect: () => {
+                void handleImportFile();
+              },
+            },
+          ]}
+        >
           {explorerContent}
-        </AiOnlyWorkbench>
+        </ChatFirstWorkbench>
         <AgentConfirmController />
+        <div className="contents" data-ai-input-region="manual">
+          {creationDestinationDialog}
+          <ConfirmDialogHost />
+          <LargeFileImportDialogHost />
+          <ImportWizardHost />
+          <QuickLookImportHost onDestinationCommit={handleQuickLookDestinationCommit} />
+          <TabularImportWizardHost />
+        </div>
         <div className="contents" data-ai-input-region="conversation">
           <TelemetryBlockedSurface className="contents">
             <AuthFlowHost />
@@ -2088,21 +2167,7 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
           }}
         />
 
-        {createDestinationRequest ? (
-          <RegistryCreateDestinationDialog
-            request={createDestinationRequest}
-            folders={folders}
-            onCancel={() => setCreateDestinationRequest(null)}
-            onConfirm={(request) => {
-              setCreateDestinationRequest(null);
-              if (request.entityType === 'assemblies') {
-                handleCreateAssembly(request);
-              } else {
-                void handleCreateEntityFromUi(request);
-              }
-            }}
-          />
-        ) : null}
+        {creationDestinationDialog}
 
         {}
         <TelemetryBlockedSurface className="contents">

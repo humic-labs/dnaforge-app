@@ -1,4 +1,4 @@
-import { AI_ONLY_INPUT } from '../../../lib/ai-only-input';
+import { CHAT_FIRST_INPUT } from '../../../lib/chat-first-input';
 import { Button } from '../../../components/ui';
 import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { Tab } from './Tab';
@@ -183,7 +183,7 @@ export const TabBar = React.memo(function TabBar({
     return null;
   }
 
-  if (AI_ONLY_INPUT) {
+  if (CHAT_FIRST_INPUT) {
     return (
       <nav
         className="flex flex-shrink-0 gap-1 overflow-x-auto bg-bg-muted p-1"

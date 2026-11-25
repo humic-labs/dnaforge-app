@@ -3,7 +3,7 @@ import { act, render, screen } from '@testing-library/react';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { expect, it, vi } from 'vitest';
-import { AiOnlyOutputBoundary } from './AiOnlyWorkbench';
+import { ChatFirstOutputBoundary } from './ChatFirstWorkbench';
 import { registerNotebookEditorControl } from '../features/page/public/notebook-editor-control';
 import { createNotebookDocumentTool } from '../features/ai/tools/notebook-document';
 import { execTool } from '../features/ai/tools/test-helpers';
@@ -30,9 +30,9 @@ it('edits and saves through the actual notebook agent tool while its mounted out
   const save = vi.fn(async () => true);
   const unregister = registerNotebookEditorControl(pageId, { editor, save });
   const mounted = render(
-    <AiOnlyOutputBoundary conversation={false}>
+    <ChatFirstOutputBoundary conversation={false}>
       <div data-testid="native-output" />
-    </AiOnlyOutputBoundary>
+    </ChatFirstOutputBoundary>
   );
   const host = screen.getByTestId('native-output');
   host.append(editor.view.dom);
@@ -61,7 +61,7 @@ it('edits and saves through the actual notebook agent tool while its mounted out
     });
     expect(screen.getByText('Agent produced this result')).toBeTruthy();
     expect(editor.isEditable).toBe(true);
-    expect(host.parentElement?.inert).toBe(true);
+    expect(host.parentElement?.getAttribute('data-ai-input-region')).toBe('output');
     const current = await execTool<{ revision: string }>(tool, {
       pageId,
       operation: { kind: 'inspect', offset: 0, limit: 20 },

@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { COMMAND_IDS } from '../commands/types';
 import {
-  aiOnlyCommandAllowed,
-  installAiOnlyHumanInputGuard,
-  isAiOnlyInputEnabled,
-} from './ai-only-input';
+  chatFirstCommandAllowed,
+  installChatFirstHumanInputGuard,
+  isChatFirstInputEnabled,
+} from './chat-first-input';
 
 let dispose = () => {};
 afterEach(() => {
@@ -14,14 +14,16 @@ afterEach(() => {
 
 describe('AI-only input experiment', () => {
   it('requires explicit opt-in and excludes hosted and release builds', () => {
-    expect(isAiOnlyInputEnabled({ DEV: true, MODE: 'test', VITE_AI_ONLY_INPUT: '1' })).toBe(true);
+    expect(isChatFirstInputEnabled({ DEV: true, MODE: 'test', VITE_CHAT_FIRST_INPUT: '1' })).toBe(
+      true
+    );
     for (const env of [
       { DEV: true, MODE: 'development' },
-      { DEV: true, MODE: 'hosted', VITE_AI_ONLY_INPUT: '1' },
-      { DEV: false, MODE: 'production', VITE_AI_ONLY_INPUT: '1' },
-      { DEV: false, MODE: 'staging', VITE_AI_ONLY_INPUT: '1' },
+      { DEV: true, MODE: 'hosted', VITE_CHAT_FIRST_INPUT: '1' },
+      { DEV: false, MODE: 'production', VITE_CHAT_FIRST_INPUT: '1' },
+      { DEV: false, MODE: 'staging', VITE_CHAT_FIRST_INPUT: '1' },
     ])
-      expect(isAiOnlyInputEnabled(env)).toBe(false);
+      expect(isChatFirstInputEnabled(env)).toBe(false);
   });
 
   it('allows agent commands but rejects manual authoring and execution sources', () => {
@@ -32,12 +34,12 @@ describe('AI-only input experiment', () => {
       COMMAND_IDS.editUndo,
       COMMAND_IDS.terminalNew,
     ]) {
-      expect(aiOnlyCommandAllowed(command, 'agent')).toBe(true);
+      expect(chatFirstCommandAllowed(command, 'agent')).toBe(true);
       for (const source of ['ui', 'keyboard', 'electron-menu', 'test'] as const)
-        expect(aiOnlyCommandAllowed(command, source)).toBe(false);
+        expect(chatFirstCommandAllowed(command, source)).toBe(false);
     }
-    expect(aiOnlyCommandAllowed(COMMAND_IDS.canvasSelectTab, 'ui')).toBe(true);
-    expect(aiOnlyCommandAllowed(COMMAND_IDS.appFocusCommandInput, 'keyboard')).toBe(true);
+    expect(chatFirstCommandAllowed(COMMAND_IDS.canvasSelectTab, 'ui')).toBe(true);
+    expect(chatFirstCommandAllowed(COMMAND_IDS.appFocusCommandInput, 'keyboard')).toBe(true);
   });
 
   it('blocks manual edits, drops and portalled controls, keeps chat and navigation, and cleans up', () => {
@@ -49,7 +51,7 @@ describe('AI-only input experiment', () => {
     const portal = document.getElementById('portal');
     const edited = vi.fn();
     output?.addEventListener('beforeinput', edited);
-    dispose = installAiOnlyHumanInputGuard(document);
+    dispose = installChatFirstHumanInputGuard(document);
     for (const type of [
       'beforeinput',
       'paste',
@@ -88,4 +90,25 @@ describe('AI-only input experiment', () => {
     ).toBe(true);
     expect(edited).toHaveBeenCalledOnce();
   });
+});
+
+it('keeps inspection gestures and explicit manual input while blocking accidental output edits', () => {
+  document.body.innerHTML =
+    '<div data-ai-input-region="output"><canvas></canvas><div contenteditable="true">Result</div></div><div data-ai-input-region="manual"><textarea></textarea></div>';
+  const canvas = document.querySelector('canvas');
+  const output = document.querySelector('[contenteditable]');
+  const manual = document.querySelector('textarea');
+  dispose = installChatFirstHumanInputGuard(document);
+  for (const type of ['click', 'mousedown', 'mouseup', 'pointerdown'])
+    expect(canvas?.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }))).toBe(true);
+  expect(output?.dispatchEvent(new Event('beforeinput', { bubbles: true, cancelable: true }))).toBe(
+    false
+  );
+  expect(manual?.dispatchEvent(new Event('beforeinput', { bubbles: true, cancelable: true }))).toBe(
+    true
+  );
+  expect(manual?.dispatchEvent(new Event('paste', { bubbles: true, cancelable: true }))).toBe(true);
+  expect(chatFirstCommandAllowed(COMMAND_IDS.fileSave, 'keyboard', true)).toBe(true);
+  expect(chatFirstCommandAllowed(COMMAND_IDS.editUndo, 'electron-menu', true)).toBe(true);
+  expect(chatFirstCommandAllowed(COMMAND_IDS.terminalNew, 'ui', true)).toBe(false);
 });

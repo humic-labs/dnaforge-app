@@ -1,5 +1,5 @@
-import { AI_ONLY_INPUT } from '../../../lib/ai-only-input';
-import { AiOnlyOutputBoundary } from '../../../components/AiOnlyWorkbench';
+import { CHAT_FIRST_INPUT } from '../../../lib/chat-first-input';
+import { ChatFirstOutputBoundary } from '../../../components/ChatFirstWorkbench';
 import { createContext, useContext, useRef, useMemo, useLayoutEffect, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useCanvasStore } from '../store';
@@ -294,10 +294,10 @@ export function TabPortalProvider({
             onChatHistoryPinnedChange={onChatHistoryPinnedChange}
           />
         );
-        const panelContent = AI_ONLY_INPUT ? (
-          <AiOnlyOutputBoundary conversation={tab.type === 'chat'}>
+        const panelContent = CHAT_FIRST_INPUT ? (
+          <ChatFirstOutputBoundary conversation={tab.type === 'chat'}>
             {existingPanelContent}
-          </AiOnlyOutputBoundary>
+          </ChatFirstOutputBoundary>
         ) : (
           existingPanelContent
         );

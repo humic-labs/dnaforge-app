@@ -12,7 +12,7 @@ const errors = [];
 page.on('pageerror', (error) => errors.push(error.message));
 try {
   await page.goto(`${baseUrl}/?e2e=true`);
-  await page.getByTestId('ai-only-workbench').waitFor();
+  await page.getByTestId('chat-first-workbench').waitFor();
   const created = await page.evaluate(async () => {
     if (window.electronAPI || window.__WAYPOINT_RENDERER_BUILD__?.mode !== 'test') {
       throw new Error(
@@ -36,7 +36,7 @@ try {
   });
   assert.equal(created.ok, true);
   assert.equal(created.saved, true);
-  const editor = page.locator('[data-ai-input-region="output"] .tiptap');
+  const editor = page.locator('.tiptap').first();
   await editor.waitFor();
   const edited = await page.evaluate(async () => {
     const { tool, pageId } = window.__aiInputProbe;
@@ -86,13 +86,41 @@ try {
     'Synthetic experiment summary created through the notebook agent tool.'
   );
   assert.equal(
-    await editor.evaluate((el) => el.closest('[data-ai-input-region="output"]').inert),
-    true
+    await editor.evaluate((el) =>
+      el.closest('[data-ai-input-region]').getAttribute('data-ai-input-region')
+    ),
+    'output'
   );
+  const box = await editor
+    .locator('p')
+    .first()
+    .evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const rect = range.getClientRects()[0];
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+    });
+  await page.mouse.move(box.x + 5, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + Math.min(box.width - 5, 230), box.y + box.height / 2, { steps: 8 });
+  await page.mouse.up();
+  assert.ok((await page.evaluate(() => window.getSelection()?.toString() ?? '')).length > 0);
   const before = await editor.innerText();
   await editor.click({ force: true });
   await page.keyboard.type('MANUAL EDIT MUST NOT APPEAR');
   assert.equal(await editor.innerText(), before);
+  await page.getByTestId('output-edit-toggle').click();
+  await editor.click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' Manual correction.');
+  assert.ok((await editor.innerText()).includes('Manual correction.'));
+  await page.getByTestId('output-edit-toggle').click();
+  assert.equal(
+    await editor.evaluate((el) =>
+      el.closest('[data-ai-input-region]').getAttribute('data-ai-input-region')
+    ),
+    'output'
+  );
   await page.getByTestId('ai-input').fill('Continue this analysis through AI');
   assert.equal(
     await page.getByTestId('ai-input').inputValue(),
@@ -119,18 +147,33 @@ try {
   await page.getByText('Direct API', { exact: true }).click();
   await page.getByRole('menu').waitFor();
   await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'New project…' }).click();
+  const projectName = page.getByRole('textbox', { name: 'Project name' });
+  await projectName.fill('Manual fallback project');
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await page.waitForFunction(async () => {
+    const { useWorkspaceStore } = await import('/src/stores/workspaceStore.ts');
+    return useWorkspaceStore
+      .getState()
+      .folders.some((folder) => folder.name === 'Manual fallback project');
+  });
+
   await page.screenshot({ path: resolve(output, 'workbench.png'), fullPage: true });
   assert.deepEqual(errors, []);
   const result = {
     scope:
-      'Browser renderer with in-memory platform. Existing notebook tool called directly; no live model, native IPC or disk persistence claim.',
+      'Browser renderer with in-memory platform. Existing notebook tool plus explicit manual correction tested; no live model, native IPC or disk persistence claim.',
     created,
     edited,
     negativeChecks,
     errors,
   };
   await writeFile(resolve(output, 'result.json'), JSON.stringify(result, null, 2) + '\n');
-  console.log(`AI-input probe passed. Evidence: ${output}`);
+  console.log(`Chat-first probe passed. Evidence: ${output}`);
+} catch (error) {
+  await page.screenshot({ path: resolve(output, 'failure.png'), fullPage: true });
+  throw error;
 } finally {
   await browser.close();
 }

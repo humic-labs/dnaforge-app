@@ -1,4 +1,4 @@
-import { AI_ONLY_INPUT } from '../lib/ai-only-input';
+import { CHAT_FIRST_INPUT, isManualInput, isConversationInput } from '../lib/chat-first-input';
 import { useDocumentSaveCommand } from '../shared/use-document-lifecycle';
 import { userMessageWithValues, userMessageValue, userMessage } from '@waypoint/user-messages';
 import { useEffect, type Dispatch, type SetStateAction } from 'react';
@@ -170,7 +170,7 @@ export function useAppRuntimeCommands({
   });
 
   useKeyboard(
-    AI_ONLY_INPUT
+    CHAT_FIRST_INPUT
       ? []
       : [
           { key: '7', cmd: true, shift: true, handler: handleWebGLTraceToggle, allowInInput: true },
@@ -221,7 +221,31 @@ export function useAppRuntimeCommands({
         bypassBlockingScopes: [COMMAND_SCOPES.inputEditor],
       });
     });
-    if (AI_ONLY_INPUT) return unsub0;
+    const dispatchEditCommand = (
+      command: typeof COMMAND_IDS.editUndo | typeof COMMAND_IDS.editRedo
+    ) => {
+      if (
+        CHAT_FIRST_INPUT &&
+        !isManualInput(document.activeElement) &&
+        !isConversationInput(document.activeElement)
+      )
+        return;
+      const nativeAction = command === COMMAND_IDS.editUndo ? 'undo' : 'redo';
+      if (isEditableCommandTarget(document.activeElement)) {
+        document.execCommand?.(nativeAction);
+        return;
+      }
+      const result = dispatchCommand(command, { source: 'electron-menu' });
+      if (!result.handled && !result.blocked) document.execCommand?.(nativeAction);
+    };
+    const unsubUndo = p.on('menu:undo', () => dispatchEditCommand(COMMAND_IDS.editUndo));
+    const unsubRedo = p.on('menu:redo', () => dispatchEditCommand(COMMAND_IDS.editRedo));
+    if (CHAT_FIRST_INPUT)
+      return () => {
+        unsub0();
+        unsubUndo();
+        unsubRedo();
+      };
     const unsub1 = p.on('menu:settings', handleOpenSettings);
     const unsubOrganizations = p.on('menu:organizations', openOrganizationsSettings);
     const unsub2 = p.on('menu:explorer', () => handleViewChange('files'));
@@ -235,19 +259,6 @@ export function useAppRuntimeCommands({
     const unsub6 = p.on('menu:reopen-closed-tab', () => {
       useCanvasStore.getState().reopenLastClosedTab();
     });
-    const dispatchEditCommand = (
-      command: typeof COMMAND_IDS.editUndo | typeof COMMAND_IDS.editRedo
-    ) => {
-      const nativeAction = command === COMMAND_IDS.editUndo ? 'undo' : 'redo';
-      if (isEditableCommandTarget(document.activeElement)) {
-        document.execCommand?.(nativeAction);
-        return;
-      }
-      const result = dispatchCommand(command, { source: 'electron-menu' });
-      if (!result.handled && !result.blocked) document.execCommand?.(nativeAction);
-    };
-    const unsubUndo = p.on('menu:undo', () => dispatchEditCommand(COMMAND_IDS.editUndo));
-    const unsubRedo = p.on('menu:redo', () => dispatchEditCommand(COMMAND_IDS.editRedo));
 
     return () => {
       unsub0();

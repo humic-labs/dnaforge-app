@@ -52,7 +52,7 @@ export function buildMenu(mainWindow: BrowserWindow): Menu {
     click: () => openPublicProductDocs(),
   };
 
-  if (is.dev && !app.isPackaged && process.env.VITE_AI_ONLY_INPUT === '1') {
+  if (is.dev && !app.isPackaged && process.env.VITE_CHAT_FIRST_INPUT === '1') {
     return Menu.buildFromTemplate([
       ...(isMac ? [{ role: 'appMenu' as const }] : []),
       {
@@ -64,7 +64,24 @@ export function buildMenu(mainWindow: BrowserWindow): Menu {
           },
         ],
       },
-      { label: 'Edit', submenu: [{ role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
+      {
+        label: 'Edit',
+        submenu: [
+          {
+            label: 'Undo',
+            accelerator: electronAccelerator('app.undo'),
+            click: () => sendRendererIpc(mainWindow.webContents, 'menu:undo'),
+          },
+          {
+            label: 'Redo',
+            accelerator: electronAccelerator('app.redo'),
+            click: () => sendRendererIpc(mainWindow.webContents, 'menu:redo'),
+          },
+          { role: 'copy' },
+          { role: 'paste' },
+          { role: 'selectAll' },
+        ],
+      },
       { label: 'View', submenu: [{ role: 'toggleDevTools' }] },
       { role: 'windowMenu' },
     ]);
