@@ -6,6 +6,7 @@ function isFastaFormat(content: string): boolean {
 }
 
 export type ImportBlock =
+  | { kind: 'unreadable-source'; message: string }
   | {
       kind: 'multi-record-fasta';
       recordCount: number;

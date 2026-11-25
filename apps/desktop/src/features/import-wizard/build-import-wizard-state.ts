@@ -1,4 +1,5 @@
 import type { NucleicAcid } from '@waypoint/sequence-utils';
+import { userMessage } from '@waypoint/user-messages';
 
 import type { WorkspaceFolder } from '../../stores/workspaceStore';
 import type { DedupPreviewItem } from '../../shared/import-dedup';
@@ -99,6 +100,10 @@ async function expandSequencePackagePreviews(
 ): Promise<ImportItem[]> {
   const expanded: ImportItem[] = [];
   for (const item of items) {
+    if (item.block?.kind === 'unreadable-source') {
+      expanded.push(item);
+      continue;
+    }
     if (item.kind !== 'file') {
       expanded.push({
         ...item,
@@ -136,12 +141,19 @@ export async function buildImportItemsFromPaths(
   const items: ImportItem[] = [];
   for (const path of paths) {
     const stat = await ctx.stat(path).catch(() => null);
-    const kind: 'file' | 'folder' = stat?.isDirectory ? 'folder' : 'file';
-    let content: string | undefined;
-    if (kind === 'file' && (stat?.size ?? 0) <= CONTENT_READ_MAX_BYTES) {
-      content = await ctx.readText(path).catch(() => undefined);
+    if (!stat) {
+      items.push({
+        ...buildImportItem({ path, name: basename(path), kind: 'file' }),
+        block: { kind: 'unreadable-source', message: userMessage('import.readFailed') },
+      });
+      continue;
     }
-    items.push(buildImportItem({ path, name: basename(path), kind, content, size: stat?.size }));
+    const kind = stat.isDirectory ? 'folder' : 'file';
+    const content =
+      kind === 'file' && stat.size <= CONTENT_READ_MAX_BYTES
+        ? await ctx.readText(path).catch(() => undefined)
+        : undefined;
+    items.push(buildImportItem({ path, name: basename(path), kind, content, size: stat.size }));
   }
   return items;
 }
@@ -183,7 +195,11 @@ export async function buildImportWizardState(
 
   if (destination.kind === 'existing-root') {
     const fileSources = [
-      ...new Set(items.filter((i) => i.kind === 'file').map(importItemSourcePath)),
+      ...new Set(
+        items
+          .filter((item) => item.kind === 'file' && item.block?.kind !== 'unreadable-source')
+          .map(importItemSourcePath)
+      ),
     ];
     if (fileSources.length > 0) {
       const previews = await ctx
