@@ -71,7 +71,7 @@ describe('single-instance lock in main bootstrap', () => {
     expect(getDbIdx).toBeGreaterThan(reconcileIdx);
   });
 
-  it('routes a newer schema to automatic update before sidecar startup or a write-capable database open', () => {
+  it('handles a newer schema before sidecar startup or a write-capable database open', () => {
     const reconcileIdx = mainIndex.indexOf('reconcileInterruptedDatabaseRestore(getDbPath())');
     const schemaReadIdx = mainIndex.indexOf('readDatabaseSchemaVersion(getDbPath())');
     const recoveryIdx = mainIndex.indexOf(
@@ -82,6 +82,8 @@ describe('single-instance lock in main bootstrap', () => {
 
     expect(schemaReadIdx).toBeGreaterThan(reconcileIdx);
     expect(recoveryIdx).toBeGreaterThan(schemaReadIdx);
+    const earlyRefusal = mainIndex.slice(recoveryIdx, sidecarPreflightIdx);
+    expect(earlyRefusal).toMatch(/await refuseStartupSchema\(newerSchemaError\);\s+return;/);
     expect(sidecarPreflightIdx).toBeGreaterThan(recoveryIdx);
     expect(getDbIdx).toBeGreaterThan(recoveryIdx);
   });
