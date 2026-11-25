@@ -1,6 +1,5 @@
 import { MenuNativeSelect } from '@waypoint/ui-components';
 import { RegistryTemporalFilter } from './registry/RegistryTemporalFilter';
-import type { LimsRegistryDateFilter, LimsQueryRegistrySummariesInput } from '../../../shared/lims';
 import { useEntityViewHistory } from '../../../services/recent-entity-views';
 import { usePresentationListener } from '../../../presentation/PresentationSurface';
 import { importReceiptMessage, sequenceRegistrationFailureMessage } from '../import-user-messages';
@@ -42,6 +41,8 @@ import {
   type LimsRegistrySummary,
   type LimsRegistrySummaryPage,
   type LimsSchemaDefinitionView,
+  type LimsRegistryDateFilter,
+  type LimsQueryRegistrySummariesInput,
 } from '../../../shared/lims';
 import { safeFocus, scheduleFocus } from '../../../shared/utils/safeFocus';
 import { findContainingPathBoundary, pathRelativeToBoundary } from '../../../shared/path-boundary';
@@ -59,10 +60,6 @@ import {
   trackImportStarted,
   type ImportFailureStage,
 } from '../../import-wizard/public/import-telemetry';
-import type {
-  RegisterableSequenceKind,
-  RegisterImportedSequenceResult,
-} from '../../../shared/workspace-git-types';
 import { buildWorkbookSheetPreviews, type LimsImportFileProvenance } from '../ingress';
 import {
   prepareLimsImportReview as createLimsImportPlan,
@@ -108,7 +105,6 @@ import {
   isRegisterableOpenSequenceKind,
   subscribeLimsRegistryChanged,
 } from '../register-open-sequence';
-import type { TabViewState } from '../../canvas/public/types';
 import {
   LimsImportWizard,
   type ImportDoorKind,
@@ -116,8 +112,11 @@ import {
   type WorkbookReviewView,
 } from './LimsImportWizard';
 import { useLimsImportLaunchStore } from '../lims-import-launch-store';
-import { type WorkbookReviewState, type WorkbookReviewTab } from './workbook-review';
-import { computeImportPlanView } from './import-plan-view';
+import {
+  type WorkbookReviewState,
+  type WorkbookReviewTab,
+  workbookAcceptedCount,
+} from './workbook-review';
 import {
   REGISTRY_GRID_BASE,
   REGISTRY_PAGE_SIZE,
@@ -798,18 +797,12 @@ export function LimsPanel({
 
   const registryHasMore = registryPage.summaries.length < registryPage.totalCount;
 
-  const multiSheetTotalCount = (() => {
-    const review = workbookReview;
-    if (!review) return 0;
-    const schema = limsSchemas.find((s) => s.entityKind === review.kind);
-    return review.tabs
-      .filter((tab) => tab.selected)
-      .reduce((sum, tab) => {
-        const plan = tab.sheetName === review.activeSheet ? (preview ?? tab.plan) : tab.plan;
-        if (!plan) return sum;
-        return sum + computeImportPlanView(plan, idSchemes, undefined, schema).acceptedCount;
-      }, 0);
-  })();
+  const multiSheetTotalCount = workbookAcceptedCount({
+    workbookReview,
+    preview,
+    idSchemes,
+    limsSchemas,
+  });
 
   useEffect(() => {
     const sentinel = registrySentinelRef.current;
@@ -1176,7 +1169,7 @@ export function LimsPanel({
         return;
       }
 
-      const kind: RegisterableSequenceKind = 'sequence';
+      const kind = 'sequence';
       const previewFileContentHash = record?.source.fileContentHash;
       const expectedSourceSha256 =
         typeof previewFileContentHash === 'string' &&
@@ -1211,7 +1204,7 @@ export function LimsPanel({
         })
       );
 
-      const runRegister = (): Promise<RegisterImportedSequenceResult> =>
+      const runRegister = () =>
         sourcePath
           ? platform().workspace.registerImportedSequence({
               sourcePath,
@@ -1227,7 +1220,7 @@ export function LimsPanel({
               expectedSourceSha256,
             });
 
-      let result: RegisterImportedSequenceResult;
+      let result: Awaited<ReturnType<typeof runRegister>>;
       try {
         try {
           result = await runRegister();
@@ -2733,7 +2726,7 @@ export function LimsPanel({
   ]);
 
   const openRegistrySummary = useCallback(
-    async (summary: LimsRegistrySummary, focus?: TabViewState) => {
+    async (summary: LimsRegistrySummary, focus?: Parameters<typeof openLimsEntity>[0]['focus']) => {
       setMessage(null);
       const result = await openLimsEntity({
         entityId: summary.id,

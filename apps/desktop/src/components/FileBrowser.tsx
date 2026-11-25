@@ -18,7 +18,6 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from 'react';
-import type { CatalogRecordPresentationKind } from '../shared/catalog-entity';
 import { useWorkspaceStore, type WorkspaceFolder } from '../stores/workspaceStore';
 import { formatImportProgress } from '../features/workspace-loader/format-import-progress';
 import { confirmDialog } from './confirm-dialog-store';
@@ -90,6 +89,9 @@ import type {
   PendingArtifactKind,
   WorkspaceCreateHandler,
   WorkspaceCreationContext,
+  FilesystemContextMenuState,
+  CatalogContextMenuState,
+  ContextMenuState,
 } from './fileBrowserTypes';
 import {
   dispatchOpenNativeEntityReference,
@@ -99,9 +101,7 @@ import { OriginalProviderSourceDialog } from '../features/lims/components/regist
 import type { ExternalProviderSourceRequest } from '../shared/benchling-migration-raw-source';
 import { beginWorkflowAction, observeWorkflowAction } from '../lib/workflow-telemetry';
 import { fileTypeCategory } from '../features/sequence/public/file-open-telemetry';
-import type { ManagedSequenceDocumentRef } from '../shared/managed-sequence-document';
 import type { FileEntry } from '../hooks/useFileBrowser';
-import type { DocumentPackageKind } from '../shared/document-package';
 import { fileMenuPathActions } from './file-menu-path-actions';
 import { beginSequenceEntryRename } from './sequence-entry-rename';
 import { openFileBrowserFile } from './open-file-browser-file';
@@ -159,37 +159,6 @@ function defaultArtifactFileName(kind: PendingArtifactKind): string {
   if (kind === 'folder') return 'New Folder';
   return 'Untitled.txt';
 }
-
-interface FilesystemContextMenuState {
-  kind: 'filesystem';
-  x: number;
-  y: number;
-  entryId: string;
-  path: string;
-  relativePath: string | null;
-  displayName: string;
-  isDirectory: boolean;
-  isNotebookPackage?: boolean;
-  packageKind?: DocumentPackageKind;
-  sequenceDocument?: ManagedSequenceDocumentRef;
-  isRootFolder: boolean;
-  pinned: boolean;
-}
-
-interface CatalogContextMenuState {
-  kind: 'catalog';
-  x: number;
-  y: number;
-  entryId: string;
-  workspaceId: number;
-  entityId: string;
-  sourceRecordId: string | null;
-  displayName: string;
-  presentationKind: CatalogRecordPresentationKind;
-  workspaceRoot: string;
-}
-
-type ContextMenuState = FilesystemContextMenuState | CatalogContextMenuState;
 
 interface AddPickerLaunch {
   anchorPoint: { x: number; y: number };

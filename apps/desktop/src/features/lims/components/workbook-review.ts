@@ -1,8 +1,10 @@
+import { computeImportPlanView } from './import-plan-view';
 import type {
   ImportableSheet,
   LimsEntityKind,
   LimsImportPlan,
   LimsSchemaDefinitionView,
+  LimsIdScheme,
 } from '../../../shared/lims';
 import type { WorkbookSheetPreview } from '../ingress';
 
@@ -69,4 +71,29 @@ export function fieldOptionsForSchema(
     { value: 'entity.name', label: 'Name' },
     ...schema.fields.map((field) => ({ value: `fields.${field.key}`, label: field.label })),
   ];
+}
+
+export interface WorkbookAcceptedCountInput {
+  workbookReview: WorkbookReviewState | null;
+  preview: LimsImportPlan | null;
+  idSchemes: LimsIdScheme[];
+  limsSchemas: LimsSchemaDefinitionView[];
+}
+
+export function workbookAcceptedCount({
+  workbookReview,
+  preview,
+  idSchemes,
+  limsSchemas,
+}: WorkbookAcceptedCountInput): number {
+  const review = workbookReview;
+  if (!review) return 0;
+  const schema = limsSchemas.find((s) => s.entityKind === review.kind);
+  return review.tabs
+    .filter((tab) => tab.selected)
+    .reduce((sum, tab) => {
+      const plan = tab.sheetName === review.activeSheet ? (preview ?? tab.plan) : tab.plan;
+      if (!plan) return sum;
+      return sum + computeImportPlanView(plan, idSchemes, undefined, schema).acceptedCount;
+    }, 0);
 }

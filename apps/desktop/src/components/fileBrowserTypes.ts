@@ -1,3 +1,6 @@
+import type { CatalogRecordPresentationKind } from '../shared/catalog-entity';
+import type { DocumentPackageKind } from '../shared/document-package';
+import type { ManagedSequenceDocumentRef } from '../shared/managed-sequence-document';
 export interface WorkspaceCreationContext {
   targetPath?: string | null;
   targetKind?: 'file' | 'folder' | null;
@@ -48,3 +51,34 @@ import type { FileEntry } from '../hooks/useFileBrowser';
 import type { WorkspaceBrowserCatalogEntry } from '../shared/workspace-browser-types';
 
 export type FileBrowserTreeEntry = FileEntry | WorkspaceBrowserCatalogEntry;
+
+export interface FilesystemContextMenuState {
+  kind: 'filesystem';
+  x: number;
+  y: number;
+  entryId: string;
+  path: string;
+  relativePath: string | null;
+  displayName: string;
+  isDirectory: boolean;
+  isNotebookPackage?: boolean;
+  packageKind?: DocumentPackageKind;
+  sequenceDocument?: ManagedSequenceDocumentRef;
+  isRootFolder: boolean;
+  pinned: boolean;
+}
+
+export interface CatalogContextMenuState {
+  kind: 'catalog';
+  x: number;
+  y: number;
+  entryId: string;
+  workspaceId: number;
+  entityId: string;
+  sourceRecordId: string | null;
+  displayName: string;
+  presentationKind: CatalogRecordPresentationKind;
+  workspaceRoot: string;
+}
+
+export type ContextMenuState = FilesystemContextMenuState | CatalogContextMenuState;
