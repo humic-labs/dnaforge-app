@@ -1,3 +1,5 @@
+import { platform } from '../platform';
+import { resolveArtifactFile } from '../db/workspace-artifacts';
 import {
   getCatalogFilesUnderPath,
   getCatalogEntity,
@@ -412,6 +414,28 @@ export async function indexWorkspaceHeadIntoCatalog(
     if (catalogFile.status === 'historical') continue;
     if (acceptedIds.has(catalogFile.entity_id)) continue;
     if (!seen.has(catalogFile.path) && catalogFile.file_kind !== 'folder') {
+      if (
+        catalogFile.file_kind === 'waypoint-notebook' &&
+        (await platform().fs.exists(catalogFile.path))
+      ) {
+        try {
+          const resolved = await resolveArtifactFile({
+            path: catalogFile.path,
+            workspaceRoot: repoPath,
+            mutationToken: options.mutationToken,
+          });
+          if (resolved.entity.id === catalogFile.entity_id) {
+            result.registered++;
+            continue;
+          }
+        } catch (error) {
+          result.errors.push({
+            path: catalogFile.path,
+            message: error instanceof Error ? error.message : String(error),
+          });
+          continue;
+        }
+      }
       await markCatalogFileMissing(catalogFile.path, 'git-indexer');
       result.missing++;
     }

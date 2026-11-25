@@ -276,12 +276,12 @@ export function assertScientificLegacyRegistryHistoryCanRelocate(db: Database.Da
       const isBoundRegistrationPath = (
         registeredPath: unknown,
         fileKind?: string,
-        allowUnchangedEdit = false
+        allowNotebookHistory = false
       ): boolean => {
         if (
           !(
             initialRegistration ||
-            (allowUnchangedEdit &&
+            (allowNotebookHistory &&
               event.event_type === 'entity_updated' &&
               typeof entity?.id === 'string' &&
               entity.id === event.subject_id &&
@@ -294,9 +294,9 @@ export function assertScientificLegacyRegistryHistoryCanRelocate(db: Database.Da
           return false;
         const binding = db
           .prepare(
-            "SELECT workspace_id, path, file_kind FROM catalog_entity_files WHERE entity_id=? AND status='current'"
+            "SELECT workspace_id, path, file_kind FROM catalog_entity_files WHERE entity_id=? AND (status='current' OR (?=1 AND status IN ('historical','missing'))) AND path=?"
           )
-          .get(event.subject_id) as
+          .get(event.subject_id, allowNotebookHistory ? 1 : 0, registeredPath) as
           | { workspace_id: number | null; path: string; file_kind: string }
           | undefined;
         const root = roots.find((candidate) => candidate.id === binding?.workspace_id);

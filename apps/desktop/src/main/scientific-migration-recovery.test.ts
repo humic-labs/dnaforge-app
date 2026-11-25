@@ -711,6 +711,8 @@ describe('scientific enrollment and isolated legacy recovery pressure', { timeou
     'wrong-owner',
     'outside-root',
     'edited-history',
+    'historical-binding',
+    'missing-file-binding',
     'changed-history-path',
   ])(
     'preserves safely bound notebook registrations through enrollment and recovery: %s',
@@ -758,6 +760,10 @@ describe('scientific enrollment and isolated legacy recovery pressure', { timeou
             packageRoot,
             `notebooks/${entityId}`
           );
+      if (variant === 'historical-binding' || variant === 'missing-file-binding')
+        f.db
+          .prepare('UPDATE catalog_entity_files SET status=? WHERE entity_id=?')
+          .run(variant === 'historical-binding' ? 'historical' : 'missing', entityId);
       if (variant === 'edited-history' || variant === 'changed-history-path')
         insertAuditEvent(f.db, {
           eventType: 'entity_updated',
@@ -777,7 +783,13 @@ describe('scientific enrollment and isolated legacy recovery pressure', { timeou
         originalDb = Buffer.from(f.db.serialize()),
         originalFiles = await inventoryScientificRecoveryTree(f.root),
         otherFiles = await inventoryScientificRecoveryTree(f.otherRoot);
-      if (variant === 'owned' || variant === 'other-project' || variant === 'edited-history') {
+      if (
+        variant === 'owned' ||
+        variant === 'other-project' ||
+        variant === 'edited-history' ||
+        variant === 'historical-binding' ||
+        variant === 'missing-file-binding'
+      ) {
         await f.ensure();
         const result = await recover(f),
           legacy = openFileTestDb(join(result.profilePath, 'dnaforge.db')),

@@ -422,8 +422,12 @@ export function resolveRecoveredEntityBindings(
   entity: LimsEntity
 ): LimsEntity {
   const binding = db
-    .prepare("SELECT path FROM catalog_entity_files WHERE entity_id=? AND status='current'")
-    .get(entity.id) as { path: string } | undefined;
+    .prepare(
+      "SELECT path FROM catalog_entity_files WHERE entity_id=? AND (status='current' OR (?=1 AND status IN ('historical','missing') AND workspace_id=?)) ORDER BY CASE WHEN status='current' THEN 0 ELSE 1 END, updated_at DESC, id LIMIT 1"
+    )
+    .get(entity.id, entity.kind === 'notebook' ? 1 : 0, entity.workspaceId) as
+    | { path: string }
+    | undefined;
   const fields = { ...entity.fields };
   if (typeof fields.packagePath === 'string') {
     fields.packagePath = binding?.path ?? resolveManagedWorkspacePath(db, fields.packagePath);
