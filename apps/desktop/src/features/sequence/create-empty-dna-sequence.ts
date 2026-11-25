@@ -9,7 +9,7 @@ import { scientificIdentityPath } from '@waypoint/scientific-objects';
 import type { ScientificAcceptedDocumentRevision } from '@waypoint/domain-services';
 import { findWorkspaceRootForPath } from '../../db/workspace-catalog';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
-import { readScientificNamespace } from '../../services/read-scientific-namespace';
+import { readScientificCatalog } from '../../services/read-scientific-namespace';
 import {
   publishNativeArtifact,
   NativeArtifactPublicationPendingError,
@@ -41,7 +41,7 @@ export interface CapturedSequenceCreation {
   readonly workspaceRoot: string;
   readonly artifactPath: string;
   readonly resourceId: string;
-  readonly expectedHead: string;
+  readonly expectedHead: string | null;
   readonly content: string;
   readonly sequencePackageText: string;
 }
@@ -134,7 +134,7 @@ export async function createDnaSequencePackage(
     useWorkspaceStore.getState().folders,
     request.destinationPath
   );
-  const namespace = workspaceRoot ? await readScientificNamespace(workspaceRoot) : null;
+  const namespace = workspaceRoot ? await readScientificCatalog(workspaceRoot) : null;
   if (request.requireAccepted && !namespace)
     throw new Error('The accepted sequence project is unavailable. Reopen it before importing.');
   if (request.creationDerivation && !namespace)

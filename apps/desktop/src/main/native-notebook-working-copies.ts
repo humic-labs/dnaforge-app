@@ -1843,7 +1843,7 @@ export function createNativeNotebookWorkingCopies(options: {
                 workspaceRoot: root,
                 id: stripWorkspaceScope(id),
                 title: input.title,
-                content: { type: 'doc', content: [{ type: 'paragraph' }] },
+                content: extra?.content ?? { type: 'doc', content: [{ type: 'paragraph' }] },
                 sourceShape: 'new-package',
               },
               assertCurrent,

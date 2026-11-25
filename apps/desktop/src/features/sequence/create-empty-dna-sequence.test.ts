@@ -30,7 +30,7 @@ vi.mock('../../db/workspace-catalog', () => ({
   findWorkspaceRootForPath: () => '/managed/project',
 }));
 vi.mock('../../services/read-scientific-namespace', () => ({
-  readScientificNamespace: mocks.namespace,
+  readScientificCatalog: mocks.namespace,
 }));
 vi.mock('../../services/workspace-mutation-transaction', () => ({
   withRendererWorkspaceMutation: (_root: string, operation: (token: string) => unknown) =>

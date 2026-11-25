@@ -764,8 +764,17 @@ function nativeArtifactEntries(
   source: Extract<ScientificWorkspaceSubmission['source'], { kind: 'native-artifact' }>,
   successor?: NativeWorkTaskFile
 ): readonly ScientificFileEntry[] {
-  if (head === null)
-    throw new Error('Enroll the scientific workspace before creating native artifacts.');
+  if (head === null) {
+    if (source.expectedRevisionId !== null || successor)
+      throw new Error('The native artifact has no accepted baseline in this project.');
+    return [
+      {
+        ...source.entry,
+        resourceId: must(parseResourceId(source.entry.resourceId)),
+        path: must(parseWorkspacePath(source.entry.path)),
+      },
+    ];
+  }
   const { graph } = store.read();
   const reader = createScientificReader({
     graph,

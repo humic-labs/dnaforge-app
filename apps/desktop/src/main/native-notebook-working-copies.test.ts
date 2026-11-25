@@ -649,6 +649,37 @@ describe('native notebook legacy package boundary', () => {
       restarted.executePublic({ ...input, operation: { ...input.operation, title: 'Different' } })
     ).rejects.toMatchObject({ code: 'NOTEBOOK_REQUEST_ID_REUSED', stateChanged: false });
   });
+  it('publishes supplied agent content once and retains it across restart and changed-input retries', async () => {
+    const content = {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Native agent content' }] }],
+    };
+    const request = {
+      title: 'Agent notebook',
+      workspaceRoot: root,
+      requestId: 'agent-content',
+      content,
+    };
+    const native = owner();
+    const first = await native.create(request);
+    expect(first.dirty).toBe(false);
+    expect(first.copy.content).toMatchObject(content);
+    expect(await readFile(join(first.path, 'Agent notebook.md'), 'utf8')).toContain(
+      'Native agent content'
+    );
+    await native.close();
+    const restarted = owner();
+    const replay = await restarted.create(request);
+    expect(replay.pageId).toBe(first.pageId);
+    expect(replay.copy.content).toEqual(first.copy.content);
+    await expect(
+      restarted.create({ ...request, content: { type: 'doc', content: [] } })
+    ).rejects.toMatchObject({ code: 'NOTEBOOK_REQUEST_ID_REUSED', stateChanged: false });
+    expect(
+      db.prepare("SELECT COUNT(*) AS count FROM catalog_entities WHERE type='notebook'").get()
+    ).toEqual({ count: 1 });
+    await restarted.close();
+  });
   it('creates a human-selected package in its exact folder with contextual catalog and existing project memory', async () => {
     const folder = join(root, 'Selected folder');
     await mkdir(folder);

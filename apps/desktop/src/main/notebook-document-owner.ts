@@ -156,7 +156,11 @@ export interface NativeNotebookOptions {
   create(
     input: Extract<NotebookDocumentOperation, { kind: 'create' }>,
     requestId?: string,
-    extra?: { context?: NotebookCreationContext; source: 'agent' | 'file-explorer-new-menu' }
+    extra?: {
+      context?: NotebookCreationContext;
+      content?: JSONContent;
+      source: 'agent' | 'file-explorer-new-menu';
+    }
   ): Promise<NotebookDocumentSnapshot>;
 }
 type NotebookSaveReceipt =
@@ -1170,7 +1174,7 @@ export class NativeNotebookWorkingCopyOwner {
     const created = await this.options.create(
       { kind: 'create', title: request.title, destinationProject: request.workspaceRoot },
       request.requestId,
-      { context: request.context, source: 'file-explorer-new-menu' }
+      { context: request.context, content: request.content, source: 'file-explorer-new-menu' }
     );
     this.publish(created);
     return created;

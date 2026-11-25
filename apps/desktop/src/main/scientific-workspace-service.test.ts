@@ -1299,6 +1299,66 @@ describe('scientific workspace operation owner', () => {
     expect(copiedStrain.name).toBe(`${planned.name} copy`);
   });
 
+  it('accepts the first literal DNA product in a fresh project and replays it without another version', async () => {
+    const f = await fixture();
+    expect(f.store.catalog().head).toBeNull();
+    const sequence = 'ATGC'.repeat(15);
+    const text = serializeGenBank({
+      id: 'first-dna',
+      name: 'First DNA',
+      sequence,
+      length: sequence.length,
+      circular: false,
+      annotations: [],
+    });
+    const sequencePackageText = serializeSequencePackageDocument(
+      buildSequencePackageDocument({
+        id: 'first-dna',
+        name: 'First DNA',
+        product: {
+          file: 'First DNA.gb',
+          genBankChecksum: defineBlob(new TextEncoder().encode(text)).hash,
+        },
+        existing: {
+          creationDerivation: {
+            schema: 'dnaforge.sequence-product-creation.v1',
+            circular: false,
+            parts: [{ kind: 'literal', sequence, label: 'Synthetic test DNA' }],
+          },
+        },
+      })
+    );
+    const request = {
+      operationId: 'first-literal-product',
+      expectedHead: null,
+      source: {
+        kind: 'native-artifact' as const,
+        expectedRevisionId: null,
+        entry: {
+          resourceId: 'first-dna',
+          path: 'First DNA/First DNA.gb',
+          representation: { format: 'genbank-v1' as const, text },
+          sequencePackageText,
+        },
+      },
+    };
+    const first = await f.submit(request);
+    expect(first.acceptance.kind).toBe('changed');
+    expect(first.delivery?.kind).toBe('complete');
+    expect(await readFile(join(f.root, 'First DNA/First DNA.gb'), 'utf8')).toBe(text);
+    expect(f.store.read().reader.current(id('first-dna'))?.representation?.text).toBe(text);
+    const head = f.store.catalog().head;
+    await f.submit(request);
+    expect(f.store.catalog().head).toBe(head);
+    await expect(
+      f.submit({
+        ...request,
+        operationId: 'missing-baseline',
+        expectedHead: null,
+        source: { ...request.source, expectedRevisionId: 'rr_' + 'a'.repeat(64) },
+      })
+    ).rejects.toThrow();
+  });
   it('accepts the exact new GenBank and format-6 package together before blocked delivery, then replays without another version', async () => {
     const f = await fixture();
     await f.initial();

@@ -8,11 +8,12 @@ type SourceRevision = Extract<SequenceProductCreation['parts'][number], { kind: 
 
 
 export async function readAcceptedDnaSources(workspaceRoot: string, ids: readonly string[], signal?: AbortSignal) {
-  const namespace = await readScientificNamespace(workspaceRoot);
-  if (!namespace) throw new Error('Sequence products require an enrolled scientific project.');
   const sources = new Map<string, AnnotatedSequence>();
   const pins = new Map<string, SourceRevision>();
   const kinds = new Map<string, string>();
+  if (ids.length === 0) return { sources, pins, kinds };
+  const namespace = await readScientificNamespace(workspaceRoot);
+  if (!namespace) throw new Error('Sequence products require accepted source revisions in this project.');
   for (const id of new Set(ids)) {
     signal?.throwIfAborted();
     const entry = namespace.entries.find(candidate => candidate.resourceId === id && !candidate.tombstone);
