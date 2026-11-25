@@ -16,14 +16,7 @@ const page = browser
 if (!page) throw new Error('The local development renderer is unavailable.');
 const errors = [];
 page.on('pageerror', (error) => errors.push(error.message));
-try {
-  await page.getByTestId('chat-first-workbench').waitFor({ timeout: 90000 });
-  const identity = await page.evaluate(() => {
-    if (!window.electronAPI || window.__WAYPOINT_RENDERER_BUILD__?.mode !== 'development')
-      throw new Error('This probe requires a native development desktop.');
-    return window.__WAYPOINT_RENDERER_BUILD__;
-  });
-  const name = `Synthetic workflow ${Date.now()}`;
+async function addProject(name) {
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await page.getByRole('menuitem', { name: 'New project…' }).click();
   await page.getByRole('textbox', { name: 'Project name' }).fill(name);
@@ -38,6 +31,16 @@ try {
     await new Promise((done) => setTimeout(done, 100));
   }
   assert.ok(mounted, 'The new project must finish mounting.');
+}
+try {
+  await page.getByTestId('chat-first-workbench').waitFor({ timeout: 90000 });
+  const identity = await page.evaluate(() => {
+    if (!window.electronAPI || window.__WAYPOINT_RENDERER_BUILD__?.mode !== 'development')
+      throw new Error('This probe requires a native development desktop.');
+    return window.__WAYPOINT_RENDERER_BUILD__;
+  });
+  const name = `Synthetic workflow ${Date.now()}`;
+  await addProject(name);
   const result = await page.evaluate(async (name) => {
     const { useWorkspaceStore } = await import('/src/stores/workspaceStore.ts');
     const folders = useWorkspaceStore.getState().folders;
@@ -188,6 +191,32 @@ try {
   await notebook.click();
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
   await page.keyboard.type(' Manual correction persisted.');
+  await addProject(`Synthetic switch ${Date.now()}`);
+  const queued = await page.evaluate(
+    async ({ id, root }) => {
+      const { readAuthoredNotebook } = await import('/src/features/page/notebook-authoring.ts');
+      let refusal;
+      try {
+        await readAuthoredNotebook(root, id);
+      } catch (error) {
+        refusal = error.message;
+      }
+      const { platform } = await import('/src/platform/index.ts');
+      return {
+        refusal,
+        snapshot: await platform().notebook.execute({
+          documentId: id,
+          operation: { kind: 'inspect-copy' },
+        }),
+      };
+    },
+    { id: result.first.notebookId, root: result.root }
+  );
+  assert.match(queued.refusal, /unsaved editor changes/);
+  assert.equal(queued.snapshot.dirty, true);
+  assert.ok(JSON.stringify(queued.snapshot.copy.content).includes('Manual correction persisted.'));
+  assert.ok((await notebook.innerText()).includes('Manual correction persisted.'));
+  await notebook.locator('p').last().click();
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+s' : 'Control+s');
   await page
     .locator('[data-ai-input-region="manual"]')
@@ -281,6 +310,7 @@ try {
           'changed retry refusal',
           'stale revision refusal',
           'unsaved draft protection',
+          'pending human edits across project creation',
           'first literal DNA acceptance',
           'duplicate name refusal',
           'exact pinned source product',
