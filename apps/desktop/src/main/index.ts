@@ -784,6 +784,53 @@ async function recoverNewerSchemaWithoutUserChoice(error: unknown): Promise<bool
   return true;
 }
 
+async function refuseStartupSchema(error: unknown): Promise<void> {
+  appendBootLog('schema_init_failed');
+  reportBootOrCrashFailure('schema_init_failed', 'boot_failure');
+  const isolatedProfile =
+    startupProfile.kind === 'scenario-disposable' ||
+    startupProfile.kind === 'explicit' ||
+    startupProfile.kind === 'worktree-dev' ||
+    startupProfile.kind === 'unstamped-isolated';
+  const databaseDialog = buildDatabaseErrorDialog(error, {
+    context: 'schema',
+    isPackaged: app.isPackaged,
+    dbPath: getDbPath(),
+    isolatedProfile,
+  });
+  const selectedAction = showStartupDatabaseError(databaseDialog);
+  try {
+    await flushAnalyticsForFatalStartup();
+  } catch (analyticsError) {
+    console.warn('[main] Failed to flush fatal-startup analytics:', analyticsError);
+  }
+
+  try {
+    if (selectedAction === 'install-current-release') {
+      safeOpenExternal('https://dnaforge.com/download');
+    } else if (selectedAction === 'reset-isolated-profile' && isolatedProfile) {
+      closeDatabase();
+      resetIsolatedDatabase(getDbPath());
+      console.log('[main] Reset isolated development database after explicit user confirmation');
+      relaunchAfterStartupDatabaseRecovery();
+      return;
+    }
+  } catch (recoveryActionError) {
+    console.error('[main] Startup database recovery action failed:', recoveryActionError);
+    showStartupDatabaseError({
+      title: 'Database recovery action failed',
+      detail: [
+        'DNAForge could not complete the selected recovery action.',
+        'The existing database and any recovery files have not been intentionally deleted.',
+        '',
+        `Error: ${String(recoveryActionError)}`,
+      ].join('\n'),
+    });
+  }
+
+  app.exit(1);
+}
+
 async function init(): Promise<void> {
   try {
     startDiagnosticsPhoneHome();
@@ -923,6 +970,8 @@ async function init(): Promise<void> {
       appVersion: app.getVersion(),
     });
     if (await recoverNewerSchemaWithoutUserChoice(newerSchemaError)) return;
+    await refuseStartupSchema(newerSchemaError);
+    return;
   }
 
   preflightSidecarRuntime();
@@ -960,50 +1009,7 @@ async function init(): Promise<void> {
   } catch (err) {
     console.error('[main] Schema initialization failed:', err);
     if (await recoverNewerSchemaWithoutUserChoice(err)) return;
-    appendBootLog('schema_init_failed');
-    reportBootOrCrashFailure('schema_init_failed', 'boot_failure');
-    const isolatedProfile =
-      startupProfile.kind === 'scenario-disposable' ||
-      startupProfile.kind === 'explicit' ||
-      startupProfile.kind === 'worktree-dev' ||
-      startupProfile.kind === 'unstamped-isolated';
-    const databaseDialog = buildDatabaseErrorDialog(err, {
-      context: 'schema',
-      isPackaged: app.isPackaged,
-      dbPath: getDbPath(),
-      isolatedProfile,
-    });
-    const selectedAction = showStartupDatabaseError(databaseDialog);
-    try {
-      await flushAnalyticsForFatalStartup();
-    } catch (analyticsError) {
-      console.warn('[main] Failed to flush fatal-startup analytics:', analyticsError);
-    }
-
-    try {
-      if (selectedAction === 'install-current-release') {
-        safeOpenExternal('https://dnaforge.com/download');
-      } else if (selectedAction === 'reset-isolated-profile' && isolatedProfile) {
-        closeDatabase();
-        resetIsolatedDatabase(getDbPath());
-        console.log('[main] Reset isolated development database after explicit user confirmation');
-        relaunchAfterStartupDatabaseRecovery();
-        return;
-      }
-    } catch (recoveryActionError) {
-      console.error('[main] Startup database recovery action failed:', recoveryActionError);
-      showStartupDatabaseError({
-        title: 'Database recovery action failed',
-        detail: [
-          'DNAForge could not complete the selected recovery action.',
-          'The existing database and any recovery files have not been intentionally deleted.',
-          '',
-          `Error: ${String(recoveryActionError)}`,
-        ].join('\n'),
-      });
-    }
-
-    app.exit(1);
+    await refuseStartupSchema(err);
     return;
   }
 
