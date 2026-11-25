@@ -17,7 +17,7 @@ if (!page) throw new Error('The local development renderer is unavailable.');
 const errors = [];
 page.on('pageerror', (error) => errors.push(error.message));
 try {
-  await page.getByTestId('chat-first-workbench').waitFor();
+  await page.getByTestId('chat-first-workbench').waitFor({ timeout: 90000 });
   const identity = await page.evaluate(() => {
     if (!window.electronAPI || window.__WAYPOINT_RENDERER_BUILD__?.mode !== 'development')
       throw new Error('This probe requires a native development desktop.');
@@ -53,6 +53,14 @@ try {
       blocks: [
         { type: 'heading', level: 1, content: [{ text: 'Chat-first native workflow' }] },
         { type: 'paragraph', content: [{ text: 'Saved through the native notebook owner.' }] },
+        {
+          type: 'table',
+          header: true,
+          rows: [
+            [[{ text: 'Sample' }], [{ text: 'Status' }]],
+            [[{ text: 'Synthetic' }], [{ text: 'Verified', bold: true }]],
+          ],
+        },
       ],
     };
     const first = await createAuthoredNotebook(input);
@@ -73,6 +81,30 @@ try {
       blocks: [{ type: 'paragraph', content: [{ text: 'Agent append saved.' }] }],
     };
     const updated = await updateAuthoredNotebook(update);
+    const { platform } = await import('/src/platform/index.ts');
+    const draft = await platform().notebook.execute({
+      documentId: first.notebookId,
+      expectedRevision: updated.revision,
+      operation: {
+        kind: 'splice-blocks',
+        index: 3,
+        deleteCount: 0,
+        blocks: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'Independent draft preserved.' }] },
+        ],
+      },
+    });
+    let dirtyRefusal;
+    try {
+      await updateAuthoredNotebook({ ...update, expectedRevision: draft.revision });
+    } catch (error) {
+      dirtyRefusal = error.message;
+    }
+    await platform().notebook.execute({
+      documentId: first.notebookId,
+      expectedRevision: draft.revision,
+      operation: { kind: 'save' },
+    });
     let stale;
     try {
       await updateAuthoredNotebook(update);
@@ -122,6 +154,7 @@ try {
       first,
       replay,
       updated,
+      dirtyRefusal,
       changedRetry,
       stale,
       sequence,
@@ -138,12 +171,13 @@ try {
   assert.equal(result.replay.notebookId, result.first.notebookId);
   assert.match(result.changedRetry, /REQUEST_ID_REUSED/);
   assert.match(result.stale, /revision changed/);
+  assert.match(result.dirtyRefusal, /unsaved editor changes/);
   assert.equal(result.sequence.ok, true, JSON.stringify(result.sequence));
   assert.equal(result.duplicate.ok, false);
   assert.equal(result.fragment.ok, true, JSON.stringify(result.fragment));
   assert.equal(result.missing.ok, false);
   assert.equal(result.missing.stateChanged, false);
-  const notebook = page.locator('.tiptap').filter({ hasText: 'Agent append saved.' });
+  const notebook = page.locator(`[data-page-id="${result.first.notebookId}"] .tiptap`);
   await notebook.waitFor();
   const before = await notebook.innerText();
   await notebook.click();
@@ -181,9 +215,57 @@ try {
     'ATGC'.repeat(15)
   );
   await writeFile(join(output, 'saved-sequence.gb'), sequenceText);
+  const fragmentText = await readFile(
+    join(result.root, 'sequences/Synthetic fragment/Synthetic fragment.gb'),
+    'utf8'
+  );
+  assert.equal(
+    fragmentText
+      .split(/ORIGIN\s*/)[1]
+      .split('//')[0]
+      .replace(/[^a-z]/gi, '')
+      .toUpperCase(),
+    'ATGC'.repeat(3) + 'GGCC'
+  );
+  const sourcePin = result.fragment.creationDerivation.parts.find(
+    (part) => part.kind === 'source'
+  ).revision;
+  assert.equal(sourcePin.resourceRevisionId, result.sequence.acceptedRevision.resourceRevisionId);
+  const openedSequence = await page.evaluate(async (id) => {
+    const { useWorkspaceStore } = await import('/src/stores/workspaceStore.ts');
+    const { createOpenTabTool } = await import('/src/features/ai/tools/open-tab.ts');
+    return createOpenTabTool(useWorkspaceStore.getState().folders).execute(
+      { type: 'sequence', entityId: id },
+      { toolCallId: 'native-viewer-check', messages: [] }
+    );
+  }, result.sequence.documentId);
+  assert.equal(openedSequence.ok, true);
+  await page.getByTestId('sequence-canvas-main').waitFor();
+  assert.equal(await page.getByTestId('sequence-error').count(), 0);
+  await page.screenshot({ path: join(output, 'native-sequence.png') });
+  await page.evaluate(
+    async ({ sequenceId, notebookId }) => {
+      const { useCanvasStore } = await import('/src/features/canvas/store.ts');
+      useCanvasStore.getState().closeTabByTypeAndEntity('sequence', sequenceId);
+      const { useWorkspaceStore } = await import('/src/stores/workspaceStore.ts');
+      const { createOpenTabTool } = await import('/src/features/ai/tools/open-tab.ts');
+      const tool = createOpenTabTool(useWorkspaceStore.getState().folders);
+      const sequence = await tool.execute(
+        { type: 'sequence', entityId: sequenceId },
+        { toolCallId: 'native-reopen', messages: [] }
+      );
+      if (!sequence.ok) throw new Error(sequence.error);
+      const notebook = await tool.execute(
+        { type: 'page', entityId: notebookId },
+        { toolCallId: 'native-reopen', messages: [] }
+      );
+      if (!notebook.ok) throw new Error(notebook.error);
+    },
+    { sequenceId: result.sequence.documentId, notebookId: result.first.notebookId }
+  );
   await page.screenshot({ path: join(output, 'native-workflow.png') });
   await page.reload();
-  await page.getByTestId('chat-first-workbench').waitFor();
+  await page.getByTestId('chat-first-workbench').waitFor({ timeout: 90000 });
   await page.locator('.tiptap').filter({ hasText: 'Manual correction persisted.' }).waitFor();
   assert.deepEqual(errors, []);
   await writeFile(
@@ -198,11 +280,15 @@ try {
           'creation retry identity',
           'changed retry refusal',
           'stale revision refusal',
+          'unsaved draft protection',
           'first literal DNA acceptance',
           'duplicate name refusal',
           'exact pinned source product',
           'missing source refusal',
           'reference opening',
+          'rich notebook publication',
+          'native sequence viewer',
+          'sequence close and reopen',
           'inspection typing blocked',
           'manual save',
           'independent disk bytes',

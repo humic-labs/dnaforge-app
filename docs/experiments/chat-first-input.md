@@ -55,10 +55,16 @@ The first version attempted strict AI-only input by making all output contents
 inert. That also removed useful inspection. The revised experiment permits quick
 edits and essential create/import controls, with chat remaining the default.
 
-The earlier native Codex test exposed notebook ownership/reopen failures and
-refused the first literal DNA product in a fresh project. Keeping manual
-controls does not prove those agent paths fixed. Compare and qualify each native
-path before drawing broader readiness conclusions.
+Notebook authoring now creates, reads and updates content through the native
+notebook owner. Creation receipts retain the request and content identity across
+retries. Shared feature activations keep references and conflict recovery
+available in the alternate shell. The first literal DNA product can publish the
+initial accepted project revision through the normal mutation and recovery
+checkpoint. Source-based products retain their exact accepted revision pins.
+
+The native probe and a real Codex chat turn cover notebook and sequence workflows.
+Other providers and the remaining scientific document types need separate
+verification before broader readiness claims.
 
 ## Verify the browser prototype
 
