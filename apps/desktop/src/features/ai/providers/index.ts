@@ -116,10 +116,16 @@ function apiKeyCredential(
   envVar: string,
   placeholder: string
 ): ProviderCredentialMeta {
+  const account = provider.startsWith('custom:')
+    ? `custom_provider_${btoa(provider.slice('custom:'.length))
+        .replaceAll('+', '-')
+        .replaceAll('/', '_')
+        .replace(/=+$/, '')}`
+    : provider;
   return {
     kind: 'api-key',
     label: 'API key',
-    keyringAccount: `${provider}_api_key`,
+    keyringAccount: `${account}_api_key`,
     envVar,
     placeholder,
     storageLabel: 'OS keychain',
