@@ -1,4 +1,5 @@
 import { isElectron } from '../../utils/environment';
+import { getNativeNotebookDocumentClient } from './notebook-document-client';
 import { waitForNativeFileDocumentReadiness } from '../workspace/public/file-document-client';
 import { referenceNavigationLinks } from '../../services/entity-navigation';
 import type { JSONContent } from '@tiptap/core';
@@ -54,10 +55,9 @@ async function validateReferences(blocks: Blocks, mountedRoots: readonly string[
 export async function readAuthoredNotebook(workspaceRoot: string, notebookId: string) {
   if (isElectron()) {
     await waitForNativeFileDocumentReadiness();
-    const snapshot = await platform().notebook.execute({
-      documentId: notebookId,
-      operation: { kind: 'inspect-copy' },
-    });
+    const client = getNativeNotebookDocumentClient(notebookId);
+    await client.initialize();
+    const snapshot = await client.command({ kind: 'inspect-copy' });
     if (snapshot.workspaceRoot !== workspaceRoot)
       throw new Error('The notebook does not belong to the selected project.');
     if (snapshot.dirty)
@@ -225,21 +225,20 @@ export async function updateAuthoredNotebook(input: {
       ? { type: 'doc', content: [...(current.content.content ?? []), ...(next.content ?? [])] }
       : next;
   if (isElectron()) {
-    const edited = await platform().notebook.execute({
-      documentId: input.notebookId,
-      expectedRevision: input.expectedRevision,
-      operation: {
+    const client = getNativeNotebookDocumentClient(input.notebookId);
+    const edited = await client.command(
+      {
         kind: 'splice-blocks',
         index: 0,
         deleteCount: current.content.content?.length ?? 0,
         blocks: content.content ?? [],
       },
-    });
-    await platform().notebook.execute({
-      documentId: input.notebookId,
-      expectedRevision: edited.revision,
-      operation: { kind: 'save' },
-    });
+      { expectedRevision: input.expectedRevision, requestId: crypto.randomUUID() }
+    );
+    await client.command(
+      { kind: 'save' },
+      { expectedRevision: edited.revision, requestId: crypto.randomUUID() }
+    );
     return withNotebookReference(await readAuthoredNotebook(input.workspaceRoot, input.notebookId));
   }
   await usePageStore.getState().fetchPage(input.notebookId);
