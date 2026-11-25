@@ -1,5 +1,6 @@
 import { usePresentationListener } from '../presentation/PresentationSurface';
 import { Button } from './ui';
+import { navigationStatusClass } from './ui/styles';
 import { INTERACTION_CLASS } from '@waypoint/ui-components';
 import { dispatchWorkspaceFileRelocated } from '../features/workspace/relocate-registry-file';
 import { getWorkspaceProjectControl } from '../features/workspace-loader/workspace-project-control';
@@ -605,7 +606,7 @@ function ProjectRow({
           </span>
         </span>
         {(current || open) && (
-          <span className="rounded-sm border border-accent/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+          <span className={navigationStatusClass(current ? 'success' : 'neutral')}>
             {current ? 'Selected' : 'Open'}
           </span>
         )}

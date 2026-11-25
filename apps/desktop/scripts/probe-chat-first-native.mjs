@@ -226,12 +226,15 @@ try {
   assert.ok(JSON.stringify(queued.snapshot.copy.content).includes('Manual correction persisted.'));
   assert.ok((await notebook.innerText()).includes('Manual correction persisted.'));
   await notebook.locator('p').last().click();
-  const editorRegion = page.locator('[data-ai-input-region="manual"]').filter({ has: notebook });
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+s' : 'Control+s');
-  await editorRegion
-    .getByText(/^Saved /)
-    .first()
-    .waitFor();
+  await page.waitForFunction(async (id) => {
+    const { platform } = await import('/src/platform/index.ts');
+    const snapshot = await platform().notebook.execute({
+      documentId: id,
+      operation: { kind: 'inspect-copy' },
+    });
+    return !snapshot.dirty && !snapshot.saving && snapshot.revision === snapshot.persistedRevision;
+  }, result.first.notebookId);
   await page.getByTestId('chat-first-project-picker').click();
   const projectPopover = page.getByTestId('project-switcher-popover');
   await projectPopover.getByTestId('project-switcher-search').fill(name);

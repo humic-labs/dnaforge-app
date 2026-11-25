@@ -90,6 +90,30 @@ it.each(['create_notebook', 'update_notebook'])(
   }
 );
 
+it('verifies a native authoring receipt against the persisted owner revision', async () => {
+  const claims = collectCreatedArtifactClaims([
+    tool('create_notebook', {
+      structuredContent: {
+        ok: true,
+        result: {
+          notebookId: id,
+          title: claim.label,
+          workspaceRoot: root,
+          revision: saved.revision,
+        },
+      },
+    }),
+  ]);
+  expect(claims).toEqual([{ ...claim, revision: saved.revision }]);
+  expect((await prepareAgentArtifactDelivery(claims)).references).toHaveLength(1);
+  native.inspect.mockResolvedValue({
+    ...saved,
+    revision: 'owner:2:page',
+    persistedRevision: 'owner:2:page',
+  });
+  expect((await prepareAgentArtifactDelivery(claims)).failedClaims).toEqual(claims);
+});
+
 it.each(['create', 'save', 'rename'])('collects the native notebook %s receipt', (kind) => {
   expect(
     collectCreatedArtifactClaims([

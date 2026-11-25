@@ -17,6 +17,7 @@ import { safeFocus } from '../../shared/utils/safeFocus';
 import { platform } from '../../platform';
 import { useToastStore } from '../../stores/toast-store';
 import { EditIcon, PinIcon, PlusIcon, SearchIcon, SidebarIcon, TrashIcon } from '../icons';
+import { Button } from '../ui';
 import { beginHistoryObservation } from '../../lib/chat-history-telemetry';
 import type {
   HistoryAction,
@@ -914,7 +915,7 @@ export function ChatHistorySurface({
         const target = event.target as Element;
         if (
           target.closest(
-            '[data-testid="ai-active-conversation-title-button"], [data-testid="ai-new-conversation-button"]'
+            '[data-testid="ai-active-conversation-title"], [data-testid="ai-active-conversation-title-button"], [data-testid="ai-new-conversation-button"]'
           )
         )
           return;
@@ -1107,39 +1108,64 @@ export function ChatHistorySurface({
           </div>
         )}
       </div>
-      {!showPanel && (
-        <button
-          type="button"
+      {chatFirst && !showPanel && (
+        <Button
+          variant="appbar"
           onClick={() => void handleNewConversation()}
-          className={`inline-flex h-8 flex-shrink-0 items-center justify-center gap-1.5 rounded-md text-xs font-medium text-fg-muted transition-colors wp-interactive hover:text-accent ${chatFirst ? 'px-2' : 'w-8'}`}
-          title={chatFirst ? 'New chat in the selected project' : 'New conversation'}
-          aria-label={chatFirst ? 'New chat' : 'New conversation'}
+          title="New chat in the selected project"
           data-testid="ai-new-conversation-button"
         >
           <PlusIcon className="h-4 w-4" />
-          {chatFirst && 'New chat'}
-        </button>
+          New chat
+        </Button>
       )}
-      {!showPanel && activeTitle !== 'New Chat' && activeTitle !== 'New conversation' && (
+      {chatFirst &&
+        !showPanel &&
+        activeTitle !== 'New Chat' &&
+        activeTitle !== 'New conversation' && (
+          <span
+            className="min-w-0 truncate self-center px-2 text-xs font-medium text-fg"
+            title={activeTitle}
+            data-testid="ai-active-conversation-title"
+          >
+            {activeTitle}
+          </span>
+        )}
+      {!chatFirst && !showPanel && (
         <button
           type="button"
-          className={`min-w-0 rounded-md px-2.5 py-1.5 text-left text-xs font-medium leading-5 text-fg transition-[max-width] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${chatFirst ? 'bg-bg-muted' : 'bg-bg/85 shadow-sm ring-1 ring-border/70 backdrop-blur'} ${
-            titleExpanded
-              ? 'max-h-[min(60vh,28rem)] max-w-[min(48rem,calc(100vw-5rem))] overflow-y-auto whitespace-pre-wrap break-words'
-              : 'max-w-[min(29.5rem,calc(100vw-4.5rem))] truncate'
-          }`}
-          aria-label={`Conversation title: ${activeTitle}`}
-          aria-expanded={titleExpanded}
-          data-testid="ai-active-conversation-title-button"
-          onMouseEnter={() => setTitleExpanded(true)}
-          onMouseLeave={() => setTitleExpanded(false)}
-          onFocus={() => setTitleExpanded(true)}
-          onClick={() => setTitleExpanded(true)}
-          onBlur={() => setTitleExpanded(false)}
+          onClick={() => void handleNewConversation()}
+          className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors wp-interactive hover:text-accent "
+          title="New conversation"
+          aria-label="New conversation"
+          data-testid="ai-new-conversation-button"
         >
-          <span data-testid="ai-active-conversation-title">{activeTitle}</span>
+          <PlusIcon className="h-4 w-4" />
         </button>
       )}
+      {!chatFirst &&
+        !showPanel &&
+        activeTitle !== 'New Chat' &&
+        activeTitle !== 'New conversation' && (
+          <button
+            type="button"
+            className={`min-w-0 rounded-md bg-bg/85 px-2.5 py-1.5 text-left text-xs font-medium leading-5 text-fg shadow-sm ring-1 ring-border/70 backdrop-blur transition-[max-width] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+              titleExpanded
+                ? 'max-h-[min(60vh,28rem)] max-w-[min(48rem,calc(100vw-5rem))] overflow-y-auto whitespace-pre-wrap break-words'
+                : 'max-w-[min(29.5rem,calc(100vw-4.5rem))] truncate'
+            }`}
+            aria-label={`Conversation title: ${activeTitle}`}
+            aria-expanded={titleExpanded}
+            data-testid="ai-active-conversation-title-button"
+            onMouseEnter={() => setTitleExpanded(true)}
+            onMouseLeave={() => setTitleExpanded(false)}
+            onFocus={() => setTitleExpanded(true)}
+            onClick={() => setTitleExpanded(true)}
+            onBlur={() => setTitleExpanded(false)}
+          >
+            <span data-testid="ai-active-conversation-title">{activeTitle}</span>
+          </button>
+        )}
     </div>,
     document.body
   );

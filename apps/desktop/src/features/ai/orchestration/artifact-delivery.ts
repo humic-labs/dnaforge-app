@@ -11,6 +11,7 @@ import {
 } from '../../../db/entity-references';
 import { getConnection } from '../../../db';
 import { platform } from '../../../platform';
+import { readScientificNamespace } from '../../../services/read-scientific-namespace';
 import { parseSequenceDataLayerPath } from '../../../shared/sequence-data-layer-path';
 import type { ChatMessage } from './chat-types';
 import {
@@ -37,6 +38,7 @@ interface CatalogArtifactClaim {
   label: string;
   workspaceRoot?: string;
   revision?: string;
+  acceptedSequenceRevisionId?: string;
 }
 
 export type CreatedArtifactClaim =
@@ -145,7 +147,8 @@ function claimFromTool(
       typeof result.workspaceRoot !== 'string' ||
       !result.workspaceRoot.trim() ||
       typeof revision !== 'string' ||
-      !/^[0-9a-f]{16}$/iu.test(revision)
+      !revision.trim() ||
+      (native && !/^[0-9a-f]{16}$/iu.test(revision))
     )
       return null;
     return {
@@ -169,6 +172,27 @@ function claimFromTool(
       kind: 'design',
       id: result.designId,
       label: typeof result.name === 'string' && result.name.trim() ? result.name.trim() : 'Design',
+    };
+  }
+  if (name === 'create_sequence_product') {
+    const accepted = result.acceptedRevision;
+    if (
+      result.saved !== true ||
+      typeof result.documentId !== 'string' ||
+      !UUID.test(result.documentId) ||
+      !isRecord(accepted) ||
+      accepted.kind !== 'accepted-object' ||
+      accepted.resourceId !== result.documentId ||
+      typeof accepted.resourceRevisionId !== 'string' ||
+      !/^rr_[0-9a-f]{64}$/u.test(accepted.resourceRevisionId)
+    )
+      return null;
+    return {
+      kind: 'sequence',
+      id: result.documentId,
+      label:
+        typeof result.name === 'string' && result.name.trim() ? result.name.trim() : 'Sequence',
+      acceptedSequenceRevisionId: accepted.resourceRevisionId,
     };
   }
   if (name === 'import_sequence') {
@@ -248,6 +272,19 @@ async function resolveSavedArtifact(claim: CreatedArtifactClaim): Promise<SavedA
   if (claim.kind === 'design' && file.file_kind !== 'waypoint-design') return null;
   if (claim.kind === 'sequence' && file.file_kind !== 'waypoint-sequence') return null;
   const workspaceRoot = await getCatalogWorkspaceRootForFilePath(file.path);
+  if (claim.kind === 'sequence' && claim.acceptedSequenceRevisionId) {
+    if (!workspaceRoot) return null;
+    const namespace = await readScientificNamespace(workspaceRoot);
+    if (
+      !namespace?.entries.some(
+        (entry) =>
+          entry.resourceId === claim.id &&
+          entry.revisionId === claim.acceptedSequenceRevisionId &&
+          !entry.tombstone
+      )
+    )
+      return null;
+  }
   if (claim.kind === 'notebook') {
     if (
       file.file_kind !== 'waypoint-notebook' ||
@@ -264,7 +301,7 @@ async function resolveSavedArtifact(claim: CreatedArtifactClaim): Promise<SavedA
       saved.documentId !== claim.id ||
       saved.workspaceRoot !== workspaceRoot ||
       saved.path !== file.path ||
-      saved.canonicalFingerprint !== claim.revision ||
+      (saved.canonicalFingerprint !== claim.revision && saved.revision !== claim.revision) ||
       !saved.ready ||
       saved.dirty ||
       saved.saving ||

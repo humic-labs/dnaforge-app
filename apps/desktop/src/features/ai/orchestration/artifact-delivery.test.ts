@@ -61,6 +61,43 @@ it('takes artifact identities only from successful DNAForge tool results', () =>
   ]);
 });
 
+it('collects literal sequence products only with a matching accepted revision', () => {
+  const resourceRevisionId = `rr_${'a'.repeat(64)}`;
+  const output = {
+    saved: true,
+    documentId: DOCUMENT_ID,
+    name: 'Test fragment',
+    acceptedRevision: {
+      kind: 'accepted-object',
+      resourceId: DOCUMENT_ID,
+      resourceRevisionId,
+    },
+  };
+  const receipt = (payload: object) =>
+    message(
+      'tool',
+      JSON.stringify({ output: { structuredContent: { ok: true, result: payload } } }),
+      'create_sequence_product'
+    );
+  expect(collectCreatedArtifactClaims([receipt(output)])).toEqual([
+    {
+      kind: 'sequence',
+      id: DOCUMENT_ID,
+      label: 'Test fragment',
+      acceptedSequenceRevisionId: resourceRevisionId,
+    },
+  ]);
+  expect(
+    collectCreatedArtifactClaims([
+      receipt({
+        ...output,
+        acceptedRevision: { ...output.acceptedRevision, resourceId: DESIGN_ID },
+      }),
+      receipt({ ...output, saved: false }),
+    ])
+  ).toEqual([]);
+});
+
 describe('prepareAgentArtifactDelivery', () => {
   it('creates openable design and sequence references only for saved files', async () => {
     const claims = [

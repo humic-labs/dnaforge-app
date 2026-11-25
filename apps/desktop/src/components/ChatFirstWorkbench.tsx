@@ -85,7 +85,9 @@ export function ChatFirstWorkbench({
               onClick={(event) => onOpenProjects(event.currentTarget)}
             >
               <ProjectRootIcon className="h-4 w-4 shrink-0 text-accent" />
-              <span className="truncate">{projectName ?? 'Choose a project'}</span>
+              <span className="max-w-[min(30vw,18rem)] truncate">
+                {projectName ?? 'Choose a project'}
+              </span>
               <ChevronRotatableIcon
                 expanded={projectPickerOpen}
                 className="h-3 w-3 shrink-0 text-fg-muted"

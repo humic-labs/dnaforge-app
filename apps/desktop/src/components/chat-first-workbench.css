@@ -2,21 +2,12 @@
   -webkit-app-region: no-drag;
 }
 
-.chat-first-project-control > button {
-  min-width: 0;
-}
-
 .chat-first-workbench [data-testid='full-chat-view'] {
   background: hsl(var(--color-bg-subtle));
 }
 
 .chat-first-workbench [data-testid='chat-composer'] {
   background: hsl(var(--color-bg));
-}
-
-.chat-first-workbench [data-testid='chat-composer']:focus-within {
-  border-color: hsl(var(--color-accent) / 0.6);
-  box-shadow: 0 0 0 1px hsl(var(--color-accent) / 0.35);
 }
 
 .chat-first-workbench [data-testid='user-message'] {
