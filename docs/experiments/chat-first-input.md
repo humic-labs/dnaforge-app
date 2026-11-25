@@ -4,17 +4,22 @@ Chat is the main input route. Keep a small manual interface for quick
 corrections and essential creation/import, while retaining the existing output
 views.
 
-The shell has Chat, New chat and one Add menu. Add contains New project, Open
-project, New notebook, New DNA sequence and Import file. These call the existing
-project, document and import owners and use their normal dialogs.
+The title bar shows the selected project. Use its project picker to create, open
+or import a project. Files searches the selected project. Import and New
+document provide direct access to file import, notebooks and DNA sequences.
 
-Each output starts in inspection mode. Pointer selection, canvas gestures,
-scrolling and keyboard navigation remain available. Authoring controls are
-hidden and typing/paste are blocked until the user chooses Edit. Edit reveals
-that view's existing controls for a correction; Done editing returns to
-inspection. This is progressive disclosure, not a newly restricted document
-permission. Save and undo/redo remain available while a manual editor has focus.
-The file tree, registry panels and terminal stay out of the shell.
+An empty workspace opens to chat. Prompt starters fill the composer for review.
+Opening a result puts it in the adjacent canvas. The conversation stays visible
+and document tabs retain their native close controls and unsaved indicators.
+
+Chat shows the project bound to the conversation. Selecting another project
+changes where Files, Import and New document work. Choose New chat to start in
+that project. Existing conversations and their drafts stay associated with their
+original projects and can be reopened from history.
+
+Make corrections inside the native document view. Notebook edits use its usual
+autosave and Save now control. Sequence selection, zoom, maps and native edit
+controls remain available beside chat.
 
 ## Run it
 
@@ -35,25 +40,10 @@ absent, allowing automatic route selection to finish.
 
 ## Implementation boundary
 
-The alternate shell reuses the existing canvas, chat and document lifecycle.
-Output permissions stay with their native owners. Input-region markers separate
-conversation, inspection, manual editing and navigation. The event guard blocks
-accidental typing in inspection mode, but permits pointer gestures and explicit
-manual inputs. Menus inherit their input region from their anchor, including
-portalled menus.
-
-The command dispatcher allows Save and undo/redo when focus is inside a manual
-editor. General file creation shortcuts and terminal execution remain excluded;
-the compact Add menu calls only its named existing handlers. Native import menus
-are omitted to avoid duplicating Add. Native undo/redo respects the focused
-input region. Dialog hosts needed for creation, confirmation and import remain
-mounted without restoring the normal application panels.
-
-## Earlier experiment and limits
-
-The first version attempted strict AI-only input by making all output contents
-inert. That also removed useful inspection. The revised experiment permits quick
-edits and essential create/import controls, with chat remaining the default.
+The alternate shell reuses the existing canvas, chat, project picker and
+document lifecycle. The native editors own write access, recovery, save feedback
+and conflict handling. The shell starts with chat and keeps general creation
+shortcuts and terminal commands outside its command set.
 
 Notebook authoring now creates, reads and updates content through the native
 notebook owner. Creation receipts retain the request and content identity across
@@ -62,9 +52,9 @@ available in the alternate shell. The first literal DNA product can publish the
 initial accepted project revision through the normal mutation and recovery
 checkpoint. Source-based products retain their exact accepted revision pins.
 
-The native probe and a real Codex chat turn cover notebook and sequence workflows.
-Other providers and the remaining scientific document types need separate
-verification before broader readiness claims.
+The native probe and a real Codex chat turn cover notebook and sequence
+workflows. Other providers and the remaining scientific document types need
+separate verification before broader readiness claims.
 
 ## Verify the browser prototype
 
@@ -83,12 +73,11 @@ node apps/desktop/scripts/probe-chat-first-input.mjs \
   http://127.0.0.1:14636 /tmp/dnaforge-chat-first-probe
 ```
 
-The probe calls the existing notebook agent tool to create, inspect, edit and
-save a synthetic notebook on the in-memory platform. It checks the rendered
-output, pointer selection, blocked accidental typing/paste/drop, explicit manual
-correction, chat menus, output-tab navigation and the Add project dialog. It
-writes a JSON result and screenshot. It refuses to run against a native
-renderer.
+The probe exercises the project picker and prompt starters, then calls the
+notebook agent tool on the in-memory platform. It checks the rendered output,
+pointer selection, direct manual correction, file search and document creation
+controls. It writes a JSON result and screenshot. It refuses to run against a
+native renderer.
 
 This is browser presentation and tool/editor proof. It does not prove a live
 model turn, native IPC, filesystem persistence or every scientific viewer's
@@ -119,11 +108,13 @@ node apps/desktop/scripts/probe-chat-first-native.mjs \
   http://127.0.0.1:22438 /tmp/dnaforge-chat-first-native
 ```
 
-This creates a synthetic project through Add, then calls the normal notebook and
-sequence authoring services against native IPC. It checks creation retries,
-changed requests, stale notebook revisions, first literal DNA publication,
-duplicate names, accepted source pins, missing sources, reference opening,
-inspection typing, manual saving, independent saved bytes and renderer reload.
-It writes results and screenshots outside the repository. The synthetic project
-remains available for inspection. This deterministic probe does not send a model
-request; a live chat turn must be checked separately.
+This creates a synthetic project through the project picker, then calls the
+normal notebook and sequence authoring services against native IPC. It checks
+creation retries, changed requests, stale notebook revisions, first literal DNA
+publication, duplicate names, accepted source pins, missing sources and
+reference opening. It also exercises the native notebook editor, verifies the
+chat draft and pending notebook edit across a project switch, checks that a
+follow-up preserves the saved correction, and verifies the saved bytes and
+renderer reload. It writes results and screenshots outside the repository. The
+synthetic project remains available for inspection. This deterministic probe
+does not send a model request; a live chat turn must be checked separately.

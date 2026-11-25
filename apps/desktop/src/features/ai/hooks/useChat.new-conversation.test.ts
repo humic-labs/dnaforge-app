@@ -142,7 +142,7 @@ describe('useChat new-conversation draft lifecycle', () => {
     );
   });
 
-  it('materializes a placeholder draft before opening its blank destination', async () => {
+  it('preserves a placeholder draft project when opening a chat in another project', async () => {
     vi.mocked(db.createConversation)
       .mockResolvedValueOnce({
         id: 'preserved-draft-conv',
@@ -157,7 +157,7 @@ describe('useChat new-conversation draft lifecycle', () => {
       .mockResolvedValueOnce({
         id: 'blank-destination-conv',
         title: 'New conversation',
-        workspace_path: '/ws',
+        workspace_path: '/other-project',
         pinned: 0,
         provider: null,
         model: null,
@@ -165,6 +165,7 @@ describe('useChat new-conversation draft lifecycle', () => {
         updated_at: 1,
       });
     const placeholderDraft = {
+      workspacePath: '/ws',
       text: 'Keep all of this',
       attachments: [
         { id: 'file-1', name: 'notes.txt', path: '/ws/notes.txt', size: 5, content: 'notes' },
@@ -192,11 +193,23 @@ describe('useChat new-conversation draft lifecycle', () => {
       composerDrafts: new Map([['placeholder-conv', placeholderDraft]]),
     });
 
-    const conversationId = await useChatStore.getState().newConversation('/ws', {
+    const conversationId = await useChatStore.getState().newConversation('/other-project', {
       sourceConversationId: 'placeholder-conv',
     });
 
     expect(conversationId).toBe('blank-destination-conv');
+    expect(db.createConversation).toHaveBeenNthCalledWith(
+      1,
+      expect.any(String),
+      'New conversation',
+      '/ws'
+    );
+    expect(db.createConversation).toHaveBeenNthCalledWith(
+      2,
+      expect.any(String),
+      'New conversation',
+      '/other-project'
+    );
     expect(useChatStore.getState().composerDrafts.get('preserved-draft-conv')).toEqual(
       placeholderDraft
     );

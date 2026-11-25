@@ -14,7 +14,7 @@ vi.mock('../features/page/public/resolve-owning-root-for-page', () => ({
   resolveOwningRootForPage: async () => '/synthetic-project',
 }));
 
-it('edits and saves through the actual notebook agent tool while its mounted output stays inert', async () => {
+it('edits and saves through the actual notebook agent tool with native editor controls mounted', async () => {
   const pageId = 'ws1::11111111-1111-4111-8111-111111111111';
   const content = {
     type: 'doc',
@@ -61,7 +61,7 @@ it('edits and saves through the actual notebook agent tool while its mounted out
     });
     expect(screen.getByText('Agent produced this result')).toBeTruthy();
     expect(editor.isEditable).toBe(true);
-    expect(host.parentElement?.getAttribute('data-ai-input-region')).toBe('output');
+    expect(host.parentElement?.getAttribute('data-ai-input-region')).toBe('manual');
     const current = await execTool<{ revision: string }>(tool, {
       pageId,
       operation: { kind: 'inspect', offset: 0, limit: 20 },

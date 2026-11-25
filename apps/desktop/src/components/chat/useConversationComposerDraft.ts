@@ -7,6 +7,7 @@ export { useComposerSequencePaste } from '../../features/ai/paste-copied-sequenc
 
 interface ConversationComposerDraftOptions {
   conversationId: string | null;
+  workspacePath?: string | null;
   text: string;
   attachments: AttachedFile[];
   references: DBEntityReference[];
@@ -17,6 +18,7 @@ interface ConversationComposerDraftOptions {
 
 export function useConversationComposerDraft({
   conversationId,
+  workspacePath,
   text,
   attachments,
   references,
@@ -43,9 +45,10 @@ export function useConversationComposerDraft({
       return;
     }
     setComposerDraft(conversationId, {
+      ...(workspacePath === undefined ? {} : { workspacePath }),
       text,
       attachments,
       references,
     });
-  }, [attachments, conversationId, references, setComposerDraft, text]);
+  }, [attachments, conversationId, references, setComposerDraft, text, workspacePath]);
 }

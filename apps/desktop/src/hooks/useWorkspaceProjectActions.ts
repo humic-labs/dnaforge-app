@@ -695,40 +695,43 @@ export function useWorkspaceProjectActions(options: WorkspaceProjectActionsOptio
     }
   }, [setHostedBrowserReadOpen, setHostedStatus]);
 
-  const handleImportFile = useCallback(async () => {
-    if (isHostedBrowserRuntime()) {
-      hostedFileInputRef.current?.click();
-      return;
-    }
-    const targetRoot = resolveImportRoot();
-    if (!targetRoot) {
-      useToastStore
-        .getState()
-        .addToast(
-          folders.length > 1
-            ? userMessage('notice.click-into-the-project-you-want-to-import-the-file-into-first')
-            : userMessage('notice.open-or-create-a-project-first-then-import-files-into-it'),
-          { definition: 'app-open-or-create-a-project-first-then-import-files-into-it' }
-        );
-      return;
-    }
-    if (isBrowserOnly()) {
-      useToastStore
-        .getState()
-        .addToast(userMessage('notice.file-import-is-only-available-in-the-desktop-app'), {
-          definition: 'app-file-import-is-only-available-in-the-desktop-app',
-        });
-      return;
-    }
-    const picked = await platform().dialog.open({
-      directory: false,
-      multiple: false,
-      title: 'Import File',
-      filters: WORKSPACE_IMPORT_FILE_FILTERS,
-    });
-    if (typeof picked !== 'string') return;
-    await runSingleFileImport(targetRoot, picked);
-  }, [hostedFileInputRef, resolveImportRoot, folders.length, runSingleFileImport]);
+  const handleImportFile = useCallback(
+    async (destination?: { projectPath: string | null }) => {
+      if (isHostedBrowserRuntime()) {
+        hostedFileInputRef.current?.click();
+        return;
+      }
+      const targetRoot = destination ? destination.projectPath : resolveImportRoot();
+      if (!targetRoot) {
+        useToastStore
+          .getState()
+          .addToast(
+            folders.length > 1
+              ? userMessage('notice.click-into-the-project-you-want-to-import-the-file-into-first')
+              : userMessage('notice.open-or-create-a-project-first-then-import-files-into-it'),
+            { definition: 'app-open-or-create-a-project-first-then-import-files-into-it' }
+          );
+        return;
+      }
+      if (isBrowserOnly()) {
+        useToastStore
+          .getState()
+          .addToast(userMessage('notice.file-import-is-only-available-in-the-desktop-app'), {
+            definition: 'app-file-import-is-only-available-in-the-desktop-app',
+          });
+        return;
+      }
+      const picked = await platform().dialog.open({
+        directory: false,
+        multiple: false,
+        title: 'Import File',
+        filters: WORKSPACE_IMPORT_FILE_FILTERS,
+      });
+      if (typeof picked !== 'string') return;
+      await runSingleFileImport(targetRoot, picked);
+    },
+    [hostedFileInputRef, resolveImportRoot, folders.length, runSingleFileImport]
+  );
 
   useEffect(() => {
     if (!isDesktopRuntime()) return;

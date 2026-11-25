@@ -1,4 +1,3 @@
-import { CHAT_FIRST_INPUT, installChatFirstHumanInputGuard } from './lib/chat-first-input';
 import { toUserMessage } from '@waypoint/user-messages';
 import { initDevConsole } from './shared/utils/devConsoleInit';
 initDevConsole();
@@ -90,7 +89,6 @@ import type { ResidueLocation, Structure3dAttrs } from './features/page/embeds/s
 
 let rendererAgentBridgeDisposer: (() => void) | null = null;
 const startupDisposers: Array<() => void> = [];
-if (CHAT_FIRST_INPUT) startupDisposers.push(installChatFirstHumanInputGuard(document));
 function disposeRendererStartup(): void {
   for (const dispose of startupDisposers.splice(0).reverse()) dispose();
 }

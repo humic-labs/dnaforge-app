@@ -17,10 +17,10 @@ if (!page) throw new Error('The local development renderer is unavailable.');
 const errors = [];
 page.on('pageerror', (error) => errors.push(error.message));
 async function addProject(name) {
-  await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'New project…' }).click();
-  await page.getByRole('textbox', { name: 'Project name' }).fill(name);
-  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await page.getByTestId('chat-first-project-picker').click();
+  await page.getByTestId('project-switcher-new-project').click();
+  await page.getByTestId('project-switcher-new-project-name').fill(name);
+  await page.getByTestId('project-switcher-new-project-create').click();
   let mounted = false;
   for (let attempt = 0; attempt < 200; attempt++) {
     mounted = await page.evaluate(async (name) => {
@@ -31,6 +31,8 @@ async function addProject(name) {
     await new Promise((done) => setTimeout(done, 100));
   }
   assert.ok(mounted, 'The new project must finish mounting.');
+  await page.getByTestId('chat-first-project-picker').getByText(name, { exact: true }).waitFor();
+  await page.getByTestId('project-switcher-popover').waitFor({ state: 'hidden' });
 }
 try {
   await page.getByTestId('chat-first-workbench').waitFor({ timeout: 90000 });
@@ -41,6 +43,12 @@ try {
   });
   const name = `Synthetic workflow ${Date.now()}`;
   await addProject(name);
+  await page.getByTestId('ai-new-conversation-button').click();
+  const chatProject = page.getByTestId('chat-first-conversation-project');
+  await chatProject.getByText(name, { exact: true }).waitFor();
+  const composer = page.getByTestId('ai-input');
+  await composer.fill('Check the notebook and the exact sequence in this project.');
+  await page.screenshot({ path: join(output, 'native-start.png') });
   const result = await page.evaluate(async (name) => {
     const { useWorkspaceStore } = await import('/src/stores/workspaceStore.ts');
     const folders = useWorkspaceStore.getState().folders;
@@ -182,16 +190,17 @@ try {
   assert.equal(result.missing.stateChanged, false);
   const notebook = page.locator(`[data-page-id="${result.first.notebookId}"] .tiptap`);
   await notebook.waitFor();
-  const before = await notebook.innerText();
-  await notebook.click();
-  await page.keyboard.type('BLOCKED INPUT');
-  assert.equal(await notebook.innerText(), before);
-  const region = page.locator('[data-ai-input-region="output"]').filter({ has: notebook });
-  await region.locator('..').getByRole('button', { name: 'Edit', exact: true }).click();
-  await notebook.click();
-  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
+  await composer.waitFor();
+  await notebook.locator('p').last().click();
+  await page.keyboard.press('End');
   await page.keyboard.type(' Manual correction persisted.');
-  await addProject(`Synthetic switch ${Date.now()}`);
+  const second = `Synthetic switch ${Date.now()}`;
+  await addProject(second);
+  assert.equal(await chatProject.textContent(), name);
+  assert.equal(
+    await composer.inputValue(),
+    'Check the notebook and the exact sequence in this project.'
+  );
   const queued = await page.evaluate(
     async ({ id, root }) => {
       const { readAuthoredNotebook } = await import('/src/features/page/notebook-authoring.ts');
@@ -217,13 +226,21 @@ try {
   assert.ok(JSON.stringify(queued.snapshot.copy.content).includes('Manual correction persisted.'));
   assert.ok((await notebook.innerText()).includes('Manual correction persisted.'));
   await notebook.locator('p').last().click();
+  const editorRegion = page.locator('[data-ai-input-region="manual"]').filter({ has: notebook });
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+s' : 'Control+s');
-  await page
-    .locator('[data-ai-input-region="manual"]')
-    .filter({ has: notebook })
-    .locator('..')
-    .getByRole('button', { name: 'Done editing' })
-    .click();
+  await editorRegion
+    .getByText(/^Saved /)
+    .first()
+    .waitFor();
+  await page.getByTestId('chat-first-project-picker').click();
+  const projectPopover = page.getByTestId('project-switcher-popover');
+  await projectPopover.getByTestId('project-switcher-search').fill(name);
+  await projectPopover.getByText(name, { exact: true }).click();
+  await page.getByTestId('chat-first-project-picker').getByText(name, { exact: true }).waitFor();
+  assert.equal(
+    await composer.inputValue(),
+    'Check the notebook and the exact sequence in this project.'
+  );
   let markdown;
   for (let attempt = 0; attempt < 200; attempt++) {
     markdown = await readFile(join(result.first.packagePath, 'Native agent notebook.md'), 'utf8');
@@ -231,7 +248,29 @@ try {
     await new Promise((done) => setTimeout(done, 100));
   }
   assert.ok(markdown.includes('Manual correction persisted.'));
-  assert.ok(!markdown.includes('BLOCKED INPUT'));
+  const followedUp = await page.evaluate(
+    async ({ id, root }) => {
+      const { readAuthoredNotebook, updateAuthoredNotebook } =
+        await import('/src/features/page/notebook-authoring.ts');
+      const saved = await readAuthoredNotebook(root, id);
+      return updateAuthoredNotebook({
+        workspaceRoot: root,
+        mountedRoots: [root],
+        notebookId: id,
+        expectedRevision: saved.revision,
+        mode: 'append',
+        operationId: 'follow-up-after-manual-save',
+        blocks: [
+          { type: 'paragraph', content: [{ text: 'Agent follow-up retained the correction.' }] },
+        ],
+      });
+    },
+    { id: result.first.notebookId, root: result.root }
+  );
+  assert.ok(followedUp.revision);
+  markdown = await readFile(join(result.first.packagePath, 'Native agent notebook.md'), 'utf8');
+  assert.ok(markdown.includes('Manual correction persisted.'));
+  assert.ok(markdown.includes('Agent follow-up retained the correction.'));
   await writeFile(join(output, 'saved-notebook.md'), markdown);
   const sequencePath = join(result.root, 'sequences/Synthetic 60bp/Synthetic 60bp.gb');
   const sequenceText = await readFile(sequencePath, 'utf8');
@@ -272,10 +311,12 @@ try {
   await page.getByTestId('sequence-canvas-main').waitFor();
   assert.equal(await page.getByTestId('sequence-error').count(), 0);
   await page.screenshot({ path: join(output, 'native-sequence.png') });
+  const sequenceTab = page.getByRole('tab', { name: /Synthetic 60bp/, selected: true });
+  const closeSequence = sequenceTab.getByRole('button', { name: /close/i });
+  await sequenceTab.hover();
+  await closeSequence.click();
   await page.evaluate(
     async ({ sequenceId, notebookId }) => {
-      const { useCanvasStore } = await import('/src/features/canvas/store.ts');
-      useCanvasStore.getState().closeTabByTypeAndEntity('sequence', sequenceId);
       const { useWorkspaceStore } = await import('/src/stores/workspaceStore.ts');
       const { createOpenTabTool } = await import('/src/features/ai/tools/open-tab.ts');
       const tool = createOpenTabTool(useWorkspaceStore.getState().folders);
@@ -319,8 +360,9 @@ try {
           'rich notebook publication',
           'native sequence viewer',
           'sequence close and reopen',
-          'inspection typing blocked',
-          'manual save',
+          'chat and draft retained across a project switch',
+          'direct edit with native save acknowledgement',
+          'authored follow-up preserves human correction',
           'independent disk bytes',
           'renderer reload',
         ],

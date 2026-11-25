@@ -1,3 +1,4 @@
+import { CHAT_FIRST_INPUT } from '../lib/chat-first-input';
 import {
   type UserMessage,
   renderUserMessage,
@@ -903,6 +904,7 @@ function InitializedChatView({
   onRequestPanelFocus,
   onHistoryPinnedChange,
 }: FullChatViewProps) {
+  const chatFirst = CHAT_FIRST_INPUT && !hideHeader && !scoped;
   const workspaceVisible = useWorkspaceVisibility();
   const isOpen = requestedOpen && workspaceVisible;
   const isChatVisible = (isVisible ?? requestedOpen) && workspaceVisible;
@@ -968,6 +970,7 @@ function InitializedChatView({
     stopGeneration,
     loadConversations,
     setComposerDraft,
+    composerDrafts,
   } = useChatStore();
 
   const boundConversationState = useChatStore((state) =>
@@ -985,9 +988,20 @@ function InitializedChatView({
   const persistedViewConversation = viewConversationId
     ? conversations.find((conversation) => conversation.id === viewConversationId)
     : undefined;
+  const draftWorkspacePath = viewConversationId
+    ? composerDrafts.get(viewConversationId)?.workspacePath
+    : undefined;
   const conversationWorkspacePath = persistedViewConversation
     ? persistedViewConversation.workspacePath
-    : workspacePath;
+    : chatFirst && draftWorkspacePath !== undefined
+      ? draftWorkspacePath
+      : workspacePath;
+  const conversationProject = workspaceFolders.find(
+    (folder) => folder.path === conversationWorkspacePath
+  );
+  const conversationProjectName =
+    conversationProject?.name ??
+    (conversationWorkspacePath ? getFilename(conversationWorkspacePath) : null);
   if (sendOwnerConversationRef.current !== viewConversationId) {
     sendOwnerConversationRef.current = viewConversationId;
     sendAttemptRef.current += 1;
@@ -1602,6 +1616,7 @@ function InitializedChatView({
   }, [stagedCapability]);
   useConversationComposerDraft({
     conversationId: viewConversationId,
+    workspacePath: chatFirst ? conversationWorkspacePath : undefined,
     text: input,
     attachments: attachedFiles,
     references: composeReferences,
@@ -2437,6 +2452,7 @@ function InitializedChatView({
             latestDraft.references.length === 0);
         if (latestDraftIsEmpty) {
           setComposerDraft(sendConversationId, {
+            ...(chatFirst ? { workspacePath: conversationWorkspacePath } : {}),
             text: previousDraft.input,
             attachments: previousDraft.attachedFiles,
             references: previousDraft.composeReferences,
@@ -2448,6 +2464,7 @@ function InitializedChatView({
       latestSendAttemptByConversationRef.current.delete(sendConversationId);
     }
   }, [
+    chatFirst,
     input,
     attachedFiles,
     composeReferences,
@@ -2865,21 +2882,43 @@ function InitializedChatView({
           onRequestPanelFocus={onRequestPanelFocus}
           onPinnedLayoutChange={onHistoryPinnedChange}
           onPause={handleStopGeneration}
+          chatFirst={chatFirst}
         />
       )}
-      {viewConversation && (
+      {(viewConversation || chatFirst) && (
         <div
-          className="flex min-h-9 flex-shrink-0 items-start justify-end pb-1 pl-2 pr-3 pt-2"
+          className={`flex flex-shrink-0 items-start justify-end pb-1 pl-2 pr-3 ${chatFirst ? 'min-h-14 pt-4' : 'min-h-9 pt-2'}`}
           data-testid="copy-thread-surface"
           data-layout="thread-toolbar"
         >
-          <CopyThreadButton
-            createTextMarkdown={createTextThreadMarkdown}
-            createDetailedMarkdown={createDetailedThreadMarkdown}
-          />
+          {viewConversation && (
+            <CopyThreadButton
+              createTextMarkdown={createTextThreadMarkdown}
+              createDetailedMarkdown={createDetailedThreadMarkdown}
+            />
+          )}
         </div>
       )}
-      {}
+      {chatFirst && (
+        <div className="flex min-w-0 items-center gap-2 border-b border-border/70 px-4 pb-2.5 text-xs text-fg-muted">
+          <span className="shrink-0">Chat project</span>
+          <span
+            className="truncate font-medium text-fg"
+            title={conversationProjectName ?? undefined}
+            data-testid="chat-first-conversation-project"
+          >
+            {conversationProjectName ?? 'No project selected for this chat'}
+          </span>
+          {conversationWorkspacePath !== workspacePath && (
+            <span
+              className="ml-auto shrink-0 text-fg-muted"
+              title="New chat uses the project selected in the title bar"
+            >
+              New chat to switch
+            </span>
+          )}
+        </div>
+      )}
       <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden" data-testid="chat-main-column">
         {}
         {displayMessages.length === 0 && visibleQueuedMessages.length === 0 ? (
@@ -2935,7 +2974,21 @@ function InitializedChatView({
                 onReferenceReveal={handleReferenceReveal}
                 onRemoveComposeReference={removeComposeReference}
                 isDragOver={isDragOver}
-                onSuggestionClick={setInput}
+                chatFirst={chatFirst}
+                greetingTitle={chatFirst ? 'What are you working on?' : undefined}
+                greetingSubtitle={
+                  chatFirst
+                    ? 'Ask for a notebook or a sequence. Results open beside your chat.'
+                    : undefined
+                }
+                onSuggestionClick={
+                  chatFirst
+                    ? (suggestion) => {
+                        handleComposerInputChange(suggestion);
+                        inputRef.current?.focus();
+                      }
+                    : setInput
+                }
                 renderAssistantRouteSelector={renderAssistantRouteSelector}
                 renderModelControls={renderComposerModelControls}
                 renderRunningRouteStatus={() => null}

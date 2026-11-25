@@ -31,6 +31,8 @@ interface ProjectSwitcherPopoverProps {
   x: number;
   y: number;
   openRepoPaths: string[];
+  currentRepoPath?: string | null;
+  anchor?: HTMLButtonElement;
   onClose: () => void;
   onOpenProject: (workspace: WorkspaceLibraryEntry) => void;
   onImportProject: () => void;
@@ -42,6 +44,8 @@ export function ProjectSwitcherPopover({
   x,
   y,
   openRepoPaths,
+  currentRepoPath,
+  anchor,
   onClose,
   onOpenProject,
   onImportProject,
@@ -106,7 +110,10 @@ export function ProjectSwitcherPopover({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) onClose();
+      if (!(event.target instanceof Node)) return;
+      if (ref.current && !ref.current.contains(event.target) && !anchor?.contains(event.target)) {
+        onClose();
+      }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
@@ -117,7 +124,7 @@ export function ProjectSwitcherPopover({
       document.removeEventListener('mousedown', handleClickOutside);
       presentationEvents.remove(document, 'keydown', handleKeyDown);
     };
-  }, [onClose, presentationEvents]);
+  }, [anchor, onClose, presentationEvents]);
 
   const filteredActive = useMemo(() => filterProjects(active, query), [active, query]);
   const filteredArchived = useMemo(() => filterProjects(archived, query), [archived, query]);
@@ -319,6 +326,7 @@ export function ProjectSwitcherPopover({
           Manage projects
         </button>
         <input
+          autoFocus={currentRepoPath !== undefined}
           value={query}
           onChange={(event) => setQuery(event.currentTarget.value)}
           placeholder="Search projects"
@@ -443,6 +451,7 @@ export function ProjectSwitcherPopover({
                     }
                     locating={locating !== null}
                     open={openRepoPaths.includes(workspace.repoPath)}
+                    current={workspace.repoPath === currentRepoPath}
                     onClick={() => openProject(workspace)}
                   />
                 ))
@@ -510,7 +519,7 @@ export function ProjectSwitcherPopover({
   );
 }
 
-const ACTION_BUTTON_CLASS = `${INTERACTION_CLASS} inline-flex h-8 items-center justify-center gap-1.5 rounded border border-border bg-bg px-2 text-xs font-medium text-fg`;
+const ACTION_BUTTON_CLASS = `${INTERACTION_CLASS} inline-flex h-8 items-center justify-center gap-1.5 rounded bg-bg-muted px-2 text-xs font-medium text-fg`;
 
 function SectionHeading({ label, count }: { label: string; count: number }) {
   return (
@@ -527,6 +536,7 @@ function EmptyRow({ text }: { text: string }) {
 function ProjectRow({
   workspace,
   open,
+  current = false,
   archived,
   trashedDaysRemaining,
   onClick,
@@ -537,6 +547,7 @@ function ProjectRow({
 }: {
   workspace: WorkspaceLibraryEntry;
   open: boolean;
+  current?: boolean;
   archived?: boolean;
 
   trashedDaysRemaining?: number;
@@ -574,6 +585,7 @@ function ProjectRow({
         type="button"
         data-testid={`project-switcher-row-${workspace.repoUuid ?? workspace.repoPath}`}
         onClick={onClick}
+        aria-current={current ? true : undefined}
         disabled={Boolean(workspace.rootState)}
         className="flex min-h-[52px] min-w-0 flex-1 items-center gap-2.5 px-3 py-2 text-left"
         title={workspace.originPath ?? workspace.repoPath}
@@ -592,9 +604,9 @@ function ProjectRow({
               : ''}
           </span>
         </span>
-        {open && (
+        {(current || open) && (
           <span className="rounded-sm border border-accent/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
-            Open
+            {current ? 'Selected' : 'Open'}
           </span>
         )}
       </button>

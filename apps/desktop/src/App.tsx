@@ -1,4 +1,4 @@
-import { promptDialog } from './components/confirm-dialog-store';
+import { Button } from './components/ui';
 import { CHAT_FIRST_INPUT } from './lib/chat-first-input';
 import { ChatFirstWorkbench } from './components/ChatFirstWorkbench';
 import { WorkTaskDialogHost } from './features/work/public/work';
@@ -727,6 +727,7 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
   const [projectLibraryPopover, setProjectLibraryPopover] = useState<{
     x: number;
     y: number;
+    anchor?: HTMLButtonElement;
   } | null>(null);
 
   const { library, libraryLoaded, libraryLoadError, mountedProjects, projectHomeProject } =
@@ -1802,42 +1803,32 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
   ) : null;
 
   if (CHAT_FIRST_INPUT) {
+    const projectPath = resolveChatWorkspacePath(workspacePath, folders);
+    const project = folders.find((folder) => folder.path === projectPath);
+
     return (
       <>
         <ChatFirstWorkbench
+          projectName={project?.name ?? null}
+          projectPickerOpen={projectLibraryPopover !== null}
+          onOpenProjects={(anchor) => {
+            const bounds = anchor.getBoundingClientRect();
+            setProjectLibraryPopover((previous) =>
+              previous ? null : { x: bounds.left, y: bounds.bottom + 6, anchor }
+            );
+          }}
           onOpenChat={openAIChat}
-          onNewChat={openNewAIChat}
-          actions={[
-            {
-              id: 'project',
-              label: 'New project…',
-              onSelect: () => {
-                void (async () => {
-                  const name = await promptDialog({
-                    title: userMessage('dialog.create-project'),
-                    message: userMessage('project.createPrompt'),
-                    confirmLabel: userMessage('dialog.continue'),
-                    input: {
-                      defaultValue: 'Untitled project',
-                      label: userMessage('dialog.project-name'),
-                    },
-                  });
-                  if (name?.trim()) await handleCreateEmptyWorkspace(name.trim());
-                })();
-              },
-            },
-            {
-              id: 'open-project',
-              label: 'Open project…',
-              onSelect: () => {
-                void handleAddFolder();
-              },
-            },
+          onBrowseFiles={() => setGoToFileOpen(true)}
+          onImport={() => void handleImportFile({ projectPath })}
+          documentActions={[
             {
               id: 'notebook',
               label: 'New notebook…',
               onSelect: () => {
-                void handleCreateEntityFromUi({ entityType: 'notebook', destinationPath: null });
+                void handleCreateEntityFromUi({
+                  entityType: 'notebook',
+                  destinationPath: projectPath,
+                });
               },
             },
             {
@@ -1846,36 +1837,86 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
               onSelect: () => {
                 void handleCreateEntityFromUi({
                   entityType: 'dna-sequences',
-                  destinationPath: null,
+                  destinationPath: projectPath,
                 });
-              },
-            },
-            {
-              id: 'import',
-              label: 'Import file…',
-              onSelect: () => {
-                void handleImportFile();
               },
             },
           ]}
         >
           {explorerContent}
         </ChatFirstWorkbench>
+        {projectLibraryPopover && (
+          <ProjectSwitcherPopover
+            {...projectLibraryPopover}
+            openRepoPaths={mountedProjects.map((mounted) => mounted.repoPath)}
+            currentRepoPath={projectPath}
+            onClose={() => {
+              if (projectLibraryPopover.anchor) safeFocus(projectLibraryPopover.anchor);
+              setProjectLibraryPopover(null);
+            }}
+            onOpenProject={(entry) => {
+              void openWorkspaceSource(
+                { kind: 'local-folder', path: entry.repoPath, name: entry.name },
+                {
+                  inPlace: true,
+                  makeCurrent: true,
+                  replaceCurrent: false,
+                  telemetrySource: 'recent',
+                }
+              );
+            }}
+            onCreateProject={handleCreateEmptyWorkspace}
+            onImportProject={() => void handleAddFolder()}
+          />
+        )}
+        {goToFileOpen && (
+          <GoToFileDialog
+            folders={project ? [project] : folders}
+            onClose={() => setGoToFileOpen(false)}
+            onOpen={(path) => void handleFileSelect(path, getTabTypeForFile(path))}
+          />
+        )}
+        {settingsViewActive && (
+          <div className="fixed inset-x-0 bottom-0 top-10 z-30 flex flex-col bg-bg">
+            <div className="flex justify-end border-b border-border px-3 py-2">
+              <Button variant="secondary" onClick={() => handleViewChange('ai')}>
+                Back to workspace
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <SettingsPanel
+                conversationId={activeConversationId}
+                onChangeWorkspace={handleAddFolder}
+                focusTarget={settingsFocusTarget}
+                onFocusTargetHandled={clearSettingsFocusTarget}
+                onOpenReleaseNotes={(sourceElement) =>
+                  openReleaseNotes('settings', undefined, sourceElement)
+                }
+              />
+            </div>
+          </div>
+        )}
+        <RendererFeatureActivations openView={handleViewChange} />
         <AgentConfirmController />
-        <div className="contents" data-ai-input-region="manual">
-          <RendererFeatureActivations openView={handleViewChange} />
-          {creationDestinationDialog}
-          <ConfirmDialogHost />
-          <LargeFileImportDialogHost />
-          <ImportWizardHost />
-          <QuickLookImportHost onDestinationCommit={handleQuickLookDestinationCommit} />
-          <TabularImportWizardHost />
-        </div>
-        <div className="contents" data-ai-input-region="conversation">
-          <TelemetryBlockedSurface className="contents">
-            <AuthFlowHost />
-          </TelemetryBlockedSurface>
-        </div>
+        <ConfirmDialogHost />
+        <OversizedDialogHost />
+        <LargeFileImportDialogHost />
+        <ImportWizardHost />
+        <QuickLookImportHost onDestinationCommit={handleQuickLookDestinationCommit} />
+        <TabularImportWizardHost />
+        <TranslationDialogHost />
+        <AskAiPickerHost />
+        <AskAiInlineChatHost />
+        <EntityCreationHost
+          onOpenRegistryEntity={(entityId, name) => {
+            handleViewChange('lims');
+            useLimsOverlayStore.getState().requestRegistryEntity(entityId, name);
+          }}
+        />
+        {creationDestinationDialog}
+        <TelemetryBlockedSurface className="contents">
+          <AuthFlowHost />
+        </TelemetryBlockedSurface>
         <ToastContainer />
       </>
     );

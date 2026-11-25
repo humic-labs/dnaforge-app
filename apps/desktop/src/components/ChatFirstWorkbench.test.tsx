@@ -1,49 +1,40 @@
-import { installChatFirstHumanInputGuard } from '../lib/chat-first-input';
 import { useAuthStore } from '../stores/auth-store';
 import { getEffectiveHostedRouteReadiness } from '../features/ai/assistant-hosts';
 import React from 'react';
-import { act, render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
-import { Editor } from '@tiptap/core';
-import StarterKit from '@tiptap/starter-kit';
 import { ChatFirstOutputBoundary, ChatFirstWorkbench } from './ChatFirstWorkbench';
 vi.mock('../lib/chat-first-input', async (original) => ({
   ...(await original<typeof import('../lib/chat-first-input')>()),
   CHAT_FIRST_INPUT: true,
 }));
 
-it('keeps an existing notebook editor writable by programmatic operations while its output is in inspection mode', () => {
-  const editor = new Editor({ extensions: [StarterKit], content: '<p>Initial observation</p>' });
-  const mounted = render(
+const workbenchProps = {
+  projectName: 'Synthetic project',
+  projectPickerOpen: false,
+  onOpenProjects: vi.fn(),
+  onOpenChat: vi.fn(),
+  onBrowseFiles: vi.fn(),
+  onImport: vi.fn(),
+  documentActions: [],
+};
+
+it('leaves native editor controls and keyboard input available in the document pane', () => {
+  const edit = vi.fn();
+  render(
     <ChatFirstOutputBoundary conversation={false}>
-      <div data-testid="notebook-host" />
+      <button onClick={edit}>Save now</button>
+      <textarea aria-label="Notes" />
     </ChatFirstOutputBoundary>
   );
-  const host = screen.getByTestId('notebook-host');
-  host.append(editor.view.dom);
-  try {
-    expect(host.parentElement?.getAttribute('data-ai-input-region')).toBe('output');
-    expect(editor.isEditable).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Edit', exact: true }));
-    expect(host.parentElement?.getAttribute('data-ai-input-region')).toBe('manual');
-    fireEvent.click(screen.getByRole('button', { name: 'Done editing' }));
-    act(() => {
-      editor.commands.setContent('<p>Agent updated observation</p>');
-    });
-    expect(screen.getByText('Agent updated observation')).toBeTruthy();
-    expect(host.parentElement?.getAttribute('data-ai-input-region')).toBe('output');
-    mounted.rerender(
-      <ChatFirstOutputBoundary conversation>
-        <div data-testid="conversation" />
-      </ChatFirstOutputBoundary>
-    );
-    expect(
-      screen.getByTestId('conversation').parentElement?.getAttribute('data-ai-input-region')
-    ).toBe('conversation');
-  } finally {
-    editor.destroy();
-    mounted.unmount();
-  }
+  const notes = screen.getByRole('textbox', { name: 'Notes' });
+  expect(notes.closest('[data-ai-input-region]')?.getAttribute('data-ai-input-region')).toBe(
+    'manual'
+  );
+  fireEvent.change(notes, { target: { value: 'Edited observation' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save now' }));
+  expect(notes).toHaveValue('Edited observation');
+  expect(edit).toHaveBeenCalledOnce();
 });
 
 it('resolves auth readiness without mounting the ordinary account button', async () => {
@@ -60,7 +51,7 @@ it('resolves auth readiness without mounting the ordinary account button', async
   });
   useAuthStore.setState({ initialized: false, hydrated: false, state: { status: 'signed-out' } });
   const mounted = render(
-    <ChatFirstWorkbench onOpenChat={vi.fn()} onNewChat={vi.fn()}>
+    <ChatFirstWorkbench {...workbenchProps}>
       <div />
     </ChatFirstWorkbench>
   );
@@ -77,27 +68,25 @@ it('resolves auth readiness without mounting the ordinary account button', async
   }
 });
 
-it('keeps essential Add actions reachable through a portalled menu under the input guard', async () => {
+it('keeps project switching and document creation separate', async () => {
   const create = vi.fn();
-  const dispose = installChatFirstHumanInputGuard(document);
+  const openProjects = vi.fn();
   const mounted = render(
     <ChatFirstWorkbench
-      onOpenChat={vi.fn()}
-      onNewChat={vi.fn()}
-      actions={[
-        { id: 'notebook', label: 'New notebook…', onSelect: create },
-        { id: 'import', label: 'Import file…', onSelect: vi.fn() },
-      ]}
+      {...workbenchProps}
+      onOpenProjects={openProjects}
+      documentActions={[{ id: 'notebook', label: 'New notebook…', onSelect: create }]}
     >
       <div />
     </ChatFirstWorkbench>
   );
   try {
-    fireEvent.click(screen.getByRole('button', { name: 'Add', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: /switch project/i }));
+    expect(openProjects).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'New document', exact: true }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'New notebook…' }));
     await waitFor(() => expect(create).toHaveBeenCalledOnce());
   } finally {
     mounted.unmount();
-    dispose();
   }
 });

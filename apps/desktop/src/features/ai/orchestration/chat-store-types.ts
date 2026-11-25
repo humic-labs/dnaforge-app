@@ -43,6 +43,7 @@ export interface PendingChatMessage {
 export type ChatComposerDraftAttachment = AgentAttachmentManifest;
 
 export interface ChatComposerDraft {
+  workspacePath?: string | null;
   text: string;
   attachments: ChatComposerDraftAttachment[];
   references: DBEntityReference[];
