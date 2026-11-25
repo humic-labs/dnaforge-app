@@ -297,3 +297,13 @@ test('an actual early URL is forwarded once when the product installs its native
   ]);
   assert.equal(app.listenerCount('open-url'), 1);
 });
+
+ test('a foreground relative entry remains a warm development launch', () => {
+  const { app } = fixture();
+  const local = { ...configuration, appDirectory: process.cwd(), entry: join(process.cwd(), 'out/main/index.js') };
+  const argv = ['/electron', '.'];
+  const env = { ELECTRON_RENDERER_URL: 'http://localhost:1827/' };
+  configureDevelopmentEntry({ app, argv, env, configuration: local, configPath: '/owned/runtime.json', changeDirectory() {} });
+  assert.equal(argv[1], process.cwd());
+  assert.equal(env.ELECTRON_RENDERER_URL, 'http://localhost:1827/');
+ });

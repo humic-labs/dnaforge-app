@@ -1,4 +1,4 @@
-import { dirname, isAbsolute } from 'node:path';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 
 const { automationUserDataPath } = createRequire(import.meta.url)(
@@ -22,8 +22,9 @@ export function configureDevelopmentEntry({
   )
     throw new Error('Invalid DNAForge development runtime configuration.');
 
-  const suppliedEntryIndex = argv.findIndex((value) =>
-    [configuration.entry, dirname(configuration.entry), configuration.appDirectory].includes(value)
+  const suppliedEntryIndex = argv.findIndex((value, index) =>
+    index > 0 && !value.startsWith('-') &&
+    [configuration.entry, dirname(configuration.entry), configuration.appDirectory].includes(resolve(value))
   );
   const suppliedEntry = suppliedEntryIndex >= 0;
   if (suppliedEntry) argv[suppliedEntryIndex] = configuration.appDirectory;
