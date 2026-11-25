@@ -70,6 +70,37 @@ describe('common document opening', () => {
     );
   });
 
+  it.each(['.fastq', '.FQ'])(
+    'opens large raw %s files from Files in the text preview',
+    async (extension) => {
+      const path = `/ws/reads${extension}`;
+      mocks.stat.mockResolvedValue({ isFile: true, isDirectory: false, size: 10 * 1024 * 1024 });
+      mocks.sequence.mockResolvedValue({ status: 'presented', tabType: 'sequence' });
+
+      await expect(
+        openDocument({ target: { kind: 'file', path, tabType: 'sequence' }, source: 'file_tree' })
+      ).resolves.toMatchObject({ status: 'presented', tabType: 'text' });
+      expect(useCanvasStore.getState().panels.main.tabs).toMatchObject([
+        { type: 'text', entityId: path },
+      ]);
+      expect(mocks.sequence).not.toHaveBeenCalled();
+    }
+  );
+
+  it('keeps normal sequence opening for small FASTQ and large GenBank files', async () => {
+    const presented = { status: 'presented', tabType: 'sequence', content: 'loading' };
+    mocks.sequence.mockResolvedValue(presented);
+    mocks.stat.mockResolvedValueOnce({ isFile: true, isDirectory: false, size: 1024 });
+    mocks.stat.mockResolvedValueOnce({ isFile: true, isDirectory: false, size: 10 * 1024 * 1024 });
+
+    for (const path of ['/ws/reads.fastq', '/ws/sequence.gb']) {
+      await expect(
+        openDocument({ target: { kind: 'file', path, tabType: 'sequence' }, source: 'file_tree' })
+      ).resolves.toEqual(presented);
+    }
+    expect(mocks.sequence).toHaveBeenCalledTimes(2);
+  });
+
   it('does not route a known corrupt format to an unrelated handler', async () => {
     mocks.structure.mockRejectedValue(new Error('Corrupt coordinates'));
     expect(

@@ -199,6 +199,7 @@ export function resolveFileDocumentKind(
   target: OpenFileDocumentRequest['target']
 ): FileDocumentKind | null {
   if (target.tabType === 'page') return 'page';
+  if (target.tabType === 'text' && inferCatalogFileKind(target.path) === 'fastq') return 'text';
   if (target.path.endsWith(MOLECULAR_DOCUMENT_FILE_SUFFIX)) return 'molecular-document';
   if (target.path.endsWith(TRACK_VIEW_SUFFIX)) return 'track-view';
   if (isEntityArtifactPath(target.path)) return 'entity';
@@ -246,7 +247,8 @@ export async function openDocument(request: OpenDocumentRequest): Promise<Docume
       const resolution = await resolveFilesystemDocumentTarget(
         request.target,
         platform().fs,
-        request.signal
+        request.signal,
+        request.source === 'file_tree'
       );
       if (request.signal?.aborted || resolution.status === 'cancelled') {
         const result = cancelledDocumentOpen();
