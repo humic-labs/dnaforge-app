@@ -31,9 +31,10 @@ import { terminalTextFromEditor } from '../features/terminal/terminal-editor-inp
 import { runInIntegratedTerminal } from '../features/terminal/terminal-events';
 import { COMMAND_IDS, COMMAND_SCOPES, useCommandHandler } from '../commands';
 
+import { MAX_FULL_TEXT_FILE_SIZE } from '../shared/text-file-limits';
+
 const CodeEditor = lazy(() => import('./CodeEditor'));
 
-const MAX_FULL_TEXT_FILE_SIZE = 2 * 1024 * 1024;
 const MAX_LARGE_PREVIEW_SOURCE_BYTES = 16 * 1024 * 1024;
 const LARGE_PREVIEW_BYTES = 128 * 1024;
 const MAX_PRESERVED_RAW_SOURCE_VERIFICATION_BYTES = 64 * 1024 * 1024;

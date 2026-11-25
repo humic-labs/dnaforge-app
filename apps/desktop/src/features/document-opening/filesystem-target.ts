@@ -1,9 +1,11 @@
+import { inferCatalogFileKind } from '../../shared/catalog-file-kind';
 import type { FilesystemStat } from '../../shared/filesystem-stat';
+import { MAX_FULL_TEXT_FILE_SIZE } from '../../shared/text-file-limits';
 import { detectDocumentPackage, type DocumentPackageIo } from '../../shared/document-package';
 import type { DocumentTarget } from './types';
 
 interface FilesystemDocumentIo extends DocumentPackageIo {
-  stat(path: string): Promise<Pick<FilesystemStat, 'isFile' | 'isDirectory'>>;
+  stat(path: string): Promise<Pick<FilesystemStat, 'isFile' | 'isDirectory' | 'size'>>;
 }
 type TargetResolution =
   | { status: 'resolved'; target: DocumentTarget }
@@ -13,10 +15,11 @@ type TargetResolution =
 export function resolveFilesystemDocumentTarget(
   target: Extract<DocumentTarget, { kind: 'file' }>,
   io: FilesystemDocumentIo,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  previewLargeReadFile = false
 ): Promise<TargetResolution> {
   if (signal?.aborted) return Promise.resolve({ status: 'cancelled' });
-  const inspection = inspectFilesystemDocumentTarget(target, io);
+  const inspection = inspectFilesystemDocumentTarget(target, io, previewLargeReadFile);
   if (!signal) return inspection;
   return new Promise((resolve, reject) => {
     const cancel = () => {
@@ -40,10 +43,21 @@ export function resolveFilesystemDocumentTarget(
 
 async function inspectFilesystemDocumentTarget(
   target: Extract<DocumentTarget, { kind: 'file' }>,
-  io: FilesystemDocumentIo
+  io: FilesystemDocumentIo,
+  previewLargeReadFile: boolean
 ): Promise<TargetResolution> {
   const source = await io.stat(target.path);
-  if (source.isFile) return { status: 'resolved', target };
+  if (source.isFile) {
+    if (
+      previewLargeReadFile &&
+      source.size > MAX_FULL_TEXT_FILE_SIZE &&
+      (target.tabType === undefined || target.tabType === 'sequence') &&
+      inferCatalogFileKind(target.path) === 'fastq'
+    ) {
+      return { status: 'resolved', target: { ...target, tabType: 'text' } };
+    }
+    return { status: 'resolved', target };
+  }
   if (source.isDirectory) {
     const container = await detectDocumentPackage(target.path, io);
     if (container?.kind === 'sequence')
