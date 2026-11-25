@@ -1855,6 +1855,13 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
               setProjectLibraryPopover(null);
             }}
             onOpenProject={(entry) => {
+              const mounted = useWorkspaceStore
+                .getState()
+                .folders.some((folder) => !folder.pinned && folder.path === entry.repoPath);
+              if (mounted) {
+                void setWorkspacePath(entry.repoPath);
+                return;
+              }
               void openWorkspaceSource(
                 { kind: 'local-folder', path: entry.repoPath, name: entry.name },
                 {

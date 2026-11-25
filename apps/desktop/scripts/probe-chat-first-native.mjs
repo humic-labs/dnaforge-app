@@ -16,6 +16,14 @@ const page = browser
 if (!page) throw new Error('The local development renderer is unavailable.');
 const errors = [];
 page.on('pageerror', (error) => errors.push(error.message));
+async function waitForAcknowledgement(check, message) {
+  for (let attempt = 0; attempt < 120; attempt++) {
+    if (await check()) return;
+    await new Promise((done) => setTimeout(done, 250));
+  }
+  assert.fail(message);
+}
+
 async function addProject(name) {
   await page.getByTestId('chat-first-project-picker').click();
   await page.getByTestId('project-switcher-new-project').click();
@@ -227,14 +235,20 @@ try {
   assert.ok((await notebook.innerText()).includes('Manual correction persisted.'));
   await notebook.locator('p').last().click();
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+s' : 'Control+s');
-  await page.waitForFunction(async (id) => {
-    const { platform } = await import('/src/platform/index.ts');
-    const snapshot = await platform().notebook.execute({
-      documentId: id,
-      operation: { kind: 'inspect-copy' },
-    });
-    return !snapshot.dirty && !snapshot.saving && snapshot.revision === snapshot.persistedRevision;
-  }, result.first.notebookId);
+  await waitForAcknowledgement(
+    () =>
+      page.evaluate(async (id) => {
+        const { platform } = await import('/src/platform/index.ts');
+        const snapshot = await platform().notebook.execute({
+          documentId: id,
+          operation: { kind: 'inspect-copy' },
+        });
+        return (
+          !snapshot.dirty && !snapshot.saving && snapshot.revision === snapshot.persistedRevision
+        );
+      }, result.first.notebookId),
+    'The native owner must acknowledge the saved correction.'
+  );
   await page.getByTestId('chat-first-project-picker').click();
   const projectPopover = page.getByTestId('project-switcher-popover');
   await projectPopover.getByTestId('project-switcher-search').fill(name);
@@ -251,26 +265,42 @@ try {
     await new Promise((done) => setTimeout(done, 100));
   }
   assert.ok(markdown.includes('Manual correction persisted.'));
-  const followedUp = await page.evaluate(
-    async ({ id, root }) => {
-      const { readAuthoredNotebook, updateAuthoredNotebook } =
-        await import('/src/features/page/notebook-authoring.ts');
-      const saved = await readAuthoredNotebook(root, id);
-      return updateAuthoredNotebook({
-        workspaceRoot: root,
-        mountedRoots: [root],
-        notebookId: id,
-        expectedRevision: saved.revision,
-        mode: 'append',
-        operationId: 'follow-up-after-manual-save',
-        blocks: [
-          { type: 'paragraph', content: [{ text: 'Agent follow-up retained the correction.' }] },
-        ],
-      });
-    },
-    { id: result.first.notebookId, root: result.root }
+  // Use the same serialized read and update as chat. A project switch can leave
+  // editor work queued briefly after the first disk save.
+  await waitForAcknowledgement(
+    () =>
+      page.evaluate(
+        async ({ id, root }) => {
+          const { readAuthoredNotebook, updateAuthoredNotebook } =
+            await import('/src/features/page/notebook-authoring.ts');
+          try {
+            const correction = 'Manual correction persisted.';
+            const followUp = 'Agent follow-up retained the correction.';
+            const saved = await readAuthoredNotebook(root, id);
+            const savedContent = JSON.stringify(saved.content);
+            if (!savedContent.includes(correction)) return false;
+            if (savedContent.includes(followUp)) return true;
+            const updated = await updateAuthoredNotebook({
+              workspaceRoot: root,
+              mountedRoots: [root],
+              notebookId: id,
+              expectedRevision: saved.revision,
+              mode: 'append',
+              operationId: 'follow-up-after-manual-save',
+              blocks: [{ type: 'paragraph', content: [{ text: followUp }] }],
+            });
+            const updatedContent = JSON.stringify(updated.content);
+            return updatedContent.includes(correction) && updatedContent.includes(followUp);
+          } catch (error) {
+            if (error instanceof Error && error.message.includes('unsaved editor changes'))
+              return false;
+            throw error;
+          }
+        },
+        { id: result.first.notebookId, root: result.root }
+      ),
+    'The authored follow-up must preserve the saved human correction.'
   );
-  assert.ok(followedUp.revision);
   markdown = await readFile(join(result.first.packagePath, 'Native agent notebook.md'), 'utf8');
   assert.ok(markdown.includes('Manual correction persisted.'));
   assert.ok(markdown.includes('Agent follow-up retained the correction.'));
