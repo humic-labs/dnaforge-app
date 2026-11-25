@@ -2085,6 +2085,8 @@ export const USER_MESSAGES = {
   'dialog.name': 'Name',
   'dialog.empty': '',
   'dialog.project-name': 'Project name',
+  'dialog.create-project': 'Create project',
+  'project.createPrompt': 'Choose a name for the project.',
   'dialog.reload-window': 'Reload Window',
   'dialog.quit-dnaforge': 'Quit DNAForge',
   'dialog.wait': 'Wait',

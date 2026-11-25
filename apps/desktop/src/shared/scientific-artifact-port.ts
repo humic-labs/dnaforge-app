@@ -14,7 +14,7 @@ export type ScientificArtifactPublicationInput = {
   representation: { format: 'primer-v2' | 'strain-entity-v1' | 'genbank-v1'; text: string };
   sequencePackageText?: string;
   mutationToken?: string;
-} & ({ prior: ScientificAcceptedDocumentRevision } | { prior: null; expectedHead: string });
+} & ({ prior: ScientificAcceptedDocumentRevision } | { prior: null; expectedHead: string | null });
 
 export interface ScientificArtifactPort {
   namespace(root: string): Promise<(ScientificWorkspaceCatalog & { head: string }) | null>;

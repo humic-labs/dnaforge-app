@@ -1,3 +1,4 @@
+import { CHAT_FIRST_INPUT } from '../../lib/chat-first-input';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { isKnownTabType, TAB_TYPES } from './types';
@@ -1708,7 +1709,12 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
                   { type: 'panel', panelId },
                   { type: 'panel', panelId: newPanelId },
                 ],
-                sizes: [50, 50],
+                sizes:
+                  CHAT_FIRST_INPUT &&
+                  direction === 'vertical' &&
+                  state.panels[panelId]?.tabs.some((tab) => tab.type === 'chat')
+                    ? [39, 61]
+                    : [50, 50],
               };
             }
             if (node.type === 'split') {
@@ -1853,6 +1859,10 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
             return '';
           }
           panelId = availablePanelIds[0];
+        }
+        const panel = panels[panelId];
+        if (CHAT_FIRST_INPUT && type !== 'chat' && panel.tabs.some((tab) => tab.type === 'chat')) {
+          panelId = get().agentContentPlacement(panelId).targetPanelId;
         }
         return openTab(panelId, { type, entityId, label, ...options });
       },

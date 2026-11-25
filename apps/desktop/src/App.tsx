@@ -1,3 +1,6 @@
+import { Button } from './components/ui';
+import { CHAT_FIRST_INPUT } from './lib/chat-first-input';
+import { ChatFirstWorkbench } from './components/ChatFirstWorkbench';
 import { WorkTaskDialogHost } from './features/work/public/work';
 import {
   toUserMessage,
@@ -724,6 +727,7 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
   const [projectLibraryPopover, setProjectLibraryPopover] = useState<{
     x: number;
     y: number;
+    anchor?: HTMLButtonElement;
   } | null>(null);
 
   const { library, libraryLoaded, libraryLoadError, mountedProjects, projectHomeProject } =
@@ -1782,6 +1786,149 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
     );
   }
 
+  const creationDestinationDialog = createDestinationRequest ? (
+    <RegistryCreateDestinationDialog
+      request={createDestinationRequest}
+      folders={folders}
+      onCancel={() => setCreateDestinationRequest(null)}
+      onConfirm={(request) => {
+        setCreateDestinationRequest(null);
+        if (request.entityType === 'assemblies') {
+          handleCreateAssembly(request);
+        } else {
+          void handleCreateEntityFromUi(request);
+        }
+      }}
+    />
+  ) : null;
+
+  if (CHAT_FIRST_INPUT) {
+    const projectPath = resolveChatWorkspacePath(workspacePath, folders);
+    const project = folders.find((folder) => folder.path === projectPath);
+
+    return (
+      <>
+        <ChatFirstWorkbench
+          projectName={project?.name ?? null}
+          projectPickerOpen={projectLibraryPopover !== null}
+          onOpenProjects={(anchor) => {
+            const bounds = anchor.getBoundingClientRect();
+            setProjectLibraryPopover((previous) =>
+              previous ? null : { x: bounds.left, y: bounds.bottom + 6, anchor }
+            );
+          }}
+          onOpenChat={openAIChat}
+          onBrowseFiles={() => setGoToFileOpen(true)}
+          onImport={() => void handleImportFile({ projectPath })}
+          documentActions={[
+            {
+              id: 'notebook',
+              label: 'New notebook…',
+              onSelect: () => {
+                void handleCreateEntityFromUi({
+                  entityType: 'notebook',
+                  destinationPath: projectPath,
+                });
+              },
+            },
+            {
+              id: 'sequence',
+              label: 'New DNA sequence…',
+              onSelect: () => {
+                void handleCreateEntityFromUi({
+                  entityType: 'dna-sequences',
+                  destinationPath: projectPath,
+                });
+              },
+            },
+          ]}
+        >
+          {explorerContent}
+        </ChatFirstWorkbench>
+        {projectLibraryPopover && (
+          <ProjectSwitcherPopover
+            {...projectLibraryPopover}
+            openRepoPaths={mountedProjects.map((mounted) => mounted.repoPath)}
+            currentRepoPath={projectPath}
+            onClose={() => {
+              if (projectLibraryPopover.anchor) safeFocus(projectLibraryPopover.anchor);
+              setProjectLibraryPopover(null);
+            }}
+            onOpenProject={(entry) => {
+              const mounted = useWorkspaceStore
+                .getState()
+                .folders.some((folder) => !folder.pinned && folder.path === entry.repoPath);
+              if (mounted) {
+                void setWorkspacePath(entry.repoPath);
+                return;
+              }
+              void openWorkspaceSource(
+                { kind: 'local-folder', path: entry.repoPath, name: entry.name },
+                {
+                  inPlace: true,
+                  makeCurrent: true,
+                  replaceCurrent: false,
+                  telemetrySource: 'recent',
+                }
+              );
+            }}
+            onCreateProject={handleCreateEmptyWorkspace}
+            onImportProject={() => void handleAddFolder()}
+          />
+        )}
+        {goToFileOpen && (
+          <GoToFileDialog
+            folders={project ? [project] : folders}
+            onClose={() => setGoToFileOpen(false)}
+            onOpen={(path) => void handleFileSelect(path, getTabTypeForFile(path))}
+          />
+        )}
+        {settingsViewActive && (
+          <div className="fixed inset-x-0 bottom-0 top-10 z-30 flex flex-col bg-bg">
+            <div className="flex justify-end border-b border-border px-3 py-2">
+              <Button variant="secondary" onClick={() => handleViewChange('ai')}>
+                Back to workspace
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <SettingsPanel
+                conversationId={activeConversationId}
+                onChangeWorkspace={handleAddFolder}
+                focusTarget={settingsFocusTarget}
+                onFocusTargetHandled={clearSettingsFocusTarget}
+                onOpenReleaseNotes={(sourceElement) =>
+                  openReleaseNotes('settings', undefined, sourceElement)
+                }
+              />
+            </div>
+          </div>
+        )}
+        <RendererFeatureActivations openView={handleViewChange} />
+        <AgentConfirmController />
+        <ConfirmDialogHost />
+        <OversizedDialogHost />
+        <LargeFileImportDialogHost />
+        <ImportWizardHost />
+        <QuickLookImportHost onDestinationCommit={handleQuickLookDestinationCommit} />
+        <TabularImportWizardHost />
+        <TranslationDialogHost />
+        <AskAiPickerHost />
+        <AskAiInlineChatHost />
+        <EntityCreationHost
+          onOpenRegistryEntity={(entityId, name) => {
+            handleViewChange('lims');
+            useLimsOverlayStore.getState().requestRegistryEntity(entityId, name);
+          }}
+        />
+        {creationDestinationDialog}
+        <TelemetryBlockedSurface className="contents">
+          <AuthFlowHost />
+        </TelemetryBlockedSurface>
+        <ToastContainer />
+      </>
+    );
+  }
+
   return (
     <div
       className="flex flex-col h-screen"
@@ -2069,21 +2216,7 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
           }}
         />
 
-        {createDestinationRequest ? (
-          <RegistryCreateDestinationDialog
-            request={createDestinationRequest}
-            folders={folders}
-            onCancel={() => setCreateDestinationRequest(null)}
-            onConfirm={(request) => {
-              setCreateDestinationRequest(null);
-              if (request.entityType === 'assemblies') {
-                handleCreateAssembly(request);
-              } else {
-                void handleCreateEntityFromUi(request);
-              }
-            }}
-          />
-        ) : null}
+        {creationDestinationDialog}
 
         {}
         <TelemetryBlockedSurface className="contents">

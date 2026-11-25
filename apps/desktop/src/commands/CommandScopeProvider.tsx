@@ -1,3 +1,4 @@
+import { CHAT_FIRST_INPUT, chatFirstCommandAllowed, isManualInput } from '../lib/chat-first-input';
 import {
   createContext,
   useCallback,
@@ -145,6 +146,18 @@ export function CommandScopeProvider({ children }: CommandScopeProviderProps) {
       context: Partial<CommandContext<Payload>> = {}
     ): CommandDispatchResult => {
       const source = context.source ?? 'ui';
+      if (
+        CHAT_FIRST_INPUT &&
+        !chatFirstCommandAllowed(
+          command,
+          source,
+          isManualInput(context.event?.target ?? document.activeElement)
+        )
+      ) {
+        const result = createCommandResult(command, null, false, true);
+        lastCommandRef.current = result;
+        return result;
+      }
       const event = source === 'keyboard' ? context.event : undefined;
       const activeScopes = getActiveScopes(event);
       const registrations = Array.from(handlersRef.current.values()).filter((registration) =>

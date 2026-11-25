@@ -1,3 +1,5 @@
+import { CHAT_FIRST_INPUT } from '../../../lib/chat-first-input';
+import { ChatFirstOutputBoundary } from '../../../components/ChatFirstWorkbench';
 import { createContext, useContext, useRef, useMemo, useLayoutEffect, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useCanvasStore } from '../store';
@@ -282,7 +284,7 @@ export function TabPortalProvider({
 
         const budgeted = isBudgetedSequenceTab(tab);
         if (!isActive && budgeted && !retainedSequenceTabIds.has(tab.id)) return null;
-        const panelContent = (
+        const existingPanelContent = (
           <PanelContent
             tab={tab}
             isActive={isActive}
@@ -291,6 +293,13 @@ export function TabPortalProvider({
             onConfigureHost={onConfigureHost}
             onChatHistoryPinnedChange={onChatHistoryPinnedChange}
           />
+        );
+        const panelContent = CHAT_FIRST_INPUT ? (
+          <ChatFirstOutputBoundary conversation={tab.type === 'chat'}>
+            {existingPanelContent}
+          </ChatFirstOutputBoundary>
+        ) : (
+          existingPanelContent
         );
         const content = agentHosted ? (
           <StructureRendererHostProvider value={agentStructureRendererHostId(tab.id)}>

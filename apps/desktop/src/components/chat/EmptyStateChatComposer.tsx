@@ -4,6 +4,8 @@ import { ChatComposerToolbar } from './ChatComposerToolbar';
 import { FilePill, type AttachedFile } from '../chat';
 import { ReferenceChip } from './ReferenceChip';
 import type { DBEntityReference } from '../../db/entity-references';
+import { FileTypeIcon, NotebookTabIcon, SparklesIcon } from '../icons';
+import { Button } from '../ui';
 import { CHAT_COMPOSER_SURFACE_CLASS } from './composer-controls';
 
 const DEFAULT_SUGGESTIONS = [
@@ -43,6 +45,7 @@ export interface EmptyStateChatComposerProps {
   onRemoveComposeReference?: (id: string) => void;
   isDragOver?: boolean;
   hideInput?: boolean;
+  chatFirst?: boolean;
 }
 
 export function EmptyStateChatComposer({
@@ -76,11 +79,25 @@ export function EmptyStateChatComposer({
   onRemoveComposeReference,
   isDragOver = false,
   hideInput = false,
+  chatFirst = false,
 }: EmptyStateChatComposerProps) {
   return (
     <div className="w-full">
-      <div className="text-center mb-6">
-        <h2 className="text-xl font-semibold text-fg mb-1">{greetingTitle}</h2>
+      <div className={chatFirst ? 'mb-5' : 'mb-6 text-center'}>
+        {chatFirst && (
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-accent-subtle text-accent">
+            <SparklesIcon size={20} />
+          </div>
+        )}
+        <h2
+          className={
+            chatFirst
+              ? 'mb-2 text-2xl font-semibold tracking-tight text-fg'
+              : 'mb-1 text-xl font-semibold text-fg'
+          }
+        >
+          {greetingTitle}
+        </h2>
         {greetingSubtitle && <p className="text-sm text-fg-muted">{greetingSubtitle}</p>}
       </div>
 
@@ -161,18 +178,53 @@ export function EmptyStateChatComposer({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-center gap-2 text-balance">
-        {suggestions.map((suggestion) => (
-          <button
-            key={suggestion}
-            onClick={() => onSuggestionClick(suggestion)}
-            className="px-3 py-1.5 rounded-full border border-border bg-bg text-xs font-medium text-fg-muted
- wp-interactive hover:border-accent/30 transition-colors"
+      {chatFirst &&
+      !hideInput &&
+      !input &&
+      attachedFiles.length === 0 &&
+      composeReferences.length === 0 ? (
+        <div className="flex flex-wrap gap-2" aria-label="Prompt starters">
+          <Button
+            variant="secondary"
+            onClick={() =>
+              onSuggestionClick(
+                'Create a notebook in this project to record the objective, observations, and next steps.'
+              )
+            }
           >
-            {suggestion.replaceAll('E. coli', 'E.\u00a0coli')}
-          </button>
-        ))}
-      </div>
+            <span className="flex items-center gap-2">
+              <NotebookTabIcon />
+              Draft a notebook
+            </span>
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() =>
+              onSuggestionClick('Create a DNA sequence in this project using these exact bases: ')
+            }
+          >
+            <span className="flex items-center gap-2">
+              <FileTypeIcon category="biology" />
+              Enter an exact sequence
+            </span>
+          </Button>
+        </div>
+      ) : (
+        !chatFirst && (
+          <div className="flex flex-wrap items-center justify-center gap-2 text-balance">
+            {suggestions.map((suggestion) => (
+              <button
+                key={suggestion}
+                onClick={() => onSuggestionClick(suggestion)}
+                className="px-3 py-1.5 rounded-full border border-border bg-bg text-xs font-medium text-fg-muted
+ wp-interactive hover:border-accent/30 transition-colors"
+              >
+                {suggestion.replaceAll('E. coli', 'E.\u00a0coli')}
+              </button>
+            ))}
+          </div>
+        )
+      )}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { CHAT_FIRST_INPUT } from '../../../lib/chat-first-input';
 import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { Tab } from './Tab';
 import { TabContextMenu } from './TabContextMenu';
@@ -177,7 +178,7 @@ export const TabBar = React.memo(function TabBar({
     el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [activeTabId, tabs.length]);
 
-  if (tabs.length === 0) {
+  if (tabs.length === 0 || (CHAT_FIRST_INPUT && tabs.length === 1 && tabs[0].type === 'chat')) {
     return null;
   }
 

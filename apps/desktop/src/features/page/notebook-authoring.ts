@@ -1,3 +1,6 @@
+import { isElectron } from '../../utils/environment';
+import { getNativeNotebookDocumentClient } from './notebook-document-client';
+import { waitForNativeFileDocumentReadiness } from '../workspace/public/file-document-client';
 import { referenceNavigationLinks } from '../../services/entity-navigation';
 import type { JSONContent } from '@tiptap/core';
 import type { z } from 'zod';
@@ -50,6 +53,25 @@ async function validateReferences(blocks: Blocks, mountedRoots: readonly string[
 }
 
 export async function readAuthoredNotebook(workspaceRoot: string, notebookId: string) {
+  if (isElectron()) {
+    await waitForNativeFileDocumentReadiness();
+    const client = getNativeNotebookDocumentClient(notebookId);
+    await client.initialize();
+    const snapshot = await client.command({ kind: 'inspect-copy' });
+    if (snapshot.workspaceRoot !== workspaceRoot)
+      throw new Error('The notebook does not belong to the selected project.');
+    if (snapshot.dirty)
+      throw new Error('The notebook has unsaved editor changes. Save them before agent editing.');
+    return {
+      notebookId: snapshot.pageId,
+      workspaceRoot,
+      title: snapshot.title,
+      revision: snapshot.revision,
+      content: snapshot.copy.content,
+      packagePath: snapshot.path,
+      provenance: [],
+    };
+  }
   const entity = await getCatalogEntityForWorkspaceRoot(notebookId, workspaceRoot);
   if (!entity || entity.type !== 'notebook' || entity.status !== 'active')
     throw new Error('The notebook does not belong to the selected project.');
@@ -106,13 +128,28 @@ export async function createAuthoredNotebook(input: {
   const scope = await resolveWorkspaceScope(input.workspaceRoot);
   if (!scope) throw new Error('The selected project has no stable identity.');
   const intentDigest = new Uint8Array(
-    await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input.intentId))
+    await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${scope}:${input.intentId}`))
   );
   const rawId = `agent-notebook-${Array.from(intentDigest, (byte) =>
     byte.toString(16).padStart(2, '0')
   )
     .join('')
     .slice(0, 32)}`;
+  if (isElectron()) {
+    await waitForNativeFileDocumentReadiness();
+    const result = await platform().notebook.create({
+      title: input.title,
+      workspaceRoot: input.workspaceRoot,
+      requestId: rawId,
+      source: 'agent',
+      content: compileNotebookBlocks(input.blocks, { tableIdentity: rawId }),
+    });
+    if (result.status === 'failed') throw new Error(result.message);
+    useWorkspaceStore.getState().bumpFileTreeRefresh();
+    return withNotebookReference(
+      await readAuthoredNotebook(input.workspaceRoot, result.snapshot.pageId)
+    );
+  }
   const notebookId = scopedProjectionId(scope, rawId);
   const content = compileNotebookBlocks(input.blocks, { tableIdentity: notebookId });
   const snapshot = await withRendererWorkspaceMutation(
@@ -187,6 +224,23 @@ export async function updateAuthoredNotebook(input: {
     input.mode === 'append'
       ? { type: 'doc', content: [...(current.content.content ?? []), ...(next.content ?? [])] }
       : next;
+  if (isElectron()) {
+    const client = getNativeNotebookDocumentClient(input.notebookId);
+    const edited = await client.command(
+      {
+        kind: 'splice-blocks',
+        index: 0,
+        deleteCount: current.content.content?.length ?? 0,
+        blocks: content.content ?? [],
+      },
+      { expectedRevision: input.expectedRevision, requestId: crypto.randomUUID() }
+    );
+    await client.command(
+      { kind: 'save' },
+      { expectedRevision: edited.revision, requestId: crypto.randomUUID() }
+    );
+    return withNotebookReference(await readAuthoredNotebook(input.workspaceRoot, input.notebookId));
+  }
   await usePageStore.getState().fetchPage(input.notebookId);
   const revision = await usePageStore.getState().savePage(input.notebookId, content, {
     expectedCanonicalFingerprint: input.expectedRevision,

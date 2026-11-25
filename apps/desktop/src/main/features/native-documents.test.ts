@@ -428,6 +428,27 @@ describe('native documents main feature', () => {
     expect(loads).toEqual(['stale', 'current', 'current']);
   });
 
+  it('keeps existing edit queues available when the same renderer adds a project', async () => {
+    const { documents, start } = started('renderer');
+    await start;
+    const migrations = [
+      documents.fileDocuments,
+      documents.sequenceDocuments,
+      documents.notebookDocuments,
+    ].map((owner) => vi.spyOn(owner, 'beginLegacyMigration'));
+    documents.registerWorkspaceRootsHandler(() => true);
+    const handler = mocks.handlers.get('workspace:setDocumentCommandRoots');
+    if (!handler) throw new Error('workspace roots handler was not registered');
+    const event = {} as IpcMainInvokeEvent;
+    mocks.registeredRoots.push(ROOT);
+    await handler(event, trusted('current'));
+    mocks.registeredRoots.push('/projects/new');
+    await handler(event, { loadId: 'current', roots: [ROOT, '/projects/new'] });
+    for (const migration of migrations) expect(migration).toHaveBeenCalledTimes(1);
+    await handler(event, { loadId: 'reloaded', roots: [ROOT, '/projects/new'] });
+    for (const migration of migrations) expect(migration).toHaveBeenCalledTimes(2);
+  });
+
   it('shuts each part down once, in the steps the root calls', async () => {
     const { documents, start } = started('renderer');
     await start;

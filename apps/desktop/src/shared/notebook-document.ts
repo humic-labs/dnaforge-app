@@ -172,6 +172,8 @@ export const nativeNotebookCreateSchema = z
     workspaceRoot: z.string().min(1),
     requestId: z.string().min(1).max(128),
     context: notebookCreationContextSchema.optional(),
+    content: node.optional(),
+    source: z.enum(['agent', 'file-explorer-new-menu']).optional(),
   })
   .strict();
 export type NotebookCreationContext = z.infer<typeof notebookCreationContextSchema>;

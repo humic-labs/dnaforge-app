@@ -1,0 +1,16 @@
+.chat-first-project-control {
+  -webkit-app-region: no-drag;
+}
+
+.chat-first-workbench [data-testid='full-chat-view'] {
+  background: hsl(var(--color-bg-subtle));
+}
+
+.chat-first-workbench [data-testid='chat-composer'] {
+  background: hsl(var(--color-bg));
+}
+
+.chat-first-workbench [data-testid='user-message'] {
+  background: hsl(var(--color-accent-subtle));
+  color: hsl(var(--color-fg));
+}

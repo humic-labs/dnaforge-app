@@ -991,6 +991,44 @@ describe('indexWorkspaceHeadIntoCatalog — plasmid packages ', () => {
     expect(await getCatalogFileForPath(`${REPO}/primers/pUC19.primers.fasta`)).toBeNull();
   });
 
+  it('retains an existing native notebook outside Git HEAD instead of marking its package missing', async () => {
+    const path = `${REPO}/Untracked notebook`;
+    const scope = await resolveWorkspaceScope(REPO);
+    const id = scopedProjectionId(scope, 'untracked-notebook');
+    await registerCatalogEntity({
+      id,
+      type: 'notebook',
+      name: 'Untracked notebook',
+      locator: `entity://page/${id}`,
+      storageType: 'database',
+      workspaceRoot: REPO,
+    });
+    await bindCatalogEntityToFile({
+      entityId: id,
+      path,
+      fileKind: 'waypoint-notebook',
+      workspaceRoot: REPO,
+      status: 'current',
+    });
+    setMockFileContent(
+      `${path}/.forge/notebook.json`,
+      JSON.stringify({
+        schema: 'waypoint.notebook.v1',
+        kind: 'notebook',
+        id: 'untracked-notebook',
+        title: 'Untracked notebook',
+        content: { type: 'doc', content: [] },
+      })
+    );
+    const result = await indexWorkspaceHeadIntoCatalog(
+      REPO,
+      reader({ headCommit: oid('c'), files: [] })
+    );
+    expect(result.errors).toEqual([]);
+    expect(result.missing).toBe(0);
+    expect(await getCatalogFileForPath(path)).toMatchObject({ entity_id: id, status: 'current' });
+  });
+
   it('leaves a notebook package alone (its members were never sequences)', async () => {
     const result = await indexWorkspaceHeadIntoCatalog(
       REPO,

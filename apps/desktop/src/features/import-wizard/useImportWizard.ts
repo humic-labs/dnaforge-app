@@ -1,3 +1,4 @@
+import { CHAT_FIRST_INPUT } from '../../lib/chat-first-input';
 import { toUserMessage, userMessage } from '@waypoint/user-messages';
 import { useCallback, useEffect } from 'react';
 import { platform } from '../../platform';
@@ -326,6 +327,7 @@ export function useImportWizard(): ImportWizardController {
 
   useEffect(() => {
     const p = platform();
+    if (CHAT_FIRST_INPUT) return;
     const offFiles = p.on('menu:import-files', () => {
       void (async () => {
         const picked = await p.dialog.open({

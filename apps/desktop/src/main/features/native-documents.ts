@@ -219,6 +219,7 @@ export function createNativeDocuments(
   let administration: AdministrationOwner | null = null;
   let notebookTarget: (() => WebContents | null) | null = null;
   let notebookHandlersRegistered = false;
+  let legacyMigrationLoadId: string | undefined;
   let detachImportReviewPublisher: (() => void) | null = null;
   let rendererPublisher: RendererPublisher | null = null;
   let fileClientSync: ReturnType<typeof createFileDocumentClientSync> | null = null;
@@ -428,9 +429,12 @@ export function createNativeDocuments(
         );
         void dirtyStateProvider?.refresh();
         if (enrolled) {
-          fileDocuments.beginLegacyMigration();
-          sequenceDocuments.beginLegacyMigration();
-          notebookDocuments.beginLegacyMigration();
+          if (legacyMigrationLoadId !== request.loadId) {
+            fileDocuments.beginLegacyMigration();
+            sequenceDocuments.beginLegacyMigration();
+            notebookDocuments.beginLegacyMigration();
+            legacyMigrationLoadId = request.loadId;
+          }
           markdownImporter.refreshRoots();
           requestObservedRecovery();
         }

@@ -124,7 +124,10 @@ function devChildEnv({
     merged.VITE_DNAFORGE_DEV_TARGET = 'unmanaged';
   }
   return configureBackgroundElectronLaunch(
-    applyDevLaunchTarget(merged, launchTarget),
+    applyDevLaunchTarget(
+      electronBinary ? { ...merged, ELECTRON_EXEC_PATH: electronBinary } : merged,
+      launchTarget
+    ),
     platform,
     electronBinary,
     appDir

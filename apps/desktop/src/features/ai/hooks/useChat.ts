@@ -166,7 +166,7 @@ function materializePlaceholderDraft(
     const preserved = await createConversation(
       crypto.randomUUID(),
       'New conversation',
-      workspacePath
+      sourceDraft.workspacePath === undefined ? workspacePath : sourceDraft.workspacePath
     );
     set((state) => {
       const latestDraft = state.composerDrafts.get(sourceConversationId);

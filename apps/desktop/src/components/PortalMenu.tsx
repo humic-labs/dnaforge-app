@@ -1,3 +1,4 @@
+import { CHAT_FIRST_INPUT, isConversationInput, isManualInput } from '../lib/chat-first-input';
 import {
   MenuSurface,
   menuShouldRestoreFocus,
@@ -541,6 +542,13 @@ function BoundPortalMenu({
   return createPortal(
     <PresentationScopeContext.Provider value={presentation.scope}>
       <MenuSurface
+        data-ai-input-region={
+          CHAT_FIRST_INPUT && isConversationInput(anchorRef?.current ?? returnAnchorRef.current)
+            ? 'conversation'
+            : CHAT_FIRST_INPUT && isManualInput(anchorRef?.current ?? returnAnchorRef.current)
+              ? 'manual'
+              : undefined
+        }
         {...dataAttributes}
         id={id}
         ref={presentation.bindRef(assignMenuRef, `menu:${menuId}`)}

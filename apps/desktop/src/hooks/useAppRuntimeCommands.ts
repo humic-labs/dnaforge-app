@@ -1,3 +1,4 @@
+import { CHAT_FIRST_INPUT, isManualInput, isConversationInput } from '../lib/chat-first-input';
 import { useDocumentSaveCommand } from '../shared/use-document-lifecycle';
 import { userMessageWithValues, userMessageValue, userMessage } from '@waypoint/user-messages';
 import { useEffect, type Dispatch, type SetStateAction } from 'react';
@@ -168,36 +169,47 @@ export function useAppRuntimeCommands({
     return true;
   });
 
-  useKeyboard([
-    { key: '7', cmd: true, shift: true, handler: handleWebGLTraceToggle, allowInInput: true },
-    { key: '8', cmd: true, shift: true, handler: handleChatSnapshot, allowInInput: true },
-    { key: '9', cmd: true, shift: true, handler: captureSnapshot, allowInInput: true },
-    {
-      key: '0',
-      cmd: true,
-      shift: true,
-      handler: handleCpuProfileToggle,
-      allowInInput: true,
-    },
-    { key: 'r', cmd: true, handler: () => window.location.reload(), allowInInput: true },
-    ...(adjacencyGraphAvailable
-      ? [
+  useKeyboard(
+    CHAT_FIRST_INPUT
+      ? []
+      : [
+          { key: '7', cmd: true, shift: true, handler: handleWebGLTraceToggle, allowInInput: true },
+          { key: '8', cmd: true, shift: true, handler: handleChatSnapshot, allowInInput: true },
+          { key: '9', cmd: true, shift: true, handler: captureSnapshot, allowInInput: true },
           {
-            key: 'g',
+            key: '0',
             cmd: true,
             shift: true,
-            handler: () => {
-              useCanvasStore
-                .getState()
-                .openInFocusedPanel('adjacency-graph', 'adjacency-graph', 'Adjacency Graph');
-            },
+            handler: handleCpuProfileToggle,
+            allowInInput: true,
           },
+          { key: 'r', cmd: true, handler: () => window.location.reload(), allowInInput: true },
+          ...(adjacencyGraphAvailable
+            ? [
+                {
+                  key: 'g',
+                  cmd: true,
+                  shift: true,
+                  handler: () => {
+                    useCanvasStore
+                      .getState()
+                      .openInFocusedPanel('adjacency-graph', 'adjacency-graph', 'Adjacency Graph');
+                  },
+                },
+              ]
+            : []),
+          ...(devShortcutsEnabled
+            ? [
+                {
+                  key: '.',
+                  cmd: true,
+                  shift: true,
+                  handler: () => setIsDevPanelOpen((prev) => !prev),
+                },
+              ]
+            : []),
         ]
-      : []),
-    ...(devShortcutsEnabled
-      ? [{ key: '.', cmd: true, shift: true, handler: () => setIsDevPanelOpen((prev) => !prev) }]
-      : []),
-  ]);
+  );
 
   useEffect(() => {
     if (!isDesktopRuntime()) return;
@@ -209,6 +221,31 @@ export function useAppRuntimeCommands({
         bypassBlockingScopes: [COMMAND_SCOPES.inputEditor],
       });
     });
+    const dispatchEditCommand = (
+      command: typeof COMMAND_IDS.editUndo | typeof COMMAND_IDS.editRedo
+    ) => {
+      if (
+        CHAT_FIRST_INPUT &&
+        !isManualInput(document.activeElement) &&
+        !isConversationInput(document.activeElement)
+      )
+        return;
+      const nativeAction = command === COMMAND_IDS.editUndo ? 'undo' : 'redo';
+      if (isEditableCommandTarget(document.activeElement)) {
+        document.execCommand?.(nativeAction);
+        return;
+      }
+      const result = dispatchCommand(command, { source: 'electron-menu' });
+      if (!result.handled && !result.blocked) document.execCommand?.(nativeAction);
+    };
+    const unsubUndo = p.on('menu:undo', () => dispatchEditCommand(COMMAND_IDS.editUndo));
+    const unsubRedo = p.on('menu:redo', () => dispatchEditCommand(COMMAND_IDS.editRedo));
+    if (CHAT_FIRST_INPUT)
+      return () => {
+        unsub0();
+        unsubUndo();
+        unsubRedo();
+      };
     const unsub1 = p.on('menu:settings', handleOpenSettings);
     const unsubOrganizations = p.on('menu:organizations', openOrganizationsSettings);
     const unsub2 = p.on('menu:explorer', () => handleViewChange('files'));
@@ -222,19 +259,6 @@ export function useAppRuntimeCommands({
     const unsub6 = p.on('menu:reopen-closed-tab', () => {
       useCanvasStore.getState().reopenLastClosedTab();
     });
-    const dispatchEditCommand = (
-      command: typeof COMMAND_IDS.editUndo | typeof COMMAND_IDS.editRedo
-    ) => {
-      const nativeAction = command === COMMAND_IDS.editUndo ? 'undo' : 'redo';
-      if (isEditableCommandTarget(document.activeElement)) {
-        document.execCommand?.(nativeAction);
-        return;
-      }
-      const result = dispatchCommand(command, { source: 'electron-menu' });
-      if (!result.handled && !result.blocked) document.execCommand?.(nativeAction);
-    };
-    const unsubUndo = p.on('menu:undo', () => dispatchEditCommand(COMMAND_IDS.editUndo));
-    const unsubRedo = p.on('menu:redo', () => dispatchEditCommand(COMMAND_IDS.editRedo));
 
     return () => {
       unsub0();

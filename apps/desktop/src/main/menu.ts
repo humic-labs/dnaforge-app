@@ -52,6 +52,41 @@ export function buildMenu(mainWindow: BrowserWindow): Menu {
     click: () => openPublicProductDocs(),
   };
 
+  if (is.dev && !app.isPackaged && process.env.VITE_CHAT_FIRST_INPUT === '1') {
+    return Menu.buildFromTemplate([
+      ...(isMac ? [{ role: 'appMenu' as const }] : []),
+      {
+        label: 'File',
+        submenu: [
+          {
+            label: 'New Chat',
+            click: () => sendRendererIpc(mainWindow.webContents, 'menu:new-chat'),
+          },
+        ],
+      },
+      {
+        label: 'Edit',
+        submenu: [
+          {
+            label: 'Undo',
+            accelerator: electronAccelerator('app.undo'),
+            click: () => sendRendererIpc(mainWindow.webContents, 'menu:undo'),
+          },
+          {
+            label: 'Redo',
+            accelerator: electronAccelerator('app.redo'),
+            click: () => sendRendererIpc(mainWindow.webContents, 'menu:redo'),
+          },
+          { role: 'copy' },
+          { role: 'paste' },
+          { role: 'selectAll' },
+        ],
+      },
+      { label: 'View', submenu: [{ role: 'toggleDevTools' }] },
+      { role: 'windowMenu' },
+    ]);
+  }
+
   const importMenuItems: Electron.MenuItemConstructorOptions[] = [
     {
       label: 'Import Files...',
