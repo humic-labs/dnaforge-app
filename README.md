@@ -124,6 +124,14 @@ This repository builds the community distribution
 
 ## What the app sends
 
+In the genome browser, select a feature and open **Database facts** to see
+links to its NCBI Gene, Ensembl, or UniProt records. Loading facts sends only
+the selected database identifier to that database through the sidecar; it does
+not send the sequence. Facts are retrieved on demand and are not saved into
+the sequence. Features need an explicit database cross-reference or Ensembl
+gene ID; gene names alone are not matched because they can refer to different
+organisms. Database access requires an internet connection.
+
 - A build from source contains no analytics or crash-reporting keys, so it sends
   neither. The official build environment supplies them (`POSTHOG_API_KEY` and
   `SENTRY_DSN`).

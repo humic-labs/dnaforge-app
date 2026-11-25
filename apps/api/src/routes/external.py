@@ -42,6 +42,7 @@ from ..concurrency.schema import PoolName
 from ..external.afdb import AfdbHit
 from ..external.contract import Capability, ProviderError
 from ..external.credential_broker import CredentialBrokerError
+from ..external.gene_facts import Database, GeneFacts, GeneFactsNotFound, fetch_gene_facts
 from ..external.htsget import HtsgetSourceError
 from ..external.paper_graph import PaperIdentifier, PaperReferenceTrace
 from ..external.providers.jev import (
@@ -127,6 +128,29 @@ def _enforce_session_grant_capabilities(required: list[str]) -> None:
 
 
 router = APIRouter(prefix="/external", tags=["External Resources"])
+
+
+@router.get("/gene-facts", response_model=GeneFacts)
+async def get_gene_facts(
+    database: Database,
+    identifier: str,
+    x_dnaforge_session: str | None = Header(default=None, alias="X-DNAForge-Session"),
+) -> GeneFacts:
+    """Retrieve public annotations only for a known, exact database identifier."""
+    _enforce_session(x_dnaforge_session)
+    required = [Capability.EXTERNAL_FETCH_ANNOTATION.value]
+    _require_requested_capabilities(required, required)
+    try:
+        return await fetch_gene_facts(database, identifier)
+    except GeneFactsNotFound as exc:
+        raise HTTPException(status_code=404, detail="Database record not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (TimeoutError, PublicHttpBoundaryError) as exc:
+        raise HTTPException(status_code=502, detail="Gene database is unavailable") from exc
+    except Exception as exc:
+        # Never expose provider response bodies or networking internals to the UI.
+        raise HTTPException(status_code=502, detail="Gene database is unavailable") from exc
 
 
 _service: ExternalResourcesService | None = None
