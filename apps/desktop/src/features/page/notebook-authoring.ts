@@ -141,6 +141,7 @@ export async function createAuthoredNotebook(input: {
       title: input.title,
       workspaceRoot: input.workspaceRoot,
       requestId: rawId,
+      source: 'agent',
       content: compileNotebookBlocks(input.blocks, { tableIdentity: rawId }),
     });
     if (result.status === 'failed') throw new Error(result.message);

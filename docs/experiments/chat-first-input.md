@@ -102,3 +102,22 @@ pnpm --dir apps/desktop test -- \
   src/main/__tests__/menu.test.ts \
   src/main/__tests__/menu-import.test.ts
 ```
+
+## Verify native persistence
+
+Start the development desktop with `VITE_CHAT_FIRST_INPUT=1` using the normal
+`pnpm --dir apps/desktop dev` command. Then pass its reported debugging port:
+
+```sh
+node apps/desktop/scripts/probe-chat-first-native.mjs \
+  http://127.0.0.1:22438 /tmp/dnaforge-chat-first-native
+```
+
+This creates a synthetic project through Add, then calls the normal notebook and
+sequence authoring services against native IPC. It checks creation retries,
+changed requests, stale notebook revisions, first literal DNA publication,
+duplicate names, accepted source pins, missing sources, reference opening,
+inspection typing, manual saving, independent saved bytes and renderer reload.
+It writes results and screenshots outside the repository. The synthetic project
+remains available for inspection. This deterministic probe does not send a model
+request; a live chat turn must be checked separately.

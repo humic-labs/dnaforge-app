@@ -273,9 +273,20 @@ export function assertScientificLegacyRegistryHistoryCanRelocate(db: Database.Da
         typeof entity?.id === 'string' &&
         entity.id === event.subject_id &&
         entity.workspaceId === event.workspace_id;
-      const isBoundRegistrationPath = (registeredPath: unknown, fileKind?: string): boolean => {
+      const isBoundRegistrationPath = (
+        registeredPath: unknown,
+        fileKind?: string,
+        allowUnchangedEdit = false
+      ): boolean => {
         if (
-          !initialRegistration ||
+          !(
+            initialRegistration ||
+            (allowUnchangedEdit &&
+              event.event_type === 'entity_updated' &&
+              typeof entity?.id === 'string' &&
+              entity.id === event.subject_id &&
+              entity.workspaceId === event.workspace_id)
+          ) ||
           typeof registeredPath !== 'string' ||
           !isAbsolute(registeredPath) ||
           registeredPath.split(/[\\/]/u).includes('..')
@@ -311,7 +322,7 @@ export function assertScientificLegacyRegistryHistoryCanRelocate(db: Database.Da
         isBoundRegistrationPath(managed.packageRoot);
       const boundNotebookRegistration =
         entity?.kind === 'notebook' &&
-        isBoundRegistrationPath(fields.packagePath, 'waypoint-notebook');
+        isBoundRegistrationPath(fields.packagePath, 'waypoint-notebook', true);
 
       for (const [path, safelyBound] of [
         [fields.packagePath, boundNotebookRegistration],

@@ -711,6 +711,7 @@ describe('scientific enrollment and isolated legacy recovery pressure', { timeou
     'wrong-owner',
     'outside-root',
     'edited-history',
+    'changed-history-path',
   ])(
     'preserves safely bound notebook registrations through enrollment and recovery: %s',
     async (variant) => {
@@ -757,20 +758,26 @@ describe('scientific enrollment and isolated legacy recovery pressure', { timeou
             packageRoot,
             `notebooks/${entityId}`
           );
-      if (variant === 'edited-history')
+      if (variant === 'edited-history' || variant === 'changed-history-path')
         insertAuditEvent(f.db, {
           eventType: 'entity_updated',
           subjectTable: 'lims_entity',
           subjectId: entityId,
           workspaceId,
-          before: entity,
+          before:
+            variant === 'changed-history-path'
+              ? {
+                  ...entity,
+                  fields: { ...entity.fields, packagePath: join(f.tmpDir, 'unbound-notebook') },
+                }
+              : entity,
           after: entity,
         });
       const audit = f.db.prepare('SELECT * FROM lims_audit ORDER BY event_seq').all(),
         originalDb = Buffer.from(f.db.serialize()),
         originalFiles = await inventoryScientificRecoveryTree(f.root),
         otherFiles = await inventoryScientificRecoveryTree(f.otherRoot);
-      if (variant === 'owned' || variant === 'other-project') {
+      if (variant === 'owned' || variant === 'other-project' || variant === 'edited-history') {
         await f.ensure();
         const result = await recover(f),
           legacy = openFileTestDb(join(result.profilePath, 'dnaforge.db')),
@@ -786,9 +793,10 @@ describe('scientific enrollment and isolated legacy recovery pressure', { timeou
           expect(JSON.parse(row.fields).packagePath).toBe(
             join(recoveredRoot, 'notebooks', entityId)
           );
-          expect(
-            legacy.transaction(() => revertLimsEntityInsideTx(legacy, { id: entityId }))()
-          ).toMatchObject({ reverted: false, reason: 'no-prior-edit' });
+          if (variant !== 'edited-history')
+            expect(
+              legacy.transaction(() => revertLimsEntityInsideTx(legacy, { id: entityId }))()
+            ).toMatchObject({ reverted: false, reason: 'no-prior-edit' });
           expect(verifyLimsAuditHashChainInDb(legacy)).toMatchObject({ ok: true, failures: [] });
           expect(legacy.prepare('SELECT * FROM lims_audit ORDER BY event_seq').all()).toEqual(
             audit

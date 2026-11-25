@@ -1174,7 +1174,11 @@ export class NativeNotebookWorkingCopyOwner {
     const created = await this.options.create(
       { kind: 'create', title: request.title, destinationProject: request.workspaceRoot },
       request.requestId,
-      { context: request.context, content: request.content, source: 'file-explorer-new-menu' }
+      {
+        context: request.context,
+        content: request.content,
+        source: request.source ?? 'file-explorer-new-menu',
+      }
     );
     this.publish(created);
     return created;

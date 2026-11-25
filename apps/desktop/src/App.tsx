@@ -1863,6 +1863,7 @@ function App({ onShellReady }: { onShellReady?: () => Promise<void> } = {}) {
         </ChatFirstWorkbench>
         <AgentConfirmController />
         <div className="contents" data-ai-input-region="manual">
+          <RendererFeatureActivations openView={handleViewChange} />
           {creationDestinationDialog}
           <ConfirmDialogHost />
           <LargeFileImportDialogHost />
